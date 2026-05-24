@@ -18,12 +18,12 @@ Ginko is a filesystem-first, provider-neutral content engine for Nuxt. Author fi
 
 ## Release Compatibility
 
-`@lupinum/ginko-content@2.13.4` is the content engine release for the first
+`@lupinum/ginko-content@0.1.0` is the content engine release for the first
 clean Ginko stack:
 
 | Package | Version | Role |
 | --- | ---: | --- |
-| `@lupinum/ginko-content` | `2.13.4` | Filesystem-first Nuxt content engine |
+| `@lupinum/ginko-content` | `0.1.0` | Filesystem-first Nuxt content engine |
 | `@lupinum/ginko-cms` | `0.1.0` | Optional Convex-backed CMS product |
 | `@lupinum/ginko-cms-convex` | `0.1.0` | CMS Convex component |
 | `@lupinum/ginko-cms-contract` | `0.1.0` | Framework-neutral CMS contract |

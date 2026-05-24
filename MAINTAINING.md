@@ -34,33 +34,144 @@ Publishing is intentionally manual. The `release:publish` script exits with a
 failure message so nobody, human or agent, can accidentally push packages to
 npm.
 
-1. Start from a clean working tree on the release branch.
-2. Update `packages/content/package.json`, compatibility data, and docs
-   intentionally.
-3. Generate release notes:
+Set the release version once and reuse it in the commands below:
+
+```bash
+VERSION=0.1.0
+```
+
+1. Start from a clean working tree on the release branch:
+
+```bash
+git status --short --branch
+```
+
+2. Confirm the version has not already been published:
+
+```bash
+npm view @lupinum/ginko-content@$VERSION version --registry=https://registry.npmjs.org/
+```
+
+An `E404` is expected for a new version. If npm returns a version, bump
+`packages/content/package.json` and update the changelog before continuing.
+
+3. Update release metadata intentionally:
+
+- `packages/content/package.json`
+- `packages/content/compatibility.json`
+- `CHANGELOG.md`
+- `README.md`
+- public docs and examples when public behavior changed
+
+Generate changelog notes if needed, then review the result by hand:
 
 ```bash
 pnpm run release:notes
+git diff -- CHANGELOG.md
 ```
 
-4. Review `CHANGELOG.md`; changelogen is a draft generator, not an authority.
-5. Run the release gate:
+`changelogen` is a draft generator, not the source of truth. If there is no
+reachable release tag yet, it can generate an unusable `## ...main` heading;
+delete that output and keep the curated version section.
+
+4. Run the release gate and build the npm tarball:
 
 ```bash
 pnpm run release:verify
 ```
 
-6. Inspect `.pack/*.tgz` before publishing:
+This runs `verify`, production audit, and `release:pack`. It should leave one
+tarball in `.pack/`.
+
+5. Inspect the tarball before publishing:
 
 ```bash
-tar -tzf .pack/lupinum-ginko-content-*.tgz | less
-tar -xOf .pack/lupinum-ginko-content-*.tgz package/package.json | rg 'workspace:' && exit 1
-npm publish .pack/lupinum-ginko-content-*.tgz --access public --otp <code>
+ls -lh .pack/
+tar -tzf .pack/lupinum-ginko-content-$VERSION.tgz | less
+tar -xOf .pack/lupinum-ginko-content-$VERSION.tgz package/package.json
+tar -xOf .pack/lupinum-ginko-content-$VERSION.tgz package/package.json | rg 'workspace:' && exit 1
+shasum -a 256 .pack/lupinum-ginko-content-$VERSION.tgz
 ```
 
-7. Commit the release prep. Do not commit `.pack/` artifacts.
-8. Publish only after the owner has reviewed the tarball and npm package
-   settings.
+Do not commit `.pack/`, `dist/`, `.nuxt/`, `.output/`, or tarballs.
+
+6. Commit the release prep, then create and push an annotated tag:
+
+```bash
+git add packages/content/package.json packages/content/compatibility.json CHANGELOG.md README.md MAINTAINING.md docs/release-checklist.md
+git commit -m "chore: release ginko-content v$VERSION"
+git tag -a v$VERSION -m "v$VERSION"
+git push origin main
+git push origin v$VERSION
+```
+
+Use `git push origin v$VERSION` explicitly. `git push --follow-tags` only pushes
+annotated tags that are reachable from the pushed commits, and lightweight local
+tags are easy to miss.
+
+7. Log in to npm and confirm package access:
+
+```bash
+npm login --registry=https://registry.npmjs.org/
+npm whoami --registry=https://registry.npmjs.org/
+npm access list packages lupinum --registry=https://registry.npmjs.org/
+```
+
+The npm CLI may open browser authentication during login or publish. Do not add
+`--otp` unless npm explicitly asks for a one-time password.
+
+8. Publish manually from the inspected tarball:
+
+```bash
+npm publish .pack/lupinum-ginko-content-$VERSION.tgz --access public --registry=https://registry.npmjs.org/
+```
+
+If npm opens an authentication URL, complete it in the browser and return to the
+terminal.
+
+9. Confirm npm package state:
+
+```bash
+npm access get status @lupinum/ginko-content --registry=https://registry.npmjs.org/
+npm view @lupinum/ginko-content@$VERSION version --registry=https://registry.npmjs.org/
+```
+
+For a first public publish, `npm view` can briefly return `E404` while registry
+metadata propagates. If access lists the package and status is `public`, wait a
+minute and retry before assuming the publish failed.
+
+10. Create the GitHub release with the same tarball:
+
+```bash
+gh release create v$VERSION \
+  .pack/lupinum-ginko-content-$VERSION.tgz \
+  --title "v$VERSION" \
+  --notes "$(awk -v version="v$VERSION" '$0 == "## " version { flag=1 } flag' CHANGELOG.md)"
+```
+
+If the release already exists, update it instead:
+
+```bash
+gh release upload v$VERSION .pack/lupinum-ginko-content-$VERSION.tgz --clobber
+```
+
+11. Run a clean install smoke test outside the repository:
+
+```bash
+tmpdir=$(mktemp -d)
+cd "$tmpdir"
+corepack enable
+pnpm init
+pnpm add @lupinum/ginko-content@$VERSION
+node -e "import('@lupinum/ginko-content').then(() => console.log('ok'))"
+```
+
+12. Clean local release artifacts when finished:
+
+```bash
+rm -rf .pack
+git status --short --branch
+```
 
 For the first public release of a package, npm staged publishing cannot be used
 because staged publishing requires the package to already exist on the registry.
