@@ -1,0 +1,190 @@
+import { describe, expect, test } from 'vitest'
+import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent, createSaasProviderFixture } from '../../packages/content/src/testing/provider-fixture'
+import { runAuthorDependencyFixtureSelfTest, runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
+
+describe('provider fixture conformance', () => {
+  const fixture = createSaasProviderFixture()
+  const provider = createFixtureContentProvider(fixture)
+  const collectNavPaths = (items: Array<{ _path?: string, children?: any[] }>): string[] =>
+    items.flatMap(item => [
+      item._path,
+      ...collectNavPaths(item.children || [])
+    ].filter(Boolean) as string[])
+
+  runSaasProviderFixtureContractSuite({
+    name: 'provider fixture',
+    expectedProviderName: 'fixture',
+    loadProvider: async () => provider,
+    createEvent: () => createProviderFixtureEvent({ fixture, provider }),
+    collectNavPaths
+  })
+  runAuthorDependencyFixtureSelfTest()
+
+  test('projects localized non-doc collection mounts consistently', async () => {
+    const event = createProviderFixtureEvent({ fixture, provider })
+    const sitemap = await provider.sitemapEntries(event, { include: ['posts'] })
+
+    expect(sitemap).toContainEqual({
+      loc: '/de/magazin/mehrsprachiges-onboarding'
+    })
+    expect(sitemap.some(entry => entry.loc.includes('/de/blog/magazin/'))).toBe(false)
+
+    const results = await provider.search!(event, { term: 'Mehrsprachiges', locale: 'de' })
+    expect(results[0]?.path).toBe('/de/magazin/mehrsprachiges-onboarding')
+  })
+
+  test('applies provider search collection filters and section options', async () => {
+    const event = createProviderFixtureEvent({ fixture, provider })
+
+    await expect(provider.search!(event, {
+      term: 'Markdown',
+      locale: 'de',
+      collections: ['posts']
+    })).resolves.toEqual([])
+
+    await expect(provider.search!(event, {
+      term: 'Markdown',
+      locale: 'de',
+      collections: ['docs']
+    })).resolves.toEqual([
+      expect.objectContaining({
+        title: 'Markdown Syntax DE',
+        path: '/de/dokumentation/grundlagen/markdown-syntax'
+      })
+    ])
+
+    const sections = await provider.searchSections!(event, 'posts', {
+      locale: 'de',
+      filterQuery: { title: { $icontains: 'Onboarding' } },
+      extraFields: ['authors', '_locale']
+    })
+
+    expect(sections).toEqual([
+      expect.objectContaining({
+        id: '/de/magazin/mehrsprachiges-onboarding',
+        authors: ['authors.emily'],
+        _locale: 'de'
+      })
+    ])
+  })
+
+  test('always keeps the default locale in custom fixture locale lists', () => {
+    const custom = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['de'],
+      collections: {
+        docs: {
+          type: 'page',
+          i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+          route: { en: '/docs', de: '/dokumentation' }
+        }
+      },
+      documents: []
+    })
+
+    expect(custom.locales).toEqual(['en', 'de'])
+  })
+
+  test('collects provider cache hints for rendered pages', async () => {
+    const event = createProviderFixtureEvent({ fixture, provider })
+
+    await provider.page(event, 'posts', '/de/magazin/mehrsprachiges-onboarding')
+
+    expect(getContentCacheHint(event)).toMatchObject({
+      tags: expect.arrayContaining([
+        'entry:posts:posts.onboarding',
+        'entry:authors:emily',
+        'collection:posts',
+        'route:/de/magazin/mehrsprachiges-onboarding'
+      ]),
+      paths: ['/de/magazin/mehrsprachiges-onboarding']
+    })
+  })
+
+  test('records route dependencies and invalidates only author-dependent routes', async () => {
+    const authorFixture = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        posts: { type: 'page', route: '/blog' },
+        authors: { type: 'page', route: '/authors' }
+      },
+      documents: [
+        { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
+        { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
+        ...Array.from({ length: 5 }, (_, index) => ({
+          _collection: 'posts',
+          _path: `/blog/post-${index + 1}`,
+          ref: `posts.post-${index + 1}`,
+          title: `Post ${index + 1}`,
+          authors: ['authors.alice']
+        })),
+        { _collection: 'posts', _path: '/blog/post-6', ref: 'posts.post-6', title: 'Post 6', authors: ['authors.bob'] }
+      ]
+    })
+    const authorProvider = createFixtureContentProvider(authorFixture)
+    const event = createProviderFixtureEvent({ fixture: authorFixture, provider: authorProvider })
+
+    for (const index of [1, 2, 3, 4, 5, 6]) {
+      await authorProvider.page(event, 'posts', `/blog/post-${index}`)
+    }
+
+    await authorProvider.invalidate!(event, { tags: ['entry:authors:alice'] })
+
+    const purgedPaths = authorProvider.cache.events
+      .filter(event => event.type === 'purge')
+      .map(event => event.key)
+      .sort()
+
+    expect(purgedPaths).toEqual([
+      '/blog/post-1',
+      '/blog/post-2',
+      '/blog/post-3',
+      '/blog/post-4',
+      '/blog/post-5'
+    ])
+    expect(purgedPaths).not.toContain('/blog/post-6')
+  })
+
+  test('records cache hits and misses around invalidation', async () => {
+    const event = createProviderFixtureEvent({ fixture, provider })
+
+    await provider.page(event, 'docs', '/de/dokumentation/einstieg')
+    await provider.page(event, 'docs', '/de/dokumentation/einstieg')
+    await provider.invalidate!(event, { paths: ['/de/dokumentation/einstieg'] })
+    await provider.page(event, 'docs', '/de/dokumentation/einstieg')
+
+    expect(provider.cache.events.map(event => event.type)).toEqual(expect.arrayContaining(['miss', 'hit', 'purge']))
+    expect(provider.cache.events.filter(event => event.type === 'miss').length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('updates reverse dependency edges when a route is rerendered with different tags', async () => {
+    const authorFixture = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        posts: { type: 'page', route: '/blog' },
+        authors: { type: 'page', route: '/authors' }
+      },
+      documents: [
+        { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
+        { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
+        { _collection: 'posts', _path: '/blog/post-1', ref: 'posts.post-1', title: 'Post 1', author: 'authors.alice' }
+      ]
+    })
+    const authorProvider = createFixtureContentProvider(authorFixture)
+    const event = createProviderFixtureEvent({ fixture: authorFixture, provider: authorProvider })
+
+    await authorProvider.page(event, 'posts', '/blog/post-1')
+    ;(authorFixture.documents.find(document => document.ref === 'posts.post-1') as any).author = 'authors.bob'
+    await authorProvider.page(event, 'posts', '/blog/post-1')
+    await authorProvider.invalidate!(event, { tags: ['entry:authors:alice'] })
+
+    const purgedPaths = authorProvider.cache.events
+      .filter(event => event.type === 'purge')
+      .map(event => event.key)
+
+    expect(purgedPaths).not.toContain('/blog/post-1')
+  })
+})

@@ -1,0 +1,10 @@
+<template>
+  <NButton
+    n="sm"
+    to="https://github.com/lupinum-dev/ginko-content"
+    target="_blank"
+    icon="carbon-logo-github"
+  >
+    GitHub
+  </NButton>
+</template>

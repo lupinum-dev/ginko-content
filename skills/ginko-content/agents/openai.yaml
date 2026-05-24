@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ginko Content"
+  short_description: "Agent guide for Ginko Content apps"
+  default_prompt: "Use $ginko-content to configure, migrate, or validate this Nuxt app with Ginko Content."

@@ -1,0 +1,8 @@
+packages:
+  - ./
+  - packages/*
+  - docs
+  - playground/*
+  - examples/*/*
+  - test/fixtures/*
+minimumReleaseAge: 1440

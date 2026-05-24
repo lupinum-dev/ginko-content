@@ -1,0 +1,14 @@
+{
+  "name": "@lupinum/ginko-content-test-typecheck",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare",
+    "typecheck": "nuxt typecheck"
+  },
+  "devDependencies": {
+    "@lupinum/ginko-content": "workspace:*",
+    "nuxt": "4.4.6"
+  }
+}

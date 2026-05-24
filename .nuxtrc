@@ -1,0 +1,4 @@
+imports.autoImport=false
+typescript.includeWorkspace=true
+experimental.typescriptBundlerResolution=true
+setups.@nuxt/test-utils="4.0.3"

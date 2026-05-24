@@ -1,0 +1,5 @@
+{
+  "title": "App Config",
+  "version": 2,
+  "features": ["content", "search"]
+}

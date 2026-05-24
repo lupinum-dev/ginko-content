@@ -1,0 +1,92 @@
+{
+  "$schema": "https://docs.fallow.tools/schema.json",
+  "publicPackages": [
+    "@lupinum/ginko-content"
+  ],
+  "dynamicallyLoaded": [
+    "docs/content.config.ts",
+    "docs/app/assets/main.css",
+    "docs/app/pages/**/*.vue",
+    "docs/app/components/**/*.vue",
+    "docs/app/utils/**/*.ts",
+    "packages/content/build.config.ts",
+    "packages/content/src/integrations/vue/markdown-refs.ts",
+    "packages/content/src/parsers/*.ts",
+    "packages/content/src/runtime/**/*.ts",
+    "packages/content/src/runtime/**/*.vue",
+    "playground/**/content.config.ts",
+    "playground/**/i18n.config.ts",
+    "playground/**/pages/**/*.vue",
+    "playground/**/components/**/*.vue",
+    "playground/**/layouts/**/*.vue",
+    "playground/**/server/**/*.ts",
+    "scripts/*.ts",
+    "test/mock/**/*.ts",
+    "test/types/**/*.ts",
+    "examples/**/content.config.ts",
+    "examples/**/pages/**/*.vue",
+    "examples/**/components/**/*.vue",
+    "examples/**/app.vue",
+    "test/fixtures/**/content.config.ts",
+    "test/fixtures/**/nuxt.config.ts"
+  ],
+  "ignorePatterns": [
+    "**/.nuxt/**",
+    "**/.output/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/*.generated.*",
+    "examples/**",
+    "docs/public/**",
+    "docs/server/routes/raw/**",
+    "test/fixtures/typecheck/types/**"
+  ],
+  "ignoreDependencies": [
+    "@comark/vue",
+    "@iconify-json/heroicons",
+    "@iconify-json/logos",
+    "@iconify-json/lucide",
+    "@iconify-json/ph",
+    "@iconify-json/simple-icons",
+    "@iconify-json/vscode-icons",
+    "@nuxtjs/tailwindcss",
+    "@nuxtjs/mdc",
+    "csvtojson",
+    "feed",
+    "mdast-util-to-string",
+    "mdurl",
+    "micromark",
+    "micromark-util-sanitize-uri",
+    "micromark-util-types",
+    "rehype-figure",
+    "rehype-wrap-all",
+    "release-it",
+    "remark-oembed",
+    "shiki",
+    "socket.io-client",
+    "unist-util-stringify-position"
+  ],
+  "duplicates": {
+    "mode": "mild",
+    "minTokens": 80,
+    "minLines": 8,
+    "ignoreImports": true,
+    "ignore": [
+      "test/**",
+      "docs/content/**",
+      "playground/**/content/**",
+      "examples/**/content/**"
+    ]
+  },
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 20,
+    "maxCrap": 45,
+    "ignore": [
+      "test/**",
+      "docs/content/**",
+      "playground/**/content/**",
+      "examples/**/content/**"
+    ]
+  }
+}

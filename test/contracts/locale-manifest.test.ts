@@ -1,0 +1,229 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { createEvent, createStorage, doc } from './_utils'
+
+const route = { path: '/' }
+const nuxtApp = { $i18n: { locale: undefined as any } }
+const localeState = { value: undefined as any }
+
+vi.mock('../../packages/content/src/runtime/app/composables/locale-context', () => ({
+  getLocaleContext: () => ({
+    route,
+    nuxtApp,
+    resolvedLocaleState: localeState
+  })
+}))
+
+vi.mock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
+  getContentRuntimeConfig: () => ({
+    content: {
+      defaultLocale: 'en',
+      localeFallback: { de: ['fr', 'en'], fr: ['de', 'en'] }
+    }
+  })
+}))
+
+const cache = createStorage()
+const getContentsList = vi.fn()
+const getContent = vi.fn()
+
+vi.mock('../../packages/content/src/storage/contents', () => ({
+  getContentsList,
+  getContent,
+  chunksFromArray: function * chunksFromArray<T> (arr: T[], n: number) {
+    for (let i = 0; i < arr.length; i += n) {
+      yield arr.slice(i, i + n)
+    }
+  }
+}))
+
+vi.mock('../../packages/content/src/integrations/nitro/storage', () => ({
+  cacheStorage: () => cache
+}))
+
+vi.mock('../../packages/content/src/storage/driver', () => ({
+  cacheStorage: () => cache,
+  contentConfig: () => ({
+    locales: ['en', 'de', 'fr'],
+    defaultLocale: 'en',
+    localeFallback: { de: ['fr', 'en'], fr: ['de', 'en'] }
+  })
+}))
+
+describe('locale and manifest contracts', () => {
+  beforeEach(() => {
+    route.path = '/'
+    nuxtApp.$i18n.locale = undefined
+    localeState.value = undefined
+    cache._state.clear()
+    getContentsList.mockReset()
+    getContent.mockReset()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('resolveActiveLocale prefers explicit i18n locale and falls back deterministically', async () => {
+    const { resolveActiveLocale } = await import('../../packages/content/src/runtime/app/composables/locale')
+
+    route.path = '/de/guide'
+    nuxtApp.$i18n.locale = 'fr'
+    expect(resolveActiveLocale(['en', 'de', 'fr'], 'en')).toBe('fr')
+
+    nuxtApp.$i18n.locale = 'es'
+    expect(resolveActiveLocale(['en', 'de', 'fr'], 'en')).toBe('de')
+
+    nuxtApp.$i18n.locale = undefined
+    localeState.value = 'de'
+    expect(resolveActiveLocale(['en', 'de'], 'en')).toBe('de')
+
+    localeState.value = undefined
+    route.path = '/guide'
+    expect(resolveActiveLocale([], 'en')).toBe('en')
+    expect(resolveActiveLocale([], undefined)).toBeUndefined()
+  })
+
+  test('resolveRouteContent strips locale prefixes and normalizes paths', async () => {
+    const { resolveRouteContent } = await import('../../packages/content/src/runtime/app/composables/locale')
+
+    route.path = '/de/guide/getting-started/'
+    expect(resolveRouteContent('/de/guide/getting-started/', ['en', 'de'], 'en')).toEqual({
+      locale: 'de',
+      path: '/guide/getting-started',
+      routePath: '/de/guide/getting-started'
+    })
+
+    route.path = '/guide/getting-started/'
+    expect(resolveRouteContent('/guide/getting-started/', ['en', 'de'], 'en')).toEqual({
+      locale: 'en',
+      path: '/guide/getting-started',
+      routePath: '/guide/getting-started'
+    })
+
+    route.path = '/es/guide'
+    expect(resolveRouteContent('/es/guide', ['en', 'de'], 'en')).toEqual({
+      locale: 'en',
+      path: '/es/guide',
+      routePath: '/es/guide'
+    })
+  })
+
+  test('resolveLocaleChain deduplicates configured circular fallbacks', async () => {
+    const { resolveLocaleChain } = await import('../../packages/content/src/runtime/server/manifest')
+
+    expect(resolveLocaleChain('de', 'en', { de: ['fr', 'en', 'fr'] })).toEqual(['de', 'fr', 'en'])
+    expect(resolveLocaleChain('fr', 'en', { fr: ['de', 'en', 'de'] })).toEqual(['fr', 'de', 'en'])
+    expect(resolveLocaleChain(undefined, 'en')).toEqual(['en'])
+  })
+
+  test('manifest indexes canonical variants, respects exact lookups, and ignores non-markdown routes', async () => {
+    getContentsList.mockResolvedValue([
+      doc(),
+      doc({
+        _id: 'content:de:leitfaden:erste-schritte.md',
+        _file: '/de/leitfaden/erste-schritte.md',
+        _path: '/leitfaden/erste-schritte',
+        _locale: 'de',
+        title: 'Einstieg'
+      }),
+      doc({
+        _id: 'content:en:guide:advanced.md',
+        _file: '/en/guide/advanced.md',
+        _path: '/guide/advanced',
+        _canonicalKey: 'guide/advanced',
+        title: 'Advanced'
+      }),
+      doc({
+        _id: 'content:fr:guide:advanced.md',
+        _file: '/fr/guide/advanced.md',
+        _path: '/guide/advanced',
+        _locale: 'fr',
+        _canonicalKey: 'guide/advanced',
+        title: 'Avance'
+      }),
+      doc({
+        _id: 'content:en:data:authors.yml#__locale=de',
+        _file: '/authors.yml',
+        _path: '/authors/evan',
+        _type: 'yaml',
+        _locale: 'de',
+        _canonicalKey: 'authors/evan',
+        title: 'Evan DE'
+      })
+    ])
+
+    const { getContentManifest, resolveVariant, resolveRouteVariant } = await import('../../packages/content/src/runtime/server/manifest')
+    const event = createEvent()
+    const manifest = await getContentManifest(event)
+
+    expect(Object.keys(manifest.byCanonical['guide/advanced'] || {})).toEqual(['en', 'fr'])
+    expect(manifest.paths['/guide/advanced']).toEqual([
+      'content:en:guide:advanced.md',
+      'content:fr:guide:advanced.md'
+    ])
+    expect(manifest.byRoute['de:/leitfaden/erste-schritte']).toBe('guide/getting-started')
+    expect(manifest.byRoute['de:/authors/evan']).toBe('authors/evan')
+
+    await expect(resolveVariant(event, 'guide/advanced', 'de')).resolves.toMatchObject({
+      requestedLocale: 'de',
+      resolvedLocale: 'fr',
+      fallback: true,
+      availableLocales: ['en', 'fr']
+    })
+
+    await expect(resolveVariant(event, 'guide/advanced', 'de', { exact: true })).resolves.toBeNull()
+
+    await expect(resolveRouteVariant(event, '/guide/advanced', 'de')).resolves.toMatchObject({
+      canonicalKey: 'guide/advanced',
+      resolvedLocale: 'fr'
+    })
+
+    await expect(resolveRouteVariant(event, '/authors/evan', 'de')).resolves.toMatchObject({
+      canonicalKey: 'authors/evan',
+      resolvedLocale: 'de',
+      fallback: false
+    })
+    await expect(resolveRouteVariant(event, '/missing', 'de')).resolves.toBeNull()
+  })
+
+  test('getIndexedContentsList honors grouped path predicates', async () => {
+    const contents = [
+      doc({
+        _id: 'content:en:guide:intro.md',
+        _file: '/en/guide/intro.md',
+        _path: '/guide/intro',
+        _canonicalKey: 'guide/intro',
+        title: 'Intro'
+      }),
+      doc({
+        _id: 'content:en:guide:advanced.md',
+        _file: '/en/guide/advanced.md',
+        _path: '/guide/advanced',
+        _canonicalKey: 'guide/advanced',
+        title: 'Advanced'
+      })
+    ]
+
+    getContentsList.mockResolvedValue(contents)
+    getContent.mockImplementation(async (_event, id) => contents.find(content => content._id === id))
+
+    const { getIndexedContentsList } = await import('../../packages/content/src/runtime/server/manifest')
+    const event = {
+      ...createEvent(),
+      node: {
+        req: { headers: {} }
+      }
+    } as any
+    const results = await getIndexedContentsList(event, {
+      params: () => ({
+        where: [{ $or: [{ _path: '/guide/intro' }, { _path: '/guide/advanced' }] }]
+      })
+    })
+
+    expect(results).toEqual([
+      expect.objectContaining({ _path: '/guide/intro' }),
+      expect.objectContaining({ _path: '/guide/advanced' })
+    ])
+    expect(getContent).not.toHaveBeenCalled()
+  })
+})

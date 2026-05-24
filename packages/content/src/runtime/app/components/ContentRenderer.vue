@@ -1,0 +1,94 @@
+<script lang="ts">
+import { defineComponent, watch, h, useSlots } from 'vue'
+import type { MarkdownRoot } from '../../../types/content'
+import ContentRendererMarkdown from './internal/ContentRendererMarkdown.vue'
+
+function normalizeBody (value: Record<string, any>, excerpt: boolean): MarkdownRoot | null {
+  let body = excerpt ? value?.excerpt : value?.body
+
+  if (!body && value?.type) {
+    body = value
+  }
+
+  if (body?.type === 'root' && Array.isArray(body.children)) {
+    return body
+  }
+
+  return null
+}
+
+export default defineComponent({
+  name: 'ContentRenderer',
+  props: {
+    value: {
+      type: Object,
+      required: false,
+      default: () => ({})
+    },
+    excerpt: {
+      type: Boolean,
+      default: false
+    },
+    tag: {
+      type: String,
+      default: 'div'
+    },
+    prose: {
+      type: Boolean,
+      default: undefined
+    },
+    class: {
+      type: [String, Array, Object],
+      default: undefined
+    },
+    unwrap: {
+      type: [Boolean, String],
+      default: false
+    }
+  },
+  setup (props) {
+    watch(
+      () => props.excerpt,
+      (newExcerpt) => {
+        if (newExcerpt && !props.value?.excerpt) {
+          console.warn(`No excerpt found for document content/${props?.value?._path}.${props?.value?._extension}!`)
+          console.warn('Make sure to use <!--more--> in your content if you want to use excerpt feature.')
+        }
+      },
+      {
+        immediate: true
+      }
+    )
+  },
+  render () {
+    const slots = useSlots()
+    const { value, excerpt, tag, prose, unwrap } = this
+    const markdownBody = normalizeBody(value, excerpt)
+
+    if (!markdownBody?.children?.length && slots?.empty) {
+      return slots.empty({ value, excerpt, tag, prose, unwrap, ...this.$attrs })
+    }
+
+    if (slots?.default) {
+      return slots.default({ value, excerpt, tag, prose, unwrap, ...this.$attrs })
+    }
+
+    if (markdownBody?.children?.length) {
+      return h(ContentRendererMarkdown as any, {
+        value,
+        excerpt,
+        tag,
+        prose,
+        unwrap,
+        ...this.$attrs
+      } as any)
+    }
+
+    return h(
+      'pre',
+      null,
+      JSON.stringify({ message: 'You should use slots with <ContentRenderer>', value, excerpt, tag, prose, unwrap }, null, 2)
+    )
+  }
+})
+</script>

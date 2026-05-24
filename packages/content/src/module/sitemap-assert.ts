@@ -1,0 +1,232 @@
+import { readdir, readFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
+import type { ContentSitemapAssertOptions } from '../types/module'
+
+export type NormalizedContentSitemapAssertOptions = {
+  enabled: boolean
+  mode: 'generate' | 'build' | 'both'
+  allowEmpty: boolean
+  minUrlsPerSitemap: number
+  requireImages: boolean
+  requiredCollections: string[]
+  sitemaps: Record<string, {
+    allowEmpty?: boolean
+    minUrls?: number
+    requireImages?: boolean
+  }>
+}
+
+type SitemapAssertionTarget = {
+  name: string
+  path?: string
+  xml: string
+}
+
+type GeneratedSitemapLike = {
+  name: string
+  content: string
+}
+
+type SitemapAssertionContext = {
+  options: NormalizedContentSitemapAssertOptions
+  collectionRouteCounts: Record<string, number>
+  outputPublicDir?: string
+  targets?: SitemapAssertionTarget[]
+  logger?: { info: (message: string) => void }
+}
+
+const SITEMAP_INDEX = 'sitemap_index.xml'
+
+const assert = (condition: unknown, message: string): asserts condition => {
+  if (!condition) {
+    throw new Error(message)
+  }
+}
+
+const countTag = (xml: string, tag: string) => (xml.match(new RegExp(`<${tag}>`, 'g')) || []).length
+
+const extractLocValues = (xml: string) => {
+  return Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), match => match[1])
+}
+
+const toLocalPath = (value: string) => {
+  try {
+    return new URL(value).pathname
+  }
+  catch {
+    return value
+  }
+}
+
+const discoverSitemapsFromDisk = async (outputPublicDir: string): Promise<SitemapAssertionTarget[]> => {
+  const indexPath = join(outputPublicDir, SITEMAP_INDEX)
+  try {
+    const sitemapIndex = await readFile(indexPath, 'utf8')
+    const locValues = extractLocValues(sitemapIndex)
+    const discovered = locValues
+      .map(toLocalPath)
+      .filter(path => path.endsWith('.xml') && path !== '/sitemap.xml' && path !== '/sitemap_index.xml')
+      .map((path) => {
+        const normalizedPath = path.replace(/^\/+/, '')
+        return {
+          name: basename(normalizedPath, '.xml'),
+          path: join(outputPublicDir, normalizedPath)
+        }
+      })
+
+    if (discovered.length > 0) {
+      return Promise.all(discovered.map(async target => ({
+        ...target,
+        xml: await readFile(target.path, 'utf8')
+      })))
+    }
+  }
+  catch {
+    // Fall through to the child-sitemap directory. Nuxt Sitemap can emit the locale XMLs even when
+    // the top-level index file shape varies across dev/build/generate or is written later.
+  }
+
+  const children: SitemapAssertionTarget[] = []
+  const sitemapDir = join(outputPublicDir, '__sitemap__')
+  try {
+    const sitemapFiles = (await readdir(sitemapDir, { withFileTypes: true }))
+      .filter(entry => entry.isFile() && entry.name.endsWith('.xml'))
+      .map(entry => ({
+        name: basename(entry.name, '.xml'),
+        path: join(sitemapDir, entry.name)
+      }))
+
+    children.push(...await Promise.all(sitemapFiles.map(async target => ({
+      ...target,
+      xml: await readFile(target.path, 'utf8')
+    }))))
+  }
+  catch {
+    // Single-sitemap installs do not emit a child sitemap directory.
+  }
+
+  if (children.length > 0) {
+    return children
+  }
+
+  const rootSitemapPath = join(outputPublicDir, 'sitemap.xml')
+  const rootSitemapXml = await readFile(rootSitemapPath, 'utf8')
+  assert(
+    countTag(rootSitemapXml, 'url') > 0 || rootSitemapXml.includes('<urlset'),
+    `Content sitemap assertion failed: no child sitemap files were discovered in ${indexPath} or ${sitemapDir}, and ${rootSitemapPath} is not a urlset sitemap.`
+  )
+
+  return [{
+    name: 'sitemap',
+    path: rootSitemapPath,
+    xml: rootSitemapXml
+  }]
+}
+
+export const normalizeContentSitemapAssertOptions = (
+  options?: ContentSitemapAssertOptions
+): NormalizedContentSitemapAssertOptions => ({
+  enabled: options?.enabled ?? false,
+  mode: options?.mode ?? 'generate',
+  allowEmpty: options?.allowEmpty ?? false,
+  minUrlsPerSitemap: options?.minUrlsPerSitemap ?? 1,
+  requireImages: options?.requireImages ?? false,
+  requiredCollections: options?.requiredCollections ?? [],
+  sitemaps: options?.sitemaps ?? {}
+})
+
+export const shouldRunSitemapAssertionOnCompiled = (
+  options: NormalizedContentSitemapAssertOptions,
+  nitro: { options: { static?: boolean, preset?: string } }
+) => {
+  const isStaticLikeBuild = nitro.options.static || nitro.options.preset === 'static'
+  if (!options.enabled || isStaticLikeBuild) {
+    return false
+  }
+
+  return options.mode === 'build' || options.mode === 'both'
+}
+
+export const shouldRunSitemapAssertionOnPrerenderedSitemaps = (
+  options: NormalizedContentSitemapAssertOptions
+) => options.enabled && options.mode !== 'build'
+
+export async function assertGeneratedSitemaps ({
+  options,
+  collectionRouteCounts,
+  outputPublicDir,
+  targets,
+  logger
+}: SitemapAssertionContext) {
+  const discoveredSitemaps = targets || (outputPublicDir
+    ? await discoverSitemapsFromDisk(outputPublicDir)
+    : [])
+  assert(discoveredSitemaps.length > 0, 'Content sitemap assertion failed: no sitemap targets were available for validation.')
+  const targetMap = new Map(discoveredSitemaps.map(target => [target.name, target]))
+  const failures: string[] = []
+
+  for (const sitemapName of Object.keys(options.sitemaps)) {
+    if (!targetMap.has(sitemapName)) {
+      const sourceDescription = outputPublicDir
+        ? join(outputPublicDir, SITEMAP_INDEX)
+        : 'prerendered sitemap_index.xml'
+      failures.push(`- Missing sitemap "${sitemapName}" in ${sourceDescription}`)
+    }
+  }
+
+  for (const target of targetMap.values()) {
+    const overrides = options.sitemaps[target.name] || {}
+    const allowEmpty = overrides.allowEmpty ?? options.allowEmpty
+    const minUrls = overrides.minUrls ?? options.minUrlsPerSitemap
+    const requireImages = overrides.requireImages ?? options.requireImages
+    const urlCount = countTag(target.xml, 'url')
+    const imageCount = countTag(target.xml, 'image:image')
+
+    if (!allowEmpty && urlCount < minUrls) {
+      failures.push(`- ${target.name}: ${urlCount} URLs, expected at least ${minUrls}`)
+    }
+
+    if (requireImages && imageCount === 0) {
+      failures.push(`- ${target.name}: expected image entries but found none`)
+    }
+  }
+
+  const missingCollections = options.requiredCollections.filter((collection) => (collectionRouteCounts[collection] || 0) === 0)
+  if (missingCollections.length) {
+    failures.push(`- Missing content sitemap routes for collections: ${missingCollections.join(', ')}`)
+  }
+
+  if (failures.length) {
+    throw new Error(`Content sitemap assertion failed:\n${failures.join('\n')}`)
+  }
+
+  logger?.info(`Content sitemap assertion passed for ${targetMap.size} sitemap${targetMap.size === 1 ? '' : 's'}.`)
+}
+
+export const createSitemapAssertionTargetsFromPrerenderedSitemaps = (sitemaps: GeneratedSitemapLike[]) => {
+  const targets = sitemaps
+    .map((sitemap) => {
+      const path = toLocalPath(sitemap.name)
+      const name = basename(path, '.xml')
+
+      return {
+        name,
+        path,
+        xml: sitemap.content
+      }
+    })
+    .filter((target) => {
+      if (target.name === 'sitemap_index') {
+        return false
+      }
+
+      if (target.name === 'sitemap') {
+        return target.xml.includes('<urlset')
+      }
+
+      return true
+    })
+
+  assert(targets.length > 0, 'Content sitemap assertion failed: no sitemap urlsets were available from sitemap:prerender:done.')
+  return targets
+}

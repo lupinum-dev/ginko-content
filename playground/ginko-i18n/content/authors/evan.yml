@@ -1,0 +1,10 @@
+name: Evan You
+role: Inspiration
+profile:
+  focus: Developer Experience
+  localeLabel: English
+i18n:
+  de:
+    role: Inspiration DE
+    profile:
+      localeLabel: Deutsch

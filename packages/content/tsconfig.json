@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@lupinum/ginko-content": [
+        "./src/types/index.ts"
+      ],
+      "@lupinum/ginko-content/config": [
+        "./src/config.ts"
+      ]
+    },
+    "types": []
+  },
+  "include": [
+    "src/types/**/*.ts",
+    "src/types/**/*.d.ts"
+  ]
+}

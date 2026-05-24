@@ -1,0 +1,19 @@
+{
+  "name": "example-cms-cache-contract",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck"
+  },
+  "devDependencies": {
+    "@lupinum/ginko-content": "workspace:*",
+    "@nuxt/ui": "^4.7.1",
+    "nuxt": "4.4.6",
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.2.9",
+    "zod": "^4.4.3"
+  }
+}

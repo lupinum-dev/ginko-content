@@ -1,0 +1,2 @@
+export const MAX_PUBLIC_QUERY_LIMIT = 100
+export const MAX_PUBLIC_QUERY_SKIP = 10_000
