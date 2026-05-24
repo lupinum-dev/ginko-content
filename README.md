@@ -71,6 +71,13 @@ CMS builders should use [`CMS-SPEC.md`](./CMS-SPEC.md) as the source of truth
 for provider behavior, cache hints, dependency tags, preview isolation,
 revalidation, and testing expectations.
 
+## Credits
+
+Ginko Content is its own implementation, with clear inspiration from the Nuxt
+content ecosystem. Credits to [Nuxt Content](https://content.nuxt.com/),
+[Nuxt UI](https://ui.nuxt.com/), and [Comark](https://comark.dev/), the
+successor to the previous MDC work.
+
 Development apps and fixtures also live in the workspace:
 
 - `docs`

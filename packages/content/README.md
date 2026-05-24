@@ -31,7 +31,7 @@ The default provider reads files from your Nuxt project. The package does not in
 
 ## Compatibility
 
-`@lupinum/ginko-content@2.13.4` targets Nuxt `>=4.0.0` and is verified against
+`@lupinum/ginko-content@0.1.0` targets Nuxt `>=4.0.0` and is verified against
 Nuxt `4.4.6`. It is compatible with the first Ginko CMS release line:
 `@lupinum/ginko-cms@0.1.0`, `@lupinum/ginko-cms-convex@0.1.0`, and
 `@lupinum/ginko-cms-contract@0.1.0`.
@@ -88,3 +88,13 @@ export default defineContentConfig({
 
 - Documentation: [ginko-content.nuxt.dev](https://ginko-content.nuxt.dev)
 - Repository: [github.com/lupinum-dev/ginko-content](https://github.com/lupinum-dev/ginko-content)
+
+## Credits
+
+Ginko Content is its own implementation, with clear inspiration from
+[Nuxt Content](https://content.nuxt.com/), [Nuxt UI](https://ui.nuxt.com/), and
+[Comark](https://comark.dev/), the successor to the previous MDC work.
+
+## License
+
+[MIT](./LICENSE)
