@@ -213,12 +213,12 @@ describe('ginko-content doctor contracts', () => {
 
       export default defineContentConfig({
         collections: {
-          docs: defineCollection({
+          docs: defineCollection('docs', {
             type: 'page',
             source: 'docs/**/*.md',
             i18n: true
           }),
-          posts: defineCollection({
+          posts: defineCollection('posts', {
             type: 'page',
             source: 'posts/**/*.md',
             i18n: true
@@ -312,6 +312,54 @@ describe('ginko-content doctor contracts', () => {
     expect(result.exitCode).toBe(1)
     expect(output).toContain('Collection "docs" is not marked as i18n-aware.')
     expect(output).toContain('Content locale folder "de" is missing.')
+  })
+
+  test('i18n mode checks current named defineCollection calls', async () => {
+    const root = createFixture()
+    await writeFixtureFile(root, 'package.json', JSON.stringify({
+      dependencies: {
+        '@lupinum/ginko-content': '^2.13.4',
+        '@nuxtjs/i18n': '^10.3.0'
+      }
+    }))
+    await writeFixtureFile(root, 'nuxt.config.ts', `
+      export default defineNuxtConfig({
+        modules: ['@nuxtjs/i18n', '@lupinum/ginko-content'],
+        i18n: {
+          defaultLocale: 'en',
+          locales: ['en', 'de']
+        },
+        content: {
+          i18n: {
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          }
+        }
+      })
+    `)
+    await writeFixtureFile(root, 'content.config.ts', `
+      import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
+
+      export const docs = defineCollection('docs', {
+        type: 'page',
+        source: 'docs/**/*.md'
+      })
+
+      export default defineContentConfig({
+        collections: {
+          docs
+        }
+      })
+    `)
+    await writeFixtureFile(root, 'content/en/docs/index.md', '# Docs')
+    await writeFixtureFile(root, 'content/de/docs/index.md', '# Dokumentation')
+
+    const result = await runDoctor({ rootDir: root, i18n: true })
+    const output = formatDoctorResult(result)
+
+    expect(result.exitCode).toBe(1)
+    expect(output).toContain('Collection "docs" is not marked as i18n-aware.')
+    expect(output).not.toContain('Content locale folder "de" is missing.')
   })
 
   test('i18n mode reports repeated locale output and missing locale search records', async () => {

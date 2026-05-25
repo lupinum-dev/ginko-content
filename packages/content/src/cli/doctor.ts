@@ -34,6 +34,11 @@ interface DetectedI18n {
   hasNuxtI18nDependency: boolean
 }
 
+interface CollectionDefinition {
+  name: string
+  block: string
+}
+
 const ignoredDirs = new Set([
   '.git',
   '.nuxt',
@@ -139,6 +144,111 @@ const localeCodePattern = /^[a-z]{2}(?:-[A-Z]{2})?$/
 
 const toRelativePath = (rootDir: string, file: string) => relative(rootDir, file) || '.'
 const countSitemapUrls = (text: string) => (text.match(/<url>/g) || []).length
+
+function findMatchingBrace(text: string, start: number): number {
+  let depth = 0
+  let quote: string | undefined
+  let escaped = false
+  let lineComment = false
+  let blockComment = false
+
+  for (let index = start; index < text.length; index++) {
+    const char = text[index]
+    const next = text[index + 1]
+
+    if (lineComment) {
+      if (char === '\n') {
+        lineComment = false
+      }
+      continue
+    }
+
+    if (blockComment) {
+      if (char === '*' && next === '/') {
+        blockComment = false
+        index++
+      }
+      continue
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false
+      }
+      else if (char === '\\') {
+        escaped = true
+      }
+      else if (char === quote) {
+        quote = undefined
+      }
+      continue
+    }
+
+    if (char === '/' && next === '/') {
+      lineComment = true
+      index++
+      continue
+    }
+
+    if (char === '/' && next === '*') {
+      blockComment = true
+      index++
+      continue
+    }
+
+    if (char === '\'' || char === '"' || char === '`') {
+      quote = char
+      continue
+    }
+
+    if (char === '{') {
+      depth++
+    }
+    else if (char === '}') {
+      depth--
+      if (depth === 0) {
+        return index
+      }
+    }
+  }
+
+  return text.length - 1
+}
+
+function findCollectionDefinitions(text: string): CollectionDefinition[] {
+  const definitions: CollectionDefinition[] = []
+  const callPattern = /\bdefineCollection\s*\(/g
+
+  for (const match of text.matchAll(callPattern)) {
+    const callStart = match.index || 0
+    const argsStart = callStart + match[0].length
+    const args = text.slice(argsStart)
+    const namedMatch = args.match(/^\s*(['"])([^'"]+)\1\s*,\s*\{/)
+
+    if (namedMatch) {
+      const bodyStart = argsStart + namedMatch[0].lastIndexOf('{')
+      const bodyEnd = findMatchingBrace(text, bodyStart)
+      definitions.push({
+        name: namedMatch[2],
+        block: text.slice(bodyStart, bodyEnd + 1)
+      })
+      continue
+    }
+
+    const objectMatch = args.match(/^\s*\{/)
+    const propertyMatch = text.slice(0, callStart).match(/([a-z_$][\w$]*)\s*:\s*$/i)
+    if (objectMatch && propertyMatch) {
+      const bodyStart = argsStart + objectMatch[0].lastIndexOf('{')
+      const bodyEnd = findMatchingBrace(text, bodyStart)
+      definitions.push({
+        name: propertyMatch[1],
+        block: text.slice(bodyStart, bodyEnd + 1)
+      })
+    }
+  }
+
+  return definitions
+}
 
 async function collectFiles(dir: string, rootDir: string, files: string[] = []): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -469,27 +579,22 @@ async function inspectI18nCollections(rootDir: string): Promise<DoctorFinding[]>
     }]
   }
 
-  const matches = [...text.matchAll(/([A-Za-z_$][\w$]*)\s*:\s*defineCollection\s*\(\s*\{/g)]
-  if (!matches.length) {
+  const collections = findCollectionDefinitions(text)
+  if (!collections.length) {
     return []
   }
 
   const findings: DoctorFinding[] = []
-  matches.forEach((match, index) => {
-    const collectionName = match[1]
-    const start = match.index || 0
-    const end = matches[index + 1]?.index || text.length
-    const collectionBlock = text.slice(start, end)
-
-    if (!/\bi18n\s*:\s*(true|\{)/.test(collectionBlock)) {
+  for (const collection of collections) {
+    if (!/\bi18n\s*:\s*(true|\{)/.test(collection.block)) {
       findings.push({
         severity: 'error',
         file: 'content.config.ts',
-        message: `Collection "${collectionName}" is not marked as i18n-aware.`,
-        suggestion: `Add i18n: true to the ${collectionName} collection or provide collection-level i18n locales.`
+        message: `Collection "${collection.name}" is not marked as i18n-aware.`,
+        suggestion: `Add i18n: true to the ${collection.name} collection or provide collection-level i18n locales.`
       })
     }
-  })
+  }
 
   return findings
 }
