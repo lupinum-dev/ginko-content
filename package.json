@@ -47,7 +47,7 @@
     "test:e2e": "vitest run --config vitest.config.ts --project e2e",
     "test:types": "pnpm typecheck",
     "typecheck": "pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-typecheck typecheck",
-    "test": "vitest run --config vitest.config.ts --project unit --project provider --project runtime --project client --project nuxt",
+    "test": "pnpm build:packages && vitest run --config vitest.config.ts --project unit --project provider --project runtime --project client --project nuxt",
     "test:watch": "vitest watch --config vitest.config.ts --project unit --project provider --project runtime --project client --project nuxt",
     "verify": "pnpm dev:prepare && pnpm lint && pnpm build:packages && pnpm docs:build && pnpm examples:build && pnpm test && pnpm test:e2e && pnpm typecheck"
   },
