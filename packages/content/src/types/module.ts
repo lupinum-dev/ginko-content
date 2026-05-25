@@ -395,8 +395,8 @@ export interface ModuleOptions {
   /**
    * Backing implementation for public content reads.
    *
-   * `filesystem` is the default. `cms`, `ginko-cms`, and `ginko` resolve to the
-   * official Ginko CMS provider when `@lupinum/ginko-cms` is installed.
+   * `filesystem` is the default. External providers must also be registered in
+   * `providers`.
    */
   provider?: ContentProviderName
   /**

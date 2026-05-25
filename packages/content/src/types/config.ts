@@ -174,8 +174,7 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
 
 export type ContentCollectionKind = 'page' | 'data'
 
-export type BuiltinContentProviderName = 'filesystem' | 'cms' | 'ginko-cms' | 'ginko'
-export type ContentProviderName = BuiltinContentProviderName | (string & {})
+export type ContentProviderName = 'filesystem' | (string & {})
 
 export type DefineCollectionOptions<TSchema extends ZodType | undefined = ZodType | undefined> =
   Omit<ContentCollectionConfig<TSchema>, 'source' | 'exclude'>
@@ -200,14 +199,13 @@ export interface DefineCollectionObject<TSchema extends ZodType | undefined = Zo
  */
 export interface ContentConfig<TCollections extends Record<string, ContentCollectionConfig> = Record<string, ContentCollectionConfig>> {
   /**
-   * Content backing implementation. `filesystem` is the default. `cms`,
-   * `ginko-cms`, and `ginko` resolve to the official Ginko CMS provider when
-   * `@lupinum/ginko-cms` is installed.
+   * Content backing implementation. `filesystem` is the default. External
+   * providers must also be registered in `providers`.
    */
   provider?: ContentProviderName
   /**
-   * External provider modules keyed by provider name. Built-in providers do not
-   * need to be registered here.
+   * External provider modules keyed by provider name. The filesystem provider
+   * does not need to be registered here.
    */
   providers?: Record<string, string>
   /**
