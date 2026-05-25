@@ -29,9 +29,13 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'app/pages/docs/[...slug].vue', `
       <script setup lang="ts">
       const { page } = await useContentPage('docs')
+      const { data: posts } = await useContentMany('posts')
       </script>
       <template>
         <ContentRenderer v-if="page" :value="page" />
+        <NuxtLink v-for="post in posts" :key="post.path" :to="post.path">
+          {{ post.title }}
+        </NuxtLink>
       </template>
     `)
 

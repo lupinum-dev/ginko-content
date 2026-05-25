@@ -123,11 +123,6 @@ const sourceChecks: Array<{
     suggestion: 'Pass the full content document to ContentRenderer, not document.body.'
   },
   {
-    pattern: /<NuxtLink\b[^>]*:to\s*=\s*["'][^"']+\.path["']/,
-    message: 'NuxtLink may be using raw query .path.',
-    suggestion: 'Use useContentMany(handle, options) for route-safe list items, or link route-page payloads with their explicit path field.'
-  },
-  {
     pattern: /<NuxtLink\b[^>]*:to\s*=\s*["'][^"']+\._path["']/,
     message: 'NuxtLink is using raw content _path.',
     suggestion: 'Use useContentMany(handle, options) for list pages and bind the route-safe item.path field.'
