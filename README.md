@@ -1,82 +1,106 @@
 [![nuxt-content-social-card](./docs/public/social-card.png)](https://ginko-content.nuxt.dev)
 
-# Ginko
+# Ginko Content
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
 
-Ginko is a filesystem-first, provider-neutral content engine for Nuxt. Author files in `content/`, define collections in `content.config.ts`, then query, route, render, search, and emit sitemap entries through those collections. The filesystem provider is the default today; the core architecture leaves room for future providers.
+Filesystem-first content for Nuxt 4. Write Markdown and data files in
+`content/`, define collections once in `content.config.ts`, then use those
+collection handles for pages, lists, navigation, search, i18n, and sitemap
+output.
 
-- [📖 &nbsp;Package README](./packages/content/README.md)
-- [📚 &nbsp;Docs app](./docs)
-- [👾 &nbsp;Ginko basic playground](./playground/ginko-basic)
-- [🌍 &nbsp;Ginko i18n playground](./playground/ginko-i18n)
-- [🔎 &nbsp;Ginko search playground](./playground/ginko-search)
-- [CMS integration spec](./CMS-SPEC.md)
-- [Active refactor target](./a_target.md)
+Use Ginko when you want content files to stay simple, but your Nuxt app still
+needs explicit APIs for route resolution, typed frontmatter, localized content,
+and server-side reads.
 
-## Release Compatibility
+- [Documentation](https://ginko-content.nuxt.dev)
+- [Package README](./packages/content/README.md)
+- [Basic playground](./playground/ginko-basic)
+- [i18n playground](./playground/ginko-i18n)
+- [Search playground](./playground/ginko-search)
 
-`@lupinum/ginko-content@0.1.0` is the content engine release for the first
-clean Ginko stack:
+## Quick Start
 
-| Package | Version | Role |
-| --- | ---: | --- |
-| `@lupinum/ginko-content` | `0.1.0` | Filesystem-first Nuxt content engine |
-| `@lupinum/ginko-cms` | `0.1.0` | Optional Convex-backed CMS product |
-| `@lupinum/ginko-cms-convex` | `0.1.0` | CMS Convex component |
-| `@lupinum/ginko-cms-contract` | `0.1.0` | Framework-neutral CMS contract |
+Install the module:
 
-Ginko Content remains CMS-neutral. The CMS consumes only the runtime-neutral
-contract/import subpaths; it does not make this package a Studio, admin UI, or
-MCP host.
+```bash
+npx nuxi module add @lupinum/ginko-content
+```
 
-## Ginko Direction
+Define a collection:
 
-- Required `content.config.ts` collection definitions
-- Route-aware page loading through `useContentPage(handle)`
-- Typed collections with `defineCollection()`
-- `.navigation.yml` support for bare folders
-- MDC and Vue components in markdown
-- Locale-aware routing with explicit fallback chains
-- Strong HMR on the filesystem provider
-- Provider-neutral server architecture for future content sources
+```ts
+// content.config.ts
+import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-## Current Public API
+export const pages = defineCollection('pages', {
+  type: 'page',
+  source: '**/*.md'
+})
 
-Use `useContentPage(handle)` in route components. Use the unified collection
-API for explicit reads: `one`, `many`, `paginate`, `backlinks`, `resolveOne`,
-`variants`, `tree`, and `neighbors`. Vue apps use the matching composables:
-`useContentOne`, `useContentMany`, `useContentPagination`,
-`useContentBacklinks`, `useContentResolveOne`, `useContentVariants`,
-`useContentTree`, `useContentNeighbors`, and `useContentLocaleSwitch`.
+export default defineContentConfig({
+  collections: {
+    pages
+  }
+})
+```
 
-Route-backed pages should load through `useContentPage(handle)`. Explicit
-single-document reads use `useContentOne(handle, { by })`: `by: { route }` for
-public URLs, `by: { path }` for raw content paths, and `by: { ref }` for
-authored references. Lists use `many(handle, { where, sort, limit })`.
+Create `content/index.md`:
+
+```md
+---
+title: Welcome
+---
+
+# Welcome
+
+This file renders at `/`.
+```
+
+Render route-backed content:
+
+```vue
+<!-- pages/[...slug].vue -->
+<script setup lang="ts">
+import { pages } from '~/content.config'
+
+const { page } = await useContentPage(pages, {
+  fallback: true
+})
+</script>
+
+<template>
+  <ContentRenderer v-if="page" :value="page" />
+</template>
+```
+
+## What You Get
+
+- Collection definitions as the source of truth for content shape and source
+  files.
+- Markdown and MDC rendering, plus YAML, JSON, and CSV ingestion.
+- Route-aware page loading with `useContentPage(handle)`.
+- Server reads through `one`, `many`, `paginate`, `resolveOne`, `tree`, and
+  `neighbors`.
+- Vue composables for the same read model.
+- Locale-aware content routing with explicit fallback behavior.
+- Search helpers for MiniSearch, Pagefind, and provider-owned search.
+- Sitemap integration for public content routes.
+
+## Scope
+
+Ginko Content is the content engine and default filesystem provider. It is not
+a CMS UI, Studio, admin panel, or MCP workflow host. Advanced CMS or database
+sources should integrate through the provider contract instead of changing the
+app-facing API.
 
 ## Workspace
 
-This repository is now a pnpm workspace centered on one module:
+This repository is a pnpm workspace centered on one package:
 
 - `@lupinum/ginko-content` in [`packages/content`](./packages/content)
-
-Ginko is published as `@lupinum/ginko-content` and should be registered under that package name.
-
-This repository is the core engine and default filesystem provider. It is not a CMS, Studio, admin UI, or MCP workflow host. Future CMS-backed content should plug in through the provider contract as a separate package or product.
-
-CMS builders should use [`CMS-SPEC.md`](./CMS-SPEC.md) as the source of truth
-for provider behavior, cache hints, dependency tags, preview isolation,
-revalidation, and testing expectations.
-
-## Credits
-
-Ginko Content is its own implementation, with clear inspiration from the Nuxt
-content ecosystem. Credits to [Nuxt Content](https://content.nuxt.com/),
-[Nuxt UI](https://ui.nuxt.com/), and [Comark](https://comark.dev/), the
-successor to the previous MDC work.
 
 Development apps and fixtures also live in the workspace:
 
@@ -86,6 +110,13 @@ Development apps and fixtures also live in the workspace:
 - `playground/ginko-search`
 - `examples/*/*`
 - `test/fixtures/typecheck`
+
+## Credits
+
+Ginko Content is its own implementation, with clear inspiration from the Nuxt
+content ecosystem. Credits to [Nuxt Content](https://content.nuxt.com/),
+[Nuxt UI](https://ui.nuxt.com/), and [Comark](https://comark.dev/), the
+successor to the previous MDC work.
 
 ## 💻 Development
 
