@@ -2,6 +2,14 @@
 
 Use this when wiring search UI, generated search data, or public sitemap output.
 
+## Contents
+
+- Search data
+- Layout navigation
+- Sitemap setup
+- Sitemap checks
+- Search index checks
+
 ## Search data
 
 Use `useContentSearchData()` for UI search payloads:
@@ -20,11 +28,33 @@ const {
 
 `searchNavigation` is projected for search UI. Do not pass it to layout/sidebar navigation.
 
+For localized apps, pass the locale ref or getter so persistent layouts update when the locale changes:
+
+```ts
+const { locale } = useI18n()
+const search = await useContentSearchData('docs', { locale })
+```
+
+Configure search to target route-backed collections:
+
+```ts
+export default defineNuxtConfig({
+  content: {
+    search: {
+      collections: ['docs']
+    }
+  }
+})
+```
+
+Omitting `collections` means all collections. Avoid that when the app has data-only collections unless the provider intentionally supports data search output.
+
 ## Layout navigation
 
 Use `useContentTree()` for layout navigation:
 
 ```ts
+import { useContentTree } from '@lupinum/ginko-content/client'
 import { docs } from '~/content.config'
 
 const { navigation } = await useContentTree(docs, {
@@ -68,7 +98,7 @@ Replace `site.url` with the production domain.
 
 ```bash
 pnpm build
-npx ginko-content doctor --i18n
+pnpm exec ginko-content doctor --i18n
 ```
 
 For i18n apps, Nuxt Sitemap defaults to a sitemap index:

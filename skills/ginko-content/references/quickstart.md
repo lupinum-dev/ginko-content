@@ -4,6 +4,8 @@ Use this when adding Ginko Content to a Nuxt app or creating the first collectio
 
 ## Install
 
+Use the app's package manager. For pnpm:
+
 ```bash
 pnpm add @lupinum/ginko-content zod
 ```
@@ -22,16 +24,18 @@ export default defineNuxtConfig({
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 import { z } from 'zod'
 
+export const docs = defineCollection('docs', {
+  type: 'page',
+  source: 'docs/**/*.md',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional()
+  })
+})
+
 export default defineContentConfig({
   collections: {
-    docs: defineCollection({
-      type: 'page',
-      source: 'docs/**/*.md',
-      schema: z.object({
-        title: z.string(),
-        description: z.string().optional()
-      })
-    })
+    docs
   }
 })
 ```
@@ -40,13 +44,10 @@ export default defineContentConfig({
 
 ```vue
 <script setup lang="ts">
-import { useContentOne } from '@lupinum/ginko-content/client'
+import { useContentPage } from '@lupinum/ginko-content/client'
 import { docs } from '~/content.config'
 
-const route = useRoute()
-const { data: page } = await useContentOne(docs, {
-  by: { route: route.path }
-})
+const { page } = await useContentPage(docs)
 </script>
 
 <template>
@@ -68,7 +69,7 @@ content/
 ## First checks
 
 ```bash
-npx ginko-content doctor
+pnpm exec ginko-content doctor
 pnpm typecheck
 pnpm build
 ```
