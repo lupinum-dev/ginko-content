@@ -54,12 +54,14 @@ For the filesystem provider, content files are the source of truth. Downstream a
 A named, typed group of content declared in `content.config.ts`.
 
 ```ts
+export const docs = defineCollection('docs', {
+  type: 'page',
+  source: 'docs/**/*.md',
+})
+
 export default defineContentConfig({
   collections: {
-    docs: defineCollection({
-      type: 'page',
-      source: 'docs/**/*.md',
-    }),
+    docs,
   },
 })
 ```
@@ -123,7 +125,7 @@ The public options lower to an internal query plan. Providers may support differ
 
 A route-backed page resolved from a collection.
 
-`useContentOne(handle, { by: { route } })` is the preferred app-facing page loader. It resolves the current route, active locale, fallback state, page data, and route metadata through one workflow.
+`useContentPage(handle, options)` is the preferred app-facing page loader. It resolves the current route, active locale, fallback state, page data, not-found behavior, and route metadata through one workflow.
 
 ## Navigation
 

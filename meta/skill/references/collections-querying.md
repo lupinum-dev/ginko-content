@@ -10,15 +10,17 @@ Collections are the public boundary. App and server code query a named collectio
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 import { z } from 'zod'
 
+export const docs = defineCollection('docs', {
+  type: 'page',
+  source: 'docs/**/*.md',
+  schema: z.object({
+    title: z.string()
+  })
+})
+
 export default defineContentConfig({
   collections: {
-    docs: defineCollection({
-      type: 'page',
-      source: 'docs/**/*.md',
-      schema: z.object({
-        title: z.string()
-      })
-    })
+    docs
   }
 })
 ```
@@ -83,7 +85,7 @@ const posts = await many(blog, {
 })
 ```
 
-For route-backed pages, prefer `useContentOne(handle, { by: { route } })` over manually querying by path.
+For route-backed pages, prefer `useContentPage(handle, options)` over manually querying by path.
 
 ## Server Query Helpers
 

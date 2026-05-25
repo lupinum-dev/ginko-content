@@ -1,11 +1,11 @@
 ---
 name: ginko
-description: Use this skill when working on Ginko, the @lupinum/ginko-content Nuxt content engine, including content.config.ts collections, defineCollection schemas, unified one/many/resolveOne/tree/neighbors APIs, useContentOne/useContentMany route loading, ContentRenderer rendering, filesystem content routing, providers, i18n, translated slugs, navigation, search, sitemap integration, package exports, docs, examples, tests, or migration work from Nuxt Content v2/v3. Use it to avoid API drift and preserve Ginko's provider-neutral, collection-first architecture.
+description: Use this skill when working on Ginko, the @lupinum/ginko-content Nuxt content engine, including content.config.ts collections, defineCollection schemas, unified one/many/resolveOne/tree/neighbors APIs, useContentPage/useContentMany route loading, ContentRenderer rendering, filesystem content routing, providers, i18n, translated slugs, navigation, search, sitemap integration, package exports, docs, examples, tests, or migration work from Nuxt Content v2/v3. Use it to avoid API drift and preserve Ginko's provider-neutral, collection-first architecture.
 ---
 
 # Ginko
 
-Use this skill for changes in `/Users/matthias/Git/0_libs/WORK/nuxt-content-v2`.
+Use this skill for changes in `/Users/matthias/Git/0_libs/WORK/ginko-content`.
 
 Ginko is `@lupinum/ginko-content`: a filesystem-first, provider-neutral content engine for Nuxt. It is inspired by Nuxt Content, but it is not a drop-in clone of every Nuxt Content v2/v3 behavior. Preserve its narrower public contract.
 
@@ -25,7 +25,7 @@ Ginko is `@lupinum/ginko-content`: a filesystem-first, provider-neutral content 
 ## Non-Negotiable Product Boundaries
 
 - Collections are the public query boundary. Do not add global, collection-less content queries.
-- App route pages should use `useContentOne(collectionHandle, { by: { route } })` unless there is a concrete reason to use lower-level primitives.
+- App route pages should use `useContentPage(collectionHandle, options)` unless there is a concrete reason to use lower-level primitives.
 - Server content access goes through the provider contract. API handlers and server helpers should not branch on provider names.
 - `content.config.ts` owns collections, providers, schemas, and references. `nuxt.config.ts` `content` owns runtime behavior.
 - Filesystem behavior is first-class for the default provider, but do not make filesystem details mandatory for every future provider.

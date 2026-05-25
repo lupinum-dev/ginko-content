@@ -4,15 +4,13 @@ Use this for route-backed pages, locale behavior, translated slugs, language swi
 
 ## Preferred Page API
 
-Use `useContentOne(handle, { by: { route } })` for route-backed pages. It resolves the active route, locale, fallback state, page data, and route metadata through the unified query workflow.
+Use `useContentPage(handle, options)` for route-backed pages. It resolves the active route, locale, fallback state, page data, not-found behavior, stale route hiding, and route metadata through one workflow.
 
 ```vue
 <script setup lang="ts">
 import { docs } from '~/content.config'
 
-const route = useRoute()
-const { data: page, status, error } = await useContentOne(docs, {
-  by: { route: route.path },
+const { page, pending, error } = await useContentPage(docs, {
   fallback: true
 })
 </script>

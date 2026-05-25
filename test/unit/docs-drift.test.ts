@@ -32,6 +32,12 @@ const stalePublicApiPatterns = [
   /\buseContentSwitchLocalePath\b/
 ]
 
+const staleRoutePageGuidancePatterns = [
+  /useContentOne\(handle, \{ by: \{ route \} \}\)/,
+  /useContentOne\(collectionHandle, \{ by: \{ route \} \}\)/,
+  /Use `useContentOne\(\)` for route-backed pages/
+]
+
 const publicQueryOperators = new Set([
   '$eq',
   '$ne',
@@ -40,6 +46,7 @@ const publicQueryOperators = new Set([
   '$lt',
   '$lte',
   '$in',
+  '$nin',
   '$contains',
   '$containsAny',
   '$icontains',
@@ -92,7 +99,11 @@ const collectTextFiles = async (roots: string[]) => {
     .map(file => relative(process.cwd(), file))
 }
 
-const isMigrationDoc = (file: string) => file.split('\\').join('/').startsWith('docs/content/docs/8.migration/')
+const isMigrationDoc = (file: string) => {
+  const normalized = file.split('\\').join('/')
+  return normalized.startsWith('docs/content/docs/8.migration/') ||
+    normalized === 'skills/ginko-content/references/migration.md'
+}
 
 const isHistoricalMigrationLine = (lines: string[], index: number) => {
   const context = lines
@@ -106,6 +117,9 @@ const isHistoricalMigrationLine = (lines: string[], index: number) => {
     'before',
     'replace',
     'removed',
+    'scan',
+    'stale',
+    'stale api',
     'legacy',
     'nuxt content v2',
     'nuxt content v3',
@@ -159,6 +173,25 @@ const findUnsupportedPublicOperatorLines = (file: string, source: string) => {
   })
 }
 
+const findInlineCollectionHandleImportLines = (file: string, source: string) => {
+  const importedNames = new Set<string>()
+  for (const match of source.matchAll(/import\s*\{\s*([^}]*)\}\s*from\s*['"]~\/content\.config['"]/g)) {
+    for (const specifier of match[1].split(',')) {
+      const imported = specifier.trim().split(/\s+as\s+/i)[0]?.trim()
+      if (imported) importedNames.add(imported)
+    }
+  }
+
+  if (importedNames.size === 0) return []
+
+  return [...importedNames].flatMap((name) => {
+    const inlineCollection = new RegExp(`\\b${name}\\s*:\\s*defineCollection\\(\\s*['"]${name}['"]`).test(source)
+    const exportedHandle = new RegExp(`export\\s+const\\s+${name}\\s*=\\s*defineCollection\\(\\s*['"]${name}['"]`).test(source)
+    if (!inlineCollection || exportedHandle) return []
+    return [`${file} (${name})`]
+  })
+}
+
 describe('documentation drift', () => {
   test('stale API detector allows current sitemap helper names', () => {
     expect(stalePublicApiPatterns.some(pattern => pattern.test('queryCollectionsSitemapEntries'))).toBe(false)
@@ -178,11 +211,35 @@ describe('documentation drift', () => {
     expect(offenders).toEqual([])
   })
 
+  test('current public docs use useContentPage as the default route page helper', async () => {
+    const offenders: string[] = []
+    for (const file of await collectTextFiles(markdownRoots)) {
+      const source = await readFile(file, 'utf8')
+      source.split('\n').forEach((line, index) => {
+        if (staleRoutePageGuidancePatterns.some(pattern => pattern.test(line))) {
+          offenders.push(`${file}:${index + 1}`)
+        }
+      })
+    }
+
+    expect(offenders).toEqual([])
+  })
+
   test('docs and examples do not teach unsupported public query operators', async () => {
     const offenders: string[] = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
       const source = await readFile(file, 'utf8')
       offenders.push(...findUnsupportedPublicOperatorLines(file, source))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  test('docs that import collection handles also export those handles from content config examples', async () => {
+    const offenders: string[] = []
+    for (const file of await collectTextFiles(markdownRoots)) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findInlineCollectionHandleImportLines(file, source))
     }
 
     expect(offenders).toEqual([])

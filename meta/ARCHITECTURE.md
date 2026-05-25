@@ -134,7 +134,7 @@ Rules:
 
 App code should prefer:
 
-- `useContentOne(handle, { by: { route } })` for route-backed page loading
+- `useContentPage(handle, options)` for route-backed page loading
 - `useContentTree(handle)` for collection navigation
 - `useContentLocaleSwitch(handle, page)` for locale-aware route switching
 - `many(handle, options)` / `useContentMany(handle, options)` for explicit lists and filters

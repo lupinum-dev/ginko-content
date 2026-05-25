@@ -85,7 +85,7 @@ pnpm example <group>/<name>
 
 - Use `@lupinum/ginko-content`, not old package names.
 - Use `content.config.ts` for collections and schemas.
-- Use `useContentOne(handle, { by: { route } })` for route-backed page examples.
+- Use `useContentPage(handle, options)` for route-backed page examples.
 - Use `many(handle, options)` / `useContentMany(handle, options)` for list/query examples.
 - Use `one(event, handle, options)` / `many(event, handle, options)` for server examples.
 - Explain i18n and sitemap ownership accurately.

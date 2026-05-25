@@ -156,8 +156,8 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
   translatedSlugs?: boolean
   /**
    * Include this collection in content-owned sitemap output and prerender route
-   * discovery. Route-backed collections are included by default; data-only or
-   * app-internal collections should opt out with `false`.
+   * discovery. Route-backed page collections are included by default; data-only
+   * or app-internal collections should stay opted out with `false`.
    *
    * @default true
    */
@@ -333,12 +333,14 @@ function normalizeCollectionSource (source: ContentCollectionSource | ContentCol
  * ```ts
  * import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
  *
+ * export const docs = defineCollection('docs', {
+ *   type: 'page',
+ *   source: 'docs/*.md'
+ * })
+ *
  * export default defineContentConfig({
  *   collections: {
- *     docs: defineCollection({
- *       type: 'page',
- *       source: 'docs/*.md'
- *     })
+ *     docs
  *   }
  * })
  * ```
@@ -358,7 +360,7 @@ export function defineContentConfig<TCollections extends Record<string, ContentC
  * import { z } from 'zod'
  * import { defineCollection, reference } from '@lupinum/ginko-content/config'
  *
- * export default defineCollection({
+ * export const blog = defineCollection('blog', {
  *   type: 'page',
  *   source: 'blog/*.md',
  *   schema: z.object({

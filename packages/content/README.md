@@ -25,7 +25,7 @@ The Nuxt CLI installs the package and registers the module in `nuxt.config.ts`.
 If you prefer to install by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content
+pnpm add @lupinum/ginko-content zod
 ```
 
 ```ts
