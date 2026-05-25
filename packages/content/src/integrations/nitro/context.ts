@@ -13,14 +13,13 @@
  *
  * The context is attached to `event.context.__contentRuntime` and created
  * lazily on first access. Memoization uses `memoizeRuntimeValue` so the
- * `graph` / `contents` caches are shared across helpers within a single
+ * expensive per-request values are shared across helpers within a single
  * request but torn down with the event.
  */
 import type { H3Event } from 'h3'
 import type { Storage } from 'unstorage'
 import type { ParsedContent } from '../../types/content'
 import type { ContentContext as RuntimeContentConfig } from '../../types/module'
-import type { ContentGraph } from '../../core/content/graph'
 import type { ContentCacheStore } from '../../core/cache'
 import type { ContentCacheHint } from '../../public/provider'
 import { getContentRuntimeConfig } from './runtime-config'
@@ -43,10 +42,7 @@ export interface ContentRuntimeContext {
     cacheStorage: Storage
     cacheParsedStorage: Storage
   }
-  memo: {
-    contents?: ParsedContent[] | Promise<ParsedContent[]>
-    graph?: ContentGraph | Promise<ContentGraph>
-  }
+  memo: Record<string, unknown | Promise<unknown> | undefined>
   caches?: ContentCacheStore<ParsedContent>
   cacheHint?: ContentCacheHint | false
 }
@@ -68,7 +64,7 @@ export const getContentRuntimeContext = (event: H3Event): ContentRuntimeContext 
 }
 
 /**
- * Memoize an expensive per-request value (typically `contents` or `graph`).
+ * Memoize an expensive per-request value.
  *
  * Concurrent callers within a single request that hit the same key all await
  * the one `create()` promise — we do not start a second compute. The cache
@@ -80,7 +76,7 @@ export const getContentRuntimeContext = (event: H3Event): ContentRuntimeContext 
  */
 export const memoizeRuntimeValue = async <T> (
   event: H3Event,
-  key: keyof ContentRuntimeContext['memo'],
+  key: string,
   create: () => Promise<T>
 ): Promise<T> => {
   const runtime = getContentRuntimeContext(event)
@@ -90,11 +86,11 @@ export const memoizeRuntimeValue = async <T> (
   }
 
   const pending = create()
-  runtime.memo[key] = pending as never
+  runtime.memo[key] = pending
 
   try {
     const value = await pending
-    runtime.memo[key] = value as never
+    runtime.memo[key] = value
     return value
   } catch (error) {
     runtime.memo[key] = undefined
