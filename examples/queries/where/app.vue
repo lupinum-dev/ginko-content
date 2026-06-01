@@ -1,24 +1,28 @@
-<script setup>
+<script setup lang="ts">
+import { useAsyncData } from '#app'
+import { many } from '@lupinum/ginko-content/client'
+import { movies } from './content.config'
+
 const { data: equalQuery } = await useAsyncData('equal', () => {
-  return many('movies', {
+  return many(movies, {
     where: { director: 'Hayao Miyazaki' }
   })
 })
 
 const { data: lowerThanQuery } = await useAsyncData('lower-than', () => {
-  return many('movies', {
+  return many(movies, {
     where: { release_date: { $lt: 1997 } }
   })
 })
 
 const { data: notEqualQuery } = await useAsyncData('not-equal', () => {
-  return many('movies', {
+  return many(movies, {
     where: { director: { $ne: 'Hayao Miyazaki' } }
   })
 })
 
 const { data: inQuery } = await useAsyncData('in', () => {
-  return many('movies', {
+  return many(movies, {
     where: { director: { $in: ['Hayao Miyazaki', 'Yoshifumi Kondō'] } }
   })
 })
@@ -36,7 +40,7 @@ const { data: inQuery } = await useAsyncData('in', () => {
         <header>
           <h2>Equal query</h2>
           <code>
-            many('movies', { where: { director: 'Hayao Miyazaki' } })
+            many(movies, { where: { director: 'Hayao Miyazaki' } })
           </code>
         </header>
         <ul v-if="equalQuery">
@@ -52,7 +56,7 @@ const { data: inQuery } = await useAsyncData('in', () => {
         <header>
           <h2>Lower Than query</h2>
           <code>
-            many('movies', { where: { release_date: { $lt: 1997 } } })
+            many(movies, { where: { release_date: { $lt: 1997 } } })
           </code>
         </header>
         <ul v-if="lowerThanQuery">
@@ -68,7 +72,7 @@ const { data: inQuery } = await useAsyncData('in', () => {
         <header>
           <h2>Not Equal query</h2>
           <code>
-            many('movies', { where: { director: { $ne: 'Hayao Miyazaki' } } })
+            many(movies, { where: { director: { $ne: 'Hayao Miyazaki' } } })
           </code>
         </header>
         <ul v-if="notEqualQuery">
@@ -84,7 +88,7 @@ const { data: inQuery } = await useAsyncData('in', () => {
         <header>
           <h2>In query</h2>
           <code>
-            many('movies', { where: { director: { $in: ['Hayao Miyazaki', 'Yoshifumi Kondō'] } } })
+            many(movies, { where: { director: { $in: ['Hayao Miyazaki', 'Yoshifumi Kondō'] } } })
           </code>
         </header>
         <ul v-if="inQuery">

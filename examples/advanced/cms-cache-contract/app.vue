@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useAsyncData } from '#app'
+import { ref } from 'vue'
+
 const postPath = ref('/blog/post-1')
 const publishResult = ref<unknown>(null)
 

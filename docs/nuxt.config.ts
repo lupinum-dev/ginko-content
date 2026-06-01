@@ -57,6 +57,7 @@ export default defineNuxtConfig({
     prerender: {
       crawlLinks: true,
       routes: ['/'],
+      ignore: ['/_og/'],
       concurrency: 4,
       // For CF trailing slash issue
       autoSubfolderIndex: false

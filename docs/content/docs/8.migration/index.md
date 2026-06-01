@@ -14,4 +14,4 @@ Migration work is mostly API replacement. Ginko keeps filesystem-first authoring
 - [I18n migration recipe](/docs/migration/i18n-migration) — apply the full localized app pattern for routes, search, and sitemap
 - [Agent i18n migration packet](/docs/migration/agent-i18n-packet) — use exact i18n rules, scans, and artifact checks
 
-Start with the v2 migration guide if your app still uses `ContentDoc` or `queryContent()`. Start with the v3 guide if your app already uses `content.config.ts`, `defineCollection({ type, source })`, and `many()`.
+Start with the v2 migration guide if your app still uses `ContentDoc` or `queryContent()`. Start with the v3 guide if your app already uses `content.config.ts`, old Nuxt Content `defineCollection({ type, source })` declarations, and `many()`.

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const page = await one('pages', {
+import { one } from '@lupinum/ginko-content/client'
+import { pages } from './content.config'
+
+const page = await one(pages, {
   by: { path: '/' }
 })
 </script>

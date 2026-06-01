@@ -1,5 +1,8 @@
-<script setup>
-const data = await one('pages', {
+<script setup lang="ts">
+import { one } from '@lupinum/ginko-content/client'
+import { pages } from './content.config'
+
+const data = await one(pages, {
   by: { path: '/' },
   select: ['title']
 })

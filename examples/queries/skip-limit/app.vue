@@ -1,8 +1,12 @@
-<script setup>
+<script setup lang="ts">
+import { useContentMany } from '@lupinum/ginko-content/client'
+import { ref } from 'vue'
+import { posts } from './content.config'
+
 const skip = ref(2)
 const limit = ref(2)
 
-const { data } = await useContentMany('posts', {
+const { data } = await useContentMany(posts, {
   skip,
   limit
 })

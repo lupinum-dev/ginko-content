@@ -45,11 +45,12 @@
     "audit:prod": "pnpm audit --prod --audit-level low",
     "test:coverage": "vitest --coverage --project unit --project provider --project runtime --project client --project nuxt",
     "test:e2e": "vitest run --config vitest.config.ts --project e2e",
+    "test:quickstart": "pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-quickstart prepare && pnpm --filter @lupinum/ginko-content-test-quickstart typecheck && pnpm --filter @lupinum/ginko-content-test-quickstart build",
     "test:types": "pnpm typecheck",
     "typecheck": "pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-typecheck typecheck",
     "test": "pnpm build:packages && vitest run --config vitest.config.ts --project unit --project provider --project runtime --project client --project nuxt",
     "test:watch": "vitest watch --config vitest.config.ts --project unit --project provider --project runtime --project client --project nuxt",
-    "verify": "pnpm dev:prepare && pnpm lint && pnpm build:packages && pnpm docs:build && pnpm examples:build && pnpm test && pnpm test:e2e && pnpm typecheck"
+    "verify": "pnpm dev:prepare && pnpm lint && pnpm build:packages && pnpm docs:build && pnpm examples:build && pnpm test && pnpm test:e2e && pnpm typecheck && pnpm test:quickstart"
   },
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",

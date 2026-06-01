@@ -54,17 +54,17 @@ For the filesystem provider, content files are the source of truth. Downstream a
 A named, typed group of content declared in `content.config.ts`.
 
 ```ts
+export const docs = defineCollection('docs', {
+  type: 'page',
+  source: 'docs/**/*.md',
+})
+
 export default defineContentConfig({
-  collections: {
-    docs: defineCollection({
-      type: 'page',
-      source: 'docs/**/*.md',
-    }),
-  },
+  collections: { docs },
 })
 ```
 
-Collections are the public query boundary. App code queries a collection by name rather than querying an implicit global content bag.
+Collections are the public query boundary. App code queries a collection through its handle rather than querying an implicit global content bag.
 
 ## Route-Backed Collection
 

@@ -48,11 +48,11 @@ Build [content-rich]{.text-primary} Nuxt apps.
   ```ts
   import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
+  export const docs = defineCollection('docs', { type: 'page', source: 'docs/**/*.md' })
+  export const blog = defineCollection('blog', { type: 'page', source: 'blog/**/*.md' })
+
   export default defineContentConfig({
-    collections: {
-      docs: defineCollection({ type: 'page', source: 'docs/**/*.md' }),
-      blog: defineCollection({ type: 'page', source: 'blog/**/*.md' })
-    }
+    collections: { docs, blog }
   })
   ```
   :::
@@ -61,9 +61,7 @@ Build [content-rich]{.text-primary} Nuxt apps.
   <script setup lang="ts">
   import { docs } from '~/content.config'
 
-  const { page } = await useContentPage(docs, {
-    fallback: true
-  })
+  const { page } = await useContentPage(docs)
   </script>
 
   <template>
@@ -75,6 +73,9 @@ Build [content-rich]{.text-primary} Nuxt apps.
   ```ts
   export default defineNuxtConfig({
     modules: ['@lupinum/ginko-content', '@nuxtjs/sitemap'],
+    imports: {
+      autoImport: true
+    },
     content: {
       i18n: {
         defaultLocale: 'en',
@@ -222,9 +223,7 @@ Write Markdown for authors, drop into MDC when you need components, and render i
   <script setup lang="ts">
   import { docs } from '~/content.config'
 
-  const { page } = await useContentPage(docs, {
-    fallback: true
-  })
+  const { page } = await useContentPage(docs)
   </script>
 
   <template>
@@ -285,9 +284,7 @@ Ginko does not treat localization as an afterthought. Locale detection, fallback
   <script setup lang="ts">
   import { docs } from '~/content.config'
 
-  const { page } = await useContentPage(docs, {
-    fallback: true
-  })
+  const { page } = await useContentPage(docs)
   </script>
   ```
   :::
@@ -343,8 +340,7 @@ Because Ginko owns the content route model, sitemap generation, navigation trees
   import { docs } from '~/content.config'
 
   const { page, surround } = await useContentPage(docs, {
-    surround: true,
-    fallback: true
+    surround: true
   })
   </script>
 
@@ -356,7 +352,10 @@ Because Ginko owns the content route model, sitemap generation, navigation trees
   :::tabs-item{label="search" icon="i-lucide-search"}
   ```ts
   export default defineNuxtConfig({
-    modules: ['@lupinum/ginko-content']
+    modules: ['@lupinum/ginko-content'],
+    imports: {
+      autoImport: true
+    }
   })
   ```
   :::

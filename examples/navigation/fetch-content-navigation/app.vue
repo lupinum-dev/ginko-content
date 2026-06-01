@@ -1,6 +1,10 @@
-<script setup>
+<script setup lang="ts">
+import { useAsyncData } from '#app'
+import { many } from '@lupinum/ginko-content/client'
+import { pages } from './content.config'
+
 const { data: navigation } = await useAsyncData('navigation', () => {
-  return many('pages', {
+  return many(pages, {
     select: ['title']
   }).then(items => items.map(item => ({ title: item.title, path: item.path })))
 })

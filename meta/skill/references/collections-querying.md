@@ -10,16 +10,25 @@ Collections are the public boundary. App and server code query a named collectio
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 import { z } from 'zod'
 
+export const docs = defineCollection('docs', {
+  type: 'page',
+  source: 'docs/**/*.md',
+  schema: z.object({
+    title: z.string()
+  })
+})
+
+export const blog = defineCollection('blog', {
+  type: 'page',
+  source: 'blog/**/*.md',
+  schema: z.object({
+    title: z.string(),
+    published: z.boolean().default(true)
+  })
+})
+
 export default defineContentConfig({
-  collections: {
-    docs: defineCollection({
-      type: 'page',
-      source: 'docs/**/*.md',
-      schema: z.object({
-        title: z.string()
-      })
-    })
-  }
+  collections: { docs, blog }
 })
 ```
 

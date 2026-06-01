@@ -7,8 +7,11 @@
 </template>
 
 <script setup lang="ts">
-const docs = await many('docs')
-const doc = Array.isArray(docs) ? docs[0] : docs
+import { many } from '@lupinum/ginko-content/client'
+import { docs } from '../content.config'
+
+const documents = await many(docs)
+const doc = Array.isArray(documents) ? documents[0] : documents
 
 definePageMeta({
   layout: 'default',

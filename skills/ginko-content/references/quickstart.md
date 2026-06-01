@@ -5,14 +5,17 @@ Use this when adding Ginko Content to a Nuxt app or creating the first collectio
 ## Install
 
 ```bash
-pnpm add @lupinum/ginko-content zod
+pnpm add @lupinum/ginko-content
 ```
 
 Add the module:
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['@lupinum/ginko-content']
+  modules: ['@lupinum/ginko-content'],
+  imports: {
+    autoImport: true
+  }
 })
 ```
 
@@ -20,19 +23,14 @@ export default defineNuxtConfig({
 
 ```ts
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
-import { z } from 'zod'
+
+export const pages = defineCollection('pages', {
+  type: 'page',
+  source: '**/*.md'
+})
 
 export default defineContentConfig({
-  collections: {
-    docs: defineCollection({
-      type: 'page',
-      source: 'docs/**/*.md',
-      schema: z.object({
-        title: z.string(),
-        description: z.string().optional()
-      })
-    })
-  }
+  collections: { pages }
 })
 ```
 
@@ -40,13 +38,9 @@ export default defineContentConfig({
 
 ```vue
 <script setup lang="ts">
-import { useContentOne } from '@lupinum/ginko-content/client'
-import { docs } from '~/content.config'
+import { pages } from '~/content.config'
 
-const route = useRoute()
-const { data: page } = await useContentOne(docs, {
-  by: { route: route.path }
-})
+const { page } = await useContentPage(pages)
 </script>
 
 <template>
@@ -60,9 +54,8 @@ const { data: page } = await useContentOne(docs, {
 
 ```txt
 content/
-  docs/
-    index.md
-    getting-started.md
+  index.md
+  getting-started.md
 ```
 
 ## First checks

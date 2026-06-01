@@ -331,13 +331,13 @@ function normalizeCollectionSource (source: ContentCollectionSource | ContentCol
  * ```ts
  * import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
  *
+ * export const docs = defineCollection('docs', {
+ *   type: 'page',
+ *   source: 'docs/*.md'
+ * })
+ *
  * export default defineContentConfig({
- *   collections: {
- *     docs: defineCollection({
- *       type: 'page',
- *       source: 'docs/*.md'
- *     })
- *   }
+ *   collections: { docs }
  * })
  * ```
  */
@@ -354,15 +354,19 @@ export function defineContentConfig<TCollections extends Record<string, ContentC
  * @example
  * ```ts
  * import { z } from 'zod'
- * import { defineCollection, reference } from '@lupinum/ginko-content/config'
+ * import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
  *
- * export default defineCollection({
+ * export const blog = defineCollection('blog', {
  *   type: 'page',
  *   source: 'blog/*.md',
  *   schema: z.object({
  *     author: reference('authors'),
  *     related: z.array(reference('blog')).default([])
  *   })
+ * })
+ *
+ * export default defineContentConfig({
+ *   collections: { blog }
  * })
  * ```
  */

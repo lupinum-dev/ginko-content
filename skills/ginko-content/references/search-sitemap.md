@@ -9,12 +9,13 @@ Use `useContentSearchData()` for UI search payloads:
 ```vue
 <script setup lang="ts">
 import { useContentSearchData } from '@lupinum/ginko-content/client'
+import { docs } from '~/content.config'
 
 const {
   files,
   searchNavigation,
   searchTerm
-} = await useContentSearchData('docs')
+} = await useContentSearchData(docs)
 </script>
 ```
 

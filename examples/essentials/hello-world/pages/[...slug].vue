@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const { page } = await useContentPage('pages')
+import { useContentPage } from '@lupinum/ginko-content/client'
+import { pages } from '../content.config'
+
+const { page } = await useContentPage(pages)
 </script>
 
 <template>

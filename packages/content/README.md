@@ -30,7 +30,10 @@ pnpm add @lupinum/ginko-content
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['@lupinum/ginko-content']
+  modules: ['@lupinum/ginko-content'],
+  imports: {
+    autoImport: true
+  }
 })
 ```
 
@@ -73,9 +76,7 @@ Render the current route through the collection:
 <script setup lang="ts">
 import { pages } from '~/content.config'
 
-const { page } = await useContentPage(pages, {
-  fallback: true
-})
+const { page } = await useContentPage(pages)
 </script>
 
 <template>

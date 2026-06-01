@@ -295,13 +295,13 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
+      export const docs = defineCollection('docs', {
+        type: 'page',
+        source: 'docs/**/*.md'
+      })
+
       export default defineContentConfig({
-        collections: {
-          docs: defineCollection({
-            type: 'page',
-            source: 'docs/**/*.md'
-          })
-        }
+        collections: { docs }
       })
     `)
     await writeFixtureFile(root, 'content/en/docs/index.md', '# Docs')
@@ -388,14 +388,14 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
+      export const docs = defineCollection('docs', {
+        type: 'page',
+        source: 'docs/**/*.md',
+        i18n: true
+      })
+
       export default defineContentConfig({
-        collections: {
-          docs: defineCollection({
-            type: 'page',
-            source: 'docs/**/*.md',
-            i18n: true
-          })
-        }
+        collections: { docs }
       })
     `)
     await writeFixtureFile(root, 'content/en/docs/index.md', '# Docs')
@@ -447,14 +447,14 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
+      export const docs = defineCollection('docs', {
+        type: 'page',
+        source: 'docs/**/*.md',
+        i18n: true
+      })
+
       export default defineContentConfig({
-        collections: {
-          docs: defineCollection({
-            type: 'page',
-            source: 'docs/**/*.md',
-            i18n: true
-          })
-        }
+        collections: { docs }
       })
     `)
     await writeFixtureFile(root, 'content/en/docs/index.md', '# Docs')
@@ -499,14 +499,14 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
+      export const posts = defineCollection('posts', {
+        type: 'page',
+        source: 'posts/**/*.md',
+        i18n: true
+      })
+
       export default defineContentConfig({
-        collections: {
-          posts: defineCollection({
-            type: 'page',
-            source: 'posts/**/*.md',
-            i18n: true
-          })
-        }
+        collections: { posts }
       })
     `)
     await writeFixtureFile(root, 'content/en/1.posts/index.md', '# Posts')

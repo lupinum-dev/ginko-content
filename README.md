@@ -66,9 +66,7 @@ Render route-backed content:
 <script setup lang="ts">
 import { pages } from '~/content.config'
 
-const { page } = await useContentPage(pages, {
-  fallback: true
-})
+const { page } = await useContentPage(pages)
 </script>
 
 <template>
@@ -108,6 +106,7 @@ Development apps and fixtures also live in the workspace:
 - `playground/ginko-basic`
 - `playground/ginko-i18n`
 - `playground/ginko-search`
+- `test/fixtures/quickstart`
 - `examples/*/*`
 - `test/fixtures/typecheck`
 
