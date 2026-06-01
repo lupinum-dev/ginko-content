@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## v0.1.1
+
+### Changed
+
+- Made `defineCollection('name', config)` the only documented public collection
+  declaration shape.
+- Added a Nuxt quickstart fixture that prepares, typechecks, and builds the
+  documented first-page path.
+- Added docs drift checks for stale collection syntax, fallback examples, and
+  exported collection handles.
+
+### Documentation
+
+- Reworked beginner docs around the copy-pastable `content.config.ts`,
+  `content/index.md`, and `pages/[...slug].vue` path.
+- Removed fallback and provider concepts from beginner examples.
+- Updated migration docs to distinguish Nuxt Content collection syntax from the
+  Ginko collection API.
+
 ## v0.1.0
 
 ### Fixed
