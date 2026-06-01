@@ -26,7 +26,7 @@ The current repository remains Ginko Core plus the filesystem provider.
 
 A future Ginko CMS must be a separate provider/product built on top of the engine. It can use the provider contract to serve published content into Nuxt apps, but CMS/editor/admin behavior does not belong in this repository.
 
-The core repository may define provider interfaces, provider capabilities, typed provider errors, conformance tests, and narrow provider discovery aliases for the first-party CMS package. The aliases `cms`, `ginko-cms`, and `ginko` may resolve to `@lupinum/ginko-cms/nuxt-provider` when that package is installed. They are module-resolution convenience only; they must not add CMS runtime behavior, CMS tables, Studio UI, publish workflows, upload handling, editor permissions, or admin-agent operations to this repository.
+The core repository may define provider interfaces, provider capabilities, typed provider errors, and conformance tests. First-party packages such as `@lupinum/ginko-cms` must register their provider modules through the content provider registry hook when installed. Core must not hard-code CMS runtime behavior, CMS tables, Studio UI, publish workflows, upload handling, editor permissions, or admin-agent operations.
 
 ## Alternatives considered
 
@@ -38,6 +38,6 @@ The core repository may define provider interfaces, provider capabilities, typed
 
 - Core docs may mention a future CMS provider as a planned external path, but must not describe current Ginko as a CMS.
 - CMS-specific details should live in the CMS repository/package when that exists.
-- The first-party CMS provider aliases are allowed only at the provider loading boundary and must remain removable without touching content runtime semantics.
+- First-party CMS provider wiring is a module registration concern, not an app-level import string or core-owned runtime dependency.
 - The provider contract should stay website-shaped: query, page, navigation, search, sitemap, route metadata, and site data.
 - Editorial workflows should not leak into the core runtime API.

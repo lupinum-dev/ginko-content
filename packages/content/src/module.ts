@@ -159,10 +159,11 @@ export default defineNuxtModule<ModuleOptions>({
       }
     ]))
     options.provider = appContentConfig.provider || options.provider || 'filesystem'
-    options.providers = {
+    const providerRegistry = {
       ...(options.providers || {}),
       ...(appContentConfig.providers || {})
     }
+    options.providers = providerRegistry
     // Disable cache in dev mode
     const buildIntegrity = nuxt.options.dev ? undefined : Date.now()
 
@@ -334,6 +335,8 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
     nuxt.hook('modules:done', async () => {
+      await nuxt.callHook('content:providers', contentContext.providers ||= {})
+      assertConfiguredProviderAvailable(contentContext)
       await nuxt.callHook('content:context', contentContext)
 
       if (contentContext.search !== false) {
@@ -379,7 +382,21 @@ export default defineNuxtModule<ModuleOptions>({
 })
 
 export interface ModuleHooks {
-  'content:context'(ctx: ContentContext): void
+  'content:providers'(providers: Record<string, string>): void | Promise<void>
+  'content:context'(ctx: ContentContext): void | Promise<void>
+}
+
+function assertConfiguredProviderAvailable(contentContext: Pick<ContentContext, 'provider' | 'providers'>) {
+  const provider = contentContext.provider || 'filesystem'
+  if (provider === 'filesystem') return
+
+  if (contentContext.providers?.[provider]) return
+
+  if (provider === 'cms') {
+    throw new Error('content.config.ts sets provider "cms", but no CMS provider module registered it. Add @lupinum/ginko-cms to nuxt.config.ts modules or remove provider: "cms".')
+  }
+
+  throw new Error(`content.config.ts sets provider "${provider}", but no provider module registered it. Register a module for "${provider}" or add it to content providers.`)
 }
 
 interface ModulePublicRuntimeConfig {

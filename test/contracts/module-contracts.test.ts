@@ -29,7 +29,9 @@ function createNuxt() {
     hook(name: string, fn: (...arguments_: any[]) => any) {
       hooks.set(name, fn)
     },
-    async callHook() {}
+    async callHook(name: string, ...arguments_: any[]) {
+      return await hooks.get(name)?.(...arguments_)
+    }
   }
 
   return { nuxt, hooks }
@@ -157,6 +159,67 @@ describe('module contracts', () => {
     const mod = await import('../../packages/content/src/module')
     await expect(mod.default.setup(createOptions(), nuxt as any)).rejects.toThrow(
       '@lupinum/ginko-content requires a content.config.ts with at least one collection'
+    )
+  })
+
+  test('accepts a provider implementation registered by a Nuxt module hook', async () => {
+    const { nuxt, hooks } = createNuxt()
+    nuxt.hook('content:providers', (providers: Record<string, string>) => {
+      providers.cms = '@lupinum/ginko-cms/nuxt-provider'
+    })
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        provider: 'cms',
+        collections: {
+          docs: { source: '**/*.md' }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+    await hooks.get('modules:done')?.()
+
+    expect(applyContentRuntimeConfig).toHaveBeenCalledWith(
+      nuxt,
+      expect.objectContaining({
+        provider: 'cms',
+        providers: {
+          cms: '@lupinum/ginko-cms/nuxt-provider'
+        }
+      }),
+      expect.objectContaining({
+        provider: 'cms',
+        providers: {
+          cms: '@lupinum/ginko-cms/nuxt-provider'
+        }
+      }),
+      expect.any(Object),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
+  test('fails loudly when cms provider is selected without the CMS module registration', async () => {
+    const { nuxt, hooks } = createNuxt()
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        provider: 'cms',
+        collections: {
+          docs: { source: '**/*.md' }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+
+    await expect(hooks.get('modules:done')?.()).rejects.toThrow(
+      'content.config.ts sets provider "cms", but no CMS provider module registered it'
     )
   })
 

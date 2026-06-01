@@ -395,12 +395,13 @@ export interface ModuleOptions {
   /**
    * Backing implementation for public content reads.
    *
-   * `filesystem` is the default. External providers must also be registered in
-   * `providers`.
+   * `filesystem` is the default. Provider modules can register named
+   * implementations, for example `cms`.
    */
   provider?: ContentProviderName
   /**
-   * External provider modules keyed by provider name.
+   * External provider modules keyed by provider name. First-party provider
+   * modules register themselves, so app configs usually do not need this.
    */
   providers?: Record<string, string>
   /**

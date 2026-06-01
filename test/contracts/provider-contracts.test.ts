@@ -107,21 +107,21 @@ describe('content provider contract', () => {
       })
     })
 
-    runtime.content.provider = 'ginko-prototype'
+    runtime.content.provider = 'custom-prototype'
     await expect(getContentProvider(createProviderEvent())).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unknown_provider',
       data: expect.objectContaining({
         code: 'unknown_provider',
-        provider: 'ginko-prototype'
+        provider: 'custom-prototype'
       })
     })
 
     runtime.content.provider = 'filesystem'
     await expect(getContentProvider(createProviderEvent())).resolves.toMatchObject({ name: 'filesystem' })
 
-    externalProviderModules.set('ginko', {
-      name: 'ginko',
+    externalProviderModules.set('custom-provider', {
+      name: 'custom-provider',
       capabilities: {
         routeBackedCollections: true,
         dataCollections: true,
@@ -149,8 +149,8 @@ describe('content provider contract', () => {
       routeMeta: vi.fn(),
       sitemapEntries: vi.fn()
     })
-    runtime.content.provider = 'ginko'
-    await expect(getContentProvider(createProviderEvent())).resolves.toMatchObject({ name: 'ginko' })
+    runtime.content.provider = 'custom-provider'
+    await expect(getContentProvider(createProviderEvent())).resolves.toMatchObject({ name: 'custom-provider' })
 
     externalProviderModules.set('malformed-external', {
       name: 'malformed-external',

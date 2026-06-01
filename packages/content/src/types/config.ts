@@ -199,13 +199,13 @@ export interface DefineCollectionObject<TSchema extends ZodType | undefined = Zo
  */
 export interface ContentConfig<TCollections extends Record<string, ContentCollectionConfig> = Record<string, ContentCollectionConfig>> {
   /**
-   * Content backing implementation. `filesystem` is the default. External
-   * providers must also be registered in `providers`.
+   * Content backing implementation. `filesystem` is the default. Provider
+   * modules can register named implementations, for example `cms`.
    */
   provider?: ContentProviderName
   /**
-   * External provider modules keyed by provider name. The filesystem provider
-   * does not need to be registered here.
+   * External provider modules keyed by provider name. First-party provider
+   * modules register themselves, so app configs usually do not need this.
    */
   providers?: Record<string, string>
   /**

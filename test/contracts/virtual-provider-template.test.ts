@@ -19,7 +19,7 @@ const createAddTemplate = () => {
 }
 
 describe('virtual provider template contract', () => {
-  test('does not import the CMS provider unless the host registered it explicitly', () => {
+  test('does not import the CMS provider unless a module registered it', () => {
     const { addTemplate, templates } = createAddTemplate()
 
     createVirtualContentTemplates(
@@ -47,7 +47,7 @@ describe('virtual provider template contract', () => {
       {
         transformers: [],
         providers: {
-          ginko: '@lupinum/ginko-cms/nuxt-provider',
+          cms: '@lupinum/ginko-cms/nuxt-provider',
           preview: '~/providers/preview'
         }
       } as any,
@@ -58,9 +58,9 @@ describe('virtual provider template contract', () => {
 
     const contents = templates.get('content/virtual-providers.mjs')?.()
 
-    expect(contents).toContain('externalContentProviderNames = ["ginko","preview"]')
-    expect(contents).toContain('case "ginko": return import("@lupinum/ginko-cms/nuxt-provider")')
+    expect(contents).toContain('externalContentProviderNames = ["cms","preview"]')
+    expect(contents).toContain('case "cms": return import("@lupinum/ginko-cms/nuxt-provider")')
     expect(contents).toContain('case "preview": return import("~/providers/preview")')
-    expect(contents).not.toContain('case "cms"')
+    expect(contents).not.toContain('case "ginko"')
   })
 })

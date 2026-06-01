@@ -4,7 +4,7 @@ This document defines what a CMS must provide to become a first-class Ginko Cont
 
 The target reader is a CMS builder: someone implementing a backend, SDK, provider package, and publish flow that can power Ginko sites with the same ergonomics as the filesystem provider.
 
-The spec is intentionally concrete. A working CMS integration should be buildable from this file plus the public Ginko provider types.
+The spec is intentionally concrete. A working CMS integration should be buildable from this file plus the public content provider types.
 
 ## North Star
 
@@ -386,9 +386,9 @@ export const siteData = defineCollection('siteData', {
 })
 
 export default defineContentConfig({
-  provider: 'cms',
+  provider: 'custom-cms',
   providers: {
-    cms: '@acme/ginko-cms-provider'
+    'custom-cms': '@acme/ginko-cms-provider'
   },
   collections: {
     authors,
@@ -2308,7 +2308,7 @@ CMS publish
   -> resolves changed tags to affected routes
   -> calls Ginko revalidation endpoint with exact tags + paths
 
-Ginko provider
+Content provider
   -> serves published content through query/page/navigation/search/sitemap
   -> returns cache hints for every content read
   -> invalidates provider-owned caches by tags/paths
