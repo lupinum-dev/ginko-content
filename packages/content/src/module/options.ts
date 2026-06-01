@@ -3,6 +3,7 @@ import type { Nuxt } from '@nuxt/schema'
 import type { ContentMiniSearchOptions, ContentSearchPublicRuntimeConfig } from '../types/search'
 import type { ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
 import { normalizeContentSitemapAssertOptions } from './sitemap-assert'
+import { GINKO_SITEMAP_SOURCE_NAME, resolveContentSitemapSource } from '../runtime/utils/sitemap-source'
 
 type NuxtI18nConfig = {
   defaultLocale?: string
@@ -31,6 +32,33 @@ export function hasNuxtSitemapModule(modules: unknown[] = []): boolean {
   return hasNuxtModule(modules, '@nuxtjs/sitemap')
 }
 
+export function configureNuxtSitemapSource(
+  nuxt: Nuxt,
+  apiBaseURL: string,
+  sitemapPath = '/sitemap'
+) {
+  if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+    return
+  }
+
+  const source = {
+    context: {
+      name: GINKO_SITEMAP_SOURCE_NAME
+    },
+    fetch: resolveContentSitemapSource(apiBaseURL, sitemapPath)
+  }
+  const sitemap = ((nuxt.options as { sitemap?: Record<string, any> }).sitemap ??= {})
+  const sources = Array.isArray(sitemap.sources) ? sitemap.sources : []
+  sitemap.sources = [
+    ...sources.filter((item) => {
+      if (typeof item === 'string') return item !== source.fetch
+      return item?.fetch !== source.fetch && item?.context?.name !== GINKO_SITEMAP_SOURCE_NAME
+    }),
+    source
+  ]
+  sitemap.excludeAppSources = true
+}
+
 export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
   if (!hasNuxtSitemapModule(nuxt.options.modules)) {
     return []
@@ -38,7 +66,7 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
 
   const nuxtI18n = (nuxt.options as { i18n?: NuxtI18nConfig }).i18n || {}
   if (!hasNuxtI18nModule(nuxt.options.modules) || !Array.isArray(nuxtI18n.locales) || nuxtI18n.locales.length === 0) {
-    return []
+    return ['/sitemap.xml']
   }
 
   const childRoutes = nuxtI18n.locales
@@ -46,7 +74,7 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
     .filter(Boolean)
     .map(locale => `/__sitemap__/${locale}.xml`)
 
-  return Array.from(new Set(['/sitemap_index.xml', ...childRoutes]))
+  return Array.from(new Set(['/sitemap.xml', '/sitemap_index.xml', ...childRoutes]))
 }
 
 export function resolveModuleI18nOptions(

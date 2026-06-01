@@ -504,6 +504,7 @@ export interface ContentSitemapImage {
 export interface ContentSitemapEntry {
   loc: string
   _sitemap?: string
+  lastmod?: string
   alternatives?: ContentSitemapAlternative[]
   images?: ContentSitemapImage[]
 }

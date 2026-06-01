@@ -129,7 +129,7 @@ describe('integration hook contracts', () => {
     const nitroConfig: Record<string, any> = {}
     registerContentNitroIntegrationHooks(nitroConfig, {
       rootDir: root,
-      sitemapPrerenderRoutes: ['/sitemap_index.xml', '/__sitemap__/en-US.xml', '/__sitemap__/de-DE.xml']
+      sitemapPrerenderRoutes: ['/sitemap.xml', '/sitemap_index.xml', '/__sitemap__/en-US.xml', '/__sitemap__/de-DE.xml']
     }, {
       collections: {
         docs: { source: ['1.*/*/*.md', '1.*/*/*.yml'] } as any
@@ -172,6 +172,59 @@ describe('integration hook contracts', () => {
       '/de/dokumentation/referenz',
       '/docs/getting-started',
       '/docs/reference',
+      '/sitemap.xml',
+      '/sitemap_index.xml'
+    ])
+  })
+
+  test('external providers prerender sitemap routes without filesystem route discovery', async () => {
+    const root = await createContentRoot({
+      'content/en/1.docs/1.getting-started.md': '# English docs'
+    })
+    tempDirs.push(root)
+
+    const nitroConfig: Record<string, any> = {}
+    registerContentNitroIntegrationHooks(nitroConfig, {
+      rootDir: root,
+      sitemapPrerenderRoutes: ['/sitemap.xml', '/sitemap_index.xml']
+    }, {
+      provider: 'cms',
+      collections: {
+        docs: { source: '1.*/*.md' } as any
+      },
+      locales: ['en'],
+      defaultLocale: 'en',
+      translatedSlugs: true,
+      respectPathCase: false,
+      markdown: {
+        plugins: [],
+        tags: {},
+        anchorLinks: { depth: 4, exclude: [1] }
+      },
+      yaml: {},
+      csv: { delimiter: ',', json: true },
+      sitemap: {
+        path: '/sitemap',
+        include: ['docs'],
+        exclude: [],
+        includeDrafts: false,
+        assert: {
+          enabled: false,
+          mode: 'generate',
+          allowEmpty: false,
+          minUrlsPerSitemap: 1,
+          requireImages: false,
+          requiredCollections: [],
+          sitemaps: {}
+        }
+      }
+    })
+
+    const routes = new Set<string>()
+    await nitroConfig.hooks['prerender:routes'](routes)
+
+    expect([...routes].sort()).toEqual([
+      '/sitemap.xml',
       '/sitemap_index.xml'
     ])
   })

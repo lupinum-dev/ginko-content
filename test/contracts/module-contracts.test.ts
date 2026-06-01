@@ -130,6 +130,15 @@ describe('module contracts', () => {
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.plugins).toContain('/resolved/./runtime/server/plugins/sitemap.js')
+    expect(nuxt.options.sitemap.sources).toEqual([
+      {
+        context: {
+          name: '@lupinum/ginko-content:urls'
+        },
+        fetch: '/api/_content/sitemap'
+      }
+    ])
+    expect(nuxt.options.sitemap.excludeAppSources).toBe(true)
     expect(registerContentServerHandlers).toHaveBeenCalled()
 
     await hooks.get('modules:done')?.()
@@ -191,6 +200,8 @@ describe('module contracts', () => {
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.plugins).toBeUndefined()
+    expect(nuxt.options.sitemap.sources).toEqual([])
+    expect(nuxt.options.sitemap.excludeAppSources).toBeUndefined()
   })
 
   test('registers sitemap assertion on the final Nuxt sitemap hook and keeps build fallback in Nitro', async () => {
@@ -217,6 +228,7 @@ describe('module contracts', () => {
     const { resolveNuxtSitemapPrerenderRoutes } = await import('../../packages/content/src/module/options')
 
     expect(resolveNuxtSitemapPrerenderRoutes(nuxt as any)).toEqual([
+      '/sitemap.xml',
       '/sitemap_index.xml',
       '/__sitemap__/en-US.xml',
       '/__sitemap__/de-DE.xml'

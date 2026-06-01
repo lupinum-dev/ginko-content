@@ -1,5 +1,6 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import { getContentRuntimeConfig } from '../runtime-config'
+import { GINKO_SITEMAP_SOURCE_NAME, resolveContentSitemapSource } from '../../utils/sitemap-source'
 
 type SitemapSource = {
   context?: {
@@ -14,8 +15,6 @@ type SitemapSourcesHookContext = {
 }
 
 const LEGACY_NUXT_CONTENT_V2_SOURCE = '@nuxt/content@v2:urls'
-const GINKO_SOURCE = '@lupinum/ginko-content:urls'
-
 export default defineNitroPlugin((nitro) => {
   nitro.hooks.hook('sitemap:sources', (ctx: SitemapSourcesHookContext) => {
     const runtimeConfig = getContentRuntimeConfig()
@@ -26,17 +25,17 @@ export default defineNitroPlugin((nitro) => {
       return
     }
 
-    const fetch = `${apiBaseURL}${sitemap.path || '/sitemap'}`
+    const fetch = resolveContentSitemapSource(apiBaseURL, sitemap.path || '/sitemap')
 
     // Nuxt Sitemap can auto-register the upstream Nuxt Content v2 adapter.
     // Ginko owns its source explicitly, so remove the legacy source when it appears.
     ctx.sources = ctx.sources.filter((source) => {
-      return source.context?.name !== LEGACY_NUXT_CONTENT_V2_SOURCE && source.context?.name !== GINKO_SOURCE
+      return source.context?.name !== LEGACY_NUXT_CONTENT_V2_SOURCE && source.context?.name !== GINKO_SITEMAP_SOURCE_NAME
     })
 
     ctx.sources.push({
       context: {
-        name: GINKO_SOURCE
+        name: GINKO_SITEMAP_SOURCE_NAME
       },
       fetch,
       sourceType: 'app'

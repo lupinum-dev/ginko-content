@@ -34,7 +34,7 @@ import {
   shouldRunSitemapAssertionOnPrerenderedSitemaps,
   assertGeneratedSitemaps
 } from './module/sitemap-assert'
-import { createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions, resolveNuxtSitemapPrerenderRoutes } from './module/options'
+import { configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions, resolveNuxtSitemapPrerenderRoutes } from './module/options'
 
 export { defineCollection, defineContentConfig, reference } from './types/config.js'
 export type * from './types'
@@ -176,6 +176,9 @@ export default defineNuxtModule<ModuleOptions>({
       strictTranslatedSlugs: resolvedI18n.strictTranslatedSlugs,
       sitemap: resolvedSitemap,
       search: resolvedSearch
+    }
+    if (resolvedSitemap !== false) {
+      configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
     }
     if (resolvedSitemap && resolvedSitemap.assert.enabled) {
       // Validate the final XML files through Nuxt Sitemap's own hook. Nitro's lower-level build

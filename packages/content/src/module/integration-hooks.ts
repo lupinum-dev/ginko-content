@@ -234,9 +234,7 @@ export const registerContentNitroIntegrationHooks = (
   options: { rootDir: string, sitemapPrerenderRoutes?: string[] },
   contentContext: Pick<ContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap' | 'provider'>
 ) => {
-  if (contentContext.provider && contentContext.provider !== 'filesystem') {
-    return
-  }
+  const usesFilesystemProvider = !contentContext.provider || contentContext.provider === 'filesystem'
 
   nitroConfig.hooks ||= {}
   if (contentContext.sitemap?.assert?.enabled) {
@@ -253,7 +251,9 @@ export const registerContentNitroIntegrationHooks = (
         await assertGeneratedSitemaps({
           outputPublicDir: nitro.options.output.publicDir,
           options: assertOptions,
-          collectionRouteCounts: await collectSitemapCollectionRouteCounts(options.rootDir, contentContext),
+          collectionRouteCounts: usesFilesystemProvider
+            ? await collectSitemapCollectionRouteCounts(options.rootDir, contentContext)
+            : {},
           logger: nitro.logger
         })
       }
@@ -267,8 +267,10 @@ export const registerContentNitroIntegrationHooks = (
   }
 
   appendHook(nitroConfig.hooks as Record<string, any>, 'prerender:routes', async (routes: Set<string>) => {
-    for (const route of await collectPrerenderRoutes(options.rootDir, contentContext)) {
-      routes.add(route)
+    if (usesFilesystemProvider) {
+      for (const route of await collectPrerenderRoutes(options.rootDir, contentContext)) {
+        routes.add(route)
+      }
     }
     for (const route of options.sitemapPrerenderRoutes || []) {
       routes.add(route)
