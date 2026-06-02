@@ -342,7 +342,9 @@ Rules:
 - every composable exposes `pending`, `status`, `error`, `refresh`
 - list helpers return arrays by default
 - route page exposes `page` as an alias of `data`
-- `surround` is a typed tuple `[previous, next]`
+- `previous` and `next` are exposed as separate refs
+- `surround` is the derived array of existing adjacent links, suitable for
+  Nuxt UI-style surround components without a local adapter
 
 Benefits:
 
@@ -833,7 +835,6 @@ import { docs } from '~~/content.config'
 const { page, previous, next } = await useContentPage(docs, {
   surround: { fields: ['description'] }
 })
-const surroundLinks = toNuxtUiSurround(previous, next)
 ```
 
 After:
@@ -966,7 +967,7 @@ High priority:
 Medium priority:
 
 12. Normalize composable return contracts.
-13. Return `surround` tuple from `useContentPage`.
+13. Return Nuxt UI-compatible `surround` links from `useContentPage`.
 14. Expose `useContentHead(page)`.
 15. Make renderer unsupported-input fallback production-safe.
 16. Type synthetic navigation folder nodes correctly.
@@ -1087,7 +1088,7 @@ The smallest change set that would materially improve all consumers:
 1. Add typed string collection names.
 2. Stop auto-importing `one`, `many`, `tree`, and `neighbors`.
 3. Add `useContentNavigation('docs')` with `firstPage`.
-4. Return `surround` from `useContentPage`.
+4. Return `surround`, `previous`, and `next` from `useContentPage`.
 5. Default Nuxt composables to active locale, but keep fallback explicit.
 6. Add `collection` to search results and default search to page collections.
 7. Expose `useContentHead(page)`.

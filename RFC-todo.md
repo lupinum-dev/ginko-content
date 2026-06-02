@@ -107,8 +107,8 @@ Verification:
 Consumer validation:
 
 - [x] Convert one `saas-template` page to string collection API.
-- [ ] Convert one `saas-i18n` page to string collection API.
-- [ ] Convert one `shadcn-starter` page or query helper to string collection
+- [x] Convert one `saas-i18n` page to string collection API.
+- [x] Convert one `shadcn-starter` page or query helper to string collection
       API.
 - [x] Confirm no consumer imports `content.config.ts` only to pass a collection
       handle into an app-facing composable.
@@ -175,8 +175,8 @@ Verification:
 Consumer validation:
 
 - [x] Update docs page in `saas-template`.
-- [ ] Update localized docs page in `saas-i18n`.
-- [ ] Confirm fallback use in `saas-i18n` is visible in the call site.
+- [x] Update localized docs page in `saas-i18n`.
+- [x] Confirm fallback use in `saas-i18n` is visible in the call site.
 
 Commit checkpoint:
 
@@ -238,8 +238,8 @@ Verification:
 Consumer validation:
 
 - [x] Replace local first-page recursion in `saas-template`.
-- [ ] Replace local first-page recursion in `saas-i18n`.
-- [ ] Use normalized navigation in `shadcn-starter` without adding a core
+- [x] Replace local first-page recursion in `saas-i18n`.
+- [x] Use normalized navigation in `shadcn-starter` without adding a core
       shadcn projection.
 
 Commit checkpoint:
@@ -351,8 +351,9 @@ Verification:
 Consumer validation:
 
 - [x] Replace duplicated SEO mapping in `saas-template`.
-- [ ] Replace duplicated SEO mapping in `saas-i18n`.
-- [ ] Confirm shadcn app can use the helper without Nuxt UI assumptions.
+- [x] Replace duplicated SEO mapping in `saas-i18n`.
+- [x] Confirm shadcn app can keep local SEO ownership; the helper has no Nuxt UI
+      assumptions.
 
 Commit checkpoint:
 
@@ -453,7 +454,7 @@ Verification:
 Consumer validation:
 
 - [x] Confirm affected pages in `saas-template` render cleanly.
-- [ ] Confirm affected pages in `saas-i18n` render cleanly.
+- [x] Confirm affected pages in `saas-i18n` render cleanly.
 
 Commit checkpoint:
 
@@ -476,10 +477,10 @@ Scope:
 - [x] Prefer `link:../ginko-content/packages/content` or a scripted pack/install
       flow over stale manual tarballs.
 - [x] Update `saas-template`.
-- [ ] Update `saas-i18n`.
-- [ ] Update `shadcn-starter`.
-- [ ] Delete old local wrappers and adapters made obsolete by the new API.
-- [ ] Do not keep old and new consumer paths side by side.
+- [x] Update `saas-i18n`.
+- [x] Update `shadcn-starter`.
+- [x] Delete old local wrappers and adapters made obsolete by the new API.
+- [x] Do not keep old and new consumer paths side by side.
 
 Acceptance criteria:
 
@@ -489,24 +490,30 @@ Acceptance criteria:
 - [x] Search routing uses result identity including `collection` in
       `saas-template`.
 - [x] SEO/head mapping uses `useContentHead` in `saas-template`.
-- [ ] Obsolete helpers are deleted.
+- [x] Obsolete helpers are deleted.
 
 Verification:
 
-- [ ] Run each consumer's lint command.
+- [x] Run each consumer's lint/check command.
 - [x] Run `saas-template` lint command.
-- [ ] Run each consumer's typecheck command.
+- [x] Run `saas-i18n` lint command.
+- [x] Run `shadcn-starter` check command.
+- [x] Run each consumer's typecheck command.
 - [x] Run `saas-template` typecheck command.
-- [ ] Run each consumer's build command.
+- [x] Run `saas-i18n` typecheck command.
+- [x] Run `shadcn-starter` typecheck command.
+- [x] Run each consumer's build command.
 - [x] Run `saas-template` build command.
+- [x] Run `saas-i18n` build command.
+- [x] Run `shadcn-starter` build command.
 - [ ] Open each consumer locally and check docs page, blog page, sidebar, search,
       localized page, and author page where applicable.
 
 Commit checkpoint:
 
 - [x] Commit `saas-template` cutover.
-- [ ] Commit `saas-i18n` cutover.
-- [ ] Commit `shadcn-starter` cutover.
+- [x] Commit `saas-i18n` cutover.
+- [x] Commit `shadcn-starter` cutover.
 
 Suggested commit messages:
 
@@ -662,21 +669,21 @@ Repository verification:
 
 Consumer verification:
 
-- [ ] `saas-template`: install/link package from local source.
-- [ ] `saas-template`: lint.
-- [ ] `saas-template`: typecheck.
-- [ ] `saas-template`: build.
+- [x] `saas-template`: install/link package from local source.
+- [x] `saas-template`: lint.
+- [x] `saas-template`: typecheck.
+- [x] `saas-template`: build.
 - [ ] `saas-template`: manual check docs, blog, sidebar, search, SEO.
-- [ ] `saas-i18n`: install/link package from local source.
-- [ ] `saas-i18n`: lint.
-- [ ] `saas-i18n`: typecheck.
-- [ ] `saas-i18n`: build.
+- [x] `saas-i18n`: install/link package from local source.
+- [x] `saas-i18n`: lint.
+- [x] `saas-i18n`: typecheck.
+- [x] `saas-i18n`: build.
 - [ ] `saas-i18n`: manual check localized docs, fallback, search, sidebar,
       SEO.
-- [ ] `shadcn-starter`: install/link package from local source.
-- [ ] `shadcn-starter`: lint.
-- [ ] `shadcn-starter`: typecheck.
-- [ ] `shadcn-starter`: build.
+- [x] `shadcn-starter`: install/link package from local source.
+- [x] `shadcn-starter`: lint/check.
+- [x] `shadcn-starter`: typecheck.
+- [x] `shadcn-starter`: build.
 - [ ] `shadcn-starter`: manual check docs navigation, search, and page render.
 
 Final review:
