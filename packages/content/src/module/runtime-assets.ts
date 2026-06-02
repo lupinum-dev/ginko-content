@@ -27,6 +27,7 @@ export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => s
     { name: 'useContentNeighbors', as: 'useContentNeighbors', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentLocaleSwitch', as: 'useContentLocaleSwitch', from: resolveRuntimeModule('./app/composables/use-content.js') },
     // Search & site data — kept (out of scope for ADR-0016).
+    { name: 'useContentSearch', as: 'useContentSearch', from: resolveRuntimeModule('./app/composables/search.js') },
     { name: 'useContentSearchData', as: 'useContentSearchData', from: resolveRuntimeModule('./app/composables/search.js') },
     { name: 'useContentSearchResults', as: 'useContentSearchResults', from: resolveRuntimeModule('./app/composables/search.js') },
     { name: 'querySiteData', as: 'querySiteData', from: resolveRuntimeModule('./app/composables/site-data.js') }

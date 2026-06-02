@@ -267,8 +267,8 @@ export interface ModuleOptions {
    * Built-in full-text search configuration.
    *
    * When enabled, Ginko exposes JSON/Pagefind search endpoints under
-   * the content api base route. Import `useContentSearchResults()` from
-   * `@lupinum/ginko-content/client` to consume them from app components.
+   * the content api base route. Use the auto-imported search composables
+   * or import them from `@lupinum/ginko-content/client`.
    */
   search: false | ContentSearchOptions
   /**
