@@ -6,7 +6,7 @@
  */
 import type {} from '../.nuxt/types/content'
 import type { ContentCollectionName, DocumentFromHandle, LocalizedDoc, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
-import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentMany, useContentNavigation, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
+import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentHead, useContentMany, useContentNavigation, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
@@ -278,6 +278,7 @@ const stringRouteDataTitle: string | undefined = stringRoutePage.data.value?.tit
 const stringRoutePageTitle: string | undefined = stringRoutePage.page.value?.title
 const stringRoutePreviousTitle: string | undefined = stringRoutePage.surround.value.previous?.title
 const stringRouteNextTitle: string | undefined = stringRoutePage.surround.value.next?.title
+useContentHead(stringRoutePage.page)
 void stringRouteDataTitle
 void stringRoutePageTitle
 void stringRoutePreviousTitle

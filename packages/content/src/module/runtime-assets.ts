@@ -6,6 +6,7 @@ import type { Nuxt } from '@nuxt/schema'
 export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => string) => {
   addImports([
     { name: 'getCollectionPath', as: 'getCollectionPath', from: resolveRuntimeModule('./query/routes.js') },
+    { name: 'useContentHead', as: 'useContentHead', from: resolveRuntimeModule('./app/composables/head.js') },
     // Vue composables — reactive wrappers over the same options shape.
     { name: 'useContentPage', as: 'useContentPage', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentOne', as: 'useContentOne', from: resolveRuntimeModule('./app/composables/use-content.js') },

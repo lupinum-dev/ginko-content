@@ -195,6 +195,7 @@ describe('app query/composable contracts', () => {
       'variants',
       'tree',
       'neighbors',
+      'useContentHead',
       'useContentPage',
       'useContentOne',
       'useContentMany',

@@ -244,7 +244,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit navigation composable.
+- [x] Commit navigation composable.
 
 Suggested commit message:
 
@@ -309,11 +309,11 @@ Goal: centralize repeated SEO/head extraction without hiding ownership.
 
 Scope:
 
-- [ ] Add explicit `useContentHead(page)`.
-- [ ] Support title, description, image, and canonical route where already
+- [x] Add explicit `useContentHead(page)`.
+- [x] Support title, description, image, and canonical route where already
       available.
-- [ ] Keep the helper explicit-only.
-- [ ] Do not make `useContentPage` mutate head automatically in this phase.
+- [x] Keep the helper explicit-only.
+- [x] Do not make `useContentPage` mutate head automatically in this phase.
 
 Target API:
 
@@ -326,21 +326,25 @@ useContentHead(page)
 Acceptance criteria:
 
 - [ ] Consumers can delete local page-to-head mapping helpers.
-- [ ] Missing optional SEO fields do not produce invalid head tags.
-- [ ] Head ownership remains visible at the call site.
+- [x] Missing optional SEO fields do not produce invalid head tags.
+- [x] Head ownership remains visible at the call site.
 
 Tests:
 
-- [ ] Add tests for common page metadata.
-- [ ] Add tests for missing optional metadata.
-- [ ] Add type tests for accepted page shape.
+- [x] Add tests for common page metadata.
+- [x] Add tests for missing optional metadata.
+- [x] Add type tests for accepted page shape.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 - [ ] `pnpm docs:build`
+- [x] Focused head/public API contracts:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/content-head-contracts.test.ts test/contracts/app-query-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts`
+- [x] Package export contract:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/package-exports-contracts.test.ts`
 
 Consumer validation:
 

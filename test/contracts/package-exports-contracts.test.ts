@@ -48,6 +48,7 @@ describe('package export contracts', () => {
     expect(client.tree).toBeTypeOf('function')
     expect(client.neighbors).toBeTypeOf('function')
     expect(client.getCollectionPath).toBeTypeOf('function')
+    expect(client.useContentHead).toBeTypeOf('function')
     expect(client.useContentPage).toBeTypeOf('function')
     expect(client.useContentOne).toBeTypeOf('function')
     expect(client.useContentMany).toBeTypeOf('function')

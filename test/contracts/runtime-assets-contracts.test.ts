@@ -44,6 +44,7 @@ describe('runtime asset contracts', () => {
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
+      expect.objectContaining({ name: 'useContentHead', as: 'useContentHead' }),
       expect.objectContaining({ name: 'useContentSearchData', as: 'useContentSearchData' }),
       expect.objectContaining({ name: 'useContentSearchResults', as: 'useContentSearchResults' })
     ]))
