@@ -193,7 +193,7 @@ describe('useContentPage contracts', () => {
     expect(state.page.value?.title).toBe('Getting Started')
     expect(state.previous.value).toBeNull()
     expect(state.next.value).toBeNull()
-    expect(state.surround.value).toEqual({ previous: null, next: null })
+    expect(state.surround.value).toEqual([])
     expect(useContentRoute).toHaveBeenCalledWith(state.page)
   })
 
@@ -433,9 +433,9 @@ describe('useContentPage contracts', () => {
     }), expect.anything())
     expect(state.previous.value).toEqual(expect.objectContaining({ title: 'Intro' }))
     expect(state.next.value).toEqual(expect.objectContaining({ title: 'Advanced' }))
-    expect(state.surround.value).toEqual({
-      previous: expect.objectContaining({ title: 'Intro' }),
-      next: expect.objectContaining({ title: 'Advanced' })
-    })
+    expect(state.surround.value).toEqual([
+      expect.objectContaining({ title: 'Intro' }),
+      expect.objectContaining({ title: 'Advanced' })
+    ])
   })
 })

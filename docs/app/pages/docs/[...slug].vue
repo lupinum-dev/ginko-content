@@ -7,17 +7,16 @@ definePageMeta({
 
 const { toc, seo } = useAppConfig()
 
-const { page, previous, next } = await useContentPage('docs', {
+const { page, surround } = await useContentPage('docs', {
   surround: true
 })
 
 const surroundLinks = computed(() => {
-  const prev = previous.value as { _path?: string, path?: string } | null
-  const nextLink = next.value as { _path?: string, path?: string } | null
+  const [prev, nextLink] = surround.value as Array<{ _path?: string, path?: string }>
   return [
     prev ? { ...prev, _path: prefixDocsPath(prev._path || prev.path) } : null,
     nextLink ? { ...nextLink, _path: prefixDocsPath(nextLink._path || nextLink.path) } : null
-  ]
+  ].filter(Boolean)
 })
 
 const pageTitle = computed(() => (page.value as any)?.seo?.title || (page.value as any)?.title || '')

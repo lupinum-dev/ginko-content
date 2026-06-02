@@ -331,13 +331,14 @@ Because Ginko owns the content route model, sitemap generation, navigation trees
   :::tabs-item{label="app/pages/docs/[...slug].vue" icon="i-simple-icons-vuedotjs"}
   ```vue
   <script setup lang="ts">
-  const { page, previous, next } = await useContentPage('docs', {
+  const { page, surround } = await useContentPage('docs', {
     surround: true
   })
   </script>
 
   <template>
     <ContentRenderer v-if="page" :value="page" />
+    <UContentSurround :surround="surround" />
   </template>
   ```
   :::
