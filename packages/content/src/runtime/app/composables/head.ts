@@ -17,6 +17,7 @@ type ContentHeadDocument = {
   description?: string
   image?: string | Record<string, any>
   head?: ContentHeadObject
+  seo?: ContentHeadObject
 }
 
 type ContentHeadRuntimeConfig = {
@@ -31,7 +32,7 @@ function isHeadImageObject (image: unknown): image is Record<string, any> {
 /**
  * Apply sensible page head defaults from a parsed content document.
  *
- * The composable merges explicit `content.head` values with common fallbacks
+ * The composable merges explicit `content.head` or `content.seo` values with common fallbacks
  * from the document (`title`, `description`, `image`) and adds canonical /
  * Open Graph URL metadata when a public site URL is configured.
  */
@@ -60,8 +61,8 @@ export const resolveContentHead = (
   // Don't call this function if no route is yet available
   if (!to.path || !data) { return null }
 
-  // Default head to `data?.head`
-  const head: ContentHeadObject = Object.assign({}, data?.head || {})
+  // Default head to `data.head`, with `data.seo` supported for Nuxt UI content.
+  const head: ContentHeadObject = Object.assign({}, data?.head || data?.seo || {})
   const appConfig = config.app
 
   head.meta = [...(head.meta || [])]

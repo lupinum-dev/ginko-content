@@ -32,4 +32,27 @@ describe('content head contracts', () => {
 
     expect(resolveContentHead(undefined, route, config)).toBeNull()
   })
+
+  test('treats seo metadata as content head input', async () => {
+    const { resolveContentHead } = await import('../../packages/content/src/runtime/app/composables/head')
+
+    const head = resolveContentHead({
+      title: 'Pricing fallback',
+      description: 'Fallback description.',
+      seo: {
+        title: 'Pricing',
+        description: 'Plans and billing.',
+        image: '/og/pricing.png'
+      }
+    }, route, config)
+
+    expect(head).toEqual(expect.objectContaining({
+      title: 'Pricing',
+      description: 'Plans and billing.',
+      image: '/og/pricing.png',
+      meta: expect.arrayContaining([
+        { name: 'description', content: 'Plans and billing.' }
+      ])
+    }))
+  })
 })
