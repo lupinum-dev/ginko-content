@@ -162,6 +162,24 @@ describe('module contracts', () => {
     )
   })
 
+  test('fails when collection map key and authored handle name drift', async () => {
+    const { nuxt } = createNuxt()
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        collections: {
+          docs: { name: 'guides', source: '**/*.md' }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await expect(mod.default.setup(createOptions(), nuxt as any)).rejects.toThrow(
+      '@lupinum/ginko-content collection key "docs" must match defineCollection name "guides"'
+    )
+  })
+
   test('accepts a provider implementation registered by a Nuxt module hook', async () => {
     const { nuxt, hooks } = createNuxt()
     nuxt.hook('content:providers', (providers: Record<string, string>) => {

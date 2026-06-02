@@ -1,7 +1,7 @@
 import type { ParsedContent } from '../../../types/content'
-import type { ContentCollectionHandle } from '../../../types/config'
 import type {
   ContentQueryBuilderParams,
+  ContentCollectionTarget,
   ContentVariant,
   ContentTreeItem,
   BacklinksOptions,
@@ -51,7 +51,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
 }
 
 export async function resolveOne<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends ResolveOneOptions<H, PopulateSpec | undefined>
 >(
   handle: H,
@@ -61,7 +61,7 @@ export async function resolveOne<
 }
 
 export async function one<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends OneOptions<H, PopulateSpec | undefined>
 >(
   handle: H,
@@ -71,7 +71,7 @@ export async function one<
 }
 
 export async function many<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends ManyOptions<H, PopulateSpec | undefined>
 >(
   handle: H,
@@ -81,7 +81,7 @@ export async function many<
 }
 
 export async function paginate<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends PaginationOptions<H, PopulateSpec | undefined>
 >(
   handle: H,
@@ -91,7 +91,7 @@ export async function paginate<
 }
 
 export async function backlinks<
-  const Target extends ContentCollectionHandle | string,
+  const Target extends ContentCollectionTarget,
   const Source extends BacklinkSource | ReadonlyArray<BacklinkSource>,
   P extends PopulateSpec | undefined = undefined
 >(
@@ -101,7 +101,7 @@ export async function backlinks<
   return await backlinksWithContext(createClientContentQueryContext(), handle, options)
 }
 
-export async function variants<H extends ContentCollectionHandle | string>(
+export async function variants<H extends ContentCollectionTarget>(
   handle: H,
   options: VariantsOptions<H>
 ): Promise<Array<ContentVariant<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>>> {
@@ -109,7 +109,7 @@ export async function variants<H extends ContentCollectionHandle | string>(
 }
 
 export async function tree<
-  H extends ContentCollectionHandle | string,
+  H extends ContentCollectionTarget,
   Fields extends ReadonlyArray<string> | undefined = undefined
 >(
   handle: H,
@@ -118,7 +118,7 @@ export async function tree<
   return await treeWithContext(createClientContentQueryContext(), handle, options)
 }
 
-export async function neighbors<H extends ContentCollectionHandle | string>(
+export async function neighbors<H extends ContentCollectionTarget>(
   handle: H,
   options: NeighborsOptions<H>
 ): Promise<NeighborsResult<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {

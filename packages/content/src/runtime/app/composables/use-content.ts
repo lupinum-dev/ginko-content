@@ -13,11 +13,11 @@ import { computed, shallowRef, toValue, watch } from 'vue'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import { hash } from 'ohash'
 import { createError, useAsyncData, useRoute } from '#imports'
-import type { ContentCollectionHandle } from '../../../types/config'
 import type {
   BacklinksOptions,
   BacklinksResult,
   BacklinkSource,
+  ContentCollectionTarget,
   ContentVariant,
   ContentTreeItem,
   ContentResolvedMeta,
@@ -123,7 +123,7 @@ interface UseContentOneReturn<T> {
  * keyed by `${collection}:${stableHash(options)}`.
  */
 export async function useContentOne<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends OneOptions<H, PopulateSpec | undefined>
 > (
   handle: H,
@@ -251,7 +251,7 @@ const routeMetaMatchesPath = (value: ContentRouteMeta | null | undefined, path: 
  * primitive for custom reads.
  */
 export async function useContentPage<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   P extends PopulateSpec | undefined = undefined
 >(
   handle: H,
@@ -362,7 +362,7 @@ interface UseContentResolveOneReturn<T> {
  * Reactively resolve a single document with a first-class diagnostic envelope.
  */
 export async function useContentResolveOne<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends ResolveOneOptions<H, PopulateSpec | undefined>
 > (
   handle: H,
@@ -412,7 +412,7 @@ interface UseContentPaginationReturn<T> {
  * Reactively resolve a list of documents.
  */
 export async function useContentMany<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends ManyOptions<H, PopulateSpec | undefined>
 > (
   handle: H,
@@ -451,7 +451,7 @@ const emptyPagination = <T>(): PaginationResult<T> => ({
  * Reactively resolve one page of documents plus total/page navigation metadata.
  */
 export async function useContentPagination<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends PaginationOptions<H, PopulateSpec | undefined>
 > (
   handle: H,
@@ -495,7 +495,7 @@ interface UseContentBacklinksReturn<T> {
  * Reactively resolve source documents that reference a target document.
  */
 export async function useContentBacklinks<
-  const Target extends ContentCollectionHandle | string,
+  const Target extends ContentCollectionTarget,
   const Source extends BacklinkSource | ReadonlyArray<BacklinkSource>,
   P extends PopulateSpec | undefined = undefined
 > (
@@ -532,7 +532,7 @@ interface UseContentVariantsReturn<T> {
  * locale switchers. Returns one entry per configured locale, with a
  * `translated` flag.
  */
-export async function useContentVariants<H extends ContentCollectionHandle | string> (
+export async function useContentVariants<H extends ContentCollectionTarget> (
   handle: H,
   options: Reactive<VariantsOptions<H>>
 ): Promise<UseContentVariantsReturn<DocFromHandle<H>>> {
@@ -563,7 +563,7 @@ interface UseContentTreeReturn<T> {
 /**
  * Reactively resolve the navigation tree for a collection.
  */
-export async function useContentTree<H extends ContentCollectionHandle | string> (
+export async function useContentTree<H extends ContentCollectionTarget> (
   handle: H,
   options: Reactive<TreeOptions<H>> = {} as Reactive<TreeOptions<H>>
 ): Promise<UseContentTreeReturn<ContentTreeItem<DocFromHandle<H>>>> {
@@ -596,7 +596,7 @@ interface UseContentNeighborsReturn<T> {
 /**
  * Reactively resolve previous/next surroundings for a document.
  */
-export async function useContentNeighbors<H extends ContentCollectionHandle | string> (
+export async function useContentNeighbors<H extends ContentCollectionTarget> (
   handle: H,
   options: Reactive<NeighborsOptions<H>>
 ): Promise<UseContentNeighborsReturn<DocFromHandle<H>>> {
@@ -663,7 +663,7 @@ interface UseContentLocaleSwitchReturn<T> {
  * ```
  */
 export async function useContentLocaleSwitch<
-  const H extends ContentCollectionHandle | string,
+  const H extends ContentCollectionTarget,
   O extends OneOptions<H, PopulateSpec | undefined>
 > (
   handle: H,
@@ -686,6 +686,7 @@ export type {
   BacklinksResult,
   LocalizedDoc,
   ContentResolvedMeta,
+  ContentCollectionTarget,
   DocumentFromHandle,
   NeighborsOptions,
   NeighborsResult,

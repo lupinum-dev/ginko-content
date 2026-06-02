@@ -5,15 +5,6 @@ import type { Nuxt } from '@nuxt/schema'
 
 export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => string) => {
   addImports([
-    // Unified query API (ADR-0016) — app wrappers bind the Nuxt content context explicitly.
-    { name: 'one', as: 'one', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'many', as: 'many', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'paginate', as: 'paginate', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'backlinks', as: 'backlinks', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'resolveOne', as: 'resolveOne', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'variants', as: 'variants', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'tree', as: 'tree', from: resolveRuntimeModule('./app/composables/query-api.js') },
-    { name: 'neighbors', as: 'neighbors', from: resolveRuntimeModule('./app/composables/query-api.js') },
     { name: 'getCollectionPath', as: 'getCollectionPath', from: resolveRuntimeModule('./query/routes.js') },
     // Vue composables — reactive wrappers over the same options shape.
     { name: 'useContentPage', as: 'useContentPage', from: resolveRuntimeModule('./app/composables/use-content.js') },
@@ -136,27 +127,79 @@ export const registerUserContentComponents = async (nuxt: Nuxt, resolve: (path: 
 
 export const registerGeneratedTypes = (
   contentConfigPath: string | undefined,
-  resolveRuntimeModuleRoot: (path: string) => string
+  resolveRuntimeModuleRoot: (path: string) => string,
+  collectionNames: string[] = [],
+  i18nCollectionNames: string[] = []
 ) => {
+  const collectionNameUnion = collectionNames.length
+    ? collectionNames.map(name => JSON.stringify(name)).join(' | ')
+    : 'never'
+  const i18nCollectionNameUnion = i18nCollectionNames.length
+    ? i18nCollectionNames.map(name => JSON.stringify(name)).join(' | ')
+    : 'never'
+  const collectionMapProperties = collectionNames.map((name) => {
+    const key = JSON.stringify(name)
+    return `    ${key}: StrictParsedContent & __GeneratedCollectionSchema<__ContentCollectionExport<${key}>>`
+  })
+
   return addTypeTemplate({
     filename: 'types/content.d.ts',
     getContents: () => [
       contentConfigPath
         ? `import type contentConfig from ${JSON.stringify(contentConfigPath)}`
         : 'type __ContentConfig = { collections?: {} }',
+      contentConfigPath
+        ? `import type * as contentConfigModule from ${JSON.stringify(contentConfigPath)}`
+        : 'declare const contentConfigModule: {}',
       'import type { StrictParsedContent } from \'@lupinum/ginko-content\'',
       'import type { CollectionSchema } from \'@lupinum/ginko-content/config\'',
       contentConfigPath
         ? 'type __ContentConfig = typeof contentConfig'
         : '',
       'type __ContentCollections = NonNullable<__ContentConfig[\'collections\']>',
+      `type __RuntimeContentCollectionNames = ${collectionNameUnion}`,
+      'type __NamedContentCollectionNames = {',
+      '  [K in keyof typeof contentConfigModule & string]: typeof contentConfigModule[K] extends { name: K } ? K : never',
+      '}[keyof typeof contentConfigModule & string]',
+      'type __InferredContentCollectionNames = string extends keyof __ContentCollections',
+      '  ? __NamedContentCollectionNames',
+      '  : keyof __ContentCollections & string',
+      'type __ContentCollectionNames = [__RuntimeContentCollectionNames] extends [never]',
+      '  ? __InferredContentCollectionNames',
+      '  : __RuntimeContentCollectionNames',
+      'type __ContentCollectionExport<K extends string> = K extends keyof typeof contentConfigModule',
+      '  ? typeof contentConfigModule[K]',
+      '  : __ContentCollections[K]',
+      'type __GeneratedCollectionSchema<TCollection> = TCollection extends { __schema: infer TSchema }',
+      '  ? TSchema extends { _output: infer TOutput } ? TOutput : {}',
+      '  : CollectionSchema<TCollection>',
       'type __GeneratedContentCollectionMap = {',
-      '  [K in keyof __ContentCollections & string]: StrictParsedContent & CollectionSchema<__ContentCollections[K]>',
+      '  [K in __ContentCollectionNames]: StrictParsedContent & __GeneratedCollectionSchema<__ContentCollectionExport<K>>',
       '}',
-      'type __GeneratedI18nCollectionNames = {',
-      '  [K in keyof __ContentCollections & string]: NonNullable<__ContentCollections[K][\'i18n\']> extends never ? never : K',
-      '}[keyof __ContentCollections & string]',
+      `type __RuntimeI18nCollectionNames = ${i18nCollectionNameUnion}`,
+      'type __InferredI18nCollectionNames = {',
+      '  [K in __ContentCollectionNames]: __ContentCollectionExport<K> extends { __i18n: true }',
+      '    ? K',
+      '    : NonNullable<__ContentCollectionExport<K>[\'i18n\']> extends never ? never : K',
+      '}[__ContentCollectionNames]',
+      'type __GeneratedI18nCollectionNames = [__RuntimeI18nCollectionNames] extends [never]',
+      '  ? __InferredI18nCollectionNames',
+      '  : __RuntimeI18nCollectionNames',
       'declare module \'@lupinum/ginko-content\' {',
+      '  interface ContentCollectionMap extends __GeneratedContentCollectionMap {}',
+      '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
+      '}',
+      'declare global {',
+      '  interface GinkoContentCollectionMap {',
+      ...collectionMapProperties,
+      '  }',
+      '  interface GinkoContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
+      '}',
+      'declare module \'@lupinum/ginko-content/dist/types/query\' {',
+      '  interface ContentCollectionMap extends __GeneratedContentCollectionMap {}',
+      '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
+      '}',
+      'declare module \'@lupinum/ginko-content/dist/types/query.js\' {',
       '  interface ContentCollectionMap extends __GeneratedContentCollectionMap {}',
       '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
       '}',

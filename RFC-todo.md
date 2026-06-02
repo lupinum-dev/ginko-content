@@ -22,38 +22,38 @@ Principles for this work:
 
 Goal: make the current behavior measurable before changing public APIs.
 
-- [ ] Confirm this todo matches the current RFC direction.
-- [ ] Move "derive collection names from config keys" out of the first cut if it
+- [x] Confirm this todo matches the current RFC direction.
+- [x] Move "derive collection names from config keys" out of the first cut if it
       is still listed as a first-cut task in `dream-experience.md`.
-- [ ] Confirm first-cut public APIs:
+- [x] Confirm first-cut public APIs:
       `useContentPage('docs')`, `useContentMany('posts')`,
       `useContentNavigation('docs')`, `useContentHead(page)`.
-- [ ] Confirm low-level query functions stay explicit imports:
+- [x] Confirm low-level query functions stay explicit imports:
       `one`, `many`, `tree`, `neighbors`, `backlinks`.
-- [ ] Confirm fallback policy: active Nuxt locale may be inferred, fallback must
+- [x] Confirm fallback policy: active Nuxt locale may be inferred, fallback must
       stay explicit via `fallback: true` unless a collection opts in later.
 - [ ] Capture current consumer friction with short before examples from:
       `saas-i18n`, `saas-template`, `shadcn-starter`.
-- [ ] Identify the exact package and generated type files that own collection
+- [x] Identify the exact package and generated type files that own collection
       names, composables, search records, navigation records, and renderer
       fallback.
 
 Acceptance criteria:
 
-- [ ] `dream-experience.md` and this file agree on first-cut scope.
-- [ ] No phase contains generated handles, route meta generation, markdown tag
+- [x] `dream-experience.md` and this file agree on first-cut scope.
+- [x] No phase contains generated handles, route meta generation, markdown tag
       conventions, or shadcn section projection as first-cut work.
-- [ ] Each first-cut API has a named verification path.
+- [x] Each first-cut API has a named verification path.
 
 Verification:
 
-- [ ] `pnpm lint`
+- [x] `pnpm lint`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 
 Commit checkpoint:
 
-- [ ] Commit RFC planning docs.
+- [x] Commit RFC planning docs.
 
 Suggested commit message:
 
@@ -68,37 +68,41 @@ schema inference.
 
 Scope:
 
-- [ ] Add generated collection name unions for app-facing APIs.
-- [ ] Add type helpers that map collection names to document, route, locale, and
+- [x] Add generated collection name unions for app-facing APIs.
+- [x] Add type helpers that map collection names to document, route, locale, and
       i18n metadata types.
-- [ ] Update `useContentPage`, `useContentMany`, and planned navigation/search
-      APIs to accept typed collection names.
-- [ ] Keep existing handle-based internals only where they are already the
+- [x] Update existing query functions and composables, including
+      `useContentPage` and `useContentMany`, to accept typed collection names.
+- [ ] Update planned navigation/search APIs to accept typed collection names
+      once those APIs are introduced or revised in their own phases.
+- [x] Keep existing handle-based internals only where they are already the
       canonical runtime path.
-- [ ] Do not add generated `#content/collections` handles in this phase.
-- [ ] Do not remove `defineCollection('name')` yet.
+- [x] Do not add generated `#content/collections` handles in this phase.
+- [x] Do not remove `defineCollection('name')` yet.
 
 Acceptance criteria:
 
-- [ ] `useContentPage('docs')` infers the `docs` page type.
-- [ ] `useContentMany('posts')` infers the `posts` item type.
-- [ ] Invalid collection names fail typecheck.
-- [ ] Collection-specific options, including locale and populate targets, narrow
+- [x] `useContentPage('docs')` infers the `docs` page type.
+- [x] `useContentMany('posts')` infers the `posts` item type.
+- [x] Invalid collection names fail typecheck.
+- [x] Collection-specific options, including locale and populate targets, narrow
       from the selected string name.
-- [ ] Existing direct query APIs still work with explicit imports.
+- [x] Existing direct query APIs still work with explicit imports.
 
 Tests:
 
-- [ ] Add type tests for valid and invalid collection names.
-- [ ] Add type tests for `useContentPage('docs')`.
-- [ ] Add type tests for `useContentMany('posts')`.
-- [ ] Add type tests for collection-specific locale options.
+- [x] Add type tests for valid and invalid collection names.
+- [x] Add type tests for `useContentPage('docs')`.
+- [x] Add type tests for `useContentMany('posts')`.
+- [x] Add type tests for collection-specific locale options.
 
 Verification:
 
-- [ ] `pnpm build:packages`
-- [ ] `pnpm typecheck`
+- [x] `pnpm build:packages`
+- [x] `pnpm typecheck`
 - [ ] `pnpm test`
+- [x] Focused contract tests:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/module-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts`
 
 Consumer validation:
 

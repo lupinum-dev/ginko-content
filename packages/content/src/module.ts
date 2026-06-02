@@ -145,6 +145,8 @@ export default defineNuxtModule<ModuleOptions>({
     const resolvedSitemap = normalizeSitemapOptions(options)
     const resolvedSearch = normalizeSearchOptions(options)
 
+    validateCollectionNames(appContentConfig.collections)
+
     options.collections = Object.fromEntries(Object.entries(appContentConfig.collections).map(([name, collection]) => [
       name,
       {
@@ -208,7 +210,12 @@ export default defineNuxtModule<ModuleOptions>({
     registerRuntimeImports(resolveRuntimeModule)
     registerRuntimeComponents(resolve)
     registerContentComponentsTemplate(addTemplate)
-    registerGeneratedTypes(contentConfigPath, resolveRuntimeModule)
+    registerGeneratedTypes(
+      contentConfigPath,
+      resolveRuntimeModule,
+      Object.keys(appContentConfig.collections),
+      Object.entries(appContentConfig.collections).filter(([, collection]) => Boolean(collection.i18n)).map(([name]) => name)
+    )
     await registerUserContentComponents(nuxt, resolve)
     const getSearchRuntime = () => contentContext.search === false
       ? false
@@ -452,6 +459,15 @@ interface ModulePublicRuntimeConfig {
   search: ReturnType<typeof createSearchRuntimeConfig> | false
 
   contentHead: ModuleOptions['contentHead']
+}
+
+function validateCollectionNames (collections: Record<string, ContentCollectionConfig>) {
+  for (const [key, collection] of Object.entries(collections)) {
+    const authoredName = (collection as { name?: unknown }).name
+    if (typeof authoredName === 'string' && authoredName !== key) {
+      throw new Error(`@lupinum/ginko-content collection key "${key}" must match defineCollection name "${authoredName}". Use defineCollection('${key}', ...) or rename the collections map key.`)
+    }
+  }
 }
 
 function validateRemovedMarkdownOptions (options: ModuleOptions) {

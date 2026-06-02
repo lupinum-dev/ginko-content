@@ -347,7 +347,11 @@ function normalizeCollectionSource (source: ContentCollectionSource | ContentCol
  * })
  * ```
  */
-export function defineContentConfig<TCollections extends Record<string, ContentCollectionConfig>> (config: ContentConfig<TCollections>): ContentConfig<TCollections> {
+export function defineContentConfig<const TCollections extends Record<string, ContentCollectionConfig>> (
+  config: Omit<ContentConfig<TCollections>, 'collections'> & { collections: TCollections }
+): Omit<ContentConfig<TCollections>, 'collections'> & { collections: TCollections }
+export function defineContentConfig<const TConfig extends ContentConfig<Record<string, ContentCollectionConfig>>> (config: TConfig): TConfig
+export function defineContentConfig (config: ContentConfig): ContentConfig {
   return config
 }
 

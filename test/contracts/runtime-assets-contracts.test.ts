@@ -52,6 +52,27 @@ describe('runtime asset contracts', () => {
     ]))
   })
 
+  test('does not auto-import low-level query primitives into app code', () => {
+    registerRuntimeImports(path => `/runtime/${path}`)
+
+    const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
+    expect(imports).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'one', as: 'one' }),
+      expect.objectContaining({ name: 'many', as: 'many' }),
+      expect.objectContaining({ name: 'paginate', as: 'paginate' }),
+      expect.objectContaining({ name: 'backlinks', as: 'backlinks' }),
+      expect.objectContaining({ name: 'resolveOne', as: 'resolveOne' }),
+      expect.objectContaining({ name: 'variants', as: 'variants' }),
+      expect.objectContaining({ name: 'tree', as: 'tree' }),
+      expect.objectContaining({ name: 'neighbors', as: 'neighbors' })
+    ]))
+    expect(imports).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
+      expect.objectContaining({ name: 'useContentMany', as: 'useContentMany' }),
+      expect.objectContaining({ name: 'useContentTree', as: 'useContentTree' })
+    ]))
+  })
+
   test('registers user content component dirs as non-global and preserves app override order', async () => {
     const root = await mkdtemp(join(tmpdir(), 'content-runtime-assets-'))
     const baseLayer = join(root, 'base')

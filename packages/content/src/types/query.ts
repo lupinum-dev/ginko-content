@@ -621,13 +621,22 @@ export interface ContentQueryRequest {
 export type ContentQueryFetcher<T> = (query: ContentQueryRequest) => Promise<ContentQueryResponse<T>>
 export type QueryMatchOperator = (item: unknown, condition: unknown) => boolean
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extended by generated module augmentation
-export interface ContentCollectionMap {}
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extended by generated module augmentation
-export interface ContentCollectionI18nMap {}
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extended by generated app types
+  interface GinkoContentCollectionMap {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extended by generated app types
+  interface GinkoContentCollectionI18nMap {}
+}
 
-export type ContentCollectionName = keyof ContentCollectionMap & string
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extended by generated app types
+export interface ContentCollectionMap extends GinkoContentCollectionMap {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- extended by generated app types
+export interface ContentCollectionI18nMap extends GinkoContentCollectionI18nMap {}
+
+export type ContentCollectionName = keyof GinkoContentCollectionMap & string
 export type ContentCollectionItem<K extends ContentCollectionName> = ContentCollectionMap[K]
+export type ContentCollectionStringName = [ContentCollectionName] extends [never] ? string : ContentCollectionName
+export type ContentCollectionTarget = ContentCollectionHandle | ContentCollectionStringName
 
 /**
  * ============================================================================
@@ -714,9 +723,11 @@ type HandleSchema<H> = H extends { __schema: infer S }
   ? S extends { _output: infer O }
     ? O & StrictParsedContentMeta
     : StrictParsedContentMeta
+  : H extends ContentCollectionName
+    ? ContentCollectionMap[H] & StrictParsedContentMeta
   : StrictParsedContentMeta
 
-type SelectFields<H> = H extends string
+type SelectFields<H> = string extends H
   ? ReadonlyArray<string>
   : ReadonlyArray<Extract<keyof HandleSchema<H>, string>>
 
@@ -725,13 +736,15 @@ type SelectFields<H> = H extends string
  */
 export type DocumentFromHandle<H> = H extends { __schema: { _output: infer O } }
   ? O & StrictParsedContent
+  : H extends ContentCollectionName
+    ? ContentCollectionMap[H]
   : ParsedContent
 
 /**
  * Explicit reference population map. Keys are fields on the source document;
  * values are target collection handles.
  */
-export type PopulateSpec = Record<string, ContentCollectionHandle | string>
+export type PopulateSpec = Record<string, ContentCollectionTarget>
 
 export type PopulatedDocument<T, P> =
   P extends undefined
@@ -759,6 +772,8 @@ type PopulateOption<P extends PopulateSpec | undefined = undefined> = {
  */
 type HandleIsI18n<H> = H extends { __i18n: infer I }
   ? I extends true ? true : false
+  : H extends keyof GinkoContentCollectionI18nMap
+    ? true
   : false
 
 /**
@@ -898,7 +913,7 @@ export interface PaginationResult<T = ParsedContentMeta> {
   prevPage: number | null
 }
 
-export type BacklinkSource = ContentCollectionHandle | string
+export type BacklinkSource = ContentCollectionTarget
 
 type SourceName<S> = S extends string
   ? S
@@ -939,7 +954,7 @@ export type BacklinksOptions<
   limit?: number
   skip?: number
   fallback?: LocaleFallback
-  select?: Source extends string
+  select?: string extends Source
     ? ReadonlyArray<string>
     : ReadonlyArray<Extract<keyof DocumentFromSource<Source>, string>>
 } & BacklinksLocaleOption<Target, Source> & PopulateOption<P>

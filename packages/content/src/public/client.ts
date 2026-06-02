@@ -61,6 +61,9 @@ export type {
   VariantsOptions,
   ContentVariant,
   ContentNavigationItem,
+  ContentCollectionName,
+  ContentCollectionStringName,
+  ContentCollectionTarget,
   ContentTreeItem,
   ContentRouteMeta,
   ContentSearchSection

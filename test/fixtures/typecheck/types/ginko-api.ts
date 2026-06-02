@@ -4,11 +4,12 @@
  * Compiled by `pnpm typecheck`. Negative tests (`@ts-expect-error`) assert
  * that obvious misuses fail at the type level.
  */
-import type { LocalizedDoc, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
+import type {} from '../.nuxt/types/content'
+import type { ContentCollectionName, DocumentFromHandle, LocalizedDoc, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
 import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentMany, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
-import { one as autoOne, many as autoMany, paginate as autoPaginate, backlinks as autoBacklinks, useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
+import { useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
 import { z } from 'zod'
 
 const docs = defineCollection('docs', {
@@ -78,6 +79,14 @@ type _ProbeRejected = Expect<Equal<_DocsMissingLocale, 'rejected'>>
 type _PostsMissingLocale = { by: { path: string } } extends OneOptions<typeof posts> ? 'accepted' : 'rejected'
 type _ProbePostsAccepted = Expect<Equal<_PostsMissingLocale, 'accepted'>>
 
+// Generated collection names infer from content.config.ts, not local handles.
+type _GeneratedCollectionNames = Expect<Equal<ContentCollectionName, 'docs' | 'authors' | 'posts'>>
+type StringPostDoc = DocumentFromHandle<'posts'>
+type _StringPostHasTitle = Expect<Equal<StringPostDoc['title'], string>>
+type _StringPostHasAuthors = Expect<Equal<StringPostDoc['authors'], string[]>>
+type StringDocsDoc = DocumentFromHandle<'docs'>
+type _StringDocsHasTitle = Expect<Equal<StringDocsDoc['title'], string>>
+
 /* ── Positive cases ─────────────────────────────────────────────────────── */
 
 // Single-locale collection: locale not required.
@@ -88,6 +97,46 @@ type _BlogSeoTitle = Expect<Equal<BlogDoc['seo'], { title?: string, description?
 type _BlogHasLocalePaths = Expect<Equal<BlogDoc['localePaths'], LocalizedDoc['localePaths']>>
 type _BlogHasResolvedLocale = Expect<Equal<BlogDoc['resolved']['locale'], string>>
 type _BlogHasResolvedFallback = Expect<Equal<BlogDoc['resolved']['fallback'], boolean>>
+
+// String collection names keep generated document inference.
+const stringBlogResult = await one('posts', { by: { path: '/hello' } })
+if (stringBlogResult) {
+  const stringBlogTitle: string = stringBlogResult.title
+  const stringBlogDate: string | Date = stringBlogResult.date
+  const stringBlogAuthors: string[] = stringBlogResult.authors
+  void stringBlogTitle
+  void stringBlogDate
+  void stringBlogAuthors
+}
+
+const stringDocsResult = await one('docs', {
+  locale: 'de',
+  by: { ref: 'guide.getting-started' },
+  populate: { author: 'authors' }
+})
+if (stringDocsResult?.author) {
+  const stringAuthorName: string = stringDocsResult.author.name
+  void stringAuthorName
+}
+if (stringDocsResult) {
+  const stringDocsTitle: string = stringDocsResult.title
+  void stringDocsTitle
+}
+
+const stringManyPosts = await useContentMany('posts', {
+  where: { title: { $exists: true } },
+  sort: { date: 'desc' },
+  select: ['title', 'date', 'authors']
+})
+const firstStringPost = stringManyPosts.data.value[0]
+if (firstStringPost) {
+  const title: string = firstStringPost.title
+  const date: string | Date = firstStringPost.date
+  const authors: string[] = firstStringPost.authors
+  void title
+  void date
+  void authors
+}
 
 const populatedDocsResult = await one(docs, {
   locale: 'en',
@@ -224,6 +273,10 @@ if (routeNextItem) {
 }
 void routePageTitle
 
+const stringRoutePage = await useContentPage('docs', { surround: true, notFound: false })
+const stringRoutePageTitle: string | undefined = stringRoutePage.page.value?.title
+void stringRoutePageTitle
+
 const paginated = await useContentPagination(posts, { page: 1, limit: 10 })
 const firstPaginatedPost = paginated.data.value[0]
 if (firstPaginatedPost) {
@@ -262,18 +315,6 @@ if (selectedSearchResult) {
 
 /* ── Auto-imported variants ─────────────────────────────────────────────── */
 
-const auto = await autoOne(posts, { by: { path: '/hello' } })
-void auto
-const autoList = await autoMany(posts, { where: {} })
-void autoList
-const autoPage = await autoPaginate(posts, { page: 1, limit: 5 })
-void autoPage
-const autoBacklinkList = await autoBacklinks(authors, {
-  locale: 'de',
-  by: { ref: 'authors.evan' },
-  from: posts
-})
-void autoBacklinkList
 const autoPagination = await autoUseContentPagination(posts, { page: 1, limit: 5 })
 void autoPagination
 const autoBacklinkData = await autoUseContentBacklinks(authors, {
@@ -318,6 +359,15 @@ void neighborEntries
 // @ts-expect-error i18n collection requires locale
 await one(docs, { by: { ref: 'guide.intro' } })
 
+// @ts-expect-error generated i18n collection names require locale
+await one('docs', { by: { ref: 'guide.intro' } })
+
+// @ts-expect-error generated collection names reject unknown literals
+await one('missing', { by: { path: '/missing' } })
+
+// @ts-expect-error generated collection names reject unknown literals in composables
+await useContentPage('missing', { notFound: false })
+
 // @ts-expect-error i18n collection requires locale on many as well
 await many(docs, { where: {} })
 
@@ -344,11 +394,20 @@ await one(posts, { by: { path: '/hello', ref: 'hello' } })
 // @ts-expect-error typo'd field — QueryWhere is narrowed to declared schema fields
 await many(posts, { where: { titel: 'Hello' } })
 
+// @ts-expect-error typo'd field — generated collection names are narrowed too
+await many('posts', { where: { titel: 'Hello' } })
+
 // @ts-expect-error typo'd sort field — typed handles are narrowed to declared schema fields
 await many(posts, { sort: { titel: 'asc' } })
 
+// @ts-expect-error typo'd sort field — generated collection names are narrowed too
+await many('posts', { sort: { titel: 'asc' } })
+
 // @ts-expect-error typo'd select field — typed handles are narrowed to declared schema fields
 await many(posts, { select: ['titel'] })
+
+// @ts-expect-error typo'd select field — generated collection names are narrowed too
+await many('posts', { select: ['titel'] })
 
 // @ts-expect-error variants requires `by`
 await variants(docs, { ref: 'guide.intro' })
