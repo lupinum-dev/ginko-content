@@ -569,7 +569,7 @@ Verification:
 
 Commit checkpoint:
 
-- [ ] Commit collection identity cleanup.
+- [x] Commit collection identity cleanup.
 
 Suggested commit message:
 
@@ -583,30 +583,34 @@ Goal: reduce i18n route drift without hiding route ownership.
 
 Scope:
 
-- [ ] Add validation or a helper that compares collection route mounts with page
+- [x] Add validation or a helper that compares collection route mounts with page
       route metadata.
-- [ ] Do not auto-generate route meta until validation proves the drift problem
+- [x] Do not auto-generate route meta until validation proves the drift problem
       and the desired ownership model.
-- [ ] Keep localized route mounts visible in config.
-- [ ] Emit actionable diagnostics for mismatches.
+- [x] Keep localized route mounts visible in config.
+- [x] Emit actionable diagnostics for mismatches.
 
 Acceptance criteria:
 
-- [ ] Drift between collection route config and page metadata is detected.
-- [ ] Diagnostics name the collection, locale, expected route, and page file.
-- [ ] Apps can fix mismatches without learning an extra routing system.
+- [x] Drift between collection route config and page metadata is detected.
+- [x] Diagnostics name the collection, locale, expected route, and page file.
+- [x] Apps can fix mismatches without learning an extra routing system.
 
 Tests:
 
-- [ ] Add validation tests for matching localized routes.
-- [ ] Add validation tests for route mismatch.
-- [ ] Add validation tests for missing locale route.
+- [x] Add validation tests for matching localized routes.
+- [x] Add validation tests for route mismatch.
+- [x] Add validation tests for missing locale route.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
+- [x] `pnpm lint`
+- [x] `pnpm docs:build`
+- [x] Focused route metadata contracts:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/route-meta-validation-contracts.test.ts test/contracts/module-contracts.test.ts`
 
 Commit checkpoint:
 

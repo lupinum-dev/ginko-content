@@ -180,6 +180,38 @@ describe('module contracts', () => {
     )
   })
 
+  test('validates explicit content page route metadata against collection route mounts', async () => {
+    const { nuxt, hooks } = createNuxt()
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        collections: {
+          docs: {
+            source: '**/*.md',
+            route: { en: '/docs', de: '/dokumentation' },
+            i18n: { defaultLocale: 'en', locales: ['en', 'de'] }
+          }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+
+    expect(() => hooks.get('pages:extend')?.([{
+      file: '/workspace/app/pages/docs/[...slug].vue',
+      meta: {
+        content: {
+          collection: 'docs',
+          route: { en: '/docs', de: '/docs' }
+        }
+      }
+    }])).toThrow(
+      'collection "docs" locale "de" expected route "/dokumentation" but page metadata declares "/docs"'
+    )
+  })
+
   test('accepts a provider implementation registered by a Nuxt module hook', async () => {
     const { nuxt, hooks } = createNuxt()
     nuxt.hook('content:providers', (providers: Record<string, string>) => {

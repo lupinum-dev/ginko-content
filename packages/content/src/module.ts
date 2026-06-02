@@ -36,6 +36,7 @@ import {
   assertGeneratedSitemaps
 } from './module/sitemap-assert'
 import { configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions, resolveNuxtSitemapPrerenderRoutes } from './module/options'
+import { validateContentPageRouteMetadata } from './module/route-meta-validation'
 
 export { defineCollection, defineContentConfig, reference } from './types/config.js'
 export type * from './types'
@@ -184,6 +185,12 @@ export default defineNuxtModule<ModuleOptions>({
     if (resolvedSitemap !== false) {
       configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
     }
+    nuxt.hook('pages:extend', (pages) => {
+      validateContentPageRouteMetadata(pages, options.collections, {
+        locales: resolvedI18n.locales,
+        defaultLocale: resolvedI18n.defaultLocale
+      })
+    })
     if (resolvedSitemap && resolvedSitemap.assert.enabled) {
       // Validate the final XML files through Nuxt Sitemap's own hook. Nitro's lower-level build
       // hooks can run before locale child sitemaps exist, which is what caused the earlier false
