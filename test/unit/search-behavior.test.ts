@@ -7,6 +7,7 @@ describe('search behavior', () => {
     const records = [
       {
         id: '/docs/fallback#overview',
+        collection: 'docs',
         path: '/docs/fallback',
         title: 'Fallback Lab',
         excerpt: 'Fallback behavior for docs',
@@ -17,6 +18,7 @@ describe('search behavior', () => {
       },
       {
         id: '/de/dokumentation/fallback#ueberblick',
+        collection: 'docs',
         path: '/de/dokumentation/fallback',
         title: 'Fallback Labor',
         excerpt: 'Fallback Verhalten fuer Dokumentation',
@@ -27,6 +29,7 @@ describe('search behavior', () => {
       },
       {
         id: '/docs/search',
+        collection: 'docs',
         path: '/docs/search',
         title: 'Search',
         excerpt: 'Search configuration',
@@ -42,12 +45,14 @@ describe('search behavior', () => {
     expect(allLocales).toEqual(expect.arrayContaining([
       expect.objectContaining({
         title: 'Fallback Lab',
+        collection: 'docs',
         path: '/docs/fallback',
         anchor: 'overview',
         locale: 'en'
       }),
       expect.objectContaining({
         title: 'Fallback Labor',
+        collection: 'docs',
         path: '/de/dokumentation/fallback',
         anchor: 'ueberblick',
         locale: 'de'
@@ -57,6 +62,7 @@ describe('search behavior', () => {
     expect(searchRecords(records, 'fallback', 'de')).toEqual([
       expect.objectContaining({
         title: 'Fallback Labor',
+        collection: 'docs',
         path: '/de/dokumentation/fallback',
         locale: 'de'
       })
@@ -67,6 +73,7 @@ describe('search behavior', () => {
     const records = [
       {
         id: '/docs/reference',
+        collection: 'docs',
         path: '/docs/reference',
         title: 'Reference',
         excerpt: 'API reference',
@@ -76,6 +83,7 @@ describe('search behavior', () => {
       },
       {
         id: '/docs/search',
+        collection: 'docs',
         path: '/docs/search',
         title: 'Search',
         excerpt: 'Search configuration',
@@ -94,6 +102,7 @@ describe('search behavior', () => {
     })).toEqual([
       expect.objectContaining({
         title: 'Search',
+        collection: 'docs',
         path: '/docs/search',
         excerpt: 'Search configuration',
         tags: ['important']

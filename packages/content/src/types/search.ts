@@ -10,7 +10,7 @@ export interface ContentMiniSearchOptions {
   /**
    * Fields copied into search result payloads.
    *
-   * @default ['path', 'title', 'excerpt', 'anchor', 'locale']
+   * @default ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection']
    */
   storeFields: string[]
   /**
@@ -42,6 +42,7 @@ export interface ContentSearchPublicRuntimeConfig {
 
 export interface ContentSearchIndexRecord {
   id: string
+  collection: string
   path: string
   title: string
   excerpt: string
@@ -53,6 +54,7 @@ export interface ContentSearchIndexRecord {
 }
 
 export interface ContentSearchResult {
+  collection: string
   path: string
   title: string
   excerpt: string

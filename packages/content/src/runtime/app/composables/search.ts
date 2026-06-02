@@ -105,7 +105,7 @@ const defaultSearchConfig: ContentSearchPublicRuntimeConfig = {
   engine: 'minisearch',
   minisearch: {
     fields: ['title', 'content', 'headings'],
-    storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale'],
+    storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
     boost: {
       title: 4,
       headings: 2,
@@ -388,7 +388,10 @@ const useCmsSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string
   const { data, pending, error } = await useFetch<ContentSearchResult[]>(requestUrl)
 
   return {
-    results: computed(() => data.value || []),
+    results: computed(() => (data.value || []).map(result => ({
+      ...result,
+      collection: typeof result.collection === 'string' ? result.collection : ''
+    }))),
     pending: computed(() => pending.value),
     error: computed(() => error.value)
   }
@@ -450,6 +453,7 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
 
         return {
           path,
+          collection: typeof data?.meta?.collection === 'string' ? data.meta.collection : '',
           title: data?.meta?.title || path,
           excerpt: data?.excerpt || '',
           score: result.score,

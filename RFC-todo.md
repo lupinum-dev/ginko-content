@@ -258,34 +258,36 @@ Goal: make public search scope explicit, typed, and route-safe.
 
 Scope:
 
-- [ ] Add `collection` to every search result.
-- [ ] Default public search data to routable page collections.
-- [ ] Exclude `type: 'data'` collections from public route search by default.
-- [ ] Allow explicit opt-in for intentional data-collection search.
-- [ ] Keep the headless search helper explicitly imported in shadcn-style apps.
-- [ ] Do not infer collection type only from URL prefixes.
+- [x] Add `collection` to every search result.
+- [x] Default public search data to routable page collections.
+- [x] Exclude `type: 'data'` collections from public route search by default.
+- [x] Allow explicit opt-in for intentional data-collection search.
+- [x] Keep the headless search helper explicitly imported in shadcn-style apps.
+- [x] Do not infer collection type only from URL prefixes.
 
 Acceptance criteria:
 
-- [ ] Search results include `collection`.
-- [ ] Public search excludes data collections by default.
-- [ ] Apps can configure search scope without duplicating UI copy.
-- [ ] Search result routing is based on result identity, not string prefix hacks.
+- [x] Search results include `collection`.
+- [x] Public search excludes data collections by default.
+- [x] Apps can configure search scope without duplicating UI copy.
+- [x] Search result routing is based on result identity, not string prefix hacks.
 
 Tests:
 
-- [ ] Add search index tests for default page-only scope.
-- [ ] Add search index tests for explicit data collection opt-in.
-- [ ] Add search result type tests for `collection`.
-- [ ] Add route tests for localized search results if localized search is in
+- [x] Add search index tests for default page-only scope.
+- [x] Add search index tests for explicit data collection opt-in.
+- [x] Add search result type tests for `collection`.
+- [x] Add route tests for localized search results if localized search is in
       scope.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 - [ ] `pnpm docs:build`
+- [x] Focused search contracts:
+      `pnpm exec vitest run --config vitest.config.ts test/unit/search-behavior.test.ts test/unit/pagefind.test.ts test/runtime/search-collection-defaults.test.ts test/runtime/api-search-boundaries.test.ts test/client/search-composables.test.ts`
 
 Consumer validation:
 
@@ -295,7 +297,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit search contract changes.
+- [x] Commit search contract changes.
 
 Suggested commit message:
 

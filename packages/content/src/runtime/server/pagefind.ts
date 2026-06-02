@@ -17,6 +17,7 @@ export async function writePagefindIndex (records: ContentSearchIndexRecord[], o
       meta: {
         title: record.title,
         excerpt: record.excerpt,
+        collection: record.collection,
         locale: record.locale || '',
         anchor: record.anchor || '',
         path: record.path

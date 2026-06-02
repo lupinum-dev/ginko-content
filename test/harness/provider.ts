@@ -168,6 +168,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
         .map(doc => ({
           score: 1,
+          collection: doc._collection || '',
           title: doc.title || '',
           excerpt: String(doc.description || ''),
           path: doc._path || '/',

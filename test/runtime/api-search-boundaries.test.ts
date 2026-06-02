@@ -53,7 +53,7 @@ describe('runtime search API boundaries', () => {
   })
 
   test('search-index API builds all-locale indexes when no locale query is provided', async () => {
-    const records = [{ id: '/docs/search', title: 'Search' }]
+    const records = [{ id: '/docs/search', collection: 'docs', title: 'Search' }]
     mocks.buildSearchIndex.mockResolvedValue(records)
     const handler = (await import('../../packages/content/src/runtime/server/api/search-index')).default
 
@@ -69,7 +69,7 @@ describe('runtime search API boundaries', () => {
   })
 
   test('search-index API scopes generated indexes to an explicit locale', async () => {
-    const records = [{ id: '/de/dokumentation/suche', title: 'Suche' }]
+    const records = [{ id: '/de/dokumentation/suche', collection: 'docs', title: 'Suche' }]
     mocks.buildSearchIndex.mockResolvedValue(records)
     const handler = (await import('../../packages/content/src/runtime/server/api/search-index')).default
 
@@ -85,8 +85,8 @@ describe('runtime search API boundaries', () => {
   })
 
   test('search API runs local MiniSearch over generated records and caps user input length at the handler seam', async () => {
-    const records = [{ id: '/docs/fallback', title: 'Fallback Lab' }]
-    const results = [{ path: '/docs/fallback', title: 'Fallback Lab', score: 42 }]
+    const records = [{ id: '/docs/fallback', collection: 'docs', title: 'Fallback Lab' }]
+    const results = [{ collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 42 }]
     mocks.buildSearchIndex.mockResolvedValue(records)
     mocks.searchRecords.mockReturnValue(results)
     const handler = (await import('../../packages/content/src/runtime/server/api/search')).default

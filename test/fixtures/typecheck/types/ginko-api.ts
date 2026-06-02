@@ -317,7 +317,9 @@ headlessSearch.next()
 const selectedSearchResult = headlessSearch.select()
 if (selectedSearchResult) {
   const searchPath: string = selectedSearchResult.path
+  const searchCollection: string = selectedSearchResult.collection
   void searchPath
+  void searchCollection
 }
 
 /* ── Auto-imported variants ─────────────────────────────────────────────── */

@@ -476,6 +476,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
         .map(doc => ({
           score: 1,
+          collection: doc._collection || '',
           title: doc.title || '',
           excerpt: String(doc.description || ''),
           path: localizePath(fixture, doc._collection || '', doc._path || '/', doc._locale),

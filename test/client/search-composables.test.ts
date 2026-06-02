@@ -39,6 +39,7 @@ describe('public search composables', () => {
     fetchPayload = [
       {
         id: '/docs/fallback#overview',
+        collection: 'docs',
         path: '/docs/fallback',
         title: 'Fallback Lab',
         excerpt: 'Fallback behavior',
@@ -49,6 +50,7 @@ describe('public search composables', () => {
       },
       {
         id: '/de/dokumentation/fallback#ueberblick',
+        collection: 'docs',
         path: '/de/dokumentation/fallback',
         title: 'Fallback Labor',
         excerpt: 'Fallback Verhalten',
@@ -68,6 +70,7 @@ describe('public search composables', () => {
     expect(result.results.value).toEqual([
       expect.objectContaining({
         title: 'Fallback Labor',
+        collection: 'docs',
         path: '/de/dokumentation/fallback',
         locale: 'de'
       })
@@ -79,7 +82,7 @@ describe('public search composables', () => {
       engine: 'cms',
       apiBaseURL: '/api/_content/search'
     })
-    fetchPayload = [{ path: '/docs/fallback', title: 'Fallback Lab', score: 1 }]
+    fetchPayload = [{ collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 1 }]
     const { useContentSearchResults } = await import('../../packages/content/src/runtime/app/composables/search')
 
     const result = await useContentSearchResults('fallback', { locale: 'de' })
@@ -88,7 +91,7 @@ describe('public search composables', () => {
     expect(result.pending.value).toBe(false)
     expect(result.error.value).toBe(null)
     expect(result.results.value).toEqual([
-      { path: '/docs/fallback', title: 'Fallback Lab', score: 1 }
+      { collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 1 }
     ])
   })
 
@@ -112,6 +115,7 @@ describe('public search composables', () => {
     fetchPayload = [
       {
         id: '/docs/search',
+        collection: 'docs',
         path: '/docs/search',
         title: 'Search',
         excerpt: 'Search configuration',
@@ -121,6 +125,7 @@ describe('public search composables', () => {
       },
       {
         id: '/docs/search-ui',
+        collection: 'docs',
         path: '/docs/search-ui',
         title: 'Search UI',
         excerpt: 'Custom search interface',
@@ -147,10 +152,12 @@ describe('public search composables', () => {
     search.next()
     expect(search.activeIndex.value).toBe(0)
     expect(search.activeResult.value).toEqual(expect.objectContaining({
-      path: '/docs/search'
+      path: '/docs/search',
+      collection: 'docs'
     }))
     expect(search.select()).toEqual(expect.objectContaining({
-      path: '/docs/search'
+      path: '/docs/search',
+      collection: 'docs'
     }))
 
     search.next()

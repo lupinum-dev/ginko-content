@@ -15,6 +15,7 @@ describe('Pagefind index writer', () => {
     await writePagefindIndex([
       {
         id: '/de/docs/search#setup',
+        collection: 'docs',
         path: '/de/docs/search',
         title: 'Search Setup',
         excerpt: 'Configure search',
@@ -32,6 +33,7 @@ describe('Pagefind index writer', () => {
       meta: {
         title: 'Search Setup',
         excerpt: 'Configure search',
+        collection: 'docs',
         locale: 'de',
         anchor: 'setup',
         path: '/de/docs/search'
@@ -47,6 +49,7 @@ describe('Pagefind index writer', () => {
     await expect(writePagefindIndex([
       {
         id: '/docs/search',
+        collection: 'docs',
         path: '/docs/search',
         title: 'Search',
         excerpt: '',

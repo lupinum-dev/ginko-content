@@ -150,7 +150,7 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
 
 export const defaultMiniSearchOptions = {
   fields: ['title', 'content', 'headings'],
-  storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale'],
+  storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
   boost: {
     title: 4,
     headings: 2,

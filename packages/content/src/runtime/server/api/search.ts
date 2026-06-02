@@ -3,6 +3,13 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 import { buildSearchIndex, searchRecords } from '../search'
 import { getContentProvider } from '../providers'
 import { createContentProviderError } from '../../../public/provider-errors'
+import type { ContentSearchResult } from '../../../types/search'
+
+const normalizeSearchResults = (results: ContentSearchResult[] = []): ContentSearchResult[] =>
+  results.map(result => ({
+    ...result,
+    collection: typeof result.collection === 'string' ? result.collection : ''
+  }))
 
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig(event)
@@ -27,11 +34,11 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return await provider.search(event, {
+    return normalizeSearchResults(await provider.search(event, {
       term,
       locale,
       collections: searchConfig.collections
-    })
+    }))
   }
 
   const records = await buildSearchIndex(event, {

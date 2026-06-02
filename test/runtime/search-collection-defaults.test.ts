@@ -87,6 +87,9 @@ describe('runtime search collection defaults', () => {
     )
     expect(records.map(record => record.title)).not.toContain('App config')
     expect(records.some(record => record.path.startsWith('/data'))).toBe(false)
+    expect(records.map(record => record.collection)).toEqual(
+      expect.arrayContaining(['pages', 'docs', 'posts'])
+    )
   })
 
   test('server search content uses the same default collection boundary', async () => {

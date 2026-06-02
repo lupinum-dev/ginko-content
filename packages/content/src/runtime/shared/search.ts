@@ -4,7 +4,7 @@ import type { ContentMiniSearchOptions, ContentSearchIndexRecord, ContentSearchR
 
 const DEFAULT_SEARCH_OPTIONS: ContentMiniSearchOptions = {
   fields: ['title', 'content', 'headings'],
-  storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale'],
+  storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
   boost: {
     title: 4,
     headings: 2,
@@ -13,7 +13,7 @@ const DEFAULT_SEARCH_OPTIONS: ContentMiniSearchOptions = {
   fuzzy: 0.2,
   prefix: true
 }
-const REQUIRED_STORE_FIELDS = ['path', 'title', 'excerpt'] as const
+const REQUIRED_STORE_FIELDS = ['path', 'title', 'excerpt', 'collection'] as const
 const MAX_SEARCH_INDEX_CACHE_ENTRIES = 12
 const searchIndexCache = new Map<string, MiniSearch<ContentSearchIndexRecord>>()
 
@@ -95,6 +95,7 @@ export const searchRecords = (
     return {
       ...storedFields,
       path: typeof result.path === 'string' ? result.path : '',
+      collection: typeof result.collection === 'string' ? result.collection : '',
       title: typeof result.title === 'string' ? result.title : '',
       excerpt: typeof result.excerpt === 'string' ? result.excerpt : '',
       score: result.score,

@@ -13,7 +13,7 @@ export { searchRecords } from '../shared/search'
 
 type SearchablePage = Pick<ParsedContent, '_path' | '_locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
-type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { _locale?: string }
+type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { _locale?: string, collection?: string }
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
 type RuntimeSearchConfig = {
   search?: {
@@ -144,6 +144,7 @@ const toSearchRecord = (section: SearchSectionWithLocale): ContentSearchIndexRec
   return {
     ...extraFields,
     id: section.id,
+    collection: section.collection || '',
     path,
     title: section.title,
     excerpt: section.content.slice(0, 240),
@@ -168,12 +169,15 @@ const buildProviderSearchSections = async (
 ): Promise<SearchSectionWithLocale[]> => {
   const runtimeConfig = useRuntimeConfig(event)
   const sections = await Promise.all(collections.map(async (collection) => {
-    const loadCollectionLocale = async (locale?: string) => await provider.searchSections(event, collection, {
+    const loadCollectionLocale = async (locale?: string) => (await provider.searchSections(event, collection, {
       ignoredTags: opts.ignoredTags || [],
       extraFields: unique(['_locale', ...(opts.extraFields || [])]),
       filterQuery: opts.filterQuery,
       locale
-    }) as SearchSectionWithLocale[]
+    }) as SearchSectionWithLocale[]).map(section => ({
+      ...section,
+      collection
+    }))
 
     if (opts.locale) {
       return await loadCollectionLocale(opts.locale)
