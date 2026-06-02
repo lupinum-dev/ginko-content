@@ -17,6 +17,16 @@ function normalizeBody (value: Record<string, any>, excerpt: boolean): MarkdownR
   return null
 }
 
+function warnUnsupportedValue (value: Record<string, any>, excerpt: boolean) {
+  const path = value?._path ? ` for "${value._path}"` : ''
+  const target = excerpt ? 'excerpt' : 'body'
+
+  console.warn(
+    `[ginko-content] <ContentRenderer> could not render ${target}${path}. ` +
+    'Pass the full content document with a markdown body, or provide an `empty` slot for empty/unsupported content.'
+  )
+}
+
 export default defineComponent({
   name: 'ContentRenderer',
   props: {
@@ -84,11 +94,9 @@ export default defineComponent({
       } as any)
     }
 
-    return h(
-      'pre',
-      null,
-      JSON.stringify({ message: 'You should use slots with <ContentRenderer>', value, excerpt, tag, prose, unwrap }, null, 2)
-    )
+    warnUnsupportedValue(value, excerpt)
+
+    return null
   }
 })
 </script>

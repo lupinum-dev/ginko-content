@@ -15,6 +15,47 @@ vi.mock('#imports', () => ({
 }))
 
 describe('render component contracts', () => {
+  test('ContentRenderer does not serialize unsupported values into HTML', async () => {
+    const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentRenderer, {
+        value: {
+          _path: '/docs/missing-body',
+          title: 'Missing Body'
+        }
+      })
+    }))
+
+    expect(html).not.toContain('You should use slots with &lt;ContentRenderer&gt;')
+    expect(html).not.toContain('Missing Body')
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('could not render body for "/docs/missing-body"'))
+
+    warn.mockRestore()
+  })
+
+  test('ContentRenderer uses the empty slot for empty or unsupported content', async () => {
+    const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentRenderer, {
+        value: {
+          title: 'Missing Body'
+        }
+      }, {
+        empty: () => h('p', 'No content available')
+      })
+    }))
+
+    expect(html).toContain('No content available')
+    expect(html).not.toContain('Missing Body')
+    expect(warn).not.toHaveBeenCalled()
+
+    warn.mockRestore()
+  })
+
   test('markdown renderer localizes link props at render time', async () => {
     const { localizeMarkdownNodeProps } = await import('../../packages/content/src/runtime/app/components/internal/MarkdownRenderer')
 

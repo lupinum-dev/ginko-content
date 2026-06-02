@@ -425,28 +425,30 @@ production UI.
 
 Scope:
 
-- [ ] Audit `<ContentRenderer>` unsupported input handling.
-- [ ] Replace production debug JSON with a safe fallback.
-- [ ] Keep useful development diagnostics.
-- [ ] Add a warning path that helps developers fix incorrect slot usage.
+- [x] Audit `<ContentRenderer>` unsupported input handling.
+- [x] Replace production debug JSON with a safe fallback.
+- [x] Keep useful development diagnostics.
+- [x] Add a warning path that helps developers fix incorrect slot usage.
 
 Acceptance criteria:
 
-- [ ] Production renderer output never shows raw diagnostic JSON.
-- [ ] Development mode still gives actionable feedback.
-- [ ] Incorrect renderer input is covered by tests.
+- [x] Production renderer output never shows raw diagnostic JSON.
+- [x] Development mode still gives actionable feedback.
+- [x] Incorrect renderer input is covered by tests.
 
 Tests:
 
-- [ ] Add renderer tests for unsupported input in production mode.
-- [ ] Add renderer tests for unsupported input in development mode.
-- [ ] Add tests for slot-based fallback behavior.
+- [x] Add renderer tests for unsupported input in production mode.
+- [x] Add renderer tests for unsupported input in development mode.
+- [x] Add tests for slot-based fallback behavior.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test`
-- [ ] `pnpm docs:build`
+- [x] `pnpm docs:build`
+- [x] Focused renderer contract:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/render-components-contracts.test.ts`
 
 Consumer validation:
 
@@ -455,7 +457,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit renderer fallback fix.
+- [x] Commit renderer fallback fix.
 
 Suggested commit message:
 
