@@ -133,9 +133,9 @@ Scope:
 - [x] Return both `data` and `page`, where `page` is an alias for `data`.
 - [x] Return `surround` from `useContentPage` when requested.
 - [x] Keep `fallback: true` explicit.
-- [ ] Infer active Nuxt locale when the collection is localized and no explicit
+- [x] Infer active Nuxt locale when the collection is localized and no explicit
       locale is provided.
-- [ ] Keep explicit `locale` override support.
+- [x] Keep explicit `locale` override support.
 - [x] Do not auto-generate `definePageMeta` or i18n routes in this phase.
 
 Target API:
@@ -150,16 +150,16 @@ const { page, surround } = await useContentPage('docs', {
 Acceptance criteria:
 
 - [x] Route-backed page lookup works without passing `path`.
-- [ ] Locale-aware page lookup uses active Nuxt locale by default.
-- [ ] Fallback content appears only when `fallback: true` is passed.
+- [x] Locale-aware page lookup uses active Nuxt locale by default.
+- [x] Fallback content appears only when `fallback: true` is passed.
 - [x] `surround` is available from the same composable call.
 - [ ] Consumers do not need a Nuxt UI surround adapter in page components.
 
 Tests:
 
 - [x] Add Nuxt runtime tests for route inference.
-- [ ] Add Nuxt runtime tests for explicit locale override.
-- [ ] Add Nuxt runtime tests for explicit fallback.
+- [x] Add Nuxt runtime tests for explicit locale override.
+- [x] Add Nuxt runtime tests for explicit fallback.
 - [x] Add Nuxt runtime tests for `surround`.
 - [x] Add type tests for the returned `page` alias.
 

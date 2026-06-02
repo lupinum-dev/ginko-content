@@ -5,9 +5,9 @@
  * `useAsyncData`. Every option may be a value, a `Ref`, or a getter — the
  * composable resolves them via `toValue` and reruns when sources change.
  *
- * No implicit locale resolution: callers must pass `locale` (or its
- * reactive source) explicitly when the collection is i18n. Use Nuxt i18n's
- * `useI18n().locale` or the host app's chosen reactive locale source.
+ * Low-level reads keep locale selection explicit. `useContentPage` is the
+ * route-page helper and may infer the active Nuxt locale for localized
+ * collections when no `locale` override is passed.
  */
 import { computed, shallowRef, toValue, watch } from 'vue'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
@@ -42,6 +42,7 @@ import type {
   VariantsOptions
 } from '../../../types/query'
 import { createClientContentQueryContext } from './query-api'
+import { resolveCollectionI18n } from '../../../features/localization/path'
 import {
   backlinks as backlinksWithContext,
   many as manyWithContext,
@@ -52,7 +53,9 @@ import {
   tree as treeWithContext,
   variants as variantsWithContext
 } from '../../query/unified'
+import { resolveActiveLocale } from './locale'
 import { useContentRoute } from './route'
+import { getContentRuntime } from './runtime'
 
 // Each top-level option may be a value, a Ref, or a getter. Object-valued
 // options (like `by` and `where`) recurse one level so callers can write
@@ -108,6 +111,9 @@ const resolveOptions = <T extends Record<string, unknown>>(reactive: Reactive<T>
 const stableKey = (prefix: string, name: string, options: unknown) => `${prefix}:${name}:${hash(options)}`
 
 type DocFromHandle<H> = DocumentFromHandle<H>
+
+const contentCollectionName = (handle: ContentCollectionTarget) =>
+  typeof handle === 'string' ? handle : handle.name
 
 interface UseContentOneReturn<T> {
   data: ComputedRef<LocalizedDoc<T> | null>
@@ -266,6 +272,20 @@ export async function useContentPage<
   const isBrowser = import.meta.client && typeof window !== 'undefined'
   const { notFound, surround, ...oneOptions } = options as UseContentPageOptions<H, P> & Record<string, unknown>
   const routeSelector = { route: () => normalizeRoutePath(route.path) }
+  const activeLocale = computed(() => {
+    const explicitLocale = toValue(oneOptions.locale as MaybeRefOrGetter<string | undefined>)
+    if (explicitLocale) {
+      return explicitLocale
+    }
+
+    const runtime = getContentRuntime()
+    const { locales, defaultLocale } = resolveCollectionI18n(contentCollectionName(handle), runtime)
+    if (!locales.length && !defaultLocale) {
+      return undefined
+    }
+
+    return resolveActiveLocale(locales, defaultLocale)
+  })
   const rawPage = shallowRef<LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null>(null)
   const resolvingRoute = shallowRef(false)
   const sawRouteQueryPending = shallowRef(false)
@@ -280,13 +300,14 @@ export async function useContentPage<
 
   const pageResultPromise = useContentOne(handle, {
     ...oneOptions,
+    locale: () => activeLocale.value,
     by: routeSelector
   } as Reactive<OneOptions<H, P>>)
   const surroundOptions = normalizePageSurround(surround)
   const surroundResultPromise = surroundOptions
     ? useContentNeighbors(handle, {
         ...surroundOptions,
-        ...('locale' in oneOptions ? { locale: oneOptions.locale } : {}),
+        locale: () => activeLocale.value,
         ...('fallback' in oneOptions ? { fallback: oneOptions.fallback as LocaleFallback } : {}),
         by: routeSelector
       } as Reactive<NeighborsOptions<H>>)

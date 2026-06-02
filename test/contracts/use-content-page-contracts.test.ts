@@ -7,6 +7,8 @@ const route = reactive({
   path: '/docs/getting-started',
   query: {}
 })
+const i18nLocale = ref<string | undefined>()
+const resolvedLocaleState = ref<string | undefined>()
 
 const fetchContentApi = vi.fn()
 const showError = vi.fn()
@@ -33,11 +35,16 @@ const createAsyncDataState = (value: unknown) => {
 
 vi.mock('#imports', () => ({
   useRoute: () => route,
+  useNuxtApp: () => ({
+    $i18n: {
+      locale: i18nLocale
+    }
+  }),
   useRouter: () => ({
     currentRoute: { value: { meta: {}, path: route.path } },
     resolve: (path: string) => ({ path, params: {}, meta: {}, name: 'docs' })
   }),
-  useState: (_key: string, init?: () => unknown) => ref(init ? init() : undefined),
+  useState: (key: string, init?: () => unknown) => key === '$si18n:resolved-locale' ? resolvedLocaleState : ref(init ? init() : undefined),
   createError: (input: any) => Object.assign(new Error(input?.statusMessage || input?.message || 'Error'), input),
   showError,
   useRequestFetch: () => vi.fn(),
@@ -99,6 +106,18 @@ vi.mock('../../packages/content/src/runtime/app/composables/runtime', () => ({
   })
 }))
 
+vi.mock('../../packages/content/src/runtime/app/composables/locale-context', () => ({
+  getLocaleContext: () => ({
+    route,
+    nuxtApp: {
+      $i18n: {
+        locale: i18nLocale
+      }
+    },
+    resolvedLocaleState
+  })
+}))
+
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
   fetchContentApi,
   getContentApiFetcher: () => vi.fn()
@@ -134,6 +153,8 @@ describe('useContentPage contracts', () => {
     useContentRoute.mockReset()
     asyncDataStates.length = 0
     route.path = '/docs/getting-started'
+    i18nLocale.value = undefined
+    resolvedLocaleState.value = undefined
     fetchContentApi.mockImplementation(async (endpoint: string, params: Record<string, any>) => {
       if (endpoint === 'navigation') {
         return [
@@ -174,6 +195,44 @@ describe('useContentPage contracts', () => {
     expect(state.next.value).toBeNull()
     expect(state.surround.value).toEqual({ previous: null, next: null })
     expect(useContentRoute).toHaveBeenCalledWith(state.page)
+  })
+
+  test('infers the active Nuxt locale for localized route-page queries', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+    i18nLocale.value = 'de'
+    route.path = '/de/docs/getting-started'
+
+    await useContentPage('docs')
+
+    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
+      collection: 'docs',
+      first: true,
+      resolveVariant: expect.objectContaining({
+        locale: 'de',
+        route: '/de/docs/getting-started'
+      })
+    }), expect.anything())
+    expect(fetchContentApi.mock.calls[0]![1].resolveVariant).not.toHaveProperty('fallback')
+  })
+
+  test('keeps explicit locale overrides and fallback opt-in visible at the page call site', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+    i18nLocale.value = 'de'
+
+    await useContentPage('docs', {
+      locale: 'en',
+      fallback: true
+    })
+
+    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
+      collection: 'docs',
+      first: true,
+      resolveVariant: expect.objectContaining({
+        locale: 'en',
+        fallback: true,
+        route: '/docs/getting-started'
+      })
+    }), expect.anything())
   })
 
   test('normalizes trailing slash route selectors for page queries', async () => {
