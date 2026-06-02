@@ -10,7 +10,7 @@ import { collectTranslatedSlugValidationIssues } from '../packages/content/src/f
 import { resolveCollectionI18nConfig } from '../packages/content/src/features/localization/config'
 import { buildLocaleFallbackChain, expandDataLocaleVariants, splitInlineLocaleVariantId } from '../packages/content/src/core/content/locale'
 import { createRouteMeta, localizeNavigation, localizePageResult } from '../packages/content/src/features/localization/results'
-import { defineCollection, reference } from '../packages/content/src/types/config'
+import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { getCollectionPath } from '../packages/content/src/runtime/query/routes'
 
 vi.stubGlobal('__ginkoTestNitroApp', {
@@ -55,6 +55,39 @@ describe('Ginko metadata helpers', () => {
       source: 'docs/**/*.md',
       sitemap: undefined
     })
+  })
+
+  test('derives unnamed collection identity from defineContentConfig map keys', () => {
+    const docs = defineCollection({
+      type: 'page',
+      source: 'docs/**/*.md',
+      schema: z.object({ title: z.string() })
+    })
+
+    expect(docs).not.toHaveProperty('name')
+
+    const config = defineContentConfig({
+      collections: { docs }
+    })
+
+    expect(config.collections.docs).toMatchObject({
+      name: 'docs',
+      type: 'page',
+      source: 'docs/**/*.md',
+      sitemap: undefined
+    })
+    expect(docs.name).toBe('docs')
+  })
+
+  test('rejects authored collection names that drift from config map keys', () => {
+    const guides = defineCollection('guides', {
+      type: 'page',
+      source: 'docs/**/*.md'
+    })
+
+    expect(() => defineContentConfig({
+      collections: { docs: guides }
+    })).toThrow('@lupinum/ginko-content collection key "docs" must match defineCollection name "guides"')
   })
 
   test('normalizes v3-shaped data collections with sitemap disabled by default', () => {

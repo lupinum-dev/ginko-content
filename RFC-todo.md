@@ -531,35 +531,41 @@ This is intentionally not first-cut work.
 
 Scope:
 
-- [ ] Re-evaluate whether `defineCollection('docs')` is still worth deleting.
-- [ ] If yes, make collection map keys the canonical identity.
-- [ ] Support `defineCollection({ ... })` without a name argument.
-- [ ] Generate any needed internal handles from resolved config.
-- [ ] Decide whether `#content/collections` generated handles are genuinely
+- [x] Re-evaluate whether `defineCollection('docs')` is still worth deleting.
+- [x] Make collection map keys the canonical identity.
+- [x] Support `defineCollection({ ... })` without a name argument.
+- [x] Assign runtime handle names from the resolved config map.
+- [x] Decide whether `#content/collections` generated handles are genuinely
       useful or unnecessary.
-- [ ] Avoid keeping authored handles and generated handles as competing public
+- [x] Avoid keeping authored handles and generated handles as competing public
       sources of truth.
 
 Acceptance criteria:
 
-- [ ] Collection identity has one canonical source.
-- [ ] Existing examples use the canonical source.
-- [ ] Generated handles exist only if they remove real complexity.
-- [ ] Migration notes are short and direct.
+- [x] Collection identity has one canonical source.
+- [x] Existing examples use the canonical source.
+- [x] Generated handles exist only if they remove real complexity.
+- [x] Migration notes are short and direct.
 
 Tests:
 
-- [ ] Add config resolution tests for key-derived collection names.
-- [ ] Add type generation tests for key-derived names.
-- [ ] Add tests proving duplicate authored names cannot drift silently.
+- [x] Add config resolution tests for key-derived collection names.
+- [x] Add type generation tests for key-derived names.
+- [x] Add tests proving duplicate authored names cannot drift silently.
 
 Verification:
 
-- [ ] `pnpm build:packages`
-- [ ] `pnpm lint`
+- [x] `pnpm build:packages`
+- [x] `pnpm lint`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 - [ ] `pnpm verify`
+- [x] Focused config/drift contracts:
+      `pnpm exec vitest run --config vitest.config.ts test/unit/docs-drift.test.ts test/ginko-utils.test.ts test/contracts/module-contracts.test.ts`
+- [x] Docs build:
+      `pnpm docs:build`
+- [x] Examples build:
+      `pnpm examples:build`
 
 Commit checkpoint:
 
@@ -631,8 +637,8 @@ Acceptance criteria:
 - [x] Docs first page shows the new Nuxt-like API.
 - [x] Advanced docs still explain direct query primitives.
 - [x] Migration notes mention fallback remains explicit.
-- [x] Migration notes mention config identity cleanup is phase-two/end-state
-      unless implemented.
+- [x] Migration notes document collection map-key identity and the compatibility
+      form for authored names.
 
 Verification:
 
@@ -656,13 +662,13 @@ Goal: prove the complete change set is ready to ship.
 
 Repository verification:
 
-- [ ] `pnpm lint`
-- [ ] `pnpm build:packages`
-- [ ] `pnpm docs:build`
-- [ ] `pnpm examples:build`
+- [x] `pnpm lint`
+- [x] `pnpm build:packages`
+- [x] `pnpm docs:build`
+- [x] `pnpm examples:build`
 - [ ] `pnpm test`
 - [ ] `pnpm test:e2e`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 - [ ] `pnpm test:quickstart`
 - [ ] `pnpm pack:check`
 - [ ] `pnpm verify`

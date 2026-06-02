@@ -54,7 +54,7 @@ For the filesystem provider, content files are the source of truth. Downstream a
 A named, typed group of content declared in `content.config.ts`.
 
 ```ts
-export const docs = defineCollection('docs', {
+export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
 })

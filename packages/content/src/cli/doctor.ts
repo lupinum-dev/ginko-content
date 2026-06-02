@@ -85,32 +85,32 @@ const sourceChecks: Array<{
   {
     pattern: /\bqueryCollectionItemSurroundings\s*\(/,
     message: 'Nuxt Content v3 surround helper found.',
-    suggestion: 'Use useContentPage(collection, { surround: true }) in route page components.'
+    suggestion: 'Use useContentPage(\'docs\', { surround: true }) in route page components.'
   },
   {
     pattern: /\bqueryCollectionSearchSections\s*\(/,
     message: 'Nuxt Content v3 search sections helper found.',
-    suggestion: 'Use useContentSearchData(collection) for UI search data.'
+    suggestion: 'Use useContentSearchData(\'docs\') for UI search data.'
   },
   {
     pattern: /\bqueryCollectionNavigation\s*\(/,
     message: 'Nuxt Content v3 navigation helper found.',
-    suggestion: 'Use useContentTree(handle) for layout navigation.'
+    suggestion: 'Use useContentNavigation(\'docs\') for layout navigation.'
   },
   {
     pattern: /\bqueryCollection\s*\(/,
     message: 'Removed collection query helper found.',
-    suggestion: 'Use one(handle, options), many(handle, options), paginate(handle, options), or the matching useContent* composable.'
+    suggestion: 'Use one(\'docs\', options), many(\'docs\', options), paginate(\'docs\', options), or the matching useContent* composable.'
   },
   {
     pattern: /\buseContentList\s*\(/,
     message: 'Removed content list composable found.',
-    suggestion: 'Use useContentMany(handle, options) or many(handle, options).'
+    suggestion: 'Use useContentMany(\'docs\', options) or many(\'docs\', options).'
   },
   {
     pattern: /\buseContentNavigation\s*\(/,
     message: 'Removed content navigation composable found.',
-    suggestion: 'Use useContentTree(handle) for layout navigation.'
+    suggestion: 'Use useContentNavigation(\'docs\') for layout navigation.'
   },
   {
     pattern: /\bcontent\.(database|preview|build)\b/,
@@ -130,12 +130,12 @@ const sourceChecks: Array<{
   {
     pattern: /<NuxtLink\b[^>]*:to\s*=\s*["'][^"']+\.path["']/,
     message: 'NuxtLink may be using raw query .path.',
-    suggestion: 'Use useContentMany(handle, options) for route-safe list items, or link route-page payloads with their explicit path field.'
+    suggestion: 'Use useContentMany(\'docs\', options) for route-safe list items, or link route-page payloads with their explicit path field.'
   },
   {
     pattern: /<NuxtLink\b[^>]*:to\s*=\s*["'][^"']+\._path["']/,
     message: 'NuxtLink is using raw content _path.',
-    suggestion: 'Use useContentMany(handle, options) for list pages and bind the route-safe item.path field.'
+    suggestion: 'Use useContentMany(\'docs\', options) for list pages and bind the route-safe item.path field.'
   }
 ]
 
@@ -702,7 +702,7 @@ async function inspectI18nSourceSmells(rootDir: string, locales: string[]): Prom
         severity: 'error',
         file: relativeFile,
         message: 'Hardcoded locale route branch found.',
-        suggestion: 'Use @nuxtjs/i18n route helpers, useContentTree(handle), or useContentMany(handle, options) item paths instead of branching on locale codes.'
+        suggestion: 'Use @nuxtjs/i18n route helpers, useContentNavigation(\'docs\'), or useContentMany(\'docs\', options) item paths instead of branching on locale codes.'
       })
     }
 
@@ -711,7 +711,7 @@ async function inspectI18nSourceSmells(rootDir: string, locales: string[]): Prom
         severity: 'error',
         file: relativeFile,
         message: 'UI link is bound to raw content _path.',
-        suggestion: 'Use useContentMany(handle, options) for localized list pages and bind item.path.'
+        suggestion: 'Use useContentMany(\'docs\', options) for localized list pages and bind item.path.'
       })
     }
   }

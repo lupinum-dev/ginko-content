@@ -14,6 +14,7 @@ import { withTrailingSlash } from 'ufo'
 import { name, version } from '../package.json'
 import type { ParsedContent, ResolvedMarkdownPlugin, MarkdownOptions } from './types/content'
 import type { ContentCollectionConfig, ContentCollectionI18nConfig } from './types/config'
+import { normalizeContentConfigCollectionNames } from './types/config'
 import type { StorageValue } from 'unstorage'
 import {
   processMarkdownOptions,
@@ -462,12 +463,7 @@ interface ModulePublicRuntimeConfig {
 }
 
 function validateCollectionNames (collections: Record<string, ContentCollectionConfig>) {
-  for (const [key, collection] of Object.entries(collections)) {
-    const authoredName = (collection as { name?: unknown }).name
-    if (typeof authoredName === 'string' && authoredName !== key) {
-      throw new Error(`@lupinum/ginko-content collection key "${key}" must match defineCollection name "${authoredName}". Use defineCollection('${key}', ...) or rename the collections map key.`)
-    }
-  }
+  normalizeContentConfigCollectionNames(collections)
 }
 
 function validateRemovedMarkdownOptions (options: ModuleOptions) {

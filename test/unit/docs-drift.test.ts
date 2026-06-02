@@ -32,12 +32,10 @@ const stalePublicApiPatterns = [
   /\bserverQueryCollection\b/,
   /\bresolveContentReference\b/,
   /\buseContentList\b/,
-  /\buseContentNavigation\b/,
   /\buseContentSwitchLocalePath\b/
 ]
 
-const stringCollectionQueryPattern =
-  /\b(?:one|many|paginate|tree|neighbors|variants|backlinks|resolveOne|useContent(?:Page|One|Many|Pagination|Backlinks|ResolveOne|Variants|Tree|Neighbors|SearchData|LocaleSwitch))\s*\(\s*['"][^'"]+['"]/
+const namedDefineCollectionPattern = /\bdefineCollection\s*\(\s*['"][^'"]+['"]/
 
 const publicQueryOperators = new Set([
   '$eq',
@@ -170,20 +168,28 @@ const findUnsupportedPublicOperatorLines = (file: string, source: string) => {
   })
 }
 
-const findObjectOnlyDefineCollectionLines = (file: string, source: string) => {
-  const lines = source.split('\n')
-  return lines.flatMap((line, index) => {
-    if (!line.includes('defineCollection({')) return []
-    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) return []
-    return [`${file}:${index + 1}`]
-  })
+const isCompatibilityCollectionDeclarationLine = (lines: string[], index: number) => {
+  const context = lines
+    .slice(Math.max(0, index - 3), index + 3)
+    .join(' ')
+    .toLowerCase()
+
+  return [
+    'older',
+    'compatibility',
+    'authored name must match',
+    'must match definecollection name',
+    'old api',
+    'before'
+  ].some(marker => context.includes(marker))
 }
 
-const findStringCollectionQueryLines = (file: string, source: string) => {
+const findNamedDefineCollectionLines = (file: string, source: string) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
-    if (!stringCollectionQueryPattern.test(line)) return []
+    if (!namedDefineCollectionPattern.test(line)) return []
     if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) return []
+    if (isCompatibilityCollectionDeclarationLine(lines, index)) return []
     return [`${file}:${index + 1}`]
   })
 }
@@ -285,6 +291,7 @@ describe('documentation drift', () => {
     expect(stalePublicApiPatterns.some(pattern => pattern.test('`useContentPage`'))).toBe(false)
     expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentList('))).toBe(true)
     expect(stalePublicApiPatterns.some(pattern => pattern.test('queryCollectionNavigation('))).toBe(true)
+    expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentNavigation('))).toBe(false)
   })
 
   test('content.config import detector is scoped to the same doc', () => {
@@ -311,36 +318,11 @@ describe('documentation drift', () => {
     )).toEqual(['example.md:1'])
   })
 
-  test('string collection query detector allows historical migration snippets only', () => {
-    expect(findStringCollectionQueryLines(
-      'example.md',
-      "const { page } = await useContentPage('docs')"
-    )).toEqual(['example.md:1'])
-
-    expect(findStringCollectionQueryLines(
-      'docs/content/docs/8.migration/example.md',
-      [
-        '// Old Nuxt Content v3 API',
-        "const { data } = await useContentSearchData('docs')"
-      ].join('\n')
-    )).toEqual([])
-  })
-
   test('current public docs do not teach removed query APIs', async () => {
     const offenders: string[] = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
       const source = await readFile(file, 'utf8')
       offenders.push(...findStalePublicApiLines(file, source))
-    }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('current docs use exported collection handles in query examples', async () => {
-    const offenders: string[] = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findStringCollectionQueryLines(file, source))
     }
 
     expect(offenders).toEqual([])
@@ -356,11 +338,11 @@ describe('documentation drift', () => {
     expect(offenders).toEqual([])
   })
 
-  test('current docs use named collection declarations', async () => {
+  test('current docs do not teach authored collection names as the default', async () => {
     const offenders: string[] = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
       const source = await readFile(file, 'utf8')
-      offenders.push(...findObjectOnlyDefineCollectionLines(file, source))
+      offenders.push(...findNamedDefineCollectionLines(file, source))
     }
 
     expect(offenders).toEqual([])

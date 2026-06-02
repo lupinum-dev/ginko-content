@@ -1,7 +1,7 @@
 import { defineCollection, defineContentConfig, fields } from '@lupinum/ginko-content/config'
 import { z } from 'zod'
 
-export const authors = defineCollection('authors', {
+export const authors = defineCollection({
   type: 'page',
   source: 'authors/**/*.md',
   schema: z.object({
@@ -9,7 +9,7 @@ export const authors = defineCollection('authors', {
   })
 })
 
-export const blog = defineCollection('blog', {
+export const blog = defineCollection({
   type: 'page',
   source: 'blog/**/*.md',
   schema: z.object({

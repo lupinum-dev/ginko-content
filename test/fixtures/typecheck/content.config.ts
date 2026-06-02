@@ -1,7 +1,7 @@
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import { z } from 'zod'
 
-export const docs = defineCollection('docs', {
+export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
@@ -13,7 +13,7 @@ export const docs = defineCollection('docs', {
   })
 })
 
-export const authors = defineCollection('authors', {
+export const authors = defineCollection({
   type: 'data',
   source: 'authors/*.yml',
   i18n: true,
@@ -23,7 +23,7 @@ export const authors = defineCollection('authors', {
   })
 })
 
-export const posts = defineCollection('posts', {
+export const posts = defineCollection({
   type: 'page',
   source: 'posts/**/*.md',
   schema: z.object({

@@ -48,8 +48,8 @@ Build [content-rich]{.text-primary} Nuxt apps.
   ```ts
   import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-  export const docs = defineCollection('docs', { type: 'page', source: 'docs/**/*.md' })
-  export const blog = defineCollection('blog', { type: 'page', source: 'blog/**/*.md' })
+  export const docs = defineCollection({ type: 'page', source: 'docs/**/*.md' })
+  export const blog = defineCollection({ type: 'page', source: 'blog/**/*.md' })
 
   export default defineContentConfig({
     collections: { docs, blog }

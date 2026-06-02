@@ -1,6 +1,6 @@
 import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-export const pages = defineCollection('pages', {
+export const pages = defineCollection({
   type: 'page',
   source: '**/*.md'
 })

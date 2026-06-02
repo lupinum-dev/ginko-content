@@ -12,7 +12,7 @@ import { createFixtureContentProvider, createProviderFixture, createProviderFixt
 import { useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
 import { z } from 'zod'
 
-const docs = defineCollection('docs', {
+const rawDocs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   strict: true,
@@ -48,9 +48,10 @@ const posts = defineCollection('posts', {
 })
 
 const _contentConfig = defineContentConfig({
-  collections: { docs, authors, posts }
+  collections: { docs: rawDocs, authors, posts }
 })
 void _contentConfig
+const docs = _contentConfig.collections.docs
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends
@@ -64,6 +65,7 @@ type Expect<T extends true> = T
 // Handles carry the i18n discriminator at the type level.
 type _ProbeDocsI18n = Expect<Equal<typeof docs.__i18n, true>>
 type _ProbePostsI18n = Expect<Equal<typeof posts.__i18n, false>>
+type _ProbeConfigKeyName = Expect<Equal<typeof _contentConfig.collections.docs.name, 'docs'>>
 
 // OneOptions imports correctly (regression: dist/types must be emitted —
 // when build.config's mkdistEntries doesn't include `src/types/`,

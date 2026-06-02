@@ -277,6 +277,37 @@ type IsI18nConfig<TConfig> = TConfig extends { i18n: true | ContentCollectionI18
   ? TConfig['i18n'] extends false ? false : true
   : false
 
+type CollectionNameFromConfigKey<Key extends string, TCollection> =
+  TCollection extends ContentCollectionHandle<infer Name, ZodType | undefined, boolean>
+    ? [Name] extends [never] ? Key : Name
+    : Key
+
+type NamedContentCollection<Key extends string, TCollection> =
+  TCollection extends ContentCollectionHandle<infer Name, infer TSchema, infer TI18n>
+    ? Omit<TCollection, 'name' | '__schema' | '__i18n'> & ContentCollectionHandle<
+      [Name] extends [never] ? Key : Name,
+      TSchema,
+      TI18n
+    >
+    : TCollection extends ContentCollectionConfig<infer TSchema>
+    ? Omit<TCollection, 'name' | '__schema' | '__i18n'> & ContentCollectionHandle<
+      CollectionNameFromConfigKey<Key, TCollection>,
+      TSchema,
+      IsI18nConfig<TCollection>
+    >
+    : TCollection
+
+type NamedContentCollections<TCollections extends Record<string, ContentCollectionConfig>> = {
+  [Key in keyof TCollections]: Key extends string
+    ? NamedContentCollection<Key, TCollections[Key]>
+    : TCollections[Key]
+}
+
+type NamedContentConfig<TCollections extends Record<string, ContentCollectionConfig>> =
+  Omit<ContentConfig<TCollections>, 'collections'> & {
+    collections: NamedContentCollections<TCollections>
+  }
+
 /**
  * Define a content collection in `content.config.ts`.
  *
@@ -285,7 +316,7 @@ type IsI18nConfig<TConfig> = TConfig extends { i18n: true | ContentCollectionI18
  * import { z } from 'zod'
  * import { defineCollection } from '@lupinum/ginko-content/config'
  *
- * export const docs = defineCollection('docs', {
+ * export const docs = defineCollection({
  *   type: 'page',
  *   source: 'docs/**\/*.md',
  *   i18n: { locales: ['en', 'fr', 'de'], defaultLocale: 'en' },
@@ -299,17 +330,32 @@ type IsI18nConfig<TConfig> = TConfig extends { i18n: true | ContentCollectionI18
 type SchemaOf<TConfig> = TConfig extends { schema?: infer S } ? S extends ZodType ? S : undefined : undefined
 
 export function defineCollection<
+  const TConfig extends DefineCollectionObject<ZodType | undefined>
+> (
+  config: TConfig
+): ContentCollectionHandle<never, SchemaOf<TConfig>, IsI18nConfig<TConfig>>
+export function defineCollection<
   const Name extends string,
   const TConfig extends DefineCollectionObject<ZodType | undefined>
 > (
   name: Name,
   config: TConfig
-): ContentCollectionHandle<Name, SchemaOf<TConfig>, IsI18nConfig<TConfig>> {
+): ContentCollectionHandle<Name, SchemaOf<TConfig>, IsI18nConfig<TConfig>>
+export function defineCollection<
+  const Name extends string,
+  const TConfig extends DefineCollectionObject<ZodType | undefined>
+> (
+  nameOrConfig: Name | TConfig,
+  maybeConfig?: TConfig
+): ContentCollectionHandle<Name, SchemaOf<TConfig>, IsI18nConfig<TConfig>> | ContentCollectionHandle<never, SchemaOf<TConfig>, IsI18nConfig<TConfig>> {
+  const hasAuthoredName = typeof nameOrConfig === 'string'
+  const name = hasAuthoredName ? nameOrConfig : undefined
+  const config = hasAuthoredName ? maybeConfig! : nameOrConfig
   const { type, source, sitemap, ...rest } = config
   const normalized = normalizeCollectionSource(source)
 
   return {
-    name,
+    ...(name ? { name } : {}),
     type,
     ...normalized,
     sitemap: sitemap ?? (type === 'data' ? false : undefined),
@@ -330,6 +376,29 @@ function normalizeCollectionSource (source: ContentCollectionSource | ContentCol
   return { source }
 }
 
+export function normalizeContentConfigCollectionNames<TCollections extends Record<string, ContentCollectionConfig>> (
+  collections: TCollections
+): NamedContentCollections<TCollections> {
+  for (const [key, collection] of Object.entries(collections)) {
+    const authoredName = (collection as { name?: unknown }).name
+    if (typeof authoredName === 'string') {
+      if (authoredName !== key) {
+        throw new Error(`@lupinum/ginko-content collection key "${key}" must match defineCollection name "${authoredName}". Use defineCollection({ ... }) or defineCollection('${key}', ...), or rename the collections map key.`)
+      }
+      continue
+    }
+
+    Object.defineProperty(collection, 'name', {
+      value: key,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+  }
+
+  return collections as unknown as NamedContentCollections<TCollections>
+}
+
 /**
  * Wrap the root content configuration with full type inference.
  *
@@ -337,7 +406,7 @@ function normalizeCollectionSource (source: ContentCollectionSource | ContentCol
  * ```ts
  * import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
  *
- * export const docs = defineCollection('docs', {
+ * export const docs = defineCollection({
  *   type: 'page',
  *   source: 'docs/*.md'
  * })
@@ -349,9 +418,13 @@ function normalizeCollectionSource (source: ContentCollectionSource | ContentCol
  */
 export function defineContentConfig<const TCollections extends Record<string, ContentCollectionConfig>> (
   config: Omit<ContentConfig<TCollections>, 'collections'> & { collections: TCollections }
-): Omit<ContentConfig<TCollections>, 'collections'> & { collections: TCollections }
+): NamedContentConfig<TCollections>
 export function defineContentConfig<const TConfig extends ContentConfig<Record<string, ContentCollectionConfig>>> (config: TConfig): TConfig
 export function defineContentConfig (config: ContentConfig): ContentConfig {
+  if (config.collections) {
+    normalizeContentConfigCollectionNames(config.collections)
+  }
+
   return config
 }
 
@@ -366,7 +439,7 @@ export function defineContentConfig (config: ContentConfig): ContentConfig {
  * import { z } from 'zod'
  * import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
  *
- * export const blog = defineCollection('blog', {
+ * export const blog = defineCollection({
  *   type: 'page',
  *   source: 'blog/*.md',
  *   schema: z.object({

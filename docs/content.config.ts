@@ -13,13 +13,13 @@ const Button = z.object({
   target: z.enum(['_blank', '_self']).optional()
 })
 
-export const landing = defineCollection('landing', {
+export const landing = defineCollection({
   type: 'page',
   source: 'index.md',
   route: '/'
 })
 
-export const docs = defineCollection('docs', {
+export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   route: '/docs',
