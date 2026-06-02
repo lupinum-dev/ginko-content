@@ -182,7 +182,7 @@ export const registerGeneratedTypes = (
       'type __InferredI18nCollectionNames = {',
       '  [K in __ContentCollectionNames]: __ContentCollectionExport<K> extends { __i18n: true }',
       '    ? K',
-      '    : NonNullable<__ContentCollectionExport<K>[\'i18n\']> extends never ? never : K',
+      '    : __ContentCollectionExport<K> extends { i18n: true } ? K : never',
       '}[__ContentCollectionNames]',
       'type __GeneratedI18nCollectionNames = [__RuntimeI18nCollectionNames] extends [never]',
       '  ? __InferredI18nCollectionNames',
