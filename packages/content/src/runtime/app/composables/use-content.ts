@@ -183,7 +183,12 @@ export type UseContentPageOptions<
 }
 
 interface UseContentPageReturn<T> {
+  data: ComputedRef<LocalizedDoc<T> | undefined>
   page: ComputedRef<LocalizedDoc<T> | undefined>
+  surround: ComputedRef<{
+    previous: ContentTreeItem<T> | null
+    next: ContentTreeItem<T> | null
+  }>
   previous: ComputedRef<ContentTreeItem<T> | null>
   next: ComputedRef<ContentTreeItem<T> | null>
   pending: ComputedRef<boolean>
@@ -330,16 +335,25 @@ export async function useContentPage<
     throw pageError.value
   }
 
+  const previous = computed(() => {
+    if (!page.value || !surroundResult) return null
+    return surroundResult.data.value.prev as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
+  })
+  const next = computed(() => {
+    if (!page.value || !surroundResult) return null
+    return surroundResult.data.value.next as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
+  })
+  const pageSurround = computed(() => ({
+    previous: previous.value,
+    next: next.value
+  }))
+
   return {
+    data: page,
     page,
-    previous: computed(() => {
-      if (!page.value || !surroundResult) return null
-      return surroundResult.data.value.prev as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
-    }),
-    next: computed(() => {
-      if (!page.value || !surroundResult) return null
-      return surroundResult.data.value.next as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
-    }),
+    surround: pageSurround,
+    previous,
+    next,
     pending,
     status: computed(() => pageResult.status.value),
     error: pageError,

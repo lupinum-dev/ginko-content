@@ -129,14 +129,14 @@ Goal: make `useContentPage` the canonical route-page API for Nuxt apps.
 
 Scope:
 
-- [ ] Support `useContentPage('docs')` with current route inference.
-- [ ] Return both `data` and `page`, where `page` is an alias for `data`.
-- [ ] Return `surround` from `useContentPage` when requested.
-- [ ] Keep `fallback: true` explicit.
+- [x] Support `useContentPage('docs')` with current route inference.
+- [x] Return both `data` and `page`, where `page` is an alias for `data`.
+- [x] Return `surround` from `useContentPage` when requested.
+- [x] Keep `fallback: true` explicit.
 - [ ] Infer active Nuxt locale when the collection is localized and no explicit
       locale is provided.
 - [ ] Keep explicit `locale` override support.
-- [ ] Do not auto-generate `definePageMeta` or i18n routes in this phase.
+- [x] Do not auto-generate `definePageMeta` or i18n routes in this phase.
 
 Target API:
 
@@ -149,26 +149,28 @@ const { page, surround } = await useContentPage('docs', {
 
 Acceptance criteria:
 
-- [ ] Route-backed page lookup works without passing `path`.
+- [x] Route-backed page lookup works without passing `path`.
 - [ ] Locale-aware page lookup uses active Nuxt locale by default.
 - [ ] Fallback content appears only when `fallback: true` is passed.
-- [ ] `surround` is available from the same composable call.
+- [x] `surround` is available from the same composable call.
 - [ ] Consumers do not need a Nuxt UI surround adapter in page components.
 
 Tests:
 
-- [ ] Add Nuxt runtime tests for route inference.
+- [x] Add Nuxt runtime tests for route inference.
 - [ ] Add Nuxt runtime tests for explicit locale override.
 - [ ] Add Nuxt runtime tests for explicit fallback.
-- [ ] Add Nuxt runtime tests for `surround`.
-- [ ] Add type tests for the returned `page` alias.
+- [x] Add Nuxt runtime tests for `surround`.
+- [x] Add type tests for the returned `page` alias.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test -- --project nuxt`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 - [ ] `pnpm docs:build`
+- [x] Focused page contract tests:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/use-content-page-contracts.test.ts`
 
 Consumer validation:
 

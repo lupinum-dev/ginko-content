@@ -274,8 +274,14 @@ if (routeNextItem) {
 void routePageTitle
 
 const stringRoutePage = await useContentPage('docs', { surround: true, notFound: false })
+const stringRouteDataTitle: string | undefined = stringRoutePage.data.value?.title
 const stringRoutePageTitle: string | undefined = stringRoutePage.page.value?.title
+const stringRoutePreviousTitle: string | undefined = stringRoutePage.surround.value.previous?.title
+const stringRouteNextTitle: string | undefined = stringRoutePage.surround.value.next?.title
+void stringRouteDataTitle
 void stringRoutePageTitle
+void stringRoutePreviousTitle
+void stringRouteNextTitle
 
 const paginated = await useContentPagination(posts, { page: 1, limit: 10 })
 const firstPaginatedPost = paginated.data.value[0]
