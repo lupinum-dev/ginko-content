@@ -115,7 +115,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit typed collection string support.
+- [x] Commit typed collection string support.
 
 Suggested commit message:
 
@@ -354,7 +354,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit content head helper.
+- [x] Commit content head helper.
 
 Suggested commit message:
 
