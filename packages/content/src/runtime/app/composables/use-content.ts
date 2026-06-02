@@ -272,13 +272,13 @@ export async function useContentPage<
   const isBrowser = import.meta.client && typeof window !== 'undefined'
   const { notFound, surround, ...oneOptions } = options as UseContentPageOptions<H, P> & Record<string, unknown>
   const routeSelector = { route: () => normalizeRoutePath(route.path) }
+  const runtime = getContentRuntime()
   const activeLocale = computed(() => {
     const explicitLocale = toValue(oneOptions.locale as MaybeRefOrGetter<string | undefined>)
     if (explicitLocale) {
       return explicitLocale
     }
 
-    const runtime = getContentRuntime()
     const { locales, defaultLocale } = resolveCollectionI18n(contentCollectionName(handle), runtime)
     if (!locales.length && !defaultLocale) {
       return undefined
