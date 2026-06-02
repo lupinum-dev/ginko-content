@@ -12,6 +12,6 @@
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
     "@nuxtjs/i18n": "10.3.0",
-    "nuxt": "4.4.6"
+    "nuxt": "4.4.7"
   }
 }

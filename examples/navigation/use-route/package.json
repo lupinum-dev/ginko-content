@@ -11,6 +11,6 @@
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
     "@nuxt/ui": "^4.7.1",
-    "nuxt": "4.4.6"
+    "nuxt": "4.4.7"
   }
 }
