@@ -370,35 +370,37 @@ Goal: move relationship filtering and population out of Vue components.
 
 Scope:
 
-- [ ] Keep explicit populate mapping as the default:
+- [x] Keep explicit populate mapping as the default:
       `populate: { author: 'authors' }`.
-- [ ] Do not ship `populate: ['author']` until reference fields are
+- [x] Do not ship `populate: ['author']` until reference fields are
       unambiguous in schema and provider behavior.
-- [ ] Improve typed populated references at call sites.
-- [ ] Improve or document `useContentBacklinks` before adding a new
+- [x] Improve typed populated references at call sites.
+- [x] Improve or document `useContentBacklinks` before adding a new
       `useContentReferences` API.
-- [ ] Avoid fetching all posts and filtering refs in frontend components.
+- [x] Avoid fetching all posts and filtering refs in frontend components.
 
 Acceptance criteria:
 
-- [ ] `populate: { author: 'authors' }` returns typed populated author data.
-- [ ] Author pages can query related posts without fetching all posts.
-- [ ] Backlink/reference behavior has one documented source of truth.
-- [ ] No new relationship API is added unless existing backlinks cannot express
+- [x] `populate: { author: 'authors' }` returns typed populated author data.
+- [x] Author pages can query related posts without fetching all posts.
+- [x] Backlink/reference behavior has one documented source of truth.
+- [x] No new relationship API is added unless existing backlinks cannot express
       the required query.
 
 Tests:
 
-- [ ] Add type tests for populated single reference.
-- [ ] Add type tests for populated reference arrays.
-- [ ] Add provider tests for reference filtering.
-- [ ] Add runtime tests for author-to-post lookup.
+- [x] Add type tests for populated single reference.
+- [x] Add type tests for populated reference arrays.
+- [x] Add provider tests for reference filtering.
+- [x] Add runtime tests for author-to-post lookup.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
+- [x] Focused populate/backlink contracts:
+      `pnpm exec vitest run --config vitest.config.ts test/ginko-unified-populate.test.ts test/client/consumer-flows.test.ts`
 
 Consumer validation:
 
@@ -408,7 +410,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit typed population and relationship query improvements.
+- [x] Commit typed population and relationship query improvements.
 
 Suggested commit message:
 

@@ -138,6 +138,15 @@ if (firstStringPost) {
   void authors
 }
 
+const stringPopulatedPost = await one('posts', {
+  by: { path: '/hello' },
+  populate: { authors: 'authors' }
+})
+if (stringPopulatedPost?.authors[0]) {
+  const populatedAuthorName: string = stringPopulatedPost.authors[0].name
+  void populatedAuthorName
+}
+
 const populatedDocsResult = await one(docs, {
   locale: 'en',
   by: { ref: 'guide.getting-started' },
@@ -433,6 +442,9 @@ await many(posts, { select: ['titel'] })
 
 // @ts-expect-error typo'd select field — generated collection names are narrowed too
 await many('posts', { select: ['titel'] })
+
+// @ts-expect-error populate shorthand is intentionally not part of the public API
+await one('docs', { locale: 'de', by: { path: '/leitfaden' }, populate: ['author'] })
 
 // @ts-expect-error variants requires `by`
 await variants(docs, { ref: 'guide.intro' })
