@@ -27,6 +27,7 @@ export {
   useContentResolveOne,
   useContentVariants,
   useContentTree,
+  useContentNavigation,
   useContentNeighbors,
   useContentLocaleSwitch
 } from '../runtime/app/composables/use-content.js'
@@ -68,6 +69,7 @@ export type {
   ContentRouteMeta,
   ContentSearchSection
 } from '../types/query.js'
+export type { ContentNavigationNode } from '../runtime/app/composables/use-content.js'
 
 // Search (kept — out of scope for ADR-0016).
 export { useContentSearch, useContentSearchData, useContentSearchResults } from '../runtime/app/composables/search.js'

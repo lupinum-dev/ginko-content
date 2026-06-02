@@ -55,9 +55,9 @@ describe('package export contracts', () => {
     expect(client.useContentBacklinks).toBeTypeOf('function')
     expect(client.useContentSearch).toBeTypeOf('function')
     expect(client.useContentTree).toBeTypeOf('function')
+    expect(client.useContentNavigation).toBeTypeOf('function')
     expect(client).not.toHaveProperty('queryCollection')
     expect(client).not.toHaveProperty('useContentList')
-    expect(client).not.toHaveProperty('useContentNavigation')
   })
 
   test('built provider fixture export loads as Node ESM', async () => {

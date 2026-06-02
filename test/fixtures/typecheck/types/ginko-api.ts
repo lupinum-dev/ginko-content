@@ -6,7 +6,7 @@
  */
 import type {} from '../.nuxt/types/content'
 import type { ContentCollectionName, DocumentFromHandle, LocalizedDoc, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
-import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentMany, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
+import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentMany, useContentNavigation, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
@@ -351,6 +351,22 @@ const navResult = await tree(docs, { locale: 'de', fields: ['title'] as const })
 type _NavItem = typeof navResult[number]
 type _NavTitleIsTyped = Expect<Equal<_NavItem['title'], string>>
 void navResult
+
+const navigationState = await useContentNavigation('docs', {
+  locale: 'de',
+  fields: ['title', 'author'] as const
+})
+const navigationItem = navigationState.data.value[0]
+if (navigationItem) {
+  const navigationId: string = navigationItem.id
+  const navigationPath: string = navigationItem.path
+  const firstNavigationPath: string | undefined = navigationState.firstPage.value?.path
+  const hasNavigationPath: boolean = navigationState.paths.value.has(navigationPath)
+  void navigationId
+  void navigationPath
+  void firstNavigationPath
+  void hasNavigationPath
+}
 
 /* ── variants/neighbors take by (not top-level ref/path) ───────────────── */
 

@@ -69,7 +69,8 @@ describe('runtime asset contracts', () => {
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
       expect.objectContaining({ name: 'useContentMany', as: 'useContentMany' }),
-      expect.objectContaining({ name: 'useContentTree', as: 'useContentTree' })
+      expect.objectContaining({ name: 'useContentTree', as: 'useContentTree' }),
+      expect.objectContaining({ name: 'useContentNavigation', as: 'useContentNavigation' })
     ]))
   })
 

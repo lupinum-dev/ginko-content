@@ -15,6 +15,7 @@ export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => s
     { name: 'useContentResolveOne', as: 'useContentResolveOne', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentVariants', as: 'useContentVariants', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentTree', as: 'useContentTree', from: resolveRuntimeModule('./app/composables/use-content.js') },
+    { name: 'useContentNavigation', as: 'useContentNavigation', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentNeighbors', as: 'useContentNeighbors', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentLocaleSwitch', as: 'useContentLocaleSwitch', from: resolveRuntimeModule('./app/composables/use-content.js') },
     // Search & site data — keep the headless useContentSearch export explicit

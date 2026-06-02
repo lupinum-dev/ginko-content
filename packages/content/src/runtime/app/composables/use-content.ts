@@ -574,6 +574,57 @@ interface UseContentTreeReturn<T> {
   refresh: () => Promise<void>
 }
 
+export type ContentNavigationNode<T> = Omit<ContentTreeItem<T>, 'children'> & {
+  id: string
+  path: string
+  title: string
+  children: Array<ContentNavigationNode<T>>
+}
+
+interface UseContentNavigationReturn<T> {
+  data: ComputedRef<Array<ContentNavigationNode<T>>>
+  firstPage: ComputedRef<ContentNavigationNode<T> | null>
+  paths: ComputedRef<Set<string>>
+  status: ComputedRef<string>
+  error: ComputedRef<unknown>
+  refresh: () => Promise<void>
+}
+
+const navigationNodeId = (item: ContentTreeItem<unknown> & Record<string, unknown>) => {
+  const id = item.id ?? item._id ?? item._canonicalKey ?? item.path ?? item._path ?? item.title
+  return typeof id === 'string' && id.length ? id : item.title
+}
+
+const normalizeContentNavigation = <T>(items: Array<ContentTreeItem<T>> = []): Array<ContentNavigationNode<T>> => {
+  return items.map((item) => {
+    const source = item as ContentTreeItem<T> & Record<string, unknown>
+    return {
+      ...item,
+      id: navigationNodeId(source),
+      path: item.path,
+      title: item.title,
+      children: normalizeContentNavigation(item.children || [])
+    }
+  })
+}
+
+const findFirstContentNavigationPage = <T>(items: Array<ContentNavigationNode<T>>): ContentNavigationNode<T> | null => {
+  for (const item of items) {
+    if (item.path) return item
+    const child = findFirstContentNavigationPage(item.children)
+    if (child) return child
+  }
+  return null
+}
+
+const collectContentNavigationPaths = <T>(items: Array<ContentNavigationNode<T>>, paths = new Set<string>()) => {
+  for (const item of items) {
+    if (item.path) paths.add(item.path)
+    collectContentNavigationPaths(item.children, paths)
+  }
+  return paths
+}
+
 /**
  * Reactively resolve the navigation tree for a collection.
  */
@@ -596,6 +647,26 @@ export async function useContentTree<H extends ContentCollectionTarget> (
     status: computed(() => asyncData.status.value),
     error: computed(() => asyncData.error.value),
     refresh: () => asyncData.refresh()
+  }
+}
+
+/**
+ * Reactively resolve normalized navigation for sidebars and active-state UI.
+ */
+export async function useContentNavigation<H extends ContentCollectionTarget> (
+  handle: H,
+  options: Reactive<TreeOptions<H>> = {} as Reactive<TreeOptions<H>>
+): Promise<UseContentNavigationReturn<DocFromHandle<H>>> {
+  const tree = await useContentTree(handle, options)
+  const data = computed(() => normalizeContentNavigation(tree.data.value))
+
+  return {
+    data,
+    firstPage: computed(() => findFirstContentNavigationPage(data.value)),
+    paths: computed(() => collectContentNavigationPaths(data.value)),
+    status: tree.status,
+    error: tree.error,
+    refresh: tree.refresh
   }
 }
 

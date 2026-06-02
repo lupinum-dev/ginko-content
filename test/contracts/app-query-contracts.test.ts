@@ -27,7 +27,20 @@ const route = { path: '/de/guide/advanced', query: {} as Record<string, any> }
 const asyncDataCalls: any[] = []
 const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) => {
   if (kind === 'navigation') {
-    return [{ title: 'Guide', _path: '/guide', path: '/de/guide' }]
+    return [{
+      _id: 'folder:guide',
+      title: 'Guide',
+      _path: '/guide',
+      path: '/de/guide',
+      icon: 'book',
+      children: [{
+        _canonicalKey: 'docs/advanced',
+        title: 'Advanced',
+        _path: '/guide/advanced',
+        path: '/de/guide/advanced',
+        badge: 'New'
+      }]
+    }]
   }
 
   if (params.resolveVariant) {
@@ -190,6 +203,7 @@ describe('app query/composable contracts', () => {
       'useContentResolveOne',
       'useContentVariants',
       'useContentTree',
+      'useContentNavigation',
       'useContentNeighbors',
       'useContentSearch',
       'useContentSearchData',
@@ -202,12 +216,48 @@ describe('app query/composable contracts', () => {
 
     for (const staleName of [
       'queryCollection',
-      'useContentNavigation',
       'useContentRoute',
       'useContentSwitchLocalePath'
     ]) {
       expect(client).not.toHaveProperty(staleName)
     }
+  })
+
+  test('useContentNavigation wraps tree data with normalized helpers', async () => {
+    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
+
+    const state = await useContentNavigation('docs', {
+      locale: 'de',
+      fields: ['icon', 'badge']
+    })
+
+    expect(fetchContentApi).toHaveBeenCalledWith('navigation', expect.objectContaining({
+      collection: 'docs',
+      resolveLocale: expect.objectContaining({ locale: 'de' }),
+      only: expect.arrayContaining(['icon', 'badge'])
+    }), expect.anything())
+    expect(state.data.value).toEqual([
+      expect.objectContaining({
+        id: 'folder:guide',
+        path: '/de/guide',
+        title: 'Guide',
+        icon: 'book',
+        children: [
+          expect.objectContaining({
+            id: 'docs/advanced',
+            path: '/de/guide/advanced',
+            title: 'Advanced',
+            badge: 'New'
+          })
+        ]
+      })
+    ])
+    expect(state.firstPage.value).toEqual(expect.objectContaining({
+      id: 'folder:guide',
+      path: '/de/guide'
+    }))
+    expect(state.paths.value.has('/de/guide')).toBe(true)
+    expect(state.paths.value.has('/de/guide/advanced')).toBe(true)
   })
 
   test('useContentMany wraps the unified public query API instead of the removed builder', async () => {

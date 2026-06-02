@@ -180,7 +180,7 @@ Consumer validation:
 
 Commit checkpoint:
 
-- [ ] Commit route-page composable changes.
+- [x] Commit route-page composable changes.
 
 Suggested commit message:
 
@@ -194,14 +194,14 @@ Goal: stop consumers from reimplementing content tree traversal.
 
 Scope:
 
-- [ ] Add `useContentNavigation('docs')`.
-- [ ] Return normalized nodes with stable `id`, `path`, `title`, and children.
-- [ ] Support field selection for navigation metadata such as `icon`, `badge`,
+- [x] Add `useContentNavigation('docs')`.
+- [x] Return normalized nodes with stable `id`, `path`, `title`, and children.
+- [x] Support field selection for navigation metadata such as `icon`, `badge`,
       and `sidebar`.
-- [ ] Return `firstPage`.
-- [ ] Return a path lookup or `paths` helper for active-state consumers.
-- [ ] Keep section/group projection out of core for this phase.
-- [ ] Keep non-content app routes app-owned.
+- [x] Return `firstPage`.
+- [x] Return a path lookup or `paths` helper for active-state consumers.
+- [x] Keep section/group projection out of core for this phase.
+- [x] Keep non-content app routes app-owned.
 
 Target API:
 
@@ -214,24 +214,26 @@ const { data: navigation, firstPage, paths } = await useContentNavigation('docs'
 Acceptance criteria:
 
 - [ ] Docs sidebars can render without local recursive "find first page" code.
-- [ ] Current route active state can be computed without app-specific tree
+- [x] Current route active state can be computed without app-specific tree
       walking.
-- [ ] Navigation metadata is selected explicitly.
-- [ ] No shadcn-specific section/group projection exists in core.
+- [x] Navigation metadata is selected explicitly.
+- [x] No shadcn-specific section/group projection exists in core.
 
 Tests:
 
-- [ ] Add runtime tests for normalized navigation node shape.
-- [ ] Add runtime tests for `firstPage`.
-- [ ] Add runtime tests for selected metadata fields.
-- [ ] Add runtime tests for nested routes and active path helpers.
+- [x] Add runtime tests for normalized navigation node shape.
+- [x] Add runtime tests for `firstPage`.
+- [x] Add runtime tests for selected metadata fields.
+- [x] Add runtime tests for nested routes and active path helpers.
 
 Verification:
 
-- [ ] `pnpm build:packages`
+- [x] `pnpm build:packages`
 - [ ] `pnpm test`
-- [ ] `pnpm typecheck`
+- [x] `pnpm typecheck`
 - [ ] `pnpm docs:build`
+- [x] Focused navigation/public API contracts:
+      `pnpm exec vitest run --config vitest.config.ts test/contracts/app-query-contracts.test.ts test/contracts/package-exports-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts`
 
 Consumer validation:
 
