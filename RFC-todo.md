@@ -32,7 +32,7 @@ Goal: make the current behavior measurable before changing public APIs.
       `one`, `many`, `tree`, `neighbors`, `backlinks`.
 - [x] Confirm fallback policy: active Nuxt locale may be inferred, fallback must
       stay explicit via `fallback: true` unless a collection opts in later.
-- [ ] Capture current consumer friction with short before examples from:
+- [x] Capture current consumer friction with short before examples from:
       `saas-i18n`, `saas-template`, `shadcn-starter`.
 - [x] Identify the exact package and generated type files that own collection
       names, composables, search records, navigation records, and renderer
@@ -73,7 +73,7 @@ Scope:
       i18n metadata types.
 - [x] Update existing query functions and composables, including
       `useContentPage` and `useContentMany`, to accept typed collection names.
-- [ ] Update planned navigation/search APIs to accept typed collection names
+- [x] Update planned navigation/search APIs to accept typed collection names
       once those APIs are introduced or revised in their own phases.
 - [x] Keep existing handle-based internals only where they are already the
       canonical runtime path.
@@ -607,31 +607,31 @@ Goal: make the new API the documented default.
 
 Scope:
 
-- [ ] Update docs examples to use typed string collection names.
-- [ ] Update page examples to use `useContentPage`.
-- [ ] Update navigation examples to use `useContentNavigation`.
-- [ ] Update search examples to show result `collection`.
-- [ ] Update SEO examples to show `useContentHead`.
-- [ ] Keep low-level query docs explicit-import based.
-- [ ] Add migration notes with before/after snippets.
+- [x] Update docs examples to use typed string collection names.
+- [x] Update page examples to use `useContentPage`.
+- [x] Update navigation examples to use `useContentNavigation`.
+- [x] Update search examples to show result `collection`.
+- [x] Update SEO examples to show `useContentHead`.
+- [x] Keep low-level query docs explicit-import based.
+- [x] Add migration notes with before/after snippets.
 
 Acceptance criteria:
 
-- [ ] Docs first page shows the new Nuxt-like API.
-- [ ] Advanced docs still explain direct query primitives.
-- [ ] Migration notes mention fallback remains explicit.
-- [ ] Migration notes mention config identity cleanup is phase-two/end-state
+- [x] Docs first page shows the new Nuxt-like API.
+- [x] Advanced docs still explain direct query primitives.
+- [x] Migration notes mention fallback remains explicit.
+- [x] Migration notes mention config identity cleanup is phase-two/end-state
       unless implemented.
 
 Verification:
 
-- [ ] `pnpm docs:build`
-- [ ] `pnpm examples:build`
-- [ ] `pnpm lint`
+- [x] `pnpm docs:build`
+- [x] `pnpm examples:build`
+- [x] `pnpm lint`
 
 Commit checkpoint:
 
-- [ ] Commit docs and examples update.
+- [x] Commit docs and examples update.
 
 Suggested commit message:
 

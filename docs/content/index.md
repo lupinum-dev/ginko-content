@@ -59,9 +59,7 @@ Build [content-rich]{.text-primary} Nuxt apps.
   :::tabs-item{label="pages/docs/[...slug].vue" icon="i-simple-icons-vuedotjs"}
   ```vue
   <script setup lang="ts">
-  import { docs } from '~/content.config'
-
-  const { page } = await useContentPage(docs)
+  const { page } = await useContentPage('docs')
   </script>
 
   <template>
@@ -221,9 +219,7 @@ Write Markdown for authors, drop into MDC when you need components, and render i
   :::tabs-item{label="app/pages/docs/[...slug].vue" icon="i-simple-icons-vuedotjs"}
   ```vue
   <script setup lang="ts">
-  import { docs } from '~/content.config'
-
-  const { page } = await useContentPage(docs)
+  const { page } = await useContentPage('docs')
   </script>
 
   <template>
@@ -282,9 +278,7 @@ Ginko does not treat localization as an afterthought. Locale detection, fallback
   :::tabs-item{label="app/pages/docs/[...slug].vue" icon="i-simple-icons-vuedotjs"}
   ```vue
   <script setup lang="ts">
-  import { docs } from '~/content.config'
-
-  const { page } = await useContentPage(docs)
+  const { page } = await useContentPage('docs')
   </script>
   ```
   :::
@@ -337,9 +331,7 @@ Because Ginko owns the content route model, sitemap generation, navigation trees
   :::tabs-item{label="app/pages/docs/[...slug].vue" icon="i-simple-icons-vuedotjs"}
   ```vue
   <script setup lang="ts">
-  import { docs } from '~/content.config'
-
-  const { page, previous, next } = await useContentPage(docs, {
+  const { page, previous, next } = await useContentPage('docs', {
     surround: true
   })
   </script>
