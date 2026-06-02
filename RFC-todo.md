@@ -106,11 +106,11 @@ Verification:
 
 Consumer validation:
 
-- [ ] Convert one `saas-template` page to string collection API.
+- [x] Convert one `saas-template` page to string collection API.
 - [ ] Convert one `saas-i18n` page to string collection API.
 - [ ] Convert one `shadcn-starter` page or query helper to string collection
       API.
-- [ ] Confirm no consumer imports `content.config.ts` only to pass a collection
+- [x] Confirm no consumer imports `content.config.ts` only to pass a collection
       handle into an app-facing composable.
 
 Commit checkpoint:
@@ -153,7 +153,7 @@ Acceptance criteria:
 - [x] Locale-aware page lookup uses active Nuxt locale by default.
 - [x] Fallback content appears only when `fallback: true` is passed.
 - [x] `surround` is available from the same composable call.
-- [ ] Consumers do not need a Nuxt UI surround adapter in page components.
+- [x] Consumers do not need a Nuxt UI surround adapter in page components.
 
 Tests:
 
@@ -174,7 +174,7 @@ Verification:
 
 Consumer validation:
 
-- [ ] Update docs page in `saas-template`.
+- [x] Update docs page in `saas-template`.
 - [ ] Update localized docs page in `saas-i18n`.
 - [ ] Confirm fallback use in `saas-i18n` is visible in the call site.
 
@@ -213,7 +213,7 @@ const { data: navigation, firstPage, paths } = await useContentNavigation('docs'
 
 Acceptance criteria:
 
-- [ ] Docs sidebars can render without local recursive "find first page" code.
+- [x] Docs sidebars can render without local recursive "find first page" code.
 - [x] Current route active state can be computed without app-specific tree
       walking.
 - [x] Navigation metadata is selected explicitly.
@@ -237,7 +237,7 @@ Verification:
 
 Consumer validation:
 
-- [ ] Replace local first-page recursion in `saas-template`.
+- [x] Replace local first-page recursion in `saas-template`.
 - [ ] Replace local first-page recursion in `saas-i18n`.
 - [ ] Use normalized navigation in `shadcn-starter` without adding a core
       shadcn projection.
@@ -291,7 +291,7 @@ Verification:
 
 Consumer validation:
 
-- [ ] Update `saas-template` search to use `collection`.
+- [x] Update `saas-template` search to use `collection`.
 - [ ] Update `saas-i18n` search to use locale-aware route identity.
 - [ ] Update `shadcn-starter` search scope and result routing.
 
@@ -327,7 +327,7 @@ useContentHead(page)
 
 Acceptance criteria:
 
-- [ ] Consumers can delete local page-to-head mapping helpers.
+- [x] Consumers can delete local page-to-head mapping helpers.
 - [x] Missing optional SEO fields do not produce invalid head tags.
 - [x] Head ownership remains visible at the call site.
 
@@ -350,7 +350,7 @@ Verification:
 
 Consumer validation:
 
-- [ ] Replace duplicated SEO mapping in `saas-template`.
+- [x] Replace duplicated SEO mapping in `saas-template`.
 - [ ] Replace duplicated SEO mapping in `saas-i18n`.
 - [ ] Confirm shadcn app can use the helper without Nuxt UI assumptions.
 
@@ -404,8 +404,8 @@ Verification:
 
 Consumer validation:
 
-- [ ] Update author page in `saas-template` or `saas-i18n`.
-- [ ] Remove frontend all-posts filtering where relationship queries can do the
+- [x] Update author page in `saas-template` or `saas-i18n`.
+- [x] Remove frontend all-posts filtering where relationship queries can do the
       work.
 
 Commit checkpoint:
@@ -452,7 +452,7 @@ Verification:
 
 Consumer validation:
 
-- [ ] Confirm affected pages in `saas-template` render cleanly.
+- [x] Confirm affected pages in `saas-template` render cleanly.
 - [ ] Confirm affected pages in `saas-i18n` render cleanly.
 
 Commit checkpoint:
@@ -471,11 +471,11 @@ Goal: validate the new API against real Nuxt UI and shadcn consumers.
 
 Scope:
 
-- [ ] Use local source or packed package consistently for each consumer
+- [x] Use local source or packed package consistently for each consumer
       validation run.
-- [ ] Prefer `link:../ginko-content/packages/content` or a scripted pack/install
+- [x] Prefer `link:../ginko-content/packages/content` or a scripted pack/install
       flow over stale manual tarballs.
-- [ ] Update `saas-template`.
+- [x] Update `saas-template`.
 - [ ] Update `saas-i18n`.
 - [ ] Update `shadcn-starter`.
 - [ ] Delete old local wrappers and adapters made obsolete by the new API.
@@ -483,24 +483,28 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Consumer pages use typed string collection names.
-- [ ] Docs pages use `useContentPage`.
-- [ ] Sidebars use `useContentNavigation`.
-- [ ] Search routing uses result identity including `collection`.
-- [ ] SEO/head mapping uses `useContentHead`.
+- [x] Consumer pages use typed string collection names in `saas-template`.
+- [x] Docs pages use `useContentPage` in `saas-template`.
+- [x] Sidebars use `useContentNavigation` in `saas-template`.
+- [x] Search routing uses result identity including `collection` in
+      `saas-template`.
+- [x] SEO/head mapping uses `useContentHead` in `saas-template`.
 - [ ] Obsolete helpers are deleted.
 
 Verification:
 
 - [ ] Run each consumer's lint command.
+- [x] Run `saas-template` lint command.
 - [ ] Run each consumer's typecheck command.
+- [x] Run `saas-template` typecheck command.
 - [ ] Run each consumer's build command.
+- [x] Run `saas-template` build command.
 - [ ] Open each consumer locally and check docs page, blog page, sidebar, search,
       localized page, and author page where applicable.
 
 Commit checkpoint:
 
-- [ ] Commit `saas-template` cutover.
+- [x] Commit `saas-template` cutover.
 - [ ] Commit `saas-i18n` cutover.
 - [ ] Commit `shadcn-starter` cutover.
 
