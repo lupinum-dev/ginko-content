@@ -201,7 +201,8 @@ export interface ContentSearchOptions {
   /**
    * Collections included in the built-in index.
    *
-   * When omitted, all configured collections are indexed.
+   * When omitted, Ginko indexes route-backed public collections only. Data-only
+   * collections are excluded unless listed explicitly.
    */
   collections?: string[]
   /**
@@ -267,8 +268,9 @@ export interface ModuleOptions {
    * Built-in full-text search configuration.
    *
    * When enabled, Ginko exposes JSON/Pagefind search endpoints under
-   * the content api base route. Use the auto-imported search composables
-   * or import them from `@lupinum/ginko-content/client`.
+   * the content api base route. `useContentSearchData()` and
+   * `useContentSearchResults()` are auto-imported; import the headless
+   * `useContentSearch()` helper from `@lupinum/ginko-content/client`.
    */
   search: false | ContentSearchOptions
   /**

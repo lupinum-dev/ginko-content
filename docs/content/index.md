@@ -103,7 +103,7 @@ Build [content-rich]{.text-primary} Nuxt apps.
     :::landing-feature
     ---
     title: Route-aware content
-    description: Resolve route-backed content with typed query helpers, then add variants, neighbors, and search data from the same content graph.
+    description: Resolve route-backed content with typed query helpers, then add variants, surround links, and search data from the same content graph.
     icon: i-lucide-route
     to: /docs/querying
     ---
@@ -312,7 +312,7 @@ ui:
 Nuxt SEO, search, and docs navigation stay on one model
 
 #description
-Because Ginko owns the content route model, sitemap generation, navigation trees, surround links, and search indexing all build on the same collection data.
+Because Ginko owns the content route model, sitemap generation, navigation trees, neighbor links, and search indexing all build on the same collection data.
 
 #links
   :::u-button
@@ -339,7 +339,7 @@ Because Ginko owns the content route model, sitemap generation, navigation trees
   <script setup lang="ts">
   import { docs } from '~/content.config'
 
-  const { page, surround } = await useContentPage(docs, {
+  const { page, previous, next } = await useContentPage(docs, {
     surround: true
   })
   </script>

@@ -89,9 +89,10 @@ const { page } = await useContentPage(pages)
 - file-authored pages and navigation from `content/`
 - collection definitions as the source of truth for content shape and source
   files
-- Markdown, MDC, YAML, JSON, and CSV ingestion
+- Markdown, Comark component tags, YAML, JSON, and CSV ingestion
 - locale-aware content routing
 - route-aware page loading with `useContentPage(handle)`
+- semantic previous/next route-page data through `useContentPage(handle, { surround })`
 - server reads through `one`, `many`, `paginate`, `resolveOne`, `tree`, and
   `neighbors`
 - Vue composables for the same read model

@@ -302,9 +302,20 @@ describe('content provider contract', () => {
     await expect(provider.query(createProviderEvent(), {
       collection: 'posts',
       where: { title: { $eq: 'hello' } },
+      sort: [{ date: -1 }],
+      only: ['title', 'date'],
+      without: ['body'],
       limit: 1
     })).resolves.toEqual([])
     expect(query).toHaveBeenCalledTimes(1)
+    expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      collection: 'posts',
+      where: { title: { $eq: 'hello' } },
+      sort: [{ date: -1 }],
+      only: ['title', 'date'],
+      without: ['body'],
+      limit: 1
+    }))
   })
 
   test('provider operation capabilities are enforced even when unsupported methods exist', async () => {

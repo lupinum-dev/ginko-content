@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## v0.1.2
+
+### Changed
+
+- Changed `useContentPage(..., { surround })` to return semantic `previous` and
+  `next` values instead of exposing the route-page previous/next data as a
+  positional tuple.
+- Added collection-handle support to `useContentSearchData(handle, options)` for
+  Nuxt UI static search data.
+- Made reference population examples and tests field-keyed with
+  `populate: { author: authors }`.
+- Kept `surround` as the public previous/next query vocabulary and rejected the
+  `neighbors` rename.
+
+### Documentation
+
+- Updated route-page, navigation, migration, and API docs to teach
+  `useContentPage()` as the route-page helper and `useContentOne()` as the
+  explicit custom-read primitive.
+- Updated CMS-backed search guidance to use provider-backed search helpers
+  instead of static section-data search.
+
 ## v0.1.1
 
 ### Changed

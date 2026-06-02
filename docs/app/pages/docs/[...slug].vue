@@ -8,15 +8,16 @@ definePageMeta({
 
 const { toc, seo } = useAppConfig()
 
-const { page, surround } = await useContentPage(docs, {
+const { page, previous, next } = await useContentPage(docs, {
   surround: true
 })
 
 const surroundLinks = computed(() => {
-  const [prev, next] = surround.value as Array<{ _path?: string, path?: string } | null>
+  const prev = previous.value as { _path?: string, path?: string } | null
+  const nextLink = next.value as { _path?: string, path?: string } | null
   return [
     prev ? { ...prev, _path: prefixDocsPath(prev._path || prev.path) } : null,
-    next ? { ...next, _path: prefixDocsPath(next._path || next.path) } : null
+    nextLink ? { ...nextLink, _path: prefixDocsPath(nextLink._path || nextLink.path) } : null
   ]
 })
 

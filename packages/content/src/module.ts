@@ -352,6 +352,7 @@ export default defineNuxtModule<ModuleOptions>({
         {
           ...(collection.source ? { source: collection.source } : {}),
           ...(collection.exclude ? { exclude: collection.exclude } : {}),
+          ...(collection.type ? { type: collection.type } : {}),
           strict: collection.strict ?? true,
           ...(collection.route ? { route: collection.route } : {}),
           ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),

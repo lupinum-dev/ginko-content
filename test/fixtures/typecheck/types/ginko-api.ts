@@ -89,13 +89,20 @@ type _BlogHasLocalePaths = Expect<Equal<BlogDoc['localePaths'], LocalizedDoc['lo
 type _BlogHasResolvedLocale = Expect<Equal<BlogDoc['resolved']['locale'], string>>
 type _BlogHasResolvedFallback = Expect<Equal<BlogDoc['resolved']['fallback'], boolean>>
 
-const populatedBlogResult = await one(posts, {
-  by: { path: '/hello' },
-  populate: { authors }
+const populatedDocsResult = await one(docs, {
+  locale: 'en',
+  by: { ref: 'guide.getting-started' },
+  populate: { author: authors }
 })
-type PopulatedBlogDoc = NonNullable<typeof populatedBlogResult>
-type _PopulatedAuthorsAreDocs = Expect<Equal<PopulatedBlogDoc['authors'][number]['name'], string>>
-void populatedBlogResult
+if (populatedDocsResult?.author) {
+  const populatedAuthorName: string = populatedDocsResult.author.name
+  void populatedAuthorName
+}
+if (populatedDocsResult) {
+  const populatedDocsTitle: string = populatedDocsResult.title
+  void populatedDocsTitle
+}
+void populatedDocsResult
 
 // i18n collection: locale required.
 const docsResult = await one(docs, {
@@ -176,12 +183,17 @@ if (firstManyPost) {
   void typedAuthors
   void resolvedFallback
 }
-const manyPopulatedPosts = await useContentMany(posts, {
-  populate: { authors }
+const manyPopulatedDocs = await useContentMany(docs, {
+  locale: 'de',
+  populate: { author: authors }
 })
-if (manyPopulatedPosts.data.value[0]) {
-  const authorName: string = manyPopulatedPosts.data.value[0].authors[0]!.name
+if (manyPopulatedDocs.data.value[0]?.author) {
+  const authorName: string = manyPopulatedDocs.data.value[0].author.name
   void authorName
+}
+if (manyPopulatedDocs.data.value[0]) {
+  const populatedDocTitle: string = manyPopulatedDocs.data.value[0].title
+  void populatedDocTitle
 }
 const oneDoc = await useContentOne(docs, { locale: 'de', by: { path: '/leitfaden' } })
 if (oneDoc.data.value) {
@@ -194,16 +206,21 @@ const explained = await useContentResolveOne(docs, { locale: 'de', by: { ref: 'g
 void explained
 
 // Route pages may omit locale even for typed i18n handles because the route is
-// the selector. Surround returns navigation entries, not full documents.
+// the selector. Surround entries return navigation items, not full documents.
 const routePage = await useContentPage(docs, { surround: true, notFound: false })
 const routePageTitle: string | undefined = routePage.page.value?.title
-const routeSurroundItem = routePage.surround.value[0]
-if (routeSurroundItem) {
-  const routeSurroundTitle: string = routeSurroundItem.title
+const routePreviousItem = routePage.previous.value
+if (routePreviousItem) {
+  const routePreviousTitle: string = routePreviousItem.title
   // @ts-expect-error route surround items are navigation entries, not full localized documents.
-  const routeSurroundLocale: string = routeSurroundItem.locale
-  void routeSurroundTitle
-  void routeSurroundLocale
+  const routePreviousLocale: string = routePreviousItem.locale
+  void routePreviousTitle
+  void routePreviousLocale
+}
+const routeNextItem = routePage.next.value
+if (routeNextItem) {
+  const routeNextTitle: string = routeNextItem.title
+  void routeNextTitle
 }
 void routePageTitle
 
@@ -232,7 +249,7 @@ const typedAuthorPath: string = authorPath
 void typedAuthorPath
 
 // Search composables (out of scope for ADR-0016 but kept).
-void useContentSearchData('docs')
+void useContentSearchData(docs)
 void useContentSearchResults('guide')
 const headlessSearch = await useContentSearch({ initialQuery: 'guide', limit: 5 })
 headlessSearch.setQuery('intro')
@@ -293,8 +310,8 @@ void navResult
 const variantList = await variants(docs, { locale: 'de', by: { ref: 'guide.intro' } })
 void variantList
 
-const surround = await neighbors(docs, { locale: 'de', by: { ref: 'guide.intro' } })
-void surround
+const neighborEntries = await neighbors(docs, { locale: 'de', by: { ref: 'guide.intro' } })
+void neighborEntries
 
 /* ── Negative cases (must fail at type-check) ──────────────────────────── */
 

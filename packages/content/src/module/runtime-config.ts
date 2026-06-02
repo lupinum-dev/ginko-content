@@ -24,7 +24,7 @@ export const applyContentRuntimeConfig = (
   nuxt: Nuxt,
   options: ModuleOptions,
   contentContext: ContentContext,
-  runtimeCollections: Record<string, { source?: ContentCollectionConfig['source'], exclude?: ContentCollectionConfig['exclude'], strict: boolean, i18n?: { defaultLocale: string, locales: string[] }, sitemap?: boolean, route?: ContentCollectionConfig['route'] }>,
+  runtimeCollections: Record<string, { source?: ContentCollectionConfig['source'], exclude?: ContentCollectionConfig['exclude'], type?: ContentCollectionConfig['type'], strict: boolean, i18n?: { defaultLocale: string, locales: string[] }, sitemap?: boolean, route?: ContentCollectionConfig['route'] }>,
   buildIntegrity: number | undefined,
   cacheIntegrity: string
 ) => {

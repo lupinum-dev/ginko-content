@@ -171,7 +171,7 @@ export type UseContentPageOptions<
   /**
    * Load previous/next items alongside the page.
    *
-   * Pass `true` for the default neighbor query, or an options object to choose
+   * Pass `true` for the default surround query, or an options object to choose
    * fields. The page query remains one request unless this is enabled.
    */
   surround?: ContentPageSurroundOptions<H>
@@ -184,7 +184,8 @@ export type UseContentPageOptions<
 
 interface UseContentPageReturn<T> {
   page: ComputedRef<LocalizedDoc<T> | undefined>
-  surround: ComputedRef<Array<ContentTreeItem<T> | null>>
+  previous: ComputedRef<ContentTreeItem<T> | null>
+  next: ComputedRef<ContentTreeItem<T> | null>
   pending: ComputedRef<boolean>
   status: ComputedRef<string>
   error: ComputedRef<unknown>
@@ -204,7 +205,7 @@ const normalizePageNotFound = (
   return createError(notFound ? notFound() : defaultPageNotFound())
 }
 
-const normalizeSurround = <H>(surround: ContentPageSurroundOptions<H> | undefined) => {
+const normalizePageSurround = <H>(surround: ContentPageSurroundOptions<H> | undefined) => {
   if (!surround) return undefined
   return surround === true ? {} : surround
 }
@@ -276,8 +277,8 @@ export async function useContentPage<
     ...oneOptions,
     by: routeSelector
   } as Reactive<OneOptions<H, P>>)
-  const surroundOptions = normalizeSurround(surround)
-  const neighborResultPromise = surroundOptions
+  const surroundOptions = normalizePageSurround(surround)
+  const surroundResultPromise = surroundOptions
     ? useContentNeighbors(handle, {
         ...surroundOptions,
         ...('locale' in oneOptions ? { locale: oneOptions.locale } : {}),
@@ -315,12 +316,12 @@ export async function useContentPage<
       }
     }
   })
-  const neighborResult = neighborResultPromise ? await neighborResultPromise : undefined
+  const surroundResult = surroundResultPromise ? await surroundResultPromise : undefined
 
-  const pending = computed(() => pageResult.pending.value || Boolean(neighborResult?.pending.value))
+  const pending = computed(() => pageResult.pending.value || Boolean(surroundResult?.pending.value))
   const pageError = computed(() => {
     if (pageResult.error.value) return pageResult.error.value
-    if (neighborResult?.error.value) return neighborResult.error.value
+    if (surroundResult?.error.value) return surroundResult.error.value
     if (pending.value || resolvingRoute.value || page.value || notFound === false) return undefined
     return normalizePageNotFound(notFound)
   })
@@ -331,17 +332,20 @@ export async function useContentPage<
 
   return {
     page,
-    surround: computed(() => {
-      if (!page.value || !neighborResult) return []
-      const neighbors = neighborResult.data.value
-      return [neighbors.prev, neighbors.next] as Array<ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null>
+    previous: computed(() => {
+      if (!page.value || !surroundResult) return null
+      return surroundResult.data.value.prev as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
+    }),
+    next: computed(() => {
+      if (!page.value || !surroundResult) return null
+      return surroundResult.data.value.next as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
     }),
     pending,
     status: computed(() => pageResult.status.value),
     error: pageError,
     refresh: async () => {
       await pageResult.refresh()
-      if (neighborResult) await neighborResult.refresh()
+      if (surroundResult) await surroundResult.refresh()
     }
   }
 }

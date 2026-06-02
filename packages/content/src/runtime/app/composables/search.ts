@@ -3,6 +3,7 @@ import type { MaybeRefOrGetter } from '#imports'
 import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
 import type { ContentCollectionMap } from '@lupinum/ginko-content'
+import type { ContentCollectionHandle } from '../../../types/config'
 import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
 import type { ContentSearchSection } from '../../../types/query'
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
@@ -212,25 +213,29 @@ const loadSearchSections = async (
   })
 }
 
+const collectionName = (collection: ContentCollectionHandle | string) =>
+  typeof collection === 'string' ? collection : collection.name
+
 export async function useContentSearchData<K extends keyof ContentCollectionMap & string> (
-  collection: K,
+  collection: ContentCollectionHandle<K> | K,
   options?: UseContentSearchDataOptions
 ): Promise<UseContentSearchDataResult>;
 export async function useContentSearchData (
-  collection: string,
+  collection: string | ContentCollectionHandle,
   options?: UseContentSearchDataOptions
 ): Promise<UseContentSearchDataResult>;
 export async function useContentSearchData (
-  collection: string,
+  collection: string | ContentCollectionHandle,
   options: UseContentSearchDataOptions = {}
 ) {
+  const name = collectionName(collection)
   const searchTerm = ref('')
   const locale = computed(() => toValue(options.locale))
-  const payload = await useAsyncData(computed(() => `content-search-data:${collection}:${locale.value || 'default'}`), async () => {
+  const payload = await useAsyncData(computed(() => `content-search-data:${name}:${locale.value || 'default'}`), async () => {
     const locale = toValue(options.locale)
     const [navigation, files] = await Promise.all([
-      tree(collection, locale ? { locale } : {}),
-      loadSearchSections(collection, options)
+      tree(name, locale ? { locale } : {}),
+      loadSearchSections(name, options)
     ])
 
     return {

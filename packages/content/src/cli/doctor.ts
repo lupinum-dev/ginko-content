@@ -85,7 +85,7 @@ const sourceChecks: Array<{
   {
     pattern: /\bqueryCollectionItemSurroundings\s*\(/,
     message: 'Nuxt Content v3 surround helper found.',
-    suggestion: 'Use useContentNeighbors(handle, { by: { route } }) in route page components.'
+    suggestion: 'Use useContentPage(collection, { surround: true }) in route page components.'
   },
   {
     pattern: /\bqueryCollectionSearchSections\s*\(/,
@@ -250,6 +250,32 @@ function findCollectionDefinitions(text: string): CollectionDefinition[] {
   return definitions
 }
 
+function findObjectPropertyBlocks(text: string, property: string): string[] {
+  const blocks: string[] = []
+  const pattern = new RegExp(`\\b${property}\\s*:\\s*\\{`, 'g')
+
+  for (const match of text.matchAll(pattern)) {
+    const bodyStart = text.indexOf('{', match.index)
+    if (bodyStart === -1) {
+      continue
+    }
+
+    const bodyEnd = findMatchingBrace(text, bodyStart)
+    blocks.push(text.slice(bodyStart, bodyEnd + 1))
+  }
+
+  return blocks
+}
+
+function extractStringArrayProperty(block: string, property: string): string[] {
+  const match = block.match(new RegExp(`\\b${property}\\s*:\\s*\\[([\\s\\S]*?)\\]`))
+  if (!match) {
+    return []
+  }
+
+  return [...match[1].matchAll(/['"]([^'"]+)['"]/g)].map(item => item[1])
+}
+
 async function collectFiles(dir: string, rootDir: string, files: string[] = []): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
 
@@ -341,6 +367,42 @@ async function inspectSourceFiles(rootDir: string): Promise<DoctorFinding[]> {
   }
 
   return findings
+}
+
+async function inspectSearchCollections(rootDir: string): Promise<DoctorFinding[]> {
+  const contentConfig = await readTextIfPresent(join(rootDir, 'content.config.ts'))
+  const nuxtConfig = await readTextIfPresent(join(rootDir, 'nuxt.config.ts'))
+
+  if (!contentConfig || !nuxtConfig) {
+    return []
+  }
+
+  const dataCollections = new Set(
+    findCollectionDefinitions(contentConfig)
+      .filter(collection => /\btype\s*:\s*['"]data['"]/.test(collection.block))
+      .map(collection => collection.name)
+  )
+
+  if (!dataCollections.size) {
+    return []
+  }
+
+  const configuredCollections = new Set(
+    findObjectPropertyBlocks(nuxtConfig, 'search')
+      .flatMap(block => extractStringArrayProperty(block, 'collections'))
+  )
+  const dataSearchCollections = [...configuredCollections].filter(collection => dataCollections.has(collection))
+
+  if (!dataSearchCollections.length) {
+    return []
+  }
+
+  return [{
+    severity: 'info',
+    file: 'nuxt.config.ts',
+    message: `Data-only collections listed in content.search.collections: ${dataSearchCollections.join(', ')}.`,
+    suggestion: 'Remove data-only collections from the static public search index, make them route-backed pages, or use provider-backed search with route-safe results.'
+  }]
 }
 
 async function inspectLockfiles(rootDir: string): Promise<DoctorFinding[]> {
@@ -880,6 +942,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorResu
   const findings = [
     ...await inspectPackageJson(rootDir),
     ...await inspectSourceFiles(rootDir),
+    ...await inspectSearchCollections(rootDir),
     ...await inspectLockfiles(rootDir),
     ...await inspectSitemap(rootDir),
     ...(options.i18n ? await inspectI18n(rootDir) : [])

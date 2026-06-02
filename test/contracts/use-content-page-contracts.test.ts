@@ -169,7 +169,8 @@ describe('useContentPage contracts', () => {
       })
     }), expect.anything())
     expect(state.page.value?.title).toBe('Getting Started')
-    expect(state.surround.value).toEqual([])
+    expect(state.previous.value).toBeNull()
+    expect(state.next.value).toBeNull()
     expect(useContentRoute).toHaveBeenCalledWith(state.page)
   })
 
@@ -352,7 +353,7 @@ describe('useContentPage contracts', () => {
     expect(state.error.value).toBeUndefined()
   })
 
-  test('loads neighbors only when surround is enabled', async () => {
+  test('loads previous and next only when surround is enabled', async () => {
     const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
 
     await useContentPage('docs')
@@ -369,9 +370,7 @@ describe('useContentPage contracts', () => {
       collection: 'docs',
       only: expect.arrayContaining(['description'])
     }), expect.anything())
-    expect(state.surround.value).toEqual([
-      expect.objectContaining({ title: 'Intro' }),
-      expect.objectContaining({ title: 'Advanced' })
-    ])
+    expect(state.previous.value).toEqual(expect.objectContaining({ title: 'Intro' }))
+    expect(state.next.value).toEqual(expect.objectContaining({ title: 'Advanced' }))
   })
 })

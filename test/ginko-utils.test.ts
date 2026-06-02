@@ -51,6 +51,7 @@ describe('Ginko metadata helpers', () => {
       schema: z.object({ title: z.string() })
     })).toMatchObject({
       name: 'docs',
+      type: 'page',
       source: 'docs/**/*.md',
       sitemap: undefined
     })
@@ -62,6 +63,7 @@ describe('Ginko metadata helpers', () => {
       source: 'authors/*.yml'
     })).toMatchObject({
       name: 'authors',
+      type: 'data',
       source: 'authors/*.yml',
       sitemap: false
     })
@@ -76,6 +78,7 @@ describe('Ginko metadata helpers', () => {
       }
     })).toMatchObject({
       name: 'docs',
+      type: 'page',
       source: 'docs/**/*.md',
       exclude: ['docs/private/**'],
       sitemap: undefined

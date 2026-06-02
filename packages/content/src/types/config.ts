@@ -24,6 +24,7 @@ export type ContentCollectionSource = string | string[]
  * express roots such as `{ en: '/docs', de: '/dokumentation' }`.
  */
 export type ContentCollectionRouteConfig = string | Record<string, string>
+export type ContentCollectionKind = 'page' | 'data'
 
 export type ContentCmsFieldType =
   | 'text'
@@ -120,6 +121,11 @@ export interface ContentCollectionSourceObject {
  */
 export interface ContentCollectionConfig<TSchema extends ZodType | undefined = ZodType | undefined> {
   /**
+   * Collection kind declared in `defineCollection`. Page collections are public
+   * content routes by default; data collections are app-owned records.
+   */
+  type?: ContentCollectionKind
+  /**
    * Source glob or source descriptor understood by the filesystem ingestion
    * layer. CMS-backed projects do not need a runtime source; filesystem
    * imports/seeding should be modeled by provider-owned import tooling.
@@ -172,8 +178,6 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
   cms?: ContentCmsCollectionConfig
 }
 
-export type ContentCollectionKind = 'page' | 'data'
-
 export type ContentProviderName = 'filesystem' | (string & {})
 
 export type DefineCollectionOptions<TSchema extends ZodType | undefined = ZodType | undefined> =
@@ -183,7 +187,8 @@ export interface DefineCollectionObject<TSchema extends ZodType | undefined = Zo
   extends DefineCollectionOptions<TSchema> {
   /**
    * Nuxt Content v3-compatible collection kind. Ginko does not keep separate
-   * page/data collection runtimes; `data` collections default to `sitemap: false`.
+   * page/data query builders, but the kind remains canonical metadata at runtime.
+   * `data` collections default to `sitemap: false`.
    */
   type: ContentCollectionKind
   /**
@@ -305,6 +310,7 @@ export function defineCollection<
 
   return {
     name,
+    type,
     ...normalized,
     sitemap: sitemap ?? (type === 'data' ? false : undefined),
     ...rest

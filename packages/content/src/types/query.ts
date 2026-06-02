@@ -1,6 +1,6 @@
 import type { ContentQueryResponse } from './api'
 import type { ContentCollectionHandle } from './config'
-import type { ContentNavigationItem, ParsedContent, ParsedContentInternalMeta, ParsedContentMeta, StrictParsedContentMeta } from './content'
+import type { ContentNavigationItem, ParsedContent, ParsedContentInternalMeta, ParsedContentMeta, StrictParsedContent, StrictParsedContentMeta } from './content'
 /**
  * Query
  */
@@ -724,7 +724,7 @@ type SelectFields<H> = H extends string
  * Runtime document shape inferred from a collection handle.
  */
 export type DocumentFromHandle<H> = H extends { __schema: { _output: infer O } }
-  ? O & ParsedContent
+  ? O & StrictParsedContent
   : ParsedContent
 
 /**

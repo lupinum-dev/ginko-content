@@ -15,6 +15,47 @@ type SearchablePage = Pick<ParsedContent, '_path' | '_locale' | 'title' | 'descr
 
 type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { _locale?: string }
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
+type RuntimeSearchConfig = {
+  search?: {
+    collections?: string[]
+  } | false
+  collections?: Record<string, {
+    type?: 'page' | 'data'
+    route?: unknown
+    sitemap?: boolean
+  } | unknown>
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const hasRouteMount = (route: unknown) =>
+  route !== undefined && route !== null && route !== ''
+
+const isRouteBackedSearchCollection = (config: unknown) => {
+  if (!isRecord(config) || config.sitemap === false || config.type === 'data') {
+    return false
+  }
+
+  return config.type === 'page' || hasRouteMount(config.route) || config.sitemap === true
+}
+
+export const resolveSearchCollections = (
+  runtimeContent: RuntimeSearchConfig,
+  collectionsOverride?: string[]
+) => {
+  const configuredCollections = collectionsOverride || (runtimeContent.search && runtimeContent.search !== false
+    ? runtimeContent.search.collections
+    : undefined)
+
+  if (configuredCollections?.length) {
+    return unique(configuredCollections)
+  }
+
+  return Object.entries(runtimeContent.collections || {})
+    .filter(([, config]) => isRouteBackedSearchCollection(config))
+    .map(([collection]) => collection)
+}
 
 const searchRecordsCache = new Map<string, ContentSearchIndexRecord[]>()
 const MAX_SEARCH_RECORDS_CACHE_ENTRIES = 12
@@ -60,10 +101,7 @@ export async function serverSearchContent (
   } = {}
 ): Promise<SearchablePage[]> {
   const runtimeConfig = useRuntimeConfig(event)
-  const configuredCollections = collectionsOverride || runtimeConfig.content.search?.collections
-  const contentCollections = Object.keys(runtimeConfig.content.collections || {})
-  const collections = (configuredCollections?.length ? configuredCollections : contentCollections)
-    .filter(Boolean)
+  const collections = resolveSearchCollections(runtimeConfig.content, collectionsOverride)
 
   const results = await Promise.all(collections.map(async (collection) => {
     const loadPages = async (queryLocale?: string) => {
@@ -172,7 +210,7 @@ export async function buildSearchIndex (
   const cacheKey = JSON.stringify({
     provider: provider.name,
     integrity: runtimeConfig.content.cacheIntegrity || runtimeConfig.public.content?.integrity,
-    collections: opts.collections || runtimeConfig.content.search?.collections,
+    collections: resolveSearchCollections(runtimeConfig.content, opts.collections),
     ignoredTags: opts.ignoredTags || [],
     extraFields: opts.extraFields || runtimeConfig.content.search?.extraFields || [],
     filterQuery: opts.filterQuery,
@@ -184,8 +222,7 @@ export async function buildSearchIndex (
     return cached
   }
 
-  const collections = (opts.collections || runtimeConfig.content.search?.collections || Object.keys(runtimeConfig.content.collections || {}))
-    .filter(Boolean)
+  const collections = resolveSearchCollections(runtimeConfig.content, opts.collections)
   if (!provider.capabilities.searchSections) {
     throw createContentProviderError('unsupported_provider_search_index', `${provider.name} does not support search index generation`, {
       provider: provider.name

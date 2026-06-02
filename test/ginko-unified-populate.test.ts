@@ -29,7 +29,28 @@ const docs = defineCollection('docs', {
   source: 'docs/*.md',
   schema: z.object({
     title: z.string(),
-    relatedAuthor: reference('authors').optional()
+    relatedAuthor: reference('authors').optional(),
+    relatedPost: reference('posts').optional()
+  })
+})
+
+const localizedAuthors = defineCollection('localizedAuthors', {
+  type: 'page',
+  source: 'localized-authors/*.md',
+  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+  schema: z.object({
+    title: z.string(),
+    name: z.string()
+  })
+})
+
+const localizedPosts = defineCollection('localizedPosts', {
+  type: 'page',
+  source: 'localized-posts/*.md',
+  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+  schema: z.object({
+    title: z.string(),
+    primaryAuthor: reference('localizedAuthors').optional()
   })
 })
 
@@ -98,6 +119,202 @@ describe('unified query populate', () => {
       collection: 'authors',
       first: true,
       resolveVariant: { ref: 'authors.ada' }
+    })
+  })
+
+  test('resolves a singular data reference when the field name differs from the target collection', async () => {
+    mocks.transport.mockImplementation(async (_endpoint, params) => {
+      if (params.collection === 'docs') {
+        return {
+          result: {
+            _id: 'content:docs:guide.md',
+            _path: '/docs/guide',
+            _collection: 'docs',
+            title: 'Guide',
+            relatedAuthor: 'authors.ada',
+            body: null
+          }
+        }
+      }
+
+      if (params.collection === 'authors') {
+        return {
+          result: {
+            _id: 'content:authors:ada.yml',
+            _path: '/authors/ada',
+            _collection: 'authors',
+            ref: 'authors.ada',
+            name: 'Ada',
+            body: null
+          }
+        }
+      }
+
+      return { result: null }
+    })
+
+    const doc = await one({
+      runtime: {},
+      transport: mocks.transport
+    }, docs, {
+      by: { path: '/docs/guide' },
+      select: ['title'],
+      populate: { relatedAuthor: authors }
+    })
+
+    expect(doc?.relatedAuthor).toMatchObject({
+      name: 'Ada',
+      path: '/authors/ada'
+    })
+    expect(mocks.transport.mock.calls[0]?.[1]).toMatchObject({
+      collection: 'docs',
+      first: true,
+      only: expect.arrayContaining(['title', 'relatedAuthor', '_path', '_file', '_canonicalKey', '_locale'])
+    })
+    expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
+      collection: 'authors',
+      first: true,
+      resolveVariant: { ref: 'authors.ada' }
+    })
+  })
+
+  test('resolves a route-backed page reference when the field name differs from the target collection', async () => {
+    mocks.transport.mockImplementation(async (_endpoint, params) => {
+      if (params.collection === 'docs') {
+        return {
+          result: {
+            _id: 'content:docs:guide.md',
+            _path: '/docs/guide',
+            _collection: 'docs',
+            title: 'Guide',
+            relatedPost: 'posts.hello',
+            body: null
+          }
+        }
+      }
+
+      if (params.collection === 'posts') {
+        return {
+          result: {
+            _id: 'content:posts:hello.md',
+            _path: '/hello',
+            _collection: 'posts',
+            ref: 'posts.hello',
+            title: 'Hello',
+            authors: [],
+            body: null
+          }
+        }
+      }
+
+      return { result: null }
+    })
+
+    const doc = await one({
+      runtime: {},
+      transport: mocks.transport
+    }, docs, {
+      by: { path: '/docs/guide' },
+      populate: { relatedPost: posts }
+    })
+
+    expect(doc?.relatedPost).toMatchObject({
+      title: 'Hello',
+      path: '/hello'
+    })
+    expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
+      collection: 'posts',
+      first: true,
+      resolveVariant: { ref: 'posts.hello' }
+    })
+  })
+
+  test('carries locale and fallback through field-keyed i18n populate reads', async () => {
+    mocks.transport.mockImplementation(async (_endpoint, params) => {
+      if (params.collection === 'localizedPosts') {
+        return {
+          result: {
+            _id: 'content:localized-posts:krypto.md',
+            _path: '/blog/krypto',
+            _collection: 'localizedPosts',
+            _locale: 'de',
+            _variantPaths: {
+              en: '/blog/crypto',
+              de: '/blog/krypto'
+            },
+            ref: 'posts.krypto',
+            title: 'Krypto',
+            primaryAuthor: 'authors.emily',
+            body: null
+          }
+        }
+      }
+
+      if (params.collection === 'localizedAuthors') {
+        return {
+          result: {
+            _id: 'content:localized-authors:emily.md',
+            _path: '/autoren/emily',
+            _collection: 'localizedAuthors',
+            _locale: 'de',
+            _variantPaths: {
+              en: '/authors/emily',
+              de: '/autoren/emily'
+            },
+            ref: 'authors.emily',
+            title: 'Emily DE',
+            name: 'Emily',
+            body: null
+          }
+        }
+      }
+
+      return { result: null }
+    })
+
+    const post = await one({
+      runtime: {
+        defaultLocale: 'en',
+        locales: ['en', 'de'],
+        collections: {
+          localizedPosts: {
+            i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+            route: '/blog'
+          },
+          localizedAuthors: {
+            i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+            route: { en: '/authors', de: '/autoren' }
+          }
+        }
+      },
+      transport: mocks.transport
+    }, localizedPosts, {
+      locale: 'de',
+      fallback: true,
+      by: { route: '/de/blog/krypto' },
+      populate: { primaryAuthor: localizedAuthors }
+    })
+
+    expect(post?.primaryAuthor).toMatchObject({
+      title: 'Emily DE',
+      path: '/de/autoren/emily',
+      resolved: expect.objectContaining({
+        locale: 'de',
+        requestedLocale: 'de',
+        fallback: false
+      })
+    })
+    expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
+      collection: 'localizedAuthors',
+      first: true,
+      resolveLocale: {
+        locale: 'de',
+        fallback: true
+      },
+      resolveVariant: {
+        ref: 'authors.emily',
+        fallback: true
+      }
     })
   })
 

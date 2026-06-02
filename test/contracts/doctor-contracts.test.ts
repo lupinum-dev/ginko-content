@@ -154,6 +154,54 @@ describe('ginko-content doctor contracts', () => {
     ])
   })
 
+  test('warns when static public search explicitly indexes data collections', async () => {
+    const root = createFixture()
+    await writeFixtureFile(root, 'package.json', JSON.stringify({
+      dependencies: {
+        '@lupinum/ginko-content': '^2.13.4'
+      }
+    }))
+    await writeFixtureFile(root, 'nuxt.config.ts', `
+      export default defineNuxtConfig({
+        modules: ['@lupinum/ginko-content'],
+        content: {
+          search: {
+            collections: ['docs', 'authors']
+          }
+        }
+      })
+    `)
+    await writeFixtureFile(root, 'content.config.ts', `
+      import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
+
+      export const docs = defineCollection('docs', {
+        type: 'page',
+        source: 'docs/**/*.md',
+        route: '/docs'
+      })
+
+      export const authors = defineCollection('authors', {
+        type: 'data',
+        source: 'authors/**/*.yml'
+      })
+
+      export default defineContentConfig({
+        collections: { docs, authors }
+      })
+    `)
+
+    const result = await runDoctor({ rootDir: root })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        severity: 'info',
+        file: 'nuxt.config.ts',
+        message: 'Data-only collections listed in content.search.collections: authors.'
+      })
+    ])
+  })
+
   test('accepts Nuxt Sitemap index output when sitemap.xml is a directory', async () => {
     const root = createFixture()
     await writeFixtureFile(root, 'package.json', JSON.stringify({
