@@ -39,6 +39,11 @@ interface CollectionDefinition {
   block: string
 }
 
+interface AuthoredCollectionDefinition {
+  key?: string
+  block: string
+}
+
 const ignoredDirs = new Set([
   '.git',
   '.nuxt',
@@ -215,39 +220,79 @@ function findMatchingBrace(text: string, start: number): number {
   return text.length - 1
 }
 
-function findCollectionDefinitions(text: string): CollectionDefinition[] {
-  const definitions: CollectionDefinition[] = []
+function findAuthoredCollectionDefinitions(text: string): Map<string, AuthoredCollectionDefinition> {
+  const definitions = new Map<string, AuthoredCollectionDefinition>()
   const callPattern = /\bdefineCollection\s*\(/g
 
   for (const match of text.matchAll(callPattern)) {
     const callStart = match.index || 0
     const argsStart = callStart + match[0].length
     const args = text.slice(argsStart)
-    const namedMatch = args.match(/^\s*(['"])([^'"]+)\1\s*,\s*\{/)
+    const objectMatch = args.match(/^\s*\{/)
+    if (!objectMatch) {
+      continue
+    }
 
-    if (namedMatch) {
-      const bodyStart = argsStart + namedMatch[0].lastIndexOf('{')
-      const bodyEnd = findMatchingBrace(text, bodyStart)
-      definitions.push({
-        name: namedMatch[2],
-        block: text.slice(bodyStart, bodyEnd + 1)
+    const bodyStart = argsStart + objectMatch[0].lastIndexOf('{')
+    const bodyEnd = findMatchingBrace(text, bodyStart)
+    const block = text.slice(bodyStart, bodyEnd + 1)
+    const prefix = text.slice(0, callStart)
+    const propertyMatch = prefix.match(/([a-z_$][\w$]*)\s*:\s*$/i)
+    if (propertyMatch) {
+      definitions.set(propertyMatch[1], {
+        key: propertyMatch[1],
+        block
       })
       continue
     }
 
-    const objectMatch = args.match(/^\s*\{/)
-    const propertyMatch = text.slice(0, callStart).match(/([a-z_$][\w$]*)\s*:\s*$/i)
-    if (objectMatch && propertyMatch) {
-      const bodyStart = argsStart + objectMatch[0].lastIndexOf('{')
-      const bodyEnd = findMatchingBrace(text, bodyStart)
-      definitions.push({
-        name: propertyMatch[1],
-        block: text.slice(bodyStart, bodyEnd + 1)
-      })
+    const variableMatch = prefix.match(/(?:^|[\s;])(?:export\s+)?(?:const|let|var)\s+([a-z_$][\w$]*)\s*=\s*$/i)
+    if (variableMatch) {
+      definitions.set(variableMatch[1], { block })
     }
   }
 
   return definitions
+}
+
+function findCollectionDefinitions(text: string): CollectionDefinition[] {
+  const authoredCollections = findAuthoredCollectionDefinitions(text)
+  const definitions = new Map<string, CollectionDefinition>()
+
+  for (const block of findObjectPropertyBlocks(text, 'collections')) {
+    for (const match of block.matchAll(/([a-z_$][\w$]*)\s*:\s*([a-z_$][\w$]*)\b/g)) {
+      const [, key, identifier] = match
+      const authored = authoredCollections.get(identifier)
+      if (authored) {
+        definitions.set(key, {
+          name: key,
+          block: authored.block
+        })
+      }
+    }
+
+    for (const match of block.matchAll(/(?:^|[,{]\s*)([a-z_$][\w$]*)\s*(?=,|\})/g)) {
+      const key = match[1]
+      const authored = authoredCollections.get(key)
+      if (authored) {
+        definitions.set(key, {
+          name: key,
+          block: authored.block
+        })
+      }
+    }
+  }
+
+  for (const authored of authoredCollections.values()) {
+    if (authored.key) {
+      definitions.set(authored.key, {
+        name: authored.key,
+        block: authored.block
+      })
+    }
+  }
+
+  return [...definitions.values()]
 }
 
 function findObjectPropertyBlocks(text: string, property: string): string[] {

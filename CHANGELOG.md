@@ -14,6 +14,8 @@
   assertions.
 - Added `content.sitemap.assert.requireProductionSiteUrl` for production-like
   sitemap release checks that reject placeholder origins.
+- Removed the old named collection declaration overload. Collection map keys are
+  now the only collection identity source.
 
 ### Fixed
 
@@ -52,8 +54,8 @@
 
 ### Changed
 
-- Made `defineCollection('name', config)` the only documented public collection
-  declaration shape.
+- Made named collection declarations the documented public collection
+  declaration shape for that release.
 - Added a Nuxt quickstart fixture that prepares, typechecks, and builds the
   documented first-page path.
 - Added docs drift checks for stale collection syntax, fallback examples, and

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { defineCollection } from '../../packages/content/src/types/config'
+import { defineCollection, defineContentConfig } from '../../packages/content/src/types/config'
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -17,35 +17,44 @@ const context = {
   }
 }
 
-const docs = defineCollection('docs', {
-  type: 'page',
-  source: 'docs/**/*',
-  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-  route: { en: '/docs', de: '/dokumentation' }
+const contentConfig = defineContentConfig({
+  collections: {
+    docs: defineCollection({
+      type: 'page',
+      source: 'docs/**/*',
+      i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      route: { en: '/docs', de: '/dokumentation' }
+    }),
+    posts: defineCollection({
+      type: 'page',
+      source: 'posts/**/*',
+      i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      route: '/blog'
+    }),
+    authors: defineCollection({
+      type: 'page',
+      source: 'authors/**/*',
+      i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      route: { en: '/authors', de: '/autoren' }
+    })
+  }
 })
 
-const posts = defineCollection('posts', {
-  type: 'page',
-  source: 'posts/**/*',
-  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-  route: '/blog'
-})
-
-const authors = defineCollection('authors', {
-  type: 'page',
-  source: 'authors/**/*',
-  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-  route: { en: '/authors', de: '/autoren' }
-})
+const { docs, posts, authors } = contentConfig.collections
 
 describe('public client query flows against an in-memory content scenario', () => {
   test('does not invent locale-prefixed paths for non-i18n runtime results', async () => {
     const { one } = await import('../../packages/content/src/runtime/query/unified')
-    const plain = defineCollection('plain', {
-      type: 'page',
-      source: 'plain/**/*',
-      route: '/plain'
+    const plainConfig = defineContentConfig({
+      collections: {
+        plain: defineCollection({
+          type: 'page',
+          source: 'plain/**/*',
+          route: '/plain'
+        })
+      }
     })
+    const plain = plainConfig.collections.plain
 
     const page = await one({
       runtime: {

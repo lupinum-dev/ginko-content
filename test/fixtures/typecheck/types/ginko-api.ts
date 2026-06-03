@@ -12,6 +12,13 @@ import { createFixtureContentProvider, createProviderFixture, createProviderFixt
 import { useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
 import { z } from 'zod'
 
+// @ts-expect-error named collection declarations were removed; use the collections map key.
+const _removedNamedCollection = defineCollection('legacy', {
+  type: 'page',
+  source: 'legacy/**/*.md'
+})
+void _removedNamedCollection
+
 const rawDocs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
@@ -25,7 +32,7 @@ const rawDocs = defineCollection({
   })
 })
 
-const authors = defineCollection('authors', {
+const rawAuthors = defineCollection({
   type: 'data',
   source: 'authors/*.yml',
   i18n: true,
@@ -35,7 +42,7 @@ const authors = defineCollection('authors', {
   })
 })
 
-const posts = defineCollection('posts', {
+const rawPosts = defineCollection({
   type: 'page',
   source: 'posts/**/*.md',
   schema: z.object({
@@ -48,10 +55,10 @@ const posts = defineCollection('posts', {
 })
 
 const _contentConfig = defineContentConfig({
-  collections: { docs: rawDocs, authors, posts }
+  collections: { docs: rawDocs, authors: rawAuthors, posts: rawPosts }
 })
 void _contentConfig
-const docs = _contentConfig.collections.docs
+const { docs, authors, posts } = _contentConfig.collections
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends

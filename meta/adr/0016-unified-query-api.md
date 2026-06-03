@@ -47,13 +47,13 @@ Replace the entire surface with **one explicit content-query vocabulary**:
 
 ```ts
 // content.config.ts — handle carries the name and i18n flag at the type level
-export const docs = defineCollection('docs', {
+export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   i18n: { locales: ['en', 'fr', 'de'], defaultLocale: 'en' },
   translatedSlugs: true,
 })
-export const blog = defineCollection('blog', { type: 'page', source: 'blog/**/*.md' })
+export const blog = defineCollection({ type: 'page', source: 'blog/**/*.md' })
 
 // Layer 1 — pure async (server, scripts, edge)
 one(docs, { locale: 'fr', by: { route: '/fr/documentation/pour-commencer' } })
@@ -124,7 +124,7 @@ many(posts, { where: { path: { $prefix: '/blog/2026' } } })
 
 ### Type-required locale
 
-A collection handle from `defineCollection(name, config)` carries a
+A collection handle from `defineContentConfig({ collections })` carries a
 phantom `__i18n: true | false` discriminator. The `OneOptions<H>`,
 `ManyOptions<H>`, `TreeOptions<H>`, `VariantsOptions<H>`, and `NeighborsOptions<H>` types
 make `locale` required when `H['__i18n']` is `true`:

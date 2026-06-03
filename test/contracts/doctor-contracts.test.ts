@@ -174,13 +174,13 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-      export const docs = defineCollection('docs', {
+      export const docs = defineCollection({
         type: 'page',
         source: 'docs/**/*.md',
         route: '/docs'
       })
 
-      export const authors = defineCollection('authors', {
+      export const authors = defineCollection({
         type: 'data',
         source: 'authors/**/*.yml'
       })
@@ -261,12 +261,12 @@ describe('ginko-content doctor contracts', () => {
 
       export default defineContentConfig({
         collections: {
-          docs: defineCollection('docs', {
+          docs: defineCollection({
             type: 'page',
             source: 'docs/**/*.md',
             i18n: true
           }),
-          posts: defineCollection('posts', {
+          posts: defineCollection({
             type: 'page',
             source: 'posts/**/*.md',
             i18n: true
@@ -343,7 +343,7 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-      export const docs = defineCollection('docs', {
+      export const docs = defineCollection({
         type: 'page',
         source: 'docs/**/*.md'
       })
@@ -362,7 +362,7 @@ describe('ginko-content doctor contracts', () => {
     expect(output).toContain('Content locale folder "de" is missing.')
   })
 
-  test('i18n mode checks current named defineCollection calls', async () => {
+  test('i18n mode checks collections declared through map-key identity', async () => {
     const root = createFixture()
     await writeFixtureFile(root, 'package.json', JSON.stringify({
       dependencies: {
@@ -388,7 +388,7 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-      export const docs = defineCollection('docs', {
+      export const docs = defineCollection({
         type: 'page',
         source: 'docs/**/*.md'
       })
@@ -436,7 +436,7 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-      export const docs = defineCollection('docs', {
+      export const docs = defineCollection({
         type: 'page',
         source: 'docs/**/*.md',
         i18n: true
@@ -495,7 +495,7 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-      export const docs = defineCollection('docs', {
+      export const docs = defineCollection({
         type: 'page',
         source: 'docs/**/*.md',
         i18n: true
@@ -547,7 +547,7 @@ describe('ginko-content doctor contracts', () => {
     await writeFixtureFile(root, 'content.config.ts', `
       import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
-      export const posts = defineCollection('posts', {
+      export const posts = defineCollection({
         type: 'page',
         source: 'posts/**/*.md',
         i18n: true

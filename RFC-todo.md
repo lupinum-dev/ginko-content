@@ -78,7 +78,8 @@ Scope:
 - [x] Keep existing handle-based internals only where they are already the
       canonical runtime path.
 - [x] Do not add generated `#content/collections` handles in this phase.
-- [x] Do not remove `defineCollection('name')` yet.
+- [x] Removed the old named `defineCollection(name, config)` API after
+  consumer configs moved to key-derived collection identity.
 
 Acceptance criteria:
 
@@ -531,7 +532,8 @@ This is intentionally not first-cut work.
 
 Scope:
 
-- [x] Re-evaluate whether `defineCollection('docs')` is still worth deleting.
+- [x] Delete the old named collection declaration path; collection map keys are
+  the only collection identity source.
 - [x] Make collection map keys the canonical identity.
 - [x] Support `defineCollection({ ... })` without a name argument.
 - [x] Assign runtime handle names from the resolved config map.
@@ -641,8 +643,8 @@ Acceptance criteria:
 - [x] Docs first page shows the new Nuxt-like API.
 - [x] Advanced docs still explain direct query primitives.
 - [x] Migration notes mention fallback remains explicit.
-- [x] Migration notes document collection map-key identity and the compatibility
-      form for authored names.
+- [x] Migration notes document collection map-key identity as the only authored
+      collection identity source.
 
 Verification:
 

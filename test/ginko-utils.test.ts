@@ -47,11 +47,17 @@ describe('Ginko metadata helpers', () => {
   })
 
   test('normalizes v3-shaped page collections', () => {
-    expect(defineCollection('docs', {
+    const docs = defineCollection({
       type: 'page',
       source: 'docs/**/*.md',
       schema: z.object({ title: z.string() })
-    })).toMatchObject({
+    })
+
+    const config = defineContentConfig({
+      collections: { docs }
+    })
+
+    expect(config.collections.docs).toMatchObject({
       name: 'docs',
       type: 'page',
       source: 'docs/**/*.md',
@@ -81,22 +87,36 @@ describe('Ginko metadata helpers', () => {
     expect(docs.name).toBe('docs')
   })
 
-  test('rejects authored collection names that drift from config map keys', () => {
-    const guides = defineCollection('guides', {
+  test('rejects stale collection names that drift from config map keys', () => {
+    const guides = {
+      name: 'guides',
       type: 'page',
       source: 'docs/**/*.md'
-    })
+    }
 
     expect(() => defineContentConfig({
       collections: { docs: guides }
-    })).toThrow('@lupinum/ginko-content collection key "docs" must match defineCollection name "guides"')
+    })).toThrow('@lupinum/ginko-content collection key "docs" must match collection name "guides"')
+  })
+
+  test('rejects the removed named defineCollection overload at runtime', () => {
+    expect(() => (defineCollection as unknown as (...args: unknown[]) => unknown)('docs', {
+      type: 'page',
+      source: 'docs/**/*.md'
+    })).toThrow('@lupinum/ginko-content defineCollection(name, config) was removed')
   })
 
   test('normalizes v3-shaped data collections with sitemap disabled by default', () => {
-    expect(defineCollection('authors', {
+    const authors = defineCollection({
       type: 'data',
       source: 'authors/*.yml'
-    })).toMatchObject({
+    })
+
+    const config = defineContentConfig({
+      collections: { authors }
+    })
+
+    expect(config.collections.authors).toMatchObject({
       name: 'authors',
       type: 'data',
       source: 'authors/*.yml',
@@ -105,13 +125,19 @@ describe('Ginko metadata helpers', () => {
   })
 
   test('normalizes v3 source include and exclude objects', () => {
-    expect(defineCollection('docs', {
+    const docs = defineCollection({
       type: 'page',
       source: {
         include: 'docs/**/*.md',
         exclude: ['docs/private/**']
       }
-    })).toMatchObject({
+    })
+
+    const config = defineContentConfig({
+      collections: { docs }
+    })
+
+    expect(config.collections.docs).toMatchObject({
       name: 'docs',
       type: 'page',
       source: 'docs/**/*.md',
@@ -616,18 +642,23 @@ describe('Ginko metadata helpers', () => {
   })
 
   test('builds localized collection paths from collection route config', () => {
-    const authors = defineCollection('authors', {
-      type: 'data',
-      source: 'authors/*.yml',
-      route: {
-        en: '/authors',
-        de: '/autoren'
-      },
-      i18n: {
-        defaultLocale: 'en',
-        locales: ['en', 'de']
+    const config = defineContentConfig({
+      collections: {
+        authors: defineCollection({
+          type: 'data',
+          source: 'authors/*.yml',
+          route: {
+            en: '/authors',
+            de: '/autoren'
+          },
+          i18n: {
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          }
+        })
       }
     })
+    const authors = config.collections.authors
 
     expect(getCollectionPath(authors, { slug: 'alexia', locale: 'en' })).toBe('/authors/alexia')
     expect(getCollectionPath(authors, { slug: 'alexia', locale: 'de' })).toBe('/de/autoren/alexia')

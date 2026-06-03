@@ -13,41 +13,65 @@ import { buildContentGraph } from '../packages/content/src/core/content/graph'
 import { executeQueryPlan } from '../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../packages/content/src/core/query/lower'
 import { navigationSelectFields } from '../packages/content/src/runtime/query/unified'
-import { defineCollection, type ContentCollectionHandle } from '../packages/content/src/types/config'
+import { defineCollection, defineContentConfig, type ContentCollectionHandle } from '../packages/content/src/types/config'
 import type { QueryWhere } from '../packages/content/src/types/query'
 import { doc } from './contracts/_utils'
 
 describe('defineCollection', () => {
   test('returns a handle carrying the name and config', () => {
-    const blog = defineCollection('blog', {
-      type: 'page',
-      source: 'blog/*.md'
+    const config = defineContentConfig({
+      collections: {
+        blog: defineCollection({
+          type: 'page',
+          source: 'blog/*.md'
+        })
+      }
     })
+    const blog = config.collections.blog
+
     expect(blog.name).toBe('blog')
     expect(blog.source).toBe('blog/*.md')
   })
 
   test('marks i18n collections with __i18n=true at the type level', () => {
-    const docs = defineCollection('docs', {
-      type: 'page',
-      source: 'docs/**/*.md',
-      i18n: { locales: ['en', 'fr'], defaultLocale: 'en' }
+    const config = defineContentConfig({
+      collections: {
+        docs: defineCollection({
+          type: 'page',
+          source: 'docs/**/*.md',
+          i18n: { locales: ['en', 'fr'], defaultLocale: 'en' }
+        })
+      }
     })
+    const docs = config.collections.docs
+
     expectTypeOf(docs).toMatchObjectType<ContentCollectionHandle<'docs', undefined, true>>()
   })
 
   test('non-i18n collections type as __i18n=false', () => {
-    const blog = defineCollection('blog', { type: 'page', source: 'blog/*.md' })
+    const config = defineContentConfig({
+      collections: {
+        blog: defineCollection({ type: 'page', source: 'blog/*.md' })
+      }
+    })
+    const blog = config.collections.blog
+
     expectTypeOf(blog).toMatchObjectType<ContentCollectionHandle<'blog', undefined, false>>()
   })
 
   test('passes translatedSlugs through to runtime config', () => {
-    const docs = defineCollection('docs', {
-      type: 'page',
-      source: 'docs/**/*.md',
-      i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
-      translatedSlugs: true
+    const config = defineContentConfig({
+      collections: {
+        docs: defineCollection({
+          type: 'page',
+          source: 'docs/**/*.md',
+          i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
+          translatedSlugs: true
+        })
+      }
     })
+    const docs = config.collections.docs
+
     expect(docs.translatedSlugs).toBe(true)
   })
 })

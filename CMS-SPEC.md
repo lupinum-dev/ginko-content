@@ -353,7 +353,7 @@ import {
   reference
 } from '@lupinum/ginko-content/config'
 
-export const authors = defineCollection('authors', {
+export const authors = defineCollection({
   type: 'page',
   source: 'authors/**/*.md',
   route: '/authors',
@@ -363,7 +363,7 @@ export const authors = defineCollection('authors', {
   })
 })
 
-export const blog = defineCollection('blog', {
+export const blog = defineCollection({
   type: 'page',
   source: 'blog/**/*.md',
   route: '/blog',
@@ -376,7 +376,7 @@ export const blog = defineCollection('blog', {
   })
 })
 
-export const siteData = defineCollection('siteData', {
+export const siteData = defineCollection({
   type: 'data',
   source: 'data/**/*.yml',
   sitemap: false,
@@ -1571,7 +1571,7 @@ Localized collections must support route resolution by locale, fallback, and tra
 Collection config:
 
 ```ts
-export const docs = defineCollection('docs', {
+export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   route: {

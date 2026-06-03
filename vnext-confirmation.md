@@ -35,8 +35,9 @@ workarounds.
 
 - `saas-template`, `saas-i18n`, and `shadcn-starter` now use
   key-derived collection identity in `content.config.ts`, so real consumers
-  match the vNext default shape while the named `defineCollection('name', ...)`
-  form remains a documented compatibility path for this release.
+  match the vNext default shape.
+- The old named `defineCollection(name, config)` overload was removed. The
+  `collections` map key is the only collection identity source.
 - `shadcn-starter` no longer stores deploy-origin author URLs in author data.
   Canonical origin now uses Nuxt SEO's documented `NUXT_PUBLIC_SITE_URL`
   configuration instead of a starter-specific alias.

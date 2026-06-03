@@ -67,7 +67,7 @@ reference filtering in every app.
 The review found these recurring problems across consumers:
 
 - apps import `content.config.ts` handles into runtime code
-- `defineCollection('docs', ...)` repeats collection identity
+- Old named collection declarations repeated collection identity
 - generic functions like `one`, `many`, and `tree` are globally auto-imported
 - i18n pages repeat `locale`
 - pages that intentionally use fallback repeat `fallback: true`
@@ -93,7 +93,7 @@ same name in a variable, a string argument, and a map key.
 Before:
 
 ```ts
-export const docs = defineCollection('docs', {
+export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   route: '/docs'

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { defineCollection, reference } from '../packages/content/src/types/config'
+import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { backlinks, one, paginate } from '../packages/content/src/runtime/query/unified'
 import { z } from 'zod'
 
@@ -7,52 +7,54 @@ const mocks = vi.hoisted(() => ({
   transport: vi.fn()
 }))
 
-const authors = defineCollection('authors', {
-  type: 'data',
-  source: 'authors/*.yml',
-  schema: z.object({
-    name: z.string()
-  })
+const contentConfig = defineContentConfig({
+  collections: {
+    authors: defineCollection({
+      type: 'data',
+      source: 'authors/*.yml',
+      schema: z.object({
+        name: z.string()
+      })
+    }),
+    posts: defineCollection({
+      type: 'page',
+      source: 'posts/*.md',
+      schema: z.object({
+        title: z.string(),
+        authors: z.array(reference('authors'))
+      })
+    }),
+    docs: defineCollection({
+      type: 'page',
+      source: 'docs/*.md',
+      schema: z.object({
+        title: z.string(),
+        relatedAuthor: reference('authors').optional(),
+        relatedPost: reference('posts').optional()
+      })
+    }),
+    localizedAuthors: defineCollection({
+      type: 'page',
+      source: 'localized-authors/*.md',
+      i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      schema: z.object({
+        title: z.string(),
+        name: z.string()
+      })
+    }),
+    localizedPosts: defineCollection({
+      type: 'page',
+      source: 'localized-posts/*.md',
+      i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      schema: z.object({
+        title: z.string(),
+        primaryAuthor: reference('localizedAuthors').optional()
+      })
+    })
+  }
 })
 
-const posts = defineCollection('posts', {
-  type: 'page',
-  source: 'posts/*.md',
-  schema: z.object({
-    title: z.string(),
-    authors: z.array(reference('authors'))
-  })
-})
-
-const docs = defineCollection('docs', {
-  type: 'page',
-  source: 'docs/*.md',
-  schema: z.object({
-    title: z.string(),
-    relatedAuthor: reference('authors').optional(),
-    relatedPost: reference('posts').optional()
-  })
-})
-
-const localizedAuthors = defineCollection('localizedAuthors', {
-  type: 'page',
-  source: 'localized-authors/*.md',
-  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-  schema: z.object({
-    title: z.string(),
-    name: z.string()
-  })
-})
-
-const localizedPosts = defineCollection('localizedPosts', {
-  type: 'page',
-  source: 'localized-posts/*.md',
-  i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-  schema: z.object({
-    title: z.string(),
-    primaryAuthor: reference('localizedAuthors').optional()
-  })
-})
+const { authors, posts, docs, localizedAuthors, localizedPosts } = contentConfig.collections
 
 describe('unified query populate', () => {
   beforeEach(() => {

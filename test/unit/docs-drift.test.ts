@@ -296,7 +296,7 @@ describe('documentation drift', () => {
 
   test('content.config import detector is scoped to the same doc', () => {
     const source = [
-      "export const docs = defineCollection('docs', { type: 'page' })",
+      "export const docs = defineCollection({ type: 'page' })",
       "import { docs, posts } from '~/content.config'"
     ].join('\n')
 
@@ -312,7 +312,7 @@ describe('documentation drift', () => {
       'example.md',
       [
         '```ts [content.config.ts]',
-        "export const docs = defineCollection('docs', { type: 'page' })",
+        "export const docs = defineCollection({ type: 'page' })",
         '```'
       ].join('\n')
     )).toEqual(['example.md:1'])

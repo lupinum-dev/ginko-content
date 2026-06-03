@@ -335,32 +335,23 @@ export function defineCollection<
   config: TConfig
 ): ContentCollectionHandle<never, SchemaOf<TConfig>, IsI18nConfig<TConfig>>
 export function defineCollection<
-  const Name extends string,
   const TConfig extends DefineCollectionObject<ZodType | undefined>
 > (
-  name: Name,
   config: TConfig
-): ContentCollectionHandle<Name, SchemaOf<TConfig>, IsI18nConfig<TConfig>>
-export function defineCollection<
-  const Name extends string,
-  const TConfig extends DefineCollectionObject<ZodType | undefined>
-> (
-  nameOrConfig: Name | TConfig,
-  maybeConfig?: TConfig
-): ContentCollectionHandle<Name, SchemaOf<TConfig>, IsI18nConfig<TConfig>> | ContentCollectionHandle<never, SchemaOf<TConfig>, IsI18nConfig<TConfig>> {
-  const hasAuthoredName = typeof nameOrConfig === 'string'
-  const name = hasAuthoredName ? nameOrConfig : undefined
-  const config = hasAuthoredName ? maybeConfig! : nameOrConfig
+): ContentCollectionHandle<never, SchemaOf<TConfig>, IsI18nConfig<TConfig>> {
+  if (typeof config === 'string' || arguments.length > 1) {
+    throw new TypeError('@lupinum/ginko-content defineCollection(name, config) was removed. Use defineCollection({ ... }) under the desired defineContentConfig({ collections: { docs: ... } }) map key.')
+  }
+
   const { type, source, sitemap, ...rest } = config
   const normalized = normalizeCollectionSource(source)
 
   return {
-    ...(name ? { name } : {}),
     type,
     ...normalized,
     sitemap: sitemap ?? (type === 'data' ? false : undefined),
     ...rest
-  } as unknown as ContentCollectionHandle<Name, SchemaOf<TConfig>, IsI18nConfig<TConfig>>
+  } as unknown as ContentCollectionHandle<never, SchemaOf<TConfig>, IsI18nConfig<TConfig>>
 }
 
 function normalizeCollectionSource (source: ContentCollectionSource | ContentCollectionSourceObject | undefined): Partial<Pick<ContentCollectionConfig, 'source' | 'exclude'>> {
@@ -383,7 +374,7 @@ export function normalizeContentConfigCollectionNames<TCollections extends Recor
     const authoredName = (collection as { name?: unknown }).name
     if (typeof authoredName === 'string') {
       if (authoredName !== key) {
-        throw new Error(`@lupinum/ginko-content collection key "${key}" must match defineCollection name "${authoredName}". Use defineCollection({ ... }) or defineCollection('${key}', ...), or rename the collections map key.`)
+        throw new Error(`@lupinum/ginko-content collection key "${key}" must match collection name "${authoredName}". Use defineCollection({ ... }) under collections: { ${key}: ... }, or rename the collections map key.`)
       }
       continue
     }
