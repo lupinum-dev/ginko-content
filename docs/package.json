@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "nuxi prepare",
     "dev:prepare": "nuxi prepare",
     "dev": "nuxi dev",
     "generate": "nuxi generate",
