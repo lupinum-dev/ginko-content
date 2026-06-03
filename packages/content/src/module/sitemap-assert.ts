@@ -9,6 +9,8 @@ export type NormalizedContentSitemapAssertOptions = {
   minUrlsPerSitemap: number
   requireImages: boolean
   requiredCollections: string[]
+  requiredPaths: string[]
+  forbiddenPathPrefixes: string[]
   sitemaps: Record<string, {
     allowEmpty?: boolean
     minUrls?: number
@@ -132,6 +134,8 @@ export const normalizeContentSitemapAssertOptions = (
   minUrlsPerSitemap: options?.minUrlsPerSitemap ?? 1,
   requireImages: options?.requireImages ?? false,
   requiredCollections: options?.requiredCollections ?? [],
+  requiredPaths: options?.requiredPaths ?? [],
+  forbiddenPathPrefixes: options?.forbiddenPathPrefixes ?? [],
   sitemaps: options?.sitemaps ?? {}
 })
 
@@ -189,6 +193,22 @@ export async function assertGeneratedSitemaps ({
     if (requireImages && imageCount === 0) {
       failures.push(`- ${target.name}: expected image entries but found none`)
     }
+  }
+
+  const sitemapPaths = Array.from(new Set(
+    discoveredSitemaps.flatMap(target => extractLocValues(target.xml).map(toLocalPath))
+  ))
+  const pathSet = new Set(sitemapPaths)
+  const missingPaths = options.requiredPaths.filter(path => !pathSet.has(path))
+  if (missingPaths.length) {
+    failures.push(`- Missing required sitemap paths: ${missingPaths.join(', ')}`)
+  }
+
+  const forbiddenPaths = sitemapPaths.filter(path =>
+    options.forbiddenPathPrefixes.some(prefix => path === prefix || path.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`))
+  )
+  if (forbiddenPaths.length) {
+    failures.push(`- Forbidden sitemap paths found: ${forbiddenPaths.join(', ')}`)
   }
 
   const missingCollections = options.requiredCollections.filter((collection) => (collectionRouteCounts[collection] || 0) === 0)

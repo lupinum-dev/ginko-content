@@ -63,25 +63,54 @@ const getArrayElement = (schema: any) => {
   return def.element || def.type || null
 }
 
+const wildcardReferenceTarget = '*'
+
+const getTopLevelReferenceDescriptor = (schema: any) => {
+  const direct = getReferenceDescriptor(schema)
+  if (direct) {
+    return direct
+  }
+
+  const arrayElement = getArrayElement(schema)
+  return arrayElement ? getReferenceDescriptor(arrayElement) : null
+}
+
+export const collectTopLevelReferenceFieldsByTarget = (
+  schema: unknown
+): Record<string, string[]> => {
+  const current = unwrapSchema(schema)
+  if (getSchemaTypeName(current) !== 'ZodObject') {
+    return {}
+  }
+
+  const references: Record<string, string[]> = {}
+  for (const [field, childSchema] of Object.entries(getObjectShape(current))) {
+    const descriptor = getTopLevelReferenceDescriptor(childSchema)
+    if (!descriptor) {
+      continue
+    }
+
+    const target = descriptor.collection || wildcardReferenceTarget
+    references[target] ||= []
+    references[target].push(field)
+  }
+
+  return references
+}
+
 export const collectTopLevelReferenceFields = (
   schema: unknown,
   targetCollection?: string
 ): string[] => {
-  const current = unwrapSchema(schema)
-  if (getSchemaTypeName(current) !== 'ZodObject') {
-    return []
+  const references = collectTopLevelReferenceFieldsByTarget(schema)
+  if (!targetCollection) {
+    return [...new Set(Object.values(references).flat())]
   }
 
-  return Object.entries(getObjectShape(current))
-    .filter(([, childSchema]) => {
-      const direct = getReferenceDescriptor(childSchema)
-      if (direct) {
-        return !direct.collection || !targetCollection || direct.collection === targetCollection
-      }
-
-      const arrayElement = getArrayElement(childSchema)
-      const arrayRef = arrayElement ? getReferenceDescriptor(arrayElement) : null
-      return Boolean(arrayRef && (!arrayRef.collection || !targetCollection || arrayRef.collection === targetCollection))
-    })
-    .map(([field]) => field)
+  return [
+    ...new Set([
+      ...(references[targetCollection] || []),
+      ...(references[wildcardReferenceTarget] || [])
+    ])
+  ]
 }

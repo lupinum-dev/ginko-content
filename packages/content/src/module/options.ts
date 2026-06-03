@@ -64,6 +64,11 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
     return []
   }
 
+  const nuxtSitemap = (nuxt.options as { sitemap?: { sitemaps?: unknown } }).sitemap
+  if (nuxtSitemap?.sitemaps === false) {
+    return ['/sitemap.xml']
+  }
+
   const nuxtI18n = (nuxt.options as { i18n?: NuxtI18nConfig }).i18n || {}
   if (!hasNuxtI18nModule(nuxt.options.modules) || !Array.isArray(nuxtI18n.locales) || nuxtI18n.locales.length === 0) {
     return ['/sitemap.xml']

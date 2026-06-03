@@ -215,6 +215,19 @@ if (authorBacklink) {
   void backlinkAuthors
 }
 
+const stringAuthorBacklinks = await backlinks('authors', {
+  locale: 'de',
+  by: { ref: 'authors.evan' },
+  from: 'posts'
+})
+const stringAuthorBacklink = stringAuthorBacklinks[0]
+if (stringAuthorBacklink) {
+  const backlinkTitle: string = stringAuthorBacklink.title
+  const backlinkAuthors: string[] = stringAuthorBacklink.authors
+  void backlinkTitle
+  void backlinkAuthors
+}
+
 const mixedBacklinks = await backlinks(authors, {
   locale: 'de',
   by: { ref: 'authors.evan' },
@@ -384,6 +397,22 @@ if (navigationItem) {
   void hasNavigationPath
 }
 
+const stringSearchData = await useContentSearchData('docs', { locale: 'de' })
+const stringSearchFile = stringSearchData.files.value[0]
+if (stringSearchFile) {
+  const searchFilePath: string = stringSearchFile.id
+  const searchFileTitle: string = stringSearchFile.title
+  void searchFilePath
+  void searchFileTitle
+}
+const stringSearchNavigationItem = stringSearchData.searchNavigation.value[0]
+if (stringSearchNavigationItem) {
+  const searchNavTitle: string = stringSearchNavigationItem.title
+  const searchNavPath: string = stringSearchNavigationItem.path
+  void searchNavTitle
+  void searchNavPath
+}
+
 /* ── variants/neighbors take by (not top-level ref/path) ───────────────── */
 
 const variantList = await variants(docs, { locale: 'de', by: { ref: 'guide.intro' } })
@@ -405,6 +434,12 @@ await one('missing', { by: { path: '/missing' } })
 
 // @ts-expect-error generated collection names reject unknown literals in composables
 await useContentPage('missing', { notFound: false })
+
+// @ts-expect-error generated collection names reject unknown literals in navigation
+await useContentNavigation('missing')
+
+// @ts-expect-error generated collection names reject unknown literals in search data
+await useContentSearchData('missing')
 
 // @ts-expect-error i18n collection requires locale on many as well
 await many(docs, { where: {} })

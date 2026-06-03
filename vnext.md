@@ -18,6 +18,35 @@ The public product model is:
 
 This pass intentionally avoids compatibility layers, duplicate APIs, and hidden magic. Defaults should be nice, but the source of truth must always be visible.
 
+## Confirmation Update: 2026-06-03
+
+The confirmation sprint proved the core direction across the package, CMS
+provider, generated consumers, and browser QA:
+
+- string collection names are the right primary app API;
+- schema relation metadata is the right source for backlink inference;
+- CMS search should be explicit with `content.search.engine = 'cms'`, not hidden
+  behind filesystem `searchSections`;
+- Nuxt Sitemap must remain the XML authority, with Ginko resolving sitemap mode
+  lazily instead of snapshotting Nuxt Sitemap config too early;
+- consumer sitemap `nitro.prerender.ignore` patches are not an acceptable
+  pattern;
+- `@nuxtjs/i18n` remains the route/runtime locale authority, while Ginko
+  publishes content route identity and fallback metadata;
+- generated browser QA should stay part of release verification because it
+  catches payload, search, locale, and sitemap behavior that unit tests miss.
+
+The confirmation sprint also narrowed what is not yet proven:
+
+- the full agent-misuse bad-fixture matrix still needs to be completed;
+- a single small one-command golden demo still needs to be added if the team
+  wants isolated proof instead of relying on quickstart plus real consumers;
+- `ginko-cms` normal `release:verify` is blocked until
+  `@lupinum/ginko-content@0.1.2` is published or the release script consumes the
+  local tarball/package root during coordinated release QA.
+
+The detailed evidence lives in `vnext-confirmation.md`.
+
 ## Non-Goals
 
 - Do not make Ginko Content an i18n framework.

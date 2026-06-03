@@ -166,6 +166,26 @@ export interface ContentSitemapAssertOptions {
    */
   requiredCollections?: string[]
   /**
+   * Public URL paths that must appear in generated sitemap loc values.
+   *
+   * Values are compared by URL pathname, so absolute sitemap URLs are
+   * normalized before assertion. Use this for release QA of important route
+   * identities; keep `requiredCollections` for the broader content invariant.
+   *
+   * @default []
+   */
+  requiredPaths?: string[]
+  /**
+   * Public URL path prefixes that must not appear in generated sitemap loc
+   * values.
+   *
+   * Use this to guard against internal/generated routes such as `/_payload`,
+   * `/_nuxt`, API routes, or auth-only sections.
+   *
+   * @default []
+   */
+  forbiddenPathPrefixes?: string[]
+  /**
    * Optional per-sitemap overrides keyed by sitemap name, for example `en-US`.
    *
    * @default {}

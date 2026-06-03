@@ -37,6 +37,7 @@ import {
 } from './module/sitemap-assert'
 import { configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions, resolveNuxtSitemapPrerenderRoutes } from './module/options'
 import { validateContentPageRouteMetadata } from './module/route-meta-validation'
+import { collectTopLevelReferenceFieldsByTarget } from './core/references/schema'
 
 export { defineCollection, defineContentConfig, reference } from './types/config.js'
 export type * from './types'
@@ -293,7 +294,7 @@ export default defineNuxtModule<ModuleOptions>({
 
       registerContentNitroIntegrationHooks(nitroConfig, {
         rootDir: nuxt.options.rootDir,
-        sitemapPrerenderRoutes: contentContext.sitemap === false ? [] : resolveNuxtSitemapPrerenderRoutes(nuxt)
+        sitemapPrerenderRoutes: () => contentContext.sitemap === false ? [] : resolveNuxtSitemapPrerenderRoutes(nuxt)
       }, {
         collections: contentContext.collections,
         locales: contentContext.locales,
@@ -362,18 +363,22 @@ export default defineNuxtModule<ModuleOptions>({
       contentContext.markdown = processMarkdownOptions(contentContext.markdown)
       await validateBuiltinMarkdownPlugins(contentContext.markdown.plugins, resolvePath)
 
-      const runtimeCollections = Object.fromEntries(Object.entries(options.collections || {}).map(([name, collection]) => [
-        name,
-        {
-          ...(collection.source ? { source: collection.source } : {}),
-          ...(collection.exclude ? { exclude: collection.exclude } : {}),
-          ...(collection.type ? { type: collection.type } : {}),
-          strict: collection.strict ?? true,
-          ...(collection.route ? { route: collection.route } : {}),
-          ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
-          ...(collection.i18n && collection.i18n !== true ? { i18n: collection.i18n } : {})
-        }
-      ]))
+      const runtimeCollections = Object.fromEntries(Object.entries(options.collections || {}).map(([name, collection]) => {
+        const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
+        return [
+          name,
+          {
+            ...(collection.source ? { source: collection.source } : {}),
+            ...(collection.exclude ? { exclude: collection.exclude } : {}),
+            ...(collection.type ? { type: collection.type } : {}),
+            strict: collection.strict ?? true,
+            ...(collection.route ? { route: collection.route } : {}),
+            ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
+            ...(collection.i18n && collection.i18n !== true ? { i18n: collection.i18n } : {}),
+            ...(Object.keys(references).length ? { references } : {})
+          }
+        ]
+      }))
       const cacheIntegrity = hash({
         locales: contentContext.locales,
         defaultLocale: contentContext.defaultLocale,

@@ -56,7 +56,7 @@ import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from './public-limits'
 export interface RuntimeContentConfig {
   locales?: string[]
   defaultLocale?: string
-  collections?: Record<string, { i18n?: boolean | { locales?: string[], defaultLocale?: string }, route?: string | Record<string, string> }>
+  collections?: Record<string, { i18n?: boolean | { locales?: string[], defaultLocale?: string }, route?: string | Record<string, string>, references?: Record<string, string[]> }>
 }
 
 export type ContentQueryEndpoint = 'query' | 'navigation'
@@ -563,10 +563,15 @@ const resolveExplicitBacklinkFields = (
 
 const inferBacklinkFields = (
   source: BacklinkSource,
-  targetCollection: string
+  targetCollection: string,
+  runtime: RuntimeContentConfig | undefined
 ) => {
   if (typeof source === 'string') {
-    return []
+    const references = runtime?.collections?.[source]?.references
+    return [
+      ...(references?.[targetCollection] || []),
+      ...(references?.['*'] || [])
+    ]
   }
 
   return collectTopLevelReferenceFields((source as { schema?: unknown }).schema, targetCollection)
@@ -594,6 +599,15 @@ const backlinkWhere = (fields: string[], candidates: string[]): QueryWhere | und
   }))
   return clauses.length ? { $or: clauses } as QueryWhere : undefined
 }
+
+const createMissingBacklinkFieldsError = (
+  sourceCollection: string,
+  targetCollection: string
+) => new Error(
+  `Cannot infer backlink fields from "${sourceCollection}" to "${targetCollection}". `
+  + `Declare fields.relation('${targetCollection}') / fields.relations('${targetCollection}') in ${sourceCollection}.schema, `
+  + 'or pass fields explicitly.'
+)
 
 /**
  * Resolve documents in source collections that reference one target document.
@@ -629,9 +643,12 @@ export async function backlinks<
     const fields = [
       ...new Set([
         ...resolveExplicitBacklinkFields(options.fields, sourceName),
-        ...inferBacklinkFields(source, targetCollection)
+        ...inferBacklinkFields(source, targetCollection, context.runtime)
       ])
     ]
+    if (!fields.length) {
+      throw createMissingBacklinkFieldsError(sourceName, targetCollection)
+    }
     const where = backlinkWhere(fields, candidates)
     if (!where) {
       return []

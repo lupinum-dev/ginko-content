@@ -60,6 +60,8 @@ describe('integration hook contracts', () => {
           minUrlsPerSitemap: 1,
           requireImages: false,
           requiredCollections: ['docs', 'posts'],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
           sitemaps: {}
         }
       }
@@ -107,6 +109,8 @@ describe('integration hook contracts', () => {
           minUrlsPerSitemap: 1,
           requireImages: false,
           requiredCollections: ['docs'],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
           sitemaps: {}
         }
       }
@@ -157,6 +161,8 @@ describe('integration hook contracts', () => {
           minUrlsPerSitemap: 1,
           requireImages: false,
           requiredCollections: [],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
           sitemaps: {}
         }
       }
@@ -215,6 +221,8 @@ describe('integration hook contracts', () => {
           minUrlsPerSitemap: 1,
           requireImages: false,
           requiredCollections: [],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
           sitemaps: {}
         }
       }
@@ -227,6 +235,60 @@ describe('integration hook contracts', () => {
       '/sitemap.xml',
       '/sitemap_index.xml'
     ])
+  })
+
+  test('resolves sitemap prerender routes when the prerender hook runs', async () => {
+    const root = await createContentRoot({
+      'content/en/1.docs/1.getting-started.md': '# English docs'
+    })
+    tempDirs.push(root)
+
+    const nitroConfig: Record<string, any> = {}
+    let sitemapPrerenderRoutes = ['/sitemap.xml', '/sitemap_index.xml']
+    registerContentNitroIntegrationHooks(nitroConfig, {
+      rootDir: root,
+      sitemapPrerenderRoutes: () => sitemapPrerenderRoutes
+    }, {
+      provider: 'cms',
+      collections: {
+        docs: { source: '1.*/*.md' } as any
+      },
+      locales: ['en'],
+      defaultLocale: 'en',
+      translatedSlugs: true,
+      respectPathCase: false,
+      markdown: {
+        plugins: [],
+        tags: {},
+        anchorLinks: { depth: 4, exclude: [1] }
+      },
+      yaml: {},
+      csv: { delimiter: ',', json: true },
+      sitemap: {
+        path: '/sitemap',
+        include: ['docs'],
+        exclude: [],
+        includeDrafts: false,
+        assert: {
+          enabled: false,
+          mode: 'generate',
+          allowEmpty: false,
+          minUrlsPerSitemap: 1,
+          requireImages: false,
+          requiredCollections: [],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
+          sitemaps: {}
+        }
+      }
+    })
+
+    sitemapPrerenderRoutes = ['/sitemap.xml']
+
+    const routes = new Set<string>()
+    await nitroConfig.hooks['prerender:routes'](routes)
+
+    expect([...routes].sort()).toEqual(['/sitemap.xml'])
   })
 
   test('registers translated slug prerender routes from canonical numeric collection sources', async () => {
@@ -267,6 +329,8 @@ describe('integration hook contracts', () => {
           minUrlsPerSitemap: 1,
           requireImages: false,
           requiredCollections: [],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
           sitemaps: {}
         }
       }
@@ -321,6 +385,8 @@ describe('integration hook contracts', () => {
           minUrlsPerSitemap: 1,
           requireImages: false,
           requiredCollections: [],
+          requiredPaths: [],
+          forbiddenPathPrefixes: [],
           sitemaps: {}
         }
       }

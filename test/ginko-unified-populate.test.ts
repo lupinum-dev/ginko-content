@@ -569,6 +569,89 @@ describe('unified query populate', () => {
     })
   })
 
+  test('infers backlinks from string source collection metadata', async () => {
+    mocks.transport.mockImplementation(async (_endpoint, params) => {
+      if (params.collection === 'authors') {
+        return {
+          result: {
+            _id: 'content:authors:ada.yml',
+            _path: '/authors/ada',
+            _collection: 'authors',
+            ref: 'authors.ada',
+            name: 'Ada',
+            body: null
+          }
+        }
+      }
+
+      if (params.collection === 'posts') {
+        expect(params.where).toEqual([
+          {
+            $or: [
+              {
+                authors: {
+                  $in: expect.arrayContaining(['authors.ada'])
+                }
+              }
+            ]
+          }
+        ])
+        return { result: [] }
+      }
+
+      return { result: null }
+    })
+
+    await backlinks({
+      runtime: {
+        collections: {
+          posts: {
+            references: {
+              authors: ['authors']
+            }
+          }
+        }
+      },
+      transport: mocks.transport
+    }, 'authors', {
+      by: { ref: 'authors.ada' },
+      from: 'posts'
+    })
+
+    expect(mocks.transport).toHaveBeenCalledWith('query', expect.objectContaining({
+      collection: 'posts'
+    }))
+  })
+
+  test('fails clearly when backlink fields cannot be inferred or resolved explicitly', async () => {
+    mocks.transport.mockImplementation(async (_endpoint, params) => {
+      if (params.collection === 'authors') {
+        return {
+          result: {
+            _id: 'content:authors:ada.yml',
+            _path: '/authors/ada',
+            _collection: 'authors',
+            ref: 'authors.ada',
+            name: 'Ada',
+            body: null
+          }
+        }
+      }
+
+      return { result: null }
+    })
+
+    await expect(backlinks({
+      runtime: {},
+      transport: mocks.transport
+    }, 'authors', {
+      by: { ref: 'authors.ada' },
+      from: 'posts'
+    })).rejects.toThrow(
+      'Cannot infer backlink fields from "posts" to "authors". Declare fields.relation'
+    )
+  })
+
   test('resolves backlinks from multiple sources with per-source fields', async () => {
     const seen = new Map<string, unknown>()
     mocks.transport.mockImplementation(async (_endpoint, params) => {

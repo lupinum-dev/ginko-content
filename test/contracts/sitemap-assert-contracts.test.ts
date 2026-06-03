@@ -37,6 +37,8 @@ describe('sitemap assertion contracts', () => {
       minUrlsPerSitemap: 1,
       requireImages: false,
       requiredCollections: [],
+      requiredPaths: [],
+      forbiddenPathPrefixes: [],
       sitemaps: {}
     })
   })
@@ -187,5 +189,56 @@ describe('sitemap assertion contracts', () => {
       collectionRouteCounts: {},
       targets
     })).resolves.toBeUndefined()
+  })
+
+  test('asserts required paths and forbidden internal prefixes across sitemap urlsets', async () => {
+    const targets = createSitemapAssertionTargetsFromPrerenderedSitemaps([
+      {
+        name: '/sitemap.xml',
+        content: [
+          '<urlset>',
+          '<url><loc>https://example.test/docs/getting-started</loc></url>',
+          '<url><loc>https://example.test/blog/static-docs-pipeline</loc></url>',
+          '</urlset>'
+        ].join('')
+      }
+    ])
+
+    await expect(assertGeneratedSitemaps({
+      options: normalizeContentSitemapAssertOptions({
+        enabled: true,
+        requiredPaths: ['/docs/getting-started', '/blog/static-docs-pipeline'],
+        forbiddenPathPrefixes: ['/_payload', '/_nuxt', '/api']
+      }),
+      collectionRouteCounts: {},
+      targets
+    })).resolves.toBeUndefined()
+  })
+
+  test('fails when required paths are missing or forbidden paths leak', async () => {
+    const targets = createSitemapAssertionTargetsFromPrerenderedSitemaps([
+      {
+        name: '/sitemap.xml',
+        content: [
+          '<urlset>',
+          '<url><loc>https://example.test/docs/getting-started</loc></url>',
+          '<url><loc>https://example.test/_payload/docs.json</loc></url>',
+          '</urlset>'
+        ].join('')
+      }
+    ])
+
+    await expect(assertGeneratedSitemaps({
+      options: normalizeContentSitemapAssertOptions({
+        enabled: true,
+        requiredPaths: ['/docs/getting-started', '/blog/static-docs-pipeline'],
+        forbiddenPathPrefixes: ['/_payload', '/_nuxt', '/api']
+      }),
+      collectionRouteCounts: {},
+      targets
+    })).rejects.toThrow([
+      'Missing required sitemap paths: /blog/static-docs-pipeline',
+      'Forbidden sitemap paths found: /_payload/docs.json'
+    ].join('\n- '))
   })
 })

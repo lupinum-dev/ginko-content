@@ -231,7 +231,7 @@ export const collectSitemapCollectionRouteCounts = async (
 
 export const registerContentNitroIntegrationHooks = (
   nitroConfig: NitroConfig,
-  options: { rootDir: string, sitemapPrerenderRoutes?: string[] },
+  options: { rootDir: string, sitemapPrerenderRoutes?: string[] | (() => string[]) },
   contentContext: Pick<ContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap' | 'provider'>
 ) => {
   const usesFilesystemProvider = !contentContext.provider || contentContext.provider === 'filesystem'
@@ -272,7 +272,10 @@ export const registerContentNitroIntegrationHooks = (
         routes.add(route)
       }
     }
-    for (const route of options.sitemapPrerenderRoutes || []) {
+    const sitemapPrerenderRoutes = typeof options.sitemapPrerenderRoutes === 'function'
+      ? options.sitemapPrerenderRoutes()
+      : options.sitemapPrerenderRoutes || []
+    for (const route of sitemapPrerenderRoutes) {
       routes.add(route)
     }
   })

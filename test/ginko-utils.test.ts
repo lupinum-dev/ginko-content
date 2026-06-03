@@ -6,11 +6,13 @@ import { validateCollectionDocument, validateContentGraph } from '../packages/co
 import { makeIgnored } from '../packages/content/src/core/content/ignore'
 import { resolveCollection } from '../packages/content/src/core/content/collection'
 import { buildReferenceTargets, collectMarkdownRefLinks, parseRefLink, rewriteMarkdownRefLinks } from '../packages/content/src/core/references/resolve'
+import { collectTopLevelReferenceFields, collectTopLevelReferenceFieldsByTarget } from '../packages/content/src/core/references/schema'
 import { collectTranslatedSlugValidationIssues } from '../packages/content/src/features/localization/translated-slugs'
 import { resolveCollectionI18nConfig } from '../packages/content/src/features/localization/config'
 import { buildLocaleFallbackChain, expandDataLocaleVariants, splitInlineLocaleVariantId } from '../packages/content/src/core/content/locale'
 import { createRouteMeta, localizeNavigation, localizePageResult } from '../packages/content/src/features/localization/results'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
+import { fields } from '../packages/content/src/types/fields'
 import { getCollectionPath } from '../packages/content/src/runtime/query/routes'
 
 vi.stubGlobal('__ginkoTestNitroApp', {
@@ -499,6 +501,22 @@ describe('Ginko metadata helpers', () => {
     })
 
     expect(outcome).toMatchObject({ ok: true })
+  })
+
+  test('derives backlink relation metadata from top-level schema references', () => {
+    const schema = z.object({
+      authors: fields.relations('authors'),
+      editor: fields.relation('authors'),
+      related: z.array(reference('posts')),
+      external: reference()
+    })
+
+    expect(collectTopLevelReferenceFieldsByTarget(schema)).toEqual({
+      authors: ['authors', 'editor'],
+      posts: ['related'],
+      '*': ['external']
+    })
+    expect(collectTopLevelReferenceFields(schema, 'authors')).toEqual(['authors', 'editor', 'external'])
   })
 
   test('rejects schema references that resolve in the wrong collection', () => {

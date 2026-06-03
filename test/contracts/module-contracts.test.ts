@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { z } from 'zod'
+import { fields } from '../../packages/content/src/types/fields'
 
 const applyContentRuntimeConfig = vi.fn()
 const registerContentServerHandlers = vi.fn()
@@ -252,6 +254,49 @@ describe('module contracts', () => {
     )
   })
 
+  test('serializes derived collection relation metadata into runtime config', async () => {
+    const { nuxt, hooks } = createNuxt()
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        collections: {
+          posts: {
+            source: 'posts/*.md',
+            schema: z.object({
+              authors: fields.relations('authors')
+            })
+          },
+          authors: {
+            source: 'authors/*.yml'
+          }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+    await hooks.get('modules:done')?.()
+
+    expect(applyContentRuntimeConfig).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        posts: expect.objectContaining({
+          references: {
+            authors: ['authors']
+          }
+        }),
+        authors: expect.not.objectContaining({
+          references: expect.anything()
+        })
+      }),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
   test('fails loudly when cms provider is selected without the CMS module registration', async () => {
     const { nuxt, hooks } = createNuxt()
 
@@ -348,6 +393,17 @@ describe('module contracts', () => {
     ])
   })
 
+  test('respects Nuxt Sitemap single-sitemap mode when resolving static prerender routes', async () => {
+    const { nuxt } = createNuxt()
+    nuxt.options.sitemap = {
+      ...nuxt.options.sitemap,
+      sitemaps: false
+    } as typeof nuxt.options.sitemap
+    const { resolveNuxtSitemapPrerenderRoutes } = await import('../../packages/content/src/module/options')
+
+    expect(resolveNuxtSitemapPrerenderRoutes(nuxt as any)).toEqual(['/sitemap.xml'])
+  })
+
   test('normalizes sitemap assertion defaults and exposes them to module internals', async () => {
     const { nuxt, hooks } = createNuxt()
 
@@ -381,6 +437,8 @@ describe('module contracts', () => {
             minUrlsPerSitemap: 1,
             requireImages: false,
             requiredCollections: ['docs'],
+            requiredPaths: [],
+            forbiddenPathPrefixes: [],
             sitemaps: {
               'de-DE': {
                 allowEmpty: true

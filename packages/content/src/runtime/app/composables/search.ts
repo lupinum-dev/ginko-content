@@ -2,10 +2,9 @@ import type { ComputedRef, Ref } from 'vue'
 import type { MaybeRefOrGetter } from '#imports'
 import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
-import type { ContentCollectionMap } from '@lupinum/ginko-content'
 import type { ContentCollectionHandle } from '../../../types/config'
 import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
-import type { ContentSearchSection } from '../../../types/query'
+import type { ContentCollectionMap, ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
 import { searchRecords } from '../../shared/search'
 import { createContentSearchNavigation } from '../../../features/search/navigation'
@@ -221,11 +220,11 @@ export async function useContentSearchData<K extends keyof ContentCollectionMap 
   options?: UseContentSearchDataOptions
 ): Promise<UseContentSearchDataResult>;
 export async function useContentSearchData (
-  collection: string | ContentCollectionHandle,
+  collection: ContentCollectionStringName | ContentCollectionHandle,
   options?: UseContentSearchDataOptions
 ): Promise<UseContentSearchDataResult>;
 export async function useContentSearchData (
-  collection: string | ContentCollectionHandle,
+  collection: ContentCollectionStringName | ContentCollectionHandle,
   options: UseContentSearchDataOptions = {}
 ) {
   const name = collectionName(collection)
