@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Changed
+
+- Prepared the dream experience release against the packed package flow used by
+  the Nuxt UI and shadcn consumer apps.
+- Verified generated static output, route switching, localized search, author
+  backlinks, and sitemap URL identity across `saas-template`, `saas-i18n`, and
+  `shadcn-starter`.
+
+### Fixed
+
+- Fixed consumer author backlinks to query explicit `authors` reference fields.
+- Fixed consumer-visible search triggers and generated docs/sitemap behavior in
+  the Nuxt UI examples.
+- Localized the German Asian cuisine article body while preserving route
+  identity, MDC content, media, tabs, and author references.
+
 ## v0.1.2
 
 ### Changed

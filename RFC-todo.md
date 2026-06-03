@@ -506,7 +506,7 @@ Verification:
 - [x] Run `saas-template` build command.
 - [x] Run `saas-i18n` build command.
 - [x] Run `shadcn-starter` build command.
-- [ ] Open each consumer locally and check docs page, blog page, sidebar, search,
+- [x] Open each consumer locally and check docs page, blog page, sidebar, search,
       localized page, and author page where applicable.
 
 Commit checkpoint:
@@ -683,18 +683,18 @@ Consumer verification:
 - [x] `saas-template`: lint.
 - [x] `saas-template`: typecheck.
 - [x] `saas-template`: build.
-- [ ] `saas-template`: manual check docs, blog, sidebar, search, SEO.
+- [x] `saas-template`: manual check docs, blog, sidebar, search, SEO.
 - [x] `saas-i18n`: install/link package from local source.
 - [x] `saas-i18n`: lint.
 - [x] `saas-i18n`: typecheck.
 - [x] `saas-i18n`: build.
-- [ ] `saas-i18n`: manual check localized docs, fallback, search, sidebar,
+- [x] `saas-i18n`: manual check localized docs, fallback, search, sidebar,
       SEO.
 - [x] `shadcn-starter`: install/link package from local source.
 - [x] `shadcn-starter`: lint/check.
 - [x] `shadcn-starter`: typecheck.
 - [x] `shadcn-starter`: build.
-- [ ] `shadcn-starter`: manual check docs navigation, search, and page render.
+- [x] `shadcn-starter`: manual check docs navigation, search, and page render.
 
 Final review:
 
@@ -705,11 +705,11 @@ Final review:
 - [x] Search result identity is explicit and tested.
 - [x] Renderer production fallback is safe.
 - [x] Public API changes are documented.
-- [ ] Changelog or release notes are prepared if this will be published.
+- [x] Changelog or release notes are prepared if this will be published.
 
 Commit checkpoint:
 
-- [ ] Commit final docs, changelog, and release prep.
+- [x] Commit final docs, changelog, and release prep.
 
 Suggested commit message:
 
