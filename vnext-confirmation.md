@@ -31,6 +31,16 @@ workarounds.
 | Agent misuse diagnostics | Pass | Focused tests cover unknown collections, missing backlink metadata, populate target mismatch, provider search mismatch, placeholder production sitemap URLs, localized query locale requirements, and data-only route/sitemap misuse. |
 | Golden demo | Pass | `pnpm test:golden` proves docs, blog, authors/data, references, navigation, surroundings, search, route metadata, i18n paths, and sitemap assertions in one executable fixture. |
 
+## Final Release-Hardening Notes
+
+- `saas-template`, `saas-i18n`, and `shadcn-starter` now use
+  key-derived collection identity in `content.config.ts`, so real consumers
+  match the vNext default shape while the named `defineCollection('name', ...)`
+  form remains a documented compatibility path for this release.
+- `shadcn-starter` no longer stores deploy-origin author URLs in author data.
+  Canonical origin now uses Nuxt SEO's documented `NUXT_PUBLIC_SITE_URL`
+  configuration instead of a starter-specific alias.
+
 ## Package Evidence
 
 ### Ginko Content
@@ -94,7 +104,7 @@ All consumers installed from:
 - `pnpm generate`: pass with release origin exported for the local ignored
   `.env` development override.
 - Replaced committed localhost URL defaults with production-style defaults and
-  an explicit `GINKO_SITE_URL`/`SITE_URL` override.
+  an explicit `NUXT_PUBLIC_SITE_URL` override.
 - Removed stale migration plan documents.
 - Generated sitemap: 26 URLs checked.
 

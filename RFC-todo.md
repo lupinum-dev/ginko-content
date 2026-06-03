@@ -1,6 +1,6 @@
 # RFC Todo: Dream Experience Implementation
 
-Status: draft
+Status: release candidate complete
 Date: 2026-06-02
 Owner: unassigned
 Source RFC: `dream-experience.md`
