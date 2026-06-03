@@ -292,8 +292,8 @@ Verification:
 Consumer validation:
 
 - [x] Update `saas-template` search to use `collection`.
-- [ ] Update `saas-i18n` search to use locale-aware route identity.
-- [ ] Update `shadcn-starter` search scope and result routing.
+- [x] Update `saas-i18n` search to use locale-aware route identity.
+- [x] Update `shadcn-starter` search scope and result routing.
 
 Commit checkpoint:
 
