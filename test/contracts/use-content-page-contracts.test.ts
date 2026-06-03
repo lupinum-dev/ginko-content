@@ -438,4 +438,20 @@ describe('useContentPage contracts', () => {
       expect.objectContaining({ title: 'Advanced' })
     ])
   })
+
+  test('treats the collection root page as the first surround item', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+
+    route.path = '/docs'
+    const state = await useContentPage('docs', {
+      surround: true
+    })
+
+    expect(state.page.value?.title).toBe('Getting Started')
+    expect(state.previous.value).toBeNull()
+    expect(state.next.value).toEqual(expect.objectContaining({
+      path: '/docs/intro',
+      title: 'Intro'
+    }))
+  })
 })

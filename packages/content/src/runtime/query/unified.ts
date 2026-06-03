@@ -48,7 +48,7 @@ import type {
 import type { ContentQueryResponse } from '../../types/api'
 import { compileQueryParams } from '../../core/query/filter'
 import { decorateLocalePathsWithFallbacks, localizePageResult } from '../../features/localization/results'
-import { normalizeRouteMounts } from '../../features/localization/path'
+import { normalizeContentPath, normalizeRouteMounts } from '../../features/localization/path'
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { collectTopLevelReferenceFields, collectTopLevelReferenceFieldsByTarget } from '../../core/references/schema'
 import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from './public-limits'
@@ -200,6 +200,39 @@ const decorate = <T extends ParsedContent & Record<string, unknown>>(
   result.localePaths = decorateLocalePathsWithFallbacks(result.localePaths, locales, fallbackLocale, defaultLocale, routeMounts)
   return result as LocalizedDoc<T>
 }
+
+const collectionRouteRoots = (
+  collection: string,
+  runtime: RuntimeContentConfig | undefined
+) => {
+  const collectionConfig = runtime?.collections?.[collection]
+  const collectionI18n = collectionConfig?.i18n
+  const collectionLocales = collectionI18n && typeof collectionI18n === 'object' ? collectionI18n.locales : undefined
+  const collectionDefault = collectionI18n && typeof collectionI18n === 'object' ? collectionI18n.defaultLocale : undefined
+  const locales = collectionLocales?.length ? collectionLocales : (runtime?.locales?.length ? runtime.locales : [])
+  const defaultLocale = collectionDefault || runtime?.defaultLocale
+  const routeMounts = normalizeRouteMounts(collectionConfig?.route, locales, defaultLocale)
+  return new Set(Object.values(routeMounts || {}).map(value => normalizeContentPath(value)))
+}
+
+const isCollectionRouteRoot = (
+  path: string,
+  collection: string,
+  runtime: RuntimeContentConfig | undefined
+) => collectionRouteRoots(collection, runtime).has(normalizeContentPath(path))
+
+const isAncestorRoutePath = (path: string, childPath: string) => {
+  const normalized = normalizeContentPath(path)
+  const child = normalizeContentPath(childPath)
+  return normalized === '/'
+    ? child !== '/'
+    : child.startsWith(`${normalized}/`)
+}
+
+const isNavigationRootPath = (
+  path: string,
+  flat: Array<{ path: string, item: unknown }>
+) => Boolean(flat[0]?.path && isAncestorRoutePath(path, flat[0].path))
 
 /**
  * Accept either a typed collection handle (preferred — produced by
@@ -862,6 +895,8 @@ export async function neighbors<H extends ContentCollectionHandle | string>(
   handle: H,
   options: NeighborsOptions<H>
 ): Promise<NeighborsResult<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
+  const collection = ensureCollectionName(handle)
+  const runtime = context.runtime
   // Resolve the document first so we can identify its path within the nav tree.
   const seed = await one(context, handle, {
     by: options.by,
@@ -892,6 +927,12 @@ export async function neighbors<H extends ContentCollectionHandle | string>(
 
   const targetPath = (seed as unknown as { path: string }).path
   const idx = flat.findIndex(entry => entry.path === targetPath)
+  if (idx === -1 && (isCollectionRouteRoot(targetPath, collection, runtime) || isNavigationRootPath(targetPath, flat))) {
+    return {
+      prev: null,
+      next: (flat[0]?.item as unknown as ContentTreeItem<ParsedContent>) ?? null
+    } as NeighborsResult<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>
+  }
   if (idx === -1) return { prev: null, next: null }
   return {
     prev: (flat[idx - 1]?.item as unknown as ContentTreeItem<ParsedContent>) ?? null,

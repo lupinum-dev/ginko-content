@@ -83,6 +83,79 @@ describe('public client query flows against an in-memory content scenario', () =
     })
   })
 
+  test('uses the first visible navigation item as the collection root surround next entry', async () => {
+    const { neighbors } = await import('../../packages/content/src/runtime/query/unified')
+
+    const surround = await neighbors({
+      runtime: {
+        collections: {
+          docs: {}
+        }
+      },
+      transport: async (endpoint) => {
+        if (endpoint === 'navigation') {
+          return [
+            {
+              title: 'Getting Started',
+              _path: '/docs/getting-started',
+              path: '/docs/getting-started'
+            }
+          ]
+        }
+        return {
+          title: 'Docs',
+          _path: '/docs',
+          path: '/docs'
+        }
+      }
+    }, 'docs', {
+      by: { route: '/docs' }
+    })
+
+    expect(surround).toEqual({
+      prev: null,
+      next: expect.objectContaining({
+        title: 'Getting Started',
+        path: '/docs/getting-started'
+      })
+    })
+  })
+
+  test('does not treat hidden non-root pages as collection roots', async () => {
+    const { neighbors } = await import('../../packages/content/src/runtime/query/unified')
+
+    const surround = await neighbors({
+      runtime: {
+        collections: {
+          docs: {}
+        }
+      },
+      transport: async (endpoint) => {
+        if (endpoint === 'navigation') {
+          return [
+            {
+              title: 'Getting Started',
+              _path: '/docs/getting-started',
+              path: '/docs/getting-started'
+            }
+          ]
+        }
+        return {
+          title: 'Hidden',
+          _path: '/docs/hidden',
+          path: '/docs/hidden'
+        }
+      }
+    }, 'docs', {
+      by: { route: '/docs/hidden' }
+    })
+
+    expect(surround).toEqual({
+      prev: null,
+      next: null
+    })
+  })
+
   test('resolves one document by localized route with fallback metadata', async () => {
     const { one } = await import('../../packages/content/src/runtime/query/unified')
 
