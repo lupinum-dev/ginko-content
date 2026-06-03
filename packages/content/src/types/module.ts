@@ -186,6 +186,16 @@ export interface ContentSitemapAssertOptions {
    */
   forbiddenPathPrefixes?: string[]
   /**
+   * Fail when generated sitemap URLs use placeholder or local hosts such as
+   * `example.com`, `localhost`, `127.0.0.1`, or `.localhost`.
+   *
+   * Enable this for production-like release checks. It is disabled by default
+   * so local examples and template builds can still generate static output.
+   *
+   * @default false
+   */
+  requireProductionSiteUrl?: boolean
+  /**
    * Optional per-sitemap overrides keyed by sitemap name, for example `en-US`.
    *
    * @default {}

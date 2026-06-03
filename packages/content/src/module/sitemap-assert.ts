@@ -11,6 +11,7 @@ export type NormalizedContentSitemapAssertOptions = {
   requiredCollections: string[]
   requiredPaths: string[]
   forbiddenPathPrefixes: string[]
+  requireProductionSiteUrl: boolean
   sitemaps: Record<string, {
     allowEmpty?: boolean
     minUrls?: number
@@ -59,6 +60,32 @@ const toLocalPath = (value: string) => {
     return value
   }
 }
+
+const placeholderHosts = new Set([
+  'example.com',
+  'example.net',
+  'example.org',
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '::1'
+])
+
+const isPlaceholderHost = (host: string) =>
+  placeholderHosts.has(host) ||
+  host.endsWith('.example.com') ||
+  host.endsWith('.example.net') ||
+  host.endsWith('.example.org') ||
+  host.endsWith('.localhost')
+
+const extractPlaceholderSiteUrls = (locValues: string[]) => Array.from(new Set(locValues.filter((value) => {
+  try {
+    return isPlaceholderHost(new URL(value).hostname)
+  }
+  catch {
+    return false
+  }
+})))
 
 const discoverSitemapsFromDisk = async (outputPublicDir: string): Promise<SitemapAssertionTarget[]> => {
   const indexPath = join(outputPublicDir, SITEMAP_INDEX)
@@ -136,6 +163,7 @@ export const normalizeContentSitemapAssertOptions = (
   requiredCollections: options?.requiredCollections ?? [],
   requiredPaths: options?.requiredPaths ?? [],
   forbiddenPathPrefixes: options?.forbiddenPathPrefixes ?? [],
+  requireProductionSiteUrl: options?.requireProductionSiteUrl ?? false,
   sitemaps: options?.sitemaps ?? {}
 })
 
@@ -195,9 +223,8 @@ export async function assertGeneratedSitemaps ({
     }
   }
 
-  const sitemapPaths = Array.from(new Set(
-    discoveredSitemaps.flatMap(target => extractLocValues(target.xml).map(toLocalPath))
-  ))
+  const sitemapLocValues = discoveredSitemaps.flatMap(target => extractLocValues(target.xml))
+  const sitemapPaths = Array.from(new Set(sitemapLocValues.map(toLocalPath)))
   const pathSet = new Set(sitemapPaths)
   const missingPaths = options.requiredPaths.filter(path => !pathSet.has(path))
   if (missingPaths.length) {
@@ -209,6 +236,17 @@ export async function assertGeneratedSitemaps ({
   )
   if (forbiddenPaths.length) {
     failures.push(`- Forbidden sitemap paths found: ${forbiddenPaths.join(', ')}`)
+  }
+
+  if (options.requireProductionSiteUrl) {
+    const placeholderSiteUrls = extractPlaceholderSiteUrls(sitemapLocValues)
+    if (placeholderSiteUrls.length) {
+      failures.push([
+        `- Placeholder sitemap URLs found: ${placeholderSiteUrls.join(', ')}`,
+        'Expected production URLs in generated sitemap loc values.',
+        'Set site.url or runtimeConfig.public.siteUrl to the deployed origin for production release checks.'
+      ].join(' '))
+    }
   }
 
   const missingCollections = options.requiredCollections.filter((collection) => (collectionRouteCounts[collection] || 0) === 0)

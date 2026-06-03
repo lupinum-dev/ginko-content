@@ -36,8 +36,8 @@ Use this skill for app-facing work with `@lupinum/ginko-content`. It is for user
 - Use `useContentSearchData().searchNavigation` for search navigation.
 - For i18n collections, set `i18n: true` and store files under `content/<locale>/...`.
 - Do not manually prepend locale prefixes to `_path` or `path`.
-- For Nuxt Sitemap i18n output, validate and submit `/sitemap_index.xml`.
-- Do not add route rules or disable `sitemap.autoI18n` only to force a physical `/sitemap.xml` file.
+- For Nuxt Sitemap output, validate and submit the sitemap URL emitted by the configured mode.
+- Do not add route rules, `nitro.prerender.ignore`, or disable `sitemap.autoI18n` only to force a physical sitemap shape.
 - Run `ginko-content doctor`; use `ginko-content doctor --i18n` for localized apps.
 
 ## Validation

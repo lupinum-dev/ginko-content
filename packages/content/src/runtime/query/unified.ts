@@ -50,7 +50,7 @@ import { compileQueryParams } from '../../core/query/filter'
 import { decorateLocalePathsWithFallbacks, localizePageResult } from '../../features/localization/results'
 import { normalizeRouteMounts } from '../../features/localization/path'
 import { normalizeReferenceValue } from '../../core/references/resolve'
-import { collectTopLevelReferenceFields } from '../../core/references/schema'
+import { collectTopLevelReferenceFields, collectTopLevelReferenceFieldsByTarget } from '../../core/references/schema'
 import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from './public-limits'
 
 export interface RuntimeContentConfig {
@@ -286,6 +286,79 @@ const populateReferenceValue = async (
   } as OneOptions<ContentCollectionHandle | string>)
 }
 
+const wildcardReferenceTarget = '*'
+
+const collectReferenceFieldsByTarget = (
+  source: ContentCollectionHandle | string,
+  sourceCollection: string,
+  runtime: RuntimeContentConfig | undefined
+) => {
+  if (typeof source !== 'string') {
+    return collectTopLevelReferenceFieldsByTarget((source as { schema?: unknown }).schema)
+  }
+
+  return runtime?.collections?.[sourceCollection]?.references || {}
+}
+
+const invertReferenceFields = (references: Record<string, string[]>) => {
+  const fields = new Map<string, string[]>()
+  for (const [target, targetFields] of Object.entries(references)) {
+    for (const field of targetFields) {
+      const targets = fields.get(field) || []
+      targets.push(target)
+      fields.set(field, targets)
+    }
+  }
+  return fields
+}
+
+const createPopulateTargetMismatchError = (
+  sourceCollection: string,
+  field: string,
+  expectedTargets: string[],
+  actualTarget: string
+) => new Error([
+  `Cannot populate "${sourceCollection}.${field}" from "${actualTarget}".`,
+  `Reference metadata declares "${sourceCollection}.${field}" points to ${expectedTargets.map(target => `"${target}"`).join(' or ')}.`,
+  `Change populate.${field} to the declared target collection, or update ${sourceCollection}.schema relation metadata.`
+].join(' '))
+
+const validatePopulateSpec = (
+  source: ContentCollectionHandle | string,
+  sourceCollection: string,
+  runtime: RuntimeContentConfig | undefined,
+  populate: PopulateSpec | undefined
+) => {
+  if (!populate || !isRecord(populate)) {
+    return
+  }
+
+  const references = collectReferenceFieldsByTarget(source, sourceCollection, runtime)
+  const fieldTargets = invertReferenceFields(references)
+  if (!fieldTargets.size) {
+    return
+  }
+
+  for (const [field, target] of Object.entries(populate)) {
+    const declaredTargets = fieldTargets.get(field)
+    if (!declaredTargets?.length) {
+      continue
+    }
+
+    const actualTarget = ensureCollectionName(target)
+    if (declaredTargets.includes(actualTarget) || declaredTargets.includes(wildcardReferenceTarget)) {
+      continue
+    }
+
+    throw createPopulateTargetMismatchError(
+      sourceCollection,
+      field,
+      declaredTargets.filter(target => target !== wildcardReferenceTarget),
+      actualTarget
+    )
+  }
+}
+
 const populateDocument = async <T extends ParsedContent, P extends PopulateSpec | undefined>(
   context: ContentQueryContext,
   doc: LocalizedDoc<T>,
@@ -342,6 +415,7 @@ export async function resolveOne<
 ): Promise<ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
   const collection = ensureCollectionName(handle)
   const runtime = context.runtime
+  validatePopulateSpec(handle, collection, runtime, options.populate)
   const by = options.by
   const fallback = resolveFallback(options.fallback, collection, runtime)
   const params = compileQueryParams({
@@ -413,6 +487,7 @@ export async function many<
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
   const collection = ensureCollectionName(handle)
   const runtime = context.runtime
+  validatePopulateSpec(handle, collection, runtime, options.populate)
   const fallback = resolveFallback(options.fallback, collection, runtime)
   const params = compileQueryParams({
     collection,
@@ -464,6 +539,7 @@ export async function paginate<
 ): Promise<PaginationResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
   const collection = ensureCollectionName(handle)
   const runtime = context.runtime
+  validatePopulateSpec(handle, collection, runtime, options.populate)
   const requestedPage = normalizePositiveInteger(options.page, 1)
   const limit = Math.min(normalizePositiveInteger(options.limit, 10), MAX_PUBLIC_QUERY_LIMIT)
   const skip = Math.min((requestedPage - 1) * limit, MAX_PUBLIC_QUERY_SKIP)

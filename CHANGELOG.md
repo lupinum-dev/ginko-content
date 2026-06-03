@@ -9,10 +9,18 @@
 - Verified generated static output, route switching, localized search, author
   backlinks, and sitemap URL identity across `saas-template`, `saas-i18n`, and
   `shadcn-starter`.
+- Added the `pnpm test:golden` vNext proof for provider-shape docs, blog,
+  authors, navigation, search, route metadata, i18n paths, and sitemap
+  assertions.
+- Added `content.sitemap.assert.requireProductionSiteUrl` for production-like
+  sitemap release checks that reject placeholder origins.
 
 ### Fixed
 
-- Fixed consumer author backlinks to query explicit `authors` reference fields.
+- Fixed schema-driven backlink and populate usage so consumers no longer need
+  app-local author field workarounds or populated post casts.
+- Added early populate target mismatch diagnostics when relation metadata points
+  to a different collection than the requested populate target.
 - Fixed consumer-visible search triggers and generated docs/sitemap behavior in
   the Nuxt UI examples.
 - Localized the German Asian cuisine article body while preserving route

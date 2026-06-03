@@ -48,7 +48,7 @@ export default defineNuxtConfig({
     '@nuxtjs/sitemap'
   ],
   site: {
-    url: 'https://example.com'
+    url: process.env.NUXT_PUBLIC_SITE_URL || 'https://docs.ginko-content.dev'
   },
   content: {
     sitemap: {
@@ -72,14 +72,18 @@ pnpm build
 npx ginko-content doctor --i18n
 ```
 
-For i18n apps, Nuxt Sitemap defaults to a sitemap index:
+For i18n apps, validate the mode Nuxt Sitemap actually emitted. Some apps emit a
+single `sitemap.xml` urlset; others emit `sitemap_index.xml` plus child
+sitemaps:
 
 ```bash
-test -f .output/public/sitemap_index.xml
-find .output/public/__sitemap__ -name '*.xml' -maxdepth 1 -print
+test -f .output/public/sitemap.xml || test -f .output/public/sitemap_index.xml
+find .output/public/__sitemap__ -maxdepth 1 -name '*.xml' -print 2>/dev/null || true
 ```
 
-Submit `/sitemap_index.xml`. If `.output/public/sitemap.xml/` exists as a generated redirect directory, ignore that static artifact and validate the sitemap index plus child sitemaps. Do not add route rules or disable Nuxt Sitemap i18n mode only to force a physical `sitemap.xml` file.
+Submit the sitemap URL that Nuxt Sitemap generated for the configured mode. Do
+not add route rules, `nitro.prerender.ignore`, or disable Nuxt Sitemap i18n mode
+only to force a physical sitemap shape.
 
 ## Search index checks
 

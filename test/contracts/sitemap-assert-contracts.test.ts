@@ -39,6 +39,7 @@ describe('sitemap assertion contracts', () => {
       requiredCollections: [],
       requiredPaths: [],
       forbiddenPathPrefixes: [],
+      requireProductionSiteUrl: false,
       sitemaps: {}
     })
   })
@@ -240,5 +241,32 @@ describe('sitemap assertion contracts', () => {
       'Missing required sitemap paths: /blog/static-docs-pipeline',
       'Forbidden sitemap paths found: /_payload/docs.json'
     ].join('\n- '))
+  })
+
+  test('fails clearly when production-like assertions find placeholder sitemap hosts', async () => {
+    const targets = createSitemapAssertionTargetsFromPrerenderedSitemaps([
+      {
+        name: '/sitemap.xml',
+        content: [
+          '<urlset>',
+          '<url><loc>https://example.com/docs/getting-started</loc></url>',
+          '<url><loc>https://docs.localhost/blog/static-docs-pipeline</loc></url>',
+          '</urlset>'
+        ].join('')
+      }
+    ])
+
+    await expect(assertGeneratedSitemaps({
+      options: normalizeContentSitemapAssertOptions({
+        enabled: true,
+        requireProductionSiteUrl: true
+      }),
+      collectionRouteCounts: {},
+      targets
+    })).rejects.toThrow([
+      'Placeholder sitemap URLs found: https://example.com/docs/getting-started, https://docs.localhost/blog/static-docs-pipeline',
+      'Expected production URLs in generated sitemap loc values.',
+      'Set site.url or runtimeConfig.public.siteUrl to the deployed origin for production release checks.'
+    ].join(' '))
   })
 })

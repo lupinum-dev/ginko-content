@@ -229,6 +229,42 @@ describe('unified query populate', () => {
     })
   })
 
+  test('fails clearly when populate target disagrees with typed relation metadata', async () => {
+    await expect(one({
+      runtime: {},
+      transport: mocks.transport
+    }, docs, {
+      by: { path: '/docs/guide' },
+      populate: { relatedAuthor: posts }
+    })).rejects.toThrow(
+      'Cannot populate "docs.relatedAuthor" from "posts". Reference metadata declares "docs.relatedAuthor" points to "authors".'
+    )
+
+    expect(mocks.transport).not.toHaveBeenCalled()
+  })
+
+  test('fails clearly when populate target disagrees with runtime relation metadata', async () => {
+    await expect(one({
+      runtime: {
+        collections: {
+          docs: {
+            references: {
+              authors: ['relatedAuthor']
+            }
+          }
+        }
+      },
+      transport: mocks.transport
+    }, 'docs', {
+      by: { path: '/docs/guide' },
+      populate: { relatedAuthor: 'posts' }
+    })).rejects.toThrow(
+      'Cannot populate "docs.relatedAuthor" from "posts". Reference metadata declares "docs.relatedAuthor" points to "authors".'
+    )
+
+    expect(mocks.transport).not.toHaveBeenCalled()
+  })
+
   test('carries locale and fallback through field-keyed i18n populate reads', async () => {
     mocks.transport.mockImplementation(async (_endpoint, params) => {
       if (params.collection === 'localizedPosts') {

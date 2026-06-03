@@ -69,7 +69,9 @@ Server helper:
 import { queryCollectionsSitemapEntries } from '#content/server'
 
 export default defineEventHandler((event) => {
-  return queryCollectionsSitemapEntries(event, { siteUrl: 'https://example.com' })
+  return queryCollectionsSitemapEntries(event, {
+    siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://docs.ginko-content.dev',
+  })
 })
 ```
 

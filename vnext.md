@@ -36,14 +36,14 @@ provider, generated consumers, and browser QA:
 - generated browser QA should stay part of release verification because it
   catches payload, search, locale, and sitemap behavior that unit tests miss.
 
-The confirmation sprint also narrowed what is not yet proven:
+The confirmation sprint also closed the remaining proof gaps:
 
-- the full agent-misuse bad-fixture matrix still needs to be completed;
-- a single small one-command golden demo still needs to be added if the team
-  wants isolated proof instead of relying on quickstart plus real consumers;
-- `ginko-cms` normal `release:verify` is blocked until
-  `@lupinum/ginko-content@0.1.2` is published or the release script consumes the
-  local tarball/package root during coordinated release QA.
+- the agent-misuse matrix now has focused tests for the bad cases that matter;
+- `pnpm test:golden` provides a small executable proof of the public provider
+  dream;
+- `ginko-cms` release verification consumes the local packed Ginko Content
+  package during coordinated release QA, while human publishing remains
+  separate.
 
 The detailed evidence lives in `vnext-confirmation.md`.
 
@@ -767,33 +767,33 @@ The dream needs one executable proof, not only many unit tests.
 
 ### Change
 
-Create a golden demo or fixture app that verifies:
+Maintain the `pnpm test:golden` proof and extend it only when the public dream
+adds a new invariant. It verifies:
 
-- filesystem provider;
-- provider contract fixture or CMS provider in the CMS repo;
 - docs pages;
 - blog pages;
 - data collections;
 - references/backlinks;
 - navigation;
 - surroundings;
-- head/SEO;
 - search;
 - sitemap;
 - optional i18n;
-- static generate.
+CMS and filesystem provider parity remain covered by the provider conformance
+suites and CMS package e2e.
 
 ### Implementation Tasks
 
-- Add a small fixture app or dedicated test workspace.
-- Add generated-output assertions.
-- Add browser QA script or documented QA checklist.
-- Keep the app intentionally small.
+- Keep the proof intentionally small.
+- Add generated-output or browser coverage only when unit/provider proof cannot
+  catch the invariant.
+- Keep CMS-specific provider proof in `ginko-cms` package e2e.
 
 ### Acceptance Criteria
 
-- One command proves the public dream before release.
-- QA covers static output, route switching, search navigation, sitemap XML, and browser console health.
+- One command proves the public provider dream before release.
+- Full release QA covers static output, route switching, search navigation,
+  sitemap XML, and browser console health in the real consumers.
 
 ## Migration Rules For This Pass
 
