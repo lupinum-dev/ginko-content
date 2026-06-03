@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { one, many } from '#imports'
+import { one, many } from '@lupinum/ginko-content/client'
 import { posts, data } from '../content.config'
 
 const exact = await one(posts, { by: { path: '/blog/hello-world' } })

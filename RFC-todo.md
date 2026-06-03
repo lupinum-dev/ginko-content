@@ -48,7 +48,7 @@ Acceptance criteria:
 Verification:
 
 - [x] `pnpm lint`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
 
 Commit checkpoint:
@@ -100,7 +100,7 @@ Verification:
 
 - [x] `pnpm build:packages`
 - [x] `pnpm typecheck`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] Focused contract tests:
       `pnpm exec vitest run --config vitest.config.ts test/contracts/module-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts`
 
@@ -166,9 +166,9 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test -- --project nuxt`
+- [x] `pnpm test -- --project nuxt`
 - [x] `pnpm typecheck`
-- [ ] `pnpm docs:build`
+- [x] `pnpm docs:build`
 - [x] Focused page contract tests:
       `pnpm exec vitest run --config vitest.config.ts test/contracts/use-content-page-contracts.test.ts`
 
@@ -229,9 +229,9 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
-- [ ] `pnpm docs:build`
+- [x] `pnpm docs:build`
 - [x] Focused navigation/public API contracts:
       `pnpm exec vitest run --config vitest.config.ts test/contracts/app-query-contracts.test.ts test/contracts/package-exports-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts`
 
@@ -283,9 +283,9 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
-- [ ] `pnpm docs:build`
+- [x] `pnpm docs:build`
 - [x] Focused search contracts:
       `pnpm exec vitest run --config vitest.config.ts test/unit/search-behavior.test.ts test/unit/pagefind.test.ts test/runtime/search-collection-defaults.test.ts test/runtime/api-search-boundaries.test.ts test/client/search-composables.test.ts`
 
@@ -340,9 +340,9 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
-- [ ] `pnpm docs:build`
+- [x] `pnpm docs:build`
 - [x] Focused head/public API contracts:
       `pnpm exec vitest run --config vitest.config.ts test/contracts/content-head-contracts.test.ts test/contracts/app-query-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts`
 - [x] Package export contract:
@@ -398,7 +398,7 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
 - [x] Focused populate/backlink contracts:
       `pnpm exec vitest run --config vitest.config.ts test/ginko-unified-populate.test.ts test/client/consumer-flows.test.ts`
@@ -446,7 +446,7 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm docs:build`
 - [x] Focused renderer contract:
       `pnpm exec vitest run --config vitest.config.ts test/contracts/render-components-contracts.test.ts`
@@ -557,9 +557,9 @@ Verification:
 
 - [x] `pnpm build:packages`
 - [x] `pnpm lint`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
-- [ ] `pnpm verify`
+- [x] `pnpm verify`
 - [x] Focused config/drift contracts:
       `pnpm exec vitest run --config vitest.config.ts test/unit/docs-drift.test.ts test/ginko-utils.test.ts test/contracts/module-contracts.test.ts`
 - [x] Docs build:
@@ -605,7 +605,7 @@ Tests:
 Verification:
 
 - [x] `pnpm build:packages`
-- [ ] `pnpm test`
+- [x] `pnpm test`
 - [x] `pnpm typecheck`
 - [x] `pnpm lint`
 - [x] `pnpm docs:build`
@@ -614,7 +614,7 @@ Verification:
 
 Commit checkpoint:
 
-- [ ] Commit route metadata validation.
+- [x] Commit route metadata validation.
 
 Suggested commit message:
 
@@ -670,12 +670,12 @@ Repository verification:
 - [x] `pnpm build:packages`
 - [x] `pnpm docs:build`
 - [x] `pnpm examples:build`
-- [ ] `pnpm test`
-- [ ] `pnpm test:e2e`
+- [x] `pnpm test`
+- [x] `pnpm test:e2e`
 - [x] `pnpm typecheck`
-- [ ] `pnpm test:quickstart`
-- [ ] `pnpm pack:check`
-- [ ] `pnpm verify`
+- [x] `pnpm test:quickstart`
+- [x] `pnpm pack:check`
+- [x] `pnpm verify`
 
 Consumer verification:
 
@@ -698,13 +698,13 @@ Consumer verification:
 
 Final review:
 
-- [ ] No second source of truth was introduced.
-- [ ] Old helpers and wrappers were deleted where replaced.
-- [ ] No app-specific projection leaked into core.
-- [ ] Fallback behavior is explicit and tested.
-- [ ] Search result identity is explicit and tested.
-- [ ] Renderer production fallback is safe.
-- [ ] Public API changes are documented.
+- [x] No second source of truth was introduced.
+- [x] Old helpers and wrappers were deleted where replaced.
+- [x] No app-specific projection leaked into core.
+- [x] Fallback behavior is explicit and tested.
+- [x] Search result identity is explicit and tested.
+- [x] Renderer production fallback is safe.
+- [x] Public API changes are documented.
 - [ ] Changelog or release notes are prepared if this will be published.
 
 Commit checkpoint:
