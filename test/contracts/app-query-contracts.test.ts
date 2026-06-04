@@ -117,7 +117,8 @@ vi.mock('#imports', () => ({
       data: { value: result },
       error: { value: null },
       pending: { value: false },
-      status: { value: 'success' }
+      status: { value: 'success' },
+      refresh: vi.fn(async () => {})
     }
   }
 }))
@@ -143,7 +144,8 @@ vi.mock('../../packages/content/src/runtime/app/composables/async-data', () => (
       data: { value: result },
       error: { value: null },
       pending: { value: false },
-      status: { value: 'success' }
+      status: { value: 'success' },
+      refresh: vi.fn(async () => {})
     }
   }
 }))
@@ -259,6 +261,24 @@ describe('app query/composable contracts', () => {
     }))
     expect(state.paths.value.has('/de/guide')).toBe(true)
     expect(state.paths.value.has('/de/guide/advanced')).toBe(true)
+  })
+
+  test('useContentNavigation keeps pending navigation distinct from an empty provider result', async () => {
+    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
+
+    const state = await useContentNavigation('docs', {
+      locale: 'de',
+      fields: ['icon', 'badge']
+    })
+
+    expect(asyncDataCalls.at(-1)?.options ?? {}).not.toHaveProperty('default')
+    expect(state.pending.value).toBe(false)
+    expect(state.data.value).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'folder:guide',
+        path: '/de/guide'
+      })
+    ]))
   })
 
   test('useContentMany wraps the unified public query API instead of the removed builder', async () => {

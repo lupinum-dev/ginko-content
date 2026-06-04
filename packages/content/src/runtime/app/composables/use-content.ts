@@ -586,6 +586,7 @@ export async function useContentVariants<H extends ContentCollectionTarget> (
 
 interface UseContentTreeReturn<T> {
   data: ComputedRef<T[]>
+  pending: ComputedRef<boolean>
   status: ComputedRef<string>
   error: ComputedRef<unknown>
   refresh: () => Promise<void>
@@ -602,6 +603,7 @@ interface UseContentNavigationReturn<T> {
   data: ComputedRef<Array<ContentNavigationNode<T>>>
   firstPage: ComputedRef<ContentNavigationNode<T> | null>
   paths: ComputedRef<Set<string>>
+  pending: ComputedRef<boolean>
   status: ComputedRef<string>
   error: ComputedRef<unknown>
   refresh: () => Promise<void>
@@ -656,11 +658,12 @@ export async function useContentTree<H extends ContentCollectionTarget> (
   const asyncData = await useAsyncData<TreeResult>(
     key,
     () => treeWithContext(context, handle, resolved.value as TreeOptions<H>) as Promise<TreeResult>,
-    { watch: [resolved], default: () => [] as TreeResult }
+    { watch: [resolved] }
   )
 
   return {
     data: computed(() => (asyncData.data.value || []) as TreeResult),
+    pending: computed(() => asyncData.pending.value),
     status: computed(() => asyncData.status.value),
     error: computed(() => asyncData.error.value),
     refresh: () => asyncData.refresh()
@@ -681,6 +684,7 @@ export async function useContentNavigation<H extends ContentCollectionTarget> (
     data,
     firstPage: computed(() => findFirstContentNavigationPage(data.value)),
     paths: computed(() => collectContentNavigationPaths(data.value)),
+    pending: tree.pending,
     status: tree.status,
     error: tree.error,
     refresh: tree.refresh
