@@ -113,11 +113,6 @@ const sourceChecks: Array<{
     suggestion: 'Use useContentMany(\'docs\', options) or many(\'docs\', options).'
   },
   {
-    pattern: /\buseContentNavigation\s*\(/,
-    message: 'Removed content navigation composable found.',
-    suggestion: 'Use useContentNavigation(\'docs\') for layout navigation.'
-  },
-  {
     pattern: /\bcontent\.(database|preview|build)\b/,
     message: 'Nuxt Content v3 runtime config key found.',
     suggestion: 'Remove content.database/content.preview/content.build and configure Ginko runtime options instead.'
@@ -131,11 +126,6 @@ const sourceChecks: Array<{
     pattern: /<ContentRenderer\b[^>]*:value\s*=\s*["'][^"']*\.body["']/,
     message: 'ContentRenderer is receiving a document body.',
     suggestion: 'Pass the full content document to ContentRenderer, not document.body.'
-  },
-  {
-    pattern: /<NuxtLink\b[^>]*:to\s*=\s*["'][^"']+\.path["']/,
-    message: 'NuxtLink may be using raw query .path.',
-    suggestion: 'Use useContentMany(\'docs\', options) for route-safe list items, or link route-page payloads with their explicit path field.'
   },
   {
     pattern: /<NuxtLink\b[^>]*:to\s*=\s*["'][^"']+\._path["']/,

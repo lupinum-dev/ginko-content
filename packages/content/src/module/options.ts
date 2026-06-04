@@ -56,7 +56,6 @@ export function configureNuxtSitemapSource(
     }),
     source
   ]
-  sitemap.excludeAppSources = true
 }
 
 export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {

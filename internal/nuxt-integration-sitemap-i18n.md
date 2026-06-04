@@ -109,12 +109,13 @@ Why it matters:
 - path meta derives `_collection`, `_path`, and locale data from that id format
 - using a bare relative path breaks collection counting and route extraction
 
-### Treating build output and generate output as the same thing
+### Treating build output and generate output as interchangeable
 
-- `nuxt build` may produce a server bundle without static child sitemap XMLs in `.output/public`
-- `nuxt generate` is the release-critical path for static sites and is where the main assertion runs by default
+- `nuxt build` and `nuxt generate` exercise different Nitro presets and artifact paths
+- both can produce valid sitemap XML under `.output/public`, but one passing mode does not prove the other
+- `nuxt generate` remains the release-critical path for static hosting
 
-If a static site is the release target, test `generate`, not only `build`.
+If the app supports both deployment targets, test both `build` and `generate`.
 
 ## Troubleshooting and dead ends we already hit
 
@@ -202,20 +203,22 @@ What to check:
 
 - if the assertion complains about missing sitemap XMLs during generate, inspect the hook timing before touching app config
 
-### Symptom: `__sitemap__/en-US.xml` was populated after generate but appeared empty in another code path
+### Symptom: `__sitemap__/en-US.xml` was populated after generate but appeared empty or different in another code path
 
 Wrong move:
 
 - assuming every successful `build` proves static sitemap output is correct
+- assuming every successful `generate` proves the server build sitemap path is correct
 
 Why it was wrong:
 
 - `build` and `generate` have different artifact expectations
-- static locale child sitemaps are a generate concern
+- sitemap hooks can be exercised differently by the server and static presets
 
 Actual fix:
 
-- treat `nuxi generate` as the release gate for static sites
+- verify the sitemap mode for the target deployment
+- run both `nuxi build` and `nuxi generate` when the app supports both
 
 What to check:
 

@@ -87,6 +87,17 @@ const { page } = await useContentPage(pages)
 - Search helpers for MiniSearch, Pagefind, and provider-owned search.
 - Sitemap integration for public content routes.
 
+## I18n, Sitemap, and Prerender Ownership
+
+Localized apps should not keep a duplicate route table for sitemap or prerender
+output. Static Nuxt page paths belong in Nuxt I18n `i18n.pages`; content paths
+belong in Ginko collection routes and content files; XML output belongs to
+`@nuxtjs/sitemap`.
+
+Ginko registers the content sitemap source and contributes content prerender
+routes. Use `@nuxtjs/sitemap >= 8.0.15` when Nuxt I18n translated static page
+slugs need correct sitemap alternates.
+
 ## Scope
 
 Ginko Content is the content engine and default filesystem provider. It is not

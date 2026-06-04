@@ -71,7 +71,12 @@ describe('runtime asset contracts', () => {
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
       expect.objectContaining({ name: 'useContentMany', as: 'useContentMany' }),
       expect.objectContaining({ name: 'useContentTree', as: 'useContentTree' }),
-      expect.objectContaining({ name: 'useContentNavigation', as: 'useContentNavigation' })
+      expect.objectContaining({ name: 'useContentNavigation', as: 'useContentNavigation' }),
+      expect.objectContaining({
+        name: 'useContentSwitchLocalePath',
+        as: 'useContentSwitchLocalePath',
+        from: '/runtime/./app/composables/route.js'
+      })
     ]))
   })
 

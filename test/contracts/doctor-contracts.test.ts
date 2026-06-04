@@ -52,7 +52,6 @@ describe('ginko-content doctor contracts', () => {
       <script setup lang="ts">
       const { page } = await useContentPage('docs')
       const { items } = await useContentList('docs')
-      const nav = await useContentNavigation('docs')
       const raw = await queryCollection('docs').all()
       </script>
     `)
@@ -67,13 +66,37 @@ describe('ginko-content doctor contracts', () => {
       }),
       expect.objectContaining({
         severity: 'error',
-        message: 'Removed content navigation composable found.'
-      }),
-      expect.objectContaining({
-        severity: 'error',
         message: 'Removed collection query helper found.'
       })
     ]))
+  })
+
+  test('accepts route-safe navigation and list path links', async () => {
+    const root = createFixture()
+    await writeFixtureFile(root, 'package.json', JSON.stringify({
+      dependencies: {
+        '@lupinum/ginko-content': '^2.13.4'
+      }
+    }))
+    await writeFixtureFile(root, 'app/components/DocsNav.vue', `
+      <script setup lang="ts">
+      const { data: navigation } = await useContentNavigation('docs')
+      const { data: posts } = await useContentMany('blog')
+      </script>
+      <template>
+        <NuxtLink v-for="item in navigation" :key="item.path" :to="item.path">
+          {{ item.title }}
+        </NuxtLink>
+        <NuxtLink v-for="post in posts" :key="post.path" :to="post.path">
+          {{ post.title }}
+        </NuxtLink>
+      </template>
+    `)
+
+    const result = await runDoctor({ rootDir: root })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.findings).toEqual([])
   })
 
   test('fails on direct Nuxt Content dependency and module usage', async () => {

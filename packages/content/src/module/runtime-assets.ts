@@ -19,6 +19,7 @@ export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => s
     { name: 'useContentNavigation', as: 'useContentNavigation', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentNeighbors', as: 'useContentNeighbors', from: resolveRuntimeModule('./app/composables/use-content.js') },
     { name: 'useContentLocaleSwitch', as: 'useContentLocaleSwitch', from: resolveRuntimeModule('./app/composables/use-content.js') },
+    { name: 'useContentSwitchLocalePath', as: 'useContentSwitchLocalePath', from: resolveRuntimeModule('./app/composables/route.js') },
     // Search & site data — keep the headless useContentSearch export explicit
     // because Nuxt UI owns the same auto-import name.
     { name: 'useContentSearchData', as: 'useContentSearchData', from: resolveRuntimeModule('./app/composables/search.js') },

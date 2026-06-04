@@ -25,7 +25,20 @@ function createNuxt() {
         locales: [{ code: 'en', language: 'en-US' }, { code: 'de', language: 'de-DE' }]
       },
       sitemap: {
-        sources: [] as string[]
+        sources: [
+          {
+            context: {
+              name: 'nuxt:pages'
+            },
+            fetch: '/__sitemap__/pages'
+          },
+          {
+            context: {
+              name: '@lupinum/ginko-content:urls'
+            },
+            fetch: '/api/_content/sitemap'
+          }
+        ] as any[]
       }
     },
     hook(name: string, fn: (...arguments_: any[]) => any) {
@@ -137,12 +150,18 @@ describe('module contracts', () => {
     expect(nuxt.options.sitemap.sources).toEqual([
       {
         context: {
+          name: 'nuxt:pages'
+        },
+        fetch: '/__sitemap__/pages'
+      },
+      {
+        context: {
           name: '@lupinum/ginko-content:urls'
         },
         fetch: '/api/_content/sitemap'
       }
     ])
-    expect(nuxt.options.sitemap.excludeAppSources).toBe(true)
+    expect(nuxt.options.sitemap.excludeAppSources).toBeUndefined()
     expect(registerContentServerHandlers).toHaveBeenCalled()
 
     await hooks.get('modules:done')?.()
@@ -178,7 +197,7 @@ describe('module contracts', () => {
 
     const mod = await import('../../packages/content/src/module')
     await expect(mod.default.setup(createOptions(), nuxt as any)).rejects.toThrow(
-      '@lupinum/ginko-content collection key "docs" must match defineCollection name "guides"'
+      '@lupinum/ginko-content collection key "docs" must match collection name "guides"'
     )
   })
 
@@ -358,7 +377,20 @@ describe('module contracts', () => {
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.plugins).toBeUndefined()
-    expect(nuxt.options.sitemap.sources).toEqual([])
+    expect(nuxt.options.sitemap.sources).toEqual([
+      {
+        context: {
+          name: 'nuxt:pages'
+        },
+        fetch: '/__sitemap__/pages'
+      },
+      {
+        context: {
+          name: '@lupinum/ginko-content:urls'
+        },
+        fetch: '/api/_content/sitemap'
+      }
+    ])
     expect(nuxt.options.sitemap.excludeAppSources).toBeUndefined()
   })
 
@@ -436,6 +468,7 @@ describe('module contracts', () => {
             allowEmpty: false,
             minUrlsPerSitemap: 1,
             requireImages: false,
+            requireProductionSiteUrl: false,
             requiredCollections: ['docs'],
             requiredPaths: [],
             forbiddenPathPrefixes: [],
