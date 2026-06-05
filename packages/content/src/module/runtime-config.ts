@@ -80,7 +80,6 @@ export const applyContentRuntimeConfig = (
       : false,
     search: searchRuntime,
     navigation: contentContext.navigation as any,
-    wsUrl: '',
     contentHead: options.contentHead ?? true
   })
 

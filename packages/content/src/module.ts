@@ -83,16 +83,7 @@ export default defineNuxtModule<ModuleOptions>({
         prefix: true
       }
     },
-    watch: {
-      ws: {
-        port: {
-          port: 4000,
-          portRange: [4000, 4040]
-        },
-        hostname: 'localhost',
-        showURL: false
-      }
-    },
+    watch: true,
     sources: {},
     ignores: [],
     collections: {},
@@ -463,9 +454,6 @@ interface ModulePublicRuntimeConfig {
   strictTranslatedSlugs: ContentContext['strictTranslatedSlugs']
 
   markdown: MarkdownOptions
-
-  // Websocket server URL
-  wsUrl?: string;
 
   navigation: ModuleOptions['navigation']
 

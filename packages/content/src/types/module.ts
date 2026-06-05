@@ -1,4 +1,3 @@
-import type { ListenOptions } from 'listhen'
 import type { MarkdownPluginDescriptor } from './content'
 import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentQueryBuilderWhere } from './query'
@@ -330,9 +329,7 @@ export interface ModuleOptions {
    *
    * @default true
    */
-  watch: false | {
-    ws: Partial<ListenOptions>
-  }
+  watch: boolean
   /**
    * Contents can be located in multiple places, in multiple directories or even in remote git repositories.
    * Using sources option you can tell Content module where to look for contents.

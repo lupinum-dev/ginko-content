@@ -355,9 +355,6 @@ importers:
       knitwork:
         specifier: ^1.3.0
         version: 1.3.0
-      listhen:
-        specifier: ^1.10.0
-        version: 1.10.0(srvx@0.11.15)
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0

@@ -239,5 +239,5 @@ export const registerGeneratedTypes = (
   })
 }
 export const registerDevRuntimePlugin = (resolveRuntimeModule: (path: string) => string) => {
-  addPlugin(resolveRuntimeModule('./app/plugins/ws.js'))
+  addPlugin(resolveRuntimeModule('./app/plugins/hot-reload.js'))
 }

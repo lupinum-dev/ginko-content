@@ -57,7 +57,7 @@ function createOptions(overrides: Record<string, any> = {}) {
     api: { baseURL: '/api/_content' },
     i18n: true,
     sitemap: true,
-    watch: { ws: { port: { port: 4000, portRange: [4000, 4040] }, hostname: 'localhost', showURL: false } },
+    watch: true,
     sources: {},
     ignores: [],
     collections: {},

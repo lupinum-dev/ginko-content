@@ -1,10 +1,8 @@
-import type { IncomingMessage } from 'http'
 import { resolve } from 'pathe'
 import type { Nuxt } from '@nuxt/schema'
 import fsDriver from 'unstorage/drivers/fs'
 import httpDriver from 'unstorage/drivers/http'
 import githubDriver from 'unstorage/drivers/github'
-import { WebSocketServer } from 'ws'
 import { consola } from 'consola'
 
 import type { ModuleOptions, MountOptions } from './types'
@@ -63,39 +61,6 @@ export function useContentMounts (nuxt: Nuxt, storages: Record<string, MountOpti
 
   return storages
 }
-/**
- * WebSocket server useful for live content reload.
- */
-export function createWebSocket () {
-  const wss = new WebSocketServer({ noServer: true })
-
-  const serve = (req: IncomingMessage, socket = req.socket, head: any = '') =>
-    wss.handleUpgrade(req, socket, head, (client: any) => wss.emit('connection', client, req))
-
-  const broadcast = (data: any) => {
-    data = JSON.stringify(data)
-
-    for (const client of wss.clients) {
-      try {
-        client.send(data)
-      } catch {
-        logger.debug('Skipping websocket client that is not ready to receive content refresh events.')
-      }
-    }
-  }
-
-  return {
-    serve,
-    broadcast,
-    close: () => {
-      // disconnect all clients
-      wss.clients.forEach(client => client.close())
-      // close the server
-      return new Promise(resolve => wss.close(resolve))
-    }
-  }
-}
-
 export function processMarkdownOptions (options: ModuleOptions['markdown']) {
   // Refine anchor link generation
   const anchorLinks = typeof options.anchorLinks === 'boolean'
