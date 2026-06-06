@@ -19,6 +19,7 @@ export {
 
 export { getCollectionPath } from '../runtime/query/routes.js'
 export type { CollectionPathOptions } from '../runtime/query/routes.js'
+export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../runtime/agent-paths.js'
 export {
   clearAgentMarkdownSerializers,
   blockquoteMarkdown,
@@ -40,6 +41,8 @@ export {
 export {
   buildAgentPageIndex,
   collectAgentMarkdownPrerenderRoutes,
+  getAgentLocales,
+  isSupportedAgentLocale,
   localeFromAgentPath,
   renderAgentMarkdownFrontmatter,
   renderAgentMarkdownPage,

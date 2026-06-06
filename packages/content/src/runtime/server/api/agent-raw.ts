@@ -1,5 +1,6 @@
-import { createError, defineEventHandler, setHeader } from 'h3'
+import { createError, defineEventHandler } from 'h3'
 import { localeFromAgentPath, resolveMarkdownForPublicRoute, routePathFromRawSlug } from '../agent-site'
+import { setAgentMarkdownHeaders } from '../agent-http'
 
 export default defineEventHandler(async (event) => {
   const routePath = routePathFromRawSlug(event.context.params?.slug)
@@ -10,6 +11,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Markdown page not found' })
   }
 
-  setHeader(event, 'content-type', 'text/markdown; charset=utf-8')
+  setAgentMarkdownHeaders(event, { noindex: true })
   return page.markdown
 })

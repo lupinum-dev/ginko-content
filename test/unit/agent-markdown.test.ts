@@ -138,6 +138,24 @@ describe('agent markdown', () => {
     expect(resolved?.markdown).toContain('Email: office@example.test')
   })
 
+  test('rejects duplicate serializer registration unless explicitly overridden', async () => {
+    const {
+      clearAgentMarkdownSerializers,
+      registerAgentMarkdownSerializer
+    } = await import('../../packages/content/src/runtime/server/agent-markdown')
+
+    clearAgentMarkdownSerializers()
+    registerAgentMarkdownSerializer('card', () => 'first')
+    const same = () => 'same'
+    registerAgentMarkdownSerializer('idempotent-card', same)
+
+    expect(() => registerAgentMarkdownSerializer('card', () => 'second')).toThrow(
+      /serializer "card" is already registered/
+    )
+    expect(() => registerAgentMarkdownSerializer('idempotent-card', same)).not.toThrow()
+    expect(() => registerAgentMarkdownSerializer('card', () => 'second', { override: true })).not.toThrow()
+  })
+
   test('renders mapped component tags with bulk registered serializers', async () => {
     const page = {
       path: '/docs/cards',
@@ -293,6 +311,119 @@ describe('agent markdown', () => {
 
     expect(resolved?.markdown).toContain('<chart title="Traffic" type="bar" />')
     expect(resolved?.markdown).not.toContain('Component omitted: `chart`')
+  })
+
+  test('drops credential-like props from unknown component XML fallback', async () => {
+    const page = {
+      path: '/docs/secret',
+      _path: '/secret',
+      title: 'Secret',
+      description: 'Secret component.',
+      body: markdownBody([
+        {
+          type: 'element',
+          tag: 'embed',
+          props: {
+            title: 'Public title',
+            apiKey: 'leaked-key',
+            clientSecret: 'leaked-secret',
+            authorization: 'Bearer leaked-token',
+            password: 'leaked-password'
+          }
+        }
+      ])
+    } satisfies Partial<ParsedContent> & { body: ParsedContent['body'] }
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        page: async () => page
+      })
+    }))
+
+    const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
+
+    clearAgentMarkdownSerializers()
+
+    const resolved = await resolveContentMarkdown({ context: {} } as any, 'docs', '/docs/secret')
+
+    expect(resolved?.markdown).toContain('<embed title="Public title" />')
+    expect(resolved?.markdown).not.toContain('leaked')
+    expect(resolved?.markdown).not.toContain('apiKey')
+    expect(resolved?.markdown).not.toContain('clientSecret')
+    expect(resolved?.markdown).not.toContain('authorization')
+    expect(resolved?.markdown).not.toContain('password')
+  })
+
+  test('drops nested credential-like props from XML fallback JSON payloads', async () => {
+    const page = {
+      path: '/docs/nested-secret',
+      _path: '/nested-secret',
+      title: 'Nested Secret',
+      description: 'Nested secret component.',
+      body: markdownBody([
+        {
+          type: 'element',
+          tag: 'chart',
+          props: {
+            title: 'Public chart',
+            config: {
+              apiKey: 'leaked-key',
+              nested: {
+                authorization: 'Bearer leaked-token',
+                label: 'Visible nested label'
+              },
+              series: [
+                { label: 'Search', value: 42, clientSecret: 'leaked-secret' },
+                { label: 'Direct', value: 21 }
+              ]
+            }
+          }
+        }
+      ])
+    } satisfies Partial<ParsedContent> & { body: ParsedContent['body'] }
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        page: async () => page
+      })
+    }))
+
+    const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
+
+    clearAgentMarkdownSerializers()
+
+    const resolved = await resolveContentMarkdown({ context: {} } as any, 'docs', '/docs/nested-secret')
+
+    expect(resolved?.markdown).toContain('<chart title="Public chart">')
+    expect(resolved?.markdown).toContain('"label": "Visible nested label"')
+    expect(resolved?.markdown).toContain('"label": "Search"')
+    expect(resolved?.markdown).toContain('"value": 42')
+    expect(resolved?.markdown).not.toContain('leaked')
+    expect(resolved?.markdown).not.toContain('apiKey')
+    expect(resolved?.markdown).not.toContain('authorization')
+    expect(resolved?.markdown).not.toContain('clientSecret')
   })
 
   test('normalizes bound component props for XML fallback', async () => {
@@ -461,6 +592,130 @@ describe('agent markdown', () => {
     expect(resolved?.markdown).not.toContain('Component omitted: `span`')
   })
 
+  test('sanitizes unsafe links and images in agent markdown', async () => {
+    const page = {
+      path: '/docs/media-safety',
+      _path: '/media-safety',
+      title: 'Media Safety',
+      description: 'Unsafe links and images.',
+      body: markdownBody([
+        {
+          type: 'element',
+          tag: 'p',
+          children: [
+            {
+              type: 'element',
+              tag: 'a',
+              props: { href: '//evil.test/path' },
+              children: [{ type: 'text', value: 'Protocol relative' }]
+            }
+          ]
+        },
+        {
+          type: 'element',
+          tag: 'img',
+          props: {
+            src: 'javascript:alert(1)',
+            alt: 'Unsafe [image]'
+          }
+        },
+        {
+          type: 'element',
+          tag: 'img',
+          props: {
+            src: '/images/a b).png',
+            alt: 'Safe [image]'
+          }
+        }
+      ])
+    } satisfies Partial<ParsedContent> & { body: ParsedContent['body'] }
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        page: async () => page
+      })
+    }))
+
+    const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
+
+    clearAgentMarkdownSerializers()
+
+    const resolved = await resolveContentMarkdown({ context: {} } as any, 'docs', '/docs/media-safety')
+
+    expect(resolved?.markdown).toContain('Protocol relative')
+    expect(resolved?.markdown).not.toContain('(//evil.test/path)')
+    expect(resolved?.markdown).toContain('Unsafe \\[image\\]')
+    expect(resolved?.markdown).not.toContain('javascript:alert')
+    expect(resolved?.markdown).toContain('![Safe \\[image\\]](/images/a%20b%29.png)')
+  })
+
+  test('rewrites relative page links against the current content route', async () => {
+    const page = {
+      path: '/docs/reference/api-keys',
+      _path: '/reference/api-keys',
+      title: 'API Keys',
+      description: 'Relative links.',
+      body: markdownBody([
+        {
+          type: 'element',
+          tag: 'p',
+          children: [
+            {
+              type: 'element',
+              tag: 'a',
+              props: { href: './rotation#steps' },
+              children: [{ type: 'text', value: 'Rotation' }]
+            },
+            { type: 'text', value: ' and ' },
+            {
+              type: 'element',
+              tag: 'a',
+              props: { href: '../intro' },
+              children: [{ type: 'text', value: 'Intro' }]
+            }
+          ]
+        }
+      ])
+    } satisfies Partial<ParsedContent> & { body: ParsedContent['body'] }
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        page: async () => page
+      })
+    }))
+
+    const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
+
+    clearAgentMarkdownSerializers()
+
+    const resolved = await resolveContentMarkdown({ context: {} } as any, 'docs', '/docs/reference/api-keys')
+
+    expect(resolved?.markdown).toContain('[Rotation](/docs/reference/rotation/index.md#steps)')
+    expect(resolved?.markdown).toContain('[Intro](/docs/intro/index.md)')
+  })
+
   test('preserves unknown components as explicit fallback notes', async () => {
     const page = {
       path: '/docs/intro',
@@ -497,5 +752,185 @@ describe('agent markdown', () => {
 
     expect(resolved?.markdown).toContain('Component omitted: `unknown-block`')
     expect(resolved?.markdown).toContain('no agent markdown serializer yet')
+  })
+
+  test('does not render markdown bodies while building the agent page index', async () => {
+    const query = vi.fn(async () => [
+      {
+        path: '/docs/intro',
+        _path: '/intro',
+        title: 'Intro',
+        description: 'Start here.',
+        body: markdownBody([
+          { type: 'element', tag: 'expensive-component' }
+        ])
+      }
+    ])
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        defaultLocale: 'en',
+        locales: ['en'],
+        agent: {
+          site: {
+            title: 'Docs',
+            description: 'Docs site.',
+            url: 'https://example.test',
+            defaultLocale: 'en',
+            locales: ['en']
+          },
+          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
+        },
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { section: 'docs', markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({ query })
+    }))
+
+    const { clearAgentMarkdownSerializers, registerAgentMarkdownSerializer } = await import('../../packages/content/src/runtime/server/agent-markdown')
+    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
+    const serializer = vi.fn(() => 'rendered')
+
+    clearAgentMarkdownSerializers()
+    registerAgentMarkdownSerializer('expensive-component', serializer)
+
+    const pages = await buildAgentPageIndex({ node: { req: { headers: {} } } } as any)
+
+    expect(pages).toHaveLength(1)
+    expect(pages[0]).toMatchObject({
+      path: '/docs/intro',
+      rawPath: '/raw/docs/intro.md',
+      markdownPath: '/docs/intro/index.md'
+    })
+    expect(serializer).not.toHaveBeenCalled()
+    expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      only: expect.not.arrayContaining(['body'])
+    }))
+  })
+
+  test('fails clearly when app-owned and content-owned agent pages share a route', async () => {
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        defaultLocale: 'en',
+        locales: ['en'],
+        agent: {
+          site: {
+            title: 'Docs',
+            description: 'Docs site.',
+            url: 'https://example.test',
+            defaultLocale: 'en',
+            locales: ['en']
+          },
+          pages: [
+            {
+              id: 'intro',
+              route: '/docs/intro',
+              section: 'docs',
+              title: 'App Intro',
+              description: 'App intro.',
+              render: () => '# App Intro'
+            }
+          ],
+          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
+        },
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { section: 'docs', markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        query: async () => [
+          {
+            path: '/docs/intro',
+            _path: '/intro',
+            title: 'Content Intro',
+            description: 'Content intro.'
+          }
+        ]
+      })
+    }))
+
+    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
+
+    await expect(buildAgentPageIndex({ node: { req: { headers: {} } } } as any)).rejects.toThrow(
+      /Duplicate agent route "\/docs\/intro"/
+    )
+  })
+
+  test('validates agent section references and production site url', async () => {
+    const { hasAgentSurface, validateAgentConfig } = await import('../../packages/content/src/module/agent-config')
+
+    expect(hasAgentSurface({
+      collections: {
+        docs: { type: 'page' }
+      }
+    } as any)).toBe(false)
+    expect(hasAgentSurface({
+      collections: {
+        docs: { type: 'page', agent: { markdown: true } }
+      }
+    } as any)).toBe(true)
+
+    expect(() => validateAgentConfig({
+      agent: {
+        site: {
+          title: 'Docs',
+          description: 'Docs site.',
+          url: 'https://example.test'
+        },
+        sections: [{ id: 'docs', title: 'Docs' }],
+        pages: []
+      },
+      collections: {
+        docs: { type: 'page', agent: { section: 'missing', markdown: true } }
+      }
+    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
+      /unknown Ginko agent section "missing"/
+    )
+
+    expect(() => validateAgentConfig({
+      agent: {
+        site: {
+          title: 'Docs',
+          description: 'Docs site.'
+        },
+        sections: [{ id: 'docs', title: 'Docs' }],
+        pages: []
+      },
+      collections: {
+        docs: { type: 'page', agent: { section: 'docs', markdown: true } }
+      }
+    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
+      /requires agent\.site\.url/
+    )
+  })
+
+  test('parses markdown Accept headers and respects q=0', async () => {
+    const { acceptsMarkdown } = await import('../../packages/content/src/runtime/server/agent-http')
+
+    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/markdown;q=0, text/html;q=1' } } } } as any)).toBe(false)
+    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/html, text/markdown;q=0.7' } } } } as any)).toBe(false)
+    expect(acceptsMarkdown({ node: { req: { headers: { accept: '*/*;q=0.1' } } } } as any)).toBe(false)
+    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/markdown, text/html;q=0.5' } } } } as any)).toBe(true)
+  })
+
+  test('exports one canonical raw markdown route helper', async () => {
+    const { agentRawPathForRoute, agentMarkdownPathForRoute } = await import('../../packages/content/src/runtime/agent-paths')
+
+    expect(agentRawPathForRoute('/')).toBe('/raw/index.md')
+    expect(agentRawPathForRoute('/docs/intro/')).toBe('/raw/docs/intro.md')
+    expect(agentMarkdownPathForRoute('/docs/intro/')).toBe('/docs/intro/index.md')
   })
 })

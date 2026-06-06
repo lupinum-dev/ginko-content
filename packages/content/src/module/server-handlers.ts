@@ -1,24 +1,7 @@
 import { addServerHandler } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import type { ContentSearchOptions, ModuleOptions } from '../types/module'
-
-const normalizedAgentOptions = (options: ModuleOptions) => {
-  if (options.agent === false) {
-    return {
-      routes: false,
-      linkHeaders: false,
-      markdownNegotiation: false,
-      prerender: false
-    }
-  }
-
-  return {
-    routes: options.agent?.routes !== false,
-    linkHeaders: options.agent?.linkHeaders !== false,
-    markdownNegotiation: options.agent?.markdownNegotiation !== false,
-    prerender: options.agent?.prerender !== false
-  }
-}
+import { normalizeAgentRouteOptions } from './agent-options'
 
 export const registerContentServerHandlers = (
   nuxt: Nuxt,
@@ -82,7 +65,7 @@ export const registerContentServerHandlers = (
     })
   }
 
-  const agent = normalizedAgentOptions(options)
+  const agent = normalizeAgentRouteOptions(options)
   if (agent.routes) {
     addServerHandler({
       method: 'get',

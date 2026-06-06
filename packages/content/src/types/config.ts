@@ -271,10 +271,9 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
    */
   cms?: ContentCmsCollectionConfig
   /**
-   * Agent-facing content exposure. This is intentionally narrow: Ginko only
-   * decides whether a content page can expose normalized markdown and how to
-   * resolve that markdown. Site policy, llms.txt curation, routes, and headers
-   * remain app-owned.
+   * Agent-facing collection exposure. Collections declare only whether pages
+   * produce normalized markdown and which agent section they belong to. Root
+   * `agent` config owns site policy; the Ginko module owns route plumbing.
    */
   agent?: ContentAgentCollectionConfig
 }

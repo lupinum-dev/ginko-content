@@ -1,7 +1,8 @@
 import type { H3Event } from 'h3'
 import { getRequestURL } from 'h3'
 import type { AgentMarkdown, AgentMarkdownMeta } from './agent-markdown'
-import { queryMarkdownEnabledContent, resolveContentMarkdownByRoute } from './agent-markdown'
+import { linkMarkdown, queryMarkdownEnabledContent, resolveContentMarkdownByRoute } from './agent-markdown'
+import { agentMarkdownPathForRoute, agentRawPathForRoute, agentRoutePathFromIndexSlug, agentRoutePathFromRawSlug, normalizeAgentRoutePath } from '../agent-paths'
 import { contentConfig } from './storage-access'
 import type {
   AgentMetadataField,
@@ -35,21 +36,6 @@ export interface AgentPage {
 
 type AgentMetadataValue = string | string[]
 
-const normalizePath = (path: string | undefined) => {
-  if (!path || path === '/') return '/'
-  return `/${path.replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '')}`
-}
-
-const markdownPathFor = (path: string) => {
-  const normalized = normalizePath(path)
-  return normalized === '/' ? '/index.md' : `${normalized}/index.md`
-}
-
-const rawPathFor = (path: string) => {
-  const normalized = normalizePath(path)
-  return normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`
-}
-
 const localizedValue = (
   value: ContentAgentLocalizedValue | undefined,
   locale: string,
@@ -68,6 +54,9 @@ export const getAgentLocales = () => {
   return locales?.length ? locales : [defaultLocale()]
 }
 
+export const isSupportedAgentLocale = (locale: string | undefined) =>
+  Boolean(locale && getAgentLocales().includes(locale))
+
 const resolveSiteUrl = (event?: H3Event) => {
   const configured = contentConfig().agent?.site?.url
   if (configured) return configured
@@ -78,10 +67,10 @@ const resolveSiteUrl = (event?: H3Event) => {
   return 'http://localhost:3000'
 }
 
-const joinUrl = (base: string, path: string) => new URL(normalizePath(path), base).toString()
+const joinUrl = (base: string, path: string) => new URL(normalizeAgentRoutePath(path), base).toString()
 
 const prefixLocale = (path: string, locale: string) => {
-  const normalized = normalizePath(path)
+  const normalized = normalizeAgentRoutePath(path)
   if (locale === defaultLocale()) return normalized
   if (normalized === `/${locale}` || normalized.startsWith(`/${locale}/`)) return normalized
   if (normalized === '/') return `/${locale}`
@@ -115,7 +104,7 @@ const resolveLocalizedMaybeFunction = async (
 }
 
 const resolveAppPageRoute = (page: ContentAgentAppPageConfig, locale: string) =>
-  normalizePath(localizedValue(page.route, locale, '/'))
+  normalizeAgentRoutePath(localizedValue(page.route, locale, '/'))
 
 const createAppPageContext = (locale: string, siteUrl: string): ContentAgentAppPageContext => ({
   locale,
@@ -139,14 +128,14 @@ const createGinkoAgentPage = (
   siteUrl: string
 ): AgentPage => {
   const path = prefixLocale(meta.path, locale)
-  const rawPath = rawPathFor(path)
+  const rawPath = agentRawPathForRoute(path)
   const section = resolveSection(collectionSectionId(meta.collection), locale)
 
   return {
     title: meta.title,
     description: meta.description,
     path,
-    markdownPath: markdownPathFor(path),
+    markdownPath: agentMarkdownPathForRoute(path),
     rawPath,
     url: joinUrl(siteUrl, path),
     markdownUrl: joinUrl(siteUrl, rawPath),
@@ -170,14 +159,14 @@ const createAppOwnedAgentPages = async (locale: string, siteUrl: string) => {
   for (const page of pages) {
     const ctx = createAppPageContext(locale, siteUrl)
     const path = resolveAppPageRoute(page, locale)
-    const rawPath = rawPathFor(path)
+    const rawPath = agentRawPathForRoute(path)
     const section = resolveSection(page.section, locale)
 
     result.push({
       title: await resolveLocalizedMaybeFunction(page.title, ctx),
       description: await resolveLocalizedMaybeFunction(page.description, ctx),
       path,
-      markdownPath: markdownPathFor(path),
+      markdownPath: agentMarkdownPathForRoute(path),
       rawPath,
       url: joinUrl(siteUrl, path),
       markdownUrl: joinUrl(siteUrl, rawPath),
@@ -204,14 +193,36 @@ const sortPages = (pages: AgentPage[]) =>
     return a.path.localeCompare(b.path)
   })
 
+const assertUniqueAgentPages = (pages: AgentPage[]) => {
+  const seen = new Map<string, AgentPage>()
+  for (const page of pages) {
+    for (const [kind, value] of [
+      ['route', page.path],
+      ['raw route', page.rawPath],
+      ['markdown route', page.markdownPath]
+    ] as const) {
+      const key = `${kind}:${value}`
+      const existing = seen.get(key)
+      if (existing) {
+        throw new Error(
+          `Duplicate agent ${kind} "${value}" for "${existing.title}" (${existing.source}) and "${page.title}" (${page.source}). ` +
+          'Every agent-facing page must have one canonical route.'
+        )
+      }
+      seen.set(key, page)
+    }
+  }
+}
+
 export const buildAgentPageIndex = async (event: H3Event, locale = defaultLocale()) => {
   const siteUrl = resolveSiteUrl(event)
-  const content = await queryMarkdownEnabledContent(event, { locale, limit: 500 })
+  const content = await queryMarkdownEnabledContent(event, { locale })
   const pages = [
     ...await createAppOwnedAgentPages(locale, siteUrl),
     ...content.map(meta => createGinkoAgentPage(meta, locale, siteUrl))
   ]
 
+  assertUniqueAgentPages(pages)
   return sortPages(pages)
 }
 
@@ -286,7 +297,7 @@ export const renderLlmsTxt = (pages: AgentPage[], locale = defaultLocale()) => {
   for (const section of Array.from(sections.values()).sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))) {
     lines.push('', `## ${section.title}`, '')
     for (const page of section.pages) {
-      lines.push(`- [${page.title}](${page.markdownUrl}): ${page.description}`)
+      lines.push(`- ${linkMarkdown(page.title, page.markdownUrl)}: ${page.description.replace(/\n+/g, ' ')}`)
     }
   }
 
@@ -299,7 +310,7 @@ export const resolveMarkdownForPublicRoute = async (
   locale = localeFromAgentPath(routePath)
 ): Promise<AgentMarkdown | { markdown: string } | null> => {
   const siteUrl = resolveSiteUrl(event)
-  const normalized = normalizePath(routePath)
+  const normalized = normalizeAgentRoutePath(routePath)
   const appPage = (await createAppOwnedAgentPages(locale, siteUrl)).find(page => page.path === normalized)
   if (appPage?.markdown) {
     return { markdown: renderAgentMarkdownPage(appPage, appPage.markdown) }
@@ -330,7 +341,7 @@ export const renderLlmsFullTxt = async (event: H3Event, locale = defaultLocale()
 }
 
 export const localeFromAgentPath = (path: string) => {
-  const normalized = normalizePath(path)
+  const normalized = normalizeAgentRoutePath(path)
   const fallback = defaultLocale()
   for (const locale of getAgentLocales()) {
     if (locale !== fallback && (normalized === `/${locale}` || normalized.startsWith(`/${locale}/`))) {
@@ -340,17 +351,9 @@ export const localeFromAgentPath = (path: string) => {
   return fallback
 }
 
-export const routePathFromRawSlug = (slug: string | string[] | undefined) => {
-  const joined = Array.isArray(slug) ? slug.join('/') : (slug || '')
-  const withoutExtension = joined.replace(/\.md$/i, '')
-  if (withoutExtension === 'index') return '/'
-  return normalizePath(withoutExtension.replace(/\/index$/i, '') || '/')
-}
+export const routePathFromRawSlug = agentRoutePathFromRawSlug
 
-export const routePathFromIndexSlug = (slug: string | string[] | undefined) => {
-  const joined = Array.isArray(slug) ? slug.join('/') : (slug || '')
-  return normalizePath(joined || '/')
-}
+export const routePathFromIndexSlug = agentRoutePathFromIndexSlug
 
 export const collectAgentMarkdownPrerenderRoutes = async (event: H3Event) => {
   const routes = new Set<string>()

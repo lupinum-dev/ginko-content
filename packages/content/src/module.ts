@@ -38,6 +38,8 @@ import {
 import { configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions, resolveNuxtSitemapPrerenderRoutes } from './module/options'
 import { validateContentPageRouteMetadata } from './module/route-meta-validation'
 import { collectTopLevelReferenceFieldsByTarget } from './core/references/schema'
+import { normalizeAgentRouteOptions } from './module/agent-options'
+import { hasAgentSurface, validateAgentConfig } from './module/agent-config'
 
 const normalizeRoutePath = (path: string) => {
   if (!path || path === '/') return '/'
@@ -54,16 +56,57 @@ const collectMarkdownLinksFromLlms = (markdown: string, siteUrl: string | undefi
       const url = /^[a-z][a-z0-9+.-]*:/i.test(href)
         ? new URL(href)
         : new URL(href, siteUrl || 'http://localhost:3000')
-      if (url.pathname.endsWith('.md')) links.add(url.pathname)
+      if (url.pathname.startsWith('/raw/') && url.pathname.endsWith('.md')) links.add(url.pathname)
     } catch {
-      if (href.startsWith('/') && href.endsWith('.md')) links.add(href)
+      if (href.startsWith('/raw/') && href.endsWith('.md')) links.add(href)
     }
   }
-  const routePattern = /^route:\s*"([^"]+)"/gm
-  for (const match of markdown.matchAll(routePattern)) {
-    const route = normalizeRoutePath(match[1])
-    links.add(route === '/' ? '/raw/index.md' : `/raw${route}.md`)
+  return Array.from(links)
+}
+
+const collectMarkdownRoutesFromGeneratedFrontmatter = (markdown: string) => {
+  const links = new Set<string>()
+  const addRoutePath = (route: string) => {
+    const normalized = normalizeRoutePath(route)
+    links.add(normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`)
   }
+  const addFrontmatterRoute = (frontmatter: string | undefined) => {
+    const route = /^route:\s*"([^"]+)"/m.exec(frontmatter || '')?.[1]
+    if (!route) return
+    addRoutePath(route)
+  }
+  const addSourceRoute = (source: string | undefined) => {
+    if (!source) return
+    try {
+      addRoutePath(new URL(source, 'http://localhost:3000').pathname)
+    } catch {
+      addRoutePath(source)
+    }
+  }
+
+  // llms-full.txt is a concatenated Markdown document. Each page is emitted as:
+  //   ---
+  //   Source: ...
+  //
+  //   ---
+  //   title: ...
+  //   route: ...
+  //   ---
+  // Parse only those generated page-frontmatter blocks so static builds mirror
+  // the page index without returning to broad Markdown-link scraping.
+  const sourcePattern = /^Source:\s+(\S+)/gm
+  for (const match of markdown.matchAll(sourcePattern)) {
+    addSourceRoute(match[1])
+  }
+
+  const pageFrontmatterPattern = /^Source:\s+[^\n]+\n\n---\n([\s\S]*?)\n---/gm
+  for (const match of markdown.matchAll(pageFrontmatterPattern)) {
+    addFrontmatterRoute(match[1])
+  }
+
+  const firstFrontmatter = /^---\n([\s\S]*?)\n---/.exec(markdown)?.[1]
+  addFrontmatterRoute(firstFrontmatter)
+
   return Array.from(links)
 }
 
@@ -181,6 +224,10 @@ export default defineNuxtModule<ModuleOptions>({
     const resolvedSearch = normalizeSearchOptions(options)
 
     validateCollectionNames(appContentConfig.collections)
+    if (!hasAgentSurface(appContentConfig)) {
+      options.agent = false
+    }
+    validateAgentConfig(appContentConfig, options, { dev: nuxt.options.dev })
 
     options.collections = Object.fromEntries(Object.entries(appContentConfig.collections).map(([name, collection]) => [
       name,
@@ -341,7 +388,8 @@ export default defineNuxtModule<ModuleOptions>({
         provider: contentContext.provider
       })
 
-      if (options.agent !== false && options.agent?.prerender !== false && appContentConfig.agent) {
+      const agentRoutes = normalizeAgentRouteOptions(options)
+      if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
         nitroConfig.prerender.routes.push('/llms.txt', '/llms-full.txt')
         for (const locale of appContentConfig.agent.site?.locales || resolvedI18n.locales || []) {
           if (locale && locale !== (appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale)) {
@@ -399,7 +447,8 @@ export default defineNuxtModule<ModuleOptions>({
               }
             }
 
-            if (options.agent !== false && options.agent?.prerender !== false && appContentConfig.agent) {
+            const agentRoutes = normalizeAgentRouteOptions(options)
+            if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
               const defaultLocale = appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale
               const locales = appContentConfig.agent.site?.locales?.length
                 ? appContentConfig.agent.site.locales
@@ -422,7 +471,11 @@ export default defineNuxtModule<ModuleOptions>({
                 const outputPath = publicOutputPath(publicDir, route)
                 mkdirSync(dirname(outputPath), { recursive: true })
                 writeFileSync(outputPath, body, 'utf8')
-                collectMarkdownLinksFromLlms(body, appContentConfig.agent.site?.url).forEach(link => markdownRoutes.add(link))
+                if (/\/llms\.txt$/i.test(route)) {
+                  collectMarkdownLinksFromLlms(body, appContentConfig.agent.site?.url).forEach(link => markdownRoutes.add(link))
+                } else if (/\/llms-full\.txt$/i.test(route)) {
+                  collectMarkdownRoutesFromGeneratedFrontmatter(body).forEach(link => markdownRoutes.add(link))
+                }
               }
 
               for (const route of markdownRoutes) {

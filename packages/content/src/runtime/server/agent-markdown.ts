@@ -3,6 +3,7 @@ import { kebabCase, pascalCase } from 'scule'
 import type { ContentQueryResponse } from '../../types/api'
 import type { MarkdownNode, MarkdownRoot, ParsedContent } from '../../types/content'
 import type { AgentMetadataField, ContentAgentMarkdownOptions, ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
+import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../agent-paths'
 import { getCollectionPath } from '../query/routes'
 import { getContentProvider } from './providers'
 import { contentConfig } from './storage-access'
@@ -59,6 +60,9 @@ export interface AgentMarkdownContext {
 
 export type AgentMarkdownSerializer = (node: MarkdownNode, ctx: AgentMarkdownContext) => string | null | undefined
 export type AgentMarkdownSerializerMap = Record<string, AgentMarkdownSerializer>
+export interface AgentMarkdownSerializerRegistrationOptions {
+  override?: boolean
+}
 export interface AgentMarkdownComponent {
   render: AgentMarkdownSerializer
 }
@@ -69,30 +73,35 @@ const serializers = new Map<string, AgentMarkdownSerializer>()
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
+const defaultLocale = () => contentConfig().defaultLocale || contentConfig().locales?.[0] || contentConfig().agent?.site?.defaultLocale || 'en'
 
-const normalizeRoutePath = (path: string | undefined) => {
-  if (!path || path === '/') return '/'
-  return `/${trimSlashes(path)}`
+const configuredLocales = () => {
+  const locales = contentConfig().agent?.site?.locales?.length
+    ? contentConfig().agent?.site?.locales
+    : contentConfig().locales
+  return locales?.length ? locales : [defaultLocale()]
 }
 
-const markdownPathFor = (path: string) => {
-  const normalized = normalizeRoutePath(path)
-  return normalized === '/' ? '/index.md' : `${normalized}/index.md`
+const prefixLocalizedHref = (path: string, locale?: string) => {
+  const normalized = normalizeAgentRoutePath(path)
+  if (!locale || locale === defaultLocale()) return normalized
+  if (configuredLocales().some(candidate => normalized === `/${candidate}` || normalized.startsWith(`/${candidate}/`))) return normalized
+  return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
 }
 
-const rawPathFor = (path: string) => {
-  const normalized = normalizeRoutePath(path)
-  return normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`
-}
+const isExternalHref = (href: string) =>
+  /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')
 
-const routeMarkdownPathForHref = (href: string) => {
+const routeMarkdownPathForHref = (href: string, locale?: string, currentPath = '/') => {
   const hash = href.match(/#.*$/)?.[0] || ''
   const withoutHash = href.replace(/#.*$/, '')
   if (!withoutHash) return href
-  if (/^[a-z][a-z0-9+.-]*:/i.test(withoutHash) || withoutHash.startsWith('//')) return href
+  if (isExternalHref(withoutHash)) return href
   if (withoutHash.endsWith('.md')) return href
-  return `${markdownPathFor(withoutHash)}${hash}`
+  const target = withoutHash.startsWith('/')
+    ? prefixLocalizedHref(withoutHash, locale)
+    : new URL(withoutHash, `https://agent.local${normalizeAgentRoutePath(currentPath)}`).pathname
+  return `${agentMarkdownPathForRoute(target)}${hash}`
 }
 
 export const getMarkdownProp = (node: MarkdownNode, name: string) => {
@@ -107,8 +116,29 @@ export const renderMarkdownChildren = (node: MarkdownNode, ctx: AgentMarkdownCon
 export const blockquoteMarkdown = (value: string) =>
   value.trim().split('\n').map(line => line ? `> ${line}` : '>').join('\n')
 
-export const linkMarkdown = (label: string, href: string) =>
-  href ? `[${label || href}](${href})` : label
+const escapeMarkdownLinkLabel = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]')
+
+const escapeMarkdownLinkHref = (value: string) =>
+  value.replace(/\)/g, '%29').replace(/\s/g, '%20')
+
+const isSafeMarkdownHref = (href: string) => {
+  if (!href) return false
+  if (href.startsWith('//')) return false
+  if (href.startsWith('/') || href.startsWith('#') || href.startsWith('./') || href.startsWith('../')) return true
+  return /^(https?:|mailto:|tel:)/i.test(href)
+}
+
+export const linkMarkdown = (label: string, href: string) => {
+  const resolvedLabel = label || href
+  if (!href || !isSafeMarkdownHref(href)) return escapeMarkdownLinkLabel(resolvedLabel)
+  return `[${escapeMarkdownLinkLabel(resolvedLabel)}](${escapeMarkdownLinkHref(href)})`
+}
+
+export const imageMarkdown = (alt: string, src: string) => {
+  if (!src || !isSafeMarkdownHref(src)) return escapeMarkdownLinkLabel(alt || src)
+  return `![${escapeMarkdownLinkLabel(alt)}](${escapeMarkdownLinkHref(src)})`
+}
 
 export const jsonFenceMarkdown = (value: unknown) =>
   `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``
@@ -136,6 +166,7 @@ const isScalarXmlAttributeValue = (value: unknown) =>
 
 const shouldDropAgentProp = (name: string) => {
   const normalized = name.trim()
+  const sensitive = normalized.toLowerCase()
   return !normalized
     || normalized === 'class'
     || normalized === 'style'
@@ -146,6 +177,7 @@ const shouldDropAgentProp = (name: string) => {
     || normalized.startsWith('on')
     || normalized.startsWith('data-')
     || normalized.startsWith('aria-')
+    || /(?:token|secret|password|passwd|credential|authorization|apikey|api-key|clientsecret|client-secret|privatekey|private-key|accesskey|access-key)/i.test(sensitive)
 }
 
 const normalizeAgentPropName = (name: string) => {
@@ -155,14 +187,30 @@ const normalizeAgentPropName = (name: string) => {
   return normalized
 }
 
+const cleanAgentPropValue = (value: unknown): unknown => {
+  if (value === undefined || value === null || value === '') return undefined
+  if (Array.isArray(value)) {
+    const clean = value
+      .map(entry => cleanAgentPropValue(entry))
+      .filter(entry => entry !== undefined)
+    return clean.length ? clean : undefined
+  }
+  if (isRecord(value)) {
+    const clean = cleanPropsObject(value)
+    return Object.keys(clean).length ? clean : undefined
+  }
+  return value
+}
+
 const cleanPropsObject = (props: unknown) => {
   if (!isRecord(props)) return {}
   const clean: Record<string, unknown> = {}
   for (const [name, value] of Object.entries(props)) {
     const normalizedName = normalizeAgentPropName(name)
-    if (shouldDropAgentProp(normalizedName) || value === undefined || value === null || value === '') continue
+    const cleanedValue = cleanAgentPropValue(value)
+    if (shouldDropAgentProp(normalizedName) || cleanedValue === undefined) continue
     if (!(normalizedName in clean) || normalizedName === name.trim()) {
-      clean[normalizedName] = value
+      clean[normalizedName] = cleanedValue
     }
   }
   return clean
@@ -201,25 +249,47 @@ export const xmlComponentMarkdown = (
   return `<${tagName}${attrText}>\n${bodyParts.join('\n\n')}\n</${tagName}>`
 }
 
-export const registerAgentMarkdownSerializer = (name: string, serializer: AgentMarkdownSerializer) => {
+export const registerAgentMarkdownSerializer = (
+  name: string,
+  serializer: AgentMarkdownSerializer,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
+  const existing = serializers.get(name)
+  if (existing === serializer && !options.override) return
+  if (existing && !options.override) {
+    throw new Error(
+      `Agent Markdown serializer "${name}" is already registered. ` +
+      'Use { override: true } only when replacing an existing serializer intentionally.'
+    )
+  }
   serializers.set(name, serializer)
 }
 
-export const registerAgentMarkdownSerializers = (entries: AgentMarkdownSerializerMap) => {
+export const registerAgentMarkdownSerializers = (
+  entries: AgentMarkdownSerializerMap,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
   for (const [name, serializer] of Object.entries(entries)) {
-    registerAgentMarkdownSerializer(name, serializer)
+    registerAgentMarkdownSerializer(name, serializer, options)
   }
 }
 
 export const defineAgentMarkdownComponent = (component: AgentMarkdownComponent) => component
 
-export const registerAgentMarkdownComponent = (name: string, component: AgentMarkdownComponent) => {
-  registerAgentMarkdownSerializer(name, component.render)
+export const registerAgentMarkdownComponent = (
+  name: string,
+  component: AgentMarkdownComponent,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
+  registerAgentMarkdownSerializer(name, component.render, options)
 }
 
-export const registerAgentMarkdownComponents = (entries: AgentMarkdownComponentMap) => {
+export const registerAgentMarkdownComponents = (
+  entries: AgentMarkdownComponentMap,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
   for (const [name, component] of Object.entries(entries)) {
-    registerAgentMarkdownComponent(name, component)
+    registerAgentMarkdownComponent(name, component, options)
   }
 }
 
@@ -387,7 +457,7 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     case 'a': {
       const href = typeof node.props?.href === 'string' ? node.props.href : ''
       const text = renderChildren(node, ctx) || href
-      return href ? `[${text}](${routeMarkdownPathForHref(href)})` : text
+      return href ? linkMarkdown(text, routeMarkdownPathForHref(href, ctx.locale, ctx.path)) : text
     }
     case 'ul':
       return renderList(node, ctx)
@@ -402,7 +472,7 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     case 'img': {
       const src = typeof node.props?.src === 'string' ? node.props.src : ''
       const alt = typeof node.props?.alt === 'string' ? node.props.alt : ''
-      return src ? `![${alt}](${src})` : alt
+      return src ? imageMarkdown(alt, src) : escapeMarkdownLinkLabel(alt)
     }
     case 'table':
       return renderTable(node, ctx)
@@ -470,7 +540,7 @@ const toAgentMarkdown = (
   page: ParsedContent,
   options: ResolvedAgentMarkdownOptions
 ): AgentMarkdown => {
-  const path = normalizeRoutePath((page as { path?: string }).path || page._requestedRoute || page._path)
+  const path = normalizeAgentRoutePath((page as { path?: string }).path || page._requestedRoute || page._path)
   const locale = (page as { locale?: string }).locale || page._resolvedLocale || page._locale
   const title = typeof page.title === 'string' && page.title.trim()
     ? page.title.trim()
@@ -478,8 +548,8 @@ const toAgentMarkdown = (
   const description = normalizeDescription(page)
   return {
     path,
-    markdownPath: markdownPathFor(path),
-    rawPath: rawPathFor(path),
+    markdownPath: agentMarkdownPathForRoute(path),
+    rawPath: agentRawPathForRoute(path),
     ...(locale ? { locale } : {}),
     collection,
     title,
@@ -499,9 +569,9 @@ const collectionHandle = (name: string, config: ContentCollectionConfig): Conten
 
 const routeBaseForLocale = (config: ContentCollectionConfig, locale?: string) => {
   if (!config.route) return ''
-  if (typeof config.route === 'string') return normalizeRoutePath(config.route)
+  if (typeof config.route === 'string') return normalizeAgentRoutePath(config.route)
   const localized = locale ? config.route[locale] : undefined
-  return typeof localized === 'string' ? normalizeRoutePath(localized) : ''
+  return typeof localized === 'string' ? normalizeAgentRoutePath(localized) : ''
 }
 
 const publicPathForQueryRow = (
@@ -511,9 +581,9 @@ const publicPathForQueryRow = (
   locale?: string
 ) => {
   const requested = (row as { path?: string }).path || row._requestedRoute
-  if (requested) return normalizeRoutePath(requested)
+  if (requested) return normalizeAgentRoutePath(requested)
 
-  const rowPath = normalizeRoutePath(row._path || '/')
+  const rowPath = normalizeAgentRoutePath(row._path || '/')
   const base = routeBaseForLocale(config, locale)
   if (base && (rowPath === base || rowPath.startsWith(`${base}/`))) return rowPath
 
@@ -573,7 +643,7 @@ export async function queryMarkdownEnabledContent (
     if (!agentOptions) continue
     const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
       collection,
-      only: ['_path', '_locale', '_resolvedLocale', '_requestedRoute', '_file', '_draft', '_partial', '_navigation', 'title', 'description', 'body', 'updated', 'navigation', 'robots', 'sitemap'],
+      only: ['_path', '_locale', '_resolvedLocale', '_requestedRoute', '_file', '_draft', '_partial', '_navigation', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     }))
@@ -581,9 +651,25 @@ export async function queryMarkdownEnabledContent (
       if (!isPublicPage(row, config)) continue
       const locale = options.locale || row._resolvedLocale || row._locale
       const path = publicPathForQueryRow(collection, config, row, locale)
-      const page = toAgentMarkdown(collection, { ...row, path } as ParsedContent, agentOptions)
-      const { markdown: _markdown, ...meta } = page
-      result.push(meta)
+      const title = typeof row.title === 'string' && row.title.trim()
+        ? row.title.trim()
+        : path.split('/').filter(Boolean).pop() || 'Index'
+      const description = normalizeDescription(row)
+      result.push({
+        path,
+        markdownPath: agentMarkdownPathForRoute(path),
+        rawPath: agentRawPathForRoute(path),
+        ...(locale ? { locale } : {}),
+        collection,
+        title,
+        description,
+        ...(row._file ? { sourceFile: row._file } : {}),
+        canonicalUrl: path,
+        ...(typeof (row as { updated?: unknown }).updated === 'string' ? { lastModified: (row as { updated: string }).updated } : {}),
+        metadataFields: agentOptions.metadata,
+        includeInIndex: agentOptions.includeInIndex,
+        includeInFull: agentOptions.includeInFull
+      })
     }
   }
 

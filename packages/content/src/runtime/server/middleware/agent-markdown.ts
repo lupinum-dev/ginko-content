@@ -1,4 +1,4 @@
-import { defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
+import { defineEventHandler, getRequestURL } from 'h3'
 import {
   buildAgentPageIndex,
   getAgentLocales,
@@ -6,6 +6,7 @@ import {
   renderLlmsTxt,
   resolveMarkdownForPublicRoute
 } from '../agent-site'
+import { acceptsMarkdown, addVaryHeader, setAgentMarkdownHeaders } from '../agent-http'
 
 const shouldSkip = (pathname: string) =>
   pathname.startsWith('/_')
@@ -28,28 +29,29 @@ const shouldSkip = (pathname: string) =>
 export default defineEventHandler(async (event) => {
   const { pathname } = getRequestURL(event)
   if (shouldSkip(pathname)) return
+  addVaryHeader(event, 'accept')
 
   if (pathname.endsWith('/index.md')) {
     const routePath = pathname.replace(/\/index\.md$/i, '') || '/'
     const locale = localeFromAgentPath(routePath)
     const page = await resolveMarkdownForPublicRoute(event, routePath, locale)
     if (!page) return
-    setHeader(event, 'content-type', 'text/markdown; charset=utf-8')
+    setAgentMarkdownHeaders(event, { noindex: true })
     return page.markdown
   }
 
-  const accept = getHeader(event, 'accept') || ''
-  if (!accept.toLowerCase().includes('text/markdown')) return
-
-  setHeader(event, 'vary', 'accept')
-  setHeader(event, 'content-type', 'text/markdown; charset=utf-8')
+  if (!acceptsMarkdown(event)) return
 
   if (pathname === '/' || getAgentLocales().some(locale => pathname === `/${locale}`)) {
     const locale = localeFromAgentPath(pathname)
+    setAgentMarkdownHeaders(event)
     return renderLlmsTxt(await buildAgentPageIndex(event, locale), locale)
   }
 
   const locale = localeFromAgentPath(pathname)
   const page = await resolveMarkdownForPublicRoute(event, pathname, locale)
-  if (page) return page.markdown
+  if (page) {
+    setAgentMarkdownHeaders(event)
+    return page.markdown
+  }
 })

@@ -1,4 +1,6 @@
 import { defineEventHandler, getRequestURL, setHeader } from 'h3'
+import { getAgentLocales, localeFromAgentPath } from '../agent-site'
+import { appendResponseHeader } from '../agent-http'
 import { contentConfig } from '../storage-access'
 
 const shouldAdvertise = (pathname: string) =>
@@ -30,12 +32,15 @@ export default defineEventHandler((event) => {
     )
   }
 
-  setHeader(
+  const locale = localeFromAgentPath(pathname)
+  const defaultLocale = contentConfig().agent?.site?.defaultLocale || contentConfig().defaultLocale || getAgentLocales()[0]
+  const prefix = locale && locale !== defaultLocale ? `/${locale}` : ''
+  appendResponseHeader(
     event,
     'link',
     [
-      '</llms.txt>; rel="llms"; type="text/markdown"',
-      '</llms-full.txt>; rel="alternate"; type="text/markdown"',
+      `<${prefix}/llms.txt>; rel="llms"; type="text/markdown"`,
+      `<${prefix}/llms-full.txt>; rel="alternate"; type="text/markdown"`,
       '</sitemap.xml>; rel="sitemap"; type="application/xml"'
     ].join(', ')
   )
