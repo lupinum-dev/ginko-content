@@ -102,6 +102,15 @@ export interface ContentCmsCollectionConfig {
   settings?: unknown
 }
 
+export interface ContentAgentMarkdownOptions {
+  includeInIndex?: boolean
+  includeInFull?: boolean
+}
+
+export interface ContentAgentCollectionConfig {
+  markdown?: boolean | ContentAgentMarkdownOptions
+}
+
 /**
  * Object source shape accepted for Nuxt Content v3 migration.
  */
@@ -176,6 +185,13 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
    * source, i18n, and schema information.
    */
   cms?: ContentCmsCollectionConfig
+  /**
+   * Agent-facing content exposure. This is intentionally narrow: Ginko only
+   * decides whether a content page can expose normalized markdown and how to
+   * resolve that markdown. Site policy, llms.txt curation, routes, and headers
+   * remain app-owned.
+   */
+  agent?: ContentAgentCollectionConfig
 }
 
 export type ContentProviderName = 'filesystem' | (string & {})

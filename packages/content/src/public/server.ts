@@ -19,6 +19,35 @@ export {
 
 export { getCollectionPath } from '../runtime/query/routes.js'
 export type { CollectionPathOptions } from '../runtime/query/routes.js'
+export {
+  clearAgentMarkdownSerializers,
+  blockquoteMarkdown,
+  defineAgentMarkdownComponent,
+  getMarkdownProp,
+  jsonFenceMarkdown,
+  linkMarkdown,
+  queryMarkdownEnabledContent,
+  registerAgentMarkdownComponent,
+  registerAgentMarkdownComponents,
+  registerAgentMarkdownSerializer,
+  registerAgentMarkdownSerializers,
+  renderMarkdownChildren,
+  resolveAgentMarkdownOptions,
+  resolveContentMarkdown,
+  resolveContentMarkdownByRoute,
+  xmlComponentMarkdown
+} from '../runtime/server/agent-markdown.js'
+export type {
+  AgentMarkdown,
+  AgentMarkdownComponent,
+  AgentMarkdownComponentMap,
+  AgentMarkdownContext,
+  AgentMarkdownMeta,
+  AgentMarkdownPublicSignals,
+  AgentMarkdownSerializer,
+  AgentMarkdownSerializerMap,
+  ResolvedAgentMarkdownOptions
+} from '../runtime/server/agent-markdown.js'
 
 export type {
   QueryWhere,
