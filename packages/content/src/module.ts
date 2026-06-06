@@ -39,7 +39,38 @@ import { configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModul
 import { validateContentPageRouteMetadata } from './module/route-meta-validation'
 import { collectTopLevelReferenceFieldsByTarget } from './core/references/schema'
 
-export { defineCollection, defineContentConfig, reference } from './types/config.js'
+const normalizeRoutePath = (path: string) => {
+  if (!path || path === '/') return '/'
+  return `/${path.replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '')}`
+}
+
+const collectMarkdownLinksFromLlms = (markdown: string, siteUrl: string | undefined) => {
+  const links = new Set<string>()
+  const pattern = /\[[^\]]*\]\(([^)]+)\)/g
+  for (const match of markdown.matchAll(pattern)) {
+    const href = match[1]
+    if (!href) continue
+    try {
+      const url = /^[a-z][a-z0-9+.-]*:/i.test(href)
+        ? new URL(href)
+        : new URL(href, siteUrl || 'http://localhost:3000')
+      if (url.pathname.endsWith('.md')) links.add(url.pathname)
+    } catch {
+      if (href.startsWith('/') && href.endsWith('.md')) links.add(href)
+    }
+  }
+  const routePattern = /^route:\s*"([^"]+)"/gm
+  for (const match of markdown.matchAll(routePattern)) {
+    const route = normalizeRoutePath(match[1])
+    links.add(route === '/' ? '/raw/index.md' : `/raw${route}.md`)
+  }
+  return Array.from(links)
+}
+
+const publicOutputPath = (publicDir: string, route: string) =>
+  join(publicDir, normalizeRoutePath(route).replace(/^\//, ''))
+
+export { agentMetadataFields, defineAgentAppPage, defineAgentMarkdownPolicy, defineAgentMetadataFields, defineAgentSection, defineCollection, defineContentConfig, reference } from './types/config.js'
 export type * from './types'
 
 export default defineNuxtModule<ModuleOptions>({
@@ -108,6 +139,12 @@ export default defineNuxtModule<ModuleOptions>({
     navigation: {
       fields: []
     },
+    agent: {
+      routes: true,
+      linkHeaders: true,
+      markdownNegotiation: true,
+      prerender: true
+    },
     contentHead: true,
     respectPathCase: false,
     experimental: {
@@ -132,6 +169,10 @@ export default defineNuxtModule<ModuleOptions>({
     })
     const contentConfigPath = resolveContentConfigPath(nuxt)
     const appContentConfig = await loadContentConfig(nuxt)
+    const externalGinkoContentConfig = (nuxt.options as any).ginkoContent
+    if (externalGinkoContentConfig?.agent && options.agent !== false) {
+      options.agent = defu(options.agent || {}, externalGinkoContentConfig.agent)
+    }
     if (!contentConfigPath || !appContentConfig.collections || !Object.keys(appContentConfig.collections).length) {
       throw new Error('@lupinum/ginko-content requires a content.config.ts with at least one collection. Define collections with defineContentConfig({ collections: { ... } }).')
     }
@@ -299,20 +340,33 @@ export default defineNuxtModule<ModuleOptions>({
         sitemap: contentContext.sitemap,
         provider: contentContext.provider
       })
+
+      if (options.agent !== false && options.agent?.prerender !== false && appContentConfig.agent) {
+        nitroConfig.prerender.routes.push('/llms.txt', '/llms-full.txt')
+        for (const locale of appContentConfig.agent.site?.locales || resolvedI18n.locales || []) {
+          if (locale && locale !== (appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale)) {
+            nitroConfig.prerender.routes.push(`/${locale}/llms.txt`, `/${locale}/llms-full.txt`)
+          }
+        }
+        for (const page of appContentConfig.agent.pages || []) {
+          const routes = typeof page.route === 'string'
+            ? [page.route]
+            : Object.values(page.route)
+          for (const route of routes) {
+            const normalized = route === '/' ? '/' : `/${route.replace(/^\/+|\/+$/g, '')}`
+            nitroConfig.prerender.routes.push(
+              normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`,
+              normalized === '/' ? '/index.md' : `${normalized}/index.md`
+            )
+          }
+        }
+      }
     })
     if (!nuxt.options.dev) {
       nuxt.hook('nitro:build:before', (nitro) => {
         nitro.hooks.hook('prerender:init', (prerenderer) => {
           prerenderer.hooks.hook('compiled', async () => {
             const searchRuntime = getSearchRuntime()
-            if (
-              searchRuntime === false
-              || searchRuntime.engine === 'cms'
-              || (contentContext.provider && contentContext.provider !== 'filesystem')
-            ) {
-              return
-            }
-
             const publicDir = nitro.options.output.publicDir
               || nuxt.options.nitro.output?.publicDir
               || resolveFilePath(nuxt.options.rootDir, '.output/public')
@@ -321,21 +375,74 @@ export default defineNuxtModule<ModuleOptions>({
               : 'index.mjs'
             const serverEntrypoint = resolveFilePath(prerenderer.options.output.serverDir, serverFilename)
             const { localFetch } = await import(pathToFileURL(serverEntrypoint).href)
-            const response = await localFetch(searchRuntime.indexURL)
 
-            if (!response.ok) {
-              throw new Error(`Failed to generate search index: [${response.status}] ${response.statusText}`)
+            if (
+              searchRuntime !== false
+              && searchRuntime.engine !== 'cms'
+              && (!contentContext.provider || contentContext.provider === 'filesystem')
+            ) {
+              const response = await localFetch(searchRuntime.indexURL)
+
+              if (!response.ok) {
+                throw new Error(`Failed to generate search index: [${response.status}] ${response.statusText}`)
+              }
+
+              const json = await response.text()
+              const indexPath = join(publicDir, searchRuntime.indexURL.replace(/^\//, ''))
+              mkdirSync(dirname(indexPath), { recursive: true })
+              writeFileSync(indexPath, json, 'utf8')
+
+              if (searchRuntime.engine === 'pagefind') {
+                const records = JSON.parse(json)
+                const { writePagefindIndex } = await import(resolveRuntimeModule('./server/pagefind.js'))
+                await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'))
+              }
             }
 
-            const json = await response.text()
-            const indexPath = join(publicDir, searchRuntime.indexURL.replace(/^\//, ''))
-            mkdirSync(dirname(indexPath), { recursive: true })
-            writeFileSync(indexPath, json, 'utf8')
+            if (options.agent !== false && options.agent?.prerender !== false && appContentConfig.agent) {
+              const defaultLocale = appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale
+              const locales = appContentConfig.agent.site?.locales?.length
+                ? appContentConfig.agent.site.locales
+                : resolvedI18n.locales
+              const llmsRoutes = [
+                '/llms.txt',
+                '/llms-full.txt',
+                ...locales
+                  .filter(locale => locale && locale !== defaultLocale)
+                  .flatMap(locale => [`/${locale}/llms.txt`, `/${locale}/llms-full.txt`])
+              ]
+              const markdownRoutes = new Set<string>()
 
-            if (searchRuntime.engine === 'pagefind') {
-              const records = JSON.parse(json)
-              const { writePagefindIndex } = await import(resolveRuntimeModule('./server/pagefind.js'))
-              await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'))
+              for (const route of llmsRoutes) {
+                const response = await localFetch(route)
+                if (!response.ok) {
+                  throw new Error(`Failed to generate agent markdown route ${route}: [${response.status}] ${response.statusText}`)
+                }
+                const body = await response.text()
+                const outputPath = publicOutputPath(publicDir, route)
+                mkdirSync(dirname(outputPath), { recursive: true })
+                writeFileSync(outputPath, body, 'utf8')
+                collectMarkdownLinksFromLlms(body, appContentConfig.agent.site?.url).forEach(link => markdownRoutes.add(link))
+              }
+
+              for (const route of markdownRoutes) {
+                const response = await localFetch(route)
+                if (!response.ok) {
+                  throw new Error(`Failed to generate agent markdown route ${route}: [${response.status}] ${response.statusText}`)
+                }
+                const body = await response.text()
+                const outputPath = publicOutputPath(publicDir, route)
+                mkdirSync(dirname(outputPath), { recursive: true })
+                writeFileSync(outputPath, body, 'utf8')
+
+                if (route.startsWith('/raw/') && route.endsWith('.md')) {
+                  const pageRoute = route.replace(/^\/raw/, '').replace(/\.md$/, '')
+                  const indexRoute = pageRoute === '/index' ? '/index.md' : `${pageRoute}/index.md`
+                  const indexPath = publicOutputPath(publicDir, indexRoute)
+                  mkdirSync(dirname(indexPath), { recursive: true })
+                  writeFileSync(indexPath, body, 'utf8')
+                }
+              }
             }
           })
         })

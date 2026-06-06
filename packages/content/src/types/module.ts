@@ -273,6 +273,13 @@ export interface ContentRevalidateOptions {
   allowUnsigned?: boolean
 }
 
+export interface ContentAgentRouteOptions {
+  routes?: boolean
+  linkHeaders?: boolean
+  markdownNegotiation?: boolean
+  prerender?: boolean
+}
+
 export interface ModuleOptions {
   api: {
     /**
@@ -316,6 +323,10 @@ export interface ModuleOptions {
    * `x-ginko-revalidate-token` or `authorization: Bearer <token>`.
    */
   revalidate?: false | ContentRevalidateOptions
+  /**
+   * First-class agent markdown and LLM route features.
+   */
+  agent?: false | ContentAgentRouteOptions
   /**
    * Optional server-side cache adapter module.
    *

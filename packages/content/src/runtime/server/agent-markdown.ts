@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { kebabCase, pascalCase } from 'scule'
 import type { ContentQueryResponse } from '../../types/api'
 import type { MarkdownNode, MarkdownRoot, ParsedContent } from '../../types/content'
-import type { ContentAgentMarkdownOptions, ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
+import type { AgentMetadataField, ContentAgentMarkdownOptions, ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
 import { getCollectionPath } from '../query/routes'
 import { getContentProvider } from './providers'
 import { contentConfig } from './storage-access'
@@ -16,7 +16,7 @@ export interface AgentMarkdownPublicSignals {
 export interface ResolvedAgentMarkdownOptions {
   includeInIndex: boolean
   includeInFull: boolean
-  metadata: string[]
+  metadata: AgentMetadataField[]
 }
 
 export interface AgentMarkdown {
@@ -148,12 +148,22 @@ const shouldDropAgentProp = (name: string) => {
     || normalized.startsWith('aria-')
 }
 
+const normalizeAgentPropName = (name: string) => {
+  const normalized = name.trim()
+  if (normalized.startsWith(':')) return normalized.slice(1)
+  if (normalized.startsWith('v-bind:')) return normalized.slice('v-bind:'.length)
+  return normalized
+}
+
 const cleanPropsObject = (props: unknown) => {
   if (!isRecord(props)) return {}
   const clean: Record<string, unknown> = {}
   for (const [name, value] of Object.entries(props)) {
-    if (shouldDropAgentProp(name) || value === undefined || value === null || value === '') continue
-    clean[name] = value
+    const normalizedName = normalizeAgentPropName(name)
+    if (shouldDropAgentProp(normalizedName) || value === undefined || value === null || value === '') continue
+    if (!(normalizedName in clean) || normalizedName === name.trim()) {
+      clean[normalizedName] = value
+    }
   }
   return clean
 }
@@ -234,7 +244,7 @@ export const resolveAgentMarkdownOptions = (
     includeInIndex: value.includeInIndex !== false,
     includeInFull: value.includeInFull !== false,
     metadata: Array.isArray(value.metadata)
-      ? value.metadata.filter((field): field is string => typeof field === 'string' && field.length > 0)
+      ? value.metadata.filter((field): field is AgentMetadataField => typeof field === 'string' && field.length > 0)
       : []
   }
 }

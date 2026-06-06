@@ -102,14 +102,98 @@ export interface ContentCmsCollectionConfig {
   settings?: unknown
 }
 
+export const agentMetadataFields = [
+  'title',
+  'description',
+  'url',
+  'route',
+  'locale',
+  'section',
+  'collection',
+  'source',
+  'updated'
+] as const
+
+export type AgentMetadataField = typeof agentMetadataFields[number]
+
+export type AgentMetadataFieldList = readonly AgentMetadataField[]
+
+/*
+ * Keep agent metadata intentionally small for now. These built-ins are fields
+ * Ginko can compute for every agent page. Schema-derived fields, custom
+ * resolvers, and fluent builders are useful future options, but they need real
+ * use cases because this frontmatter is public AI-facing output.
+ */
+export function defineAgentMetadataFields<const TFields extends AgentMetadataFieldList> (fields: TFields): TFields {
+  return fields
+}
+
 export interface ContentAgentMarkdownOptions {
   includeInIndex?: boolean
   includeInFull?: boolean
-  metadata?: string[]
+  metadata?: AgentMetadataFieldList
 }
 
 export interface ContentAgentCollectionConfig {
+  section?: string
   markdown?: boolean | ContentAgentMarkdownOptions
+}
+
+export type ContentAgentLocalizedValue = string | Record<string, string>
+
+export interface ContentAgentSiteConfig {
+  title: ContentAgentLocalizedValue
+  description: ContentAgentLocalizedValue
+  url?: string
+  defaultLocale?: string
+  locales?: string[]
+  profile?: string
+  contentSignals?: {
+    search?: boolean
+    aiInput?: boolean
+    aiTrain?: boolean
+  }
+}
+
+export interface ContentAgentMarkdownMetadataConfig {
+  enabled?: boolean
+  defaultFields?: AgentMetadataFieldList
+}
+
+export interface ContentAgentMarkdownPolicyConfig {
+  metadata?: boolean | AgentMetadataFieldList | ContentAgentMarkdownMetadataConfig
+}
+
+export interface ContentAgentSectionConfig {
+  id: string
+  title: ContentAgentLocalizedValue
+  order?: number
+}
+
+export interface ContentAgentAppPageContext {
+  locale: string
+  defaultLocale?: string
+  siteUrl: string
+}
+
+export interface ContentAgentAppPageConfig {
+  id: string
+  route: ContentAgentLocalizedValue
+  section: string
+  title: ContentAgentLocalizedValue | ((ctx: ContentAgentAppPageContext) => string | Promise<string>)
+  description: ContentAgentLocalizedValue | ((ctx: ContentAgentAppPageContext) => string | Promise<string>)
+  updated?: string
+  includeInIndex?: boolean
+  includeInFull?: boolean
+  metadata?: AgentMetadataFieldList
+  render: (ctx: ContentAgentAppPageContext) => string | Promise<string>
+}
+
+export interface ContentAgentConfig {
+  site?: ContentAgentSiteConfig
+  markdown?: ContentAgentMarkdownPolicyConfig
+  sections?: ContentAgentSectionConfig[]
+  pages?: ContentAgentAppPageConfig[]
 }
 
 /**
@@ -230,6 +314,12 @@ export interface ContentConfig<TCollections extends Record<string, ContentCollec
    * modules register themselves, so app configs usually do not need this.
    */
   providers?: Record<string, string>
+  /**
+   * Agent-facing site map and markdown output. Ginko owns the repetitive
+   * `/llms.txt`, raw markdown, and static route plumbing; apps provide site
+   * facts and app-owned page renderers here.
+   */
+  agent?: ContentAgentConfig
   /**
    * Named content collections keyed by the identifier used at query time.
    */
@@ -433,6 +523,18 @@ export function defineContentConfig (config: ContentConfig): ContentConfig {
     normalizeContentConfigCollectionNames(config.collections)
   }
 
+  return config
+}
+
+export function defineAgentSection<const TConfig extends ContentAgentSectionConfig> (config: TConfig): TConfig {
+  return config
+}
+
+export function defineAgentAppPage<const TConfig extends ContentAgentAppPageConfig> (config: TConfig): TConfig {
+  return config
+}
+
+export function defineAgentMarkdownPolicy<const TConfig extends ContentAgentMarkdownPolicyConfig> (config: TConfig): TConfig {
   return config
 }
 

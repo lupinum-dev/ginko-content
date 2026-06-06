@@ -2,6 +2,24 @@ import { addServerHandler } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import type { ContentSearchOptions, ModuleOptions } from '../types/module'
 
+const normalizedAgentOptions = (options: ModuleOptions) => {
+  if (options.agent === false) {
+    return {
+      routes: false,
+      linkHeaders: false,
+      markdownNegotiation: false,
+      prerender: false
+    }
+  }
+
+  return {
+    routes: options.agent?.routes !== false,
+    linkHeaders: options.agent?.linkHeaders !== false,
+    markdownNegotiation: options.agent?.markdownNegotiation !== false,
+    prerender: options.agent?.prerender !== false
+  }
+}
+
 export const registerContentServerHandlers = (
   nuxt: Nuxt,
   options: ModuleOptions,
@@ -61,6 +79,47 @@ export const registerContentServerHandlers = (
       method: 'get',
       route: `${options.api.baseURL}/navigation`,
       handler: resolveRuntimeModule('./server/api/navigation.js')
+    })
+  }
+
+  const agent = normalizedAgentOptions(options)
+  if (agent.routes) {
+    addServerHandler({
+      method: 'get',
+      route: '/llms.txt',
+      handler: resolveRuntimeModule('./server/api/agent-llms.js')
+    })
+    addServerHandler({
+      method: 'get',
+      route: '/llms-full.txt',
+      handler: resolveRuntimeModule('./server/api/agent-llms-full.js')
+    })
+    addServerHandler({
+      method: 'get',
+      route: '/:locale/llms.txt',
+      handler: resolveRuntimeModule('./server/api/agent-llms.js')
+    })
+    addServerHandler({
+      method: 'get',
+      route: '/:locale/llms-full.txt',
+      handler: resolveRuntimeModule('./server/api/agent-llms-full.js')
+    })
+    addServerHandler({
+      method: 'get',
+      route: '/raw/**:slug',
+      handler: resolveRuntimeModule('./server/api/agent-raw.js')
+    })
+  }
+  if (agent.markdownNegotiation) {
+    addServerHandler({
+      middleware: true,
+      handler: resolveRuntimeModule('./server/middleware/agent-markdown.js')
+    })
+  }
+  if (agent.linkHeaders) {
+    addServerHandler({
+      middleware: true,
+      handler: resolveRuntimeModule('./server/middleware/agent-link-headers.js')
     })
   }
 }

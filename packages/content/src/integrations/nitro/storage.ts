@@ -75,6 +75,7 @@ export const contentConfig = () => {
 
   return {
     ...runtimeContent,
+    ...(sourceContent.agent ? { agent: sourceContent.agent } : {}),
     collections: mergeCollectionConfigs(runtimeContent.collections, sourceContent.collections)
   }
 }

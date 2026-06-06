@@ -11,6 +11,27 @@ describe('agent markdown', () => {
     vi.resetModules()
   })
 
+  test('exposes typed built-in metadata field helpers', async () => {
+    const { agentMetadataFields, defineAgentMetadataFields } = await import('../../packages/content/src/config')
+
+    expect(agentMetadataFields).toEqual([
+      'title',
+      'description',
+      'url',
+      'route',
+      'locale',
+      'section',
+      'collection',
+      'source',
+      'updated'
+    ])
+    expect(defineAgentMetadataFields(['title', 'description', 'url'])).toEqual([
+      'title',
+      'description',
+      'url'
+    ])
+  })
+
   test('normalizes explicit collection markdown options', async () => {
     const { resolveAgentMarkdownOptions } = await import('../../packages/content/src/runtime/server/agent-markdown')
 
@@ -272,6 +293,57 @@ describe('agent markdown', () => {
 
     expect(resolved?.markdown).toContain('<chart title="Traffic" type="bar" />')
     expect(resolved?.markdown).not.toContain('Component omitted: `chart`')
+  })
+
+  test('normalizes bound component props for XML fallback', async () => {
+    const page = {
+      path: '/docs/media',
+      _path: '/media',
+      title: 'Media',
+      description: 'Bound props.',
+      body: markdownBody([
+        {
+          type: 'element',
+          tag: 'figure',
+          props: {
+            src: '/image.png',
+            ':bleed': 'true',
+            'v-bind:width': 1200,
+            class: 'mt-8',
+            '@click': 'track'
+          }
+        }
+      ])
+    } satisfies Partial<ParsedContent> & { body: ParsedContent['body'] }
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        page: async () => page
+      })
+    }))
+
+    const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
+
+    clearAgentMarkdownSerializers()
+
+    const resolved = await resolveContentMarkdown({ context: {} } as any, 'docs', '/docs/media')
+
+    expect(resolved?.markdown).toContain('<figure src="/image.png" bleed="true" width="1200" />')
+    expect(resolved?.markdown).not.toContain(':bleed')
+    expect(resolved?.markdown).not.toContain('v-bind:width')
+    expect(resolved?.markdown).not.toContain('class=')
+    expect(resolved?.markdown).not.toContain('@click')
   })
 
   test('renders component-owned XML and JSON payloads through the component API', async () => {

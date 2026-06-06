@@ -1,6 +1,6 @@
-export { defineCollection, defineContentConfig, reference } from './types/config'
+export { agentMetadataFields, defineAgentAppPage, defineAgentMarkdownPolicy, defineAgentMetadataFields, defineAgentSection, defineCollection, defineContentConfig, reference } from './types/config'
 export { asset, fields, file, getContentFieldMetadata, image, isContentFieldSchema, relation, relations, richtext, text } from './types/fields'
 export { slugifyUrlSegment } from './core/content/slug'
-export type { CollectionSchema, ContentAgentCollectionConfig, ContentAgentMarkdownOptions, ContentCmsCollectionConfig, ContentCmsFieldConfig, ContentCmsFieldType, ContentCmsRelationConfig, ContentCollectionConfig, ContentCollectionI18nConfig, ContentCollectionKind, ContentCollectionSource, ContentCollectionSourceObject, ContentConfig, ContentReferenceSchema, DefineCollectionObject, DefineCollectionOptions } from './types/config'
+export type { AgentMetadataField, AgentMetadataFieldList, CollectionSchema, ContentAgentCollectionConfig, ContentAgentMarkdownOptions, ContentCmsCollectionConfig, ContentCmsFieldConfig, ContentCmsFieldType, ContentCmsRelationConfig, ContentCollectionConfig, ContentCollectionI18nConfig, ContentCollectionKind, ContentCollectionSource, ContentCollectionSourceObject, ContentConfig, ContentReferenceSchema, DefineCollectionObject, DefineCollectionOptions } from './types/config'
 export type { ContentFieldMetadata, ContentFieldSchema } from './types/fields'
 export type { SlugifyUrlSegmentOptions } from './core/content/slug'

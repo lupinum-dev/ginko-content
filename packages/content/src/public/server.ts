@@ -37,6 +37,18 @@ export {
   resolveContentMarkdownByRoute,
   xmlComponentMarkdown
 } from '../runtime/server/agent-markdown.js'
+export {
+  buildAgentPageIndex,
+  collectAgentMarkdownPrerenderRoutes,
+  localeFromAgentPath,
+  renderAgentMarkdownFrontmatter,
+  renderAgentMarkdownPage,
+  renderLlmsFullTxt,
+  renderLlmsTxt,
+  resolveMarkdownForPublicRoute,
+  routePathFromIndexSlug,
+  routePathFromRawSlug
+} from '../runtime/server/agent-site.js'
 export type {
   AgentMarkdown,
   AgentMarkdownComponent,
@@ -48,6 +60,10 @@ export type {
   AgentMarkdownSerializerMap,
   ResolvedAgentMarkdownOptions
 } from '../runtime/server/agent-markdown.js'
+export type {
+  AgentPage,
+  AgentPageSource
+} from '../runtime/server/agent-site.js'
 
 export type {
   QueryWhere,
