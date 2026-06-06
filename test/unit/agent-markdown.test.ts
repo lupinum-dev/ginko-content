@@ -18,18 +18,21 @@ describe('agent markdown', () => {
     expect(resolveAgentMarkdownOptions({ type: 'page' })).toBeNull()
     expect(resolveAgentMarkdownOptions({ type: 'page', agent: { markdown: true } })).toEqual({
       includeInIndex: true,
-      includeInFull: true
+      includeInFull: true,
+      metadata: []
     })
     expect(resolveAgentMarkdownOptions({
       type: 'page',
       agent: {
         markdown: {
-          includeInIndex: false
+          includeInIndex: false,
+          metadata: ['title', 'description', '', 'url']
         }
       }
     })).toEqual({
       includeInIndex: false,
-      includeInFull: true
+      includeInFull: true,
+      metadata: ['title', 'description', 'url']
     })
   })
 
@@ -73,7 +76,11 @@ describe('agent markdown', () => {
           docs: {
             type: 'page',
             route: '/docs',
-            agent: { markdown: true }
+            agent: {
+              markdown: {
+                metadata: ['title', 'description', 'url']
+              }
+            }
           }
         }
       })
@@ -99,6 +106,7 @@ describe('agent markdown', () => {
       title: 'Intro',
       description: 'Start here.',
       sourceFile: 'docs/intro.md',
+      metadataFields: ['title', 'description', 'url'],
       includeInIndex: true,
       includeInFull: true
     })

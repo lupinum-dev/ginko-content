@@ -16,6 +16,7 @@ export interface AgentMarkdownPublicSignals {
 export interface ResolvedAgentMarkdownOptions {
   includeInIndex: boolean
   includeInFull: boolean
+  metadata: string[]
 }
 
 export interface AgentMarkdown {
@@ -31,6 +32,7 @@ export interface AgentMarkdown {
   canonicalUrl: string
   lastModified?: string
   publicSignals?: AgentMarkdownPublicSignals
+  metadataFields: string[]
   includeInIndex: boolean
   includeInFull: boolean
 }
@@ -223,13 +225,17 @@ export const resolveAgentMarkdownOptions = (
   if (value === true) {
     return {
       includeInIndex: true,
-      includeInFull: true
+      includeInFull: true,
+      metadata: []
     }
   }
   if (!value || value === false || !isRecord(value)) return null
   return {
     includeInIndex: value.includeInIndex !== false,
-    includeInFull: value.includeInFull !== false
+    includeInFull: value.includeInFull !== false,
+    metadata: Array.isArray(value.metadata)
+      ? value.metadata.filter((field): field is string => typeof field === 'string' && field.length > 0)
+      : []
   }
 }
 
@@ -472,6 +478,7 @@ const toAgentMarkdown = (
     ...(page._file ? { sourceFile: page._file } : {}),
     canonicalUrl: path,
     ...(typeof (page as { updated?: unknown }).updated === 'string' ? { lastModified: (page as { updated: string }).updated } : {}),
+    metadataFields: options.metadata,
     includeInIndex: options.includeInIndex,
     includeInFull: options.includeInFull
   }

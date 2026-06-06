@@ -105,6 +105,7 @@ export interface ContentCmsCollectionConfig {
 export interface ContentAgentMarkdownOptions {
   includeInIndex?: boolean
   includeInFull?: boolean
+  metadata?: string[]
 }
 
 export interface ContentAgentCollectionConfig {
