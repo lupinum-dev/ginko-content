@@ -2,6 +2,7 @@ import type { ComarkPlugin } from 'comark'
 import highlightPlugin from 'comark/plugins/highlight'
 import summaryPlugin from 'comark/plugins/summary'
 import tocPlugin from 'comark/plugins/toc'
+import footnotesPlugin from 'comark/plugins/footnotes'
 import materialThemeLighter from 'shiki/dist/themes/material-theme-lighter.mjs'
 import materialThemePalenight from 'shiki/dist/themes/material-theme-palenight.mjs'
 import type { ResolvedMarkdownPlugin } from '../types/content'
@@ -10,18 +11,75 @@ type BuiltinMarkdownPluginSpec = {
   load: () => Promise<(options?: Record<string, unknown>) => ComarkPlugin>
 }
 
-const cloneSerializableValue = <T>(value: T): T => {
+type ShikiTransformer = {
+  name?: string
+  code?: unknown
+}
+
+type ShikiTransformerFactoryName =
+  | 'transformerNotationDiff'
+  | 'transformerNotationHighlight'
+
+const shikiTransformerFactories: Record<string, ShikiTransformerFactoryName> = {
+  '@shikijs/transformers:notation-diff': 'transformerNotationDiff',
+  '@shikijs/transformers:notation-highlight': 'transformerNotationHighlight'
+}
+
+const cloneMarkdownPluginOptionValue = <T>(value: T): T => {
   if (typeof value !== 'object' || value === null) {
     return value
   }
 
-  return structuredClone(value)
+  if (Array.isArray(value)) {
+    return value.map(item => cloneMarkdownPluginOptionValue(item)) as T
+  }
+
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) {
+    return value
+  }
+
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    key,
+    cloneMarkdownPluginOptionValue(item)
+  ])) as T
 }
 
 const defaultHighlightThemes = () => ({
-  light: cloneSerializableValue(materialThemeLighter),
-  dark: cloneSerializableValue(materialThemePalenight)
+  light: cloneMarkdownPluginOptionValue(materialThemeLighter),
+  dark: cloneMarkdownPluginOptionValue(materialThemePalenight)
 })
+
+const restoreSerializedShikiTransformers = async (transformers: unknown): Promise<unknown> => {
+  if (!Array.isArray(transformers)) {
+    return transformers
+  }
+
+  let shikiTransformersModule: Record<string, unknown> | undefined
+
+  return await Promise.all(transformers.map(async (transformer) => {
+    if (
+      typeof transformer !== 'object' ||
+      transformer === null ||
+      typeof (transformer as ShikiTransformer).code === 'function'
+    ) {
+      return transformer
+    }
+
+    const factoryName = shikiTransformerFactories[(transformer as ShikiTransformer).name || '']
+    if (!factoryName) {
+      return transformer
+    }
+
+    shikiTransformersModule ||= await import('@shikijs/transformers')
+    const factory = shikiTransformersModule[factoryName]
+    if (typeof factory !== 'function') {
+      throw new Error(`[ginko-content] Failed to restore serialized Shiki transformer "${(transformer as ShikiTransformer).name}". Install @shikijs/transformers in the app or remove the transformer from content.markdown.plugins.`)
+    }
+
+    return (factory as () => unknown)()
+  }))
+}
 
 export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) => {
   if (plugin.name !== 'highlight') {
@@ -29,10 +87,11 @@ export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) =
   }
 
   const options = plugin.options || {}
+  const normalizedOptions = cloneMarkdownPluginOptionValue(options)
   const themes = (options as Record<string, unknown>).themes
   if (typeof themes !== 'object' || themes === null) {
     return {
-      ...options,
+      ...normalizedOptions,
       registerDefaultThemes: false,
       themes: defaultHighlightThemes()
     }
@@ -43,9 +102,22 @@ export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) =
   // clones into the highlighter instead of leaking module objects downstream.
   // Also disable Comark's default theme imports; those imports can be frozen too.
   return {
-    ...options,
+    ...normalizedOptions,
     registerDefaultThemes: false,
-    themes: cloneSerializableValue(themes)
+    themes: cloneMarkdownPluginOptionValue(themes)
+  }
+}
+
+const resolveMarkdownPluginOptions = async (plugin: ResolvedMarkdownPlugin) => {
+  const normalized = normalizeMarkdownPluginOptions(plugin)
+  if (plugin.name !== 'highlight' || typeof normalized !== 'object' || normalized === null) {
+    return normalized
+  }
+
+  const options = normalized as Record<string, unknown>
+  return {
+    ...options,
+    transformers: await restoreSerializedShikiTransformers(options.transformers)
   }
 }
 
@@ -55,6 +127,9 @@ const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
   },
   emoji: {
     load: () => loadModule('comark/plugins/emoji')
+  },
+  footnotes: {
+    load: async () => footnotesPlugin
   },
   highlight: {
     load: async () => highlightPlugin
@@ -85,7 +160,7 @@ const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
 export async function resolveMarkdownPlugins (plugins: ResolvedMarkdownPlugin[]): Promise<ComarkPlugin[]> {
   return await Promise.all(plugins.map(async (plugin) => {
     const factory = await loadMarkdownPluginFactory(plugin.name)
-    return factory(normalizeMarkdownPluginOptions(plugin))
+    return factory(await resolveMarkdownPluginOptions(plugin))
   }))
 }
 

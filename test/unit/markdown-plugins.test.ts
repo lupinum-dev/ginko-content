@@ -64,6 +64,39 @@ describe('markdown plugin normalization', () => {
     expect(normalized.themes.dark).not.toBe(darkTheme)
   })
 
+  test('clones explicit highlight language and transformer arrays before passing them to Comark', () => {
+    const language = Object.freeze({
+      name: 'custom-language',
+      scopeName: 'source.custom',
+      patterns: Object.freeze([])
+    })
+    const transformer = Object.freeze({
+      name: 'custom-transformer',
+      line() {
+        return undefined
+      }
+    })
+    const languages = Object.freeze([language])
+    const transformers = Object.freeze([transformer])
+
+    const normalized = normalizeMarkdownPluginOptions({
+      name: 'highlight',
+      options: {
+        languages,
+        transformers
+      }
+    }) as {
+      languages: typeof languages
+      transformers: typeof transformers
+    }
+
+    expect(normalized.languages).toEqual(languages)
+    expect(normalized.transformers).toEqual(transformers)
+    expect(normalized.languages).not.toBe(languages)
+    expect(normalized.transformers).not.toBe(transformers)
+    expect(normalized.transformers[0]!.line).toBe(transformer.line)
+  })
+
   test('leaves non-highlight plugin options untouched', () => {
     const options = { depth: 3 }
 

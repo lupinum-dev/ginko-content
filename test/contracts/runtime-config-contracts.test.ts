@@ -117,6 +117,61 @@ describe('runtime config contracts', () => {
     })
   })
 
+  test('keeps markdown transformer runtime config serializable', () => {
+    const nuxt = createNuxt()
+    const transformer = {
+      name: '@shikijs/transformers:notation-highlight',
+      line() {
+        return undefined
+      }
+    }
+    const context = {
+      ...createContentContext(),
+      markdown: {
+        ...createContentContext().markdown,
+        plugins: [
+          {
+            name: 'highlight',
+            options: {
+              preStyles: false,
+              transformers: [transformer],
+              themes: {
+                light: { name: 'light' },
+                dark: { name: 'dark' }
+              }
+            }
+          }
+        ]
+      }
+    }
+
+    applyContentRuntimeConfig(
+      nuxt as any,
+      createOptions() as any,
+      context as any,
+      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
+      1,
+      'cache-integrity'
+    )
+
+    expect(nuxt.options.runtimeConfig.public.content.markdown.plugins).toEqual([
+      {
+        name: 'highlight',
+        options: {
+          preStyles: false,
+          themes: {
+            light: { name: 'light' },
+            dark: { name: 'dark' }
+          }
+        }
+      }
+    ])
+    expect(nuxt.options.runtimeConfig.content.markdown.plugins[0].options.transformers).toEqual([
+      { name: '@shikijs/transformers:notation-highlight' }
+    ])
+    expect(JSON.stringify(nuxt.options.runtimeConfig.content)).not.toContain('line')
+  })
+
   test('keeps revalidation token in private runtime config only', () => {
     const nuxt = createNuxt()
 

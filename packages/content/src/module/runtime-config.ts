@@ -3,6 +3,7 @@ import type { Nuxt } from '@nuxt/schema'
 
 import type { ContentContext, ModuleOptions } from '../types/module'
 import type { ContentCollectionConfig } from '../types/config'
+import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { ContentSearchPublicRuntimeConfig } from '../types/search'
 import { CACHE_VERSION } from '../utils'
 import { normalizeMiniSearchOptions } from './options'
@@ -30,6 +31,69 @@ type RuntimeCollectionConfig = {
   route?: ContentCollectionConfig['route']
   references?: Record<string, string[]>
 }
+
+const sanitizePublicMarkdownPluginValue = (value: unknown): unknown => {
+  if (typeof value === 'function' || typeof value === 'symbol') {
+    return undefined
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => sanitizePublicMarkdownPluginValue(item))
+      .filter(item => item !== undefined)
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) {
+    return value
+  }
+
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => key !== 'transformers')
+    .map(([key, item]) => [key, sanitizePublicMarkdownPluginValue(item)])
+    .filter(([, item]) => item !== undefined))
+}
+
+export const sanitizePublicMarkdownPlugins = (plugins: ResolvedMarkdownPlugin[]) =>
+  plugins.map(plugin => ({
+    name: plugin.name,
+    options: sanitizePublicMarkdownPluginValue(plugin.options || {}) as Record<string, unknown>
+  }))
+
+const sanitizePrivateMarkdownPluginValue = (value: unknown): unknown => {
+  if (typeof value === 'function' || typeof value === 'symbol') {
+    return undefined
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => sanitizePrivateMarkdownPluginValue(item))
+      .filter(item => item !== undefined)
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return value
+  }
+
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) {
+    return value
+  }
+
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .map(([key, item]) => [key, sanitizePrivateMarkdownPluginValue(item)])
+    .filter(([, item]) => item !== undefined))
+}
+
+export const sanitizePrivateMarkdownPlugins = (plugins: ResolvedMarkdownPlugin[]) =>
+  plugins.map(plugin => ({
+    name: plugin.name,
+    options: sanitizePrivateMarkdownPluginValue(plugin.options || {}) as Record<string, unknown>
+  }))
 
 export const applyContentRuntimeConfig = (
   nuxt: Nuxt,
@@ -65,7 +129,7 @@ export const applyContentRuntimeConfig = (
       baseURL: options.api.baseURL
     },
     markdown: {
-      plugins: contentContext.markdown.plugins,
+      plugins: sanitizePublicMarkdownPlugins(contentContext.markdown.plugins),
       tags: contentContext.markdown.tags,
       anchorLinks: contentContext.markdown.anchorLinks,
       image: contentContext.markdown.image || 'auto'
@@ -88,6 +152,14 @@ export const applyContentRuntimeConfig = (
     ;(nuxt.options.runtimeConfig.public as Record<string, any>).siteUrl = siteUrl
   }
 
+  const privateContentRuntime = {
+    ...contentContext as any,
+    markdown: {
+      ...contentContext.markdown,
+      plugins: sanitizePrivateMarkdownPlugins(contentContext.markdown.plugins)
+    }
+  }
+
   // @ts-expect-error - runtime config typing is augmented in this module package.
   nuxt.options.runtimeConfig.public.content = contentRuntime
   nuxt.options.runtimeConfig.content = defu(nuxt.options.runtimeConfig.content as any, {
@@ -99,7 +171,7 @@ export const applyContentRuntimeConfig = (
           allowUnsigned: options.revalidate.allowUnsigned === true
         }
       : false,
-    ...contentContext as any,
+    ...privateContentRuntime,
     collections: runtimeCollections
   })
 }

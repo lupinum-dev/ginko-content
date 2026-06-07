@@ -81,6 +81,77 @@ describe('transformer contracts', () => {
     } as any)).rejects.toThrow(/definitely-not-a-real-module/)
   })
 
+  test('markdown renders Comark footnotes plugin output', async () => {
+    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+
+    await expect(markdown.parse?.('content:test.md', [
+      'A sentence with a note[^source].',
+      '',
+      '[^source]: This is the footnote text.'
+    ].join('\n'), {
+      plugins: [{ name: 'footnotes', options: { label: '' } }]
+    } as any)).resolves.toMatchObject({
+      body: {
+        children: [
+          {
+            type: 'element',
+            tag: 'p',
+            children: [
+              { type: 'text', value: 'A sentence with a note' },
+              {
+                type: 'element',
+                tag: 'sup',
+                props: { class: 'footnote-ref' }
+              },
+              { type: 'text', value: '.' }
+            ]
+          },
+          {
+            type: 'element',
+            tag: 'section',
+            props: { class: 'footnotes' }
+          }
+        ]
+      }
+    })
+  })
+
+  test('markdown restores Nitro-serialized official Shiki notation transformers', async () => {
+    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+
+    const parsed = await markdown.parse?.('content:test.md', [
+      '```ts',
+      'const highlighted = true // [!code highlight]',
+      'const removed = false // [!code --]',
+      'const added = true // [!code ++]',
+      '```'
+    ].join('\n'), {
+      plugins: [
+        {
+          name: 'highlight',
+          options: {
+            preStyles: false,
+            transformers: [
+              { name: '@shikijs/transformers:notation-diff' },
+              { name: '@shikijs/transformers:notation-highlight' }
+            ]
+          }
+        }
+      ]
+    } as any)
+
+    const code = parsed?.body?.children?.[0]?.children?.[0]
+    const lines = Array.isArray(code?.children)
+      ? code.children.filter((line: any) => Array.isArray(line.props?.class))
+      : []
+    expect(lines.map((line: any) => line.props?.class)).toEqual([
+      ['line', 'highlighted'],
+      ['line', 'diff', 'remove'],
+      ['line', 'diff', 'add']
+    ])
+    expect(JSON.stringify(parsed?.body)).not.toContain('[!code')
+  })
+
   test('fromCSV parses quoted commas, escaped quotes, multiline fields, and empty values', () => {
     const tree = fromCSV('name,quote,notes\n"Evan, You","He said ""hi""","line 1\nline 2"\nAna,,""')
 
