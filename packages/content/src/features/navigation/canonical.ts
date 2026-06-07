@@ -50,9 +50,9 @@ export const mergeCanonicalNavigation = (
   primary: CanonicalNavigationItem[] = [],
   fallback: CanonicalNavigationItem[] = []
 ): CanonicalNavigationItem[] => {
-  const merged = primary.map(item => ({
+  const merged: CanonicalNavigationItem[] = primary.map(item => ({
     ...item,
-    children: item.children ? mergeCanonicalNavigation(item.children, []) : undefined
+    ...(item.children ? { children: mergeCanonicalNavigation(item.children, []) } : {})
   }))
   const index = new Map<string, CanonicalNavigationItem>()
 

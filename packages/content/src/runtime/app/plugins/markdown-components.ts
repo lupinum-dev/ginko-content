@@ -1,8 +1,8 @@
 import { defineNuxtPlugin, useRuntimeConfig } from '#imports'
 
-export default defineNuxtPlugin(async (nuxtApp) => {
+export default defineNuxtPlugin(async (nuxtApp: any) => {
   const plugins = useRuntimeConfig().public.content?.markdown?.plugins || []
-  const names = new Set(plugins.map(plugin => plugin.name))
+  const names = new Set(plugins.map((plugin: { name: string }) => plugin.name))
 
   if (names.has('math')) {
     const { Math } = await import(/* @vite-ignore */ ['@comark/vue', 'plugins/math'].join('/'))

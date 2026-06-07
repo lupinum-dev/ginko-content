@@ -25,8 +25,9 @@ export default defineTransformer({
       return content
     }
 
+    const transformerOptions = typeof options === 'object' && options !== null ? options as { tags?: Record<string, string> } : {}
     const _components = await resolveContentComponents(content.body, {
-      ...(options?.tags || {}),
+      ...(transformerOptions.tags || {}),
       ...(content._components || {})
     })
 

@@ -2,8 +2,10 @@ import { createError, defineEventHandler, getQuery } from 'h3'
 import { resolveProviderContentVariants } from '../provider-query'
 
 export default defineEventHandler(async (event) => {
-  const identity = typeof getQuery(event).identity === 'string' ? getQuery(event).identity : ''
-  const collection = event.context.params?.collection
+  const query = getQuery(event)
+  const identity = typeof query.identity === 'string' ? query.identity : ''
+  const params = event.context.params as { collection?: unknown } | undefined
+  const collection = typeof params?.collection === 'string' ? params.collection : ''
 
   if (!collection || !identity) {
     throw createError({

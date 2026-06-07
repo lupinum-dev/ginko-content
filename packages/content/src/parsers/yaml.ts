@@ -12,7 +12,7 @@ export default defineTransformer({
     let parsed = data
     if (Array.isArray(data)) {
       console.warn(`YAML array is not supported in ${_id}, moving the array into the \`body\` key`)
-      parsed = { body: data } as ParsedContent
+      parsed = { body: data } as unknown as ParsedContent
     }
 
     return <ParsedContent> {

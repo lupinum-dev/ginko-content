@@ -6,12 +6,6 @@ type ContentComponentsModule = {
   localComponentLoaders: Record<string, AsyncComponentLoader>
 }
 
-declare module '#build/content-components' {
-  export const globalComponents: string[]
-  export const localComponents: string[]
-  export const localComponentLoaders: Record<string, AsyncComponentLoader>
-}
-
 const fallbackContentComponents: ContentComponentsModule = {
   globalComponents: [],
   localComponents: [],

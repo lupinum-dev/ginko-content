@@ -98,14 +98,24 @@ const normalizePublicQuery = (
   })
 
   if (enforceProductionVisibility) {
+    const where = Array.isArray(normalized.where)
+      ? normalized.where
+      : normalized.where
+        ? [normalized.where]
+        : []
     normalized.where = [
-      ...(normalized.where || []),
+      ...where,
       { _draft: { $ne: true } },
       { _partial: { $ne: true } }
     ]
   }
 
-  normalized.where = (normalized.where || [])
+  const normalizedWhere = Array.isArray(normalized.where)
+    ? normalized.where
+    : normalized.where
+      ? [normalized.where]
+      : []
+  normalized.where = normalizedWhere
     .map(condition => compileWhere(condition as never))
     .filter((condition): condition is NonNullable<ReturnType<typeof compileWhere>> => Boolean(condition))
 

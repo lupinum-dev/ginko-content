@@ -1,4 +1,4 @@
-import type { ParsedContent } from '../../../types/content'
+import type { NavItem, ParsedContent } from '../../../types/content'
 import type {
   ContentQueryBuilderParams,
   ContentCollectionTarget,
@@ -45,7 +45,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
   return {
     runtime,
     transport: async <T>(endpoint: 'query' | 'navigation', params: ContentQueryBuilderParams) => {
-      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | null>(endpoint, params, { fetcher, runtime })
+      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | NavItem[] | null>(endpoint, params, { fetcher, runtime })
     }
   }
 }

@@ -239,7 +239,7 @@ export async function useContentSearchData (
 
     return {
       files,
-      navigation: createContentSearchNavigation(navigation)
+      navigation: createContentSearchNavigation(navigation as any)
     }
   }, {
     watch: [locale]
@@ -387,7 +387,7 @@ const useCmsSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string
   const { data, pending, error } = await useFetch<ContentSearchResult[]>(requestUrl)
 
   return {
-    results: computed(() => (data.value || []).map(result => ({
+    results: computed(() => (data.value || []).map((result: ContentSearchResult) => ({
       ...result,
       collection: typeof result.collection === 'string' ? result.collection : ''
     }))),
@@ -448,16 +448,17 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
       const response = await pagefind.search(term)
       const normalized = await Promise.all((response?.results || []).map(async (result) => {
         const data = await result.data()
+        const meta = data?.meta as { collection?: unknown, title?: unknown, locale?: unknown } | undefined
         const [path = '', anchor] = String(data?.url || '').split('#')
 
         return {
           path,
-          collection: typeof data?.meta?.collection === 'string' ? data.meta.collection : '',
-          title: data?.meta?.title || path,
+          collection: typeof meta?.collection === 'string' ? meta.collection : '',
+          title: typeof meta?.title === 'string' ? meta.title : path,
           excerpt: data?.excerpt || '',
           score: result.score,
           anchor: anchor || undefined,
-          locale: data?.meta?.locale || deriveLocale(path, contentConfig?.locales || [])
+          locale: typeof meta?.locale === 'string' ? meta.locale : deriveLocale(path, contentConfig?.locales || [])
         } satisfies ContentSearchResult
       }))
 

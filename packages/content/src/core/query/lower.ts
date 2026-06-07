@@ -17,7 +17,7 @@ const ensureQueryWhereArray = (where?: ContentQueryBuilderParams['where']) => {
   return Array.isArray(where) ? [...where] : where ? [where] : []
 }
 
-const COMPARISON_OPERATORS = new Set(SUPPORTED_QUERY_OPERATORS)
+const COMPARISON_OPERATORS = new Set<string>(SUPPORTED_QUERY_OPERATORS)
 
 /**
  * Flatten redundant wrappers so the plan is minimal and predictable:
@@ -125,11 +125,17 @@ const lowerWhereCondition = (condition: ContentQueryBuilderWhere): FilterExpr =>
 
 const lowerSort = (sort: ContentQuerySortOptions[] = []): SortClause[] => {
   return sort.flatMap((option) => {
+    const sortParams = option as {
+      $locale?: string
+      $numeric?: boolean
+      $caseFirst?: 'upper' | 'lower' | 'false'
+      $sensitivity?: 'base' | 'accent' | 'case' | 'variant'
+    }
     const meta = {
-      locale: option.$locale,
-      numeric: option.$numeric,
-      caseFirst: option.$caseFirst,
-      sensitivity: option.$sensitivity
+      locale: sortParams.$locale,
+      numeric: sortParams.$numeric,
+      caseFirst: sortParams.$caseFirst,
+      sensitivity: sortParams.$sensitivity
     }
 
     return Object.entries(option)

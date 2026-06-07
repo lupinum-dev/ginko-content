@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
 
   if (!acceptsMarkdown(event)) return
 
-  if (pathname === '/' || getAgentLocales().some(locale => pathname === `/${locale}`)) {
+  if (pathname === '/' || getAgentLocales().some((locale: string) => pathname === `/${locale}`)) {
     const locale = localeFromAgentPath(pathname)
     setAgentMarkdownHeaders(event)
     return renderLlmsTxt(await buildAgentPageIndex(event, locale), locale)

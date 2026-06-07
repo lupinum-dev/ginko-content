@@ -17,7 +17,7 @@ export default defineTransformer({
     const _canonicalKey = generateCanonicalKey(isNavigation ? parts.slice(0, -1) : parts, { translatedSlugs, respectPathCase })
     const _collection = options.collectionResolver?.(_file)
 
-    return <ParsedContent> {
+    return {
       ...content,
       // Fallback title synthesis lives here (not in the markdown parser) so it
       // applies uniformly to every parser output. Moving it into the markdown
@@ -35,7 +35,7 @@ export default defineTransformer({
       _file,
       _stem: _path,
       _extension
-    }
+    } as unknown as ParsedContent
   }
 })
 export { describeId, generateCanonicalKey, generatePath, generateTitle, refineUrlPart }

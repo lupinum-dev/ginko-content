@@ -14,7 +14,7 @@ import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
 import type { ParsedContent } from '../types/content'
 import type { ContentCollectionI18nConfig } from '../types/config'
-import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
+import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
 import { resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
 import { normalizeReferenceValue } from '../core/references/resolve'
@@ -26,7 +26,7 @@ import { contentConfig } from './driver'
 import { withResolvedRefsQueryResponse } from './references'
 import { getContentGraph } from './graph'
 
-export const createServerQueryFetch = <T = ParsedContent>(event: H3Event) => (query: ContentQueryRequest) => {
+export const createServerQueryFetch = <T = ParsedContent>(event: H3Event): ContentQueryFetcher<T> => (query: ContentQueryRequest) => {
   const config = contentConfig()
   return getContentGraph(event).then((graph) => {
     const response = executeQueryPlan<T>(graph, lowerQueryPlan(query.params()), {

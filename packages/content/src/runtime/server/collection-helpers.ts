@@ -82,7 +82,7 @@ export async function queryFilesystemCollectionSearchSections (
         .select(...searchPageFields(extraFields))
       const filterQuery = mergeFilterQuery(opts.filterQuery, opts.locale)
       if (filterQuery) {
-        return await query.where(filterQuery).all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        return await (query as any).where(filterQuery).all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
       }
       return await query
         .all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>

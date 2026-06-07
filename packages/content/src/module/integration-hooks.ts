@@ -3,7 +3,7 @@ import { relative, resolve } from 'node:path'
 import { globby } from 'globby'
 import type { NitroConfig } from 'nitropack'
 import type { ContentCollectionConfig } from '../types/config'
-import type { ContentContext } from '../types/module'
+import type { ResolvedContentContext } from '../types/module'
 import type { ParsedContent } from '../types/content'
 import { transformContent } from '../parsers/index.js'
 import { expandDataLocaleVariants } from '../core/content/locale'
@@ -34,9 +34,9 @@ const appendHook = <T>(
 
 const resolveSitemapCollections = (
   collections: Record<string, ContentCollectionConfig>,
-  sitemap: ContentContext['sitemap']
+  sitemap: ResolvedContentContext['sitemap']
 ) => {
-  if (!sitemap || sitemap === false) {
+  if (!sitemap) {
     return []
   }
 
@@ -60,8 +60,8 @@ const toTranslatedSlugSourcePattern = (source: string) => {
 const parseCollectionFiles = async (
   rootDir: string,
   collections: Record<string, ContentCollectionConfig>,
-  collectionNames: string[],
-  contentContext: Pick<ContentContext, 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv'>
+    collectionNames: string[],
+  contentContext: Pick<ResolvedContentContext, 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv'>
 ) => {
   const contentDir = resolve(rootDir, 'content')
   const patterns = Array.from(new Set(
@@ -102,7 +102,7 @@ const parseCollectionFiles = async (
     const content = await readFile(file, 'utf8')
     // Path-meta derives `_file`, `_path`, and `_collection` from a content-style id, not a bare
     // relative path. Using `content:${id}` keeps this helper aligned with the real ingest pipeline.
-    const normalizedId = `content:${relative(contentDir, file).replaceAll('\\', '/')}`
+    const normalizedId = `content:${relative(contentDir, file).replace(/\\/g, '/')}`
     const parsed = await transformContent(normalizedId, content, {
       markdown: contentContext.markdown,
       yaml: contentContext.yaml,
@@ -116,8 +116,8 @@ const parseCollectionFiles = async (
         collectionResolver: (filePath: string) => resolveCollection(filePath, collections, contentContext.locales || [])
       }
     })
-    const collection = parsed._collection ? collections[parsed._collection] : undefined
-    documents.push(...expandDataLocaleVariants(parsed, collection?.i18n))
+    const collection = typeof parsed._collection === 'string' ? collections[parsed._collection] : undefined
+    documents.push(...expandDataLocaleVariants(parsed, collection?.i18n === true ? undefined : collection?.i18n))
   }
 
   return documents
@@ -125,10 +125,10 @@ const parseCollectionFiles = async (
 
 const collectPrerenderRoutes = async (
   rootDir: string,
-  contentContext: Pick<ContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap'>
+    contentContext: Pick<ResolvedContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap'>
 ) => {
   const collections = contentContext.collections || {}
-  if (!contentContext.sitemap || contentContext.sitemap === false) {
+  if (!contentContext.sitemap) {
     return []
   }
 
@@ -147,9 +147,7 @@ const collectPrerenderRoutes = async (
 
   for (const collection of includeCollections) {
     const { defaultLocale } = resolveCollectionI18n(collection, contentContext)
-    const includeDrafts = contentContext.sitemap && contentContext.sitemap !== false
-      ? Boolean(contentContext.sitemap.includeDrafts)
-      : false
+    const includeDrafts = Boolean(contentContext.sitemap.includeDrafts)
     const seenCanonicalKeys = new Set<string>()
 
     for (const contentId of graph.byCollection[collection] || []) {
@@ -182,7 +180,7 @@ const collectPrerenderRoutes = async (
 
 export const collectSitemapCollectionRouteCounts = async (
   rootDir: string,
-  contentContext: Pick<ContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap'>
+    contentContext: Pick<ResolvedContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap'>
 ) => {
   const collections = contentContext.collections || {}
   const includedCollections = resolveSitemapCollections(collections, contentContext.sitemap)
@@ -197,7 +195,7 @@ export const collectSitemapCollectionRouteCounts = async (
     defaultLocale: contentContext.defaultLocale
   })
   const counts = Object.fromEntries(includedCollections.map(collection => [collection, 0])) as Record<string, number>
-  const includeDrafts = contentContext.sitemap && contentContext.sitemap !== false
+  const includeDrafts = contentContext.sitemap
     ? Boolean(contentContext.sitemap.includeDrafts)
     : false
 
@@ -232,17 +230,17 @@ export const collectSitemapCollectionRouteCounts = async (
 export const registerContentNitroIntegrationHooks = (
   nitroConfig: NitroConfig,
   options: { rootDir: string, sitemapPrerenderRoutes?: string[] | (() => string[]) },
-  contentContext: Pick<ContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap' | 'provider'>
+    contentContext: Pick<ResolvedContentContext, 'collections' | 'locales' | 'defaultLocale' | 'translatedSlugs' | 'respectPathCase' | 'markdown' | 'yaml' | 'csv' | 'sitemap' | 'provider'>
 ) => {
   const usesFilesystemProvider = !contentContext.provider || contentContext.provider === 'filesystem'
 
   nitroConfig.hooks ||= {}
-  if (contentContext.sitemap?.assert?.enabled) {
+  if (contentContext.sitemap && contentContext.sitemap.assert?.enabled) {
     appendHook(nitroConfig.hooks as Record<string, any>, 'compiled', async (nitro: {
       options: { output: { publicDir: string }, static: boolean }
       logger?: { info: (message: string) => void }
     }) => {
-      const assertOptions = contentContext.sitemap?.assert
+      const assertOptions = contentContext.sitemap ? contentContext.sitemap.assert as any : undefined
       if (!assertOptions || !shouldRunSitemapAssertionOnCompiled(assertOptions, nitro)) {
         return
       }
@@ -257,8 +255,8 @@ export const registerContentNitroIntegrationHooks = (
           logger: nitro.logger
         })
       }
-      catch (error: any) {
-        if (error?.code === 'ENOENT') {
+      catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
           return
         }
         throw error

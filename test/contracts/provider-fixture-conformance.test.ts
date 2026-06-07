@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent, createSaasProviderFixture } from '../../packages/content/src/testing/provider-fixture'
 import { runAuthorDependencyFixtureSelfTest, runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
+import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 
 describe('provider fixture conformance', () => {
   const fixture = createSaasProviderFixture()
@@ -99,6 +100,28 @@ describe('provider fixture conformance', () => {
         'route:/de/magazin/mehrsprachiges-onboarding'
       ]),
       paths: ['/de/magazin/mehrsprachiges-onboarding']
+    })
+  })
+
+  test('preserves exact locale misses for page lookups', async () => {
+    const event = createProviderFixtureEvent({ fixture, provider })
+
+    await expect(provider.page(event, 'docs', '/de/dokumentation/einstieg/installation', {
+      locale: 'en',
+      exact: true
+    })).resolves.toBeNull()
+  })
+
+  test('does not treat raw result-only records as list query envelopes', () => {
+    const response = normalizeProviderQueryResponse<{ result: string }>({
+      collection: 'versions'
+    }, { result: 'raw-value' })
+
+    expect(response).toEqual({
+      result: [{ result: 'raw-value' }],
+      skip: 0,
+      limit: 1,
+      total: 1
     })
   })
 

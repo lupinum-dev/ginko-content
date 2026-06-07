@@ -57,13 +57,14 @@ const mergeCollectionConfigs = (
   return Object.fromEntries(Array.from(names).map((name) => {
     const source = sourceCollections[name] || {}
     const runtime = runtimeCollections[name] || {}
+    const sourceProviders = (source as { providers?: unknown }).providers
     return [
       name,
       {
         ...source,
         ...runtime,
         ...(source.schema ? { schema: source.schema } : {}),
-        ...(source.providers ? { providers: source.providers } : {})
+        ...(sourceProviders ? { providers: sourceProviders } : {})
       }
     ]
   }))

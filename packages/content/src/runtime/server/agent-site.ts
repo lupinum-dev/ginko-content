@@ -79,7 +79,7 @@ const prefixLocale = (path: string, locale: string) => {
 
 const sectionConfig = (id: string | undefined) => {
   const sections = contentConfig().agent?.sections || []
-  return sections.find(section => section.id === id)
+  return sections.find((section: { id?: string }) => section.id === id)
 }
 
 const resolveSection = (id: string | undefined, locale: string) => {
@@ -146,7 +146,7 @@ const createGinkoAgentPage = (
     source: 'ginko',
     collection: meta.collection,
     updated: meta.lastModified,
-    metadataFields: meta.metadataFields,
+    metadataFields: meta.metadataFields as any,
     includeInIndex: meta.includeInIndex,
     includeInFull: meta.includeInFull
   }
@@ -258,7 +258,7 @@ export const renderAgentMarkdownFrontmatter = (page: AgentPage) => {
 
   const fields = page.metadataFields?.length ? page.metadataFields : policy.defaultFields
   const metadata = metadataForPage(page)
-  const lines = fields.flatMap((field) => {
+  const lines = fields.flatMap((field: keyof ReturnType<typeof metadataForPage>) => {
     const value = metadata[field]
     return value ? [`${field}: ${renderYamlValue(value)}`] : []
   })
@@ -364,8 +364,8 @@ export const collectAgentMarkdownPrerenderRoutes = async (event: H3Event) => {
       routes.add(page.markdownPath)
     }
     const prefix = locale === defaultLocale() ? '' : `/${locale}`
-    routes.add(`${prefix}/llms.txt` || '/llms.txt')
-    routes.add(`${prefix}/llms-full.txt` || '/llms-full.txt')
+    routes.add(prefix ? `${prefix}/llms.txt` : '/llms.txt')
+    routes.add(prefix ? `${prefix}/llms-full.txt` : '/llms-full.txt')
   }
   return Array.from(routes)
 }

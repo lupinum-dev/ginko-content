@@ -87,15 +87,15 @@ function decorate<T extends ZodTypeAny, TRequired extends ZodTypeAny = T>(
   metadata: ContentFieldMetadata,
   requiredSchema: TRequired = schema as unknown as TRequired,
 ): ContentFieldSchema<T, TRequired> {
-  const decorated = writeFieldMetadata(schema, metadata)
-  decorated.required = () => decorate(requiredSchema, cloneMetadata(metadata, { required: true }))
+  const decorated = writeFieldMetadata(schema, metadata) as unknown as ContentFieldSchema<T, TRequired>
+  decorated.required = () => decorate(requiredSchema, cloneMetadata(metadata, { required: true })) as ContentFieldSchema<TRequired, TRequired>
   decorated.label = (value) =>
-    decorate(schema, cloneMetadata(metadata, { label: value }), requiredSchema)
+    decorate(schema, cloneMetadata(metadata, { label: value }), requiredSchema) as ContentFieldSchema<T, TRequired>
   decorated.help = (value) =>
-    decorate(schema, cloneMetadata(metadata, { description: value }), requiredSchema)
+    decorate(schema, cloneMetadata(metadata, { description: value }), requiredSchema) as ContentFieldSchema<T, TRequired>
   decorated.localized = (value = true) =>
-    decorate(schema, cloneMetadata(metadata, { localized: value }), requiredSchema)
-  decorated.shared = () => decorate(schema, cloneMetadata(metadata, { localized: false }), requiredSchema)
+    decorate(schema, cloneMetadata(metadata, { localized: value }), requiredSchema) as ContentFieldSchema<T, TRequired>
+  decorated.shared = () => decorate(schema, cloneMetadata(metadata, { localized: false }), requiredSchema) as ContentFieldSchema<T, TRequired>
   return decorated
 }
 

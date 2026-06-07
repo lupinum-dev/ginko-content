@@ -14,7 +14,7 @@
  * `locale`, `localePaths`, and `variants` — the route metadata that powers
  * locale switching with zero extra round trips.
  */
-import type { ParsedContent } from '../../types/content'
+import type { NavItem, ParsedContent } from '../../types/content'
 import type {
   ContentCollectionHandle
 } from '../../types/config'
@@ -63,7 +63,7 @@ export type ContentQueryEndpoint = 'query' | 'navigation'
 
 export interface ContentQueryContext {
   runtime: RuntimeContentConfig
-  transport: <T>(endpoint: ContentQueryEndpoint, params: ContentQueryBuilderParams) => Promise<ContentQueryResponse<T> | T | T[] | null>
+  transport: <T>(endpoint: ContentQueryEndpoint, params: ContentQueryBuilderParams) => Promise<ContentQueryResponse<T> | T | T[] | NavItem[] | null>
 }
 
 const NAVIGATION_INTERNAL_FIELDS = [
@@ -104,20 +104,54 @@ const isNotFoundError = (error: unknown) => {
   return statusCode === 404
 }
 
-const isQueryEnvelope = (response: unknown): response is {
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isFindResponseEnvelope = (response: unknown): response is {
   result?: unknown
   total?: unknown
   skip?: unknown
   limit?: unknown
-} => Boolean(response && typeof response === 'object' && 'result' in response)
+} => isObject(response) &&
+  Array.isArray(response.result) &&
+  typeof response.total === 'number' &&
+  (typeof response.skip === 'undefined' || typeof response.skip === 'number') &&
+  (typeof response.limit === 'undefined' || typeof response.limit === 'number')
 
-const unwrapResponse = <T>(response: unknown): T | T[] | null => {
+const isResultOnlyEnvelope = (response: unknown): response is { result?: unknown } =>
+  isObject(response) &&
+  'result' in response &&
+  Object.keys(response).length === 1
+
+const isSingleQueryEnvelope = (response: unknown): response is {
+  result?: unknown
+  total?: unknown
+  skip?: unknown
+  limit?: unknown
+} => isFindResponseEnvelope(response) || isResultOnlyEnvelope(response)
+
+const isListQueryEnvelope = (response: unknown): response is {
+  result?: unknown
+  total?: unknown
+  skip?: unknown
+  limit?: unknown
+} => isFindResponseEnvelope(response)
+
+const unwrapOneResponse = <T>(response: unknown): T | T[] | null => {
   if (!response) return null
-  if (isQueryEnvelope(response)) {
+  if (isSingleQueryEnvelope(response)) {
     const result = response.result
     return (result ?? null) as T | T[] | null
   }
   return response as T
+}
+
+const unwrapListResponse = <T>(response: unknown): T[] => {
+  if (!response) return []
+  if (isListQueryEnvelope(response)) {
+    return response.result as T[]
+  }
+  return Array.isArray(response) ? response as T[] : [response as T]
 }
 
 const unwrapFindResponse = <T>(response: unknown): {
@@ -131,7 +165,7 @@ const unwrapFindResponse = <T>(response: unknown): {
     return { result: [], total: 0, skip: 0, limit: 0, hasTotal: false }
   }
 
-  if (isQueryEnvelope(response)) {
+  if (isListQueryEnvelope(response)) {
     const result = Array.isArray(response.result) ? response.result as T[] : response.result ? [response.result as T] : []
     const hasTotal = typeof response.total === 'number'
     return {
@@ -151,7 +185,7 @@ const unwrapCountResponse = (response: unknown) => {
   if (typeof response === 'number') {
     return response
   }
-  if (isQueryEnvelope(response) && typeof response.result === 'number') {
+  if (isSingleQueryEnvelope(response) && typeof response.result === 'number') {
     return response.result
   }
   return null
@@ -475,7 +509,7 @@ export async function resolveOne<
     throw error
   }
 
-  const unwrapped = unwrapResponse<ParsedContent>(response)
+  const unwrapped = unwrapOneResponse<ParsedContent>(response)
   const doc = Array.isArray(unwrapped) ? (unwrapped[0] ?? null) : (unwrapped ?? null)
   const decorated = decorate(doc as ParsedContent, collection, runtime, options.locale)
   const populated = decorated
@@ -541,8 +575,7 @@ export async function many<
     throw error
   }
 
-  const unwrapped = unwrapResponse<ParsedContent>(response)
-  const list = Array.isArray(unwrapped) ? unwrapped : unwrapped ? [unwrapped] : []
+  const list = unwrapListResponse<ParsedContent>(response)
   const decorated = list
     .map(doc => decorate(doc as ParsedContent, collection, runtime, options.locale))
     .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))

@@ -155,8 +155,8 @@ export const compileQueryParams = (input: {
   fallback?: LocaleFallback
   exact?: boolean
 }): ContentQueryBuilderParams => {
-  const path = input.by && 'path' in input.by ? normalizeContentPath(input.by.path) : undefined
-  const route = input.by && 'route' in input.by ? normalizeContentPath(input.by.route) : undefined
+  const path = input.by && 'path' in input.by && typeof input.by.path === 'string' ? normalizeContentPath(input.by.path) : undefined
+  const route = input.by && 'route' in input.by && typeof input.by.route === 'string' ? normalizeContentPath(input.by.route) : undefined
   const ref = input.by && 'ref' in input.by ? input.by.ref : undefined
   const where = compileWhere(input.where)
   const sort = compileSort(input.sort)

@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { ContentQueryBuilderParams } from '../types/query'
-import type { ContentQueryResponse } from '../types/api'
+import type { ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../types/api'
 import type { ParsedContent } from '../types/content'
 import { collectMarkdownRefLinks, parseRefLink } from '../core/references/resolve'
 import { contentConfig } from './driver'
@@ -67,7 +67,7 @@ export const withResolvedRefs = async <T> (event: H3Event, content: T, requested
     return content
   }
 
-  const resolvedRefs = await resolveDocumentRefLinks(event, content as ParsedContent, requestedLocale)
+  const resolvedRefs = await resolveDocumentRefLinks(event, content as unknown as ParsedContent, requestedLocale)
   if (!resolvedRefs) {
     return content
   }
@@ -86,7 +86,7 @@ export const withResolvedRefsQueryResponse = async <T> (
   event: H3Event,
   response: ContentQueryResponse<T>,
   params: ContentQueryBuilderParams
-) => {
+): Promise<ContentQueryResponse<T>> => {
   if (typeof response.result === 'number') {
     return response
   }
@@ -94,16 +94,20 @@ export const withResolvedRefsQueryResponse = async <T> (
   const requestedLocale = params.resolveLocale?.locale
 
   if (params.first) {
+    const firstResponse = response as ContentQueryFindOneResponse<T>
     return {
-      ...response,
-      result: await withResolvedRefs(event, response.result, requestedLocale)
+      ...firstResponse,
+      result: await withResolvedRefs(event, firstResponse.result, requestedLocale)
     }
   }
 
+  if (!Array.isArray(response.result)) {
+    return response
+  }
+
+  const listResponse = response as ContentQueryFindResponse<T>
   return {
-    ...response,
-    result: Array.isArray(response.result)
-      ? await withResolvedRefsList(event, response.result, requestedLocale)
-      : response.result
+    ...listResponse,
+    result: await withResolvedRefsList(event, listResponse.result, requestedLocale)
   }
 }

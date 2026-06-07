@@ -44,7 +44,10 @@ export class ContentError extends Error {
     context: Record<string, unknown> = {},
     options?: { cause?: unknown }
   ) {
-    super(message, options)
+    super(message)
+    if (options?.cause !== undefined) {
+      ;(this as Error & { cause?: unknown }).cause = options.cause
+    }
     this.name = 'ContentError'
     this.code = code
     this.context = context

@@ -2,7 +2,7 @@ import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
 import type { ContentCollectionMap } from '@lupinum/ginko-content'
 import type { ParsedContent } from '../../types/content'
-import type { ContentQueryResponse } from '../../types/api'
+import type { ContentQueryCountResponse, ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type {
   CollectionQueryBuilder,
   ContentQueryBuilderParams,
@@ -15,16 +15,72 @@ import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../f
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { getContentRuntimeConfig } from './runtime-config'
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isProviderFindResponse = <T>(response: unknown): response is ContentQueryFindResponse<T> =>
+  isObject(response) &&
+  Array.isArray(response.result) &&
+  typeof response.skip === 'number' &&
+  typeof response.limit === 'number' &&
+  typeof response.total === 'number'
+
 export const normalizeProviderQueryResult = <T>(response: ContentQueryResponse<T> | T[] | T | number | undefined): T[] => {
   if (Array.isArray(response)) {
     return response
   }
 
-  if (response && typeof response === 'object' && 'result' in response) {
-    return Array.isArray(response.result) ? response.result : []
+  if (isProviderFindResponse<T>(response)) {
+    return response.result
   }
 
   return []
+}
+
+const isProviderFindOneResponse = <T>(response: unknown): response is ContentQueryFindOneResponse<T> =>
+  isObject(response) &&
+  'result' in response &&
+  Object.keys(response).length === 1
+
+const isProviderCountResponse = (response: unknown): response is ContentQueryCountResponse =>
+  isObject(response) &&
+  typeof response.result === 'number' &&
+  Object.keys(response).length === 1
+
+export const normalizeProviderQueryResponse = <T>(
+  params: ContentQueryBuilderParams,
+  response: ContentQueryResponse<T> | T[] | T | number | undefined
+): ContentQueryResponse<T> => {
+  if (params.count) {
+    if (isProviderCountResponse(response)) {
+      return response
+    }
+    return { result: typeof response === 'number' ? response : 0 }
+  }
+
+  if (params.first) {
+    if (isProviderFindOneResponse<T>(response)) {
+      return response
+    }
+    return { result: Array.isArray(response) ? response[0] : response as T | undefined }
+  }
+
+  if (isProviderFindResponse<T>(response)) {
+    return response
+  }
+
+  const result = Array.isArray(response)
+    ? response
+    : typeof response === 'undefined' || typeof response === 'number'
+      ? []
+      : [response as T]
+
+  return {
+    result,
+    skip: params.skip || 0,
+    limit: typeof params.limit === 'number' ? params.limit : result.length,
+    total: result.length
+  }
 }
 
 const identityMatchesDocument = (document: ParsedContent, identity: string) => {
@@ -129,7 +185,8 @@ export const resolveProviderContentVariants = async (
 export const createServerProviderQueryFetch = <T = ParsedContent>(event: H3Event) => {
   return async (query: ContentQueryRequest) => {
     const { getContentProvider } = await import('./providers')
-    return await (await getContentProvider(event)).query<T>(event, query.params())
+    const response = await (await getContentProvider(event)).query<T>(event, query.params())
+    return normalizeProviderQueryResponse(query.params(), response)
   }
 }
 

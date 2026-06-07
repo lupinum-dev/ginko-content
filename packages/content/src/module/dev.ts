@@ -30,7 +30,7 @@ export const registerContentDevRuntime = (
     })
   }
 
-  nuxt.hook('nitro:init', async (nitro) => {
+  ;(nuxt.hook as any)('nitro:init', async (nitro: any) => {
     if (options.watch === false) {
       return
     }

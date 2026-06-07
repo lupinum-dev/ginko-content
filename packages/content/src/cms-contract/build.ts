@@ -611,7 +611,7 @@ type CmsStringCheck = NonNullable<
 
 function stringChecks(schema: unknown): CmsStringCheck[] | undefined {
   const checks: Array<
-    { kind: 'min'; value: number } | { kind: 'max'; value: number } | { kind: 'email' }
+    { kind: 'min'; value: number } | { kind: 'max'; value: number } | { kind: 'email' } | { kind: 'url' }
   > = []
   const value = schema as { minLength?: unknown; maxLength?: unknown; format?: unknown }
   if (typeof value.minLength === 'number') checks.push({ kind: 'min', value: value.minLength })

@@ -6,7 +6,7 @@ import githubDriver from 'unstorage/drivers/github'
 import { consola } from 'consola'
 
 import type { ModuleOptions, MountOptions } from './types'
-import type { ResolvedMarkdownPlugin } from './types/content'
+import type { MarkdownOptions, ResolvedMarkdownPlugin } from './types/content'
 
 export const logger = consola.withTag('@lupinum/ginko-content')
 
@@ -30,7 +30,7 @@ const unstorageDrivers = {
 export async function getMountDriver (mount: MountOptions) {
   const dirverName = mount.driver as keyof typeof unstorageDrivers
   if (unstorageDrivers[dirverName]) {
-    return unstorageDrivers[dirverName](mount as Record<string, unknown>)
+    return unstorageDrivers[dirverName](mount as any)
   }
 
   const driver = (await import(mount.driver)).default
@@ -61,7 +61,7 @@ export function useContentMounts (nuxt: Nuxt, storages: Record<string, MountOpti
 
   return storages
 }
-export function processMarkdownOptions (options: ModuleOptions['markdown']) {
+export function processMarkdownOptions (options: ModuleOptions['markdown']): MarkdownOptions {
   // Refine anchor link generation
   const anchorLinks = typeof options.anchorLinks === 'boolean'
     ? { depth: options.anchorLinks ? 6 : 0, exclude: [] }
@@ -74,8 +74,9 @@ export function processMarkdownOptions (options: ModuleOptions['markdown']) {
       ] satisfies ModuleOptions['markdown']['plugins']
 
   return {
-    ...options,
     anchorLinks,
+    tags: options.tags || {},
+    image: options.image,
     plugins: resolveMarkdownPlugins(plugins)
   }
 }

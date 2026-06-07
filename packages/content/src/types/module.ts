@@ -1,4 +1,4 @@
-import type { MarkdownPluginDescriptor } from './content'
+import type { MarkdownOptions, MarkdownPluginDescriptor } from './content'
 import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentQueryBuilderWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
@@ -478,4 +478,8 @@ export interface ContentContext extends ModuleOptions {
   localeFallback: Record<string, string[]>
   translatedSlugs: boolean
   strictTranslatedSlugs: boolean
+}
+
+export type ResolvedContentContext = Omit<ContentContext, 'markdown'> & {
+  markdown: MarkdownOptions
 }

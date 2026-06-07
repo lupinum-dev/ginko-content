@@ -159,7 +159,7 @@ const isLocalePrefixedPath = (path: string, locales: string[]) => {
 export const prefixPathWithLocale = (path: string, locale?: string, defaultLocale?: string) => {
   const normalizedPath = normalizeContentPath(path || '/')
 
-  if (!locale || locale === defaultLocale) {
+  if (!locale || !defaultLocale || locale === defaultLocale) {
     return normalizedPath
   }
 

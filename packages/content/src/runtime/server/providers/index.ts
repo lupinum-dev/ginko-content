@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 import type { ContentQueryBuilderParams } from '../../../types/query'
 import type { ContentProvider } from '../../../public/provider'
 import { createContentProviderError } from '../../../public/provider-errors'
-import { wrapContentProviderCacheResults } from '../provider-result'
+import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '../provider-result'
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -208,7 +208,9 @@ const validateContentProvider = (providerName: string, provider: unknown): Conte
   return provider as unknown as ContentProvider
 }
 
-export const getContentProvider = async (event?: H3Event): Promise<ContentProvider> => {
+export async function getContentProvider(): Promise<ContentProvider>
+export async function getContentProvider(event: H3Event): Promise<RuntimeContentProvider>
+export async function getContentProvider(event?: H3Event): Promise<ContentProvider | RuntimeContentProvider> {
   const runtime = event ? useRuntimeConfig(event) : useRuntimeConfig()
   const eventContent = event?.context?.contentRuntime as { provider?: unknown } | undefined
   const provider = eventContent?.provider || runtime.content?.provider || runtime.public?.content?.provider || 'filesystem'

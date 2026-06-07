@@ -26,7 +26,7 @@ const defaultCollectNavPaths = (items: Array<{ _path?: string, children?: any[] 
 
 const unwrapProviderResult = <T>(value: T): T extends { data: infer Data } ? Data : T =>
   value && typeof value === 'object' && (value as Record<string, unknown>)[contentProviderResultMarker]
-    ? (value as { data: any }).data
+    ? (value as unknown as { data: any }).data
     : value as any
 
 export const runSaasProviderFixtureContractSuite = ({

@@ -43,11 +43,11 @@ export const filesystemProvider: ContentProvider = {
       count: true
     }
   },
-  query: <T = ParsedContent>(event: H3Event, query) => {
+  query: <T = ParsedContent>(event: H3Event, query: import('../../../types/query').ContentQueryBuilderParams) => {
     if (containsStandaloneRegexOptions(query.where)) {
       throw new TypeError('Query operator $options requires $regex.')
     }
-    return executeFilesystemContentQuery<T>(event, query)
+    return executeFilesystemContentQuery<T>(event, query) as Promise<import('../../../public/provider').MaybeContentProviderResult<import('../../../types/api').ContentQueryResponse<T> | T[] | T | number | undefined>>
   },
   navigationQuery: (event: H3Event, query) => resolveContentNavigation(event, query),
   navigation: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) =>

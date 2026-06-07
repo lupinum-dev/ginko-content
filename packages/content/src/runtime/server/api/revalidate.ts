@@ -12,7 +12,7 @@ const normalizePath = (path: string) => {
 
 const normalizeStringList = (value: unknown, normalize: (value: string) => string = value => value) =>
   Array.isArray(value)
-    ? Array.from(new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim()).map(entry => normalize(entry.trim()))))
+    ? Array.from(new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).map(entry => normalize(entry.trim()))))
     : undefined
 
 const SIGNATURE_TOLERANCE_MS = 5 * 60 * 1000
@@ -119,7 +119,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const rawBody = await readRawBody(event).catch(() => undefined)
-  const bodyText = typeof rawBody === 'string' ? rawBody : rawBody?.toString()
+  const bodyText = typeof rawBody === 'string' ? rawBody : rawBody === undefined ? undefined : String(rawBody)
   if (!bodyText) {
     throw createError({
       statusCode: 400,

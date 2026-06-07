@@ -311,6 +311,10 @@ export interface ContentCollectionPageOptions {
    */
   fallback?: string[] | boolean
   /**
+   * Disable fallback matching when resolving the requested locale.
+   */
+  exact?: boolean
+  /**
    * When `true`, keep canonical paths in the returned route metadata.
    */
   canonical?: boolean
@@ -328,6 +332,10 @@ export interface ContentCollectionRouteMetaOptions {
    * Enable or customize locale fallback resolution.
    */
   fallback?: string[] | boolean
+  /**
+   * Disable fallback matching when resolving the requested locale.
+   */
+  exact?: boolean
 }
 
 /**

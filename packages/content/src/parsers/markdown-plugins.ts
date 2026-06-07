@@ -8,7 +8,7 @@ import materialThemePalenight from 'shiki/dist/themes/material-theme-palenight.m
 import type { ResolvedMarkdownPlugin } from '../types/content'
 
 type BuiltinMarkdownPluginSpec = {
-  load: () => Promise<(options?: Record<string, unknown>) => ComarkPlugin>
+  load: () => Promise<any>
 }
 
 type ShikiTransformer = {
@@ -74,7 +74,7 @@ const restoreSerializedShikiTransformers = async (transformers: unknown): Promis
     shikiTransformersModule ||= await import('@shikijs/transformers')
     const factory = shikiTransformersModule[factoryName]
     if (typeof factory !== 'function') {
-      throw new Error(`[ginko-content] Failed to restore serialized Shiki transformer "${(transformer as ShikiTransformer).name}". Install @shikijs/transformers in the app or remove the transformer from content.markdown.plugins.`)
+      throw new TypeError(`[ginko-content] Failed to restore serialized Shiki transformer "${(transformer as ShikiTransformer).name}". Install @shikijs/transformers in the app or remove the transformer from content.markdown.plugins.`)
     }
 
     return (factory as () => unknown)()

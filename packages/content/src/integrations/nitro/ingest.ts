@@ -8,7 +8,7 @@ import { resolveCollection, resolveCollections } from '../../core/content/collec
 import { expandDataLocaleVariants } from '../../core/content/locale'
 import { createContentError, validateCollectionDocument } from '../../storage/validation'
 import type { ParseContentOptions } from '../../types/runtime'
-import type { ContentContext } from '../../types/module'
+import type { ResolvedContentContext } from '../../types/module'
 
 const loadCustomTransformers = async () => {
   try {
@@ -52,7 +52,7 @@ const expandLocaleVariants = async (document: ParsedContent, options: ParseConte
     const collection = document._collection && options.pathMeta?.collections
       ? options.pathMeta.collections[document._collection]
       : undefined
-    return expandDataLocaleVariants(document, collection?.i18n)
+    return expandDataLocaleVariants(document, collection?.i18n === true ? undefined : collection?.i18n)
   } catch (cause) {
     throw new ContentError(
       'TRANSFORM_FAILED',
@@ -110,7 +110,7 @@ const validateVariants = (
 export const parseContentVariants = async (
   id: string,
   content: StorageValue,
-  runtimeContentConfig: ContentContext,
+  runtimeContentConfig: ResolvedContentContext,
   opts: ParseContentOptions = {}
 ) => {
   const nitroApp = useNitroApp()
@@ -123,14 +123,14 @@ export const parseContentVariants = async (
       yaml: runtimeContentConfig.yaml,
       transformers: customTransformers,
       pathMeta: {
-        defaultLocale: runtimeContentConfig.defaultLocale,
+        defaultLocale: runtimeContentConfig.defaultLocale || undefined,
         translatedSlugs: runtimeContentConfig.translatedSlugs,
         locales: runtimeContentConfig.locales,
         respectPathCase: runtimeContentConfig.respectPathCase,
-        collections: runtimeContentConfig.collections
+        collections: runtimeContentConfig.collections || undefined
       }
     }
-  )
+  ) as unknown as ParseContentOptions
 
   const file = { _id: id, body: typeof content === 'string' ? content.replace(/\r\n|\r/g, '\n') : content }
   await nitroApp.hooks.callHook('content:file:beforeParse', file)
@@ -159,7 +159,7 @@ export const parseContentVariants = async (
 export const parseContent = async (
   id: string,
   content: StorageValue,
-  runtimeContentConfig: ContentContext,
+  runtimeContentConfig: ResolvedContentContext,
   opts: ParseContentOptions = {}
 ) => {
   const variants = await parseContentVariants(id, content, runtimeContentConfig, opts)

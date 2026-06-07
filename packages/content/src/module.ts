@@ -20,7 +20,7 @@ import {
   processMarkdownOptions,
   useContentMounts
 } from './utils'
-import type { ContentContext, ContentRevalidateOptions, ModuleOptions } from './types/module'
+import type { ContentContext, ContentRevalidateOptions, ModuleOptions, ResolvedContentContext } from './types/module'
 import { loadContentConfig, resolveContentConfigPath } from './utils/content-config'
 import { createVirtualContentTemplates, registerVirtualContentAliases } from './module/virtual'
 import { registerContentDevRuntime } from './module/dev'
@@ -40,6 +40,15 @@ import { validateContentPageRouteMetadata } from './module/route-meta-validation
 import { collectTopLevelReferenceFieldsByTarget } from './core/references/schema'
 import { normalizeAgentRouteOptions } from './module/agent-options'
 import { hasAgentSurface, validateAgentConfig } from './module/agent-config'
+
+const hookNuxtBoundary = <T>(
+  nuxt: { hook: unknown },
+  name: string,
+  callback: (payload: T) => void | Promise<void>
+) => {
+  const hook = nuxt.hook as (hookName: string, callback: (payload: T) => void | Promise<void>) => void
+  hook(name, callback)
+}
 
 const normalizeRoutePath = (path: string) => {
   if (!path || path === '/') return '/'
@@ -262,11 +271,19 @@ export default defineNuxtModule<ModuleOptions>({
       sitemap: resolvedSitemap,
       search: resolvedSearch
     }
+    let resolvedContentContext: ResolvedContentContext | undefined
+    const getResolvedContentContext = () => {
+      if (!resolvedContentContext) {
+        throw new Error('Content runtime config was read before content context resolution completed.')
+      }
+      return resolvedContentContext
+    }
+
     if (resolvedSitemap !== false) {
       configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
     }
     nuxt.hook('pages:extend', (pages) => {
-      validateContentPageRouteMetadata(pages, options.collections, {
+      validateContentPageRouteMetadata(pages, options.collections || {}, {
         locales: resolvedI18n.locales,
         defaultLocale: resolvedI18n.defaultLocale
       })
@@ -275,10 +292,10 @@ export default defineNuxtModule<ModuleOptions>({
       // Validate the final XML files through Nuxt Sitemap's own hook. Nitro's lower-level build
       // hooks can run before locale child sitemaps exist, which is what caused the earlier false
       // positives and the temptation to paper over things with app-owned prerender route lists.
-      nuxt.hook('sitemap:prerender:done' as any, async ({ sitemaps }: {
+      hookNuxtBoundary(nuxt, 'sitemap:prerender:done', async ({ sitemaps }: {
         sitemaps: Array<{ name: string, content: string }>
       }) => {
-        const assertOptions = contentContext.sitemap?.assert
+        const assertOptions = resolvedSitemap ? resolvedSitemap.assert : undefined
         if (!assertOptions || !shouldRunSitemapAssertionOnPrerenderedSitemaps(assertOptions)) {
           return
         }
@@ -286,7 +303,7 @@ export default defineNuxtModule<ModuleOptions>({
         await assertGeneratedSitemaps({
           options: assertOptions,
           targets: createSitemapAssertionTargetsFromPrerenderedSitemaps(sitemaps),
-          collectionRouteCounts: await collectSitemapCollectionRouteCounts(nuxt.options.rootDir, contentContext),
+          collectionRouteCounts: await collectSitemapCollectionRouteCounts(nuxt.options.rootDir, getResolvedContentContext()),
           logger
         })
       })
@@ -308,7 +325,7 @@ export default defineNuxtModule<ModuleOptions>({
     const getSearchRuntime = () => contentContext.search === false
       ? false
       : createSearchRuntimeConfig(contentContext.search, options.api.baseURL)
-    nuxt.hook('nitro:config', (nitroConfig) => {
+    hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
       const searchRuntime = getSearchRuntime()
       nitroConfig.prerender = nitroConfig.prerender || {}
       nitroConfig.prerender.routes = nitroConfig.prerender.routes || []
@@ -329,7 +346,7 @@ export default defineNuxtModule<ModuleOptions>({
       // Tell Nuxt to ignore content dir for app build
       for (const source of Object.values(sources)) {
         // Only targets directories inside the srcDir
-        if (source.driver === 'fs' && source.base.includes(nuxt.options.srcDir)) {
+        if (source.driver === 'fs' && typeof source.base === 'string' && source.base.includes(nuxt.options.srcDir)) {
           const wildcard = join(source.base, '**/*').replace(withTrailingSlash(nuxt.options.srcDir), '')
           nuxt.options.ignore.push(
             // Remove `srcDir` from the path
@@ -363,7 +380,7 @@ export default defineNuxtModule<ModuleOptions>({
           nitroConfig.plugins.push(sitemapPlugin)
         }
       }
-      if (contentContext.cache && contentContext.cache !== false) {
+      if (contentContext.cache) {
         nitroConfig.plugins ||= []
         const cachePlugin = resolveRuntimeModule('server/plugins/cache.js')
         if (!nitroConfig.plugins.includes(cachePlugin)) {
@@ -371,21 +388,21 @@ export default defineNuxtModule<ModuleOptions>({
         }
       }
 
+      const resolvedRuntimeContext = getResolvedContentContext()
       registerContentNitroIntegrationHooks(nitroConfig, {
         rootDir: nuxt.options.rootDir,
         sitemapPrerenderRoutes: () => contentContext.sitemap === false ? [] : resolveNuxtSitemapPrerenderRoutes(nuxt)
       }, {
-        collections: contentContext.collections,
-        locales: contentContext.locales,
-        defaultLocale: contentContext.defaultLocale,
-        translatedSlugs: contentContext.translatedSlugs,
-        strictTranslatedSlugs: contentContext.strictTranslatedSlugs,
-        respectPathCase: contentContext.respectPathCase,
-        markdown: contentContext.markdown,
-        yaml: contentContext.yaml,
-        csv: contentContext.csv,
-        sitemap: contentContext.sitemap,
-        provider: contentContext.provider
+        collections: resolvedRuntimeContext.collections,
+        locales: resolvedRuntimeContext.locales,
+        defaultLocale: resolvedRuntimeContext.defaultLocale,
+        translatedSlugs: resolvedRuntimeContext.translatedSlugs,
+        respectPathCase: resolvedRuntimeContext.respectPathCase,
+        markdown: resolvedRuntimeContext.markdown,
+        yaml: resolvedRuntimeContext.yaml,
+        csv: resolvedRuntimeContext.csv,
+        sitemap: resolvedRuntimeContext.sitemap,
+        provider: resolvedRuntimeContext.provider
       })
 
       const agentRoutes = normalizeAgentRouteOptions(options)
@@ -411,12 +428,15 @@ export default defineNuxtModule<ModuleOptions>({
       }
     })
     if (!nuxt.options.dev) {
-      nuxt.hook('nitro:build:before', (nitro) => {
-        nitro.hooks.hook('prerender:init', (prerenderer) => {
+      hookNuxtBoundary(nuxt, 'nitro:build:before', (nitro: {
+        hooks: { hook: (name: string, callback: (payload: any) => void | Promise<void>) => void }
+        options: { output: { publicDir?: string } }
+      }) => {
+        nitro.hooks.hook('prerender:init', (prerenderer: any) => {
           prerenderer.hooks.hook('compiled', async () => {
             const searchRuntime = getSearchRuntime()
             const publicDir = nitro.options.output.publicDir
-              || nuxt.options.nitro.output?.publicDir
+              || (nuxt.options as { nitro?: { output?: { publicDir?: string } } }).nitro?.output?.publicDir
               || resolveFilePath(nuxt.options.rootDir, '.output/public')
             const serverFilename = typeof prerenderer.options.rollupConfig?.output?.entryFileNames === 'string'
               ? prerenderer.options.rollupConfig.output.entryFileNames
@@ -511,8 +531,11 @@ export default defineNuxtModule<ModuleOptions>({
       }
 
       contentContext.defaultLocale = contentContext.defaultLocale || contentContext.locales[0]
-      contentContext.markdown = processMarkdownOptions(contentContext.markdown)
-      await validateBuiltinMarkdownPlugins(contentContext.markdown.plugins, resolvePath)
+      resolvedContentContext = {
+        ...contentContext,
+        markdown: processMarkdownOptions(contentContext.markdown)
+      }
+      await validateBuiltinMarkdownPlugins(resolvedContentContext.markdown.plugins, resolvePath)
 
       const runtimeCollections = Object.fromEntries(Object.entries(options.collections || {}).map(([name, collection]) => {
         const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
@@ -531,19 +554,19 @@ export default defineNuxtModule<ModuleOptions>({
         ]
       }))
       const cacheIntegrity = hash({
-        locales: contentContext.locales,
-        defaultLocale: contentContext.defaultLocale,
-        localeFallback: contentContext.localeFallback,
-        translatedSlugs: contentContext.translatedSlugs,
-        strictTranslatedSlugs: contentContext.strictTranslatedSlugs,
-        respectPathCase: contentContext.respectPathCase,
+        locales: resolvedContentContext.locales,
+        defaultLocale: resolvedContentContext.defaultLocale,
+        localeFallback: resolvedContentContext.localeFallback,
+        translatedSlugs: resolvedContentContext.translatedSlugs,
+        strictTranslatedSlugs: resolvedContentContext.strictTranslatedSlugs,
+        respectPathCase: resolvedContentContext.respectPathCase,
         collections: runtimeCollections,
-        markdown: contentContext.markdown,
-        yaml: contentContext.yaml,
-        csv: contentContext.csv
+        markdown: resolvedContentContext.markdown,
+        yaml: resolvedContentContext.yaml,
+        csv: resolvedContentContext.csv
       })
 
-      applyContentRuntimeConfig(nuxt, options, contentContext, runtimeCollections, buildIntegrity, cacheIntegrity)
+      applyContentRuntimeConfig(nuxt, options, resolvedContentContext, runtimeCollections, buildIntegrity, cacheIntegrity)
     })
 
     if (nuxt.options.dev) {
@@ -627,7 +650,7 @@ function validateCollectionNames (collections: Record<string, ContentCollectionC
 }
 
 function validateRemovedMarkdownOptions (options: ModuleOptions) {
-  if ((options as Record<string, unknown>).highlight !== undefined) {
+  if ((options as unknown as Record<string, unknown>).highlight !== undefined) {
     throw new Error('`content.highlight` was removed. Enable syntax highlighting with `content.markdown.plugins`, for example `[[\'highlight\', { ...options }]]`.')
   }
 
@@ -652,8 +675,10 @@ async function validateBuiltinMarkdownPlugins (
 
     try {
       await resolvePath(peerDependency)
-    } catch (error: any) {
-      throw new Error(`Markdown plugin "${plugin.name}" requires "${peerDependency}" to be installed.`, { cause: error })
+    } catch (error: unknown) {
+      const next = new Error(`Markdown plugin "${plugin.name}" requires "${peerDependency}" to be installed.`)
+      ;(next as Error & { cause?: unknown }).cause = error
+      throw next
     }
   }
 }

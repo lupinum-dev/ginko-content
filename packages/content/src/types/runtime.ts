@@ -1,5 +1,5 @@
 import type { StorageValue } from 'unstorage'
-import type { ParsedContent, ContentTransformer } from './content'
+import type { ParsedContent, ContentTransformer, MarkdownOptions } from './content'
 import type { ContentCollectionConfig } from './config'
 import type { ContentContext, ModuleOptions } from './module'
 
@@ -34,7 +34,7 @@ export interface ParseContentOptions {
   validate?: boolean
   csv?: ModuleOptions['csv']
   yaml?: ModuleOptions['yaml']
-  markdown?: ModuleOptions['markdown']
+  markdown?: ModuleOptions['markdown'] | MarkdownOptions
   transformers?: ContentTransformer[]
   pathMeta?: {
     locales?: ContentContext['locales']

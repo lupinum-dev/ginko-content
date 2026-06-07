@@ -29,17 +29,20 @@ export default defineTransformer({
   name: 'csv',
   extensions: ['.csv'],
   parse: async (_id, content, options = {}) => {
-    const tree = fromCSV(content, {
+    const csvOptions = typeof options === 'object' && options !== null
+      ? options as { delimiter?: string, json?: boolean }
+      : {}
+    const tree = fromCSV(String(content ?? ''), {
       delimiter: ',',
       json: true,
-      ...options
+      ...csvOptions
     })
-    const result = options.json === false ? toJsonArray(tree) : toJsonObject(tree)
+    const result = csvOptions.json === false ? toJsonArray(tree) : toJsonObject(tree)
 
-    return <ParsedContent> {
+    return {
       _id,
       _type: 'csv',
       body: result
-    }
+    } as unknown as ParsedContent
   }
 })

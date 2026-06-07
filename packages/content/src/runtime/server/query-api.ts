@@ -37,6 +37,7 @@ import {
 import { getContentProvider } from './providers'
 import { createContentProviderError } from '../../public/provider-errors'
 import { getContentRuntimeConfig } from './runtime-config'
+import { normalizeProviderQueryResponse } from './provider-query'
 
 export const createServerContentQueryContext = async (event: H3Event): Promise<ContentQueryContext> => {
   const provider = await getContentProvider(event)
@@ -52,7 +53,7 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
         }
         return await provider.navigationQuery(event, params)
       }
-      return await provider.query(event, params)
+      return normalizeProviderQueryResponse(params, await provider.query(event, params))
     }
   }
 }

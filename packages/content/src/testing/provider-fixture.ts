@@ -1,7 +1,7 @@
 import { contentProviderResultMarker, type ContentCacheHint, type ContentCacheInvalidateInput, type ContentProvider } from '../public/provider'
 import type { H3Event } from 'h3'
 import type { NavItem, ParsedContent } from '../types/content'
-import type { ContentQueryBuilderParams } from '../types/query'
+import type { ContentCollectionPageOptions, ContentPageResult, ContentQueryBuilderParams } from '../types/query'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
@@ -69,12 +69,31 @@ export interface ProviderFixtureEventOptions {
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isQueryResultEnvelope = (value: unknown): value is { result?: unknown } => {
+  if (!isObject(value)) {
+    return false
+  }
+
+  const keys = Object.keys(value)
+  if (keys.length === 1 && keys[0] === 'result') {
+    return true
+  }
+
+  return Array.isArray(value.result) &&
+    typeof value.total === 'number' &&
+    (typeof value.skip === 'undefined' || typeof value.skip === 'number') &&
+    (typeof value.limit === 'undefined' || typeof value.limit === 'number')
+}
+
 const unwrapResponseResult = <T>(response: unknown): T | T[] | number | undefined => {
-  if (response && typeof response === 'object' && (response as Record<string, unknown>)[contentProviderResultMarker] === true) {
+  if (isObject(response) && response[contentProviderResultMarker] === true) {
     return unwrapResponseResult<T>((response as { data?: unknown }).data)
   }
-  if (response && typeof response === 'object' && 'result' in response) {
-    return (response as { result?: T | T[] | number }).result
+  if (isQueryResultEnvelope(response)) {
+    return response.result as T | T[] | number | undefined
   }
   return response as T | T[] | number | undefined
 }
@@ -148,7 +167,7 @@ const referenceEntryTags = (fixture: ProviderFixture, doc: ParsedContent) => {
 
   return Array.from(new Set(collectStringValues(doc)
     .map(value => knownRefs.get(value))
-    .filter((tag): tag is string => typeof tag === 'string')))
+    .filter((tag): tag is `entry:${string}:${string}` => typeof tag === 'string')))
 }
 
 const createCacheHintForDocument = (
@@ -465,7 +484,8 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         id: localizePath(fixture, collection, doc._path || '/', options.locale || doc._locale),
         title: doc.title || '',
         titles: [doc.title || ''],
-        content: String(doc.description || doc.title || '')
+        content: String(doc.description || doc.title || ''),
+        level: 1
       }))
     },
     search: async (_event, request) => {
@@ -494,7 +514,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         updatedAt: 0
       }
     },
-    page: async (event, collection, routeOrPath = '/', options = {}) => {
+    page: async <T = ParsedContent>(event: H3Event, collection: string, routeOrPath = '/', options: ContentCollectionPageOptions = {}) => {
       assertCollection(collection)
       if (fixture.collections[collection]?.type === 'data') {
         throw createContentProviderError('data_collection_route_access', `${collection} is a data collection.`, { collection })
@@ -525,12 +545,12 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       const hint = createCacheHintForDocument(fixture, doc, page.path)
       collectContentCacheHint(event, hint)
       recordRouteDependencies(cache, page.path, hint.tags || [])
-      return page
+      return page as unknown as ContentPageResult<T>
     },
     routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
-      const page = await provider.page(event, collection, routeOrPath, options)
+      const page = await provider.page!(event, collection, routeOrPath, options)
       return page
-        ? createRouteMeta(page, options.locale || page.locale, fixture.defaultLocale, routeMountsFor(fixture, collection))
+        ? createRouteMeta(page as any, options.locale || (page as any).locale, fixture.defaultLocale, routeMountsFor(fixture, collection))
         : null
     },
     sitemapEntries: async (event, options = {}) => {
@@ -559,7 +579,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     }
   }
 
-  return Object.assign(provider, { cache })
+  return Object.assign(provider as ContentProvider, { cache })
 }
 
 export const createSaasProviderFixture = () => createProviderFixture({

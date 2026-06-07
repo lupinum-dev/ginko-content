@@ -1,8 +1,7 @@
 import type { H3Event } from 'h3'
 import { kebabCase, pascalCase } from 'scule'
-import type { ContentQueryResponse } from '../../types/api'
 import type { MarkdownNode, MarkdownRoot, ParsedContent } from '../../types/content'
-import type { AgentMetadataField, ContentAgentMarkdownOptions, ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
+import type { AgentMetadataField, ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../agent-paths'
 import { getCollectionPath } from '../query/routes'
 import { getContentProvider } from './providers'
@@ -85,7 +84,7 @@ const configuredLocales = () => {
 const prefixLocalizedHref = (path: string, locale?: string) => {
   const normalized = normalizeAgentRoutePath(path)
   if (!locale || locale === defaultLocale()) return normalized
-  if (configuredLocales().some(candidate => normalized === `/${candidate}` || normalized.startsWith(`/${candidate}/`))) return normalized
+  if (configuredLocales().some((candidate: string) => normalized === `/${candidate}` || normalized.startsWith(`/${candidate}/`))) return normalized
   return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
 }
 
@@ -143,7 +142,7 @@ export const imageMarkdown = (alt: string, src: string) => {
 export const jsonFenceMarkdown = (value: unknown) =>
   `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``
 
-const xmlNamePattern = /^[A-Za-z][A-Za-z0-9._:-]*$/
+const xmlNamePattern = /^[a-z][\w.:-]*$/i
 
 const safeXmlName = (name: string) =>
   xmlNamePattern.test(name) ? name : 'component'
@@ -152,12 +151,6 @@ const escapeXmlAttribute = (value: string) =>
   value
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-const escapeXmlText = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
@@ -177,7 +170,7 @@ const shouldDropAgentProp = (name: string) => {
     || normalized.startsWith('on')
     || normalized.startsWith('data-')
     || normalized.startsWith('aria-')
-    || /(?:token|secret|password|passwd|credential|authorization|apikey|api-key|clientsecret|client-secret|privatekey|private-key|accesskey|access-key)/i.test(sensitive)
+    || /token|secret|password|passwd|credential|authorization|apikey|api-key|clientsecret|client-secret|privatekey|private-key|accesskey|access-key/i.test(sensitive)
 }
 
 const normalizeAgentPropName = (name: string) => {
@@ -309,7 +302,7 @@ export const resolveAgentMarkdownOptions = (
       metadata: []
     }
   }
-  if (!value || value === false || !isRecord(value)) return null
+  if (!value || !isRecord(value)) return null
   return {
     includeInIndex: value.includeInIndex !== false,
     includeInFull: value.includeInFull !== false,
@@ -324,7 +317,7 @@ const collectionConfig = (collection: string) =>
 
 const markdownEnabledCollectionEntries = (collections?: string[]) =>
   Object.entries(contentConfig().collections || {})
-    .filter(([name, config]) => (!collections?.length || collections.includes(name)) && resolveAgentMarkdownOptions(config))
+    .filter(([name, config]) => (!collections?.length || collections.includes(name)) && resolveAgentMarkdownOptions(config as any))
 
 const isPublicPage = (page: ParsedContent, config: ContentCollectionConfig | undefined) =>
   Boolean(
@@ -527,7 +520,7 @@ const renderAgentMarkdown = (
     ? page.title.trim()
     : path.split('/').filter(Boolean).pop() || 'Index'
   const description = normalizeDescription(page)
-  const rendered = renderMarkdownRoot(page.body, { collection, page, path, locale })
+  const rendered = renderMarkdownRoot(page.body, { collection, page, path, locale } as any)
   const parts: string[] = []
   if (!hasH1(rendered)) parts.push(`# ${escapeMarkdownText(title)}`)
   if (description && !rendered.includes(description)) parts.push(`> ${description}`)
@@ -557,7 +550,7 @@ const toAgentMarkdown = (
     markdown: renderAgentMarkdown(page, collection, path, locale, options),
     ...(page._file ? { sourceFile: page._file } : {}),
     canonicalUrl: path,
-    ...(typeof (page as { updated?: unknown }).updated === 'string' ? { lastModified: (page as { updated: string }).updated } : {}),
+    ...(typeof (page as { updated?: unknown }).updated === 'string' ? { lastModified: (page as unknown as { updated: string }).updated } : {}),
     metadataFields: options.metadata,
     includeInIndex: options.includeInIndex,
     includeInFull: options.includeInFull
@@ -639,7 +632,7 @@ export async function queryMarkdownEnabledContent (
   const result: AgentMarkdownMeta[] = []
 
   for (const [collection, config] of markdownEnabledCollectionEntries(options.collections)) {
-    const agentOptions = resolveAgentMarkdownOptions(config)
+    const agentOptions = resolveAgentMarkdownOptions(config as any)
     if (!agentOptions) continue
     const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
       collection,
@@ -648,9 +641,9 @@ export async function queryMarkdownEnabledContent (
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     }))
     for (const row of rows) {
-      if (!isPublicPage(row, config)) continue
+      if (!isPublicPage(row, config as any)) continue
       const locale = options.locale || row._resolvedLocale || row._locale
-      const path = publicPathForQueryRow(collection, config, row, locale)
+      const path = publicPathForQueryRow(collection, config as any, row, locale)
       const title = typeof row.title === 'string' && row.title.trim()
         ? row.title.trim()
         : path.split('/').filter(Boolean).pop() || 'Index'
@@ -665,7 +658,7 @@ export async function queryMarkdownEnabledContent (
         description,
         ...(row._file ? { sourceFile: row._file } : {}),
         canonicalUrl: path,
-        ...(typeof (row as { updated?: unknown }).updated === 'string' ? { lastModified: (row as { updated: string }).updated } : {}),
+        ...(typeof (row as { updated?: unknown }).updated === 'string' ? { lastModified: (row as unknown as { updated: string }).updated } : {}),
         metadataFields: agentOptions.metadata,
         includeInIndex: agentOptions.includeInIndex,
         includeInFull: agentOptions.includeInFull

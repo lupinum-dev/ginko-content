@@ -9,6 +9,13 @@ export const registerContentServerHandlers = (
   resolveRuntimeModule: (path: string) => string,
   buildIntegrity: number | undefined
 ) => {
+  const revalidate = options.revalidate === false ? undefined : options.revalidate
+  const sitemap = options.sitemap === false
+    ? false
+    : options.sitemap === true
+      ? { path: '/sitemap' }
+      : options.sitemap
+
   addServerHandler({
     method: 'get',
     route: `${options.api.baseURL}/query/**:params`,
@@ -29,7 +36,7 @@ export const registerContentServerHandlers = (
     route: `${options.api.baseURL}/site-data`,
     handler: resolveRuntimeModule('./server/api/site-data.js')
   })
-  if (options.revalidate && options.revalidate !== false && options.revalidate.token) {
+  if (revalidate?.token) {
     addServerHandler({
       method: 'post',
       route: `${options.api.baseURL}/revalidate`,
@@ -44,10 +51,10 @@ export const registerContentServerHandlers = (
     handler: resolveRuntimeModule('./server/api/cache.js')
   })
 
-  if (options.sitemap !== false) {
+  if (sitemap !== false) {
     addServerHandler({
       method: 'get',
-      route: `${options.api.baseURL}${options.sitemap.path || '/sitemap'}`,
+      route: `${options.api.baseURL}${sitemap.path || '/sitemap'}`,
       handler: resolveRuntimeModule('./server/api/sitemap.js')
     })
   }

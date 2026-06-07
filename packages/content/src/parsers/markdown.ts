@@ -10,7 +10,7 @@ export default defineTransformer({
   name: 'markdown',
   extensions: ['.md'],
   parse: async (_id, content, options = {}) => {
-    const config = { ...options } as MarkdownOptions
+    const config = { ...(typeof options === 'object' && options !== null ? options : {}) } as MarkdownOptions
     const plugins = await resolveMarkdownPlugins(config.plugins || [])
     const tree = await parse(content as string, {
       plugins

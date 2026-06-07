@@ -64,7 +64,7 @@ export const resolveCollections = (
       continue
     }
 
-    for (const source of normalizeCollectionSources(collection.source)) {
+    for (const source of normalizeCollectionSources(collection.source || [])) {
       const isMatch = createSourceMatcher(source)
       if (isMatch(normalizedFile) || isMatch(localeAgnosticFile)) {
         matches.push(name)

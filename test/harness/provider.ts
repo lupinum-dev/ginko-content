@@ -9,9 +9,28 @@ import { createRouteMeta, localizePageResult } from '../../packages/content/src/
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
 import type { ContentScenario } from './content-scenario'
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isQueryResultEnvelope = (value: unknown): value is { result?: unknown } => {
+  if (!isObject(value)) {
+    return false
+  }
+
+  const keys = Object.keys(value)
+  if (keys.length === 1 && keys[0] === 'result') {
+    return true
+  }
+
+  return Array.isArray(value.result) &&
+    typeof value.total === 'number' &&
+    (typeof value.skip === 'undefined' || typeof value.skip === 'number') &&
+    (typeof value.limit === 'undefined' || typeof value.limit === 'number')
+}
+
 const unwrapResponseResult = <T>(response: unknown): T | T[] | number | undefined => {
-  if (response && typeof response === 'object' && 'result' in response) {
-    return (response as { result?: T | T[] | number }).result
+  if (isQueryResultEnvelope(response)) {
+    return response.result as T | T[] | number | undefined
   }
   return response as T | T[] | number | undefined
 }

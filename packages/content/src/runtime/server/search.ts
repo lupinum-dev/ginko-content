@@ -8,6 +8,7 @@ import { resolveCollectionI18n } from '../../features/localization/path'
 import { getContentProvider } from './providers'
 import { serverQueryCollection } from './provider-query'
 import { createContentProviderError } from '../../public/provider-errors'
+import type { RuntimeContentProvider } from './provider-result'
 
 export { searchRecords } from '../shared/search'
 
@@ -44,7 +45,7 @@ export const resolveSearchCollections = (
   runtimeContent: RuntimeSearchConfig,
   collectionsOverride?: string[]
 ) => {
-  const configuredCollections = collectionsOverride || (runtimeContent.search && runtimeContent.search !== false
+  const configuredCollections = collectionsOverride || (runtimeContent.search
     ? runtimeContent.search.collections
     : undefined)
 
@@ -110,10 +111,10 @@ export async function serverSearchContent (
       const mergedFilter = mergeSearchFilter(filterQuery, queryLocale)
 
       if (mergedFilter) {
-        return await query.where(mergedFilter).find()
+        return await (query as any).where(mergedFilter).find()
       }
 
-      return await query.find()
+      return await (query as any).find()
     }
 
     if (locale) {
@@ -237,7 +238,7 @@ export async function buildSearchIndex (
       provider: provider.name
     })
   }
-  const records = (await buildProviderSearchSections(event, collections, provider, {
+  const records = (await buildProviderSearchSections(event, collections, provider as RuntimeContentProvider & { searchSections: NonNullable<RuntimeContentProvider['searchSections']> }, {
     ignoredTags: opts.ignoredTags,
     extraFields: opts.extraFields || runtimeConfig.content.search?.extraFields || [],
     filterQuery: opts.filterQuery,

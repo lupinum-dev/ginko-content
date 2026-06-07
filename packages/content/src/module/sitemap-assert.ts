@@ -40,12 +40,6 @@ type SitemapAssertionContext = {
 
 const SITEMAP_INDEX = 'sitemap_index.xml'
 
-const assert = (condition: unknown, message: string): asserts condition => {
-  if (!condition) {
-    throw new Error(message)
-  }
-}
-
 const countTag = (xml: string, tag: string) => (xml.match(new RegExp(`<${tag}>`, 'g')) || []).length
 
 const extractLocValues = (xml: string) => {
@@ -140,10 +134,9 @@ const discoverSitemapsFromDisk = async (outputPublicDir: string): Promise<Sitema
 
   const rootSitemapPath = join(outputPublicDir, 'sitemap.xml')
   const rootSitemapXml = await readFile(rootSitemapPath, 'utf8')
-  assert(
-    countTag(rootSitemapXml, 'url') > 0 || rootSitemapXml.includes('<urlset'),
-    `Content sitemap assertion failed: no child sitemap files were discovered in ${indexPath} or ${sitemapDir}, and ${rootSitemapPath} is not a urlset sitemap.`
-  )
+  if (!(countTag(rootSitemapXml, 'url') > 0 || rootSitemapXml.includes('<urlset'))) {
+    throw new Error(`Content sitemap assertion failed: no child sitemap files were discovered in ${indexPath} or ${sitemapDir}, and ${rootSitemapPath} is not a urlset sitemap.`)
+  }
 
   return [{
     name: 'sitemap',
@@ -193,7 +186,9 @@ export async function assertGeneratedSitemaps ({
   const discoveredSitemaps = targets || (outputPublicDir
     ? await discoverSitemapsFromDisk(outputPublicDir)
     : [])
-  assert(discoveredSitemaps.length > 0, 'Content sitemap assertion failed: no sitemap targets were available for validation.')
+  if (discoveredSitemaps.length === 0) {
+    throw new Error('Content sitemap assertion failed: no sitemap targets were available for validation.')
+  }
   const targetMap = new Map(discoveredSitemaps.map(target => [target.name, target]))
   const failures: string[] = []
 
@@ -285,6 +280,8 @@ export const createSitemapAssertionTargetsFromPrerenderedSitemaps = (sitemaps: G
       return true
     })
 
-  assert(targets.length > 0, 'Content sitemap assertion failed: no sitemap urlsets were available from sitemap:prerender:done.')
+  if (targets.length === 0) {
+    throw new Error('Content sitemap assertion failed: no sitemap urlsets were available from sitemap:prerender:done.')
+  }
   return targets
 }

@@ -80,10 +80,13 @@ export const buildCanonicalNavigation = (
   configs: Record<string, ParsedContentMeta>,
   fields: string[] = []
 ): CanonicalNavigationItem[] => {
-  const pickNavigationFields = (content: ParsedContentMeta) => ({
-    ...pick(['title', ...fields])(content),
-    ...(isObject(content?.navigation) ? content.navigation : {})
-  })
+  const pickNavigationFields = (content: ParsedContentMeta) => {
+    const navigationFields = isObject(content?.navigation) ? content.navigation as Record<string, unknown> : {}
+    return {
+      ...pick(['title', ...fields])(content),
+      ...navigationFields
+    }
+  }
 
   const navigation = contents
     .sort((left, right) => left._path!.localeCompare(right._path!))
@@ -107,7 +110,7 @@ export const buildCanonicalNavigation = (
       }
 
       if (isIndex) {
-        const dirConfig = configs[navItem._path]
+        const dirConfig = navItem._path ? configs[navItem._path] : undefined
         if (typeof dirConfig?.navigation !== 'undefined' && !dirConfig.navigation) {
           return nav
         }
@@ -145,10 +148,15 @@ export const buildCanonicalNavigation = (
             children: [],
             ...(config && pickNavigationFields(config))
           }
-          nodes.push(parent)
+          nodes.push(parent as CanonicalNavigationItem)
         }
 
-        return parent.children!
+        if (!parent) {
+          return []
+        }
+        const resolvedParent = parent
+        resolvedParent.children ||= []
+        return resolvedParent.children
       }, nav)
 
       siblings.push(navItem)

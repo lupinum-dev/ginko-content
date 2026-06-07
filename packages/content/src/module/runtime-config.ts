@@ -1,7 +1,7 @@
 import { defu } from 'defu'
 import type { Nuxt } from '@nuxt/schema'
 
-import type { ContentContext, ModuleOptions } from '../types/module'
+import type { ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { ContentCollectionConfig } from '../types/config'
 import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { ContentSearchPublicRuntimeConfig } from '../types/search'
@@ -98,11 +98,12 @@ export const sanitizePrivateMarkdownPlugins = (plugins: ResolvedMarkdownPlugin[]
 export const applyContentRuntimeConfig = (
   nuxt: Nuxt,
   options: ModuleOptions,
-  contentContext: ContentContext,
+  contentContext: ResolvedContentContext,
   runtimeCollections: Record<string, RuntimeCollectionConfig>,
   buildIntegrity: number | undefined,
   cacheIntegrity: string
 ) => {
+  const revalidate = options.revalidate === false ? undefined : options.revalidate
   const searchRuntime = contentContext.search === false
     ? false
     : {
@@ -165,10 +166,10 @@ export const applyContentRuntimeConfig = (
   nuxt.options.runtimeConfig.content = defu(nuxt.options.runtimeConfig.content as any, {
     cacheVersion: CACHE_VERSION,
     cacheIntegrity,
-    revalidate: options.revalidate && options.revalidate !== false && options.revalidate.token
+    revalidate: revalidate?.token
       ? {
-          token: options.revalidate.token,
-          allowUnsigned: options.revalidate.allowUnsigned === true
+          token: revalidate.token,
+          allowUnsigned: revalidate.allowUnsigned === true
         }
       : false,
     ...privateContentRuntime,

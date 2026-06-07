@@ -81,7 +81,7 @@ export const createVirtualContentTemplates = (
     write: true,
     getContents: () => {
       const cache = contentContext.cache
-      if (!cache || cache === false) {
+      if (!cache) {
         return [
           'export const loadContentCacheAdapter = () => undefined',
           'export default {}'
@@ -118,7 +118,7 @@ export const registerVirtualContentAliases = (
   nuxt.options.alias['#content/virtual/providers'] = virtualProvidersTemplate
   nuxt.options.alias['#content/virtual/cache-adapter'] = virtualCacheAdapterTemplate
 
-  nuxt.hook('nitro:config', (nitroConfig) => {
+  ;(nuxt.hook as any)('nitro:config', (nitroConfig: any) => {
     nitroConfig.alias = nitroConfig.alias || {}
     nitroConfig.alias['#content/server'] = resolveRuntimeModule('./server/index.js')
     nitroConfig.alias['#content/virtual/transformers'] = transformersTemplate

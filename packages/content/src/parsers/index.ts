@@ -1,7 +1,7 @@
 import { extname } from 'pathe'
 import { camelCase } from 'scule'
 import type { StorageValue } from 'unstorage'
-import type { ContentTransformer, TransformContentOptions } from '../types/content'
+import type { ContentTransformer, ParsedContent, TransformContentOptions } from '../types/content'
 import csv from './csv.js'
 import markdown from './markdown.js'
 import yaml from './yaml.js'
@@ -35,7 +35,7 @@ function getTransformers (ext: string, additionalTransformers: ContentTransforme
 /**
  * Parse content file using registered plugins
  */
-export async function transformContent (id: string, content: StorageValue, options: TransformContentOptions = {}) {
+export async function transformContent (id: string, content: StorageValue, options: TransformContentOptions = {}): Promise<ParsedContent> {
   const { transformers = [] } = options
   // Call hook before parsing the file
   const file = { _id: id, body: content }
@@ -44,8 +44,8 @@ export async function transformContent (id: string, content: StorageValue, optio
   const parser = getParser(ext, transformers)
   if (!parser) {
      
-    console.warn(`${ext} files are not supported, "${id}" falling back to raw content`)
-    return file
+    console.warn(`${ext} files are not supported, "${id}" storing body as null`)
+    return { _id: file._id, body: null }
   }
 
   const parserOptions = options[camelCase(parser.name)] || {}

@@ -16,7 +16,7 @@ type SitemapSourcesHookContext = {
 
 const LEGACY_NUXT_CONTENT_V2_SOURCE = '@nuxt/content@v2:urls'
 export default defineNitroPlugin((nitro) => {
-  nitro.hooks.hook('sitemap:sources', (ctx: SitemapSourcesHookContext) => {
+  ;(nitro.hooks.hook as any)('sitemap:sources', (ctx: SitemapSourcesHookContext) => {
     const runtimeConfig = getContentRuntimeConfig()
     const sitemap = runtimeConfig.public.content?.sitemap
     const apiBaseURL = runtimeConfig.public.content?.api?.baseURL

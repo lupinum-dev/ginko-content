@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { join } from 'pathe'
 import { addComponentsDir, addImports, addPlugin, addServerImports, addTypeTemplate } from '@nuxt/kit'
 import type { addTemplate } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
@@ -103,11 +104,11 @@ export const registerContentI18nTemplate = (
   })
 }
 
-export const registerUserContentComponents = async (nuxt: Nuxt, resolve: (path: string) => string) => {
+export const registerUserContentComponents = async (nuxt: Nuxt, _resolve: (path: string) => string) => {
   const layers = [...nuxt.options._layers]
   for (const layer of layers) {
     const srcDir = layer.config.srcDir
-    const globalComponents = resolve(srcDir, 'components/content')
+    const globalComponents = join(srcDir, 'components/content')
     const dirStat = await fs.promises.stat(globalComponents).catch((error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') {
         return null

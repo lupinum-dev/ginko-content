@@ -22,7 +22,7 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../content/graph'
 import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
 import { resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
-import { apply, ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
+import { ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
 import { normalizeRouteMounts, routeToContentPathCandidates } from '../content/path'
 
 // Comparable operands accepted by `>`/`>=`/`<`/`<=`. JS permits cross-type
@@ -142,7 +142,10 @@ const applyQueryPlanSort = <T extends Record<string, unknown>>(matched: T[], pla
 }
 
 export const applyQueryPlanProjection = <T>(items: T[], plan: ContentQueryPlan) => {
-  return apply(withKeys(plan.projection.only))(apply(withoutKeys(plan.projection.without))(items)) as T[]
+  return items.map((item) => {
+    const without = withoutKeys(plan.projection.without)(item as Record<string, unknown>)
+    return withKeys(plan.projection.only)(without) as T
+  })
 }
 
 export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPlan): ContentQueryResponse<T> => {
@@ -158,12 +161,12 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
 
   if (plan.mode === 'first') {
     return {
-      ...omit(['skip', 'limit', 'total'])({
+      ...omit(['skip', 'limit', 'total'])(({
         result: projected,
         skip: plan.skip,
         limit: plan.limit || 0,
         total: matched.length
-      } as ContentQueryFindResponse<T>),
+      } as ContentQueryFindResponse<T>) as unknown as Record<string, unknown>),
       result: projected[0]
     }
   }
@@ -289,6 +292,10 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
       _availableLocales: availableLocales
     } as T
 
+    if (typeof key !== 'string') {
+      continue
+    }
+
     if (!indexByCanonical.has(key)) {
       indexByCanonical.set(key, merged.length)
       merged.push({ rank, item: enriched })
@@ -347,7 +354,12 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
             : (plan.resolveVariant!.fallback?.length
                 ? Array.from(new Set([plan.resolveVariant!.locale, ...plan.resolveVariant!.fallback].filter(Boolean) as string[]))
                 : resolveLocaleChain(plan.resolveVariant!.locale, defaultLocale, localeFallback || {}))
-          const candidateLocales = localeChain.length ? localeChain : ['']
+          const candidateLocales = localeChain.length
+            ? localeChain
+            : Array.from(new Set(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants))))
+          if (!candidateLocales.length) {
+            candidateLocales.push('')
+          }
           const candidates = routeToContentPathCandidates(
             plan.resolveVariant!.route!,
             plan.resolveVariant!.locale,
