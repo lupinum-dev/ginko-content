@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 3, production browser e2e.
+Current phase: Phase 4, packed fresh Nuxt consumer test.
 
 Guiding rules:
 
@@ -27,7 +27,7 @@ Guiding rules:
 | 0 | Stabilize current confidence baseline | Completed |
 | 1 | Internal generated-output smoke | Completed |
 | 2 | Compact agent output fixture | Completed |
-| 3 | Production browser e2e | In progress |
+| 3 | Production browser e2e | Completed |
 | 4 | Packed fresh Nuxt consumer test | Not started |
 | 5 | SSR/static markdown contract split | Not started |
 | 6 | Search matrix hardening | Not started |
@@ -197,12 +197,62 @@ None.
 
 ## Phase 3: Production Browser E2E
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Add a minimal browser production e2e command.
-- Verify hydration, clicked locale switching, search UI, and result navigation.
+- Added a dedicated `browser-e2e` Vitest project and `pnpm test:e2e:browser`.
+- Added `playwright-core` as the browser automation runtime and a Chromium
+  executable resolver that can use an installed browser or an explicit
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
+- Added `test/browser-e2e/locale-search.test.ts`.
+- Added a small search page to `playground/ginko-i18n` so browser e2e can test
+  real localized search result navigation.
+- Converted the i18n catch-all page to the documented `useContentPage(docs, {
+  fallback: true })` route-page API.
+- Removed a duplicate layout-level `useContentOne` query that tried to mirror
+  route-page state for locale switching. That query was a second source of
+  truth and caused real browser-visible 404 content API probes on non-content
+  routes and during locale transitions.
+- Fixed `useContentPage` prerender behavior. The helper previously inferred
+  locale through runtime/i18n access inside an async-evaluated computed, which
+  produced `[nuxt] instance unavailable` during production prerender. It now
+  captures collection i18n config synchronously and derives route-page locale
+  from the current route path unless the caller explicitly passes `locale`.
+- Tightened locale context capture so `resolveActiveLocale` no longer reads
+  `nuxtApp.$i18n` lazily from a captured Nuxt app object.
+
+### Evidence
+
+- 2026-06-08: first `pnpm test:e2e:browser` attempt failed because the local
+  Playwright cache pointed at a missing Chromium binary. Fixed the test harness
+  to accept `PLAYWRIGHT_CHROMIUM_EXECUTABLE` and fall back to installed macOS
+  browsers.
+- 2026-06-08: browser e2e then exposed a real locale-switching issue:
+  `/de/leitfaden/erste-schritte` linked English to
+  `/leitfaden/erste-schritte` instead of `/guide/getting-started`. Root cause
+  was the fixture using the lower-level `useContentOne` route read without the
+  route-page publisher.
+- 2026-06-08: switching the catch-all page to `useContentPage` exposed a
+  production prerender failure for translated route pages:
+  `/guide`, `/guide/getting-started`, `/de/leitfaden`, and
+  `/de/leitfaden/erste-schritte` returned 500 during prerender. Root cause was
+  late runtime/i18n access inside the `useContentPage` inferred-locale path.
+- 2026-06-08: browser e2e exposed two content API 404s after the route-page
+  fix. Root cause was the layout querying `docs` on every route to support
+  locale switching. Removed that duplicated content query and let
+  `useContentPage` publish the active content route.
+- 2026-06-08: `pnpm build:packages` passed after source changes.
+- 2026-06-08: `pnpm --dir playground/ginko-i18n build` passed after rebuilding
+  packages.
+- 2026-06-08: `pnpm test:e2e:browser` passed: 1 file, 1 test.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+- 2026-06-08: `pnpm test:e2e` passed: 3 files, 4 tests.
+
+### Blockers
+
+None.
 
 ## Phase 4: Packed Fresh Nuxt Consumer Test
 

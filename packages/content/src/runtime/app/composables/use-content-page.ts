@@ -14,7 +14,6 @@ import type {
   PopulatedDocument
 } from '../../../types/query'
 import { resolveCollectionI18n } from '../../../features/localization/path'
-import { resolveActiveLocale } from './locale'
 import { useContentRoute } from './route'
 import { getContentRuntime } from './runtime'
 import { contentCollectionName, type Reactive } from './use-content-shared'
@@ -94,6 +93,11 @@ const normalizeRoutePath = (path: unknown) => {
   return normalized || '/'
 }
 
+const resolveLocaleFromRoutePath = (path: string, locales: string[], defaultLocale?: string) => {
+  const firstSegment = path.split('/').filter(Boolean)[0]
+  return firstSegment && locales.includes(firstSegment) ? firstSegment : defaultLocale
+}
+
 const localePathMatches = (entry: unknown, path: string) => {
   const normalizedPath = normalizeRoutePath(path)
   if (typeof entry === 'string') return normalizeRoutePath(entry) === normalizedPath
@@ -140,18 +144,19 @@ export async function useContentPage<
   const { notFound, surround, ...oneOptions } = options as UseContentPageOptions<H, P> & Record<string, unknown>
   const routeSelector = { route: () => normalizeRoutePath(route.path) }
   const runtime = getContentRuntime()
+  const collectionI18n = resolveCollectionI18n(contentCollectionName(handle), runtime)
   const activeLocale = computed(() => {
     const explicitLocale = toValue(oneOptions.locale as MaybeRefOrGetter<string | undefined>)
     if (explicitLocale) {
       return explicitLocale
     }
 
-    const { locales, defaultLocale } = resolveCollectionI18n(contentCollectionName(handle), runtime)
+    const { locales, defaultLocale } = collectionI18n
     if (!locales.length && !defaultLocale) {
       return undefined
     }
 
-    return resolveActiveLocale(locales, defaultLocale)
+    return resolveLocaleFromRoutePath(route.path, locales, defaultLocale)
   })
   const rawPage = shallowRef<LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null>(null)
   const resolvingRoute = shallowRef(false)

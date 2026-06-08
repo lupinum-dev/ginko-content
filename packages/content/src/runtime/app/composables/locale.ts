@@ -4,8 +4,8 @@ import { normalizeContentPath, resolveRouteContent as resolveLocalizedRouteConte
 export { normalizeContentPath }
 
 export const resolveActiveLocale = (locales: string[], defaultLocale?: string) => {
-  const { route, nuxtApp, resolvedLocaleState } = getLocaleContext()
-  const i18nLocale = (nuxtApp.$i18n as any)?.locale
+  const { route, i18nLocale: capturedI18nLocale, resolvedLocaleState } = getLocaleContext()
+  const i18nLocale = import.meta.server ? resolvedLocaleState.value : capturedI18nLocale
   const explicitLocale = typeof i18nLocale === 'string'
     ? i18nLocale
     : i18nLocale?.value || resolvedLocaleState.value

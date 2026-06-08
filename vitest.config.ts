@@ -132,6 +132,18 @@ export default defineConfig({
           include: productionFixtureTests,
           exclude: commonExclude
         }
+      },
+      {
+        resolve: { alias },
+        test: {
+          name: 'browser-e2e',
+          environment: 'node',
+          hookTimeout: 240000,
+          fileParallelism: false,
+          maxWorkers: 1,
+          include: ['test/browser-e2e/**/*.test.ts'],
+          exclude: commonExclude
+        }
       }
     ]
   }

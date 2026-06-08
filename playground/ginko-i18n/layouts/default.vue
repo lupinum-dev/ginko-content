@@ -1,24 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useContentOne, useContentSwitchLocalePath, useLocalePath, useRoute, useSwitchLocalePath } from '#imports'
-import { docs } from '../content.config'
+import { useContentSwitchLocalePath, useLocalePath, useSwitchLocalePath } from '#imports'
 
 const { locale } = useI18n()
 const switchLocalePath = useSwitchLocalePath()
 const switchContentLocalePath = useContentSwitchLocalePath()
 const localePath = useLocalePath()
-const route = useRoute()
-
-// Resolve the active content page's localePaths so the locale switcher can
-// route to the translated slug (e.g. /guide/getting-started ↔
-// /de/leitfaden/erste-schritte). This mirrors the page lookup and keeps the
-// playground on the documented compatibility API.
-await useContentOne(docs, {
-  locale: () => locale.value,
-  by: { route: () => route.path },
-  fallback: true
-})
 
 const localeLinks = computed(() => {
   return [
