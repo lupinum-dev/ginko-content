@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 export const docs = defineCollection({
   type: 'page',
-  source: '*/1.*/*.md',
+  source: '*/1.*/**/*.md',
   i18n: true,
   route: {
     en: '/guide',
@@ -29,6 +29,16 @@ export const authors = defineCollection({
       focus: z.string(),
       localeLabel: z.string()
     })
+  })
+})
+
+export const internal = defineCollection({
+  type: 'page',
+  source: 'internal/*.md',
+  sitemap: false,
+  strict: true,
+  schema: z.object({
+    title: z.string()
   })
 })
 
@@ -87,5 +97,5 @@ export default defineContentConfig({
       })
     ]
   },
-  collections: { docs, authors }
+  collections: { docs, authors, internal }
 })

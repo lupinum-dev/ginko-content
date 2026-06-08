@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 7, sitemap and static output edge matrix.
+Current phase: Phase 8, provider, cache, and revalidation conformance.
 
 Guiding rules:
 
@@ -31,7 +31,7 @@ Guiding rules:
 | 4 | Packed fresh Nuxt consumer test | Completed |
 | 5 | SSR/static markdown contract split | Completed |
 | 6 | Search matrix hardening | Completed |
-| 7 | Sitemap/static edge matrix | Not started |
+| 7 | Sitemap/static edge matrix | Completed |
 | 8 | Provider/cache/revalidation conformance | Not started |
 | 9 | CMS-neutral contract/import hardening | Not started |
 | 10 | Docs/examples/public API drift | Not started |
@@ -402,12 +402,37 @@ None.
 
 ## Phase 7: Sitemap And Static Output Edge Matrix
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Cover missing translations, nested localized routes, exclusions, drafts,
-  partials, alternates, local-origin leaks, and repeated locale prefixes.
+- Added a deeply nested translated docs route to `playground/ginko-i18n`:
+  `/guide/deep/nested` and `/de/leitfaden/tief/verschachtelt`.
+- Added a route-backed `internal` collection with `sitemap: false` to prove
+  collection-level sitemap exclusion in generated output.
+- Added `test/e2e/sitemap-static.test.ts`.
+- Added `scripts/test-sitemap-static.mjs` and root
+  `pnpm test:sitemap:static`.
+- The static sitemap test reads generated XML from `.output/public` and
+  asserts localized routes, nested localized routes, sitemap index entries,
+  hreflang alternates, draft/partial/data/internal exclusions, no local
+  origins, and no repeated locale prefixes.
+- Kept empty sitemap and assertion failure coverage in
+  `test/contracts/sitemap-assert-contracts.test.ts`.
+
+### Evidence
+
+- 2026-06-08: `pnpm test:sitemap:static` passed: 1 file, 1 test.
+- 2026-06-08:
+  `pnpm vitest run test/contracts/sitemap-query-contracts.test.ts test/contracts/sitemap-assert-contracts.test.ts test/contracts/module-contracts.test.ts`
+  passed: 3 files, 30 tests.
+- 2026-06-08: `pnpm test:e2e` passed: 6 files, 12 tests.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 8: Provider, Cache, And Revalidation Conformance
 

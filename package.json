@@ -50,6 +50,7 @@
     "test:package-consumer": "node scripts/test-packed-consumer.mjs",
     "test:quickstart": "pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-quickstart dev:prepare && pnpm --filter @lupinum/ginko-content-test-quickstart typecheck && pnpm --filter @lupinum/ginko-content-test-quickstart build",
     "test:search:matrix": "node scripts/test-search-matrix.mjs",
+    "test:sitemap:static": "node scripts/test-sitemap-static.mjs",
     "test:types": "pnpm typecheck",
     "typecheck:source": "tsc -p tsconfig.json --noEmit",
     "typecheck": "pnpm typecheck:source && pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-typecheck typecheck",
