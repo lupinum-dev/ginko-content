@@ -20,6 +20,9 @@ The high-risk route switching, sitemap, static generated assets, LLM indexes,
 raw markdown files, custom agent serializers, and explicit markdown routes were
 verified against the real downstream app. The checks found real origin bugs in
 the generated sitemap/HTML output. Those were fixed and regression-tested.
+The library now also owns an internal generated-output smoke test against a
+production-built i18n fixture so this confidence no longer depends only on the
+downstream app.
 
 The only remaining caveat is deployment-mode behavior: `Accept:
 text/markdown` negotiation and agent `Link` headers do not apply to prerendered
@@ -130,6 +133,12 @@ Status: checked
 
 Evidence:
 
+- Library generated-output smoke passed:
+  `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/generated-output-smoke.test.ts`.
+- Library e2e gate passed after adding the generated-output smoke:
+  `pnpm test:e2e`, 2 files, 3 tests.
+- Library unit regression passed:
+  `pnpm vitest run test/unit/agent-markdown.test.ts`, 1 file, 22 tests.
 - Source inspection confirmed downstream enables:
   `agent.routes`, `agent.linkHeaders`, `agent.markdownNegotiation`, and
   `agent.prerender`.
@@ -154,6 +163,15 @@ Residual risk:
 - Low for generated/static LLM and raw markdown routes.
 - Medium for non-prerendered SSR deployments until exercised separately, but
   the underlying Nitro handlers and library tests pass.
+
+Issues found and fixed:
+
+- Internal generated-output smoke exposed invalid fallback raw routes such as
+  `/raw/de/leitfaden/guide/advanced.md`. Root cause was agent page-index code
+  reconstructing public fallback paths from provider internals. Fixed in
+  `packages/content/src/runtime/server/agent-markdown.ts` by preferring
+  provider public paths and composing fallback routes from the source locale
+  before applying the requested locale prefix.
 
 ### Markdown Negotiation And Link Headers
 
@@ -186,16 +204,23 @@ Conclusion:
 
 Library:
 
+- `pnpm vitest run test/contracts/architecture-boundaries.test.ts test/contracts/package-exports-contracts.test.ts test/contracts/provider-fixture-conformance.test.ts test/contracts/query-response-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts test/contracts/runtime-config-contracts.test.ts test/contracts/sitemap-assert-contracts.test.ts test/unit/docs-drift.test.ts test/unit/agent-markdown.test.ts test/unit/static-output-routes.test.ts test/unit/pagefind.test.ts`
 - `pnpm vitest run test/unit/agent-markdown.test.ts test/contracts/runtime-config-contracts.test.ts test/contracts/sitemap-assert-contracts.test.ts test/contracts/content-head-contracts.test.ts`
+- `pnpm vitest run test/unit/agent-markdown.test.ts`
+- `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/generated-output-smoke.test.ts`
+- `pnpm test:e2e`
 - `pnpm typecheck:source`
+- `pnpm build:packages`
+- `pnpm docs:build`
 - `git diff --check`
-- `pnpm pack --pack-destination /Users/matthias/Git/workspace/.local-tarballs`
+- `pnpm --dir packages/content pack --pack-destination /Users/matthias/Git/workspace/.local-tarballs`
 
 Downstream:
 
 - `pnpm add -w /Users/matthias/Git/workspace/.local-tarballs/lupinum-ginko-content-0.1.4.tgz`
 - `pnpm build`
 - `pnpm test app/generated-output.test.ts`
+- `pnpm check`
 - `git diff --check`
 - Generated sitemap local-origin grep.
 - Generated HTML local-origin grep.

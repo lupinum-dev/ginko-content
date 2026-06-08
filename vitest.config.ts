@@ -22,7 +22,7 @@ const commonExclude = [
 ]
 
 const productionFixtureTests = [
-  'test/e2e/prod-smoke.test.ts'
+  'test/e2e/**/*.test.ts'
 ]
 
 const nodeAlias = {

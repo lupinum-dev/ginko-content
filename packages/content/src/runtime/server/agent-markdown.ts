@@ -568,6 +568,38 @@ const routeBaseForLocale = (config: ContentCollectionConfig, locale?: string) =>
   return typeof localized === 'string' ? normalizeAgentRoutePath(localized) : ''
 }
 
+const collectionDefaultLocale = (config: ContentCollectionConfig) => {
+  const collectionI18n = config.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
+  return collectionI18n?.defaultLocale || contentConfig().defaultLocale || contentConfig().agent?.site?.defaultLocale
+}
+
+const prefixRequestedLocale = (path: string, locale: string | undefined, defaultLocale: string | undefined) => {
+  const normalized = normalizeAgentRoutePath(path)
+  if (!locale || locale === defaultLocale) return normalized
+  if (normalized === `/${locale}` || normalized.startsWith(`/${locale}/`)) return normalized
+  if (normalized === '/') return `/${locale}`
+  return `/${locale}${normalized}`
+}
+
+const publicPathForLocale = (
+  collection: string,
+  config: ContentCollectionConfig,
+  rowPath: string,
+  locale: string | undefined,
+  defaultLocale: string | undefined
+) => {
+  const normalizedRowPath = normalizeAgentRoutePath(rowPath || '/')
+  const base = routeBaseForLocale(config, locale)
+  if (base && (normalizedRowPath === base || normalizedRowPath.startsWith(`${base}/`))) {
+    return prefixRequestedLocale(normalizedRowPath, locale, defaultLocale)
+  }
+
+  return getCollectionPath(collectionHandle(collection, config), {
+    ...(locale ? { locale } : {}),
+    path: normalizedRowPath
+  })
+}
+
 const publicPathForQueryRow = (
   collection: string,
   config: ContentCollectionConfig,
@@ -577,14 +609,15 @@ const publicPathForQueryRow = (
   const requested = (row as { path?: string }).path || row._requestedRoute
   if (requested) return normalizeAgentRoutePath(requested)
 
+  const defaultLocale = collectionDefaultLocale(config)
   const rowPath = normalizeAgentRoutePath(row._path || '/')
-  const base = routeBaseForLocale(config, locale)
-  if (base && (rowPath === base || rowPath.startsWith(`${base}/`))) return rowPath
+  const resolvedLocale = row._resolvedLocale || row._locale
+  if (locale && resolvedLocale && locale !== resolvedLocale) {
+    const sourceLocalePath = publicPathForLocale(collection, config, rowPath, resolvedLocale, defaultLocale)
+    return prefixRequestedLocale(sourceLocalePath, locale, defaultLocale)
+  }
 
-  return getCollectionPath(collectionHandle(collection, config), {
-    ...(locale ? { locale } : {}),
-    path: row._path || '/'
-  })
+  return publicPathForLocale(collection, config, rowPath, locale, defaultLocale)
 }
 
 export async function resolveContentMarkdown (
@@ -634,7 +667,7 @@ export async function queryMarkdownEnabledContent (
     if (!agentOptions) continue
     const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
       collection,
-      only: ['_path', '_locale', '_resolvedLocale', '_requestedRoute', '_file', '_draft', '_partial', '_navigation', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
+      only: ['path', 'locale', 'localePaths', '_path', '_locale', '_resolvedLocale', '_requestedRoute', '_file', '_draft', '_partial', '_navigation', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     }))

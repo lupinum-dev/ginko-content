@@ -820,6 +820,76 @@ describe('agent markdown', () => {
     }))
   })
 
+  test('uses the source-locale public route for localized fallback agent pages', async () => {
+    const query = vi.fn(async (_event, params) => {
+      expect(params).toEqual(expect.objectContaining({
+        resolveLocale: { locale: 'de', fallback: true },
+        only: expect.arrayContaining(['path', 'locale', 'localePaths'])
+      }))
+
+      return {
+        result: [
+          {
+            _path: '/guide/advanced',
+            _locale: 'en',
+            _resolvedLocale: 'en',
+            _fallback: true,
+            _file: 'en/1.guide/2.advanced.md',
+            title: 'Advanced'
+          }
+        ],
+        skip: 0,
+        limit: 0,
+        total: 1
+      }
+    })
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        defaultLocale: 'en',
+        locales: ['en', 'de'],
+        agent: {
+          site: {
+            title: 'Docs',
+            description: 'Docs site.',
+            url: 'https://example.test',
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          },
+          sections: [{ id: 'docs', title: { en: 'Docs', de: 'Dokumentation' }, order: 10 }]
+        },
+        collections: {
+          docs: {
+            type: 'page',
+            route: {
+              en: '/guide',
+              de: '/leitfaden'
+            },
+            i18n: {
+              defaultLocale: 'en',
+              locales: ['en', 'de']
+            },
+            agent: { section: 'docs', markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({ query })
+    }))
+
+    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
+
+    await expect(buildAgentPageIndex({ node: { req: { headers: {} } } } as any, 'de')).resolves.toEqual([
+      expect.objectContaining({
+        path: '/de/guide/advanced',
+        rawPath: '/raw/de/guide/advanced.md',
+        markdownPath: '/de/guide/advanced/index.md',
+        locale: 'de'
+      })
+    ])
+  })
+
   test('fails clearly when app-owned and content-owned agent pages share a route', async () => {
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({

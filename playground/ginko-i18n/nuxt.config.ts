@@ -4,7 +4,8 @@ export default defineNuxtConfig({
 
   modules: [
     '@lupinum/ginko-content',
-    '@nuxtjs/i18n'
+    '@nuxtjs/i18n',
+    '@nuxtjs/sitemap'
   ],
 
   content: {
@@ -15,11 +16,22 @@ export default defineNuxtConfig({
         de: ['en']
       },
       translatedSlugs: true
+    },
+    sitemap: {
+      assert: {
+        routes: ['/guide/getting-started', '/de/leitfaden/erste-schritte'],
+        forbidden: ['/authors/evan', '/guide/draft-roadmap', '/de/leitfaden/entwurf']
+      }
     }
   },
 
+  site: {
+    url: 'https://ginko-content.example.test',
+    name: 'Ginko Content Playground'
+  },
+
   i18n: {
-    baseUrl: 'https://ginko-content.localhost',
+    baseUrl: 'https://ginko-content.example.test',
     strategy: 'prefix_except_default',
     defaultLocale: 'en',
     detectBrowserLanguage: false,
