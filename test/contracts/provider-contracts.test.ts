@@ -206,6 +206,39 @@ describe('content provider contract', () => {
       })
     })
 
+    externalProviderModules.set('missing-sitemap-method', {
+      name: 'missing-sitemap-method',
+      capabilities: {
+        routeBackedCollections: true,
+        dataCollections: true,
+        localizedRoutes: true,
+        translatedSlugs: true,
+        navigation: false,
+        surroundings: false,
+        searchSections: false,
+        sitemap: true,
+        query: {
+          operators: ['$eq'],
+          limit: true,
+          skip: true,
+          count: true
+        }
+      },
+      query: vi.fn(),
+      page: vi.fn(),
+      routeMeta: vi.fn()
+    })
+    runtime.content.provider = 'missing-sitemap-method' as never
+    await expect(getContentProvider(createProviderEvent())).rejects.toMatchObject({
+      statusCode: 500,
+      statusMessage: 'provider_module_invalid',
+      data: expect.objectContaining({
+        code: 'provider_module_invalid',
+        provider: 'missing-sitemap-method',
+        field: 'sitemapEntries'
+      })
+    })
+
     runtime.content.provider = 'broken-external' as never
     await expect(getContentProvider(createProviderEvent())).rejects.toMatchObject({
       statusCode: 500,
@@ -516,6 +549,51 @@ describe('content provider contract', () => {
 
     expect(query).toHaveBeenCalledTimes(1)
     expect(searchSections).not.toHaveBeenCalled()
+  })
+
+  test('provider sitemap boundary rejects malformed sitemap entries', async () => {
+    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
+
+    externalProviderModules.set('malformed-sitemap-provider', {
+      name: 'malformed-sitemap-provider',
+      capabilities: {
+        routeBackedCollections: true,
+        dataCollections: true,
+        localizedRoutes: true,
+        translatedSlugs: true,
+        navigation: false,
+        surroundings: false,
+        searchSections: false,
+        sitemap: true,
+        query: {
+          operators: ['$eq'],
+          limit: true,
+          skip: true,
+          count: true
+        }
+      },
+      query: vi.fn(async () => ({ result: [] })),
+      page: vi.fn(),
+      routeMeta: vi.fn(),
+      sitemapEntries: vi.fn(async () => [
+        { loc: '/docs/valid' },
+        { path: '/docs/missing-loc' }
+      ])
+    })
+
+    runtime.content.provider = 'malformed-sitemap-provider'
+
+    await expect(queryCollectionsSitemapEntries(createProviderEvent(), { include: ['docs'] })).rejects.toMatchObject({
+      statusCode: 500,
+      statusMessage: 'provider_result_invalid',
+      data: expect.objectContaining({
+        code: 'provider_result_invalid',
+        provider: 'malformed-sitemap-provider',
+        operation: 'sitemap entries',
+        index: 1,
+        field: 'loc'
+      })
+    })
   })
 
 })

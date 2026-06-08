@@ -2,12 +2,14 @@ import type { ContentProvider } from '@lupinum/ginko-content/server'
 
 const documents = [
   {
+    id: 'provider-native-doc-en-001',
     title: 'Provider English Guide',
     path: '/docs/provider-guide',
     locale: 'en',
     excerpt: 'Provider-owned search result from the CMS fixture.'
   },
   {
+    id: 'provider-native-doc-de-001',
     title: 'Provider Deutscher Leitfaden',
     path: '/de/dokumentation/provider-leitfaden',
     locale: 'de',
@@ -32,7 +34,7 @@ export default {
     navigation: false,
     surroundings: false,
     searchSections: false,
-    sitemap: false,
+    sitemap: true,
     query: {
       operators: ['$eq'],
       limit: true,
@@ -54,6 +56,16 @@ export default {
   },
   async routeMeta () {
     return null
+  },
+  async sitemapEntries () {
+    return documents.map(document => ({
+      loc: document.path,
+      alternatives: [
+        { hreflang: 'en', href: '/docs/provider-guide' },
+        { hreflang: 'de', href: '/de/dokumentation/provider-leitfaden' }
+      ],
+      lastmod: '2026-06-08'
+    }))
   },
   async search (_event, request) {
     const term = request.term.trim().toLowerCase()

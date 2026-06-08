@@ -4,11 +4,14 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { buildProductionFixture } from '../helpers/production-fixture'
+import { readGeneratedArtifact } from '../helpers/generated-artifacts'
 import { collectSitemapAlternates, collectSitemapLocs, readSitemapBundle } from '../helpers/sitemap-artifacts'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureDir = resolve(rootDir, 'playground/ginko-i18n')
+const providerFixtureDir = resolve(rootDir, 'playground/ginko-provider-search')
 const siteUrl = 'https://ginko-content.example.test'
+const providerSiteUrl = 'https://provider-content.example.test'
 const localOriginPattern = /http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])|https?:\/\/[^/\s"'<>]*localhost/i
 const repeatedLocalePrefixPattern = /\/(?:de|en)\/(?:de|en)\//
 
@@ -47,5 +50,18 @@ describe('static sitemap output', () => {
     expect(allSitemaps).not.toContain('/de/leitfaden/interne-notiz')
     expect(allSitemaps).not.toMatch(localOriginPattern)
     expect(allSitemaps).not.toMatch(repeatedLocalePrefixPattern)
+  }, 240000)
+
+  test('emits provider-owned sitemap entries through Nuxt Sitemap output', async () => {
+    const fixture = await buildProductionFixture(providerFixtureDir)
+    const sitemap = await readGeneratedArtifact(fixture.publicDir, 'sitemap.xml')
+
+    expect(sitemap).toContain(`${providerSiteUrl}/docs/provider-guide`)
+    expect(sitemap).toContain(`${providerSiteUrl}/de/dokumentation/provider-leitfaden`)
+    expect(sitemap).toContain('hreflang="en"')
+    expect(sitemap).toContain('hreflang="de"')
+    expect(sitemap).not.toContain('provider-native-doc')
+    expect(sitemap).not.toMatch(localOriginPattern)
+    expect(sitemap).not.toMatch(repeatedLocalePrefixPattern)
   }, 240000)
 })

@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 7 - Provider-Owned Sitemap And Search Fixtures
+Current phase: Phase 8 - Static And SSR Markdown Contract Hardening
 
 Guiding rules:
 
@@ -31,7 +31,7 @@ Guiding rules:
 | 4 | Consolidate production fixture builds | In progress |
 | 5 | Replace thin wrapper scripts | Completed |
 | 6 | Optional dependency integration matrix | Completed |
-| 7 | Provider-owned sitemap and search fixtures | Pending |
+| 7 | Provider-owned sitemap and search fixtures | Completed |
 | 8 | Static and SSR markdown contract hardening | Pending |
 | 9 | Browser e2e focus and failure capture | Pending |
 | 10 | Packed consumer matrix | Pending |
@@ -216,5 +216,35 @@ Status: completed
 - `pnpm test:package-consumer` passed after the dependency warning became a
   release-gate failure condition.
 - `pnpm docs:build` passed.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 7: Provider-Owned Sitemap And Search Fixtures
+
+Status: completed
+
+### Todos
+
+- [x] Extend `playground/ginko-provider-search` so the provider advertises and
+  implements sitemap entries in addition to provider-owned search.
+- [x] Add generated XML coverage proving provider sitemap entries reach Nuxt
+  Sitemap output.
+- [x] Assert provider sitemap entries use the configured production site URL.
+- [x] Assert provider-native storage IDs do not leak into generated sitemap XML.
+- [x] Keep provider-owned search coverage for delegation, route-safe paths, and
+  absent local index routes.
+- [x] Add a provider resolver negative case for sitemap capability without a
+  `sitemapEntries` method.
+- [x] Add provider sitemap result validation so malformed provider sitemap
+  entries fail with `provider_result_invalid`.
+- [x] Add a runtime contract test for malformed provider sitemap entries.
+
+### Evidence
+
+- `pnpm vitest run --config vitest.config.ts --project nuxt test/contracts/provider-contracts.test.ts`
+  passed.
+- `pnpm test:sitemap:static` passed with both filesystem i18n sitemap output
+  and provider-owned sitemap XML output.
+- `pnpm test:search:matrix` passed after the provider fixture change.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
