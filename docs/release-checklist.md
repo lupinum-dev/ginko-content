@@ -14,6 +14,7 @@ content API.
 - [ ] `pnpm pack:check`
 - [ ] `pnpm run release:verify`
 - [ ] Confirm `release:verify` ran packed consumer, browser e2e, search matrix, static sitemap checks, production audit, and release packing.
+- [ ] Confirm the packed consumer check covered the installed package's public subpaths, declarations, fresh app build/start, sitemap XML, search API/index behavior, and agent markdown outputs.
 - [ ] If a separate CMS/studio repository exists, run its current package-consumer checks against the packed tarball; keep those commands in that repository, not here.
 - [ ] Inspect `.pack/lupinum-ginko-content-$VERSION.tgz` manifest, file list, and checksum.
 - [ ] Commit the release prep before publishing; do not commit `.pack/` artifacts.

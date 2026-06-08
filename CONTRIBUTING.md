@@ -35,7 +35,9 @@ pnpm run release:verify
 
 This command runs the workspace verification, packed fresh Nuxt consumer test,
 production browser e2e, search matrix, static sitemap checks, production audit,
-and release tarball packing/inspection.
+and release tarball packing/inspection. The packed consumer also verifies a
+fresh installed app can emit sitemap XML and agent markdown output from the
+packed package.
 
 For browser e2e locally, either install a Chromium-compatible browser or point
 the test at one:
@@ -63,6 +65,19 @@ browser test.
 - Do not claim pure static same-URL markdown negotiation works. Static hosts
   should use explicit generated markdown routes.
 
+## Production Fixture Tests
+
+Use `test/helpers/production-fixture.ts` when a test needs a built fixture. It
+is the shared build/start harness for generated-output, sitemap, search, agent,
+and browser e2e coverage.
+
+Use `test/helpers/generated-artifacts.ts` and
+`test/helpers/sitemap-artifacts.ts` for static output assertions instead of
+re-reading sitemap XML or generated search/markdown files differently in each
+test. Keep e2e tests small: artifact-only checks should inspect `.output`
+directly, and browser tests should cover hydration, navigation, and runtime
+request behavior.
+
 ## Failure Triage
 
 Browser e2e failures usually point at route resolution, locale switching,
@@ -79,13 +94,13 @@ dependency. Inspect `scripts/test-packed-consumer.mjs`, package exports,
 declaration files, and `packages/content/package.json`.
 
 Search matrix failures usually point at MiniSearch, Pagefind, provider-owned
-search, or disabled-search behavior. Inspect `scripts/test-search-matrix.mjs`
+search, or disabled-search behavior. Inspect `test/e2e/search-matrix.test.ts`
 and the search fixtures it runs.
 
 Static sitemap failures usually point at content sitemap entries, Nuxt Sitemap
 integration, localized alternates, generated XML shape, or local-origin leaks.
-Inspect `scripts/test-sitemap-static.mjs` and
-`test/e2e/sitemap-static.test.ts`.
+Inspect `test/e2e/sitemap-static.test.ts` and
+`test/helpers/sitemap-artifacts.ts`.
 
 Docs drift failures are intentional guardrails. Update docs, examples,
 public-surface metadata, and package exports together instead of weakening the

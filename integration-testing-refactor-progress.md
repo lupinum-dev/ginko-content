@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 11 - Docs And CI Alignment
+Current phase: Phase 12 - Performance And Flake Budget
 
 Guiding rules:
 
@@ -35,7 +35,7 @@ Guiding rules:
 | 8 | Static and SSR markdown contract hardening | Completed |
 | 9 | Browser e2e focus and failure capture | Completed |
 | 10 | Packed consumer matrix | Completed |
-| 11 | Docs and CI alignment | Pending |
+| 11 | Docs and CI alignment | Completed |
 | 12 | Performance and flake budget | Pending |
 
 ## Phase 1: Shared Production Fixture Harness
@@ -326,5 +326,31 @@ Status: completed
 - `pnpm test:package-consumer` passed after the fresh app was expanded to
   include `@nuxtjs/sitemap`, content sitemap output, configured agent markdown
   output, `llms.txt`, and raw markdown output.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 11: Docs And CI Alignment
+
+Status: completed
+
+### Todos
+
+- [x] Keep GitHub Actions release verification aligned with
+  `pnpm run release:verify`.
+- [x] Remove stale failure-triage references to deleted wrapper scripts.
+- [x] Document the shared production fixture harness and artifact assertion
+  helpers in contributor docs.
+- [x] Update the release checklist so packed-consumer coverage includes public
+  subpaths, declarations, sitemap XML, search behavior, and agent markdown
+  output.
+- [x] Verify docs drift and docs build after the documentation changes.
+
+### Evidence
+
+- `.github/workflows/ci.yml` already runs `pnpm run release:verify` in the
+  release verification job with Chrome configured for browser e2e.
+- `pnpm vitest run --config vitest.config.ts --project unit test/unit/docs-drift.test.ts`
+  passed.
+- `pnpm docs:build` passed.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
