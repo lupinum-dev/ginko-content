@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 2 - Generated Artifact Assertion Library
+Current phase: Phase 3 - Structured Sitemap Assertions
 
 Guiding rules:
 
@@ -26,10 +26,10 @@ Guiding rules:
 | Phase | Name | Status |
 | --- | --- | --- |
 | 1 | Shared production fixture harness | Completed |
-| 2 | Generated artifact assertion library | In progress |
+| 2 | Generated artifact assertion library | Completed |
 | 3 | Structured sitemap assertions | In progress |
-| 4 | Consolidate production fixture builds | Pending |
-| 5 | Replace thin wrapper scripts | Pending |
+| 4 | Consolidate production fixture builds | In progress |
+| 5 | Replace thin wrapper scripts | Completed |
 | 6 | Optional dependency integration matrix | Pending |
 | 7 | Provider-owned sitemap and search fixtures | Pending |
 | 8 | Static and SSR markdown contract hardening | Pending |
@@ -67,7 +67,7 @@ Status: completed
 
 ## Phase 2: Generated Artifact Assertion Library
 
-Status: in progress
+Status: completed
 
 ### Todos
 
@@ -76,15 +76,17 @@ Status: in progress
   and markdown-route/raw-route artifact assertions into shared helpers.
 - [x] Use the helper in generated-output smoke.
 - [x] Use the helper in agent-output smoke.
-- [ ] Use the helper in search matrix checks where static search artifacts are
+- [x] Use the helper in search matrix checks where static search artifacts are
   asserted.
-- [ ] Re-run the affected e2e and release-gate checks after the remaining
+- [x] Re-run the affected e2e and release-gate checks after the remaining
   conversions.
 
 ### Evidence
 
 - `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/generated-output-smoke.test.ts test/e2e/sitemap-static.test.ts test/e2e/agent-output-smoke.test.ts`
   passed.
+- `pnpm test:search:matrix` passed after the search matrix switched to the
+  shared search-index artifact reader.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
 
@@ -107,5 +109,50 @@ Status: in progress
 
 - `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/generated-output-smoke.test.ts test/e2e/sitemap-static.test.ts test/e2e/agent-output-smoke.test.ts`
   passed.
+- `pnpm test:sitemap:static` passed after the sitemap command moved to direct
+  Vitest execution.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 4: Consolidate Production Fixture Builds
+
+Status: in progress
+
+### Todos
+
+- [x] Convert `test/e2e/generated-output-smoke.test.ts`.
+- [x] Convert `test/e2e/sitemap-static.test.ts`.
+- [x] Convert `test/e2e/agent-output-smoke.test.ts`.
+- [x] Convert static artifact reads in `test/e2e/search-matrix.test.ts`.
+- [ ] Convert artifact-only paths in
+  `test/e2e/agent-markdown-negotiation.test.ts`.
+- [ ] Review `test/browser-e2e/locale-search.test.ts` for practical harness
+  reuse without hiding browser failure modes.
+- [ ] Measure before/after wall-clock time for the broader release commands.
+
+### Evidence
+
+- `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/generated-output-smoke.test.ts test/e2e/sitemap-static.test.ts test/e2e/agent-output-smoke.test.ts`
+  passed.
+- `pnpm test:search:matrix` passed.
+- `pnpm test:sitemap:static` passed.
+
+## Phase 5: Replace Thin Wrapper Scripts
+
+Status: completed
+
+### Todos
+
+- [x] Keep the stable command names because they are useful release-gate
+  vocabulary.
+- [x] Update `package.json` so `test:search:matrix` and
+  `test:sitemap:static` call Vitest directly.
+- [x] Delete `scripts/test-search-matrix.mjs`.
+- [x] Delete `scripts/test-sitemap-static.mjs`.
+
+### Evidence
+
+- `pnpm test:search:matrix` passed.
+- `pnpm test:sitemap:static` passed.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.

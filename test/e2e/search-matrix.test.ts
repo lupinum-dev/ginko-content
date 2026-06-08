@@ -1,11 +1,11 @@
 // @vitest-environment node
 
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { startFixtureServer } from '../helpers/fixture-server'
+import { readSearchIndex } from '../helpers/generated-artifacts'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const searchFixtureDir = resolve(rootDir, 'playground/ginko-search')
@@ -58,9 +58,8 @@ describe('search matrix', () => {
     })
     try {
       const publicDir = resolve(searchI18nFixtureDir, '.output/public')
-      const indexPath = resolve(publicDir, 'api/_content/search/index.json')
       const pagefindEntry = resolve(publicDir, 'pagefind/pagefind.js')
-      const index = JSON.parse(await readFile(indexPath, 'utf8')) as Array<Record<string, unknown>>
+      const index = await readSearchIndex(publicDir)
 
       expect(existsSync(pagefindEntry)).toBe(true)
       expect(index).toEqual(expect.arrayContaining([
