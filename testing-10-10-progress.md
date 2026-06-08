@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 8, provider, cache, and revalidation conformance.
+Current phase: Phase 9, CMS-neutral contract and import hardening.
 
 Guiding rules:
 
@@ -32,7 +32,7 @@ Guiding rules:
 | 5 | SSR/static markdown contract split | Completed |
 | 6 | Search matrix hardening | Completed |
 | 7 | Sitemap/static edge matrix | Completed |
-| 8 | Provider/cache/revalidation conformance | Not started |
+| 8 | Provider/cache/revalidation conformance | Completed |
 | 9 | CMS-neutral contract/import hardening | Not started |
 | 10 | Docs/examples/public API drift | Not started |
 
@@ -436,12 +436,31 @@ None.
 
 ## Phase 8: Provider, Cache, And Revalidation Conformance
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Extend provider conformance for envelopes, provider-owned search/site data,
-  cache hints, invalidation, and typed negative cases.
+- Confirmed the existing provider fixture/conformance suite covers strict
+  list/first/count query envelopes, malformed provider results, provider-owned
+  search sections/search/sitemap/site-data, cache hints, dependency tracking,
+  provider invalidation, and data-only sitemap failures.
+- Added `noopContentCache()` coverage for tag-only and path invalidation.
+- Added explicit tag-capable adapter behavior coverage.
+- Added a revalidation boundary regression proving cache adapter invalidation
+  failures are propagated and search caches are not cleared after a failed
+  invalidation.
+
+### Evidence
+
+- 2026-06-08:
+  `pnpm vitest run test/contracts/provider-contracts.test.ts test/contracts/provider-fixture-conformance.test.ts test/contracts/filesystem-provider-conformance.test.ts test/runtime/api-provider-boundary.test.ts test/runtime/api-revalidate-boundary.test.ts test/unit/cache-hints.test.ts`
+  passed: 6 files, 60 tests.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 9: CMS-Neutral Contract And Import Hardening
 

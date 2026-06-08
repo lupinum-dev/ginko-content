@@ -322,6 +322,43 @@ describe('runtime revalidate API boundary', () => {
     expect(mocks.clearSearchRecordsCache).toHaveBeenCalledTimes(1)
   })
 
+  test('propagates cache adapter invalidation failures without clearing search cache', async () => {
+    const adapterInvalidate = vi.fn(async () => {
+      throw new Error('adapter failed')
+    })
+    mocks.getContentProvider.mockResolvedValue({})
+    mocks.getContentCacheAdapter.mockResolvedValue({
+      name: 'test-cache',
+      apply: vi.fn(),
+      invalidate: adapterInvalidate
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
+    const body = JSON.stringify({ tags: ['entry:docs:a'] })
+    const event = {
+      ...createTestEvent(),
+      method: 'POST',
+      node: {
+        req: {
+          method: 'POST',
+          url: '/',
+          headers: {
+            'content-length': String(body.length),
+            'content-type': 'application/json',
+            'x-ginko-revalidate-token': 'secret'
+          },
+          rawBody: body,
+          [Symbol.asyncIterator]: async function * () {
+            yield Buffer.from(body)
+          }
+        }
+      }
+    } as any
+
+    await expect(handler(event)).rejects.toThrow('adapter failed')
+    expect(adapterInvalidate).toHaveBeenCalledWith({ tags: ['entry:docs:a'], paths: undefined })
+    expect(mocks.clearSearchRecordsCache).not.toHaveBeenCalled()
+  })
+
   test('rejects unsigned revalidation when signed delivery is required', async () => {
     mocks.getContentRuntimeConfig.mockReturnValue({ content: { revalidate: { token: 'secret' } } })
     const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
