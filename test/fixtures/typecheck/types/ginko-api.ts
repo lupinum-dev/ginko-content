@@ -5,7 +5,7 @@
  * that obvious misuses fail at the type level.
  */
 import type {} from '../.nuxt/types/content'
-import type { ContentCollectionName, DocumentFromHandle, LocalizedDoc, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
+import type { ContentCollectionName, ContentVariant, DocumentFromHandle, LocalizedContentDocument, LocalizedDoc, LocalePathEntry, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
 import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentHead, useContentMany, useContentNavigation, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
@@ -104,8 +104,11 @@ type BlogDoc = NonNullable<typeof blogResult>
 type _BlogHasTitle = Expect<Equal<BlogDoc['title'], string>>
 type _BlogSeoTitle = Expect<Equal<BlogDoc['seo'], { title?: string, description?: string, image?: string | { src: string, alt?: string, width?: number, height?: number } } | undefined>>
 type _BlogHasLocalePaths = Expect<Equal<BlogDoc['localePaths'], LocalizedDoc['localePaths']>>
+type _BlogMatchesExplicitLocalizedAlias = Expect<Equal<BlogDoc['localePaths'], LocalizedContentDocument['localePaths']>>
+type _BlogLocalePathEntries = Expect<Equal<BlogDoc['localePaths'][string], LocalePathEntry>>
 type _BlogHasResolvedLocale = Expect<Equal<BlogDoc['resolved']['locale'], string>>
 type _BlogHasResolvedFallback = Expect<Equal<BlogDoc['resolved']['fallback'], boolean>>
+type _BlogResolvedAvailableLocales = Expect<Equal<BlogDoc['resolved']['availableLocales'], string[]>>
 
 // String collection names keep generated document inference.
 const stringBlogResult = await one('posts', { by: { path: '/hello' } })
@@ -179,6 +182,8 @@ const docsResult = await one(docs, {
 type DocsDoc = NonNullable<typeof docsResult>
 type _DocsHasTitle = Expect<Equal<DocsDoc['title'], string>>
 type _DocsResolvedRequestedLocale = Expect<Equal<DocsDoc['resolved']['requestedLocale'], string | undefined>>
+type _DocsResolvedFallbackLocale = Expect<Equal<DocsDoc['resolved']['fallbackLocale'], string | undefined>>
+type _DocsLocalePathEntryTranslated = Expect<Equal<DocsDoc['localePaths'][string]['translated'], boolean>>
 
 // Public-safe MongoDB-style filter operators are accepted.
 const filtered = await many(posts, {
@@ -423,6 +428,16 @@ if (stringSearchNavigationItem) {
 /* ── variants/neighbors take by (not top-level ref/path) ───────────────── */
 
 const variantList = await variants(docs, { locale: 'de', by: { ref: 'guide.intro' } })
+type _DocsVariantListShape = Expect<Equal<typeof variantList, Array<ContentVariant<DocsDoc>>>>
+const firstVariant = variantList[0]
+if (firstVariant) {
+  const variantLocale: string = firstVariant.locale
+  const variantPath: string = firstVariant.path
+  const variantTranslated: boolean = firstVariant.translated
+  void variantLocale
+  void variantPath
+  void variantTranslated
+}
 void variantList
 
 const neighborEntries = await neighbors(docs, { locale: 'de', by: { ref: 'guide.intro' } })

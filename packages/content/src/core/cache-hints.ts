@@ -1,4 +1,13 @@
-import type { ContentCacheHint, ContentCacheHintInput } from '../public/provider'
+export interface ContentCacheHint {
+  tags?: string[]
+  paths?: string[]
+  maxAge?: number
+  swr?: number
+  etag?: string
+  lastModified?: Date
+}
+
+export type ContentCacheHintInput = ContentCacheHint | false
 
 const normalizeStringList = (values: unknown[] | undefined, normalize: (value: string) => string) =>
   Array.from(new Set((values || [])

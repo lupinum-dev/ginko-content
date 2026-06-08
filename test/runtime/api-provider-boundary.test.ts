@@ -49,6 +49,62 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
   })
 
+  test('query API validates canonical provider responses at the handler boundary', async () => {
+    const query = vi.fn(async () => ({
+      result: [{ title: 'Intro' }],
+      skip: 0,
+      limit: 10,
+      total: 1
+    }))
+    mocks.getContentProvider.mockResolvedValue({
+      ...provider,
+      query
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
+    const event = createTestEvent({
+      scenario,
+      provider,
+      params: {
+        params: `docs/${encodeQueryParams({
+          collection: 'docs',
+          limit: 10
+        } as never)}`
+      }
+    })
+
+    await expect(handler(event)).resolves.toEqual({
+      result: [{ title: 'Intro' }],
+      skip: 0,
+      limit: 10,
+      total: 1
+    })
+    expect(query).toHaveBeenCalledWith(event, {
+      collection: 'docs',
+      limit: 10
+    })
+  })
+
+  test('query API rejects malformed provider responses at the handler boundary', async () => {
+    mocks.getContentProvider.mockResolvedValue({
+      ...provider,
+      query: vi.fn(async () => 2)
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
+    const event = createTestEvent({
+      scenario,
+      provider,
+      params: {
+        params: `docs/${encodeQueryParams({
+          collection: 'docs'
+        } as never)}`
+      }
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      data: expect.objectContaining({ code: 'provider_result_invalid' })
+    })
+  })
+
   test('navigation API keeps query-string collection and locale adaptation at the handler seam', async () => {
     const navigationQuery = vi.fn(async () => [])
     mocks.getContentProvider.mockResolvedValue({

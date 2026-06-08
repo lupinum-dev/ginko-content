@@ -16,17 +16,9 @@ import type {
 } from '../types/query'
 import type { QueryCollectionsSitemapEntriesOptions } from '../features/sitemap/query'
 import type { ContentProviderSearchRequest, ContentSearchResult } from '../types/search'
+import type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
 
-export interface ContentCacheHint {
-  tags?: string[]
-  paths?: string[]
-  maxAge?: number
-  swr?: number
-  etag?: string
-  lastModified?: Date
-}
-
-export type ContentCacheHintInput = ContentCacheHint | false
+export type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
 
 export const contentProviderResultMarker = '__ginkoContentProviderResult'
 
@@ -87,7 +79,7 @@ export interface ContentProviderCapabilities {
 export interface ContentProvider {
   name: ContentProviderName
   capabilities: ContentProviderCapabilities
-  query: <T = ParsedContent>(event: H3Event, query: ContentQueryBuilderParams) => Promise<MaybeContentProviderResult<ContentQueryResponse<T> | T[] | T | number | undefined>>
+  query: <T = ParsedContent>(event: H3Event, query: ContentQueryBuilderParams) => Promise<MaybeContentProviderResult<ContentQueryResponse<T>>>
   navigationQuery?: (event: H3Event, query: ContentQueryBuilderParams) => Promise<MaybeContentProviderResult<NavItem[]>>
   navigation?: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) => Promise<MaybeContentProviderResult<NavItem[]>>
   surroundings?: (event: H3Event, collection: string, path: string, options?: ContentCollectionItemSurroundingsOptions) => Promise<MaybeContentProviderResult<Array<NavItem | null>>>

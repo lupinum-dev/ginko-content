@@ -300,11 +300,11 @@ describe('useContentPage contracts', () => {
     expect(state.page.value?.title).toBe('Getting Started')
   })
 
-  test('normalizes trailing slash route selectors for locale switch queries', async () => {
-    const { useContentLocaleSwitch } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('normalizes trailing slash route selectors for document queries', async () => {
+    const { useContentOne } = await import('../../packages/content/src/runtime/app/composables/use-content')
     route.path = '/docs/getting-started/'
 
-    const state = await useContentLocaleSwitch('docs', {
+    await useContentOne('docs', {
       locale: 'en',
       by: {
         route: () => route.path
@@ -319,7 +319,6 @@ describe('useContentPage contracts', () => {
         route: '/docs/getting-started'
       })
     }), expect.anything())
-    expect(state.switchTo('de')).toBeTruthy()
   })
 
   test('does not report 404 during client-side route settling before new data arrives', async () => {

@@ -4,6 +4,12 @@ import { runAuthorDependencyFixtureSelfTest, runSaasProviderFixtureContractSuite
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 
+const expectProviderResultInvalid = (callback: () => unknown) => {
+  expect(callback).toThrow(expect.objectContaining({
+    data: expect.objectContaining({ code: 'provider_result_invalid' })
+  }))
+}
+
 describe('provider fixture conformance', () => {
   const fixture = createSaasProviderFixture()
   const provider = createFixtureContentProvider(fixture)
@@ -112,17 +118,59 @@ describe('provider fixture conformance', () => {
     })).resolves.toBeNull()
   })
 
-  test('does not treat raw result-only records as list query envelopes', () => {
-    const response = normalizeProviderQueryResponse<{ result: string }>({
-      collection: 'versions'
-    }, { result: 'raw-value' })
-
-    expect(response).toEqual({
-      result: [{ result: 'raw-value' }],
+  test('accepts only canonical provider query envelopes', () => {
+    expect(normalizeProviderQueryResponse<{ title: string }>({
+      collection: 'docs'
+    }, {
+      result: [{ title: 'Intro' }],
+      skip: 0,
+      limit: 1,
+      total: 1
+    })).toEqual({
+      result: [{ title: 'Intro' }],
       skip: 0,
       limit: 1,
       total: 1
     })
+
+    expect(normalizeProviderQueryResponse<{ title: string }>({
+      collection: 'docs',
+      first: true
+    }, {
+      result: { title: 'Intro' }
+    })).toEqual({
+      result: { title: 'Intro' }
+    })
+
+    expect(normalizeProviderQueryResponse({
+      collection: 'docs',
+      count: true
+    }, {
+      result: 1
+    })).toEqual({
+      result: 1
+    })
+  })
+
+  test('rejects malformed provider query results instead of silently normalizing them', () => {
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs' }, [{ title: 'Intro' }]))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs' }, { title: 'Intro' }))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs' }, undefined))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs', count: true }, []))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs', count: true }, 1))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs' }, 2))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs' }, {
+      result: [{ title: 'Intro' }],
+      skip: 0,
+      limit: 10
+    } as never))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs' }, {
+      result: 'raw-value'
+    }))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs', first: true }, [
+      { title: 'Intro' }
+    ]))
+    expectProviderResultInvalid(() => normalizeProviderQueryResponse({ collection: 'docs', first: true }, { title: 'Intro' }))
   })
 
   test('records route dependencies and invalidates only author-dependent routes', async () => {

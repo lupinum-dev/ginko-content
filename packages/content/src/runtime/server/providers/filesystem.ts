@@ -20,6 +20,7 @@ import {
   queryFilesystemCollectionSearchSections
 } from '../collection-helpers'
 import { queryFilesystemCollectionsSitemapEntries } from '../sitemap'
+import { createContentProviderError } from '../../../public/provider-errors'
 
 export const filesystemProvider: ContentProvider = {
   name: 'filesystem',
@@ -45,9 +46,11 @@ export const filesystemProvider: ContentProvider = {
   },
   query: <T = ParsedContent>(event: H3Event, query: import('../../../types/query').ContentQueryBuilderParams) => {
     if (containsStandaloneRegexOptions(query.where)) {
-      throw new TypeError('Query operator $options requires $regex.')
+      throw createContentProviderError('unsupported_query_shape', 'Query operator $options requires $regex.', {
+        operator: '$options'
+      })
     }
-    return executeFilesystemContentQuery<T>(event, query) as Promise<import('../../../public/provider').MaybeContentProviderResult<import('../../../types/api').ContentQueryResponse<T> | T[] | T | number | undefined>>
+    return executeFilesystemContentQuery<T>(event, query)
   },
   navigationQuery: (event: H3Event, query) => resolveContentNavigation(event, query),
   navigation: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) =>

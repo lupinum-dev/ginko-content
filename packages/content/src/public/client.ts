@@ -30,8 +30,7 @@ export {
   useContentVariants,
   useContentTree,
   useContentNavigation,
-  useContentNeighbors,
-  useContentLocaleSwitch
+  useContentNeighbors
 } from '../runtime/app/composables/use-content.js'
 export type { UseContentPageOptions } from '../runtime/app/composables/use-content.js'
 
@@ -55,6 +54,7 @@ export type {
   ResolveOneOptions,
   ResolveOneResult,
   LocalizedDoc,
+  LocalizedContentDocument,
   LocalePathEntry,
   NeighborsOptions,
   NeighborsResult,

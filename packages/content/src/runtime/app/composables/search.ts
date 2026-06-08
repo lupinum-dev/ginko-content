@@ -230,7 +230,7 @@ export async function useContentSearchData (
   const name = collectionName(collection)
   const searchTerm = ref('')
   const locale = computed(() => toValue(options.locale))
-  const payload = await useAsyncData(computed(() => `content-search-data:${name}:${locale.value || 'default'}`), async () => {
+  const payloadPromise = useAsyncData(computed(() => `content-search-data:${name}:${locale.value || 'default'}`), async () => {
     const locale = toValue(options.locale)
     const [navigation, files] = await Promise.all([
       tree(name, locale ? { locale } : {}),
@@ -244,6 +244,7 @@ export async function useContentSearchData (
   }, {
     watch: [locale]
   })
+  const payload = await payloadPromise
 
   const files = computed(() => payload.data.value?.files || [])
   const searchNavigation = computed(() => payload.data.value?.navigation || [])
@@ -360,7 +361,8 @@ export const useContentSearch = async (options: UseContentSearchOptions = {}): P
 const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string, minisearch: ContentSearchPublicRuntimeConfig['minisearch'], options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
   const locale = computed(() => toValue(options.locale))
   const requestUrl = computed(() => locale.value ? `${indexURL}?locale=${encodeURIComponent(locale.value)}` : indexURL)
-  const { data, pending, error } = await useFetch<ContentSearchIndexRecord[]>(requestUrl)
+  const fetchData = useFetch<ContentSearchIndexRecord[]>(requestUrl)
+  const { data, pending, error } = await fetchData
   const results = computed(() => searchRecords(data.value || [], toValue(search), locale.value, minisearch))
 
   return {
@@ -384,7 +386,8 @@ const useCmsSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string
     const query = params.toString()
     return query ? `${apiBaseURL}?${query}` : apiBaseURL
   })
-  const { data, pending, error } = await useFetch<ContentSearchResult[]>(requestUrl)
+  const fetchData = useFetch<ContentSearchResult[]>(requestUrl)
+  const { data, pending, error } = await fetchData
 
   return {
     results: computed(() => (data.value || []).map((result: ContentSearchResult) => ({

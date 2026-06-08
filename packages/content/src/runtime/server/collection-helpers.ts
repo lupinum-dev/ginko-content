@@ -100,7 +100,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
     ...options,
     loadVariantPage: async (input) => {
       try {
-        return await executeFilesystemContentQuery(event, {
+        const response = await executeFilesystemContentQuery<T & ParsedContent>(event, {
           collection,
           first: true,
           resolveVariant: {
@@ -108,7 +108,8 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
             locale: input.locale,
             fallback: input.fallback
           }
-        }) as (T & ParsedContent) | null
+        })
+        return (response.result as (T & ParsedContent) | undefined) || null
       }
       catch (error) {
         if (isNotFoundError(error)) {

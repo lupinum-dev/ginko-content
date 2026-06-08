@@ -14,6 +14,7 @@ import { normalizeContentQueryParams } from '../../core/query/params'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { getContentRuntimeConfig } from './runtime-config'
+import { createContentProviderError } from '../../public/provider-errors'
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -25,11 +26,7 @@ const isProviderFindResponse = <T>(response: unknown): response is ContentQueryF
   typeof response.limit === 'number' &&
   typeof response.total === 'number'
 
-export const normalizeProviderQueryResult = <T>(response: ContentQueryResponse<T> | T[] | T | number | undefined): T[] => {
-  if (Array.isArray(response)) {
-    return response
-  }
-
+export const normalizeProviderQueryResult = <T>(response: ContentQueryResponse<T>): T[] => {
   if (isProviderFindResponse<T>(response)) {
     return response.result
   }
@@ -47,40 +44,57 @@ const isProviderCountResponse = (response: unknown): response is ContentQueryCou
   typeof response.result === 'number' &&
   Object.keys(response).length === 1
 
+const hasListEnvelopeKeys = (response: Record<string, unknown>) =>
+  ['skip', 'limit', 'total'].some(key => key in response)
+
+const describeProviderResponse = (response: unknown) => {
+  if (Array.isArray(response)) return 'array'
+  if (response === null) return 'null'
+  return typeof response
+}
+
+const invalidProviderQueryResult = (
+  params: ContentQueryBuilderParams,
+  message: string,
+  response: unknown,
+  providerName?: string
+): never => {
+  throw createContentProviderError('provider_result_invalid', message, {
+    collection: params.collection,
+    provider: providerName,
+    mode: params.count ? 'count' : params.first ? 'first' : 'many',
+    responseType: describeProviderResponse(response)
+  })
+}
+
 export const normalizeProviderQueryResponse = <T>(
   params: ContentQueryBuilderParams,
-  response: ContentQueryResponse<T> | T[] | T | number | undefined
+  response: unknown,
+  providerName?: string
 ): ContentQueryResponse<T> => {
   if (params.count) {
     if (isProviderCountResponse(response)) {
       return response
     }
-    return { result: typeof response === 'number' ? response : 0 }
+    return invalidProviderQueryResult(params, 'Provider count queries must return a count envelope: { result: number }.', response, providerName)
   }
 
   if (params.first) {
     if (isProviderFindOneResponse<T>(response)) {
       return response
     }
-    return { result: Array.isArray(response) ? response[0] : response as T | undefined }
+    return invalidProviderQueryResult(params, 'Provider first queries must return a find-one envelope: { result: item | undefined }.', response, providerName)
   }
 
   if (isProviderFindResponse<T>(response)) {
     return response
   }
 
-  const result = Array.isArray(response)
-    ? response
-    : typeof response === 'undefined' || typeof response === 'number'
-      ? []
-      : [response as T]
-
-  return {
-    result,
-    skip: params.skip || 0,
-    limit: typeof params.limit === 'number' ? params.limit : result.length,
-    total: result.length
+  if (isObject(response) && hasListEnvelopeKeys(response)) {
+    return invalidProviderQueryResult(params, 'Provider list query envelopes must include array result, skip, limit, and total.', response, providerName)
   }
+
+  return invalidProviderQueryResult(params, 'Provider list queries must return a list envelope: { result: item[], skip, limit, total }.', response, providerName)
 }
 
 const identityMatchesDocument = (document: ParsedContent, identity: string) => {
@@ -131,15 +145,18 @@ export const resolveProviderContentVariants = async (
         await Promise.all(
           localesToQuery.map(async (locale) =>
             normalizeProviderQueryResult(
-              await provider.query<ParsedContent>(event, {
+              normalizeProviderQueryResponse<ParsedContent>({
                 ...baseQuery,
                 resolveLocale: { locale, exact: true },
-              }),
+              }, await provider.query<ParsedContent>(event, {
+                ...baseQuery,
+                resolveLocale: { locale, exact: true },
+              }), provider.name),
             ),
           ),
         )
       ).flat()
-    : normalizeProviderQueryResult(await provider.query<ParsedContent>(event, baseQuery))
+    : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, baseQuery), provider.name))
   const matched = documents.find(document => identityMatchesDocument(document, normalizedReference))
   const canonicalKey = matched?._canonicalKey
   if (!canonicalKey) {
@@ -185,8 +202,9 @@ export const resolveProviderContentVariants = async (
 export const createServerProviderQueryFetch = <T = ParsedContent>(event: H3Event) => {
   return async (query: ContentQueryRequest) => {
     const { getContentProvider } = await import('./providers')
-    const response = await (await getContentProvider(event)).query<T>(event, query.params())
-    return normalizeProviderQueryResponse(query.params(), response)
+    const provider = await getContentProvider(event)
+    const response = await provider.query<T>(event, query.params())
+    return normalizeProviderQueryResponse<T>(query.params(), response, provider.name)
   }
 }
 

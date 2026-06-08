@@ -1,4 +1,5 @@
 import type { ContentProvider } from '../../packages/content/src/public/provider'
+import type { ContentQueryResponse } from '../../packages/content/src/types/api'
 import type { NavItem, ParsedContent } from '../../packages/content/src/types/content'
 import type { ContentQueryBuilderParams } from '../../packages/content/src/types/query'
 import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
@@ -9,31 +10,8 @@ import { createRouteMeta, localizePageResult } from '../../packages/content/src/
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
 import type { ContentScenario } from './content-scenario'
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
-const isQueryResultEnvelope = (value: unknown): value is { result?: unknown } => {
-  if (!isObject(value)) {
-    return false
-  }
-
-  const keys = Object.keys(value)
-  if (keys.length === 1 && keys[0] === 'result') {
-    return true
-  }
-
-  return Array.isArray(value.result) &&
-    typeof value.total === 'number' &&
-    (typeof value.skip === 'undefined' || typeof value.skip === 'number') &&
-    (typeof value.limit === 'undefined' || typeof value.limit === 'number')
-}
-
-const unwrapResponseResult = <T>(response: unknown): T | T[] | number | undefined => {
-  if (isQueryResultEnvelope(response)) {
-    return response.result as T | T[] | number | undefined
-  }
-  return response as T | T[] | number | undefined
-}
+const unwrapResponseResult = <T>(response: ContentQueryResponse<T>): T | T[] | number | undefined =>
+  response.result as T | T[] | number | undefined
 
 const routeMountsFor = (scenario: ContentScenario, collection: string) => {
   const config = scenario.collections[collection]

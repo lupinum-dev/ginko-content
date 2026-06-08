@@ -53,7 +53,7 @@ const wrapProviderMethod = <T extends ProviderMethod>(event: H3Event, method: T)
 }
 
 export interface RuntimeContentProvider extends Omit<ContentProvider, 'query' | 'navigationQuery' | 'navigation' | 'surroundings' | 'searchSections' | 'search' | 'siteData' | 'page' | 'routeMeta' | 'sitemapEntries'> {
-  query: <T = ParsedContent>(event: H3Event, query: ContentQueryBuilderParams) => Promise<ContentQueryResponse<T> | T[] | T | number | undefined>
+  query: <T = ParsedContent>(event: H3Event, query: ContentQueryBuilderParams) => Promise<ContentQueryResponse<T>>
   navigationQuery?: (event: H3Event, query: ContentQueryBuilderParams) => Promise<NavItem[]>
   navigation?: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) => Promise<NavItem[]>
   surroundings?: (event: H3Event, collection: string, path: string, options?: ContentCollectionItemSurroundingsOptions) => Promise<Array<NavItem | null>>

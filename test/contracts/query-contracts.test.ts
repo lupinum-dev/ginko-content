@@ -93,7 +93,8 @@ describe('query execution contracts', () => {
       without: ['body']
     } as any)
 
-    expect(list).toEqual([
+    expect(list).toEqual({
+      result: [
       {
         title: 'Intro DE',
         _requestedLocale: 'de',
@@ -129,7 +130,11 @@ describe('query execution contracts', () => {
         _fallback: false,
         _availableLocales: ['en', 'de']
       }
-    ])
+      ],
+      skip: 0,
+      limit: 0,
+      total: 5
+    })
 
     await expect(executeContentQuery(event, {
       collection: 'docs',
@@ -137,15 +142,17 @@ describe('query execution contracts', () => {
       first: true,
       sort: [{ order: 1 }]
     } as any)).resolves.toMatchObject({
-      title: 'Intro DE',
-      _resolvedLocale: 'de'
+      result: {
+        title: 'Intro DE',
+        _resolvedLocale: 'de'
+      }
     })
 
     await expect(executeContentQuery(event, {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] },
       count: true
-    } as any)).resolves.toBe(5)
+    } as any)).resolves.toEqual({ result: 5 })
 
     await expect(executeContentQuery(event, {
       collection: 'docs',
@@ -153,9 +160,14 @@ describe('query execution contracts', () => {
       sort: [{ order: 1 }],
       skip: 1,
       limit: 1
-    } as any)).resolves.toMatchObject([
-      expect.objectContaining({ title: 'Guide EN' })
-    ])
+    } as any)).resolves.toMatchObject({
+      result: [
+        expect.objectContaining({ title: 'Guide EN' })
+      ],
+      skip: 1,
+      limit: 1,
+      total: 5
+    })
   })
 
   test('executeContentQuery reports not-found errors for missing locale-resolved results', async () => {
@@ -218,15 +230,17 @@ describe('query execution contracts', () => {
         fallback: ['en']
       }
     } as any)).resolves.toMatchObject({
-      title: 'Intro EN',
-      _requestedLocale: 'de',
-      _resolvedLocale: 'en',
-      _fallback: true,
-      _variantPaths: {
-        en: '/guide/intro'
-      },
-      _dir: {
-        badge: 'New'
+      result: {
+        title: 'Intro EN',
+        _requestedLocale: 'de',
+        _resolvedLocale: 'en',
+        _fallback: true,
+        _variantPaths: {
+          en: '/guide/intro'
+        },
+        _dir: {
+          badge: 'New'
+        }
       }
     })
   })
@@ -309,10 +323,15 @@ describe('query execution contracts', () => {
       where: [{ path: { $prefix: '/guide' } }],
       sort: [{ title: 1 }],
       only: ['title', '_path']
-    } as any)).resolves.toEqual([
-      { title: 'Advanced', _path: '/guide/advanced' },
-      { title: 'Intro', _path: '/guide/intro' }
-    ])
+    } as any)).resolves.toEqual({
+      result: [
+        { title: 'Advanced', _path: '/guide/advanced' },
+        { title: 'Intro', _path: '/guide/intro' }
+      ],
+      skip: 0,
+      limit: 0,
+      total: 2
+    })
   })
 
   test('executeContentQuery clamps public pagination bounds', async () => {
@@ -332,10 +351,15 @@ describe('query execution contracts', () => {
       sort: [{ order: 1 }],
       skip: -5,
       limit: 9999
-    } as any)).resolves.toMatchObject([
-      { title: 'A' },
-      { title: 'B' },
-      { title: 'C' }
-    ])
+    } as any)).resolves.toMatchObject({
+      result: [
+        { title: 'A' },
+        { title: 'B' },
+        { title: 'C' }
+      ],
+      skip: 0,
+      limit: 100,
+      total: 3
+    })
   })
 })

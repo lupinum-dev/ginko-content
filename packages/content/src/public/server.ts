@@ -93,6 +93,7 @@ export type {
   ResolveOneOptions,
   ResolveOneResult,
   LocalizedDoc,
+  LocalizedContentDocument,
   LocalePathEntry,
   NeighborsOptions,
   NeighborsResult,

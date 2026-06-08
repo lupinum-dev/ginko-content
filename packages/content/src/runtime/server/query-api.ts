@@ -53,7 +53,7 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
         }
         return await provider.navigationQuery(event, params)
       }
-      return normalizeProviderQueryResponse(params, await provider.query(event, params))
+      return normalizeProviderQueryResponse(params, await provider.query(event, params), provider.name)
     }
   }
 }

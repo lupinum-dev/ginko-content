@@ -1,4 +1,5 @@
 import { createError, type H3Event } from 'h3'
+import type { ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type { ContentQueryBuilderParams } from '../../types/query'
 import { lowerQueryPlan } from '../../core/query/lower'
 import { executeQueryPlan } from '../../core/query/execute'
@@ -129,7 +130,7 @@ const normalizePublicQuery = (
   return normalized
 }
 
-export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputQuery: ContentQueryBuilderParams) => {
+export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputQuery: ContentQueryBuilderParams): Promise<ContentQueryResponse<T>> => {
   const config = getContentRuntimeConfig().content || {}
   const query = normalizePublicQuery(event, inputQuery, config)
   let graph
@@ -149,7 +150,7 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
   })
 
   if (plan.mode === 'count') {
-    return response.result as T
+    return response as ContentQueryResponse<T>
   }
 
   const requestedLocale = plan.resolveVariant?.locale || plan.resolveLocale?.locale
@@ -160,10 +161,16 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
       notFound(query, plan.resolveVariant ? 'Could not find document for the given route variant.' : undefined)
     }
 
-    return await withResolvedRefs(event, content, requestedLocale) as T
+    return {
+      result: await withResolvedRefs(event, content, requestedLocale) as T
+    }
   }
 
-  return await withResolvedRefsList(event, Array.isArray(response.result) ? response.result : [], requestedLocale) as T[]
+  const listResponse = response as ContentQueryFindResponse<T>
+  return {
+    ...listResponse,
+    result: await withResolvedRefsList(event, Array.isArray(response.result) ? response.result : [], requestedLocale) as T[]
+  }
 }
 
 export const executeContentQuery = executeFilesystemContentQuery
