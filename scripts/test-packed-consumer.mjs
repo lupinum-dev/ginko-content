@@ -172,6 +172,7 @@ async function main() {
       },
       dependencies: {
         '@lupinum/ginko-content': `file:${tarball}`,
+        '@nuxtjs/sitemap': '8.0.15',
         '@types/node': '25.8.0',
         nuxt: '4.4.7',
         typescript: '6.0.3',
@@ -188,7 +189,18 @@ async function main() {
 
     writeFile(resolve(appDir, 'nuxt.config.ts'), `
       export default defineNuxtConfig({
-        modules: ['@lupinum/ginko-content'],
+        modules: ['@lupinum/ginko-content', '@nuxtjs/sitemap'],
+        site: {
+          url: 'https://packed-consumer.example.test',
+          name: 'Packed Consumer'
+        },
+        content: {
+          agent: {
+            linkHeaders: true,
+            markdownNegotiation: true
+          },
+          sitemap: true
+        },
         compatibilityDate: '2026-04-14'
       })
     `)
@@ -198,14 +210,30 @@ async function main() {
     }, null, 2))
 
     writeFile(resolve(appDir, 'content.config.ts'), `
-      import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
+      import { defineAgentSection, defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
 
       export const pages = defineCollection({
         type: 'page',
-        source: '*.md'
+        source: '*.md',
+        agent: {
+          section: 'docs',
+          markdown: true
+        }
       })
 
       export default defineContentConfig({
+        agent: {
+          site: {
+            title: 'Packed Consumer',
+            description: 'Packed package consumer smoke app.',
+            url: 'https://packed-consumer.example.test',
+            defaultLocale: 'en',
+            locales: ['en']
+          },
+          sections: [
+            defineAgentSection({ id: 'docs', title: 'Docs', order: 10 })
+          ]
+        },
         collections: { pages }
       })
     `)
@@ -308,6 +336,26 @@ async function main() {
     const importSmokeBody = await importSmokeResponse.text()
     if (!importSmokeResponse.ok || !importSmokeBody.includes('Import Smoke')) {
       throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
+    }
+
+    const sitemapPath = resolve(appDir, '.output/public/sitemap.xml')
+    if (!existsSync(sitemapPath)) {
+      throw new Error('Packed consumer build did not emit .output/public/sitemap.xml')
+    }
+    const sitemap = readFileSync(sitemapPath, 'utf8')
+    if (!sitemap.includes('https://packed-consumer.example.test/')) {
+      throw new Error(`Packed consumer sitemap is missing the content page URL:\n${sitemap.slice(0, 500)}`)
+    }
+
+    const llmsPath = resolve(appDir, '.output/public/llms.txt')
+    const rawMarkdownPath = resolve(appDir, '.output/public/raw/index.md')
+    if (!existsSync(llmsPath) || !existsSync(rawMarkdownPath)) {
+      throw new Error('Packed consumer build did not emit agent markdown outputs')
+    }
+    const llms = readFileSync(llmsPath, 'utf8')
+    const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
+    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
+      throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 
     console.log('Packed consumer test passed.')

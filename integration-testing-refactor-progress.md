@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 10 - Packed Consumer Matrix
+Current phase: Phase 11 - Docs And CI Alignment
 
 Guiding rules:
 
@@ -34,7 +34,7 @@ Guiding rules:
 | 7 | Provider-owned sitemap and search fixtures | Completed |
 | 8 | Static and SSR markdown contract hardening | Completed |
 | 9 | Browser e2e focus and failure capture | Completed |
-| 10 | Packed consumer matrix | Pending |
+| 10 | Packed consumer matrix | Completed |
 | 11 | Docs and CI alignment | Pending |
 | 12 | Performance and flake budget | Pending |
 
@@ -299,5 +299,32 @@ Status: completed
 ### Evidence
 
 - `pnpm test:e2e:browser` passed.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 10: Packed Consumer Matrix
+
+Status: completed
+
+### Todos
+
+- [x] Keep the default `test:package-consumer` as the release-gate packed
+  install smoke.
+- [x] Expand the fresh Nuxt app to install the packed package plus the sitemap
+  integration it relies on for XML output.
+- [x] Verify the fresh app builds and starts from the packed package.
+- [x] Verify public package subpaths import from the packed package output.
+- [x] Verify generated declaration files exist in the packed package.
+- [x] Verify no `workspace:*` ranges leak into the packed package.
+- [x] Verify the fresh app build does not hide unresolved external dependency
+  warnings.
+- [x] Verify generated sitemap XML, search API/index behavior, and agent
+  markdown outputs from the packed package consumer.
+
+### Evidence
+
+- `pnpm test:package-consumer` passed after the fresh app was expanded to
+  include `@nuxtjs/sitemap`, content sitemap output, configured agent markdown
+  output, `llms.txt`, and raw markdown output.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
