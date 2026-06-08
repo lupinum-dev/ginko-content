@@ -13,7 +13,8 @@ and server-side reads.
 ## Requirements
 
 - Node.js 20 or later
-- Nuxt 4.0 or later
+- Nuxt 4.4.7 or later
+- Vue 3.5 or later
 
 ## Install
 

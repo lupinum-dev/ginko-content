@@ -21,6 +21,12 @@ const exampleRoots = [
   'docs/server'
 ]
 
+const exampleImportRoots = [
+  ...exampleRoots,
+  'playground',
+  'test/fixtures'
+]
+
 const sourceExampleFiles = [
   'packages/content/src/types/config.ts'
 ]
@@ -98,7 +104,7 @@ const nonQueryDollarNames = new Set([
 ])
 
 const isCheckedTextFile = (file: string) =>
-  ['.md', '.vue', '.ts', '.js', '.mjs'].some(extension => file.endsWith(extension))
+  ['.json', '.md', '.vue', '.ts', '.js', '.mjs'].some(extension => file.endsWith(extension))
 
 const skippedDirectories = new Set([
   '.nuxt',
@@ -363,6 +369,59 @@ const extractMarkdownCodeBlocks = (source: string) => {
   return blocks
 }
 
+const collectPublicPackageSubpaths = async () => {
+  const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+    exports: Record<string, unknown>
+  }
+
+  return Object.keys(manifest.exports)
+    .map(subpath => subpath === '.' ? '@lupinum/ginko-content' : `@lupinum/ginko-content${subpath.slice(1)}`)
+}
+
+const extractImportSpecifiers = (source: string) => {
+  const specifiers = new Set<string>()
+  for (const match of source.matchAll(/\bimport(?:\s+type)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+    specifiers.add(match[1] ?? match[2] ?? '')
+  }
+  return [...specifiers].filter(Boolean)
+}
+
+const findNonPublicGinkoImportLines = (
+  file: string,
+  source: string,
+  publicSubpaths: string[]
+) => {
+  const allowed = new Set(publicSubpaths)
+  const wildcardPrefixes = publicSubpaths
+    .filter(subpath => subpath.endsWith('/*'))
+    .map(subpath => subpath.slice(0, -1))
+
+  return source.split('\n').flatMap((line, index) => {
+    const offenders = extractImportSpecifiers(line)
+      .filter(specifier => specifier.startsWith('@lupinum/ginko-content'))
+      .filter(specifier =>
+        !allowed.has(specifier) &&
+        !wildcardPrefixes.some(prefix => specifier.startsWith(prefix))
+      )
+
+    return offenders.length ? [`${file}:${index + 1} (${offenders.join(', ')})`] : []
+  })
+}
+
+const findNuxtContentImports = (file: string, source: string) =>
+  source.split('\n').flatMap((line, index) => {
+    const specifiers = extractImportSpecifiers(line)
+    return specifiers.includes('@nuxt/content') ? [`${file}:${index + 1}`] : []
+  })
+
+const peerRequirementLabel = (name: string, range: string) => {
+  const version = range.match(/\d+(?:\.\d+)*/)?.[0]
+  if (!version) return null
+  if (name === 'nuxt') return `Nuxt ${version} or later`
+  if (name === 'vue') return `Vue ${version.replace(/\.0$/, '')} or later`
+  return null
+}
+
 const isContentConfigCodeBlock = (info: string) =>
   /\bcontent\.config\.ts\b/.test(info)
 
@@ -521,5 +580,47 @@ describe('documentation drift', () => {
     }
 
     expect(offenders).toEqual([])
+  })
+
+  test('examples import Ginko only through public package subpaths', async () => {
+    const publicSubpaths = await collectPublicPackageSubpaths()
+    const offenders: string[] = []
+
+    for (const file of await collectTextFiles(exampleImportRoots)) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findNonPublicGinkoImportLines(file, source, publicSubpaths))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  test('examples do not import Nuxt Content directly', async () => {
+    const offenders: string[] = []
+
+    for (const file of await collectTextFiles(exampleImportRoots)) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findNuxtContentImports(file, source))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  test('README requirements match required package peer dependency floors', async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      peerDependencies: Record<string, string>
+      peerDependenciesMeta?: Record<string, { optional?: boolean }>
+    }
+    const readme = await readFile('packages/content/README.md', 'utf8')
+    const installDoc = await readFile('docs/content/docs/1.getting-started/2.installation.md', 'utf8')
+    const requiredPeerLabels = Object.entries(manifest.peerDependencies)
+      .filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional)
+      .map(([name, range]) => peerRequirementLabel(name, range))
+      .filter((label): label is string => Boolean(label))
+
+    expect(requiredPeerLabels).toEqual(['Nuxt 4.4.7 or later', 'Vue 3.5 or later'])
+    for (const label of requiredPeerLabels) {
+      expect(readme, label).toContain(label)
+      expect(installDoc, label).toContain(label)
+    }
   })
 })

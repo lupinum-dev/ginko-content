@@ -8,9 +8,9 @@ next actions.
 
 ## Current Status
 
-Overall status: active
+Overall status: completed
 
-Current phase: Phase 10, docs/examples/public API drift.
+Current phase: all roadmap phases completed.
 
 Guiding rules:
 
@@ -34,7 +34,7 @@ Guiding rules:
 | 7 | Sitemap/static edge matrix | Completed |
 | 8 | Provider/cache/revalidation conformance | Completed |
 | 9 | CMS-neutral contract/import hardening | Completed |
-| 10 | Docs/examples/public API drift | Not started |
+| 10 | Docs/examples/public API drift | Completed |
 
 ## Phase 0: Stabilize Current Confidence Baseline
 
@@ -501,9 +501,34 @@ None.
 
 ## Phase 10: Docs, Examples, And Public API Drift
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
 - Keep public-surface metadata, docs, examples, package exports, generated
   declarations, and beginner/advanced docs boundaries in sync.
+- Aligned the package README and installation docs with the actual package peer
+  dependency floors: Nuxt 4.4.7 or later and Vue 3.5 or later.
+- Extended docs drift checks to scan JSON files as well as source and markdown
+  files so example package manifests are covered by import/dependency policy.
+- Added a docs drift check that examples, playgrounds, and fixtures import
+  Ginko only through public package subpaths declared in `package.json`.
+- Added a docs drift check that examples, playgrounds, and fixtures do not
+  import or depend on `@nuxt/content` directly.
+- Added a docs drift check that the package README and installation guide
+  state peer dependency floors matching `packages/content/package.json`.
+
+### Evidence
+
+- 2026-06-08:
+  `pnpm vitest run test/contracts/package-exports-contracts.test.ts test/contracts/runtime-assets-contracts.test.ts test/unit/docs-drift.test.ts`
+  passed: 3 files, 38 tests.
+- 2026-06-08: `pnpm docs:build` passed.
+- 2026-06-08: `pnpm examples:build` passed.
+- 2026-06-08: `pnpm lint` passed.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
