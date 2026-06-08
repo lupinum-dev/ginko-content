@@ -35,10 +35,26 @@ export function parseSitemapUrlset (xml: string): ParsedSitemapUrl[] {
 export async function readSitemapBundle (publicDir: string): Promise<SitemapBundle> {
   const index = await readGeneratedArtifact(publicDir, 'sitemap_index.xml')
   const childSitemaps = new Map<string, string>()
+  const sitemapPaths = parseSitemapIndex(index)
 
-  for (const loc of parseSitemapIndex(index)) {
+  if (sitemapPaths.length === 0) {
+    throw new Error('Sitemap index did not reference any child sitemaps')
+  }
+
+  for (const loc of sitemapPaths) {
     const path = sitemapLocToPublicPath(loc)
-    childSitemaps.set(path, await readGeneratedArtifact(publicDir, path))
+    let childSitemap = ''
+    try {
+      childSitemap = await readGeneratedArtifact(publicDir, path)
+    } catch (error) {
+      throw new Error(`Sitemap index references missing child sitemap: ${path}`, { cause: error })
+    }
+
+    if (!childSitemap.trim()) {
+      throw new Error(`Sitemap index references empty child sitemap: ${path}`)
+    }
+
+    childSitemaps.set(path, childSitemap)
   }
 
   return { index, childSitemaps }

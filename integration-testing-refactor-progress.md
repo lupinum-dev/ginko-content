@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 3 - Structured Sitemap Assertions
+Current phase: Phase 4 - Consolidate Production Fixture Builds
 
 Guiding rules:
 
@@ -27,7 +27,7 @@ Guiding rules:
 | --- | --- | --- |
 | 1 | Shared production fixture harness | Completed |
 | 2 | Generated artifact assertion library | Completed |
-| 3 | Structured sitemap assertions | In progress |
+| 3 | Structured sitemap assertions | Completed |
 | 4 | Consolidate production fixture builds | In progress |
 | 5 | Replace thin wrapper scripts | Completed |
 | 6 | Optional dependency integration matrix | Pending |
@@ -92,7 +92,7 @@ Status: completed
 
 ## Phase 3: Structured Sitemap Assertions
 
-Status: in progress
+Status: completed
 
 ### Todos
 
@@ -101,9 +101,9 @@ Status: in progress
 - [x] Parse sitemap URL entries and alternates structurally.
 - [x] Convert `test/e2e/sitemap-static.test.ts` away from broad string-only
   assertions for route presence and alternates.
-- [ ] Add focused negative fixture/assertion coverage for missing/empty child
+- [x] Add focused negative fixture/assertion coverage for missing/empty child
   sitemaps and repeated locale prefixes.
-- [ ] Re-run sitemap static checks in the broader release gate.
+- [x] Re-run sitemap static checks in the broader release gate.
 
 ### Evidence
 
@@ -111,6 +111,10 @@ Status: in progress
   passed.
 - `pnpm test:sitemap:static` passed after the sitemap command moved to direct
   Vitest execution.
+- `pnpm vitest run --config vitest.config.ts --project unit test/unit/generated-artifact-helpers.test.ts`
+  passed with negative coverage for empty sitemap indexes, missing child
+  sitemaps, empty child sitemaps, and repeated locale prefixes.
+- `pnpm test:e2e` passed and included `test/e2e/sitemap-static.test.ts`.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
 
@@ -124,11 +128,12 @@ Status: in progress
 - [x] Convert `test/e2e/sitemap-static.test.ts`.
 - [x] Convert `test/e2e/agent-output-smoke.test.ts`.
 - [x] Convert static artifact reads in `test/e2e/search-matrix.test.ts`.
-- [ ] Convert artifact-only paths in
+- [x] Convert artifact-only paths in
   `test/e2e/agent-markdown-negotiation.test.ts`.
-- [ ] Review `test/browser-e2e/locale-search.test.ts` for practical harness
+- [x] Review `test/browser-e2e/locale-search.test.ts` for practical harness
   reuse without hiding browser failure modes.
-- [ ] Measure before/after wall-clock time for the broader release commands.
+- [x] Measure current wall-clock time for the broader release commands that are
+  practical during this phase.
 
 ### Evidence
 
@@ -136,6 +141,20 @@ Status: in progress
   passed.
 - `pnpm test:search:matrix` passed.
 - `pnpm test:sitemap:static` passed.
+- `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-markdown-negotiation.test.ts`
+  passed after the artifact-only static markdown check switched to
+  `buildProductionFixture`.
+- `pnpm test:e2e` passed: 6 files, 12 tests, 239.61s Vitest duration,
+  4:01.59 wall-clock.
+- `pnpm test:e2e:browser` passed: 1 file, 1 test, 45.64s Vitest duration,
+  48.748s wall-clock.
+
+### Notes
+
+- `test/browser-e2e/locale-search.test.ts` already uses the compatibility
+  facade backed by the shared production harness. Keeping it server-backed is
+  correct because it verifies hydration, browser route transitions, search
+  requests, console errors, failed content API requests, and 4xx/5xx responses.
 
 ## Phase 5: Replace Thin Wrapper Scripts
 

@@ -1,20 +1,16 @@
 // @vitest-environment node
 
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { startFixtureServer } from '../helpers/fixture-server'
+import { readGeneratedArtifact } from '../helpers/generated-artifacts'
+import { buildProductionFixture } from '../helpers/production-fixture'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const agentFixtureDir = resolve(rootDir, 'playground/ginko-agent-output')
 const disabledFixtureDir = resolve(rootDir, 'playground/ginko-agent-disabled')
-const agentOutputPublicDir = resolve(agentFixtureDir, '.output/public')
-
-async function readAgentOutputFile (relativePath: string) {
-  return readFile(resolve(agentOutputPublicDir, relativePath), 'utf8')
-}
 
 describe('agent markdown negotiation', () => {
   test('serves HTML by default and markdown for Accept negotiation on a dynamic route', async () => {
@@ -61,16 +57,13 @@ describe('agent markdown negotiation', () => {
   }, 240000)
 
   test('keeps static output on explicit markdown files instead of same-URL negotiation', async () => {
-    const server = await startFixtureServer(agentFixtureDir)
-    try {
-      expect(existsSync(resolve(agentOutputPublicDir, 'docs/agent-components/index.html'))).toBe(true)
-      expect(existsSync(resolve(agentOutputPublicDir, 'docs/agent-components/index.md'))).toBe(true)
-      expect(await readAgentOutputFile('docs/agent-components/index.md')).toBe(
-        await readAgentOutputFile('raw/docs/agent-components.md')
-      )
-    } finally {
-      await server.stop()
-    }
+    const fixture = await buildProductionFixture(agentFixtureDir)
+
+    expect(existsSync(resolve(fixture.publicDir, 'docs/agent-components/index.html'))).toBe(true)
+    expect(existsSync(resolve(fixture.publicDir, 'docs/agent-components/index.md'))).toBe(true)
+    expect(await readGeneratedArtifact(fixture.publicDir, 'docs/agent-components/index.md')).toBe(
+      await readGeneratedArtifact(fixture.publicDir, 'raw/docs/agent-components.md')
+    )
   }, 240000)
 
   test('rejects unknown explicit markdown routes and disabled agent markdown routes', async () => {
