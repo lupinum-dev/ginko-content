@@ -48,3 +48,8 @@ export const stableKey = (prefix: string, name: string, options: unknown) => `${
 
 export const contentCollectionName = (handle: ContentCollectionTarget) =>
   typeof handle === 'string' ? handle : handle.name
+
+export const resolveLocaleFromRoutePath = (path: string, locales: string[], defaultLocale?: string) => {
+  const firstSegment = path.split('/').filter(Boolean)[0]
+  return firstSegment && locales.includes(firstSegment) ? firstSegment : defaultLocale
+}

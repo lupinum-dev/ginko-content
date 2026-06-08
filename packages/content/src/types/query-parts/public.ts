@@ -249,7 +249,8 @@ export type TreeOptions<
   sort?: SortSpec<HandleSchema<H>>
   fields?: Fields
   fallback?: LocaleFallback
-} & LocaleOption<H>
+  locale?: string
+}
 
 export type ContentTreeItem<
   T = ParsedContentMeta,

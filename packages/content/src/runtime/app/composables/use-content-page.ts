@@ -16,7 +16,7 @@ import type {
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { useContentRoute } from './route'
 import { getContentRuntime } from './runtime'
-import { contentCollectionName, type Reactive } from './use-content-shared'
+import { contentCollectionName, resolveLocaleFromRoutePath, type Reactive } from './use-content-shared'
 import { useContentOne } from './use-content-document'
 import { useContentNeighbors } from './use-content-navigation'
 
@@ -91,11 +91,6 @@ const normalizeRoutePath = (path: unknown) => {
   if (typeof path !== 'string') return undefined
   const normalized = path.replace(/\/+$/, '')
   return normalized || '/'
-}
-
-const resolveLocaleFromRoutePath = (path: string, locales: string[], defaultLocale?: string) => {
-  const firstSegment = path.split('/').filter(Boolean)[0]
-  return firstSegment && locales.includes(firstSegment) ? firstSegment : defaultLocale
 }
 
 const localePathMatches = (entry: unknown, path: string) => {

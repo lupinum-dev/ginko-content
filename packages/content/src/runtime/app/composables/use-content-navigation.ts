@@ -9,9 +9,11 @@ import type {
   NeighborsResult,
   TreeOptions
 } from '../../../types/query'
+import { resolveCollectionI18n } from '../../../features/localization/path'
 import { createClientContentQueryContext } from './query-api'
 import { neighbors as neighborsWithContext, tree as treeWithContext } from '../../query/unified'
-import { contentCollectionName, resolveOptions, stableKey, type Reactive } from './use-content-shared'
+import { getContentRoute, getContentRuntime } from './runtime'
+import { contentCollectionName, resolveLocaleFromRoutePath, resolveOptions, stableKey, type Reactive } from './use-content-shared'
 
 export type ContentNavigationNode<T> = Omit<ContentTreeItem<T>, 'children'> & {
   id: string
@@ -103,7 +105,24 @@ export async function useContentNavigation<H extends ContentCollectionTarget> (
   handle: H,
   options: Reactive<TreeOptions<H>> = {} as Reactive<TreeOptions<H>>
 ): Promise<UseContentNavigationReturn<DocFromHandle<H>>> {
-  const tree = await useContentTree(handle, options)
+  const route = getContentRoute()
+  const runtime = getContentRuntime()
+  const collectionI18n = resolveCollectionI18n(contentCollectionName(handle), runtime)
+  const routeAwareOptions = computed(() => {
+    const resolved = resolveOptions(options as Reactive<Record<string, unknown>>) as TreeOptions<H>
+    if (resolved.locale) {
+      return resolved
+    }
+
+    const { locales, defaultLocale } = collectionI18n
+    if (!locales.length && !defaultLocale) {
+      return resolved
+    }
+
+    const locale = resolveLocaleFromRoutePath(route.path, locales, defaultLocale)
+    return locale ? { ...resolved, locale } : resolved
+  })
+  const tree = await useContentTree(handle, routeAwareOptions as unknown as Reactive<TreeOptions<H>>)
   const data = computed(() => normalizeContentNavigation(tree.data.value))
 
   return {

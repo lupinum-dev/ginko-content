@@ -103,6 +103,7 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
 
 vi.mock('#imports', () => ({
   useNuxtApp: () => ({ $i18n: { locale: undefined } }),
+  useRoute: () => route,
   useState: (_key: string, init?: () => any) => ({ value: init ? init() : undefined }),
   computed: (fn: any) => ({ get value () { return fn() } }),
   ref: (value: any) => ({ value }),
@@ -261,6 +262,72 @@ describe('app query/composable contracts', () => {
     }))
     expect(state.paths.value.has('/de/guide')).toBe(true)
     expect(state.paths.value.has('/de/guide/advanced')).toBe(true)
+  })
+
+  test('useContentNavigation infers locale from the current route when none is passed', async () => {
+    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
+
+    route.path = '/de/guide'
+    await useContentNavigation('docs', {
+      fields: ['icon']
+    })
+
+    expect(fetchContentApi).toHaveBeenLastCalledWith('navigation', expect.objectContaining({
+      collection: 'docs',
+      resolveLocale: expect.objectContaining({ locale: 'de' }),
+      only: expect.arrayContaining(['icon'])
+    }), expect.anything())
+  })
+
+  test('useContentNavigation uses the default locale for unprefixed routes', async () => {
+    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
+
+    route.path = '/guide'
+    await useContentNavigation('docs')
+
+    expect(fetchContentApi).toHaveBeenLastCalledWith('navigation', expect.objectContaining({
+      collection: 'docs',
+      resolveLocale: expect.objectContaining({ locale: 'en' })
+    }), expect.anything())
+  })
+
+  test('useContentNavigation explicit locale overrides route inference', async () => {
+    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
+
+    route.path = '/de/guide'
+    await useContentNavigation('docs', {
+      locale: 'en',
+      fields: ['badge']
+    })
+
+    expect(fetchContentApi).toHaveBeenLastCalledWith('navigation', expect.objectContaining({
+      collection: 'docs',
+      only: expect.arrayContaining(['badge']),
+      resolveLocale: expect.objectContaining({ locale: 'en' })
+    }), expect.anything())
+  })
+
+  test('findFirstContentNavigationPage skips pathless folders', async () => {
+    const { findFirstContentNavigationPage } = await import('../../packages/content/src/runtime/app/composables/use-content-navigation')
+
+    expect(findFirstContentNavigationPage([
+      {
+        id: 'folder:guide',
+        title: 'Guide',
+        path: '',
+        children: [
+          {
+            id: 'docs/intro',
+            title: 'Intro',
+            path: '/guide/intro',
+            children: []
+          }
+        ]
+      }
+    ])).toEqual(expect.objectContaining({
+      id: 'docs/intro',
+      path: '/guide/intro'
+    }))
   })
 
   test('useContentNavigation keeps pending navigation distinct from an empty provider result', async () => {
