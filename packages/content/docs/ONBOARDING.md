@@ -5,6 +5,15 @@ against `packages/content`. It complements [`ARCHITECTURE.md`](../ARCHITECTURE.m
 (which describes the layering and its rules) by answering the question
 "I have a change to make — where does it go?"
 
+For deeper subsystem maps, use:
+
+- [`QUERY_PIPELINE.md`](./QUERY_PIPELINE.md) for query operators, operation results, and provider query dispatch.
+- [`PROVIDER_CONTRACT.md`](./PROVIDER_CONTRACT.md) for provider capabilities, provider errors, and cache hints.
+- [`MODULE_SETUP.md`](./MODULE_SETUP.md) for Nuxt module setup, generated imports, runtime config, and static output.
+- [`RENDERING.md`](./RENDERING.md) for renderer components, route-page composables, and content head behavior.
+- [`CMS_CONTRACT.md`](./CMS_CONTRACT.md) for CMS-neutral contracts and import helpers.
+- [`CHANGE_GUIDE.md`](./CHANGE_GUIDE.md) for common recipes and the PR checklist.
+
 ---
 
 ## The layer map
@@ -16,14 +25,16 @@ responsibility, and the allowed import direction is strict:
 |---|---|---|
 | `core/` | Pure domain logic: query AST, content graph, reference resolution, `Result<T, E>`, `ContentError` codes. No framework imports. | New query operator, new error code, graph-traversal fix. |
 | `features/` | User-facing capabilities built on `core`: navigation tree building, collection resolution, locale-aware result shaping, search sections, translated slugs. Still framework-free. | New collection-level helper (`queryCollectionFoo`), navigation tweak, search-section shape change. |
-| `storage/` | Source reading, parsed-artifact cache, validation orchestration, reference-enrichment over query responses. Depends on `core`, `features`, `integrations`. | Cache strategy change, new validation rule, new source-level enrichment. |
+| `storage/` | Default filesystem/Nitro storage bridge: source reading, parsed-artifact cache, validation orchestration, reference-enrichment over query responses. Depends on `core`, `features`, `integrations`; not on `runtime`, `module`, `public`, or `cli`. | Cache strategy change, new validation rule, new source-level enrichment. |
 | `integrations/` | Platform bindings. `nitro/` owns request-scoped runtime context, ingest orchestration, runtime config, preview state. `vue/` owns component discovery and the renderer. | New ingest wiring, new request-scoped cache field. |
 | `parsers/` | Entry points for markdown, yaml, json, csv ingestion. | New parser, new markdown transformer. |
 | `public/` + `runtime/` | The package's public export surface (`server.ts` / `client.ts` / `config.ts`) and its thin runtime adapters that bind `features/` to Nitro/Nuxt. | Rare. If you find yourself adding real logic here, it belongs in `features/` instead. |
 
 **The dependency rule, restated:** `core/` → nothing; `features/` → `core/`;
 `storage/` → `core + features + integrations`; `runtime/` → everything. Never
-the reverse. `core/` must never import Nitro, Vue, or Nuxt.
+the reverse. `core/` and `features/` must never import Nitro, Vue, or Nuxt.
+`storage/` is the runtime storage bridge, but pure files such as
+`storage/validation.ts` must stay framework-free.
 
 ---
 

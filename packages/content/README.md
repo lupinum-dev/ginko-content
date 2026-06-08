@@ -74,7 +74,9 @@ Render the current route through the collection:
 ```vue
 <!-- pages/[...slug].vue -->
 <script setup lang="ts">
-const { page } = await useContentPage('pages')
+import { pages } from '~/content.config'
+
+const { page } = await useContentPage(pages)
 </script>
 
 <template>
@@ -89,8 +91,8 @@ const { page } = await useContentPage('pages')
   files
 - Markdown, Comark component tags, YAML, JSON, and CSV ingestion
 - locale-aware content routing
-- route-aware page loading with `useContentPage('pages')`
-- semantic previous/next route-page data through `useContentPage('pages', { surround })`
+- route-aware page loading with `useContentPage(pages)`
+- semantic previous/next route-page data through `useContentPage(pages, { surround })`
 - server reads through `one`, `many`, `paginate`, `resolveOne`, `tree`, and
   `neighbors`
 - Vue composables for the same read model

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { page } = await useContentPage('landing')
+import { landing } from '../../content.config'
+
+const { page } = await useContentPage(landing)
 
 useSeoMeta({
   title: () => (page.value as any)?.seo?.title || (page.value as any)?.title || '',

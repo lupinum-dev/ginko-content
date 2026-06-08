@@ -2,9 +2,14 @@
 type: ADR
 id: "0005"
 title: "Collection-first public query surface"
-status: active
+status: superseded
 date: 2026-04-24
+superseded_by: "0016"
 ---
+
+This ADR is superseded by [ADR-0016: Unified query API](./0016-unified-query-api.md).
+The collection-first requirement remains, but the public API names in this ADR
+are historical and should not be used as current guidance.
 
 ## Context
 

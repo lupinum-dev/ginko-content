@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { docs } from '../../../content.config'
 import { prefixDocsPath } from '../../utils/docs'
 
 definePageMeta({
@@ -7,7 +8,7 @@ definePageMeta({
 
 const { toc, seo } = useAppConfig()
 
-const { page, surround } = await useContentPage('docs', {
+const { page, surround } = await useContentPage(docs, {
   surround: true
 })
 

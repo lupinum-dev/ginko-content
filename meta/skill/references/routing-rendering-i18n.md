@@ -26,7 +26,7 @@ Use lower-level query APIs only when the page is not route-backed or the UI is i
 
 ## Route And Locale Helpers
 
-- `useContentLocaleSwitch(page?)`: prefers active content route localized paths, then falls back to Nuxt i18n switching.
+- `page.localePaths`: public content locale-switch contract for resolved route-backed documents.
 - `useContentTree(handle, options?)`: normalized navigation tree for a collection.
 - `useContentNeighbors(handle, options)`: previous/next entries around a route-backed document.
 - `querySiteData(options?)`: site-level content data.

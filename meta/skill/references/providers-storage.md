@@ -85,6 +85,7 @@ Unsupported behavior should fail with typed provider errors such as:
 - `provider_config_missing`
 - `provider_module_missing`
 - `provider_module_invalid`
+- `provider_result_invalid`
 - `unsupported_provider_search_index`
 - `unsupported_provider_search`
 - `unsupported_provider_site_data`

@@ -9,7 +9,7 @@ This package is organized around domain boundaries, not deployment boundaries.
 - `src/parsers/`
   Format-specific parser entrypoints.
 - `src/storage/`
-  Content source, cache, and manifest orchestration.
+  Default filesystem/Nitro storage bridge: content source, cache, manifest, and validation orchestration.
 - `src/features/`
   User-facing content capabilities such as collections, navigation, localization, search, and sitemap shaping.
 - `src/integrations/`
@@ -23,7 +23,7 @@ This package is organized around domain boundaries, not deployment boundaries.
 
 - Prefer moving logic down to `core`, `storage`, or `features` instead of adding new `runtime/*` helpers.
 - Keep `core` free of framework imports.
-- Keep `storage` free of `runtime/*` imports.
+- Keep `storage` free of `runtime/*`, `module/*`, `public/*`, and `cli/*` imports. `storage` may use Nitro integration/context code, but pure files such as `storage/validation.ts` must stay framework-free.
 - Keep `features` dependency-injected where practical. Runtime adapters should provide event-bound dependencies.
 - If a file name needs words like `utils`, `helpers`, or `shared`, the abstraction is probably still too vague.
 - Public API changes belong in `src/public/*` and `package.json` exports together.

@@ -16,8 +16,9 @@ This package contains Ginko Core and the default filesystem provider. The core r
 
 `src/storage`
 - Content source, parsed artifact cache, manifest, reference enrichment, and validation orchestration.
-- May depend on `core`, `features`, and `integrations`, but should not depend on `runtime`.
+- Runtime storage bridge for the default filesystem provider. It may depend on `core`, `features`, `integrations`, and H3-bound request context, but should not depend on `runtime`, `module`, public facades, or CLI code.
 - Owns filesystem-provider storage behavior, not a generic CMS data model.
+- Pure storage-adjacent logic should stay in focused files such as `storage/validation.ts` and remain framework-free.
 
 `src/integrations`
 - Platform bindings.
@@ -49,6 +50,7 @@ Disallowed direction:
 - `core` importing from `runtime`
 - `features` importing from `runtime`
 - `storage` importing from `runtime`
+- `storage` importing from `module`, `public`, or `cli`
 - `core` importing Nitro/Vue/Nuxt modules
 - new generic `utils` directories for domain logic
 
@@ -92,13 +94,21 @@ Nothing else should create parallel request caches.
 Public package exports remain:
 - `@lupinum/ginko-content`
 - `@lupinum/ginko-content/config`
-- `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/server`
+- `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/toc`
+- `@lupinum/ginko-content/cms-contract`
+- `@lupinum/ginko-content/cms-import`
+- `@lupinum/ginko-content/testing/provider-fixture`
+- `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
+- `@lupinum/ginko-content/transformers/*`
 
 Those export paths are compatibility commitments.
 Internal source layout should optimize for clarity, not mirror the export map.
+`meta/public-surface.json` classifies every committed package subpath,
+client/server facade export, and generated app auto-import with category,
+audience, and docs target.
 
 ## Search
 

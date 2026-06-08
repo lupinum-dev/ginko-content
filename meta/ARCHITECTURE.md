@@ -136,7 +136,7 @@ App code should prefer:
 
 - `useContentOne(handle, { by: { route } })` for route-backed page loading
 - `useContentTree(handle)` for collection navigation
-- `useContentLocaleSwitch(handle, page)` for locale-aware route switching
+- `page.localePaths` for locale-aware route switching after resolving a document
 - `many(handle, options)` / `useContentMany(handle, options)` for explicit lists and filters
 
 Lower-level server collection helpers can exist internally, but the public package server surface stays intentionally small.

@@ -62,22 +62,23 @@ Check `module.ts` before documenting defaults; these are easy to drift.
 
 Client auto-imports:
 
-- `one`
-- `many`
-- `resolveOne`
-- `variants`
-- `tree`
-- `neighbors`
+- `getCollectionPath`
+- `useContentHead`
 - `useContentOne`
 - `useContentMany`
+- `useContentPage`
+- `useContentPagination`
+- `useContentBacklinks`
 - `useContentResolveOne`
 - `useContentVariants`
 - `useContentTree`
+- `useContentNavigation`
 - `useContentNeighbors`
-- `useContentLocaleSwitch`
 - `useContentSearchData`
 - `useContentSearchResults`
 - `querySiteData`
+
+Low-level pure query functions such as `one`, `many`, `resolveOne`, `variants`, `tree`, and `neighbors` are client facade exports from `@lupinum/ginko-content/client`, but they are not app auto-imports. Import them explicitly when needed.
 
 Server auto-imports:
 

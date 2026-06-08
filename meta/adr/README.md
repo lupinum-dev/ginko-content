@@ -14,7 +14,7 @@ ADR that supersedes the old one; do not rewrite history.
 | 0002  | [Target small-to-medium content sites](./0002-target-small-to-medium-content-sites.md)                 | active |
 | 0003  | [No native search deps — JSON + Pagefind](./0003-no-native-search-deps.md)                             | active |
 | 0004  | [Filesystem provider uses files as the source of truth](./0004-filesystem-source-of-truth.md)          | active |
-| 0005  | [Collection-first public query surface](./0005-collection-first-public-query-surface.md)               | active |
+| 0005  | [Collection-first public query surface](./0005-collection-first-public-query-surface.md)               | superseded by 0016 |
 | 0006  | [Locale-agnostic canonical identity](./0006-locale-agnostic-canonical-identity.md)                     | active |
 | 0007  | [`@nuxtjs/i18n` as the locale source of truth](./0007-nuxt-i18n-as-locale-source-of-truth.md)          | active |
 | 0008  | [Translated slugs via numeric-prefix identity](./0008-translated-slugs-via-numeric-prefix.md)          | active |
@@ -27,6 +27,7 @@ ADR that supersedes the old one; do not rewrite history.
 | 0015  | [Retire draft specs and completed planning logs](./0015-retire-draft-spec-and-task-log.md)             | active |
 | 0016  | [Unified query API](./0016-unified-query-api.md)                                                       | active |
 | 0017  | [CMS cache invalidation boundary](./0017-cms-cache-invalidation-boundary.md)                           | active |
+| 0018  | [Classify public surfaces by audience](./0018-public-surface-classification.md)                        | active |
 
 ## Format
 
