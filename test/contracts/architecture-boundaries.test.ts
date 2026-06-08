@@ -67,4 +67,37 @@ describe('architecture boundary contracts', () => {
 
     expect(forbidden).toEqual([])
   })
+
+  test('public package surface does not expose CMS admin/editor/workflow/MCP behavior', async () => {
+    const packageJson = JSON.parse(await readFile(join(process.cwd(), 'packages/content/package.json'), 'utf8')) as {
+      exports?: Record<string, unknown>
+    }
+    const publicSurface = JSON.parse(await readFile(join(process.cwd(), 'meta/public-surface.json'), 'utf8')) as {
+      exports?: Record<string, unknown>
+    }
+
+    const publicFiles = await collectTypeScriptFiles(join(packageSrc, 'public'))
+    const publicSource = await Promise.all(publicFiles.map(async file => ({
+      file: relative(process.cwd(), file),
+      source: await readFile(file, 'utf8'),
+    })))
+
+    const forbidden = /\b(?:mcp|admin|editor|workflow|studio|convex)\b/i
+    const publicIdentifiers = [
+      ...Object.keys(packageJson.exports ?? {}),
+      ...Object.keys(publicSurface.exports ?? {}),
+      ...Object.values(publicSurface.exports ?? {}).flatMap(value =>
+        value && typeof value === 'object'
+          ? Object.values(value as Record<string, unknown>).map(String)
+          : []
+      ),
+      ...publicSource.flatMap(({ file, source }) => [
+        file,
+        ...Array.from(source.matchAll(/\bexport\s+(?:type\s+)?(?:const|function|class|interface|type)\s+([A-Za-z0-9_]+)/g), match => match[1]),
+        ...Array.from(source.matchAll(/\bexport\s*\{([^}]+)\}/g), match => match[1]),
+      ]),
+    ].filter(Boolean)
+
+    expect(publicIdentifiers.filter(identifier => forbidden.test(String(identifier)))).toEqual([])
+  })
 })

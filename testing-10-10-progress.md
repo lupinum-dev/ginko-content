@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 9, CMS-neutral contract and import hardening.
+Current phase: Phase 10, docs/examples/public API drift.
 
 Guiding rules:
 
@@ -33,7 +33,7 @@ Guiding rules:
 | 6 | Search matrix hardening | Completed |
 | 7 | Sitemap/static edge matrix | Completed |
 | 8 | Provider/cache/revalidation conformance | Completed |
-| 9 | CMS-neutral contract/import hardening | Not started |
+| 9 | CMS-neutral contract/import hardening | Completed |
 | 10 | Docs/examples/public API drift | Not started |
 
 ## Phase 0: Stabilize Current Confidence Baseline
@@ -464,12 +464,40 @@ None.
 
 ## Phase 9: CMS-Neutral Contract And Import Hardening
 
-Status: not started
+Status: completed
 
-Planned work:
+Completed work:
 
-- Strengthen CMS contract purity, artifact golden tests, field metadata,
-  routing modes, unsupported schema diagnostics, and packed subpath imports.
+- Added `cms-import` parser and graph tests for Markdown, MDC, YAML, JSON,
+  JSON5, collection matching, localized metadata, references, and canonical
+  variant graph construction.
+- Fixed `cms-import` JSON5 editable-source extraction so it uses the same JSON5
+  parser semantics as the shared JSON transformer instead of silently producing
+  empty frontmatter for JSON5 object syntax.
+- Strengthened CMS schema artifact tests so public CMS field helper metadata for
+  rich text, image, asset/file, relation, relations, object, array, select,
+  number, boolean, date, slug, labels, required state, and localization is
+  preserved in the generated CMS contract.
+- Added an architecture boundary check that the package exports, public-surface
+  metadata, and public facade files do not expose CMS admin, editor, workflow,
+  MCP, Studio, or Convex behavior from this core package.
+- Re-verified packed consumer imports for `@lupinum/ginko-content/cms-contract`
+  and `@lupinum/ginko-content/cms-import`.
+
+### Evidence
+
+- 2026-06-08:
+  `pnpm vitest run test/contracts/architecture-boundaries.test.ts test/unit/cms-contract-purity.test.ts test/unit/cms-contract-schema-artifact.test.ts test/unit/cms-import.test.ts`
+  passed: 4 files, 21 tests.
+- 2026-06-08: `pnpm test:package-consumer` passed and imported both CMS
+  subpaths from the packed tarball.
+- 2026-06-08: `pnpm lint` passed.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 10: Docs, Examples, And Public API Drift
 

@@ -66,7 +66,11 @@ async function extractEditableSource(
   if (/\.(md|mdc|markdown)$/i.test(id)) {
     return parseMarkdownEditableSource(source)
   }
-  if (/\.json5?$/i.test(id)) {
+  if (/\.json5$/i.test(id)) {
+    const json5 = await import('json5').then(m => m.default || m)
+    return { frontmatter: normalizeRecord(json5.parse(source)) }
+  }
+  if (/\.json$/i.test(id)) {
     return { frontmatter: normalizeRecord(destr(source)) }
   }
   if (/\.ya?ml$/i.test(id)) {

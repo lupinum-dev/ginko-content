@@ -5,6 +5,7 @@ import {
   CmsContractSchemaUnsupportedError,
   buildCmsContract,
 } from '../../packages/content/src/cms-contract/build'
+import { fields } from '../../packages/content/src/config'
 import type { BuildCmsContractInput } from '../../packages/content/src/cms-contract'
 
 const options = {
@@ -148,6 +149,94 @@ describe('CMS schema artifact guard', () => {
         'string',
       ]),
     )
+  })
+
+  it('preserves public CMS field metadata in the generated contract', () => {
+    const contract = buildCmsContract(
+      {
+        collections: {
+          posts: {
+            type: 'data',
+            source: 'content/posts/*.json',
+            i18n: true,
+            schema: z.object({
+              headline: fields.text().required().label({ en: 'Title', de: 'Titel' }).localized(),
+              copy: fields.richtext(),
+              hero: fields.image({ aspectRatio: '16:9', accept: ['image/png'] }),
+              attachment: fields.asset({ accept: ['application/pdf'] }),
+              author: fields.relation('authors').required(),
+              related: fields.relations('posts'),
+              settings: fields.object({
+                summary: fields.text(),
+                pinned: fields.boolean(),
+              }),
+              links: fields.array(fields.object({
+                label: fields.text(),
+                href: fields.url(),
+              })),
+              status: fields.select(['draft', 'published']),
+              score: fields.number(),
+              featured: fields.boolean(),
+              publishDate: fields.date(),
+              slug: fields.slug({ from: 'title' }),
+            }),
+          },
+        },
+      },
+      options,
+    )
+
+    const byKey = Object.fromEntries(
+      (contract.collections.posts?.fields ?? []).map(field => [field.key, field]),
+    )
+
+    expect(byKey.headline).toMatchObject({
+      type: 'text',
+      required: true,
+      localized: true,
+      label: { en: 'Title', de: 'Titel' },
+    })
+    expect(byKey.copy).toMatchObject({ type: 'richtext', localized: true })
+    expect(byKey.hero).toMatchObject({
+      type: 'image',
+      localized: false,
+      media: { accept: ['image/png'], aspectRatio: '16:9' },
+    })
+    expect(byKey.attachment).toMatchObject({
+      type: 'file',
+      localized: false,
+      media: { accept: ['application/pdf'], aspectRatio: null },
+    })
+    expect(byKey.author).toMatchObject({
+      type: 'relation',
+      required: true,
+      relation: { collectionId: 'authors', multiple: false },
+    })
+    expect(byKey.related).toMatchObject({
+      type: 'relations',
+      relation: { collectionId: 'posts', multiple: true },
+    })
+    expect(byKey.settings).toMatchObject({
+      type: 'object',
+      localized: true,
+      fields: expect.arrayContaining([
+        expect.objectContaining({ key: 'pinned', type: 'toggle', localized: false }),
+        expect.objectContaining({ key: 'summary', type: 'text', localized: false }),
+      ]),
+    })
+    expect(byKey.links).toMatchObject({
+      type: 'array',
+      localized: true,
+      fields: expect.arrayContaining([
+        expect.objectContaining({ key: 'href', type: 'url' }),
+        expect.objectContaining({ key: 'label', type: 'text' }),
+      ]),
+    })
+    expect(byKey.status).toMatchObject({ type: 'select', options: ['draft', 'published'] })
+    expect(byKey.score).toMatchObject({ type: 'number', localized: false })
+    expect(byKey.featured).toMatchObject({ type: 'toggle', localized: false })
+    expect(byKey.publishDate).toMatchObject({ type: 'date', localized: false })
+    expect(byKey.slug).toMatchObject({ type: 'slug', slugFrom: 'title' })
   })
 
   it('emits CMS array fields only for object arrays', () => {
