@@ -7,11 +7,19 @@ export default defineNuxtConfig({
   ],
 
   content: {
+    agent: {
+      linkHeaders: true,
+      markdownNegotiation: true
+    },
     i18n: {
       defaultLocale: 'en',
       locales: ['en', 'de'],
       translatedSlugs: true
     }
+  },
+
+  routeRules: {
+    '/ssr-only': { prerender: false }
   },
 
   i18n: {

@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 5, SSR and static markdown contracts.
+Current phase: Phase 6, search matrix hardening.
 
 Guiding rules:
 
@@ -29,7 +29,7 @@ Guiding rules:
 | 2 | Compact agent output fixture | Completed |
 | 3 | Production browser e2e | Completed |
 | 4 | Packed fresh Nuxt consumer test | Completed |
-| 5 | SSR/static markdown contract split | Not started |
+| 5 | SSR/static markdown contract split | Completed |
 | 6 | Search matrix hardening | Not started |
 | 7 | Sitemap/static edge matrix | Not started |
 | 8 | Provider/cache/revalidation conformance | Not started |
@@ -313,14 +313,55 @@ None.
 
 ## Phase 5: SSR And Static Markdown Contracts
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Add focused SSR/hybrid fixture or non-prerendered route.
-- Prove `Accept: text/markdown` and `Link` headers only where Nitro middleware
-  handles the request.
-- Keep static contract on explicit generated markdown routes.
+- Added a non-prerendered `/ssr-only` route to
+  `playground/ginko-agent-output`.
+- Explicitly enabled `content.agent.linkHeaders` and
+  `content.agent.markdownNegotiation` in the agent-output fixture.
+- Added an app-owned agent page for `/ssr-only` so the same public route can
+  serve HTML by default and markdown through `Accept: text/markdown`.
+- Added `test/e2e/agent-markdown-negotiation.test.ts`.
+- Added `playground/ginko-agent-disabled` to prove `content.agent: false`
+  removes agent route handlers and negotiation middleware in a production app.
+- Made `agent-link-headers` page-aware. It now advertises `/raw/**.md` and
+  `/:route/index.md` alternates only when the current route resolves to agent
+  markdown.
+- Kept static behavior tested through generated files:
+  `docs/agent-components/index.md` and `raw/docs/agent-components.md`.
+- Documented that same-URL `Accept: text/markdown` negotiation is SSR/hybrid
+  middleware behavior, not a pure static hosting guarantee.
+
+### Evidence
+
+- 2026-06-08: first focused negotiation run failed because app-owned agent
+  pages resolved markdown but did not expose `rawPath`/`markdownPath` on the
+  returned object used by the new link-header middleware. Fixed the root cause
+  by deriving advertised alternates from the normalized public route.
+- 2026-06-08: first focused negotiation run also over-asserted that
+  `Accept: text/markdown` on an unknown app route should force a 404. The app
+  has a catch-all HTML route, so Ginko correctly does not convert it to
+  markdown. The durable contract is that unknown explicit markdown routes 404.
+- 2026-06-08: disabled fixture build initially failed because Ginko requires a
+  content config with at least one collection. Added a one-record data
+  collection so the fixture isolates `content.agent: false`.
+- 2026-06-08:
+  `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-markdown-negotiation.test.ts`
+  passed: 1 file, 3 tests.
+- 2026-06-08:
+  `pnpm vitest run test/unit/agent-markdown.test.ts test/runtime/api-auxiliary-boundaries.test.ts`
+  passed: 2 files, 26 tests.
+- 2026-06-08: `pnpm test:e2e` passed: 4 files, 7 tests.
+- 2026-06-08: `pnpm test:e2e:browser` passed: 1 file, 1 test.
+- 2026-06-08: `pnpm docs:build` passed.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 6: Search Matrix Hardening
 

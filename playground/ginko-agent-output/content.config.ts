@@ -105,6 +105,15 @@ export default defineContentConfig({
         render: ({ locale }) => locale === 'de'
           ? '# Impressum\n\nBetreiber: Agent Output GmbH\n\nKontakt: legal@example.test'
           : '# Legal Notice\n\nOperator: Agent Output GmbH\n\nContact: legal@example.test'
+      }),
+      defineAgentAppPage({
+        id: 'ssr-only',
+        route: '/ssr-only',
+        section: 'docs',
+        title: 'SSR Only',
+        description: 'App-owned route used to verify same-URL markdown negotiation.',
+        metadata: metadataFields,
+        render: () => '# SSR Only\n\nThis markdown is served only when the request negotiates markdown.'
       })
     ]
   },

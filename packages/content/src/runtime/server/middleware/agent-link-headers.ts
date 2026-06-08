@@ -1,5 +1,6 @@
 import { defineEventHandler, getRequestURL, setHeader } from 'h3'
-import { getAgentLocales, localeFromAgentPath } from '../agent-site'
+import { getAgentLocales, localeFromAgentPath, resolveMarkdownForPublicRoute } from '../agent-site'
+import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../agent-paths'
 import { appendResponseHeader } from '../agent-http'
 import { contentConfig } from '../storage-access'
 
@@ -15,7 +16,13 @@ const shouldAdvertise = (pathname: string) =>
   && !pathname.endsWith('.svg')
   && !pathname.endsWith('.ico')
 
-export default defineEventHandler((event) => {
+const canAdvertisePageAlternate = (pathname: string) =>
+  !pathname.endsWith('.md')
+  && !pathname.endsWith('.txt')
+  && !pathname.endsWith('.xml')
+  && !pathname.endsWith('.json')
+
+export default defineEventHandler(async (event) => {
   const { pathname } = getRequestURL(event)
   if (!shouldAdvertise(pathname)) return
 
@@ -35,10 +42,21 @@ export default defineEventHandler((event) => {
   const locale = localeFromAgentPath(pathname)
   const defaultLocale = contentConfig().agent?.site?.defaultLocale || contentConfig().defaultLocale || getAgentLocales()[0]
   const prefix = locale && locale !== defaultLocale ? `/${locale}` : ''
+  const page = canAdvertisePageAlternate(pathname)
+    ? await resolveMarkdownForPublicRoute(event, pathname, locale)
+    : null
+  const pagePath = normalizeAgentRoutePath(pathname)
+  const pageLinks = page
+    ? [
+        `<${agentRawPathForRoute(pagePath)}>; rel="alternate"; type="text/markdown"`,
+        `<${agentMarkdownPathForRoute(pagePath)}>; rel="alternate"; type="text/markdown"`
+      ]
+    : []
   appendResponseHeader(
     event,
     'link',
     [
+      ...pageLinks,
       `<${prefix}/llms.txt>; rel="llms"; type="text/markdown"`,
       `<${prefix}/llms-full.txt>; rel="alternate"; type="text/markdown"`,
       '</sitemap.xml>; rel="sitemap"; type="application/xml"'
