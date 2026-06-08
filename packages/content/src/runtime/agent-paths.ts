@@ -17,7 +17,7 @@ const decodeRoutePath = (path: string) => {
 export const isUnsafeAgentRoutePath = (path: string) => {
   const decoded = decodeRoutePath(path)
   if (decoded.includes('\0')) return true
-  return decoded.split('/').some(segment => segment === '..')
+  return decoded.split('/').includes('..')
 }
 
 export const normalizeAgentRoutePath = (path: string | undefined) => {
