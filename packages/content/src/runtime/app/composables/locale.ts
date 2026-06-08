@@ -5,7 +5,7 @@ export { normalizeContentPath }
 
 export const resolveActiveLocale = (locales: string[], defaultLocale?: string) => {
   const { route, i18nLocale: capturedI18nLocale, resolvedLocaleState } = getLocaleContext()
-  const i18nLocale = import.meta.server ? resolvedLocaleState.value : capturedI18nLocale
+  const i18nLocale = capturedI18nLocale || resolvedLocaleState.value
   const explicitLocale = typeof i18nLocale === 'string'
     ? i18nLocale
     : i18nLocale?.value || resolvedLocaleState.value

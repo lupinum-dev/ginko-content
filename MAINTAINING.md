@@ -26,7 +26,9 @@ pnpm run release:verify
 builds packages, builds docs and examples, runs unit/provider/runtime/client/Nuxt
 tests, runs e2e, and typechecks.
 
-`release:verify` runs `verify`, production audit, and release packing.
+`release:verify` runs `verify`, the packed fresh Nuxt consumer test, production
+browser e2e, search matrix, static sitemap output checks, production audit, and
+release packing.
 
 ## Release Runbook
 
@@ -80,8 +82,11 @@ delete that output and keep the curated version section.
 pnpm run release:verify
 ```
 
-This runs `verify`, production audit, and `release:pack`. It should leave one
-tarball in `.pack/`.
+This runs the full workspace verification, packed consumer install/build/start
+smoke, production browser e2e, search matrix, static sitemap output checks,
+production audit, and `release:pack`. It should leave one tarball in `.pack/`.
+The release pack step also inspects the tarball metadata, export files,
+declarations, forbidden local/build artifacts, and `workspace:*` ranges.
 
 5. Inspect the tarball before publishing:
 

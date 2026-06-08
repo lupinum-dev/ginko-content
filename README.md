@@ -17,6 +17,7 @@ and server-side reads.
 
 - [Documentation](https://ginko-content.nuxt.dev)
 - [Package README](./packages/content/README.md)
+- [Contributing](./CONTRIBUTING.md)
 - [Basic playground](./playground/ginko-basic)
 - [i18n playground](./playground/ginko-i18n)
 - [Search playground](./playground/ginko-search)
@@ -141,6 +142,7 @@ successor to the previous MDC work.
 - Test using `pnpm test`
 - Typecheck using `pnpm typecheck`
 - Run the full verification pipeline using `pnpm verify`
+- Run the release confidence gate using `pnpm run release:verify`
 - Before publishing or changing public API behavior, use [docs/release-checklist.md](./docs/release-checklist.md)
 
 Run a specific example directly from the workspace with `pnpm --dir examples/<group>/<name> dev` or use `pnpm example <group>/<name>`.

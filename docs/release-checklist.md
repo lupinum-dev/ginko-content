@@ -13,12 +13,8 @@ content API.
 - [ ] `pnpm examples:build`
 - [ ] `pnpm pack:check`
 - [ ] `pnpm run release:verify`
-- [ ] `pnpm test -- test/contracts/package-exports-contracts.test.ts`
-- [ ] `pnpm test -- test/contracts/provider-contracts.test.ts`
-- [ ] `pnpm test -- test/contracts/query-contracts.test.ts test/contracts/query-plan-contracts.test.ts`
-- [ ] `GINKO_CONTENT_ROOT=/Users/matthias/Git/0_libs/WORK/ginko-content pnpm --dir /Users/matthias/Git/0_libs/WORK/ginko-cms run check:cms-contract-vendor`
-- [ ] `pnpm --dir /Users/matthias/Git/0_libs/WORK/ginko-cms run test:public-content -- --reporter=dot`
-- [ ] `pnpm --dir /Users/matthias/Git/0_libs/WORK/ginko-cms run package:e2e`
+- [ ] Confirm `release:verify` ran packed consumer, browser e2e, search matrix, static sitemap checks, production audit, and release packing.
+- [ ] If a separate CMS/studio repository exists, run its current package-consumer checks against the packed tarball; keep those commands in that repository, not here.
 - [ ] Inspect `.pack/lupinum-ginko-content-$VERSION.tgz` manifest, file list, and checksum.
 - [ ] Commit the release prep before publishing; do not commit `.pack/` artifacts.
 - [ ] Push `main` and the explicit annotated tag with `git push origin v$VERSION`.

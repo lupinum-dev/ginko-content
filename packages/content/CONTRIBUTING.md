@@ -37,3 +37,6 @@ Before merging:
 - `pnpm typecheck`
 - `pnpm test`
 - package build and at least one representative Nuxt app build when runtime/export wiring changes
+- `pnpm run release:verify` before publishing or when package exports,
+  provider behavior, generated output, search, sitemap, browser-visible i18n,
+  or agent markdown behavior changes

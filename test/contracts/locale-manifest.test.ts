@@ -8,7 +8,7 @@ const localeState = { value: undefined as any }
 vi.mock('../../packages/content/src/runtime/app/composables/locale-context', () => ({
   getLocaleContext: () => ({
     route,
-    nuxtApp,
+    i18nLocale: nuxtApp.$i18n.locale,
     resolvedLocaleState: localeState
   })
 }))
