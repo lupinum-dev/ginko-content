@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 4, packed fresh Nuxt consumer test.
+Current phase: Phase 5, SSR and static markdown contracts.
 
 Guiding rules:
 
@@ -28,7 +28,7 @@ Guiding rules:
 | 1 | Internal generated-output smoke | Completed |
 | 2 | Compact agent output fixture | Completed |
 | 3 | Production browser e2e | Completed |
-| 4 | Packed fresh Nuxt consumer test | Not started |
+| 4 | Packed fresh Nuxt consumer test | Completed |
 | 5 | SSR/static markdown contract split | Not started |
 | 6 | Search matrix hardening | Not started |
 | 7 | Sitemap/static edge matrix | Not started |
@@ -256,15 +256,60 @@ None.
 
 ## Phase 4: Packed Fresh Nuxt Consumer Test
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Add `scripts/test-packed-consumer.mjs`.
-- Add `test:package-consumer`.
-- Install packed package into a temp Nuxt app outside the monorepo.
-- Verify typecheck, build, start, fetches, public subpath imports, and tarball
-  contents.
+- Added `scripts/test-packed-consumer.mjs`.
+- Added root `test:package-consumer`.
+- The script builds packages, packs `packages/content`, extracts the tarball,
+  rejects `workspace:*` ranges, installs the tarball into a temporary Nuxt app
+  outside the monorepo, verifies expected declaration files, runs public subpath
+  imports, runs `nuxi prepare`, runs `nuxi typecheck`, builds production,
+  starts the built server, fetches `/`, fetches a Ginko content API route, and
+  fetches a Nitro import-smoke API route.
+- The fresh app imports the root Nuxt module from `nuxt.config.ts`, imports
+  `/client` and `/toc` from a Vue page, imports `/server` and `/toc` from a
+  Nitro handler, and bare-imports runtime-neutral/config/testing subpaths from
+  Node.
+- Fixed the public testing helper boundary found by the packed consumer:
+  `@lupinum/ginko-content/testing/provider-fixture` no longer imports Nitro
+  runtime cache-hint helpers. It records cache hints on the synthetic fixture
+  event through testing-local helpers backed by core cache-hint merging.
+- Updated the provider contract suite to read testing fixture cache hints
+  through `getProviderFixtureCacheHint`.
+
+### Evidence
+
+- 2026-06-08: first packed-consumer attempts failed when bare Node imports
+  tried to load the package root, `/client`, and `/server`. Root cause: those
+  are Nuxt/Vue/Nitro-context public exports, not runtime-neutral Node entry
+  points. The test now proves them in their real Nuxt/Vue/Nitro contexts.
+- 2026-06-08: packed-consumer then failed importing
+  `@lupinum/ginko-content/testing/provider-fixture` because it pulled
+  `nitropack/runtime` through runtime cache-hint helpers. Fixed the root cause
+  by making the testing fixture cache-hint path runtime-neutral.
+- 2026-06-08: packed-consumer then failed importing
+  `@lupinum/ginko-content/testing/provider-contract` without Vitest. This is
+  expected because the testing contract defines Vitest tests and `vitest` is an
+  optional peer. The fresh app now installs `vitest@4.1.6` for that import.
+- 2026-06-08: packed-consumer then failed `nuxi typecheck` because the minimal
+  synthetic Nuxt app had no `tsconfig.json`. Fixed by writing the standard
+  `tsconfig.json` that extends `./.nuxt/tsconfig.json`.
+- 2026-06-08: packed-consumer then over-asserted navigation titles. The content
+  API returned the route entry but not the markdown title in the default
+  navigation payload. The assertion now checks the route entry contract.
+- 2026-06-08:
+  `pnpm vitest run test/contracts/provider-fixture-conformance.test.ts test/contracts/package-exports-contracts.test.ts`
+  passed: 2 files, 35 tests.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `pnpm test:package-consumer` passed.
+- 2026-06-08: `pnpm pack:check` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 5: SSR And Static Markdown Contracts
 

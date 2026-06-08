@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 import { contentProviderResultMarker, type ContentProvider } from '../public/provider'
-import { getContentCacheHint } from '../runtime/server/cache-hints'
-import { createAuthorDependencyProviderFixture, createFixtureContentProvider, createProviderFixtureEvent } from './provider-fixture'
+import { createAuthorDependencyProviderFixture, createFixtureContentProvider, createProviderFixtureEvent, getProviderFixtureCacheHint } from './provider-fixture'
 
 export interface SaasProviderFixtureContractSuiteOptions {
   name: string
@@ -178,7 +177,7 @@ export const runSaasProviderFixtureContractSuite = ({
 
     await provider.page?.(event, 'posts', '/de/magazin/mehrsprachiges-onboarding')
 
-    expect(getContentCacheHint(event)).toMatchObject({
+    expect(getProviderFixtureCacheHint(event)).toMatchObject({
       tags: expect.arrayContaining([
         'entry:posts:posts.onboarding',
         'entry:authors:emily',
@@ -191,7 +190,7 @@ export const runSaasProviderFixtureContractSuite = ({
     if (provider.siteData) {
       const siteDataEvent = createEvent()
       await provider.siteData(siteDataEvent, { key: 'settings', locale: 'de' })
-      expect(getContentCacheHint(siteDataEvent)).toMatchObject({
+      expect(getProviderFixtureCacheHint(siteDataEvent)).toMatchObject({
         tags: ['site-data:settings:de']
       })
     }

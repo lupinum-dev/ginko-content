@@ -7,10 +7,10 @@ import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
 import { findUnsupportedQueryOperator, SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
+import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
 import { createRouteMeta, localizePageResult } from '../features/localization/results'
 import { createContentProviderError } from '../public/provider-errors'
-import { collectContentCacheHint } from '../runtime/server/cache-hints'
 
 export interface ProviderFixtureCollection {
   type: 'page' | 'data'
@@ -152,6 +152,37 @@ const referenceEntryTags = (fixture: ProviderFixture, doc: ParsedContent) => {
     .map(value => knownRefs.get(value))
     .filter((tag): tag is `entry:${string}:${string}` => typeof tag === 'string')))
 }
+
+type ProviderFixtureRuntimeContext = {
+  cacheHint?: ContentCacheHint | false
+}
+
+type ProviderFixtureH3Event = H3Event & {
+  context: H3Event['context'] & {
+    __contentRuntime?: ProviderFixtureRuntimeContext
+  }
+}
+
+const getProviderFixtureRuntimeContext = (event: H3Event): ProviderFixtureRuntimeContext => {
+  const context = ((event as ProviderFixtureH3Event).context ||= {}) as ProviderFixtureH3Event['context']
+  context.__contentRuntime ||= {}
+  return context.__contentRuntime
+}
+
+export const collectProviderFixtureCacheHint = (
+  event: H3Event,
+  hint: ContentCacheHint | false | undefined
+) => {
+  if (typeof hint === 'undefined') {
+    return
+  }
+
+  const runtime = getProviderFixtureRuntimeContext(event)
+  runtime.cacheHint = mergeContentCacheHints(runtime.cacheHint, hint)
+}
+
+export const getProviderFixtureCacheHint = (event: H3Event): ContentCacheHint | false | undefined =>
+  getProviderFixtureRuntimeContext(event).cacheHint
 
 const createCacheHintForDocument = (
   fixture: ProviderFixture,
@@ -342,7 +373,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       })
     }
 
-    collectContentCacheHint(event, {
+    collectProviderFixtureCacheHint(event, {
       tags: params.collection ? [collectionTag(params.collection)] : []
     })
 
@@ -380,7 +411,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     query,
     navigationQuery: async (event, params) => {
       const docs = await docsForNavigation(event, params)
-      collectContentCacheHint(event, {
+      collectProviderFixtureCacheHint(event, {
         tags: [
           ...(params.collection ? [collectionTag(params.collection)] : []),
           ...(params.resolveLocale?.locale ? [`nav:${params.collection || 'all'}:${params.resolveLocale.locale}`] : [])
@@ -399,7 +430,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       assertCollection(collection)
       const fields = Array.isArray(options) ? options : options.fields || []
       const locale = typeof options === 'object' && !Array.isArray(options) ? options.locale : undefined
-      collectContentCacheHint(event, {
+      collectProviderFixtureCacheHint(event, {
         tags: [`nav:${collection}:${locale || fixture.defaultLocale}`, collectionTag(collection)]
       })
       const docs = await docsForNavigation(event, {
@@ -446,7 +477,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     },
     searchSections: async (event, collection, options = {}) => {
       assertCollection(collection)
-      collectContentCacheHint(event, {
+      collectProviderFixtureCacheHint(event, {
         tags: [`search:${options.locale || fixture.defaultLocale}`, collectionTag(collection)]
       })
       const docs = await docsForNavigation(event, {
@@ -487,7 +518,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         }))
     },
     siteData: async (event, request) => {
-      collectContentCacheHint(event, {
+      collectProviderFixtureCacheHint(event, {
         tags: [`site-data:${request.key}:${request.locale || fixture.defaultLocale}`]
       })
       return {
@@ -526,7 +557,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         routeMountsFor(fixture, collection)
       )
       const hint = createCacheHintForDocument(fixture, doc, page.path)
-      collectContentCacheHint(event, hint)
+      collectProviderFixtureCacheHint(event, hint)
       recordRouteDependencies(cache, page.path, hint.tags || [])
       return page as unknown as ContentPageResult<T>
     },
@@ -537,7 +568,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         : null
     },
     sitemapEntries: async (event, options = {}) => {
-      collectContentCacheHint(event, { tags: ['sitemap'] })
+      collectProviderFixtureCacheHint(event, { tags: ['sitemap'] })
       const explicitInclude = Boolean(options.include?.length)
       const include = explicitInclude ? options.include! : Object.keys(fixture.collections)
       const entries = []
