@@ -29,6 +29,7 @@
     "nuxt": "^4.4.7",
     "nuxt-llms": "^0.2.0",
     "nuxt-og-image": "^6.5.0",
+    "nuxt-site-config": "4.0.8",
     "satori": "^0.26.0",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3"
