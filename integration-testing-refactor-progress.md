@@ -7,9 +7,9 @@ test infrastructure or weakening the release gate.
 
 ## Current Status
 
-Overall status: in progress
+Overall status: completed
 
-Current phase: final release verification
+Current phase: completed
 
 Guiding rules:
 
@@ -28,7 +28,7 @@ Guiding rules:
 | 1 | Shared production fixture harness | Completed |
 | 2 | Generated artifact assertion library | Completed |
 | 3 | Structured sitemap assertions | Completed |
-| 4 | Consolidate production fixture builds | In progress |
+| 4 | Consolidate production fixture builds | Completed |
 | 5 | Replace thin wrapper scripts | Completed |
 | 6 | Optional dependency integration matrix | Completed |
 | 7 | Provider-owned sitemap and search fixtures | Completed |
@@ -120,7 +120,7 @@ Status: completed
 
 ## Phase 4: Consolidate Production Fixture Builds
 
-Status: in progress
+Status: completed
 
 ### Todos
 
@@ -379,6 +379,7 @@ Status: completed
 | `pnpm test:e2e` | Passed, 6 files / 14 tests | 4:23.93 |
 | `pnpm test:e2e:browser` | Passed, 1 file / 1 test | 39.007s |
 | `pnpm test:package-consumer` | Passed | 1:19.75 |
+| `pnpm run release:verify` | Passed | 21:07.95 |
 
 ### Evidence
 
@@ -396,3 +397,21 @@ Status: completed
   Fixture builds import the workspace package output. `pnpm run release:verify`
   runs these checks sequentially and is the supported confidence gate.
 - No test retry or quarantine was added.
+
+## Final Release Verification
+
+Status: completed
+
+### Evidence
+
+- `pnpm run release:verify` passed after all phases were completed.
+- The release gate ran the full workspace verification, packed consumer smoke,
+  browser e2e, search matrix, static sitemap checks, production audit, and local
+  release pack.
+- The packed consumer check installed the local tarball into a fresh Nuxt app,
+  verified public subpath imports and declarations, built and started the app,
+  and checked search, sitemap, and agent markdown outputs from the installed
+  package.
+- The final release pack wrote
+  `.pack/lupinum-ginko-content-0.1.4.tgz` for human inspection. The tarball is
+  intentionally not committed.
