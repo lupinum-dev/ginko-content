@@ -3,7 +3,8 @@ import { createTestEvent } from '../harness/event'
 
 const mocks = vi.hoisted(() => ({
   buildSearchIndex: vi.fn(),
-  searchRecords: vi.fn()
+  searchRecords: vi.fn(),
+  getContentProvider: vi.fn()
 }))
 
 const runtime = vi.hoisted(() => ({
@@ -32,10 +33,15 @@ vi.mock('../../packages/content/src/runtime/server/search', () => ({
   searchRecords: mocks.searchRecords
 }))
 
+vi.mock('../../packages/content/src/runtime/server/providers', () => ({
+  getContentProvider: mocks.getContentProvider
+}))
+
 describe('runtime search API boundaries', () => {
   beforeEach(() => {
     mocks.buildSearchIndex.mockReset()
     mocks.searchRecords.mockReset()
+    mocks.getContentProvider.mockReset()
     runtime.content.search = {
       engine: 'minisearch',
       collections: ['docs'],
@@ -107,6 +113,60 @@ describe('runtime search API boundaries', () => {
       boost: { tags: 5, title: 1 },
       fuzzy: false,
       prefix: false
+    })
+  })
+
+  test('search API delegates provider-owned search and normalizes result collections', async () => {
+    runtime.content.search = {
+      engine: 'cms',
+      collections: ['docs']
+    } as never
+    const providerSearch = vi.fn(async () => [
+      {
+        path: '/de/dokumentation/provider-leitfaden',
+        title: 'Provider Deutscher Leitfaden',
+        score: 1
+      }
+    ])
+    mocks.getContentProvider.mockResolvedValue({
+      name: 'cms-provider',
+      search: providerSearch
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/search')).default
+    const longTerm = 'provider'.repeat(40)
+
+    await expect(handler(createTestEvent({ query: { q: longTerm, locale: 'de' } }))).resolves.toEqual([
+      {
+        collection: '',
+        path: '/de/dokumentation/provider-leitfaden',
+        title: 'Provider Deutscher Leitfaden',
+        score: 1
+      }
+    ])
+    expect(providerSearch).toHaveBeenCalledWith(expect.anything(), {
+      term: longTerm.slice(0, 200),
+      locale: 'de',
+      collections: ['docs']
+    })
+    expect(mocks.buildSearchIndex).not.toHaveBeenCalled()
+    expect(mocks.searchRecords).not.toHaveBeenCalled()
+  })
+
+  test('search API fails loudly when provider-owned search is selected without provider support', async () => {
+    runtime.content.search = {
+      engine: 'cms',
+      collections: ['docs']
+    } as never
+    mocks.getContentProvider.mockResolvedValue({
+      name: 'cms-provider'
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/search')).default
+
+    await expect(handler(createTestEvent({ query: { q: 'provider' } }))).rejects.toMatchObject({
+      statusMessage: 'unsupported_provider_search',
+      data: expect.objectContaining({
+        provider: 'cms-provider'
+      })
     })
   })
 

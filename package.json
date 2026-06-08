@@ -49,6 +49,7 @@
     "test:golden": "pnpm build:packages && vitest run --config vitest.config.ts --project contracts-node test/contracts/vnext-golden-demo.test.ts",
     "test:package-consumer": "node scripts/test-packed-consumer.mjs",
     "test:quickstart": "pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-quickstart dev:prepare && pnpm --filter @lupinum/ginko-content-test-quickstart typecheck && pnpm --filter @lupinum/ginko-content-test-quickstart build",
+    "test:search:matrix": "node scripts/test-search-matrix.mjs",
     "test:types": "pnpm typecheck",
     "typecheck:source": "tsc -p tsconfig.json --noEmit",
     "typecheck": "pnpm typecheck:source && pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-typecheck typecheck",

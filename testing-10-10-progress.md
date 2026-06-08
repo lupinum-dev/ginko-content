@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 6, search matrix hardening.
+Current phase: Phase 7, sitemap and static output edge matrix.
 
 Guiding rules:
 
@@ -30,7 +30,7 @@ Guiding rules:
 | 3 | Production browser e2e | Completed |
 | 4 | Packed fresh Nuxt consumer test | Completed |
 | 5 | SSR/static markdown contract split | Completed |
-| 6 | Search matrix hardening | Not started |
+| 6 | Search matrix hardening | Completed |
 | 7 | Sitemap/static edge matrix | Not started |
 | 8 | Provider/cache/revalidation conformance | Not started |
 | 9 | CMS-neutral contract/import hardening | Not started |
@@ -365,12 +365,40 @@ None.
 
 ## Phase 6: Search Matrix Hardening
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Strengthen MiniSearch, Pagefind, and provider-owned search coverage.
-- Keep browser search coverage to one representative flow.
+- Added `test/e2e/search-matrix.test.ts`.
+- Added `scripts/test-search-matrix.mjs` and root `pnpm test:search:matrix`.
+- Added `playground/ginko-provider-search`, a compact external-provider
+  fixture for provider-owned search.
+- The production search matrix now proves:
+  - MiniSearch emits route-safe public paths and serves runtime search results.
+  - Pagefind emits localized generated search records and public Pagefind
+    assets.
+  - Provider-owned search delegates to `provider.search()` and does not expose
+    a local index route.
+  - Disabled search omits production search endpoints.
+- Strengthened `test/runtime/api-search-boundaries.test.ts` with
+  provider-owned search success and unsupported-provider negative coverage.
+- Kept browser coverage to the existing representative locale/search flow.
+
+### Evidence
+
+- 2026-06-08: `pnpm vitest run test/runtime/api-search-boundaries.test.ts`
+  passed: 1 file, 6 tests.
+- 2026-06-08: `pnpm test:search:matrix` passed: 1 file, 4 tests.
+- 2026-06-08:
+  `pnpm vitest run test/unit/search-behavior.test.ts test/unit/pagefind.test.ts test/client/search-composables.test.ts test/runtime/api-search-boundaries.test.ts`
+  passed: 4 files, 17 tests.
+- 2026-06-08: `pnpm test:e2e:browser` passed: 1 file, 1 test.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 7: Sitemap And Static Output Edge Matrix
 
