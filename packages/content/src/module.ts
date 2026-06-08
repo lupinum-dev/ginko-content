@@ -67,6 +67,7 @@ export default defineNuxtModule<ModuleOptions>({
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path)
     const runtimeInlineDependencies = ['comark', '@comark/vue']
     validateRemovedMarkdownOptions(options)
+    nuxt.options.experimental.payloadExtraction ??= false
     nuxt.options.build.transpile ||= []
     for (const dependency of runtimeInlineDependencies) {
       if (!nuxt.options.build.transpile.includes(dependency)) {

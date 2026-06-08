@@ -1,6 +1,3 @@
-import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
-
 import type { Nuxt } from '@nuxt/schema'
 import type { addTemplate } from '@nuxt/kit'
 import { genImport, genSafeVariableName } from 'knitwork'
@@ -8,9 +5,6 @@ import { hash } from 'ohash'
 import { relative } from 'pathe'
 
 import type { ContentContext } from '../types/module'
-
-const require = createRequire(import.meta.url)
-const jitiImportSpecifier = pathToFileURL(require.resolve('jiti')).href
 
 export const createVirtualContentTemplates = (
   contentContext: ContentContext,
@@ -45,10 +39,8 @@ export const createVirtualContentTemplates = (
     write: true,
     getContents: () => contentConfigPath
       ? [
-          `import jiti from ${JSON.stringify(jitiImportSpecifier)}`,
-          `const importer = jiti(import.meta.url, { interopDefault: true })`,
-          `const config = await importer.import(${JSON.stringify(contentConfigPath)})`,
-          'export default config?.default || config || {}'
+          `import config from ${JSON.stringify(contentConfigPath)}`,
+          'export default config || {}'
         ].join('\n')
       : 'export default {}'
   }).dst

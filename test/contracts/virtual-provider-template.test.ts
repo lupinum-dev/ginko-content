@@ -19,6 +19,26 @@ const createAddTemplate = () => {
 }
 
 describe('virtual provider template contract', () => {
+  test('imports the content config directly', () => {
+    const { addTemplate, templates } = createAddTemplate()
+
+    createVirtualContentTemplates(
+      {
+        transformers: [],
+        providers: {}
+      } as any,
+      createNuxt() as any,
+      '/workspace/app/content.config.ts',
+      addTemplate
+    )
+
+    const contents = templates.get('content/virtual-config.mjs')?.()
+
+    expect(contents).toContain('import config from "/workspace/app/content.config.ts"')
+    expect(contents).toContain('export default config || {}')
+    expect(contents).not.toContain('jiti')
+  })
+
   test('does not import the CMS provider unless a module registered it', () => {
     const { addTemplate, templates } = createAddTemplate()
 
