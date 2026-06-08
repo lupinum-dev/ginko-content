@@ -10,7 +10,6 @@ import {
   assertNoRepeatedLocalePrefixes,
   listGeneratedTextArtifacts,
   readGeneratedArtifact,
-  readMarkdownPair,
   readSearchIndex
 } from '../helpers/generated-artifacts'
 import { buildProductionFixture } from '../helpers/production-fixture'
@@ -52,12 +51,16 @@ describe('generated output smoke', () => {
     expect(sitemapText).not.toContain('/guide/internal-note')
     expect(sitemapText).not.toContain('/de/leitfaden/interne-notiz')
 
-    const enMarkdown = await readMarkdownPair(outputPublicDir, '/guide/getting-started')
-    const deMarkdown = await readMarkdownPair(outputPublicDir, '/de/leitfaden/erste-schritte')
-    expect(enMarkdown.raw).toBe(enMarkdown.route)
-    expect(deMarkdown.raw).toBe(deMarkdown.route)
-    expect(enMarkdown.raw).toContain('# Getting Started')
-    expect(deMarkdown.raw).toContain('# Einstieg')
+    const enMarkdown = await readGeneratedArtifact(outputPublicDir, 'raw/guide/getting-started.md')
+    const deMarkdown = await readGeneratedArtifact(outputPublicDir, 'raw/de/leitfaden/erste-schritte.md')
+    expect(existsSync(resolve(outputPublicDir, 'guide/getting-started/index.md'))).toBe(false)
+    expect(existsSync(resolve(outputPublicDir, 'de/leitfaden/erste-schritte/index.md'))).toBe(false)
+    expect(enMarkdown).toContain('# Getting Started')
+    expect(deMarkdown).toContain('# Einstieg')
+    expect(enMarkdown).toContain('/raw/guide/$guide-advanced.md#deep-dive')
+    expect(deMarkdown).toContain('/raw/de/leitfaden/$guide-advanced.md#deep-dive')
+    expect(enMarkdown).not.toContain('/index.md')
+    expect(deMarkdown).not.toContain('/index.md')
 
     const llms = await readGeneratedArtifact(outputPublicDir, 'llms.txt')
     const deLlms = await readGeneratedArtifact(outputPublicDir, 'de/llms.txt')
@@ -68,6 +71,7 @@ describe('generated output smoke', () => {
     expect(llmsFull).toContain('# Contact')
     expect(llmsFull).not.toContain('Draft Roadmap')
     expect(llmsFull).not.toContain('Internal Note')
+    expect(llmsFull).not.toContain('/index.md')
 
     assertNoLocalOrigins(textArtifacts)
     assertNoRepeatedLocalePrefixes(textArtifacts, ['de', 'en'])

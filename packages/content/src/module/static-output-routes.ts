@@ -65,9 +65,3 @@ export const collectRawMarkdownRoutesFromGeneratedFrontmatter = (markdown: strin
 
 export const publicOutputPath = (publicDir: string, route: string) =>
   join(publicDir, normalizeStaticRoutePath(route).replace(/^\//, ''))
-
-export const rawMarkdownIndexRouteForRawRoute = (route: string) => {
-  if (!route.startsWith('/raw/') || !route.endsWith('.md')) return null
-  const pageRoute = route.replace(/^\/raw/, '').replace(/\.md$/, '')
-  return pageRoute === '/index' ? '/index.md' : `${pageRoute}/index.md`
-}

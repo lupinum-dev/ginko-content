@@ -19,9 +19,6 @@ describe('agent output fixture', () => {
     const llmsFull = await readGeneratedArtifact(fixture.publicDir, 'llms-full.txt')
     const deLlmsFull = await readGeneratedArtifact(fixture.publicDir, 'de/llms-full.txt')
 
-    expect(enRaw).toBe(await readGeneratedArtifact(fixture.publicDir, 'docs/agent-components/index.md'))
-    expect(deRaw).toBe(await readGeneratedArtifact(fixture.publicDir, 'de/dokumentation/agent-komponenten/index.md'))
-
     expect(enRaw).toContain('Fixture callout: Serializer contract')
     expect(enRaw).toContain('<card title="Stable Card" to="/docs/agent-components">')
     expect(enRaw).toContain('<gallery layout="rows" caption="Fixture gallery">')

@@ -4,7 +4,6 @@ import {
   collectRawMarkdownRoutesFromGeneratedFrontmatter,
   normalizeStaticRoutePath,
   publicOutputPath,
-  rawMarkdownIndexRouteForRawRoute,
   rawMarkdownRouteForPageRoute
 } from '../../packages/content/src/module/static-output-routes'
 
@@ -55,9 +54,6 @@ describe('static output route helpers', () => {
   test('maps public page routes and raw markdown routes to generated filenames', () => {
     expect(rawMarkdownRouteForPageRoute('/')).toBe('/raw/index.md')
     expect(rawMarkdownRouteForPageRoute('/docs/intro/')).toBe('/raw/docs/intro.md')
-    expect(rawMarkdownIndexRouteForRawRoute('/raw/index.md')).toBe('/index.md')
-    expect(rawMarkdownIndexRouteForRawRoute('/raw/docs/intro.md')).toBe('/docs/intro/index.md')
-    expect(rawMarkdownIndexRouteForRawRoute('/docs/intro')).toBeNull()
     expect(publicOutputPath('/tmp/public', '/docs/intro')).toBe('/tmp/public/docs/intro')
   })
 })

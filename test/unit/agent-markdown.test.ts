@@ -712,8 +712,8 @@ describe('agent markdown', () => {
 
     const resolved = await resolveContentMarkdown({ context: {} } as any, 'docs', '/docs/reference/api-keys')
 
-    expect(resolved?.markdown).toContain('[Rotation](/docs/reference/rotation/index.md#steps)')
-    expect(resolved?.markdown).toContain('[Intro](/docs/intro/index.md)')
+    expect(resolved?.markdown).toContain('[Rotation](/raw/docs/reference/rotation.md#steps)')
+    expect(resolved?.markdown).toContain('[Intro](/raw/docs/intro.md)')
   })
 
   test('preserves unknown components as explicit fallback notes', async () => {
@@ -818,6 +818,57 @@ describe('agent markdown', () => {
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       only: expect.not.arrayContaining(['body'])
     }))
+  })
+
+  test('collects only raw markdown and llms prerender routes', async () => {
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        defaultLocale: 'en',
+        locales: ['en'],
+        agent: {
+          site: {
+            title: 'Docs',
+            description: 'Docs site.',
+            url: 'https://example.test',
+            defaultLocale: 'en',
+            locales: ['en']
+          },
+          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
+        },
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { section: 'docs', markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({
+        query: async () => ({
+          result: [
+            {
+              path: '/docs/intro',
+              _path: '/intro',
+              _file: 'content/docs/intro.md',
+              title: 'Intro'
+            }
+          ],
+          skip: 0,
+          limit: 0,
+          total: 1
+        })
+      })
+    }))
+
+    const { collectAgentMarkdownPrerenderRoutes } = await import('../../packages/content/src/runtime/server/agent-site')
+
+    await expect(collectAgentMarkdownPrerenderRoutes({ node: { req: { headers: {} } } } as any)).resolves.toEqual([
+      '/raw/docs/intro.md',
+      '/llms.txt',
+      '/llms-full.txt'
+    ])
   })
 
   test('uses the source-locale public route for localized fallback agent pages', async () => {

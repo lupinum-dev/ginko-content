@@ -101,7 +101,7 @@ const routeMarkdownPathForHref = (href: string, locale?: string, currentPath = '
   const target = withoutHash.startsWith('/')
     ? prefixLocalizedHref(withoutHash, locale)
     : new URL(withoutHash, `https://agent.local${normalizeAgentRoutePath(currentPath)}`).pathname
-  return `${agentMarkdownPathForRoute(target)}${hash}`
+  return `${agentRawPathForRoute(target)}${hash}`
 }
 
 export const getMarkdownProp = (node: MarkdownNode, name: string) => {

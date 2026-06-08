@@ -6,7 +6,6 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { startFixtureServer } from '../helpers/fixture-server'
-import { readGeneratedArtifact } from '../helpers/generated-artifacts'
 import { buildProductionFixture } from '../helpers/production-fixture'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -44,7 +43,7 @@ describe('agent markdown negotiation', () => {
 
       const linkHeader = htmlResponse.headers.get('link') || ''
       expect(linkHeader).toContain('/raw/ssr-only.md')
-      expect(linkHeader).toContain('/ssr-only/index.md')
+      expect(linkHeader).not.toContain('/ssr-only/index.md')
       expect(linkHeader).toContain('/llms.txt')
       expect(htmlResponse.headers.get('content-signal')).toContain('ai-train=no')
 
@@ -78,10 +77,8 @@ describe('agent markdown negotiation', () => {
     const fixture = await buildProductionFixture(agentFixtureDir)
 
     expect(existsSync(resolve(fixture.publicDir, 'docs/agent-components/index.html'))).toBe(true)
-    expect(existsSync(resolve(fixture.publicDir, 'docs/agent-components/index.md'))).toBe(true)
-    expect(await readGeneratedArtifact(fixture.publicDir, 'docs/agent-components/index.md')).toBe(
-      await readGeneratedArtifact(fixture.publicDir, 'raw/docs/agent-components.md')
-    )
+    expect(existsSync(resolve(fixture.publicDir, 'docs/agent-components/index.md'))).toBe(false)
+    expect(existsSync(resolve(fixture.publicDir, 'raw/docs/agent-components.md'))).toBe(true)
   }, 240000)
 
   test('rejects unknown explicit markdown routes and disabled agent markdown routes', async () => {

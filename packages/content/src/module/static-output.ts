@@ -9,8 +9,7 @@ import { normalizeAgentRouteOptions } from './agent-options'
 import {
   collectRawMarkdownLinksFromLlms,
   collectRawMarkdownRoutesFromGeneratedFrontmatter,
-  publicOutputPath,
-  rawMarkdownIndexRouteForRawRoute
+  publicOutputPath
 } from './static-output-routes'
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
@@ -124,13 +123,6 @@ export const registerStaticOutputGeneration = ({
             const outputPath = publicOutputPath(publicDir, route)
             mkdirSync(dirname(outputPath), { recursive: true })
             writeFileSync(outputPath, body, 'utf8')
-
-            const indexRoute = rawMarkdownIndexRouteForRawRoute(route)
-            if (indexRoute) {
-              const indexPath = publicOutputPath(publicDir, indexRoute)
-              mkdirSync(dirname(indexPath), { recursive: true })
-              writeFileSync(indexPath, body, 'utf8')
-            }
           }
         }
       })

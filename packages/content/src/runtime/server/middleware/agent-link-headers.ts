@@ -1,6 +1,6 @@
 import { defineEventHandler, getRequestURL, setHeader } from 'h3'
 import { getAgentLocales, localeFromAgentPath, resolveMarkdownForPublicRoute } from '../agent-site'
-import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../agent-paths'
+import { agentRawPathForRoute, normalizeAgentRoutePath } from '../../agent-paths'
 import { appendResponseHeader } from '../agent-http'
 import { contentConfig } from '../storage-access'
 
@@ -48,8 +48,7 @@ export default defineEventHandler(async (event) => {
   const pagePath = normalizeAgentRoutePath(pathname)
   const pageLinks = page
     ? [
-        `<${agentRawPathForRoute(pagePath)}>; rel="alternate"; type="text/markdown"`,
-        `<${agentMarkdownPathForRoute(pagePath)}>; rel="alternate"; type="text/markdown"`
+        `<${agentRawPathForRoute(pagePath)}>; rel="alternate"; type="text/markdown"`
       ]
     : []
   appendResponseHeader(

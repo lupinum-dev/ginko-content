@@ -72,14 +72,3 @@ export function assertNoPrivateContentLeaks (
 export async function readSearchIndex (publicDir: string) {
   return JSON.parse(await readGeneratedArtifact(publicDir, 'api/_content/search/index.json')) as Array<Record<string, unknown>>
 }
-
-export async function readMarkdownPair (publicDir: string, routePath: string) {
-  const normalized = routePath.replace(/^\/+|\/+$/g, '')
-  const routeMarkdown = normalized ? `${normalized}/index.md` : 'index.md'
-  const rawMarkdown = normalized ? `raw/${normalized}.md` : 'raw/index.md'
-
-  return {
-    route: await readGeneratedArtifact(publicDir, routeMarkdown),
-    raw: await readGeneratedArtifact(publicDir, rawMarkdown)
-  }
-}

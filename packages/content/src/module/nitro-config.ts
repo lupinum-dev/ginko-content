@@ -139,8 +139,7 @@ export const registerContentNitroConfig = ({
         for (const route of routes) {
           const normalized = route === '/' ? '/' : `/${route.replace(/^\/+|\/+$/g, '')}`
           nitroConfig.prerender.routes.push(
-            normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`,
-            normalized === '/' ? '/index.md' : `${normalized}/index.md`
+            normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`
           )
         }
       }

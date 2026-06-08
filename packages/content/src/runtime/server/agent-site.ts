@@ -361,7 +361,6 @@ export const collectAgentMarkdownPrerenderRoutes = async (event: H3Event) => {
     const pages = await buildAgentPageIndex(event, locale)
     for (const page of pages) {
       routes.add(page.rawPath)
-      routes.add(page.markdownPath)
     }
     const prefix = locale === defaultLocale() ? '' : `/${locale}`
     routes.add(prefix ? `${prefix}/llms.txt` : '/llms.txt')
