@@ -171,11 +171,6 @@ export async function startProductionFixtureServer (
       throw new Error(`Production fixture server exited early for ${build.rootDir}\n${output}`)
     }
 
-    if (output.includes(`Listening on http://${host}:${resolvedPort}`)) {
-      await delay(500)
-      return { ...build, baseURL, stop }
-    }
-
     try {
       const response = await fetch(`${baseURL}/`, { redirect: 'manual' })
       if (response.ok || response.status === 404) {

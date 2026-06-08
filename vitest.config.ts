@@ -126,6 +126,7 @@ export default defineConfig({
         test: {
           name: 'e2e',
           environment: 'node',
+          testTimeout: 300000,
           hookTimeout: 240000,
           fileParallelism: false,
           maxWorkers: 1,
@@ -138,6 +139,7 @@ export default defineConfig({
         test: {
           name: 'browser-e2e',
           environment: 'node',
+          testTimeout: 120000,
           hookTimeout: 240000,
           fileParallelism: false,
           maxWorkers: 1,

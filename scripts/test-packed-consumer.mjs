@@ -141,6 +141,23 @@ async function waitForServer(child, baseURL) {
   throw new Error(`Timed out waiting for packed consumer server:\n${output}`)
 }
 
+async function stopServer(child) {
+  if (child.exitCode !== null) {
+    return
+  }
+
+  child.kill('SIGTERM')
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (child.exitCode !== null) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  child.kill('SIGKILL')
+}
+
 async function main() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'ginko-packed-consumer-'))
   let server
@@ -361,11 +378,7 @@ async function main() {
     console.log('Packed consumer test passed.')
   } finally {
     if (server && server.exitCode === null) {
-      server.kill('SIGTERM')
-      await new Promise(resolve => setTimeout(resolve, 250))
-      if (server.exitCode === null) {
-        server.kill('SIGKILL')
-      }
+      await stopServer(server)
     }
     rmSync(tempRoot, { recursive: true, force: true })
   }

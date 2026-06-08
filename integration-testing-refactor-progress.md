@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 12 - Performance And Flake Budget
+Current phase: final release verification
 
 Guiding rules:
 
@@ -36,7 +36,7 @@ Guiding rules:
 | 9 | Browser e2e focus and failure capture | Completed |
 | 10 | Packed consumer matrix | Completed |
 | 11 | Docs and CI alignment | Completed |
-| 12 | Performance and flake budget | Pending |
+| 12 | Performance and flake budget | Completed |
 
 ## Phase 1: Shared Production Fixture Harness
 
@@ -354,3 +354,45 @@ Status: completed
 - `pnpm docs:build` passed.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
+
+## Phase 12: Performance And Flake Budget
+
+Status: completed
+
+### Todos
+
+- [x] Record timing baselines for release-sensitive commands.
+- [x] Add explicit Vitest timeouts for production e2e projects based on real
+  fixture build cost.
+- [x] Remove the fixed post-listen delay from the production fixture server
+  helper.
+- [x] Keep server startup based on observable HTTP readiness.
+- [x] Ensure packed-consumer server shutdown waits for process exit before
+  escalating to `SIGKILL`.
+- [x] Record the shared-dist concurrency rule for release commands.
+- [x] Add no retries or quarantines.
+
+### Timing Baseline
+
+| Command | Result | Wall-clock |
+| --- | --- | --- |
+| `pnpm test:e2e` | Passed, 6 files / 14 tests | 4:23.93 |
+| `pnpm test:e2e:browser` | Passed, 1 file / 1 test | 39.007s |
+| `pnpm test:package-consumer` | Passed | 1:19.75 |
+
+### Evidence
+
+- `pnpm test:package-consumer` passed after packed-consumer shutdown was made
+  polling-based.
+- `pnpm test:e2e` passed after the fixed readiness delay was removed from the
+  shared production fixture helper.
+- `pnpm test:e2e:browser` passed with the same readiness helper.
+
+### Notes
+
+- Do not run package-building commands such as `pnpm test:package-consumer` in
+  parallel with production fixture e2e commands. The packed-consumer script
+  intentionally builds and packs the package, which cleans `packages/content/dist`.
+  Fixture builds import the workspace package output. `pnpm run release:verify`
+  runs these checks sequentially and is the supported confidence gate.
+- No test retry or quarantine was added.
