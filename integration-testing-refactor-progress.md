@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 4 - Consolidate Production Fixture Builds
+Current phase: Phase 7 - Provider-Owned Sitemap And Search Fixtures
 
 Guiding rules:
 
@@ -30,7 +30,7 @@ Guiding rules:
 | 3 | Structured sitemap assertions | Completed |
 | 4 | Consolidate production fixture builds | In progress |
 | 5 | Replace thin wrapper scripts | Completed |
-| 6 | Optional dependency integration matrix | Pending |
+| 6 | Optional dependency integration matrix | Completed |
 | 7 | Provider-owned sitemap and search fixtures | Pending |
 | 8 | Static and SSR markdown contract hardening | Pending |
 | 9 | Browser e2e focus and failure capture | Pending |
@@ -173,5 +173,48 @@ Status: completed
 
 - `pnpm test:search:matrix` passed.
 - `pnpm test:sitemap:static` passed.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 6: Optional Dependency Integration Matrix
+
+Status: completed
+
+### Todos
+
+- [x] Audit optional integrations:
+  `@nuxtjs/sitemap`, `@nuxtjs/i18n`, MiniSearch, Pagefind, Shiki, and
+  `@shikijs/transformers`.
+- [x] Classify each integration dependency.
+- [x] Fix the packed-consumer unresolved `@shikijs/transformers` warning by
+  making `@shikijs/transformers` a runtime dependency. Built package code can
+  import it at runtime, so keeping it as a peer-optional/dev-only dependency
+  was the wrong contract.
+- [x] Add packed-consumer output validation that rejects unresolved external
+  dependency warnings during the fresh Nuxt app build.
+- [x] Document the dependency model in the root README and published package
+  README.
+- [x] Verify MiniSearch, Pagefind, provider-owned search, sitemap, i18n sitemap,
+  packed consumer, and docs build gates.
+
+### Dependency Classification
+
+| Integration | Classification |
+| --- | --- |
+| Shiki and `@shikijs/transformers` | Runtime dependencies of `@lupinum/ginko-content`. |
+| MiniSearch | Runtime dependency of `@lupinum/ginko-content`; default built-in search backend. |
+| Pagefind | Runtime dependency of `@lupinum/ginko-content`; used when the Pagefind backend is selected. |
+| Provider-owned search | Provider capability; no extra package. |
+| `@nuxtjs/i18n` | App dependency when Nuxt locale routing is used. |
+| `@nuxtjs/sitemap` | App dependency when sitemap XML output is published. |
+
+### Evidence
+
+- `pnpm test:search:matrix` passed for MiniSearch, Pagefind, provider-owned
+  search, and disabled search.
+- `pnpm test:sitemap:static` passed for i18n sitemap output.
+- `pnpm test:package-consumer` passed after the dependency warning became a
+  release-gate failure condition.
+- `pnpm docs:build` passed.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.

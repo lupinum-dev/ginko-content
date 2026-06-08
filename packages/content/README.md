@@ -118,6 +118,17 @@ and `/en/pricing` need cross-locale sitemap alternates.
 
 See the public guide: [Sitemap and prerender](../../docs/content/docs/6.i18n/4.sitemap-prerender.md).
 
+## Integration Dependencies
+
+| Feature | Dependency model |
+| --- | --- |
+| Markdown highlighting and built-in Shiki transformers | Included as runtime dependencies of `@lupinum/ginko-content`. |
+| MiniSearch backend | Included as a runtime dependency and used by the default search backend. |
+| Pagefind backend | Included as a runtime dependency and used when `content.search.engine` is `'pagefind'`. |
+| Provider-owned search | No extra package. The active content provider must advertise and implement `search`. |
+| Content i18n | Install and configure `@nuxtjs/i18n` when the app uses Nuxt locale routes. |
+| Sitemap XML output | Install and configure `@nuxtjs/sitemap`; Ginko contributes the content sitemap source. |
+
 ## Scope
 
 The default provider reads files from your Nuxt project. The package does not

@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -50,6 +50,29 @@ function run(command, args, cwd, options = {}) {
   } catch (error) {
     const commandText = [command, ...args].join(' ')
     throw new Error(`Command failed in ${cwd}: ${commandText}`, { cause: error })
+  }
+}
+
+function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
+  const result = spawnSync(command, args, {
+    cwd,
+    env: {
+      ...process.env,
+      npm_config_verify_deps_before_run: 'false'
+    },
+    encoding: 'utf8',
+    shell: process.platform === 'win32'
+  })
+  const output = `${result.stdout || ''}${result.stderr || ''}`
+
+  if (result.status !== 0) {
+    throw new Error(`Command failed in ${cwd}: ${[command, ...args].join(' ')}\n${output}`)
+  }
+
+  for (const pattern of forbiddenPatterns) {
+    if (pattern.test(output)) {
+      throw new Error(`Command emitted forbidden output in ${cwd}: ${[command, ...args].join(' ')}\n${output}`)
+    }
   }
 }
 
@@ -250,7 +273,9 @@ async function main() {
     run('pnpm', ['exec', 'node', 'scripts/import-public-subpaths.mjs'], appDir)
     run('pnpm', ['exec', 'nuxi', 'prepare'], appDir)
     run('pnpm', ['exec', 'nuxi', 'typecheck'], appDir)
-    run('pnpm', ['exec', 'nuxt', 'build'], appDir)
+    runAndRejectOutput('pnpm', ['exec', 'nuxt', 'build'], appDir, [
+      /could not be resolved[\s\S]*treating it as an external dependency/i
+    ])
 
     const port = 4599
     const baseURL = `http://127.0.0.1:${port}`

@@ -99,6 +99,13 @@ Ginko registers the content sitemap source and contributes content prerender
 routes. Use `@nuxtjs/sitemap >= 8.0.15` when Nuxt I18n translated static page
 slugs need correct sitemap alternates.
 
+## Integration Dependencies
+
+MiniSearch, Pagefind, Shiki, and built-in Shiki transformer support are runtime
+dependencies of `@lupinum/ginko-content`. Apps that use Nuxt locale routing
+still install `@nuxtjs/i18n`; apps that publish sitemap XML still install
+`@nuxtjs/sitemap`.
+
 ## Scope
 
 Ginko Content is the content engine and default filesystem provider. It is not
