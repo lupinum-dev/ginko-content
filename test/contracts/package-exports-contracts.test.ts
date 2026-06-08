@@ -1,5 +1,7 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
+import { runtimeAppImportSpecs } from '../../packages/content/src/module/runtime-assets'
 
 vi.mock('../../packages/content/dist/runtime/app/composables/content-i18n.js', () => ({
   useRouteBaseName: () => () => undefined,
@@ -7,7 +9,221 @@ vi.mock('../../packages/content/dist/runtime/app/composables/content-i18n.js', (
   useSwitchLocalePath: () => () => ''
 }))
 
+type PublicSurface = {
+  packageExportSubpaths: Record<string, PublicSurfaceEntry>
+  clientValueExports: Record<string, PublicSurfaceEntry>
+  clientTypeExports: Record<string, PublicSurfaceEntry>
+  serverValueExports: Record<string, PublicSurfaceEntry>
+  serverTypeExports: Record<string, PublicSurfaceEntry>
+  runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
+}
+
+type PublicSurfaceEntry = {
+  category: string
+  audience: string
+  docs: string
+}
+
+const readPublicSurface = async (): Promise<PublicSurface> =>
+  JSON.parse(await readFile('meta/public-surface.json', 'utf8')) as PublicSurface
+
+const collectMarkdownFiles = async (root: string): Promise<string[]> => {
+  const entries = await readdir(root, { withFileTypes: true })
+  const nested = await Promise.all(entries.map(async (entry) => {
+    const path = join(root, entry.name)
+    if (entry.isDirectory()) return collectMarkdownFiles(path)
+    return entry.name.endsWith('.md') ? [path] : []
+  }))
+  return nested.flat()
+}
+
+const readPublicDocsCorpus = async () => {
+  const files = await Promise.all([
+    collectMarkdownFiles('docs/content'),
+    collectMarkdownFiles('packages/content/docs'),
+    collectMarkdownFiles('meta/skill')
+  ])
+  const source = await Promise.all(files.flat().map(file => readFile(file, 'utf8')))
+  return source.join('\n')
+}
+
+const extractValueExports = (source: string) => {
+  const names = new Set<string>()
+  const exportBlockPattern = /export\s*\{([\s\S]*?)\}\s*from/g
+  for (const match of source.matchAll(exportBlockPattern)) {
+    const entries = match[1]
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean)
+
+    for (const entry of entries) {
+      if (entry.startsWith('type ')) continue
+      names.add(entry.split(/\s+as\s+/)[0]!.trim())
+    }
+  }
+
+  for (const match of source.matchAll(/export\s+const\s+([A-Za-z0-9_]+)/g)) {
+    names.add(match[1]!)
+  }
+
+  return [...names].sort()
+}
+
+const extractTypeExports = (source: string) => {
+  const names = new Set<string>()
+  const exportBlockPattern = /export\s*\{([\s\S]*?)\}\s*from/g
+  for (const match of source.matchAll(exportBlockPattern)) {
+    const entries = match[1]
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean)
+
+    for (const entry of entries) {
+      if (!entry.startsWith('type ')) continue
+      names.add(entry.replace(/^type\s+/, '').split(/\s+as\s+/)[0]!.trim())
+    }
+  }
+
+  const exportTypeBlockPattern = /export\s+type\s*\{([\s\S]*?)\}\s*from/g
+  for (const match of source.matchAll(exportTypeBlockPattern)) {
+    const entries = match[1]
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean)
+
+    for (const entry of entries) {
+      names.add(entry.split(/\s+as\s+/)[0]!.trim())
+    }
+  }
+
+  return [...names].sort()
+}
+
 describe('package export contracts', () => {
+  test('source package export map stays intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      exports: Record<string, Record<string, string> | string>
+    }
+
+    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(publicSurface.packageExportSubpaths).sort())
+  })
+
+  test('source client facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.clientValueExports).sort())
+  })
+
+  test('source client facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.clientTypeExports).sort())
+  })
+
+  test('source server facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.serverValueExports).sort())
+  })
+
+  test('source server facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
+  })
+
+  test('runtime app auto-imports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+
+    expect(runtimeAppImportSpecs.map(spec => spec.name).sort()).toEqual(Object.keys(publicSurface.runtimeAppAutoImports).sort())
+  })
+
+  test('app-facing runtime imports are documented by name', async () => {
+    const publicSurface = await readPublicSurface()
+    const docsCorpus = await readPublicDocsCorpus()
+
+    for (const name of Object.keys(publicSurface.runtimeAppAutoImports)) {
+      expect(docsCorpus, name).toContain(name)
+    }
+  })
+
+  test('public surface classification uses known audience categories and docs targets', async () => {
+    const publicSurface = await readPublicSurface()
+    const knownCategories = new Set([
+      'nuxt-module-entry',
+      'content-config-author',
+      'server-runtime-and-provider-author',
+      'app-runtime',
+      'toc-compatibility',
+      'advanced-cms-contract',
+      'advanced-cms-import',
+      'testing-only-provider-fixture',
+      'testing-only-provider-contract',
+      'markdown-transformer-extension',
+      'stable-query-primitive',
+      'stable-route-helper',
+      'advanced-agent-path-helper',
+      'stable-app-composable',
+      'compatibility-app-composable',
+      'stable-search-composable',
+      'stable-site-data-helper',
+      'stable-toc-helper',
+      'stable-server-query',
+      'advanced-server-query-context',
+      'advanced-agent-markdown-extension',
+      'advanced-agent-site-generation',
+      'stable-sitemap-helper',
+      'stable-provider-author-helper',
+      'stable-provider-cache-helper',
+      'stable-route-helper-type',
+      'stable-app-composable-type',
+      'stable-query-type',
+      'stable-search-type',
+      'stable-site-data-type',
+      'stable-toc-type',
+      'stable-content-rendering-type',
+      'advanced-agent-markdown-type',
+      'advanced-agent-site-type',
+      'stable-sitemap-type',
+      'transport-query-type',
+      'stable-provider-cache-type',
+      'stable-provider-author-type'
+    ])
+
+    const entries = [
+      ...Object.values(publicSurface.packageExportSubpaths),
+      ...Object.values(publicSurface.clientValueExports),
+      ...Object.values(publicSurface.clientTypeExports),
+      ...Object.values(publicSurface.serverValueExports),
+      ...Object.values(publicSurface.serverTypeExports),
+      ...Object.values(publicSurface.runtimeAppAutoImports)
+    ]
+
+    for (const entry of entries) {
+      expect([...knownCategories], entry.category).toContain(entry.category)
+      expect(entry.audience).toMatch(/^[a-z][a-z-]+$/)
+      expect(entry.docs).toMatch(/^(docs|packages|meta)\//)
+      await expect(readFile(entry.docs, 'utf8'), entry.docs).resolves.toBeTypeOf('string')
+    }
+  })
+
+  test('premature locale-switch helper is not part of the public surface', async () => {
+    const publicSurface = await readPublicSurface()
+    const runtimeAssets = await readFile('packages/content/src/module/runtime-assets.ts', 'utf8')
+    const clientSource = await readFile('packages/content/src/public/client.ts', 'utf8')
+
+    expect(publicSurface.clientValueExports).not.toHaveProperty('useContentLocaleSwitch')
+    expect(publicSurface.runtimeAppAutoImports).not.toHaveProperty('useContentLocaleSwitch')
+    expect(runtimeAssets).not.toContain('useContentLocaleSwitch')
+    expect(clientSource).not.toContain('useContentLocaleSwitch')
+    expect(publicSurface.runtimeAppAutoImports.useContentSwitchLocalePath.category).toBe('compatibility-app-composable')
+  })
+
   test('built root export loads as Node ESM', async () => {
     const module = await import('@lupinum/ginko-content')
 

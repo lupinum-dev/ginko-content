@@ -4,42 +4,73 @@ import { addComponentsDir, addImports, addPlugin, addServerImports, addTypeTempl
 import type { addTemplate } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
-export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => string) => {
-  addImports([
-    { name: 'getCollectionPath', as: 'getCollectionPath', from: resolveRuntimeModule('./query/routes.js') },
-    { name: 'useContentHead', as: 'useContentHead', from: resolveRuntimeModule('./app/composables/head.js') },
-    // Vue composables — reactive wrappers over the same options shape.
-    { name: 'useContentPage', as: 'useContentPage', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentOne', as: 'useContentOne', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentMany', as: 'useContentMany', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentPagination', as: 'useContentPagination', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentBacklinks', as: 'useContentBacklinks', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentResolveOne', as: 'useContentResolveOne', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentVariants', as: 'useContentVariants', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentTree', as: 'useContentTree', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentNavigation', as: 'useContentNavigation', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentNeighbors', as: 'useContentNeighbors', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentLocaleSwitch', as: 'useContentLocaleSwitch', from: resolveRuntimeModule('./app/composables/use-content.js') },
-    { name: 'useContentSwitchLocalePath', as: 'useContentSwitchLocalePath', from: resolveRuntimeModule('./app/composables/route.js') },
-    // Search & site data — keep the headless useContentSearch export explicit
-    // because Nuxt UI owns the same auto-import name.
-    { name: 'useContentSearchData', as: 'useContentSearchData', from: resolveRuntimeModule('./app/composables/search.js') },
-    { name: 'useContentSearchResults', as: 'useContentSearchResults', from: resolveRuntimeModule('./app/composables/search.js') },
-    { name: 'querySiteData', as: 'querySiteData', from: resolveRuntimeModule('./app/composables/site-data.js') }
-  ])
+export const runtimeAppImportSpecs = [
+  { name: 'getCollectionPath', as: 'getCollectionPath', from: './query/routes.js' },
+  { name: 'useContentHead', as: 'useContentHead', from: './app/composables/head.js' },
+  { name: 'useContentPage', as: 'useContentPage', from: './app/composables/use-content.js' },
+  { name: 'useContentOne', as: 'useContentOne', from: './app/composables/use-content.js' },
+  { name: 'useContentMany', as: 'useContentMany', from: './app/composables/use-content.js' },
+  { name: 'useContentPagination', as: 'useContentPagination', from: './app/composables/use-content.js' },
+  { name: 'useContentBacklinks', as: 'useContentBacklinks', from: './app/composables/use-content.js' },
+  { name: 'useContentResolveOne', as: 'useContentResolveOne', from: './app/composables/use-content.js' },
+  { name: 'useContentVariants', as: 'useContentVariants', from: './app/composables/use-content.js' },
+  { name: 'useContentTree', as: 'useContentTree', from: './app/composables/use-content.js' },
+  { name: 'useContentNavigation', as: 'useContentNavigation', from: './app/composables/use-content.js' },
+  { name: 'useContentNeighbors', as: 'useContentNeighbors', from: './app/composables/use-content.js' },
+  { name: 'useContentSwitchLocalePath', as: 'useContentSwitchLocalePath', from: './app/composables/route.js' },
+  { name: 'useContentSearchData', as: 'useContentSearchData', from: './app/composables/search.js' },
+  { name: 'useContentSearchResults', as: 'useContentSearchResults', from: './app/composables/search.js' },
+  { name: 'querySiteData', as: 'querySiteData', from: './app/composables/site-data.js' }
+] as const
 
-  addServerImports([
-    { name: 'one', as: 'one', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'many', as: 'many', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'paginate', as: 'paginate', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'backlinks', as: 'backlinks', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'resolveOne', as: 'resolveOne', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'variants', as: 'variants', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'tree', as: 'tree', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'neighbors', as: 'neighbors', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'getCollectionPath', as: 'getCollectionPath', from: resolveRuntimeModule('./server/index.js') },
-    { name: 'queryCollectionsSitemapEntries', as: 'queryCollectionsSitemapEntries', from: resolveRuntimeModule('./server/index.js') }
-  ])
+export const runtimeServerImportSpecs = [
+  { name: 'one', as: 'one' },
+  { name: 'many', as: 'many' },
+  { name: 'paginate', as: 'paginate' },
+  { name: 'backlinks', as: 'backlinks' },
+  { name: 'resolveOne', as: 'resolveOne' },
+  { name: 'variants', as: 'variants' },
+  { name: 'tree', as: 'tree' },
+  { name: 'neighbors', as: 'neighbors' },
+  { name: 'getCollectionPath', as: 'getCollectionPath' },
+  { name: 'queryCollectionsSitemapEntries', as: 'queryCollectionsSitemapEntries' }
+] as const
+
+export const generatedContentServerValueNames = [
+  ...runtimeServerImportSpecs.map(spec => spec.name),
+  'contentCacheHeaders',
+  'noopContentCache',
+  'vercelContentCache',
+  'clearContentCacheHint',
+  'collectContentCacheHint',
+  'getContentCacheHint',
+  'withContentCache',
+  'createContentProviderError'
+] as const
+
+export const generatedContentServerTypeSpecs = [
+  { local: 'ContentCacheAdapter', exported: 'ContentCacheAdapter' },
+  { local: 'ContentCacheHint', exported: 'ContentCacheHint' },
+  { local: 'ContentCacheHintInput', exported: 'ContentCacheHintInput' },
+  { local: 'ContentCacheInvalidateInput', exported: 'ContentCacheInvalidateInput' },
+  { local: 'ContentProvider', exported: 'ContentProvider' },
+  { local: 'ContentProviderCapabilities', exported: 'ContentProviderCapabilities' },
+  { local: 'ContentProviderResult<T>', exported: 'ContentProviderResult<T>' },
+  { local: 'MaybeContentProviderResult<T>', exported: 'MaybeContentProviderResult<T>' },
+  { local: 'ContentProviderErrorCode', exported: 'ContentProviderErrorCode' },
+  { local: 'VercelContentCacheOptions', exported: 'VercelContentCacheOptions' }
+] as const
+
+export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => string) => {
+  addImports(runtimeAppImportSpecs.map(spec => ({
+    ...spec,
+    from: resolveRuntimeModule(spec.from)
+  })))
+
+  addServerImports(runtimeServerImportSpecs.map(spec => ({
+    ...spec,
+    from: resolveRuntimeModule('./server/index.js')
+  })))
 }
 
 export const registerRuntimeComponents = (resolve: (path: string) => string) => {
@@ -145,6 +176,12 @@ export const registerGeneratedTypes = (
     const key = JSON.stringify(name)
     return `    ${key}: StrictParsedContent & __GeneratedCollectionSchema<__ContentCollectionExport<${key}>>`
   })
+  const contentServerValueDeclarations = generatedContentServerValueNames.map(name =>
+    `  const ${name}: typeof import('${resolveRuntimeModuleRoot('./server')}').${name}`
+  )
+  const contentServerTypeDeclarations = generatedContentServerTypeSpecs.map(spec =>
+    `  type ${spec.local} = import('${resolveRuntimeModuleRoot('./server')}').${spec.exported}`
+  )
 
   return addTypeTemplate({
     filename: 'types/content.d.ts',
@@ -208,33 +245,8 @@ export const registerGeneratedTypes = (
       '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
       '}',
       'declare module \'#content/server\' {',
-      `  const one: typeof import('${resolveRuntimeModuleRoot('./server')}').one`,
-      `  const many: typeof import('${resolveRuntimeModuleRoot('./server')}').many`,
-      `  const paginate: typeof import('${resolveRuntimeModuleRoot('./server')}').paginate`,
-      `  const backlinks: typeof import('${resolveRuntimeModuleRoot('./server')}').backlinks`,
-      `  const resolveOne: typeof import('${resolveRuntimeModuleRoot('./server')}').resolveOne`,
-      `  const variants: typeof import('${resolveRuntimeModuleRoot('./server')}').variants`,
-      `  const tree: typeof import('${resolveRuntimeModuleRoot('./server')}').tree`,
-      `  const neighbors: typeof import('${resolveRuntimeModuleRoot('./server')}').neighbors`,
-      `  const queryCollectionsSitemapEntries: typeof import('${resolveRuntimeModuleRoot('./server')}').queryCollectionsSitemapEntries`,
-      `  const contentCacheHeaders: typeof import('${resolveRuntimeModuleRoot('./server')}').contentCacheHeaders`,
-      `  const noopContentCache: typeof import('${resolveRuntimeModuleRoot('./server')}').noopContentCache`,
-      `  const vercelContentCache: typeof import('${resolveRuntimeModuleRoot('./server')}').vercelContentCache`,
-      `  const clearContentCacheHint: typeof import('${resolveRuntimeModuleRoot('./server')}').clearContentCacheHint`,
-      `  const collectContentCacheHint: typeof import('${resolveRuntimeModuleRoot('./server')}').collectContentCacheHint`,
-      `  const getContentCacheHint: typeof import('${resolveRuntimeModuleRoot('./server')}').getContentCacheHint`,
-      `  const withContentCache: typeof import('${resolveRuntimeModuleRoot('./server')}').withContentCache`,
-      `  const createContentProviderError: typeof import('${resolveRuntimeModuleRoot('./server')}').createContentProviderError`,
-      `  type ContentCacheAdapter = import('${resolveRuntimeModuleRoot('./server')}').ContentCacheAdapter`,
-      `  type ContentCacheHint = import('${resolveRuntimeModuleRoot('./server')}').ContentCacheHint`,
-      `  type ContentCacheHintInput = import('${resolveRuntimeModuleRoot('./server')}').ContentCacheHintInput`,
-      `  type ContentCacheInvalidateInput = import('${resolveRuntimeModuleRoot('./server')}').ContentCacheInvalidateInput`,
-      `  type ContentProvider = import('${resolveRuntimeModuleRoot('./server')}').ContentProvider`,
-      `  type ContentProviderCapabilities = import('${resolveRuntimeModuleRoot('./server')}').ContentProviderCapabilities`,
-      `  type ContentProviderResult<T> = import('${resolveRuntimeModuleRoot('./server')}').ContentProviderResult<T>`,
-      `  type MaybeContentProviderResult<T> = import('${resolveRuntimeModuleRoot('./server')}').MaybeContentProviderResult<T>`,
-      `  type ContentProviderErrorCode = import('${resolveRuntimeModuleRoot('./server')}').ContentProviderErrorCode`,
-      `  type VercelContentCacheOptions = import('${resolveRuntimeModuleRoot('./server')}').VercelContentCacheOptions`,
+      ...contentServerValueDeclarations,
+      ...contentServerTypeDeclarations,
       '}'
     ].filter(Boolean).join('\n')
   })

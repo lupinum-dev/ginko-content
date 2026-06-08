@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { kebabCase, pascalCase } from 'scule'
+import type { ContentQueryResponse } from '../../types/api'
 import type { MarkdownNode, MarkdownRoot, ParsedContent } from '../../types/content'
 import type { AgentMetadataField, ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../agent-paths'
@@ -618,11 +619,8 @@ export async function resolveContentMarkdownByRoute (
   return null
 }
 
-const normalizeQueryResult = <T>(value: unknown): T[] => {
-  if (Array.isArray(value)) return value as T[]
-  if (isRecord(value) && Array.isArray(value.data)) return value.data as T[]
-  return []
-}
+const normalizeQueryResult = <T>(value: ContentQueryResponse<T>): T[] =>
+  Array.isArray(value.result) ? value.result : []
 
 export async function queryMarkdownEnabledContent (
   event: H3Event,

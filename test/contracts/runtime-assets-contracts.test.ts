@@ -2,7 +2,15 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { registerRuntimeImports, registerUserContentComponents } from '../../packages/content/src/module/runtime-assets'
+import {
+  generatedContentServerTypeSpecs,
+  generatedContentServerValueNames,
+  registerGeneratedTypes,
+  registerRuntimeImports,
+  registerUserContentComponents,
+  runtimeAppImportSpecs,
+  runtimeServerImportSpecs
+} from '../../packages/content/src/module/runtime-assets'
 
 const kitMocks = vi.hoisted(() => ({
   addImports: vi.fn(),
@@ -42,6 +50,7 @@ describe('runtime asset contracts', () => {
     registerRuntimeImports(path => `/runtime/${path}`)
 
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
+    expect(imports.map(item => item.name).sort()).toEqual(runtimeAppImportSpecs.map(spec => spec.name).sort())
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
       expect.objectContaining({ name: 'useContentHead', as: 'useContentHead' }),
@@ -78,6 +87,41 @@ describe('runtime asset contracts', () => {
         from: '/runtime/./app/composables/route.js'
       })
     ]))
+  })
+
+  test('generated #content/server types cover registered server auto-imports', () => {
+    registerRuntimeImports(path => `/runtime/${path}`)
+    registerGeneratedTypes('/content.config.ts', path => `/runtime/${path}`)
+
+    const serverImports = kitMocks.addServerImports.mock.calls.flatMap(([items]) => items)
+    expect(serverImports.map(item => item.name).sort()).toEqual(runtimeServerImportSpecs.map(spec => spec.name).sort())
+
+    const contentTypeTemplate = kitMocks.addTypeTemplate.mock.calls
+      .map(([template]) => template)
+      .find(template => template.filename === 'types/content.d.ts')
+
+    expect(contentTypeTemplate).toBeDefined()
+    const contents = contentTypeTemplate!.getContents()
+    for (const name of runtimeServerImportSpecs.map(spec => spec.name)) {
+      expect(contents).toContain(`  const ${name}: typeof import('/runtime/./server').${name}`)
+    }
+  })
+
+  test('generated #content/server declarations are complete and explicit', () => {
+    registerGeneratedTypes('/content.config.ts', path => `/runtime/${path}`)
+
+    const contentTypeTemplate = kitMocks.addTypeTemplate.mock.calls
+      .map(([template]) => template)
+      .find(template => template.filename === 'types/content.d.ts')
+
+    expect(contentTypeTemplate).toBeDefined()
+    const contents = contentTypeTemplate!.getContents()
+    for (const name of generatedContentServerValueNames) {
+      expect(contents).toContain(`  const ${name}: typeof import('/runtime/./server').${name}`)
+    }
+    for (const spec of generatedContentServerTypeSpecs) {
+      expect(contents).toContain(`  type ${spec.local} = import('/runtime/./server').${spec.exported}`)
+    }
   })
 
   test('registers user content component dirs as non-global and preserves app override order', async () => {

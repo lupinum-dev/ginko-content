@@ -32,10 +32,43 @@ const stalePublicApiPatterns = [
   /\bserverQueryCollection\b/,
   /\bresolveContentReference\b/,
   /\buseContentList\b/,
+  /\buseContentRoute\b/,
+  /\buseContentLocaleSwitch\b/
+]
+
+const compatibilityOnlyPublicApiPatterns = [
   /\buseContentSwitchLocalePath\b/
 ]
 
+const advancedServerSurfacePatterns = [
+  /\bwithContentCache\b/,
+  /\bcontentCacheHeaders\b/,
+  /\bvercelContentCache\b/,
+  /\bnoopContentCache\b/,
+  /\bContentCacheAdapter\b/,
+  /\bContentCacheHint\b/,
+  /\bContentProvider\b/,
+  /\bcreateContentProviderError\b/,
+  /\bdefineAgentMarkdownComponent\b/,
+  /\bregisterAgentMarkdown/,
+  /\bagentRawPathForRoute\b/,
+  /\bagentMarkdownPathForRoute\b/,
+  /\brenderLlmsTxt\b/,
+  /\brenderLlmsFullTxt\b/,
+  /\bresolveContentMarkdown\b/
+]
+
+const privateLocaleMetadataPatterns = [
+  /\b_requestedLocale\b/,
+  /\b_resolvedLocale\b/,
+  /\b_fallback\b/,
+  /\b_availableLocales\b/,
+  /\b_variantPaths\b/
+]
+
 const namedDefineCollectionPattern = /\bdefineCollection\s*\(\s*['"][^'"]+['"]/
+
+const rawStringHandleFirstHelperPattern = /\b(?:useContentPage|useContentNavigation|useContentSearchData)\s*\(\s*['"][^'"]+['"]/
 
 const publicQueryOperators = new Set([
   '$eq',
@@ -101,6 +134,24 @@ const isMigrationDoc = (file: string) => file.split('\\').join('/').startsWith('
 
 const normalizePath = (file: string) => file.split('\\').join('/')
 
+const isAdvancedSurfaceDoc = (file: string) => {
+  const normalized = normalizePath(file)
+  const lower = normalized.toLowerCase()
+  return (
+    normalized.includes('/8.migration/') ||
+    normalized.includes('/9.api-reference/') ||
+    normalized.includes('/10.cms-cache/') ||
+    lower.includes('/advanced/') ||
+    lower.includes('agent') ||
+    lower.includes('provider') ||
+    lower.includes('cache') ||
+    lower.includes('cms_contract') ||
+    lower.includes('public-surface') ||
+    normalized.endsWith('ARCHITECTURE.md') ||
+    normalized.endsWith('ABSTRACTIONS.md')
+  )
+}
+
 const isHistoricalMigrationLine = (lines: string[], index: number) => {
   const context = lines
     .slice(Math.max(0, index - 4), index + 1)
@@ -127,6 +178,43 @@ const findStalePublicApiLines = (file: string, source: string) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
     if (!stalePublicApiPatterns.some(pattern => pattern.test(line))) {
+      return []
+    }
+
+    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) {
+      return []
+    }
+
+    return [`${file}:${index + 1}`]
+  })
+}
+
+const findCompatibilityOnlyPublicApiLines = (file: string, source: string) => {
+  if (isAdvancedSurfaceDoc(file)) return []
+  return source.split('\n').flatMap((line, index) => {
+    if (!compatibilityOnlyPublicApiPatterns.some(pattern => pattern.test(line))) {
+      return []
+    }
+
+    return [`${file}:${index + 1}`]
+  })
+}
+
+const findAdvancedSurfaceLinesOutsideAdvancedDocs = (file: string, source: string) => {
+  if (isAdvancedSurfaceDoc(file)) return []
+  return source.split('\n').flatMap((line, index) => {
+    if (!advancedServerSurfacePatterns.some(pattern => pattern.test(line))) {
+      return []
+    }
+
+    return [`${file}:${index + 1}`]
+  })
+}
+
+const findPrivateLocaleMetadataLines = (file: string, source: string) => {
+  const lines = source.split('\n')
+  return lines.flatMap((line, index) => {
+    if (!privateLocaleMetadataPatterns.some(pattern => pattern.test(line))) {
       return []
     }
 
@@ -192,6 +280,17 @@ const findNamedDefineCollectionLines = (file: string, source: string) => {
     if (isCompatibilityCollectionDeclarationLine(lines, index)) return []
     return [`${file}:${index + 1}`]
   })
+}
+
+const findRawStringHandleFirstHelperLines = (file: string, source: string) => {
+  const lines = source.split('\n')
+  return source
+    .split('\n')
+    .flatMap((line, index) =>
+      rawStringHandleFirstHelperPattern.test(line) && !isHistoricalMigrationLine(lines, index)
+        ? [`${file}:${index + 1}`]
+        : []
+    )
 }
 
 const isFallbackAwareDoc = (file: string) => {
@@ -292,6 +391,8 @@ describe('documentation drift', () => {
     expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentList('))).toBe(true)
     expect(stalePublicApiPatterns.some(pattern => pattern.test('queryCollectionNavigation('))).toBe(true)
     expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentNavigation('))).toBe(false)
+    expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentSwitchLocalePath('))).toBe(false)
+    expect(compatibilityOnlyPublicApiPatterns.some(pattern => pattern.test('useContentSwitchLocalePath('))).toBe(true)
   })
 
   test('content.config import detector is scoped to the same doc', () => {
@@ -328,6 +429,36 @@ describe('documentation drift', () => {
     expect(offenders).toEqual([])
   })
 
+  test('beginner docs do not teach compatibility-only APIs as preferred APIs', async () => {
+    const offenders: string[] = []
+    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findCompatibilityOnlyPublicApiLines(file, source))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  test('beginner docs do not teach advanced provider cache or agent surfaces', async () => {
+    const offenders: string[] = []
+    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findAdvancedSurfaceLinesOutsideAdvancedDocs(file, source))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  test('active docs prefer public localized resolution metadata', async () => {
+    const offenders: string[] = []
+    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findPrivateLocaleMetadataLines(file, source))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
   test('docs and examples do not teach unsupported public query operators', async () => {
     const offenders: string[] = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
@@ -343,6 +474,16 @@ describe('documentation drift', () => {
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
       const source = await readFile(file, 'utf8')
       offenders.push(...findNamedDefineCollectionLines(file, source))
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  test('current docs and examples prefer collection handles for app-facing content helpers', async () => {
+    const offenders: string[] = []
+    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
+      const source = await readFile(file, 'utf8')
+      offenders.push(...findRawStringHandleFirstHelperLines(file, source))
     }
 
     expect(offenders).toEqual([])

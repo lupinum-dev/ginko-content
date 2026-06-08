@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useContentLocaleSwitch, useLocalePath, useRoute, useSwitchLocalePath } from '#imports'
+import { useContentOne, useContentSwitchLocalePath, useLocalePath, useRoute, useSwitchLocalePath } from '#imports'
 import { docs } from '../content.config'
 
 const { locale } = useI18n()
 const switchLocalePath = useSwitchLocalePath()
+const switchContentLocalePath = useContentSwitchLocalePath()
 const localePath = useLocalePath()
 const route = useRoute()
 
 // Resolve the active content page's localePaths so the locale switcher can
 // route to the translated slug (e.g. /guide/getting-started ↔
-// /de/leitfaden/erste-schritte). useAsyncData dedupes this with the page's
-// own useContentOne call — single round-trip.
-const { switchTo } = await useContentLocaleSwitch(docs, {
+// /de/leitfaden/erste-schritte). This mirrors the page lookup and keeps the
+// playground on the documented compatibility API.
+await useContentOne(docs, {
   locale: () => locale.value,
   by: { route: () => route.path },
   fallback: true
@@ -27,7 +28,7 @@ const localeLinks = computed(() => {
     ...entry,
     // Prefer the content's translated path. Fall back to Nuxt i18n's
     // route-only switch for pages that aren't backed by content.
-    to: switchTo(entry.code) || switchLocalePath(entry.code)
+    to: switchContentLocalePath(entry.code) || switchLocalePath(entry.code)
   }))
 })
 

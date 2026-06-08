@@ -755,17 +755,22 @@ describe('agent markdown', () => {
   })
 
   test('does not render markdown bodies while building the agent page index', async () => {
-    const query = vi.fn(async () => [
-      {
-        path: '/docs/intro',
-        _path: '/intro',
-        title: 'Intro',
-        description: 'Start here.',
-        body: markdownBody([
-          { type: 'element', tag: 'expensive-component' }
-        ])
-      }
-    ])
+    const query = vi.fn(async () => ({
+      result: [
+        {
+          path: '/docs/intro',
+          _path: '/intro',
+          title: 'Intro',
+          description: 'Start here.',
+          body: markdownBody([
+            { type: 'element', tag: 'expensive-component' }
+          ])
+        }
+      ],
+      skip: 0,
+      limit: 0,
+      total: 1
+    }))
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
@@ -851,14 +856,19 @@ describe('agent markdown', () => {
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
       getContentProvider: async () => ({
-        query: async () => [
-          {
-            path: '/docs/intro',
-            _path: '/intro',
-            title: 'Content Intro',
-            description: 'Content intro.'
-          }
-        ]
+        query: async () => ({
+          result: [
+            {
+              path: '/docs/intro',
+              _path: '/intro',
+              title: 'Content Intro',
+              description: 'Content intro.'
+            }
+          ],
+          skip: 0,
+          limit: 0,
+          total: 1
+        })
       })
     }))
 
