@@ -37,12 +37,43 @@ async function assertHeading (page: Page, name: string) {
   await expect(page.getByRole('heading', { name }).textContent()).resolves.toBe(name)
 }
 
+function captureBrowserFailures (page: Page) {
+  const consoleErrors: string[] = []
+  const failedRequests: string[] = []
+
+  page.on('console', (message) => {
+    if (message.type() === 'error' || /hydration|ginko/i.test(message.text())) {
+      consoleErrors.push(message.text())
+    }
+  })
+  page.on('requestfailed', (request) => {
+    const url = request.url()
+    if (url.includes('/api/_content')) {
+      failedRequests.push(`${request.failure()?.errorText || 'failed'} ${url}`)
+    }
+  })
+  page.on('response', (response) => {
+    const url = response.url()
+    if (response.status() >= 400) {
+      consoleErrors.push(`${response.status()} ${url}`)
+    }
+    if (url.includes('/api/_content') && response.status() >= 400) {
+      failedRequests.push(`${response.status()} ${url}`)
+    }
+  })
+
+  return {
+    assertClean () {
+      expect(consoleErrors).toEqual([])
+      expect(failedRequests).toEqual([])
+    }
+  }
+}
+
 describe('browser locale switching and search', () => {
   test('clicks translated locale links and localized search results in a production fixture', async () => {
     const server = await startFixtureServer(fixtureDir)
     let browser: Browser | undefined
-    const consoleErrors: string[] = []
-    const failedRequests: string[] = []
 
     try {
       browser = await chromium.launch({
@@ -50,27 +81,7 @@ describe('browser locale switching and search', () => {
         headless: true
       })
       const page = await browser.newPage()
-
-      page.on('console', (message) => {
-        if (message.type() === 'error' || /hydration|ginko/i.test(message.text())) {
-          consoleErrors.push(message.text())
-        }
-      })
-      page.on('requestfailed', (request) => {
-        const url = request.url()
-        if (url.includes('/api/_content')) {
-          failedRequests.push(`${request.failure()?.errorText || 'failed'} ${url}`)
-        }
-      })
-      page.on('response', (response) => {
-        const url = response.url()
-        if (response.status() >= 400) {
-          consoleErrors.push(`${response.status()} ${url}`)
-        }
-        if (url.includes('/api/_content') && response.status() >= 400) {
-          failedRequests.push(`${response.status()} ${url}`)
-        }
-      })
+      const browserFailures = captureBrowserFailures(page)
 
       await page.goto(`${server.baseURL}/de/leitfaden/erste-schritte`, { waitUntil: 'networkidle' })
       await assertHeading(page, 'Einstieg')
@@ -94,8 +105,14 @@ describe('browser locale switching and search', () => {
       await page.waitForURL('**/de/leitfaden/erste-schritte')
       await assertHeading(page, 'Einstieg')
 
-      expect(consoleErrors).toEqual([])
-      expect(failedRequests).toEqual([])
+      await page.goBack({ waitUntil: 'networkidle' })
+      expect(contentPath(page.url())).toBe('/de/search')
+
+      await page.goForward({ waitUntil: 'networkidle' })
+      expect(contentPath(page.url())).toBe('/de/leitfaden/erste-schritte')
+      await assertHeading(page, 'Einstieg')
+
+      browserFailures.assertClean()
     } finally {
       await browser?.close()
       await server.stop()

@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 9 - Browser E2E Focus And Failure Capture
+Current phase: Phase 10 - Packed Consumer Matrix
 
 Guiding rules:
 
@@ -33,7 +33,7 @@ Guiding rules:
 | 6 | Optional dependency integration matrix | Completed |
 | 7 | Provider-owned sitemap and search fixtures | Completed |
 | 8 | Static and SSR markdown contract hardening | Completed |
-| 9 | Browser e2e focus and failure capture | Pending |
+| 9 | Browser e2e focus and failure capture | Completed |
 | 10 | Packed consumer matrix | Pending |
 | 11 | Docs and CI alignment | Pending |
 | 12 | Performance and flake budget | Pending |
@@ -278,5 +278,26 @@ Status: completed
   passed after the traversal fix.
 - `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-markdown-negotiation.test.ts test/e2e/agent-output-smoke.test.ts test/e2e/generated-output-smoke.test.ts`
   passed.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 9: Browser E2E Focus And Failure Capture
+
+Status: completed
+
+### Todos
+
+- [x] Keep browser coverage to one high-signal production fixture flow.
+- [x] Extract local browser failure capture for console errors, hydration/Ginko
+  warnings, failed `/api/_content` requests, and 4xx/5xx responses.
+- [x] Verify German translated route rendering.
+- [x] Verify locale switch to English and back to German.
+- [x] Verify localized search result path and rendered target page.
+- [x] Verify browser back/forward preserves the localized route flow.
+- [x] Avoid screenshot or visual-regression expansion.
+
+### Evidence
+
+- `pnpm test:e2e:browser` passed.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.
