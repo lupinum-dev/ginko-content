@@ -9,7 +9,7 @@ test infrastructure or weakening the release gate.
 
 Overall status: in progress
 
-Current phase: Phase 8 - Static And SSR Markdown Contract Hardening
+Current phase: Phase 9 - Browser E2E Focus And Failure Capture
 
 Guiding rules:
 
@@ -32,7 +32,7 @@ Guiding rules:
 | 5 | Replace thin wrapper scripts | Completed |
 | 6 | Optional dependency integration matrix | Completed |
 | 7 | Provider-owned sitemap and search fixtures | Completed |
-| 8 | Static and SSR markdown contract hardening | Pending |
+| 8 | Static and SSR markdown contract hardening | Completed |
 | 9 | Browser e2e focus and failure capture | Pending |
 | 10 | Packed consumer matrix | Pending |
 | 11 | Docs and CI alignment | Pending |
@@ -246,5 +246,37 @@ Status: completed
 - `pnpm test:sitemap:static` passed with both filesystem i18n sitemap output
   and provider-owned sitemap XML output.
 - `pnpm test:search:matrix` passed after the provider fixture change.
+- `pnpm typecheck:source` passed.
+- `git diff --check` passed.
+
+## Phase 8: Static And SSR Markdown Contract Hardening
+
+Status: completed
+
+### Todos
+
+- [x] Keep the static same-URL markdown negotiation limitation documented in
+  public docs.
+- [x] Verify SSR behavior: HTML by default, markdown for
+  `Accept: text/markdown`, explicit route markdown, raw markdown, Link headers,
+  and `Content-Signal`.
+- [x] Verify static-safe behavior: generated `/raw/**.md`,
+  `/:route/index.md`, `/llms.txt`, and `/llms-full.txt` outputs.
+- [x] Verify disabled agent output returns HTML/404 according to route type.
+- [x] Add traversal coverage for raw markdown routes:
+  `../`, encoded traversal, double-encoded traversal, null byte, and repeated
+  slash normalization.
+- [x] Reject unsafe raw request paths before middleware skip logic.
+
+### Evidence
+
+- `pnpm vitest run --config vitest.config.ts --project unit test/unit/agent-markdown.test.ts`
+  passed.
+- `pnpm vitest run --config vitest.config.ts --project runtime test/runtime/api-auxiliary-boundaries.test.ts`
+  passed.
+- `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-markdown-negotiation.test.ts`
+  passed after the traversal fix.
+- `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-markdown-negotiation.test.ts test/e2e/agent-output-smoke.test.ts test/e2e/generated-output-smoke.test.ts`
+  passed.
 - `pnpm typecheck:source` passed.
 - `git diff --check` passed.

@@ -1,5 +1,25 @@
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 
+const decodeRoutePath = (path: string) => {
+  let decoded = path
+  for (let i = 0; i < 3; i++) {
+    try {
+      const next = decodeURIComponent(decoded)
+      if (next === decoded) return decoded
+      decoded = next
+    } catch {
+      return decoded
+    }
+  }
+  return decoded
+}
+
+export const isUnsafeAgentRoutePath = (path: string) => {
+  const decoded = decodeRoutePath(path)
+  if (decoded.includes('\0')) return true
+  return decoded.split('/').some(segment => segment === '..')
+}
+
 export const normalizeAgentRoutePath = (path: string | undefined) => {
   if (!path || path === '/') return '/'
   return `/${trimSlashes(path.replace(/\/+/g, '/'))}`

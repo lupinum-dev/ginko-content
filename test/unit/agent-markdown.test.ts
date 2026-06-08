@@ -1013,4 +1013,16 @@ describe('agent markdown', () => {
     expect(agentRawPathForRoute('/docs/intro/')).toBe('/raw/docs/intro.md')
     expect(agentMarkdownPathForRoute('/docs/intro/')).toBe('/docs/intro/index.md')
   })
+
+  test('detects unsafe agent route paths before markdown resolution', async () => {
+    const { isUnsafeAgentRoutePath, normalizeAgentRoutePath } = await import('../../packages/content/src/runtime/agent-paths')
+
+    expect(isUnsafeAgentRoutePath('/docs/intro')).toBe(false)
+    expect(isUnsafeAgentRoutePath('/docs//intro')).toBe(false)
+    expect(normalizeAgentRoutePath('/docs//intro')).toBe('/docs/intro')
+    expect(isUnsafeAgentRoutePath('/../secret')).toBe(true)
+    expect(isUnsafeAgentRoutePath('/docs/%2e%2e/secret')).toBe(true)
+    expect(isUnsafeAgentRoutePath('/docs/%252e%252e/secret')).toBe(true)
+    expect(isUnsafeAgentRoutePath('/docs/%00secret')).toBe(true)
+  })
 })

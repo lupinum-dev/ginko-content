@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { existsSync } from 'node:fs'
+import { request } from 'node:http'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
@@ -11,6 +12,23 @@ import { buildProductionFixture } from '../helpers/production-fixture'
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const agentFixtureDir = resolve(rootDir, 'playground/ginko-agent-output')
 const disabledFixtureDir = resolve(rootDir, 'playground/ginko-agent-disabled')
+
+async function requestStatus (baseURL: string, path: string) {
+  const url = new URL(baseURL)
+  return await new Promise<number>((resolve, reject) => {
+    const req = request({
+      hostname: url.hostname,
+      port: url.port,
+      method: 'GET',
+      path
+    }, (response) => {
+      response.resume()
+      response.on('end', () => resolve(response.statusCode || 0))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
 
 describe('agent markdown negotiation', () => {
   test('serves HTML by default and markdown for Accept negotiation on a dynamic route', async () => {
@@ -95,6 +113,25 @@ describe('agent markdown negotiation', () => {
       expect(await disabledNegotiated.text()).toContain('Agent Disabled HTML')
     } finally {
       await disabledServer.stop()
+    }
+  }, 240000)
+
+  test('rejects traversal attempts and normalizes repeated slashes on explicit markdown routes', async () => {
+    const server = await startFixtureServer(agentFixtureDir)
+    try {
+      for (const path of [
+        '/raw/%2e%2e/secret.md',
+        '/raw/%252e%252e/secret.md',
+        '/raw/docs/%00secret.md'
+      ]) {
+        await expect(requestStatus(server.baseURL, path), path).resolves.toBe(400)
+      }
+
+      const normalizedRaw = await fetch(`${server.baseURL}/raw//docs//agent-components.md`)
+      expect(normalizedRaw.status).toBe(200)
+      expect(await normalizedRaw.text()).toContain('# Agent Components')
+    } finally {
+      await server.stop()
     }
   }, 240000)
 })

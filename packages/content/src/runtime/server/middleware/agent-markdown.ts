@@ -1,4 +1,4 @@
-import { defineEventHandler, getRequestURL, send } from 'h3'
+import { createError, defineEventHandler, getRequestURL, send } from 'h3'
 import {
   buildAgentPageIndex,
   getAgentLocales,
@@ -7,6 +7,7 @@ import {
   resolveMarkdownForPublicRoute
 } from '../agent-site'
 import { acceptsMarkdown, addVaryHeader, setAgentMarkdownHeaders } from '../agent-http'
+import { isUnsafeAgentRoutePath, normalizeAgentRoutePath } from '../../agent-paths'
 
 const shouldSkip = (pathname: string) =>
   pathname.startsWith('/_')
@@ -28,11 +29,20 @@ const shouldSkip = (pathname: string) =>
 
 export default defineEventHandler(async (event) => {
   const { pathname } = getRequestURL(event)
+  const rawPathname = event.node.req.url?.split('?')[0] || pathname
+  if (isUnsafeAgentRoutePath(rawPathname)) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid markdown route path' })
+  }
+
   if (shouldSkip(pathname)) return
   addVaryHeader(event, 'accept')
 
   if (pathname.endsWith('/index.md')) {
-    const routePath = pathname.replace(/\/index\.md$/i, '') || '/'
+    const routePath = normalizeAgentRoutePath(pathname.replace(/\/index\.md$/i, '') || '/')
+    if (isUnsafeAgentRoutePath(routePath)) {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid markdown route path' })
+    }
+
     const locale = localeFromAgentPath(routePath)
     const page = await resolveMarkdownForPublicRoute(event, routePath, locale)
     if (!page) return
