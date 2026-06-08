@@ -1,5 +1,5 @@
 import type { ContentSitemapAlternative, ContentSitemapEntry, ContentSitemapImage } from '../../types/query'
-import { createContentProviderError } from '../../public/provider-errors'
+import { createContentProviderError } from '../../core/provider-errors'
 
 type ContentLikePage = {
   _path?: string
@@ -75,7 +75,7 @@ const resolveSiteUrl = (runtime: SitemapRuntime, explicitSiteUrl?: string) => {
   }
 
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('Content sitemap generation requires site.url or runtimeConfig.public.siteUrl in production.')
+    throw new Error('Content sitemap generation requires site.url or runtimeConfig.public.content.siteUrl in production.')
   }
 
   return 'http://localhost'

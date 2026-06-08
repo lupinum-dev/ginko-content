@@ -22,7 +22,7 @@ type ContentHeadDocument = {
 
 type ContentHeadRuntimeConfig = {
   app: { baseURL: string }
-  public: { siteUrl?: unknown }
+  public: { content?: { siteUrl?: unknown }, siteUrl?: unknown }
 }
 
 function isHeadImageObject (image: unknown): image is Record<string, any> {
@@ -79,8 +79,9 @@ export const resolveContentHead = (
     }
   }
 
-  const siteUrl = typeof config.public.siteUrl === 'string'
-    ? withoutTrailingSlash(config.public.siteUrl)
+  const configuredSiteUrl = config.public.content?.siteUrl ?? config.public.siteUrl
+  const siteUrl = typeof configuredSiteUrl === 'string'
+    ? withoutTrailingSlash(configuredSiteUrl)
     : undefined
   if (import.meta.server && siteUrl) {
     const url = withoutTrailingSlash(joinURL(siteUrl, appConfig.baseURL, to.fullPath))

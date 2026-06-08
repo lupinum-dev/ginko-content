@@ -10,7 +10,8 @@ import { normalizeMiniSearchOptions } from './options'
 
 const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
   const publicRuntime = nuxt.options.runtimeConfig.public as Record<string, any>
-  const configuredSiteUrl = publicRuntime.siteUrl
+  const publicContentRuntime = publicRuntime.content as Record<string, any> | undefined
+  const configuredSiteUrl = publicContentRuntime?.siteUrl || publicRuntime.siteUrl
   if (typeof configuredSiteUrl === 'string' && configuredSiteUrl.length > 0) {
     return configuredSiteUrl
   }
@@ -112,7 +113,9 @@ export const applyContentRuntimeConfig = (
         engine: contentContext.search.engine || 'minisearch',
         minisearch: normalizeMiniSearchOptions(contentContext.search.minisearch)
       } satisfies ContentSearchPublicRuntimeConfig
+  const siteUrl = resolveNuxtSiteUrl(nuxt)
   const contentRuntime = defu(nuxt.options.runtimeConfig.public.content, {
+    ...(siteUrl ? { siteUrl } : {}),
     locales: contentContext.locales,
     provider: contentContext.provider || 'filesystem',
     providers: contentContext.providers || {},
@@ -147,11 +150,6 @@ export const applyContentRuntimeConfig = (
     navigation: contentContext.navigation as any,
     contentHead: options.contentHead ?? true
   })
-
-  const siteUrl = resolveNuxtSiteUrl(nuxt)
-  if (siteUrl) {
-    ;(nuxt.options.runtimeConfig.public as Record<string, any>).siteUrl = siteUrl
-  }
 
   const privateContentRuntime = {
     ...contentContext as any,

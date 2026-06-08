@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 
 import { applyContentRuntimeConfig } from '../../packages/content/src/module/runtime-config'
+import { contentModuleDefaults } from '../../packages/content/src/module/defaults'
+import { defaultMiniSearchOptions } from '../../packages/content/src/module/options'
 
 const createOptions = () => ({
   api: { baseURL: '/api/_content' },
@@ -43,7 +45,17 @@ const createNuxt = (site?: { url?: string }, siteUrl?: string) => ({
 })
 
 describe('runtime config contracts', () => {
-  test('exposes Nuxt site.url as runtimeConfig.public.siteUrl for runtime content features', () => {
+  test('uses the shared MiniSearch defaults as the module default source of truth', () => {
+    expect(contentModuleDefaults.search.minisearch).toEqual({
+      fields: [...defaultMiniSearchOptions.fields],
+      storeFields: [...defaultMiniSearchOptions.storeFields],
+      boost: { ...defaultMiniSearchOptions.boost },
+      fuzzy: defaultMiniSearchOptions.fuzzy,
+      prefix: defaultMiniSearchOptions.prefix
+    })
+  })
+
+  test('exposes Nuxt site.url as runtimeConfig.public.content.siteUrl for runtime content features', () => {
     const nuxt = createNuxt({ url: 'https://docs.example.test' })
 
     applyContentRuntimeConfig(
@@ -55,10 +67,11 @@ describe('runtime config contracts', () => {
       'cache-integrity'
     )
 
-    expect(nuxt.options.runtimeConfig.public.siteUrl).toBe('https://docs.example.test')
+    expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBe('https://docs.example.test')
+    expect(nuxt.options.runtimeConfig.public.siteUrl).toBeUndefined()
   })
 
-  test('keeps an explicit runtimeConfig.public.siteUrl over Nuxt site.url', () => {
+  test('uses explicit runtimeConfig.public.siteUrl as legacy input without writing a global output key', () => {
     const nuxt = createNuxt({ url: 'https://site-config.example.test' }, 'https://runtime.example.test')
 
     applyContentRuntimeConfig(
@@ -70,6 +83,7 @@ describe('runtime config contracts', () => {
       'cache-integrity'
     )
 
+    expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBe('https://runtime.example.test')
     expect(nuxt.options.runtimeConfig.public.siteUrl).toBe('https://runtime.example.test')
   })
 

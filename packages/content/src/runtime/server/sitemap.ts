@@ -13,6 +13,14 @@ type LocaleConfig = {
   language?: string
 }
 
+type SitemapRuntimeConfig = {
+  public: {
+    content?: { siteUrl?: string }
+    siteUrl?: string
+    i18n?: { locales?: LocaleConfig[] }
+  }
+}
+
 const sitemapPageFields = [
   '_path',
   '_file',
@@ -32,13 +40,14 @@ export async function queryFilesystemCollectionsSitemapEntries (
   options: QueryCollectionsSitemapEntriesOptions = {}
 ): Promise<ContentSitemapEntry[]> {
   const runtimeConfig = useRuntimeConfig(event)
+  const sitemapRuntime = runtimeConfig as unknown as SitemapRuntimeConfig
   const requestUrl = (event as H3Event | undefined)?.node?.req ? getRequestURL(event) : null
 
   return await queryCollectionsSitemapEntriesData({
     collections: contentConfig().collections,
     defaultLocale: contentConfig().defaultLocale,
-    runtimeSiteUrl: runtimeConfig.public.siteUrl,
-    localeConfigs: (runtimeConfig.public.i18n?.locales || []) as LocaleConfig[],
+    runtimeSiteUrl: sitemapRuntime.public.content?.siteUrl || sitemapRuntime.public.siteUrl,
+    localeConfigs: sitemapRuntime.public.i18n?.locales || [],
     requestSiteUrl: requestUrl ? `${requestUrl.protocol}//${requestUrl.host}` : undefined
   }, {
     loadCollectionPages: async collection => {

@@ -1,4 +1,4 @@
-import { defineEventHandler, getRequestURL } from 'h3'
+import { defineEventHandler, getRequestURL, send } from 'h3'
 import {
   buildAgentPageIndex,
   getAgentLocales,
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
     const page = await resolveMarkdownForPublicRoute(event, routePath, locale)
     if (!page) return
     setAgentMarkdownHeaders(event, { noindex: true })
-    return page.markdown
+    return send(event, page.markdown, 'text/markdown; charset=utf-8')
   }
 
   if (!acceptsMarkdown(event)) return
@@ -45,13 +45,13 @@ export default defineEventHandler(async (event) => {
   if (pathname === '/' || getAgentLocales().some((locale: string) => pathname === `/${locale}`)) {
     const locale = localeFromAgentPath(pathname)
     setAgentMarkdownHeaders(event)
-    return renderLlmsTxt(await buildAgentPageIndex(event, locale), locale)
+    return send(event, renderLlmsTxt(await buildAgentPageIndex(event, locale), locale), 'text/markdown; charset=utf-8')
   }
 
   const locale = localeFromAgentPath(pathname)
   const page = await resolveMarkdownForPublicRoute(event, pathname, locale)
   if (page) {
     setAgentMarkdownHeaders(event)
-    return page.markdown
+    return send(event, page.markdown, 'text/markdown; charset=utf-8')
   }
 })
