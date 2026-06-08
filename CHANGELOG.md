@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.1.4
+
+### Fixed
+
+- Made `/raw/*.md` the single generated and advertised agent markdown route
+  shape for static output, link headers, prerender routes, and generated
+  internal markdown links.
+- Fixed the i18n static output fixture by declaring `nuxt-site-config`
+  directly where `@nuxtjs/sitemap` is used.
+
 ## v0.1.3
 
 ### Changed

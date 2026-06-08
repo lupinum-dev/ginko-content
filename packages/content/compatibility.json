@@ -1,7 +1,7 @@
 {
   "name": "Ginko Content release compatibility",
   "releaseStack": {
-    "@lupinum/ginko-content": "0.1.3",
+    "@lupinum/ginko-content": "0.1.4",
     "@lupinum/ginko-cms": "0.1.2",
     "@lupinum/ginko-cms-convex": "0.1.1",
     "@lupinum/ginko-cms-contract": "0.1.1"
