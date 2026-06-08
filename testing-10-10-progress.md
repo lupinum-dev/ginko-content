@@ -10,7 +10,7 @@ next actions.
 
 Overall status: active
 
-Current phase: Phase 2, compact agent output fixture.
+Current phase: Phase 3, production browser e2e.
 
 Guiding rules:
 
@@ -26,8 +26,8 @@ Guiding rules:
 | --- | --- | --- |
 | 0 | Stabilize current confidence baseline | Completed |
 | 1 | Internal generated-output smoke | Completed |
-| 2 | Compact agent output fixture | In progress |
-| 3 | Production browser e2e | Not started |
+| 2 | Compact agent output fixture | Completed |
+| 3 | Production browser e2e | In progress |
 | 4 | Packed fresh Nuxt consumer test | Not started |
 | 5 | SSR/static markdown contract split | Not started |
 | 6 | Search matrix hardening | Not started |
@@ -158,14 +158,42 @@ None.
 
 ## Phase 2: Compact Agent Output Fixture
 
-Status: not started
+Status: completed
 
-Planned work:
+Implemented work:
 
-- Add `playground/ginko-agent-output`.
-- Include i18n pages, app pages, data-only exclusions, draft/partial
-  exclusions, and custom MDC serializers.
-- Verify raw markdown and LLM outputs from generated artifacts.
+- Added `playground/ginko-agent-output`.
+- Included English and German content routes for docs and services.
+- Included an app-owned localized legal page through `defineAgentAppPage`.
+- Included a data-only collection plus draft and partial content that must not
+  leak into agent output.
+- Added a downstream-shaped Nitro plugin that registers custom serializers with
+  `registerAgentMarkdownSerializers`, `registerAgentMarkdownComponents`, and
+  `defineAgentMarkdownComponent`.
+- Covered custom serializer output for `callout`, `card`, `gallery`, `chart`,
+  and `consent-embed`.
+- Added `test/e2e/agent-output-smoke.test.ts` to inspect generated raw
+  markdown, `/:route/index.md`, `llms.txt`, localized `llms.txt`,
+  `llms-full.txt`, localized `llms-full.txt`, and exclusion behavior.
+- Confirmed unknown components use the current XML preservation fallback.
+
+### Evidence
+
+- 2026-06-08:
+  `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-output-smoke.test.ts`
+  first failed because the test expected an omitted-component note, while the
+  current fallback preserves unknown components as XML. The assertion was
+  corrected to match the current contract.
+- 2026-06-08:
+  `pnpm vitest run --config vitest.config.ts --project e2e test/e2e/agent-output-smoke.test.ts`
+  passed: 1 file, 1 test.
+- 2026-06-08: `pnpm test:e2e` passed: 3 files, 4 tests.
+- 2026-06-08: `pnpm typecheck:source` passed.
+- 2026-06-08: `git diff --check` passed.
+
+### Blockers
+
+None.
 
 ## Phase 3: Production Browser E2E
 
