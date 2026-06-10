@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.1.5
+
+### Fixed
+
+- Fixed markdown `$` refs so content graph references win over colliding
+  configured quick links.
+- Fixed finalized `content.links` runtime config, no-i18n named route quick
+  links, and requested-locale fallback URLs for localized markdown refs.
+
 ## v0.1.4
 
 ### Fixed
