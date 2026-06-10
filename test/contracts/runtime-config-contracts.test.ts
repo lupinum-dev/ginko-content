@@ -6,6 +6,7 @@ import { defaultMiniSearchOptions } from '../../packages/content/src/module/opti
 
 const createOptions = () => ({
   api: { baseURL: '/api/_content' },
+  links: {},
   experimental: { stripQueryParameters: false },
   contentHead: true,
   respectPathCase: false
@@ -14,6 +15,7 @@ const createOptions = () => ({
 const createContentContext = () => ({
   locales: ['en', 'de'],
   defaultLocale: 'en',
+  links: {},
   provider: 'filesystem',
   providers: {},
   localeFallback: {},
@@ -129,6 +131,69 @@ describe('runtime config contracts', () => {
         prefix: false
       }
     })
+  })
+
+  test('publishes configured markdown quick links to public runtime config', () => {
+    const nuxt = createNuxt()
+    const context = {
+      ...createContentContext(),
+      links: {
+        main: {
+          pricing: { route: 'pricing' }
+        }
+      }
+    }
+
+    applyContentRuntimeConfig(
+      nuxt as any,
+      createOptions() as any,
+      context as any,
+      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
+      1,
+      'cache-integrity'
+    )
+
+    expect(nuxt.options.runtimeConfig.public.content.links).toEqual({
+      main: {
+        pricing: { route: 'pricing' }
+      }
+    })
+  })
+
+  test('publishes finalized markdown quick links from content context', () => {
+    const nuxt = createNuxt()
+    const options = {
+      ...createOptions(),
+      links: {
+        main: {
+          stale: { route: 'stale' }
+        }
+      }
+    }
+    const context = {
+      ...createContentContext(),
+      links: {
+        main: {
+          services: { route: 'services' }
+        }
+      }
+    }
+
+    applyContentRuntimeConfig(
+      nuxt as any,
+      options as any,
+      context as any,
+      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
+      1,
+      'cache-integrity'
+    )
+
+    expect(nuxt.options.runtimeConfig.public.content.links).toEqual({
+      main: {
+        services: { route: 'services' }
+      }
+    })
+    expect(nuxt.options.runtimeConfig.public.content.links.main.stale).toBeUndefined()
   })
 
   test('keeps markdown transformer runtime config serializable', () => {

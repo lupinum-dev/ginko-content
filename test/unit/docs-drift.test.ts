@@ -248,6 +248,29 @@ const isUnsupportedOperatorExample = (lines: string[], index: number) => {
   ].some(marker => context.includes(marker))
 }
 
+const isMarkdownRefLinkExample = (lines: string[], index: number) => {
+  const line = lines[index] || ''
+  if (/\]\(\$[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)*(?:#[^)]+)?\)/i.test(line)) {
+    return true
+  }
+
+  const context = lines
+    .slice(Math.max(0, index - 4), index + 4)
+    .join(' ')
+    .toLowerCase()
+
+  if (/`\$[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)*(?:#[^`]*)?`/i.test(line)) {
+    return context.includes('link') ||
+      context.includes('route') ||
+      context.includes('document') ||
+      context.includes('locale')
+  }
+
+  return context.includes('markdown') &&
+    (context.includes('ref') || context.includes('reference')) &&
+    (context.includes('link') || context.includes('links'))
+}
+
 const findUnsupportedPublicOperatorLines = (file: string, source: string) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
@@ -258,6 +281,7 @@ const findUnsupportedPublicOperatorLines = (file: string, source: string) => {
     )
     if (unsupported.length === 0) return []
     if (isUnsupportedOperatorExample(lines, index)) return []
+    if (isMarkdownRefLinkExample(lines, index)) return []
     return [`${file}:${index + 1} (${unsupported.join(', ')})`]
   })
 }

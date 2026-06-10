@@ -32,6 +32,8 @@ interface ModulePublicRuntimeConfig {
 
   providers: ContentContext['providers']
 
+  links: ContentContext['links']
+
   collections: Record<string, {
     source: ContentCollectionConfig['source']
     exclude?: ContentCollectionConfig['exclude']

@@ -5,7 +5,7 @@ import pathMeta from '../packages/content/src/runtime/transformers/path-meta'
 import { validateCollectionDocument, validateContentGraph } from '../packages/content/src/runtime/server/validation'
 import { makeIgnored } from '../packages/content/src/core/content/ignore'
 import { resolveCollection } from '../packages/content/src/core/content/collection'
-import { buildReferenceTargets, collectMarkdownRefLinks, parseRefLink, rewriteMarkdownRefLinks } from '../packages/content/src/core/references/resolve'
+import { buildReferenceTargets, collectMarkdownRefLinks, parseRefLink, resolveConfiguredQuickLink, resolveConfiguredQuickLinks, resolveMarkdownRenderRefs, rewriteMarkdownRefLinks } from '../packages/content/src/core/references/resolve'
 import { collectTopLevelReferenceFields, collectTopLevelReferenceFieldsByTarget } from '../packages/content/src/core/references/schema'
 import { collectTranslatedSlugValidationIssues } from '../packages/content/src/features/localization/translated-slugs'
 import { resolveCollectionI18nConfig } from '../packages/content/src/features/localization/config'
@@ -700,11 +700,16 @@ describe('Ginko metadata helpers', () => {
       ref: 'guide-advanced',
       hash: ''
     })
+    expect(parseRefLink('$docs.getting-started')).toEqual({
+      ref: 'docs.getting-started',
+      hash: ''
+    })
     expect(parseRefLink('$guide-advanced#deep-dive')).toEqual({
       ref: 'guide-advanced',
       hash: '#deep-dive'
     })
     expect(parseRefLink('/guide/advanced')).toBeNull()
+    expect(parseRefLink('ref:guide-advanced')).toBeNull()
     expect(parseRefLink('$#hash-only')).toBeNull()
   })
 
@@ -743,6 +748,82 @@ describe('Ginko metadata helpers', () => {
 
     expect(rewritten.children[0].children[0].props.href).toBe('/guide/advanced#deep-dive')
     expect(body.children[0].children[0].props.href).toBe('$guide-advanced#deep-dive')
+  })
+
+  test('resolves configured markdown quick links to route names with hashes', () => {
+    const links = {
+      main: {
+        pricing: { route: 'pricing' },
+        account: {
+          route: 'account-section',
+          params: { section: 'billing' },
+          query: { upgrade: true, empty: undefined }
+        }
+      }
+    }
+
+    expect(resolveConfiguredQuickLink('$main.pricing#plans', links, route => `/de/${route.name}${route.hash || ''}`)).toBe('/de/pricing#plans')
+    expect(resolveConfiguredQuickLink('$main.account', links, route => {
+      expect(route).toEqual({
+        name: 'account-section',
+        params: { section: 'billing' },
+        query: { upgrade: true, empty: undefined }
+      })
+      return '/de/account/billing?upgrade=true'
+    })).toBe('/de/account/billing?upgrade=true')
+    expect(resolveConfiguredQuickLinks(['$main.pricing', '$docs.getting-started'], links, route => `/${route.name}`)).toEqual({
+      '$main.pricing': '/pricing'
+    })
+    expect(resolveConfiguredQuickLink('$main', links, route => `/${route.name}`)).toBeUndefined()
+    expect(resolveConfiguredQuickLink('/pricing', links, route => `/${route.name}`)).toBeUndefined()
+  })
+
+  test('combines render-time quick links with concrete content refs', () => {
+    const body = {
+      type: 'root',
+      children: [
+        { type: 'element', tag: 'a', props: { href: '$main.pricing#plans' }, children: [] },
+        { type: 'element', tag: 'card', props: { to: '$docs.getting-started' }, children: [] }
+      ]
+    }
+
+    expect(resolveMarkdownRenderRefs(
+      body,
+      {
+        '$main.pricing#plans': '$main.pricing#plans',
+        '$docs.getting-started': '/de/docs/einstieg'
+      },
+      {
+        main: {
+          pricing: { route: 'pricing' }
+        }
+      },
+      route => `/de/${route.name}${route.hash || ''}`
+    )).toEqual({
+      '$main.pricing#plans': '/de/pricing#plans',
+      '$docs.getting-started': '/de/docs/einstieg'
+    })
+  })
+
+  test('rewrites markdown component link props with the same ref resolver', () => {
+    const body = {
+      type: 'root',
+      children: [
+        { type: 'element', tag: 'card', props: { to: '$docs.getting-started' }, children: [] },
+        { type: 'element', tag: 'a', props: { href: '$main.pricing' }, children: [] }
+      ]
+    }
+
+    expect(collectMarkdownRefLinks(body)).toEqual(['$docs.getting-started', '$main.pricing'])
+
+    const rewritten = rewriteMarkdownRefLinks(body, {
+      '$docs.getting-started': '/de/docs/einstieg',
+      '$main.pricing': '/de/pricing'
+    })
+
+    expect(rewritten.children[0].props.to).toBe('/de/docs/einstieg')
+    expect(rewritten.children[1].props.href).toBe('/de/pricing')
+    expect(body.children[0].props.to).toBe('$docs.getting-started')
   })
 
   test('indexes explicit refs alongside canonical ids and paths', () => {

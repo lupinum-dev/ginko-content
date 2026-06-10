@@ -4,7 +4,8 @@ import { useRuntimeConfig } from '#imports'
 import { useContentPreview } from '../../composables/preview'
 import { useUnwrap } from '../../composables/useUnwrap'
 import MarkdownRenderer from './MarkdownRenderer.js'
-import { rewriteMarkdownRefLinks } from '../../../../integrations/vue/markdown-refs'
+import { useLocalePath } from '../../composables/content-i18n'
+import { resolveMarkdownRenderRefs, rewriteMarkdownRefLinks } from '../../../../core/references/resolve'
 import { loadContentComponentEntries } from '../../../../integrations/vue/content-components'
 import { resolveMarkdownRendererComponents } from '../../../markdown/plugins'
 import { isMarkdownRoot } from '../../../../core/markdown/tree'
@@ -41,10 +42,12 @@ const props = defineProps({
 })
 
 const debug = import.meta.dev || useContentPreview().isEnabled()
-const runtimeContent = useRuntimeConfig().public.content
+const runtimeContent = useRuntimeConfig().public?.content || {}
 const attrs = useAttrs()
 const { unwrap: unwrapRoot } = useUnwrap()
+const localePath = useLocalePath()
 const locale = computed(() => props.value.locale || props.value._resolvedLocale || props.value._locale)
+const linkLocale = computed(() => props.value._requestedLocale || locale.value)
 const defaultLocale = computed(() => props.value.defaultLocale || runtimeContent.defaultLocale)
 const locales = computed(() => {
   const variantLocales = Array.isArray(props.value.variants)
@@ -53,7 +56,10 @@ const locales = computed(() => {
         .filter((locale: string | undefined): locale is string => Boolean(locale))
     : []
 
-  return variantLocales.length ? variantLocales : (runtimeContent.locales || [])
+  return Array.from(new Set([
+    ...(runtimeContent.locales || []),
+    ...variantLocales
+  ]))
 })
 
 const body = computed(() => {
@@ -66,8 +72,15 @@ const body = computed(() => {
     return null
   }
 
-  return props.value._resolvedRefs
-    ? rewriteMarkdownRefLinks(body, props.value._resolvedRefs)
+  const resolvedRefs = resolveMarkdownRenderRefs(
+    body,
+    props.value._resolvedRefs,
+    runtimeContent.links,
+    route => localePath(route, linkLocale.value)
+  )
+
+  return Object.keys(resolvedRefs).length
+    ? rewriteMarkdownRefLinks(body, resolvedRefs)
     : body
 })
 
@@ -88,7 +101,7 @@ const resolvedComponents = computed(() => {
 
   return {
     ...Object.fromEntries(loadContentComponentEntries(renderedBody.value as any, runtimeContent.markdown?.tags || {})),
-    ...resolveMarkdownRendererComponents(runtimeContent.markdown.plugins),
+    ...resolveMarkdownRendererComponents(runtimeContent.markdown?.plugins || []),
     ...props.components
   }
 })

@@ -23,6 +23,7 @@ export const contentModuleDefaults = {
   watch: true,
   sources: {},
   ignores: [],
+  links: {},
   collections: {},
   markdown: {
     plugins: [],

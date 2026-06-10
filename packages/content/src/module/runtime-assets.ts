@@ -92,9 +92,10 @@ export const registerContentI18nTemplate = (
     write: true,
     getContents: () => hasNuxtI18nModule
       ? [
-          'export { useRouteBaseName, useSetI18nParams, useSwitchLocalePath } from \'#i18n\''
+          'export { useLocalePath, useRouteBaseName, useSetI18nParams, useSwitchLocalePath } from \'#i18n\''
         ].join('\n')
       : [
+          'import { useRouter } from \'#imports\'',
           'const routeNameLocaleRE = /___([^_]+)$/',
           'const resolveName = (value) => {',
           '  if (typeof value === \'string\') {',
@@ -104,6 +105,24 @@ export const registerContentI18nTemplate = (
           '    return value.name',
           '  }',
           '  return undefined',
+          '}',
+          'const normalizeRoutePath = (value) => value.startsWith(\'/\') ? value : `/${value}`',
+          'const definedRecord = value => value && typeof value === \'object\'',
+          '  ? Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined))',
+          '  : undefined',
+          'export const useLocalePath = () => {',
+          '  const router = useRouter()',
+          '  return (value) => {',
+          '    if (typeof value === \'string\') return normalizeRoutePath(value)',
+          '    const name = resolveName(value)',
+          '    if (!name) return \'\'',
+          '    return router.resolve({',
+          '      name,',
+          '      ...(definedRecord(value.params) ? { params: definedRecord(value.params) } : {}),',
+          '      ...(definedRecord(value.query) ? { query: definedRecord(value.query) } : {}),',
+          '      ...(typeof value.hash === \'string\' ? { hash: value.hash } : {})',
+          '    }).href',
+          '  }',
           '}',
           'export const useRouteBaseName = () => (value) => {',
           '  const name = resolveName(value)',
@@ -117,6 +136,7 @@ export const registerContentI18nTemplate = (
     filename: 'content-i18n.d.mts',
     write: true,
     getContents: () => [
+      'export function useLocalePath(): (route: string | { name?: string, hash?: string, params?: Record<string, unknown>, query?: Record<string, unknown> }, locale?: string) => string',
       'export function useRouteBaseName(): (route: { name?: unknown } | unknown) => string | undefined',
       'export function useSetI18nParams(): (params: Record<string, unknown>) => void',
       'export function useSwitchLocalePath(): (locale: string) => string'
@@ -127,6 +147,7 @@ export const registerContentI18nTemplate = (
     filename: 'types/content-i18n.d.ts',
     getContents: () => [
       'declare module \'#build/content-i18n.mjs\' {',
+      '  export function useLocalePath(): (route: string | { name?: string, hash?: string, params?: Record<string, unknown>, query?: Record<string, unknown> }, locale?: string) => string',
       '  export function useRouteBaseName(): (route: { name?: unknown } | unknown) => string | undefined',
       '  export function useSetI18nParams(): (params: Record<string, unknown>) => void',
       '  export function useSwitchLocalePath(): (locale: string) => string',

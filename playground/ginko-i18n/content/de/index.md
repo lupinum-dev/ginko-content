@@ -7,3 +7,5 @@ title: Deutsche Startseite
 Die lokalisierte Route wird ueber das Locale-Praefix aufgeloest.
 
 Starten Sie mit dem [Einstiegsleitfaden]($guide-getting-started).
+
+Vergleichen Sie die [Preise]($main.pricing).

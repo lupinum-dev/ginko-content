@@ -124,6 +124,7 @@ export const applyContentRuntimeConfig = (
     translatedSlugs: contentContext.translatedSlugs ?? false,
     strictTranslatedSlugs: contentContext.strictTranslatedSlugs ?? false,
     collections: runtimeCollections,
+    links: contentContext.links || {},
     integrity: buildIntegrity as number,
     experimental: {
       stripQueryParameters: options.experimental.stripQueryParameters

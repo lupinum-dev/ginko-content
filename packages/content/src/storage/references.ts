@@ -3,17 +3,25 @@ import type { ContentQueryBuilderParams } from '../types/query'
 import type { ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../types/api'
 import type { ParsedContent } from '../types/content'
 import { collectMarkdownRefLinks, parseRefLink } from '../core/references/resolve'
+import { projectContentPathToLocale } from '../features/localization/path'
 import { contentConfig } from './driver'
-import { getContentManifest, resolveVariant } from './manifest'
+import { resolveCanonicalKey, resolveVariant } from './manifest'
 
-const prefixLocaleRoute = (path: string, locale?: string) => {
-  const defaultLocale = contentConfig().defaultLocale
-
-  if (!locale || locale === defaultLocale) {
-    return path
+const isConfiguredQuickLink = (href: string) => {
+  const parsed = parseRefLink(href)
+  if (!parsed) {
+    return false
   }
 
-  return path === '/' ? `/${locale}` : `/${locale}${path}`
+  const separator = parsed.ref.indexOf('.')
+  if (separator <= 0 || separator === parsed.ref.length - 1) {
+    return false
+  }
+
+  const namespace = parsed.ref.slice(0, separator)
+  const key = parsed.ref.slice(separator + 1)
+  const links = (contentConfig() as { links?: Record<string, Record<string, unknown>> }).links
+  return Boolean(links?.[namespace]?.[key])
 }
 
 const resolveDocumentRefLinks = async (event: H3Event, content: ParsedContent, requestedLocale?: string) => {
@@ -26,15 +34,18 @@ const resolveDocumentRefLinks = async (event: H3Event, content: ParsedContent, r
     return undefined
   }
 
-  const manifest = await getContentManifest(event)
   const entries = await Promise.all(hrefs.map(async (href) => {
     const parsed = parseRefLink(href)
     if (!parsed) {
       return null
     }
 
-    const canonicalKey = manifest.byRef[parsed.ref]
+    const canonicalKey = await resolveCanonicalKey(event, parsed.ref)
     if (!canonicalKey) {
+      if (isConfiguredQuickLink(href)) {
+        return [href, href] as const
+      }
+
       if (import.meta.dev) {
         console.warn(`[content] Could not resolve markdown ref "${href}" in "${content._file || content._id}"`)
       }
@@ -55,7 +66,10 @@ const resolveDocumentRefLinks = async (event: H3Event, content: ParsedContent, r
       console.warn(`[content] Markdown ref "${href}" in "${content._file || content._id}" fell back from locale "${requestedLocale}" to "${variant.resolvedLocale}"`)
     }
 
-    return [href, `${prefixLocaleRoute(variant.path, variant.resolvedLocale)}${parsed.hash}`] as const
+    const routeLocale = variant.fallback && requestedLocale
+      ? requestedLocale
+      : variant.resolvedLocale
+    return [href, `${projectContentPathToLocale(variant.path, routeLocale, contentConfig().defaultLocale)}${parsed.hash}`] as const
   }))
 
   const resolvedRefs = Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry)))

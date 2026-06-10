@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   generatedContentServerTypeSpecs,
   generatedContentServerValueNames,
+  registerContentI18nTemplate,
   registerGeneratedTypes,
   registerRuntimeImports,
   registerUserContentComponents,
@@ -122,6 +123,25 @@ describe('runtime asset contracts', () => {
     for (const spec of generatedContentServerTypeSpecs) {
       expect(contents).toContain(`  type ${spec.local} = import('/runtime/./server').${spec.exported}`)
     }
+  })
+
+  test('fallback content i18n localePath resolves named routes through Nuxt router', () => {
+    const templates: Array<{ filename: string, getContents: () => string }> = []
+    registerContentI18nTemplate((template: any) => {
+      templates.push(template)
+      return template
+    }, false)
+
+    const template = templates.find(item => item.filename === 'content-i18n.mjs')
+    expect(template).toBeDefined()
+    const contents = template!.getContents()
+    expect(contents).toContain('import { useRouter } from \'#imports\'')
+    expect(contents).toContain('const router = useRouter()')
+    expect(contents).toContain('return router.resolve({')
+    expect(contents).toContain('...(definedRecord(value.params) ? { params: definedRecord(value.params) } : {})')
+    expect(contents).toContain('...(definedRecord(value.query) ? { query: definedRecord(value.query) } : {})')
+    expect(contents).toContain('...(typeof value.hash === \'string\' ? { hash: value.hash } : {})')
+    expect(contents).toContain('if (typeof value === \'string\') return normalizeRoutePath(value)')
   })
 
   test('registers user content component dirs as non-global and preserves app override order', async () => {

@@ -22,6 +22,11 @@ export default defineNuxtConfig({
         routes: ['/guide/getting-started', '/de/leitfaden/erste-schritte'],
         forbidden: ['/authors/evan', '/guide/draft-roadmap', '/de/leitfaden/entwurf']
       }
+    },
+    links: {
+      main: {
+        pricing: { route: 'pricing' }
+      }
     }
   },
 
@@ -33,6 +38,13 @@ export default defineNuxtConfig({
   i18n: {
     baseUrl: 'https://ginko-content.example.test',
     strategy: 'prefix_except_default',
+    customRoutes: 'config',
+    pages: {
+      pricing: {
+        en: '/pricing',
+        de: '/preise'
+      }
+    },
     defaultLocale: 'en',
     detectBrowserLanguage: false,
     locales: [

@@ -273,6 +273,23 @@ export interface ContentRevalidateOptions {
   allowUnsigned?: boolean
 }
 
+export interface ContentLinkRouteTarget {
+  /**
+   * Nuxt route name passed to Nuxt I18n `localePath()`.
+   */
+  route: string
+  /**
+   * Static route params forwarded to Nuxt I18n `localePath()`.
+   */
+  params?: Record<string, string | number>
+  /**
+   * Static query params forwarded to Nuxt I18n `localePath()`.
+   */
+  query?: Record<string, string | number | boolean | undefined>
+}
+
+export type ContentLinksOptions = Record<string, Record<string, ContentLinkRouteTarget>>
+
 export interface ContentAgentRouteOptions {
   routes?: boolean
   linkHeaders?: boolean
@@ -323,6 +340,15 @@ export interface ModuleOptions {
    * `x-ginko-revalidate-token` or `authorization: Bearer <token>`.
    */
   revalidate?: false | ContentRevalidateOptions
+  /**
+   * Writer-facing markdown quick links. Values point at Nuxt route names;
+   * localized paths stay owned by Nuxt I18n.
+   *
+   * @example
+   * content.links.main.pricing = { route: 'pricing' }
+   * markdown: [Pricing]($main.pricing)
+   */
+  links?: ContentLinksOptions
   /**
    * First-class agent markdown and LLM route features.
    */

@@ -22,6 +22,7 @@ import { isMarkdownRoot, mapMarkdownNode } from '../markdown/tree'
 
 /** Prefix recognized by `parseRefLink` for inline `$guide/intro` links in markdown. */
 export const CONTENT_REF_LINK_PREFIX = '$'
+const MARKDOWN_LINK_PROP_KEYS = ['href', 'to'] as const
 
 /** Strip leading/trailing slashes so `/guide/intro/` and `guide/intro` hash to the same canonical form. */
 export const normalizeReferenceValue = (value: string) => String(value).replace(/^\/+|\/+$/g, '')
@@ -46,6 +47,19 @@ export const parseRefLink = (value: string) => {
 export const collectMarkdownRefLinks = (node: unknown) => {
   const refs = new Set<string>()
 
+  const collectProps = (props: unknown) => {
+    if (!props || typeof props !== 'object') {
+      return
+    }
+
+    for (const key of MARKDOWN_LINK_PROP_KEYS) {
+      const value = (props as Record<string, unknown>)[key]
+      if (typeof value === 'string' && parseRefLink(value)) {
+        refs.add(value)
+      }
+    }
+  }
+
   const visit = (current: unknown) => {
     if (!current || typeof current !== 'object') {
       return
@@ -58,13 +72,7 @@ export const collectMarkdownRefLinks = (node: unknown) => {
 
     if ((current as MarkdownNode).type === 'element') {
       const markdownNode = current as MarkdownNode
-      const href = markdownNode.tag === 'a' && typeof markdownNode.props?.href === 'string'
-        ? markdownNode.props.href
-        : undefined
-
-      if (href && parseRefLink(href)) {
-        refs.add(href)
-      }
+      collectProps(markdownNode.props)
 
       markdownNode.children?.forEach(visit)
       return
@@ -75,14 +83,7 @@ export const collectMarkdownRefLinks = (node: unknown) => {
       return
     }
 
-    const href = typeof (current as { tag?: string, props?: { href?: string } }).props?.href === 'string'
-      && (current as { tag?: string }).tag === 'a'
-      ? (current as { props: { href: string } }).props.href
-      : undefined
-
-    if (href && parseRefLink(href)) {
-      refs.add(href)
-    }
+    collectProps((current as { props?: unknown }).props)
 
     visit((current as { children?: unknown[] }).children)
   }
@@ -92,6 +93,23 @@ export const collectMarkdownRefLinks = (node: unknown) => {
 }
 
 export const rewriteMarkdownRefLinks = <T>(node: T, resolvedRefs: Record<string, string> = {}) => {
+  const rewriteProps = (props: unknown): Record<string, unknown> | undefined => {
+    if (!props || typeof props !== 'object') {
+      return undefined
+    }
+
+    let next: Record<string, unknown> | undefined
+    for (const key of MARKDOWN_LINK_PROP_KEYS) {
+      const value = (props as Record<string, unknown>)[key]
+      if (typeof value === 'string' && resolvedRefs[value]) {
+        next ||= { ...(props as Record<string, unknown>) }
+        next[key] = resolvedRefs[value]
+      }
+    }
+
+    return next || props as Record<string, unknown>
+  }
+
   const visit = (current: unknown): unknown => {
     if (!current || typeof current !== 'object') {
       return current
@@ -106,20 +124,14 @@ export const rewriteMarkdownRefLinks = <T>(node: T, resolvedRefs: Record<string,
 
     if ((current as MarkdownNode).type === 'element') {
       return mapMarkdownNode(current as MarkdownNode, (markdownNode) => {
-        const href = typeof markdownNode.props?.href === 'string' && markdownNode.tag === 'a'
-          ? markdownNode.props.href
-          : undefined
-
-        if (!href || !resolvedRefs[href]) {
+        const props = rewriteProps(markdownNode.props)
+        if (props === markdownNode.props) {
           return markdownNode
         }
 
         return {
           ...markdownNode,
-          props: {
-            ...markdownNode.props,
-            href: resolvedRefs[href]
-          }
+          props
         }
       })
     }
@@ -129,16 +141,9 @@ export const rewriteMarkdownRefLinks = <T>(node: T, resolvedRefs: Record<string,
     }
 
     const next = { ...(current as Record<string, unknown>) }
-    const href = typeof (next.props as { href?: string } | undefined)?.href === 'string'
-      && next.tag === 'a'
-      ? (next.props as { href: string }).href
-      : undefined
-
-    if (href && resolvedRefs[href]) {
-      next.props = {
-        ...(next.props as Record<string, unknown>),
-        href: resolvedRefs[href]
-      }
+    const props = rewriteProps(next.props)
+    if (props !== next.props) {
+      next.props = props
     }
 
     if (Array.isArray(next.children)) {
@@ -149,6 +154,81 @@ export const rewriteMarkdownRefLinks = <T>(node: T, resolvedRefs: Record<string,
   }
 
   return visit(node) as T
+}
+
+export interface MarkdownQuickLinkTarget {
+  route: string
+  params?: Record<string, string | number>
+  query?: Record<string, string | number | boolean | undefined>
+}
+
+export type MarkdownQuickLinks = Record<string, Record<string, MarkdownQuickLinkTarget>>
+
+export type ResolveQuickLinkRoute = (
+  route: {
+    name: string
+    hash?: string
+    params?: Record<string, string | number>
+    query?: Record<string, string | number | boolean | undefined>
+  }
+) => string
+
+export const resolveConfiguredQuickLink = (
+  href: string,
+  links: MarkdownQuickLinks | undefined,
+  resolveRoute: ResolveQuickLinkRoute
+) => {
+  const parsed = parseRefLink(href)
+  if (!parsed || !links) {
+    return undefined
+  }
+
+  const separator = parsed.ref.indexOf('.')
+  if (separator <= 0 || separator === parsed.ref.length - 1) {
+    return undefined
+  }
+
+  const namespace = parsed.ref.slice(0, separator)
+  const key = parsed.ref.slice(separator + 1)
+  const target = links[namespace]?.[key]
+  if (!target?.route) {
+    return undefined
+  }
+
+  return resolveRoute({
+    name: target.route,
+    ...(target.params ? { params: target.params } : {}),
+    ...(target.query ? { query: target.query } : {}),
+    ...(parsed.hash ? { hash: parsed.hash } : {})
+  })
+}
+
+export const resolveConfiguredQuickLinks = (
+  hrefs: string[],
+  links: MarkdownQuickLinks | undefined,
+  resolveRoute: ResolveQuickLinkRoute
+) => {
+  return Object.fromEntries(hrefs.flatMap((href) => {
+    const resolved = resolveConfiguredQuickLink(href, links, resolveRoute)
+    return resolved ? [[href, resolved] as const] : []
+  }))
+}
+
+export const resolveMarkdownRenderRefs = (
+  node: unknown,
+  resolvedRefs: Record<string, string> | undefined,
+  links: MarkdownQuickLinks | undefined,
+  resolveRoute: ResolveQuickLinkRoute
+) => {
+  const quickRefs = resolveConfiguredQuickLinks(collectMarkdownRefLinks(node), links, resolveRoute)
+  const concreteContentRefs = Object.fromEntries(
+    Object.entries(resolvedRefs || {}).filter(([href, value]) => value && value !== href)
+  )
+
+  return {
+    ...quickRefs,
+    ...concreteContentRefs
+  }
 }
 
 export const buildReferenceTargets = (contents: ParsedContent[], locales: string[] = []) => {

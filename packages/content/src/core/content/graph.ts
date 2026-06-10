@@ -16,7 +16,7 @@
  *  - **`byRoute`**: route path (user-visible URL) → content id. Used by the
  *    page resolver when the request arrives as a localized URL.
  *  - **`byRef`**: normalized ref string → canonical key. This is how
- *    `[link](ref:authors/evan)` finds its target without a scan.
+ *    markdown links such as `[Ada]($authors.ada)` find their target without a scan.
  *  - **`referenceTargets`**: the `buildReferenceTargets` map — every shape
  *    the user might plausibly write to point at a document (canonical
  *    name, locale-prefixed path, short slug) pre-resolved to a canonical

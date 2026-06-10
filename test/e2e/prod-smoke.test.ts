@@ -47,6 +47,7 @@ describe('production fixture smoke', () => {
 
       await expect($fetch('/de/leitfaden/erste-schritte')).resolves.toContain('Einstieg')
       await expect($fetch('/de/guide/advanced')).resolves.toContain('&quot;fallback&quot;: true')
+      await expect($fetch('/de/leitfaden/advanced')).resolves.toContain('href="/de/preise"')
       await expect($fetch('/api/_content/search/index.json?locale=de')).resolves.toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Einstieg', path: '/de/leitfaden/erste-schritte', locale: 'de' })

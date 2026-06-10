@@ -5,6 +5,9 @@ import { describe, expect, test, vi } from 'vitest'
 const runtimeConfig = vi.hoisted(() => ({
   public: {
     content: {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      links: {} as Record<string, Record<string, { route: string }>>,
       markdown: {} as { image?: string }
     }
   }
@@ -12,6 +15,21 @@ const runtimeConfig = vi.hoisted(() => ({
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => runtimeConfig
+}))
+
+vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () => ({
+  useLocalePath: () => (value: string | { name?: string, hash?: string, params?: Record<string, unknown>, query?: Record<string, unknown> }, locale?: string) => {
+    const route = typeof value === 'string' ? value : value.name || ''
+    const path = route.startsWith('/') ? route : `/${route}`
+    const localized = locale && locale !== 'en' ? `/${locale}${path}` : path
+    const query = typeof value === 'object' && value.query
+      ? `?${new URLSearchParams(Object.entries(value.query).filter(([, item]) => item !== undefined).map(([key, item]) => [key, String(item)] as const)).toString()}`
+      : ''
+    return `${localized}${query}${typeof value === 'object' && value.hash ? value.hash : ''}`
+  },
+  useRouteBaseName: () => () => undefined,
+  useSetI18nParams: () => () => {},
+  useSwitchLocalePath: () => () => ''
 }))
 
 describe('render component contracts', () => {
@@ -65,6 +83,34 @@ describe('render component contracts', () => {
     }, 'fr', 'en', ['en', 'fr'])).toEqual({
       href: '/fr/demarrage#manual',
       ':links': '[{"to":"/fr/demarrage/install"},{"href":"/fr/demarrage/usage"}]'
+    })
+
+    expect(localizeMarkdownNodeProps({
+      href: '/de/preise'
+    }, 'de', 'en', ['en', 'de'])).toEqual({
+      href: '/de/preise'
+    })
+  })
+
+  test('markdown render refs use requested locale for quick links when content falls back', async () => {
+    const { resolveMarkdownRenderRefs } = await import('../../packages/content/src/core/references/resolve')
+    const localePath = (value: { name: string, hash?: string }, locale?: string) =>
+      `${locale && locale !== 'en' ? `/${locale}` : ''}/${value.name}${value.hash || ''}`
+
+    const body = {
+      type: 'root',
+      children: [
+        { type: 'element', tag: 'card', props: { to: '$main.pricing#plans' }, children: [] }
+      ]
+    }
+
+    expect(resolveMarkdownRenderRefs(
+      body,
+      { '$main.pricing#plans': '$main.pricing#plans' },
+      { main: { pricing: { route: 'pricing' } } },
+      route => localePath(route, 'de')
+    )).toEqual({
+      '$main.pricing#plans': '/de/pricing#plans'
     })
   })
 
