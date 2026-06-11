@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.1.6
+
+### Fixed
+
+- Removed runtime imports of raw content config from Nitro storage and virtual
+  config templates.
+- Serialized function-backed agent app pages into runtime-safe markdown per
+  locale.
+- Preserved derived collection reference metadata for runtime validation without
+  live schemas.
+
 ## v0.1.5
 
 ### Fixed
