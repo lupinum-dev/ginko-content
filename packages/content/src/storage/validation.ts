@@ -85,6 +85,36 @@ const collectReferenceIssues = (
   }
 }
 
+const collectDerivedReferenceIssues = (
+  references: Record<string, string[]> | undefined,
+  value: Record<string, unknown>,
+  resolveReference: (value: string, collection?: string) => boolean,
+  issues: string[]
+) => {
+  if (!references) {
+    return
+  }
+
+  for (const [collection, fields] of Object.entries(references)) {
+    for (const field of fields) {
+      const fieldValue = value[field]
+      const values = Array.isArray(fieldValue) ? fieldValue : [fieldValue]
+      for (const item of values) {
+        if (typeof item === 'undefined' || item === null) {
+          continue
+        }
+        if (typeof item !== 'string') {
+          issues.push(`${field}: expected a string reference`)
+          continue
+        }
+        if (!resolveReference(item, collection === '*' ? undefined : collection)) {
+          issues.push(`${field}: unresolved reference "${item}"${collection !== '*' ? ` in collection "${collection}"` : ''}`)
+        }
+      }
+    }
+  }
+}
+
 const internalDocumentFields = new Set([
   '_id',
   '_file',
@@ -426,19 +456,25 @@ export const validateContentGraph = (
     }
 
     const collection = getCollectionConfig(document._collection, config.collections)
+    const references = (collection as { references?: Record<string, string[]> } | undefined)?.references
     const schema = collection?.schema
-    if (!schema) {
+    if (!schema && !references) {
       continue
     }
 
     const issues: string[] = []
-    collectReferenceIssues(schema, document, (value, collection) => {
+    const resolveReference = (value: string, collection?: string) => {
       const canonicalId = referenceTargets.get(normalizeReferenceValue(value))
       if (!canonicalId) {
         return false
       }
       return collection ? targetCollections.get(canonicalId)?.has(collection) === true : true
-    }, issues)
+    }
+    if (schema) {
+      collectReferenceIssues(schema, document, resolveReference, issues)
+    } else {
+      collectDerivedReferenceIssues(references, document as Record<string, unknown>, resolveReference, issues)
+    }
     if (!issues.length) {
       continue
     }

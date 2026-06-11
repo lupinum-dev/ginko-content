@@ -1,12 +1,10 @@
 import { prefixStorage, type Storage } from 'unstorage'
 import type { H3Event } from 'h3'
 import { useStorage } from 'nitropack/runtime'
-import virtualContentConfig from '#content/virtual/config'
 import { makeIgnored } from '../../core/content/ignore'
 import { getContentRuntimeContext } from './context'
 import { getPreview, isPreview } from './preview'
 import { getContentRuntimeConfig } from './runtime-config'
-import type { ContentConfig } from '../../types/config'
 
 const invalidKeyCharacters = ['\'', '"', '?', '#', '/']
 const createScopedStorage = (prefix: string): Storage => prefixStorage(useStorage(), prefix)
@@ -45,40 +43,8 @@ export const cacheParsedStorage = (event?: H3Event) => {
   return createScopedStorage('cache:content:parsed')
 }
 
-const mergeCollectionConfigs = (
-  runtimeCollections: ContentConfig['collections'] = {},
-  sourceCollections: ContentConfig['collections'] = {}
-) => {
-  const names = new Set([
-    ...Object.keys(sourceCollections),
-    ...Object.keys(runtimeCollections)
-  ])
-
-  return Object.fromEntries(Array.from(names).map((name) => {
-    const source = sourceCollections[name] || {}
-    const runtime = runtimeCollections[name] || {}
-    const sourceProviders = (source as { providers?: unknown }).providers
-    return [
-      name,
-      {
-        ...source,
-        ...runtime,
-        ...(source.schema ? { schema: source.schema } : {}),
-        ...(sourceProviders ? { providers: sourceProviders } : {})
-      }
-    ]
-  }))
-}
-
 export const contentConfig = () => {
-  const runtimeContent = getContentRuntimeConfig().content
-  const sourceContent = virtualContentConfig || {}
-
-  return {
-    ...runtimeContent,
-    ...(sourceContent.agent ? { agent: sourceContent.agent } : {}),
-    collections: mergeCollectionConfigs(runtimeContent.collections, sourceContent.collections)
-  }
+  return getContentRuntimeConfig().content
 }
 
 export const contentIgnorePredicate = (key: string) => {

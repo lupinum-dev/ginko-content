@@ -132,17 +132,6 @@ export const registerContentNitroConfig = ({
           nitroConfig.prerender.routes.push(`/${locale}/llms.txt`, `/${locale}/llms-full.txt`)
         }
       }
-      for (const page of appContentConfig.agent.pages || []) {
-        const routes = typeof page.route === 'string'
-          ? [page.route]
-          : Object.values(page.route)
-        for (const route of routes) {
-          const normalized = route === '/' ? '/' : `/${route.replace(/^\/+|\/+$/g, '')}`
-          nitroConfig.prerender.routes.push(
-            normalized === '/' ? '/raw/index.md' : `/raw${normalized}.md`
-          )
-        }
-      }
     }
   })
 }

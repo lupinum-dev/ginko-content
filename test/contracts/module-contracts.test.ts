@@ -267,6 +267,10 @@ describe('module contracts', () => {
           cms: '@lupinum/ginko-cms/nuxt-provider'
         }
       }),
+      expect.objectContaining({
+        provider: 'cms'
+      }),
+      expect.any(Object),
       expect.any(Object),
       expect.anything(),
       expect.anything()
@@ -275,6 +279,7 @@ describe('module contracts', () => {
 
   test('serializes derived collection relation metadata into runtime config', async () => {
     const { nuxt, hooks } = createNuxt()
+    nuxt.options.dev = true
 
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig: vi.fn(async () => ({
@@ -302,7 +307,11 @@ describe('module contracts', () => {
       expect.anything(),
       expect.anything(),
       expect.objectContaining({
+        collections: expect.any(Object)
+      }),
+      expect.objectContaining({
         posts: expect.objectContaining({
+          source: 'posts/*.md',
           references: {
             authors: ['authors']
           }
@@ -311,7 +320,14 @@ describe('module contracts', () => {
           references: expect.anything()
         })
       }),
-      expect.anything(),
+      expect.objectContaining({
+        posts: expect.objectContaining({
+          schema: expect.objectContaining({
+            safeParse: expect.any(Function)
+          })
+        })
+      }),
+      undefined,
       expect.anything()
     )
   })
@@ -481,9 +497,15 @@ describe('module contracts', () => {
         })
       }),
       expect.objectContaining({
+        collections: expect.any(Object)
+      }),
+      expect.objectContaining({
         docs: expect.objectContaining({
           source: '**/*.md'
         })
+      }),
+      expect.objectContaining({
+        docs: expect.any(Object)
       }),
       expect.anything(),
       expect.anything()
@@ -506,9 +528,15 @@ describe('module contracts', () => {
         translatedSlugs: false
       }),
       expect.objectContaining({
+        collections: expect.any(Object)
+      }),
+      expect.objectContaining({
         docs: expect.objectContaining({
           source: '**/*.md'
         })
+      }),
+      expect.objectContaining({
+        docs: expect.any(Object)
       }),
       expect.anything(),
       expect.anything()

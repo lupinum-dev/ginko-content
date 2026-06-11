@@ -2,7 +2,14 @@ import { defu } from 'defu'
 import type { Nuxt } from '@nuxt/schema'
 
 import type { ModuleOptions, ResolvedContentContext } from '../types/module'
-import type { ContentCollectionConfig } from '../types/config'
+import type {
+  ContentAgentAppPageContext,
+  ContentAgentConfig,
+  ContentAgentLocalizedValue,
+  ContentAgentRuntimeConfig,
+  ContentCollectionConfig,
+  ContentConfig
+} from '../types/config'
 import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { ContentSearchPublicRuntimeConfig } from '../types/search'
 import { CACHE_VERSION } from '../utils'
@@ -30,6 +37,9 @@ type RuntimeCollectionConfig = {
   i18n?: { defaultLocale: string, locales: string[] }
   sitemap?: boolean
   route?: ContentCollectionConfig['route']
+  translatedSlugs?: boolean
+  cms?: ContentCollectionConfig['cms']
+  agent?: ContentCollectionConfig['agent']
   references?: Record<string, string[]>
 }
 
@@ -96,11 +106,79 @@ export const sanitizePrivateMarkdownPlugins = (plugins: ResolvedMarkdownPlugin[]
     options: sanitizePrivateMarkdownPluginValue(plugin.options || {}) as Record<string, unknown>
   }))
 
-export const applyContentRuntimeConfig = (
+const localizedValue = (
+  value: ContentAgentLocalizedValue | undefined,
+  locale: string,
+  fallback = ''
+) => {
+  if (typeof value === 'string') return value
+  if (!value) return fallback
+  return value[locale] || Object.values(value)[0] || fallback
+}
+
+const resolveAgentAppPageValue = async (
+  value: ContentAgentLocalizedValue | ((ctx: ContentAgentAppPageContext) => string | Promise<string>),
+  ctx: ContentAgentAppPageContext
+) => {
+  if (typeof value === 'function') {
+    return await value(ctx)
+  }
+  return localizedValue(value, ctx.locale)
+}
+
+const sanitizeAgentConfig = async (
+  agent: ContentAgentConfig | undefined,
+  contentContext: ResolvedContentContext,
+  siteUrl: string | undefined
+): Promise<ContentAgentRuntimeConfig | undefined> => {
+  if (!agent) {
+    return undefined
+  }
+
+  const defaultLocale = agent.site?.defaultLocale || contentContext.defaultLocale || contentContext.locales?.[0] || 'en'
+  const locales = agent.site?.locales?.length ? agent.site.locales : (contentContext.locales?.length ? contentContext.locales : [defaultLocale])
+  const agentSiteUrl = siteUrl || agent.site?.url || 'http://localhost:3000'
+  const pages = await Promise.all((agent.pages || []).map(async (page) => {
+    const title: Record<string, string> = {}
+    const description: Record<string, string> = {}
+    const markdown: Record<string, string> = {}
+
+    for (const locale of locales) {
+      const ctx = { locale, defaultLocale, siteUrl: agentSiteUrl }
+      title[locale] = await resolveAgentAppPageValue(page.title, ctx)
+      description[locale] = await resolveAgentAppPageValue(page.description, ctx)
+      markdown[locale] = await page.render(ctx)
+    }
+
+    return {
+      id: page.id,
+      route: page.route,
+      section: page.section,
+      title,
+      description,
+      updated: page.updated,
+      includeInIndex: page.includeInIndex,
+      includeInFull: page.includeInFull,
+      metadata: page.metadata,
+      markdown
+    }
+  }))
+
+  return {
+    ...(agent.site ? { site: agent.site } : {}),
+    ...(agent.markdown ? { markdown: agent.markdown } : {}),
+    ...(agent.sections ? { sections: agent.sections } : {}),
+    ...(pages.length ? { pages } : {})
+  } satisfies ContentAgentRuntimeConfig
+}
+
+export const applyContentRuntimeConfig = async (
   nuxt: Nuxt,
   options: ModuleOptions,
   contentContext: ResolvedContentContext,
+  appContentConfig: Pick<ContentConfig, 'agent'>,
   runtimeCollections: Record<string, RuntimeCollectionConfig>,
+  privateRuntimeCollections: Record<string, RuntimeCollectionConfig & Pick<ContentCollectionConfig, 'schema'>>,
   buildIntegrity: number | undefined,
   cacheIntegrity: string
 ) => {
@@ -152,8 +230,10 @@ export const applyContentRuntimeConfig = (
     contentHead: options.contentHead ?? true
   })
 
+  const runtimeAgent = await sanitizeAgentConfig(appContentConfig.agent, contentContext, siteUrl)
   const privateContentRuntime = {
     ...contentContext as any,
+    ...(runtimeAgent ? { agent: runtimeAgent } : {}),
     markdown: {
       ...contentContext.markdown,
       plugins: sanitizePrivateMarkdownPlugins(contentContext.markdown.plugins)
@@ -172,6 +252,6 @@ export const applyContentRuntimeConfig = (
         }
       : false,
     ...privateContentRuntime,
-    collections: runtimeCollections
+    collections: privateRuntimeCollections
   })
 }

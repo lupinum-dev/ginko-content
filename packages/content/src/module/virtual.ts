@@ -9,7 +9,7 @@ import type { ContentContext } from '../types/module'
 export const createVirtualContentTemplates = (
   contentContext: ContentContext,
   nuxt: Nuxt,
-  contentConfigPath: string | undefined,
+  _contentConfigPath: string | undefined,
   addTemplateImpl: typeof addTemplate
 ) => {
   // These files must exist on disk and be aliased for both Nuxt and Nitro.
@@ -37,12 +37,7 @@ export const createVirtualContentTemplates = (
   const virtualConfigTemplate = addTemplateImpl({
     filename: 'content/virtual-config.mjs',
     write: true,
-    getContents: () => contentConfigPath
-      ? [
-          `import config from ${JSON.stringify(contentConfigPath)}`,
-          'export default config || {}'
-        ].join('\n')
-      : 'export default {}'
+    getContents: () => 'export default {}'
   }).dst
 
   const virtualProvidersTemplate = addTemplateImpl({

@@ -8,7 +8,8 @@ import type {
   AgentMetadataField,
   ContentAgentAppPageConfig,
   ContentAgentAppPageContext,
-  ContentAgentLocalizedValue
+  ContentAgentLocalizedValue,
+  ContentAgentRuntimeAppPageConfig
 } from '../../types/config'
 
 export type AgentPageSource = 'ginko' | 'app-owned'
@@ -103,7 +104,17 @@ const resolveLocalizedMaybeFunction = async (
   return localizedValue(value, ctx.locale)
 }
 
-const resolveAppPageRoute = (page: ContentAgentAppPageConfig, locale: string) =>
+const resolveAppPageMarkdown = async (
+  page: ContentAgentRuntimeAppPageConfig,
+  ctx: ContentAgentAppPageContext
+) => {
+  if (typeof page.render === 'function') {
+    return await page.render(ctx)
+  }
+  return localizedValue(page.markdown, ctx.locale)
+}
+
+const resolveAppPageRoute = (page: ContentAgentRuntimeAppPageConfig, locale: string) =>
   normalizeAgentRoutePath(localizedValue(page.route, locale, '/'))
 
 const createAppPageContext = (locale: string, siteUrl: string): ContentAgentAppPageContext => ({
@@ -153,7 +164,7 @@ const createGinkoAgentPage = (
 }
 
 const createAppOwnedAgentPages = async (locale: string, siteUrl: string) => {
-  const pages = contentConfig().agent?.pages || []
+  const pages = (contentConfig().agent?.pages || []) as ContentAgentRuntimeAppPageConfig[]
   const result: AgentPage[] = []
 
   for (const page of pages) {
@@ -161,6 +172,7 @@ const createAppOwnedAgentPages = async (locale: string, siteUrl: string) => {
     const path = resolveAppPageRoute(page, locale)
     const rawPath = agentRawPathForRoute(path)
     const section = resolveSection(page.section, locale)
+    const markdown = await resolveAppPageMarkdown(page, ctx)
 
     result.push({
       title: await resolveLocalizedMaybeFunction(page.title, ctx),
@@ -179,7 +191,7 @@ const createAppOwnedAgentPages = async (locale: string, siteUrl: string) => {
       metadataFields: page.metadata,
       includeInIndex: page.includeInIndex !== false,
       includeInFull: page.includeInFull !== false,
-      markdown: await page.render(ctx)
+      markdown
     })
   }
 

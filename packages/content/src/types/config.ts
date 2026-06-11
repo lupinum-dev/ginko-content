@@ -196,6 +196,18 @@ export interface ContentAgentConfig {
   pages?: ContentAgentAppPageConfig[]
 }
 
+export interface ContentAgentRuntimeAppPageConfig
+  extends Omit<ContentAgentAppPageConfig, 'title' | 'description' | 'render'> {
+  title: ContentAgentLocalizedValue
+  description: ContentAgentLocalizedValue
+  markdown: ContentAgentLocalizedValue
+  render?: ContentAgentAppPageConfig['render']
+}
+
+export interface ContentAgentRuntimeConfig extends Omit<ContentAgentConfig, 'pages'> {
+  pages?: ContentAgentRuntimeAppPageConfig[]
+}
+
 /**
  * Object source shape accepted for Nuxt Content v3 migration.
  */

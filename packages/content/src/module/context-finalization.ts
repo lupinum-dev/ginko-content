@@ -1,6 +1,7 @@
 import type { Nuxt } from '@nuxt/schema'
 import { hash } from 'ohash'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
+import type { ContentConfig } from '../types/config'
 import { processMarkdownOptions } from '../utils'
 import { collectTopLevelReferenceFieldsByTarget } from '../core/references/schema'
 import { applyContentRuntimeConfig } from './runtime-config'
@@ -10,6 +11,7 @@ import { assertConfiguredProviderAvailable, validateBuiltinMarkdownPlugins } fro
 interface ContentContextFinalizationOptions {
   nuxt: Nuxt
   options: ModuleOptions
+  appContentConfig: ContentConfig
   contentContext: ContentContext
   buildIntegrity: number | undefined
   resolvePath: (path: string) => Promise<string>
@@ -20,6 +22,7 @@ interface ContentContextFinalizationOptions {
 export const registerContentContextFinalization = ({
   nuxt,
   options,
+  appContentConfig,
   contentContext,
   buildIntegrity,
   resolvePath,
@@ -43,22 +46,31 @@ export const registerContentContextFinalization = ({
     onResolved(resolvedContentContext)
     await validateBuiltinMarkdownPlugins(resolvedContentContext.markdown.plugins, resolvePath)
 
-    const runtimeCollections = Object.fromEntries(Object.entries(options.collections || {}).map(([name, collection]) => {
+    const collectionEntries = Object.entries(options.collections || {}).map(([name, collection]) => {
       const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
-      return [
-        name,
-        {
-          ...(collection.source ? { source: collection.source } : {}),
-          ...(collection.exclude ? { exclude: collection.exclude } : {}),
-          ...(collection.type ? { type: collection.type } : {}),
-          strict: collection.strict ?? true,
-          ...(collection.route ? { route: collection.route } : {}),
-          ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
-          ...(collection.i18n && collection.i18n !== true ? { i18n: collection.i18n } : {}),
-          ...(Object.keys(references).length ? { references } : {})
-        }
-      ]
-    }))
+      const runtimeCollection = {
+        ...(collection.source ? { source: collection.source } : {}),
+        ...(collection.exclude ? { exclude: collection.exclude } : {}),
+        ...(collection.type ? { type: collection.type } : {}),
+        strict: collection.strict ?? true,
+        ...(collection.route ? { route: collection.route } : {}),
+        ...(typeof collection.translatedSlugs === 'boolean' ? { translatedSlugs: collection.translatedSlugs } : {}),
+        ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
+        ...(collection.i18n && collection.i18n !== true ? { i18n: collection.i18n } : {}),
+        ...(collection.cms ? { cms: collection.cms } : {}),
+        ...(collection.agent ? { agent: collection.agent } : {}),
+        ...(Object.keys(references).length ? { references } : {})
+      }
+      return [name, runtimeCollection, collection] as const
+    })
+    const runtimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection]) => [name, runtimeCollection]))
+    const privateRuntimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection, collection]) => [
+      name,
+      {
+        ...runtimeCollection,
+        ...(nuxt.options.dev && collection.schema ? { schema: collection.schema } : {})
+      }
+    ]))
     const cacheIntegrity = hash({
       locales: resolvedContentContext.locales,
       defaultLocale: resolvedContentContext.defaultLocale,
@@ -72,6 +84,6 @@ export const registerContentContextFinalization = ({
       csv: resolvedContentContext.csv
     })
 
-    applyContentRuntimeConfig(nuxt, options, resolvedContentContext, runtimeCollections, buildIntegrity, cacheIntegrity)
+    await applyContentRuntimeConfig(nuxt, options, resolvedContentContext, appContentConfig, runtimeCollections, privateRuntimeCollections, buildIntegrity, cacheIntegrity)
   })
 }

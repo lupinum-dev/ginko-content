@@ -1,6 +1,9 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 import { createVirtualContentTemplates } from '../../packages/content/src/module/virtual'
+import { loadContentConfig, resolveContentConfigPath } from '../../packages/content/src/utils/content-config'
 
 const createNuxt = () => ({
   options: {
@@ -19,7 +22,32 @@ const createAddTemplate = () => {
 }
 
 describe('virtual provider template contract', () => {
-  test('imports the content config directly', () => {
+  test('loads content config with extensionless TypeScript imports during setup', async () => {
+    const tmpDir = await mkdtemp(join(process.cwd(), '.tmp-ginko-content-config-'))
+
+    try {
+      await writeFile(join(tmpDir, 'helper.ts'), 'export const source = "**/*.md"\n')
+      await writeFile(join(tmpDir, 'content.config.ts'), [
+        'import { source } from "./helper"',
+        'export default { collections: { docs: { type: "page", source } } }'
+      ].join('\n'))
+
+      const nuxt = {
+        options: {
+          rootDir: tmpDir
+        }
+      } as any
+
+      expect(resolveContentConfigPath(nuxt)).toBe(join(tmpDir, 'content.config.ts'))
+      const config = await loadContentConfig(nuxt)
+
+      expect(config.collections?.docs?.source).toBe('**/*.md')
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true })
+    }
+  })
+
+  test('does not import the raw content config at runtime', () => {
     const { addTemplate, templates } = createAddTemplate()
 
     createVirtualContentTemplates(
@@ -34,8 +62,29 @@ describe('virtual provider template contract', () => {
 
     const contents = templates.get('content/virtual-config.mjs')?.()
 
-    expect(contents).toContain('import config from "/workspace/app/content.config.ts"')
-    expect(contents).toContain('export default config || {}')
+    expect(contents).toBe('export default {}')
+    expect(contents).not.toContain('content.config.ts')
+    expect(contents).not.toContain('jiti')
+    expect(contents).not.toContain('import config from')
+  })
+
+  test('keeps the virtual config inert when no content config exists', () => {
+    const { addTemplate, templates } = createAddTemplate()
+
+    createVirtualContentTemplates(
+      {
+        transformers: [],
+        providers: {}
+      } as any,
+      createNuxt() as any,
+      undefined,
+      addTemplate
+    )
+
+    const contents = templates.get('content/virtual-config.mjs')?.()
+
+    expect(contents).toBe('export default {}')
+    expect(contents).not.toContain('content.config')
     expect(contents).not.toContain('jiti')
   })
 

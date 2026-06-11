@@ -583,6 +583,44 @@ describe('Ginko metadata helpers', () => {
     })
   })
 
+  test('validates derived reference metadata without live collection schemas', () => {
+    const relatedPost = pathMeta.transform!(
+      { _id: 'content:posts:related.md', _type: 'markdown', body: {}, id: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    relatedPost._collection = 'posts'
+
+    const article = pathMeta.transform!(
+      { _id: 'content:posts:hello.md', _type: 'markdown', body: {}, author: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    article._collection = 'posts'
+
+    const outcome = validateContentGraph([relatedPost, article], {
+      locales: ['en'],
+      translatedSlugs: false,
+      collections: {
+        posts: {
+          source: 'posts/*.md',
+          references: {
+            authors: ['author']
+          }
+        } as any,
+        authors: {
+          source: 'authors/*.yml'
+        }
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'SCHEMA_VALIDATION_FAILED',
+        message: expect.stringContaining('author: unresolved reference "evan" in collection "authors"')
+      }
+    })
+  })
+
   test('allows unscoped schema references to resolve across collections', () => {
     const author = pathMeta.transform!(
       { _id: 'content:authors:evan.yml', _type: 'yaml', body: null, id: 'evan' } as any,

@@ -46,6 +46,28 @@ const createNuxt = (site?: { url?: string }, siteUrl?: string) => ({
   }
 })
 
+const runtimeCollections = { docs: { source: '1.docs/**/*', strict: false, sitemap: true } }
+
+const applyRuntimeConfig = async (
+  nuxt: ReturnType<typeof createNuxt>,
+  options: ReturnType<typeof createOptions>,
+  context: ReturnType<typeof createContentContext>,
+  appContentConfig: Record<string, any> = {},
+  collections: Record<string, any> = runtimeCollections,
+  privateCollections: Record<string, any> = collections
+) => {
+  await applyContentRuntimeConfig(
+    nuxt as any,
+    options as any,
+    context as any,
+    appContentConfig as any,
+    collections,
+    privateCollections,
+    1,
+    'cache-integrity'
+  )
+}
+
 describe('runtime config contracts', () => {
   test('uses the shared MiniSearch defaults as the module default source of truth', () => {
     expect(contentModuleDefaults.search.minisearch).toEqual({
@@ -57,39 +79,25 @@ describe('runtime config contracts', () => {
     })
   })
 
-  test('exposes Nuxt site.url as runtimeConfig.public.content.siteUrl for runtime content features', () => {
+  test('exposes Nuxt site.url as runtimeConfig.public.content.siteUrl for runtime content features', async () => {
     const nuxt = createNuxt({ url: 'https://docs.example.test' })
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      createOptions() as any,
-      createContentContext() as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
 
     expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBe('https://docs.example.test')
     expect(nuxt.options.runtimeConfig.public.siteUrl).toBeUndefined()
   })
 
-  test('uses explicit runtimeConfig.public.siteUrl as legacy input without writing a global output key', () => {
+  test('uses explicit runtimeConfig.public.siteUrl as legacy input without writing a global output key', async () => {
     const nuxt = createNuxt({ url: 'https://site-config.example.test' }, 'https://runtime.example.test')
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      createOptions() as any,
-      createContentContext() as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
 
     expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBe('https://runtime.example.test')
     expect(nuxt.options.runtimeConfig.public.siteUrl).toBe('https://runtime.example.test')
   })
 
-  test('publishes markdown image and MiniSearch runtime options', () => {
+  test('publishes markdown image and MiniSearch runtime options', async () => {
     const nuxt = createNuxt()
     const context = {
       ...createContentContext(),
@@ -109,14 +117,7 @@ describe('runtime config contracts', () => {
       }
     }
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      createOptions() as any,
-      context as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, createOptions(), context as any)
 
     expect(nuxt.options.runtimeConfig.public.content.markdown.image).toBe('nuxt-image')
     expect(nuxt.options.runtimeConfig.public.content.search).toMatchObject({
@@ -133,7 +134,7 @@ describe('runtime config contracts', () => {
     })
   })
 
-  test('publishes configured markdown quick links to public runtime config', () => {
+  test('publishes configured markdown quick links to public runtime config', async () => {
     const nuxt = createNuxt()
     const context = {
       ...createContentContext(),
@@ -144,14 +145,7 @@ describe('runtime config contracts', () => {
       }
     }
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      createOptions() as any,
-      context as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, createOptions(), context as any)
 
     expect(nuxt.options.runtimeConfig.public.content.links).toEqual({
       main: {
@@ -160,7 +154,7 @@ describe('runtime config contracts', () => {
     })
   })
 
-  test('publishes finalized markdown quick links from content context', () => {
+  test('publishes finalized markdown quick links from content context', async () => {
     const nuxt = createNuxt()
     const options = {
       ...createOptions(),
@@ -179,14 +173,7 @@ describe('runtime config contracts', () => {
       }
     }
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      options as any,
-      context as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, options as any, context as any)
 
     expect(nuxt.options.runtimeConfig.public.content.links).toEqual({
       main: {
@@ -196,7 +183,7 @@ describe('runtime config contracts', () => {
     expect(nuxt.options.runtimeConfig.public.content.links.main.stale).toBeUndefined()
   })
 
-  test('keeps markdown transformer runtime config serializable', () => {
+  test('keeps markdown transformer runtime config serializable', async () => {
     const nuxt = createNuxt()
     const transformer = {
       name: '@shikijs/transformers:notation-highlight',
@@ -224,14 +211,7 @@ describe('runtime config contracts', () => {
       }
     }
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      createOptions() as any,
-      context as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, createOptions(), context as any)
 
     expect(nuxt.options.runtimeConfig.public.content.markdown.plugins).toEqual([
       {
@@ -251,20 +231,10 @@ describe('runtime config contracts', () => {
     expect(JSON.stringify(nuxt.options.runtimeConfig.content)).not.toContain('line')
   })
 
-  test('keeps revalidation token in private runtime config only', () => {
+  test('keeps revalidation token in private runtime config only', async () => {
     const nuxt = createNuxt()
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      {
-        ...createOptions(),
-        revalidate: { token: 'secret' }
-      } as any,
-      createContentContext() as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, { ...createOptions(), revalidate: { token: 'secret' } } as any, createContentContext())
 
     expect(nuxt.options.runtimeConfig.public.content.revalidate).toBeUndefined()
     expect(nuxt.options.runtimeConfig.content.revalidate).toEqual({
@@ -273,18 +243,53 @@ describe('runtime config contracts', () => {
     })
   })
 
-  test('keeps revalidation disabled when no token is configured', () => {
+  test('keeps revalidation disabled when no token is configured', async () => {
     const nuxt = createNuxt()
 
-    applyContentRuntimeConfig(
-      nuxt as any,
-      createOptions() as any,
-      createContentContext() as any,
-      { docs: { source: '1.docs/**/*', strict: false, sitemap: true } },
-      1,
-      'cache-integrity'
-    )
+    await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
 
     expect(nuxt.options.runtimeConfig.content.revalidate).toBe(false)
+  })
+
+  test('derives function-backed agent pages into serializable runtime markdown', async () => {
+    const nuxt = createNuxt({ url: 'https://docs.example.test' })
+
+    await applyRuntimeConfig(
+      nuxt,
+      createOptions(),
+      createContentContext(),
+      {
+        agent: {
+          site: {
+            title: 'Docs',
+            description: 'Docs site',
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          },
+          pages: [
+            {
+              id: 'home',
+              route: { en: '/', de: '/de' },
+              section: 'business',
+              title: ({ locale }: { locale: string }) => locale === 'de' ? 'Startseite' : 'Home',
+              description: ({ locale }: { locale: string }) => locale === 'de' ? 'Deutsche Startseite' : 'English home',
+              render: ({ locale }: { locale: string }) => `# ${locale === 'de' ? 'Startseite' : 'Home'}`
+            }
+          ]
+        }
+      }
+    )
+
+    const page = nuxt.options.runtimeConfig.content.agent.pages[0]
+
+    expect(page).toMatchObject({
+      id: 'home',
+      route: { en: '/', de: '/de' },
+      title: { en: 'Home', de: 'Startseite' },
+      description: { en: 'English home', de: 'Deutsche Startseite' },
+      markdown: { en: '# Home', de: '# Startseite' }
+    })
+    expect(page.render).toBeUndefined()
+    expect(JSON.stringify(nuxt.options.runtimeConfig.content.agent)).not.toContain('=>')
   })
 })

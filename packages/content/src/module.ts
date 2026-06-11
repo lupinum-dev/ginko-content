@@ -209,6 +209,7 @@ export default defineNuxtModule<ModuleOptions>({
     registerContentContextFinalization({
       nuxt,
       options,
+      appContentConfig,
       contentContext,
       buildIntegrity,
       resolvePath,
