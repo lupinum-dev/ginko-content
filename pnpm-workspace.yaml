@@ -7,4 +7,15 @@ packages:
   - test/fixtures/*
 minimumReleaseAge: 1440
 overrides:
+  "@babel/core": 7.29.6
+  esbuild: 0.28.1
+  launch-editor: 2.14.1
+  tar: 7.5.16
+  vite: 7.3.5
   shell-quote: 1.8.4
+  ws: 8.21.0
+  js-yaml: 4.2.0
+packageExtensions:
+  vue-docgen-web-types@0.1.8:
+    dependencies:
+      minimist: ^1.2.8

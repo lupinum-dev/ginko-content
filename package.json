@@ -89,14 +89,5 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "pnpm": {
-    "packageExtensions": {
-      "vue-docgen-web-types@0.1.8": {
-        "dependencies": {
-          "minimist": "^1.2.8"
-        }
-      }
-    }
-  },
   "packageManager": "pnpm@10.33.0"
 }
