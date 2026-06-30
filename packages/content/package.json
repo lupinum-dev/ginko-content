@@ -21,6 +21,9 @@
   },
   "license": "MIT",
   "type": "module",
+  "main": "./dist/module.mjs",
+  "module": "./dist/module.mjs",
+  "types": "./dist/module.d.mts",
   "bin": {
     "ginko-content": "./dist/cli.mjs"
   },
