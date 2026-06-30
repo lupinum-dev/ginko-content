@@ -1,5 +1,5 @@
 import { readFile, readdir } from 'node:fs/promises'
-import { extname, relative, resolve } from 'node:path'
+import { dirname, extname, posix, relative, resolve } from 'node:path'
 import { dump as dumpYaml } from 'js-yaml'
 
 import {
@@ -32,6 +32,20 @@ export type CmsExchangeAssetReference = {
   sourcePath: string
   referencedBy: string[]
   checksum?: string
+  contentType?: string
+  sizeBytes?: number
+  references?: string[]
+}
+
+export type CmsExchangeAssetFile = {
+  sourcePath: string
+  bytes?: Uint8Array
+  text?: string
+  contentType?: string
+  checksum?: string
+  sizeBytes?: number
+  referencedBy?: string[]
+  references?: string[]
 }
 
 export type CmsExchangeDocument = {
@@ -65,6 +79,8 @@ export type CmsExchangeManifest = {
   assets: Array<{
     sourcePath: string
     checksum?: string
+    contentType?: string
+    sizeBytes?: number
     referencedBy: string[]
   }>
   warnings: CmsExchangeWarning[]
@@ -96,9 +112,10 @@ export type CmsExchangeImportPlan = {
 
 export type CmsExchangeRenderedFile = {
   path: string
-  kind: 'content' | 'manifest'
+  kind: 'content' | 'manifest' | 'asset'
   contentType: string
-  text: string
+  text?: string
+  bytes?: Uint8Array
   checksum: string
 }
 
@@ -109,6 +126,7 @@ export type CreateCmsExchangeImportPlanOptions = {
   sourceRoot?: string
   contractChecksum?: string
   generatedAt?: string
+  assetFiles?: CmsExchangeAssetFile[]
 }
 
 export type RenderCmsExchangeFileOptions = {
@@ -119,6 +137,7 @@ export type RenderCmsExchangeFileOptions = {
   entryId?: string
   revisionId?: string
   path?: string
+  assets?: CmsExchangeAssetReference[]
 }
 
 const markdownExtensions = new Set(['md', 'mdc', 'markdown'])
@@ -151,13 +170,53 @@ function normalizeRoute(path: string | undefined) {
   return normalizeContentPath(path || '/')
 }
 
-function checksumText(text: string) {
+const textEncoder = new TextEncoder()
+
+function checksumBytes(bytes: Uint8Array) {
   let hash = 0x811c9dc5
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index)
+  for (let index = 0; index < bytes.length; index += 1) {
+    hash ^= bytes[index]!
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
   return `fnv1a32:${hash.toString(16).padStart(8, '0')}`
+}
+
+function checksumText(text: string) {
+  return checksumBytes(textEncoder.encode(text))
+}
+
+function normalizeAssetSourcePath(documentSourcePath: string | undefined, reference: string) {
+  const normalizedReference = reference.split('\\').join('/')
+  if (
+    !normalizedReference ||
+    normalizedReference.startsWith('/') ||
+    normalizedReference.includes('://') ||
+    normalizedReference.startsWith('#') ||
+    normalizedReference.startsWith('data:')
+  ) {
+    return normalizedReference
+  }
+  const baseDir = documentSourcePath ? posix.dirname(documentSourcePath.split('\\').join('/')) : ''
+  const normalized = posix.normalize(posix.join(baseDir, normalizedReference))
+  if (!normalized || normalized === '.' || normalized.startsWith('../')) return normalizedReference
+  return normalized
+}
+
+function isExchangeContentPath(path: string) {
+  if (path === exchangeManifestFilename || path.endsWith(`/${exchangeManifestFilename}`)) return false
+  return exchangeFileExtensions.has(extname(path).toLowerCase())
+}
+
+function defaultContentTypeForAsset(path: string) {
+  const extension = extname(path).toLowerCase()
+  if (extension === '.svg') return 'image/svg+xml'
+  if (extension === '.png') return 'image/png'
+  if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg'
+  if (extension === '.webp') return 'image/webp'
+  if (extension === '.gif') return 'image/gif'
+  if (extension === '.avif') return 'image/avif'
+  if (extension === '.pdf') return 'application/pdf'
+  return 'application/octet-stream'
 }
 
 function fieldIsBody(field: CmsFieldContract) {
@@ -381,7 +440,7 @@ export async function createCmsExchangeImportPlan(
   attachTreeParents(documents, options.contract)
   sortDocumentsForImport(documents)
 
-  const assets = scanCmsAssetReferences(documents)
+  const assets = scanCmsAssetReferences(documents, options.assetFiles)
   return {
     version: 1,
     sourceRoot: options.sourceRoot,
@@ -432,8 +491,44 @@ export async function readCmsExchangeFilesFromDirectory(
   return files.sort((left, right) => (left.sourcePath ?? left.id).localeCompare(right.sourcePath ?? right.id))
 }
 
-export function scanCmsAssetReferences(documents: CmsExchangeDocument[]): CmsExchangeAssetReference[] {
+export async function readCmsExchangeAssetFilesFromDirectory(
+  options: ReadCmsExchangeFilesOptions,
+): Promise<CmsExchangeAssetFile[]> {
+  const rootDir = resolve(options.rootDir)
+  const files: CmsExchangeAssetFile[] = []
+
+  async function visit(dir: string) {
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const path = resolve(dir, entry.name)
+      if (entry.isDirectory()) {
+        await visit(path)
+      } else if (entry.isFile()) {
+        const sourcePath = normalizeSourcePath(rootDir, path)
+        if (sourcePath === exchangeManifestFilename || sourcePath.endsWith(`/${exchangeManifestFilename}`)) continue
+        if (isExchangeContentPath(sourcePath)) continue
+        const bytes = await readFile(path)
+        files.push({
+          sourcePath,
+          bytes,
+          checksum: checksumBytes(bytes),
+          contentType: defaultContentTypeForAsset(sourcePath),
+          sizeBytes: bytes.byteLength,
+        })
+      }
+    }
+  }
+
+  await visit(rootDir)
+  return files.sort((left, right) => left.sourcePath.localeCompare(right.sourcePath))
+}
+
+export function scanCmsAssetReferences(
+  documents: CmsExchangeDocument[],
+  assetFiles: CmsExchangeAssetFile[] = [],
+): CmsExchangeAssetReference[] {
   const referencedByPath = new Map<string, Set<string>>()
+  const assetFileByPath = new Map(assetFiles.map(asset => [asset.sourcePath, asset]))
   for (const document of documents) {
     const haystack = [
       document.bodyMdc ?? '',
@@ -441,7 +536,7 @@ export function scanCmsAssetReferences(documents: CmsExchangeDocument[]): CmsExc
     ].join('\n')
 
     for (const match of haystack.matchAll(localAssetReferencePattern)) {
-      const sourcePath = match[1]
+      const sourcePath = normalizeAssetSourcePath(document.sourcePath, match[1] ?? '')
       if (!sourcePath) continue
       referencedByPath.set(sourcePath, referencedByPath.get(sourcePath) ?? new Set())
       referencedByPath.get(sourcePath)!.add(document.sourcePath ?? document.path)
@@ -453,6 +548,9 @@ export function scanCmsAssetReferences(documents: CmsExchangeDocument[]): CmsExc
     .map(([sourcePath, referencedBy]) => ({
       sourcePath,
       referencedBy: [...referencedBy].sort(),
+      checksum: assetFileByPath.get(sourcePath)?.checksum,
+      contentType: assetFileByPath.get(sourcePath)?.contentType,
+      sizeBytes: assetFileByPath.get(sourcePath)?.sizeBytes,
     }))
 }
 
@@ -499,6 +597,25 @@ function renderFrontmatter(document: CmsExchangeDocument, options: RenderCmsExch
   return frontmatter
 }
 
+function relativeAssetPath(fromFile: string, assetPath: string) {
+  const fromDir = dirname(fromFile).split('\\').join('/')
+  const relativePath = posix.relative(fromDir === '.' ? '' : fromDir, assetPath).split('\\').join('/')
+  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`
+}
+
+function rewriteAssetReferences(text: string, filePath: string, assets: CmsExchangeAssetReference[] | undefined) {
+  if (!assets?.length) return text
+  let rewritten = text
+  for (const asset of assets) {
+    const replacement = relativeAssetPath(filePath, asset.sourcePath)
+    for (const reference of asset.references ?? []) {
+      if (!reference) continue
+      rewritten = rewritten.split(reference).join(replacement)
+    }
+  }
+  return rewritten
+}
+
 export function renderCmsExchangeFile(options: RenderCmsExchangeFileOptions): CmsExchangeRenderedFile {
   const path = options.path ?? resolveCmsExportPath(options.document, options.contract)
   const frontmatter = renderFrontmatter(options.document, options)
@@ -507,7 +624,7 @@ export function renderCmsExchangeFile(options: RenderCmsExchangeFileOptions): Cm
     noRefs: true,
     sortKeys: true,
   }).trim()
-  const body = options.document.bodyMdc?.trim() ?? ''
+  const body = rewriteAssetReferences(options.document.bodyMdc?.trim() ?? '', path, options.assets)
   const text = `---\n${yaml}\n---${body ? `\n\n${body}\n` : '\n'}`
   return {
     path,
@@ -515,6 +632,19 @@ export function renderCmsExchangeFile(options: RenderCmsExchangeFileOptions): Cm
     contentType: options.document.extension === 'mdc' ? 'text/mdc; charset=utf-8' : 'text/markdown; charset=utf-8',
     text,
     checksum: checksumText(text),
+  }
+}
+
+export function renderCmsExchangeAssetFile(asset: CmsExchangeAssetFile): CmsExchangeRenderedFile {
+  const bytes = asset.bytes ?? (asset.text !== undefined ? textEncoder.encode(asset.text) : undefined)
+  const checksum = asset.checksum ?? (bytes ? checksumBytes(bytes) : checksumText(''))
+  return {
+    path: asset.sourcePath,
+    kind: 'asset',
+    contentType: asset.contentType ?? defaultContentTypeForAsset(asset.sourcePath),
+    bytes,
+    text: asset.text,
+    checksum,
   }
 }
 
@@ -540,8 +670,17 @@ export function renderCmsExchangeManifest(args: {
   generator?: string
   contractChecksum?: string
 }): CmsExchangeRenderedFile {
-  const documentsByPath = new Map(args.files.map((file, index) => [file.path, args.documents[index]]))
-  const assets = args.assets ?? []
+  const contentFiles = args.files.filter(file => file.kind === 'content')
+  const documentsByPath = new Map(contentFiles.map((file, index) => [file.path, args.documents[index]]))
+  const assets = (args.assets ?? [])
+    .map(asset => ({
+      sourcePath: asset.sourcePath,
+      checksum: asset.checksum,
+      contentType: asset.contentType,
+      sizeBytes: asset.sizeBytes,
+      referencedBy: [...asset.referencedBy].sort(),
+    }))
+    .sort((left, right) => left.sourcePath.localeCompare(right.sourcePath))
   const warnings = [
     ...(args.warnings ?? []),
     ...warningsForUnbundledAssets(assets),
@@ -551,7 +690,7 @@ export function renderCmsExchangeManifest(args: {
     generatedAt: args.generatedAt ?? new Date().toISOString(),
     generator: args.generator ?? 'ginko-content/cms-exchange',
     contractChecksum: args.contractChecksum,
-    documents: args.files.map((file) => {
+    documents: contentFiles.map((file) => {
       const document = documentsByPath.get(file.path)
       return {
         stableId: document?.stableId ?? '',

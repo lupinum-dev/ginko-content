@@ -5,7 +5,9 @@ import { describe, expect, test } from 'vitest'
 
 import {
   createCmsExchangeImportPlan,
+  readCmsExchangeAssetFilesFromDirectory,
   readCmsExchangeFilesFromDirectory,
+  renderCmsExchangeAssetFile,
   renderCmsExchangeFile,
   renderCmsExchangeManifest,
   resolveCmsExportPath,
@@ -209,6 +211,8 @@ describe('cms-exchange', () => {
       await writeFile(join(rootDir, 'pages', 'z.md'), '# Z')
       await writeFile(join(rootDir, 'pages', 'nested', 'a.mdc'), '# A')
       await writeFile(join(rootDir, 'pages', 'ignored.txt'), 'ignored')
+      await mkdir(join(rootDir, 'assets'), { recursive: true })
+      await writeFile(join(rootDir, 'assets', 'hero.svg'), '<svg />')
       await writeFile(join(rootDir, 'ginko-cms-export.json'), '{"version":1}')
 
       const scanned = await readCmsExchangeFilesFromDirectory({ rootDir })
@@ -224,6 +228,20 @@ describe('cms-exchange', () => {
           sourcePath: 'pages/z.md',
           source: '# Z',
         },
+      ])
+
+      const assets = await readCmsExchangeAssetFilesFromDirectory({ rootDir })
+      expect(assets).toEqual([
+        expect.objectContaining({
+          sourcePath: 'assets/hero.svg',
+          checksum: expect.stringMatching(/^fnv1a32:[a-f0-9]{8}$/),
+          contentType: 'image/svg+xml',
+          sizeBytes: 7,
+        }),
+        expect.objectContaining({
+          sourcePath: 'pages/ignored.txt',
+          checksum: expect.stringMatching(/^fnv1a32:[a-f0-9]{8}$/),
+        }),
       ])
     } finally {
       await rm(rootDir, { recursive: true, force: true })
@@ -256,7 +274,7 @@ describe('cms-exchange', () => {
     })
     expect(plan.assets).toEqual([
       {
-        sourcePath: '../assets/hero.jpg',
+        sourcePath: 'content/en/assets/hero.jpg',
         referencedBy: ['content/en/pages/1.home.md'],
       },
     ])
@@ -284,13 +302,18 @@ describe('cms-exchange', () => {
     const manifest = renderCmsExchangeManifest({
       files: rendered,
       documents: plan.documents,
-      assets: plan.assets,
+      assets: [
+        {
+          sourcePath: 'content/en/assets/hero.jpg',
+          referencedBy: ['content/en/pages/1.home.md'],
+        },
+      ],
       warnings: plan.warnings,
       generatedAt: '2026-06-29T12:00:00.000Z',
       contractChecksum: 'sha256:test',
       generator: 'test',
     })
-    const manifestJson = JSON.parse(manifest.text)
+    const manifestJson = JSON.parse(manifest.text ?? '{}')
     expect(manifestJson).toMatchObject({
       version: 1,
       contractChecksum: 'sha256:test',
@@ -300,7 +323,12 @@ describe('cms-exchange', () => {
           checksum: rendered[0].checksum,
         }),
       ]),
-      assets: plan.assets,
+      assets: [
+        {
+          sourcePath: 'content/en/assets/hero.jpg',
+          referencedBy: ['content/en/pages/1.home.md'],
+        },
+      ],
     })
     expect(manifestJson.warnings).toEqual([
       expect.objectContaining({
@@ -309,8 +337,8 @@ describe('cms-exchange', () => {
       }),
       {
         code: 'asset_not_bundled',
-        message: 'Asset "../assets/hero.jpg" is referenced but is not bundled by this exchange artifact.',
-        sourcePath: '../assets/hero.jpg',
+        message: 'Asset "content/en/assets/hero.jpg" is referenced but is not bundled by this exchange artifact.',
+        sourcePath: 'content/en/assets/hero.jpg',
       },
     ])
 
@@ -318,7 +346,7 @@ describe('cms-exchange', () => {
       files: rendered.map(file => ({
         id: `content:${file.path.replace(/^content\//, '')}`,
         sourcePath: file.path,
-        source: file.text,
+        source: file.text ?? '',
       })),
       context,
       contract,
@@ -335,6 +363,70 @@ describe('cms-exchange', () => {
     )
 
     expect(rerendered.map(file => file.text)).toEqual(rendered.map(file => file.text))
+  })
+
+  test('renders managed asset files and rewrites managed references to bundled paths', () => {
+    const document = {
+      stableId: 'page-managed-asset',
+      collection: 'pages',
+      locale: 'en',
+      path: '/managed-asset',
+      sourcePath: 'pages/managed-asset.md',
+      extension: 'md' as const,
+      frontmatter: {},
+      values: {
+        title: 'Managed asset',
+      },
+      bodyMdc: '# Managed asset\n\n![Hero](asset:abc123)',
+    }
+    const asset = {
+      sourcePath: 'assets/abc123-hero.svg',
+      bytes: new TextEncoder().encode('<svg />'),
+      contentType: 'image/svg+xml',
+      referencedBy: ['pages/managed-asset.md'],
+      references: ['asset:abc123'],
+    }
+    const renderedAsset = renderCmsExchangeAssetFile(asset)
+    const renderedDocument = renderCmsExchangeFile({
+      document,
+      contract,
+      assets: [{
+        ...asset,
+        checksum: renderedAsset.checksum,
+        sizeBytes: renderedAsset.bytes?.byteLength,
+      }],
+    })
+
+    expect(renderedDocument.text).toContain('![Hero](../assets/abc123-hero.svg)')
+    expect(renderedAsset).toMatchObject({
+      path: 'assets/abc123-hero.svg',
+      kind: 'asset',
+      contentType: 'image/svg+xml',
+      checksum: expect.stringMatching(/^fnv1a32:[a-f0-9]{8}$/),
+    })
+
+    const manifest = renderCmsExchangeManifest({
+      files: [renderedDocument, renderedAsset],
+      documents: [document],
+      assets: [{
+        ...asset,
+        checksum: renderedAsset.checksum,
+        sizeBytes: renderedAsset.bytes?.byteLength,
+      }],
+      generatedAt: '2026-06-29T12:00:00.000Z',
+    })
+    const manifestJson = JSON.parse(manifest.text ?? '{}')
+    expect(manifestJson.documents).toHaveLength(1)
+    expect(manifestJson.assets).toEqual([
+      {
+        sourcePath: 'assets/abc123-hero.svg',
+        checksum: renderedAsset.checksum,
+        contentType: 'image/svg+xml',
+        sizeBytes: 7,
+        referencedBy: ['pages/managed-asset.md'],
+      },
+    ])
+    expect(manifestJson.warnings).toEqual([])
   })
 
   test('resolves importable fallback export paths when source metadata is absent', () => {
@@ -457,6 +549,6 @@ describe('cms-exchange', () => {
       contractChecksum: 'sha256:test',
       generator: 'test',
     })
-    expect(JSON.parse(manifest.text).warnings).toEqual([])
+    expect(JSON.parse(manifest.text ?? '{}').warnings).toEqual([])
   })
 })
