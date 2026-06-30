@@ -144,6 +144,7 @@ const markdownExtensions = new Set(['md', 'mdc', 'markdown'])
 const exchangeFileExtensions = new Set(['.md', '.mdc', '.markdown', '.json', '.json5', '.yaml', '.yml'])
 const exchangeManifestFilename = 'ginko-cms-export.json'
 const localAssetReferencePattern = /(?:!\[[^\]]*]\(|\[[^\]]*]\(|\bsrc=["'])(?!https?:\/\/|data:|#|\/)([^)"'\s]+)(?:[)"'])/g
+const assetSchemeReferencePattern = /^[a-zA-Z][a-zA-Z0-9+.-]*:/
 
 function normalizeExtension(value: unknown): CmsExchangeExtension | null {
   if (typeof value !== 'string') return null
@@ -191,10 +192,11 @@ function normalizeAssetSourcePath(documentSourcePath: string | undefined, refere
     !normalizedReference ||
     normalizedReference.startsWith('/') ||
     normalizedReference.includes('://') ||
+    assetSchemeReferencePattern.test(normalizedReference) ||
     normalizedReference.startsWith('#') ||
     normalizedReference.startsWith('data:')
   ) {
-    return normalizedReference
+    return null
   }
   const baseDir = documentSourcePath ? posix.dirname(documentSourcePath.split('\\').join('/')) : ''
   const normalized = posix.normalize(posix.join(baseDir, normalizedReference))

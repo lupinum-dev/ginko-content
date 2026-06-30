@@ -11,6 +11,7 @@ import {
   renderCmsExchangeFile,
   renderCmsExchangeManifest,
   resolveCmsExportPath,
+  scanCmsAssetReferences,
   type CmsImportContentContext,
 } from '../../packages/content/src/cms-exchange'
 import type { CmsContract } from '../../packages/content/src/cms-contract'
@@ -363,6 +364,26 @@ describe('cms-exchange', () => {
     )
 
     expect(rerendered.map(file => file.text)).toEqual(rendered.map(file => file.text))
+  })
+
+  test('does not treat managed asset scheme references as local files', () => {
+    const assets = scanCmsAssetReferences([
+      {
+        stableId: 'page-managed-asset',
+        collection: 'pages',
+        locale: 'en',
+        path: '/managed-asset',
+        sourcePath: 'pages/managed-asset.md',
+        extension: 'md',
+        frontmatter: {},
+        values: {
+          title: 'Managed asset',
+        },
+        bodyMdc: '# Managed asset\n\n![Hero](asset:abc123)',
+      },
+    ])
+
+    expect(assets).toEqual([])
   })
 
   test('renders managed asset files and rewrites managed references to bundled paths', () => {
