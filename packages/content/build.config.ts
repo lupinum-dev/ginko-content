@@ -25,7 +25,11 @@ const mkdistEntries = [
   // `src/cms-import/` is the Node-side importer boundary used by ginko-cms
   // migration. It may read filesystem-shaped content, but parsing semantics
   // still live in ginko-content instead of a second CMS parser.
-  ['src/cms-import/', 'dist/cms-import']
+  ['src/cms-import/', 'dist/cms-import'],
+  // `src/cms-exchange/` is the portable bidirectional CMS exchange boundary.
+  // It reuses cms-import for parsing and adds framework-free render/manifest
+  // helpers without pulling in CMS runtime concerns.
+  ['src/cms-exchange/', 'dist/cms-exchange']
 ]
 
 const ensureRuntimeExternalPlaceholders = async () => {

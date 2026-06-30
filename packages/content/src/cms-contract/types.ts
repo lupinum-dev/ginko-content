@@ -82,6 +82,7 @@ export interface CmsCollectionRouting {
 export interface CmsFieldContract {
   key: string
   type: ContentCmsFieldType
+  role?: 'title' | 'description' | 'body' | null
   label?: string | Record<string, string> | null
   description?: string | null
   required: boolean

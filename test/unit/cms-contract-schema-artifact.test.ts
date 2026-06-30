@@ -239,6 +239,24 @@ describe('CMS schema artifact guard', () => {
     expect(byKey.slug).toMatchObject({ type: 'slug', slugFrom: 'title' })
   })
 
+  it('marks implicit page body fields with semantic CMS roles', () => {
+    const contract = build(z.object({
+      title: z.string(),
+      description: z.string().optional(),
+      bodyMdc: z.string().optional(),
+      copy: fields.richtext(),
+    }))
+
+    const byKey = Object.fromEntries(
+      (contract.collections.posts?.fields ?? []).map(field => [field.key, field]),
+    )
+
+    expect(byKey.title).toMatchObject({ type: 'text', role: 'title' })
+    expect(byKey.description).toMatchObject({ type: 'textarea', role: 'description' })
+    expect(byKey.bodyMdc).toMatchObject({ type: 'richtext', role: 'body' })
+    expect(byKey.copy).toMatchObject({ type: 'richtext', role: null })
+  })
+
   it('emits CMS array fields only for object arrays', () => {
     const contract = build(
       z.object({

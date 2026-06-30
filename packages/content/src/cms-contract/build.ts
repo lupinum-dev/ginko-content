@@ -268,11 +268,11 @@ function implicitPageFields(
   isLocalized: boolean,
 ): CmsFieldContract[] {
   const fields: CmsFieldContract[] = [
-    field({ key: 'title', type: 'text', required: true, localized: isLocalized }),
-    field({ key: 'description', type: 'textarea', localized: isLocalized }),
+    field({ key: 'title', type: 'text', role: 'title', required: true, localized: isLocalized }),
+    field({ key: 'description', type: 'textarea', role: 'description', localized: isLocalized }),
   ]
   if (isMarkdownCollection(collection)) {
-    fields.push(field({ key: 'bodyMdc', type: 'richtext', localized: isLocalized }))
+    fields.push(field({ key: 'bodyMdc', type: 'richtext', role: 'body', localized: isLocalized }))
   }
   return fields
 }
@@ -484,6 +484,7 @@ function field(
   return {
     key: input.key,
     type: input.type,
+    role: input.role ?? null,
     label: input.label ?? null,
     description: input.description ?? null,
     required: input.required ?? false,

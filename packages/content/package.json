@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://ginko-content.nuxt.dev",
   "bugs": {
@@ -59,6 +59,11 @@
       "types": "./dist/cms-import/index.d.ts",
       "import": "./dist/cms-import/index.js",
       "default": "./dist/cms-import/index.js"
+    },
+    "./cms-exchange": {
+      "types": "./dist/cms-exchange/index.d.ts",
+      "import": "./dist/cms-exchange/index.js",
+      "default": "./dist/cms-exchange/index.js"
     },
     "./testing/provider-fixture": {
       "types": "./dist/testing/provider-fixture.d.ts",

@@ -162,6 +162,7 @@ describe('package export contracts', () => {
       'toc-compatibility',
       'advanced-cms-contract',
       'advanced-cms-import',
+      'advanced-cms-exchange',
       'testing-only-provider-fixture',
       'testing-only-provider-contract',
       'markdown-transformer-extension',
@@ -294,6 +295,25 @@ describe('package export contracts', () => {
     expect(contractModule.runSaasProviderFixtureContractSuite).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyContractTest).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyFixtureSelfTest).toBeTypeOf('function')
+  })
+
+  test('built CMS import and exchange exports load as Node ESM', async () => {
+    const [cmsImport, cmsExchange] = await Promise.all([
+      import('@lupinum/ginko-content/cms-import'),
+      import('@lupinum/ginko-content/cms-exchange'),
+    ])
+
+    expect(cmsImport.parseCmsImportFile).toBeTypeOf('function')
+    expect(cmsImport.buildCmsImportGraph).toBeTypeOf('function')
+    expect(cmsExchange.parseCmsImportFile).toBe(cmsImport.parseCmsImportFile)
+    expect(cmsExchange.buildCmsImportGraph).toBe(cmsImport.buildCmsImportGraph)
+    expect(cmsExchange.createCmsExchangeImportPlan).toBeTypeOf('function')
+    expect(cmsExchange.createCmsFilesystemImportPlan).toBe(cmsExchange.createCmsExchangeImportPlan)
+    expect(cmsExchange.readCmsExchangeFilesFromDirectory).toBeTypeOf('function')
+    expect(cmsExchange.renderCmsExchangeFile).toBeTypeOf('function')
+    expect(cmsExchange.renderCmsExchangeManifest).toBeTypeOf('function')
+    expect(cmsExchange.resolveCmsExportPath).toBeTypeOf('function')
+    expect(cmsExchange.scanCmsAssetReferences).toBeTypeOf('function')
   })
 
   test('public export files keep Node ESM relative specifiers explicit', async () => {

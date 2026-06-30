@@ -37,7 +37,7 @@ const collectImports = async (directories: string[]) => {
 
 describe('architecture boundary contracts', () => {
   test('runtime-neutral library layers do not import Nuxt, Nitro, Vue, H3, or app/runtime/module code', async () => {
-    const imports = await collectImports(['core', 'features', 'cms-contract', 'cms-import'])
+    const imports = await collectImports(['core', 'features', 'cms-contract', 'cms-import', 'cms-exchange'])
     const forbidden = imports.filter(({ specifier }) =>
       /^(@nuxt|nuxt|nitro|h3|vue|@vue|#)/.test(specifier) ||
       /^(\.\.\/)+(runtime|module|integrations|public|cli)(\/|$)/.test(specifier)
