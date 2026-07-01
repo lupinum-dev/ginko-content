@@ -43,6 +43,11 @@
       "import": "./dist/public/server.js",
       "default": "./dist/public/server.js"
     },
+    "./provider": {
+      "types": "./dist/public/provider.d.ts",
+      "import": "./dist/public/provider.js",
+      "default": "./dist/public/provider.js"
+    },
     "./client": {
       "types": "./dist/public/client.d.ts",
       "import": "./dist/public/client.js",

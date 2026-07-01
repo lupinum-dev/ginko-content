@@ -15,6 +15,11 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "./provider": {
+      "category": "server-runtime-and-provider-author",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "./client": {
       "category": "app-runtime",
       "audience": "app-developer",

@@ -19,6 +19,8 @@ import type { ContentProviderSearchRequest, ContentSearchResult } from '../types
 import type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
 
 export type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
+export { createContentProviderError } from './provider-errors'
+export type { ContentProviderErrorCode } from './provider-errors'
 
 export const contentProviderResultMarker = '__ginkoContentProviderResult'
 
