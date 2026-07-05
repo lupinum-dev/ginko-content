@@ -1,7 +1,9 @@
 import { prefixStorage, type Storage } from 'unstorage'
 import type { H3Event } from 'h3'
 import { useStorage } from 'nitropack/runtime'
+import authoredContentConfig from '#content/virtual/config'
 import { makeIgnored } from '../../core/content/ignore'
+import type { ContentCollectionConfig, ContentConfig } from '../../types/config'
 import { getContentRuntimeContext } from './context'
 import { getPreview, isPreview } from './preview'
 import { getContentRuntimeConfig } from './runtime-config'
@@ -43,8 +45,29 @@ export const cacheParsedStorage = (event?: H3Event) => {
   return createScopedStorage('cache:content:parsed')
 }
 
+const liveCollections = ((authoredContentConfig as ContentConfig | undefined)?.collections || {}) as Record<string, ContentCollectionConfig>
+
 export const contentConfig = () => {
-  return getContentRuntimeConfig().content
+  const runtimeContent = getContentRuntimeConfig().content
+  const runtimeCollections = runtimeContent.collections as Record<string, Record<string, unknown>> | undefined
+  if (!runtimeCollections) {
+    return runtimeContent
+  }
+
+  let hasLiveSchemas = false
+  const collections = Object.fromEntries(Object.entries(runtimeCollections).map(([name, collection]) => {
+    const schema = liveCollections[name]?.schema
+    if (!schema) {
+      return [name, collection]
+    }
+
+    hasLiveSchemas = true
+    return [name, { ...collection, schema }]
+  }))
+
+  return hasLiveSchemas
+    ? { ...runtimeContent, collections }
+    : runtimeContent
 }
 
 export const contentIgnorePredicate = (key: string) => {

@@ -14,9 +14,6 @@ const runtimeContent = {
       i18n: {
         defaultLocale: 'en',
         locales: ['en', 'de']
-      },
-      schema: {
-        safeParse: schemaSafeParse
       }
     }
   }
@@ -30,6 +27,18 @@ const previewState = {
 
 vi.mock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
   getContentRuntimeConfig: () => ({ content: runtimeContent })
+}))
+
+vi.mock('#content/virtual/config', () => ({
+  default: {
+    collections: {
+      docs: {
+        schema: {
+          safeParse: schemaSafeParse
+        }
+      }
+    }
+  }
 }))
 
 vi.mock('unstorage', () => ({

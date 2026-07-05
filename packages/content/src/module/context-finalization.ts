@@ -64,12 +64,9 @@ export const registerContentContextFinalization = ({
       return [name, runtimeCollection, collection] as const
     })
     const runtimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection]) => [name, runtimeCollection]))
-    const privateRuntimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection, collection]) => [
+    const privateRuntimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection]) => [
       name,
-      {
-        ...runtimeCollection,
-        ...(nuxt.options.dev && collection.schema ? { schema: collection.schema } : {})
-      }
+      runtimeCollection
     ]))
     const cacheIntegrity = hash({
       locales: resolvedContentContext.locales,

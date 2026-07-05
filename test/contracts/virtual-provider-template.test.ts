@@ -47,7 +47,7 @@ describe('virtual provider template contract', () => {
     }
   })
 
-  test('does not import the raw content config at runtime', () => {
+  test('generates a virtual config import for the authored content config', () => {
     const { addTemplate, templates } = createAddTemplate()
 
     createVirtualContentTemplates(
@@ -62,10 +62,11 @@ describe('virtual provider template contract', () => {
 
     const contents = templates.get('content/virtual-config.mjs')?.()
 
-    expect(contents).toBe('export default {}')
-    expect(contents).not.toContain('content.config.ts')
+    expect(contents).toBe([
+      'import config from "/workspace/app/content.config.ts"',
+      'export default config'
+    ].join('\n'))
     expect(contents).not.toContain('jiti')
-    expect(contents).not.toContain('import config from')
   })
 
   test('keeps the virtual config inert when no content config exists', () => {

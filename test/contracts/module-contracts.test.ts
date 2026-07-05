@@ -277,7 +277,7 @@ describe('module contracts', () => {
     )
   })
 
-  test('serializes derived collection relation metadata into runtime config', async () => {
+  test('serializes derived collection relation metadata without live schemas in runtime config', async () => {
     const { nuxt, hooks } = createNuxt()
     nuxt.options.dev = true
 
@@ -322,14 +322,18 @@ describe('module contracts', () => {
       }),
       expect.objectContaining({
         posts: expect.objectContaining({
-          schema: expect.objectContaining({
-            safeParse: expect.any(Function)
-          })
+          source: 'posts/*.md',
+          references: {
+            authors: ['authors']
+          }
         })
       }),
       undefined,
       expect.anything()
     )
+
+    const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    expect(privateCollections.posts).not.toHaveProperty('schema')
   })
 
   test('fails loudly when cms provider is selected without the CMS module registration', async () => {

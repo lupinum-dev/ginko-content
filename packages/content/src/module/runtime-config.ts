@@ -178,7 +178,7 @@ export const applyContentRuntimeConfig = async (
   contentContext: ResolvedContentContext,
   appContentConfig: Pick<ContentConfig, 'agent'>,
   runtimeCollections: Record<string, RuntimeCollectionConfig>,
-  privateRuntimeCollections: Record<string, RuntimeCollectionConfig & Pick<ContentCollectionConfig, 'schema'>>,
+  privateRuntimeCollections: Record<string, RuntimeCollectionConfig>,
   buildIntegrity: number | undefined,
   cacheIntegrity: string
 ) => {
