@@ -63,7 +63,7 @@ Ginko optimizes for:
 
 - fast installation with no native database dependency
 - explicit collection-backed querying
-- route-aware page loading through `useContentOne(handle, { by: { route } })`
+- route-aware page loading through `useContentPage`
 - typed content through Zod-backed collections
 - coherent multilingual content with fallback and translated-slug support
 - search that works for generated and server-rendered sites

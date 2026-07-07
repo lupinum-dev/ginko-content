@@ -76,7 +76,7 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 > Mark tasks as you complete them. Never delete entries. Add deviations at the bottom.
 
 ```
-Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: this commit)  [ ] T1.3  [ ] T1.4  [ ] T1.5
+Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: this commit)  [ ] T1.4  [ ] T1.5
 Phase 2: [ ] T2.1  [ ] T2.2  [ ] T2.3  [ ] T2.4  [ ] T2.5
 Phase 3: [ ] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
 Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3

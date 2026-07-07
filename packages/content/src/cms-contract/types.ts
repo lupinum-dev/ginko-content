@@ -112,9 +112,9 @@ export interface CmsFieldContract {
  * shipped alongside the contract. The CMS reads the checksum to verify the
  * artifact it holds matches the contract it imported.
  *
- * Keeping the artifact behind a ref (rather than embedding it inline) lets the
- * CMS drop the artifact when it doesn't need publish validation (e.g. for a
- * code-only data collection).
+ * The artifact bytes are embedded so a contract consumer can validate content
+ * without fetching a second artifact, while `artifactId` and `checksum` keep the
+ * embedded payload identifiable and verifiable.
  */
 export interface CmsSchemaArtifactRef {
   /** Stable id used to look up the artifact in the artifact registry. */

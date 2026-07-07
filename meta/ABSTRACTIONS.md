@@ -145,13 +145,6 @@ Ginko produces content-backed sitemap entries. `@nuxtjs/sitemap` owns XML genera
 
 ## Public Surface
 
-The committed surface includes:
-
-- `@lupinum/ginko-content`
-- `@lupinum/ginko-content/config`
-- `@lupinum/ginko-content/client`
-- `@lupinum/ginko-content/server`
-- `@lupinum/ginko-content/toc`
-- `@lupinum/ginko-content/transformers`
-
-Everything else is internal unless it is explicitly documented as public.
+`meta/public-surface.json` is the single source of truth for committed package
+subpaths and exported symbols; everything else is internal unless that file
+documents it as public.
