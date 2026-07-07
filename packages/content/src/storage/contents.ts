@@ -10,8 +10,8 @@ import { contentConfig, contentIgnorePredicate, getContentStorageRuntime, getCon
 import { getProcessDocuments } from './snapshot-runtime'
 import { validateContentGraph } from './validation'
 
-const isProduction = process.env.NODE_ENV === 'production'
 const isPrerendering = import.meta.prerender
+const usesProcessSnapshot = process.env.NODE_ENV === 'production' && !isPrerendering
 const shouldValidateAtRuntime = import.meta.dev || isPrerendering
 
 const isContentCacheArtifact = (value: unknown): value is ContentCacheArtifact<ParsedContent[]> => {
@@ -116,7 +116,7 @@ const snapshotDocumentsFor = async (event: H3Event, prefix?: string) => {
 }
 
 export const getContentsList = (event: H3Event, prefix?: string) => {
-  if (isProduction && !isPrerendering) {
+  if (usesProcessSnapshot) {
     return snapshotDocumentsFor(event, prefix)
   }
 
@@ -133,23 +133,21 @@ export const getContentsList = (event: H3Event, prefix?: string) => {
 
   return memoizeRuntimeValue(event, `contents:${cacheKey}`, async () => {
     const cached = getCachedContents(event, cacheKey)
-    if ((isPrerendering || !isProduction) && cached?.length) {
+    if (cached?.length) {
       return cached
-  }
-
-  return await cacheStoreFor(event).inflightContentsList.run(cacheKey, async () => {
-    const result = await loadContents(event, prefix)
-    if (isPrerendering || !isProduction) {
-      setCachedContents(event, cacheKey, result)
     }
-    return result
-  })
+
+    return await cacheStoreFor(event).inflightContentsList.run(cacheKey, async () => {
+      const result = await loadContents(event, prefix)
+      setCachedContents(event, cacheKey, result)
+      return result
+    })
   })
 }
 
 export const getContent = async (event: H3Event, id: string): Promise<ParsedContent> => {
   const { sourceId, locale } = splitInlineLocaleVariantId(id)
-  const parsed = isProduction && !isPrerendering
+  const parsed = usesProcessSnapshot
     ? (await getProcessDocuments(event)).filter(document => splitInlineLocaleVariantId(document._id).sourceId === sourceId)
     : await loadContentVariants(event, sourceId)
   if (!locale) {

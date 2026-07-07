@@ -6,11 +6,11 @@ import { contentConfig } from './driver'
 import { getContentsList } from './contents'
 import { getProcessGraph } from './snapshot-runtime'
 
-const isProduction = process.env.NODE_ENV === 'production'
 const isPrerendering = import.meta.prerender
+const usesProcessSnapshot = process.env.NODE_ENV === 'production' && !isPrerendering
 
 export const getContentGraph = async (event: H3Event): Promise<ContentGraph> => {
-  if (isProduction && !isPrerendering) {
+  if (usesProcessSnapshot) {
     return getProcessGraph(event)
   }
 
