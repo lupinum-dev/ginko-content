@@ -77,8 +77,8 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 
 ```
 Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
-Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: 59d833a)  [x] T2.3 (commit: 1be1303)  [x] T2.4 (commit: c386bc2)  [x] T2.5 (commit: this commit)
-Phase 3: [ ] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
+Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: 59d833a)  [x] T2.3 (commit: 1be1303)  [x] T2.4 (commit: c386bc2)  [x] T2.5 (commit: 1091db4)
+Phase 3: [BLOCKED: CS-6 assumes `_path` and `path` are semantically identical, but localized result shaping uses `_path`/`canonicalPath` for the canonical content path and `path` for the locale-projected public route; reviewer decision needed before the hard cutover.] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
 Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3
 Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6
 Phase 6: [ ] T6.1  [ ] T6.2  [ ] T6.3
@@ -91,6 +91,7 @@ Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
 - T2.1: CS-1's sample implementation set `documentSourceIds` from `args.sourceIds`, which would make CS-4's `sourceIds ⊆ snapshot.documentSourceIds` assertion unable to catch skipped documents. The implementation keeps the stated CS-4 invariant by deriving `documentSourceIds` from the documents actually present in the snapshot.
 - T2.3: STOP check `git grep -n getContentGraph` found no provider callers. Callers were runtime query execution plus storage helpers (`storage/content.ts`, `storage/manifest.ts`, `storage/graph.ts`), so the filesystem-provider boundary assumption held.
 - T2.4: `_nav.json` still has a reader in `runtime/server/navigation-query.ts`, so the cache route keeps writing it. `git grep -n "isProduction" packages/content/src/storage packages/content/src/integrations` is empty after removing the dead forks.
+- T3.1: STOP condition triggered before code changes. CS-6 says `_path` should be removed because it is already `path`, but `packages/content/src/features/localization/results.ts:96-105`, `:160-167`, and `:192-197` derive `canonicalPath`/`_path` from canonical content paths while `path` is projected through `projectContentPathToLocale(...)`. `packages/content/src/features/navigation/canonical.ts:220-227` has the same split when `options.canonical` is false. Treating these as identical would collapse canonical content identity and localized public routing into one field.
 
 ---
 
