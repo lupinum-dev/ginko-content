@@ -76,7 +76,7 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 > Mark tasks as you complete them. Never delete entries. Add deviations at the bottom.
 
 ```
-Phase 1: [ ] T1.1  [ ] T1.2  [ ] T1.3  [ ] T1.4  [ ] T1.5
+Phase 1: [x] T1.1 (commit: this commit)  [ ] T1.2  [ ] T1.3  [ ] T1.4  [ ] T1.5
 Phase 2: [ ] T2.1  [ ] T2.2  [ ] T2.3  [ ] T2.4  [ ] T2.5
 Phase 3: [ ] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
 Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3
@@ -86,7 +86,7 @@ Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
 ```
 
 **Deviations / discoveries:**
-- (none yet)
+- T1.1: `pnpm -r typecheck` is red before `pnpm test` in `examples/advanced/cms-cache-contract`, where Nuxt typecheck reports missing `setResponseStatus` and `useContentPage` exports from `#imports` for `packages/content/src/runtime/app/pages/content.vue`. The generated example `.nuxt/imports.d.ts` does contain both symbols. Used the §3 gate alternative `pnpm typecheck && pnpm test`, which passed.
 
 ---
 

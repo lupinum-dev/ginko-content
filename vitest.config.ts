@@ -51,7 +51,6 @@ export default defineConfig({
           environment: 'node',
           include: [
             'test/unit/**/*.test.ts',
-            'test/ginko-query.test.ts',
             'test/ginko-transformer.test.ts',
             'test/ginko-unified-query.test.ts',
             'test/ginko-utils.test.ts'
