@@ -95,7 +95,8 @@
   "scripts": {
     "build": "nuxt-module-build build && pnpm build:web-types",
     "build:web-types": "vue-docgen-web-types src/runtime/app/components/ ./dist/web-types.json",
-    "prepack": "pnpm run build"
+    "prepack": "pnpm run build",
+    "prepublishOnly": "node ../../scripts/preflight-release.mjs"
   },
   "dependencies": {
     "@comark/vue": "^0.4.0",

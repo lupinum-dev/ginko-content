@@ -8,6 +8,23 @@
   migration/export flows now live outside this package; `./cms-contract` and
   `./cms-import` remain the supported CMS-facing surfaces.
 
+## v0.1.7
+
+### Added
+
+- Added the experimental `./cms-exchange` CMS exchange helpers for filesystem
+  import planning, asset reference scanning, and rendered export manifests.
+- Added the `./provider` package subpath for provider authors.
+
+### Changed
+
+- Restored legacy root package entry fields used by package consumers.
+- Hardened the release audit dependency setup.
+
+### Fixed
+
+- Ignored managed asset schemes in the CMS exchange asset scanner.
+
 ## v0.1.6
 
 ### Fixed
