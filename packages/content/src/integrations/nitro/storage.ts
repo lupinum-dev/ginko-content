@@ -85,16 +85,8 @@ export const contentIgnorePredicate = (key: string) => {
 }
 
 export const getContentsIds = async (event: H3Event, prefix?: string) => {
-  let keys: string[] = []
-
-  if (process.env.NODE_ENV === 'production') {
-    keys = await cacheParsedStorage(event).getKeys(prefix)
-  }
-
   const source = sourceStorage(event)
-  if (keys.length === 0) {
-    keys = await source.getKeys(prefix)
-  }
+  let keys = await source.getKeys(prefix)
 
   if (isPreview(event)) {
     const { key } = getPreview(event)

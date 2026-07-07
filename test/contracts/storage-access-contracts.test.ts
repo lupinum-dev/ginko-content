@@ -4,6 +4,7 @@ const schemaSafeParse = vi.hoisted(() => vi.fn(() => ({ success: true, data: {} 
 
 const runtimeContent = {
   ignores: ['\\.tmp$'],
+  cacheIntegrity: 'integrity',
   collections: {
     docs: {
       source: '*.md',
@@ -146,7 +147,7 @@ describe('storage access contracts', () => {
     }))
   })
 
-  test('getContentsList serves bundled parsed artifacts directly in production runtime', async () => {
+  test('getContentsList serves the production snapshot instead of parsed artifacts', async () => {
     process.env.NODE_ENV = 'production'
     schemaSafeParse.mockReturnValue({
       success: false,
@@ -158,9 +159,21 @@ describe('storage access contracts', () => {
       parsed: [{
         _id: 'content:intro.md',
         _path: '/intro',
-        title: 'Bundled Intro'
+        title: 'Old Parsed Intro'
       }],
       hash: 'bundled-hash'
+    })
+    storageState.set('cache:content:snapshot.json', {
+      version: 1,
+      integrity: 'integrity',
+      generatedAt: 1,
+      documentIds: ['content:intro.md'],
+      documentSourceIds: ['content:intro.md'],
+      documents: [{
+        _id: 'content:intro.md',
+        _path: '/intro',
+        title: 'Snapshot Intro'
+      }]
     })
     storageState.set('content:source:content:intro.md', {
       _meta: { mtime: 1, size: 12 },
@@ -173,10 +186,40 @@ describe('storage access contracts', () => {
       expect.objectContaining({
         _id: 'content:intro.md',
         _path: '/intro',
-        title: 'Bundled Intro'
+        title: 'Snapshot Intro'
       })
     ])
     expect(schemaSafeParse).not.toHaveBeenCalled()
+  })
+
+  test('getContentsIds serves production ids from the snapshot', async () => {
+    process.env.NODE_ENV = 'production'
+    storageState.set('cache:content:snapshot.json', {
+      version: 1,
+      integrity: 'integrity',
+      generatedAt: 1,
+      documentIds: [
+        'content:guide:intro.md',
+        'content:guide:intro.md#__locale=de',
+        'content:blog:hello.md'
+      ],
+      documentSourceIds: [
+        'content:blog:hello.md',
+        'content:guide:intro.md'
+      ],
+      documents: [
+        { _id: 'content:guide:intro.md', _path: '/guide/intro' },
+        { _id: 'content:guide:intro.md#__locale=de', _path: '/de/guide/intro' },
+        { _id: 'content:blog:hello.md', _path: '/blog/hello' }
+      ]
+    })
+    storageState.set('content:source:content:guide:stale.md', { _meta: {} })
+
+    const { getContentsIds } = await import('../../packages/content/src/runtime/server/storage-access')
+
+    await expect(getContentsIds({} as any, 'content:guide:')).resolves.toEqual([
+      'content:guide:intro.md'
+    ])
   })
 
   test('getContentsIds merges preview overrides and deletions', async () => {

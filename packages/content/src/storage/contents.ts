@@ -7,6 +7,7 @@ import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { parseContentVariants } from '../integrations/nitro/ingest'
 import { cacheStoreFor, getCachedContents, setCachedContents } from './cache'
 import { contentConfig, contentIgnorePredicate, getContentStorageRuntime, getContentsIds, resolveStorageId } from './driver'
+import { getProcessDocuments } from './snapshot-runtime'
 import { validateContentGraph } from './validation'
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -30,9 +31,8 @@ export function* chunksFromArray<T> (arr: T[], n: number): Generator<T[], void> 
  * Load every locale variant for a single content id.
  *
  * Cache strategy:
- *  1. Production serves an existing parsed artifact immediately.
- *  2. Dev/prerender validate source metadata before reusing an artifact.
- *  3. Concurrent misses for the same `(storageId, hash)` share one parse.
+ *  1. Dev/prerender validate source metadata before reusing an artifact.
+ *  2. Concurrent misses for the same `(storageId, hash)` share one parse.
  */
 export const loadContentVariants = async (event: H3Event, id: string): Promise<ParsedContent[]> => {
   const runtime = getContentStorageRuntime(event)
@@ -45,9 +45,6 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
   const storageId = await resolveStorageId(event, contentId)
   const cachedValue = await runtime.parsedCache.getItem<unknown>(storageId)
   const cached = isContentCacheArtifact(cachedValue) ? cachedValue : null
-  if (isProduction && !isPrerendering && cached) {
-    return cached.parsed as ParsedContent[]
-  }
 
   const meta = await runtime.source.getMeta(storageId)
   const hash = ohash({
@@ -106,7 +103,23 @@ const loadContents = async (event: H3Event, prefix?: string) => {
   return filtered
 }
 
+const snapshotDocumentsFor = async (event: H3Event, prefix?: string) => {
+  const documents = await getProcessDocuments(event)
+  if (!prefix) {
+    return documents
+  }
+
+  return documents.filter((document) => {
+    const { sourceId } = splitInlineLocaleVariantId(document._id)
+    return sourceId.startsWith(prefix)
+  })
+}
+
 export const getContentsList = (event: H3Event, prefix?: string) => {
+  if (isProduction && !isPrerendering) {
+    return snapshotDocumentsFor(event, prefix)
+  }
+
   const runtime = getContentStorageRuntime(event)
   const cacheKey = JSON.stringify({
     prefix,
@@ -136,7 +149,9 @@ export const getContentsList = (event: H3Event, prefix?: string) => {
 
 export const getContent = async (event: H3Event, id: string): Promise<ParsedContent> => {
   const { sourceId, locale } = splitInlineLocaleVariantId(id)
-  const parsed = await loadContentVariants(event, sourceId)
+  const parsed = isProduction && !isPrerendering
+    ? (await getProcessDocuments(event)).filter(document => splitInlineLocaleVariantId(document._id).sourceId === sourceId)
+    : await loadContentVariants(event, sourceId)
   if (!locale) {
     return parsed[0] as ParsedContent
   }
