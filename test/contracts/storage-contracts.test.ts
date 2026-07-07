@@ -198,8 +198,7 @@ describe('storage contracts', () => {
   test('cached parsed artifacts bypass reparsing until the hash changes', async () => {
     parsedCacheState.set('content:guide:intro.md', {
       hash: ohash({
-        mtime: 1,
-        size: 10,
+        body: ohash('# Intro'),
         version: runtimeContent.cacheVersion,
         integrity: runtimeContent.cacheIntegrity,
         collections: runtimeContent.collections,
@@ -228,8 +227,7 @@ describe('storage contracts', () => {
   test('cached parsed artifacts reparse when collection config changes', async () => {
     parsedCacheState.set('content:guide:intro.md', {
       hash: ohash({
-        mtime: 1,
-        size: 10,
+        body: ohash('# Intro'),
         version: runtimeContent.cacheVersion,
         integrity: runtimeContent.cacheIntegrity,
         collections: {},
@@ -249,6 +247,32 @@ describe('storage contracts', () => {
     await getContent(createEvent(), 'content:guide:intro.md')
 
     expect(parseVariants).toHaveBeenCalledTimes(1)
+  })
+
+  test('cached parsed artifacts reparse when same-size source content changes', async () => {
+    sourceItems.set('content:guide:intro.md', '# One')
+    sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 5 })
+    parseVariants.mockImplementation(async (_id: string, body: string) => [
+      doc({
+        _id: 'content:guide:intro.md',
+        _file: '/guide/intro.md',
+        _path: '/guide/intro',
+        title: body
+      })
+    ])
+    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+
+    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+      title: '# One'
+    })
+
+    sourceItems.set('content:guide:intro.md', '# Two')
+    sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 5 })
+
+    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+      title: '# Two'
+    })
+    expect(parseVariants).toHaveBeenCalledTimes(2)
   })
 
   test('malformed parsed cache artifacts are ignored and replaced', async () => {

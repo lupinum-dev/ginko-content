@@ -45,11 +45,13 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
   const storageId = await resolveStorageId(event, contentId)
   const cachedValue = await runtime.parsedCache.getItem<unknown>(storageId)
   const cached = isContentCacheArtifact(cachedValue) ? cachedValue : null
+  const body = await runtime.source.getItem(storageId)
+  if (body === null) {
+    return [{ _id: contentId, body: null } as ParsedContent]
+  }
 
-  const meta = await runtime.source.getMeta(storageId)
   const hash = ohash({
-    mtime: meta.mtime,
-    size: meta.size || 0,
+    body: ohash(body),
     version: runtime.config.cacheVersion,
     integrity: runtime.config.cacheIntegrity,
     collections: runtime.config.collections,
@@ -64,11 +66,6 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
   }
 
   return cacheStoreFor(event).inflightContents.run(`${storageId}${hash}`, async () => {
-    const body = await runtime.source.getItem(storageId)
-    if (body === null) {
-      return [{ _id: contentId, body: null } as ParsedContent]
-    }
-
     const parsed = await parseContentVariants(contentId, body, config, { validate: true }) as ParsedContent[]
 
     try {
