@@ -77,7 +77,7 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 
 ```
 Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
-Phase 2: [x] T2.1 (commit: this commit)  [ ] T2.2  [ ] T2.3  [ ] T2.4  [ ] T2.5
+Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: this commit)  [ ] T2.3  [ ] T2.4  [ ] T2.5
 Phase 3: [ ] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
 Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3
 Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6

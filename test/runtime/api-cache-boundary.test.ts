@@ -85,4 +85,28 @@ describe('runtime cache API boundary', () => {
       navigation
     }))
   })
+
+  test('cache API fails before persisting when the snapshot is missing a source document', async () => {
+    const document = {
+      _id: 'content:docs:intro.md',
+      _path: '/docs/intro',
+      body: { type: 'root', children: [] }
+    }
+    mocks.getSourceContentIds.mockResolvedValue([
+      'content:docs:intro.md',
+      'content:docs/missing.md'
+    ])
+    mocks.loadContentVariants.mockImplementation(async (_event, id: string) =>
+      id === 'content:docs:intro.md' ? [document] : []
+    )
+    const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
+    const event = createTestEvent()
+
+    await expect(handler(event)).rejects.toThrow('content:docs/missing.md')
+
+    expect(mocks.getContentProvider).not.toHaveBeenCalled()
+    expect(mocks.setItem).not.toHaveBeenCalledWith('snapshot.json', expect.anything())
+    expect(mocks.setItem).not.toHaveBeenCalledWith('_nav.json', expect.anything())
+    expect(mocks.setItem).not.toHaveBeenCalledWith('_meta.json', expect.anything())
+  })
 })
