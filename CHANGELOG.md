@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed
+
+- Removed the experimental `./cms-exchange` subpath, source, and tests. CMS
+  migration/export flows now live outside this package; `./cms-contract` and
+  `./cms-import` remain the supported CMS-facing surfaces.
+
 ## v0.1.6
 
 ### Fixed

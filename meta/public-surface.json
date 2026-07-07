@@ -40,11 +40,6 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "./cms-exchange": {
-      "category": "advanced-cms-exchange",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
     "./testing/provider-fixture": {
       "category": "testing-only-provider-fixture",
       "audience": "test-author",
