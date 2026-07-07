@@ -34,7 +34,7 @@ export function* chunksFromArray<T> (arr: T[], n: number): Generator<T[], void> 
  *  2. Dev/prerender validate source metadata before reusing an artifact.
  *  3. Concurrent misses for the same `(storageId, hash)` share one parse.
  */
-const loadContentVariants = async (event: H3Event, id: string): Promise<ParsedContent[]> => {
+export const loadContentVariants = async (event: H3Event, id: string): Promise<ParsedContent[]> => {
   const runtime = getContentStorageRuntime(event)
   const config = contentConfig()
   const { sourceId: contentId } = splitInlineLocaleVariantId(id)

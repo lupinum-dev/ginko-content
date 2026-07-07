@@ -76,8 +76,8 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 > Mark tasks as you complete them. Never delete entries. Add deviations at the bottom.
 
 ```
-Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: this commit)
-Phase 2: [ ] T2.1  [ ] T2.2  [ ] T2.3  [ ] T2.4  [ ] T2.5
+Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
+Phase 2: [x] T2.1 (commit: this commit)  [ ] T2.2  [ ] T2.3  [ ] T2.4  [ ] T2.5
 Phase 3: [ ] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
 Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3
 Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6
@@ -88,6 +88,7 @@ Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
 **Deviations / discoveries:**
 - T1.1: `pnpm -r typecheck` is red before `pnpm test` in `examples/advanced/cms-cache-contract`, where Nuxt typecheck reports missing `setResponseStatus` and `useContentPage` exports from `#imports` for `packages/content/src/runtime/app/pages/content.vue`. The generated example `.nuxt/imports.d.ts` does contain both symbols. Used the §3 gate alternative `pnpm typecheck && pnpm test`, which passed.
 - T1.4: `npm view @lupinum/ginko-content@0.1.7 version gitHead --json` returned `E404`, so no published `gitHead` was available. The local annotated `v0.1.7` tag was created on `7de6c63`, the commit that first set `packages/content` to version `0.1.7`.
+- T2.1: CS-1's sample implementation set `documentSourceIds` from `args.sourceIds`, which would make CS-4's `sourceIds ⊆ snapshot.documentSourceIds` assertion unable to catch skipped documents. The implementation keeps the stated CS-4 invariant by deriving `documentSourceIds` from the documents actually present in the snapshot.
 
 ---
 

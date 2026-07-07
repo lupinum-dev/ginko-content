@@ -122,6 +122,11 @@ export const getContentsIds = async (event: H3Event, prefix?: string) => {
   return keys.filter(contentIgnorePredicate)
 }
 
+export const getSourceContentIds = async (event: H3Event, prefix?: string) => {
+  const keys = await sourceStorage(event).getKeys(prefix)
+  return keys.filter(contentIgnorePredicate)
+}
+
 export const resolveStorageId = async (event: H3Event, id: string) => {
   if (!isPreview(event)) {
     return id
