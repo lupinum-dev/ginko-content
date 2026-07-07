@@ -78,7 +78,7 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 ```
 Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
 Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: 59d833a)  [x] T2.3 (commit: 1be1303)  [x] T2.4 (commit: c386bc2)  [x] T2.5 (commit: 1091db4)
-Phase 3: [BLOCKED: CS-6 assumes `_path` and `path` are semantically identical, but localized result shaping uses `_path`/`canonicalPath` for the canonical content path and `path` for the locale-projected public route; reviewer decision needed before the hard cutover.] T3.1  [ ] T3.2  [ ] T3.3  [ ] T3.4
+Phase 3: [ ] T3.1 (UNBLOCKED 2026-07-07 — reviewer decision recorded below; CS-6 fully rewritten, re-read it before starting)  [ ] T3.2  [ ] T3.3  [ ] T3.4
 Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3
 Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6
 Phase 6: [ ] T6.1  [ ] T6.2  [ ] T6.3
@@ -92,6 +92,9 @@ Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
 - T2.3: STOP check `git grep -n getContentGraph` found no provider callers. Callers were runtime query execution plus storage helpers (`storage/content.ts`, `storage/manifest.ts`, `storage/graph.ts`), so the filesystem-provider boundary assumption held.
 - T2.4: `_nav.json` still has a reader in `runtime/server/navigation-query.ts`, so the cache route keeps writing it. `git grep -n "isProduction" packages/content/src/storage packages/content/src/integrations` is empty after removing the dead forks.
 - T3.1: STOP condition triggered before code changes. CS-6 says `_path` should be removed because it is already `path`, but `packages/content/src/features/localization/results.ts:96-105`, `:160-167`, and `:192-197` derive `canonicalPath`/`_path` from canonical content paths while `path` is projected through `projectContentPathToLocale(...)`. `packages/content/src/features/navigation/canonical.ts:220-227` has the same split when `options.canonical` is false. Treating these as identical would collapse canonical content identity and localized public routing into one field.
+- **REVIEWER DECISION (2026-07-07), resolving the T3.1 block.** The finding is confirmed and CS-6 was wrong twice over: (a) `_path` and `path` are distinct concepts, and (b) `_canonicalKey` (from `parsers/path-meta.ts:17`, `generateCanonicalKey` — de-localized under translated slugs) must not be internal-only, because it is already exposed in public results/nav payloads and providers must emit it. Decisions: **(1)** the envelope carries BOTH `path` (the route this variant serves at — locale-projected in shaped results) and `canonicalPath` (locale-agnostic canonical identity — the value of today's `_canonicalKey`); **(2)** the shaping code's `canonicalPath`-from-`_path` derivations are re-pointed at the document's `canonicalPath`; if the i18n/translated-slugs fixtures show a value difference between old `_path`-derived and `_canonicalKey`-derived canonical paths, STOP again and report the differing fixture; **(3)** provider-facing and public result shapes DO expose `canonicalPath` (this supersedes ADR-0006's "internal only" stance — record an ADR addendum in T4.3); the internal graph field `canonicalKey` is renamed to `canonicalPath` everywhere — one concept, one name. CS-6 has been rewritten with the complete four-bucket field map (the original table missed ~10 fields: `_dir`, `_draft`, `_partial`, `_navigation`, `_stem`, `_basename`, `_fallback`, `_empty`, `_requestedLocale`, `_resolvedLocale`, `_availableLocales`, `_variantPaths`, …). T3.1 acceptance grep updated accordingly.
+- **REVIEWER (2026-07-07), Phase-2 post-review fixes applied directly by the reviewer** (commit follows this note): (a) `findNonJsonValue` used ever-visited `WeakSet` semantics, falsely flagging shared non-circular references (valid JSON) — switched to ancestor-stack semantics + regression tests; (b) `buildContentSnapshot` round-tripped even flagged documents, so circular input threw a raw `TypeError` before the aggregated `ContentSnapshotError` — flagged documents now skip the round-trip; (c) `usesProcessSnapshot` was defined identically in three files — now exported once from `storage/snapshot-runtime.ts`; (d) the snapshot route now reports per-id exclusion reasons (unreadable vs no-route-path) instead of a generic "incomplete" error. Also verified end-to-end by the reviewer: playground build bundles `snapshot.mjs`; disabling the snapshot write fails the build at `prerender:done` (exit 1).
+- **PROTOCOL NOTE:** commit `dee3893` is labeled `refactor(T3.1): …` but contains only the Status-Log block entry. Status-only commits must use `chore(status): <what>` so task-labeled commits always contain task work.
 
 ---
 
@@ -193,11 +196,12 @@ Self-review checklist before marking any task done:
 **Goal:** delete underscore meta; make `ContentQueryPlan` the only cross-boundary query type; delete `ContentQueryBuilderParams` and friends. This is a **hard cutover** — no aliases, no dual acceptance. Package version becomes `0.2.0` (T7.1). ginko-cms impact is catalogued in §9 — do not fix it from this repo.
 
 ### T3.1 [CORNERSTONE CS-6] Canonical envelope — types first, compiler-driven
-- In `src/types/content.ts`, apply the rename map of CS-6 to `ParsedContent` (and the related result types at ~lines 317-321). Delete every underscore field. Keep `canonicalKey` **internal**: move it to the internal-meta interface (`ParsedContentInternalMeta` or equivalent) and ensure it is stripped from provider-facing/public result shapes.
-- Then chase the compiler: `pnpm typecheck` and fix every error mechanically per the map. Expected blast radius: ~20 src files + tests + `src/testing/provider-fixture.ts` + `examples/advanced/cms-cache-contract/`.
-- The missing-document stub in `src/storage/contents.ts` (`{ _id: contentId, body: null }`) becomes the typed `MissingDocument` from CS-6.
-- **Accept:** typecheck + full tests green; `git grep -nE '\b_(id|path|collection|locale|canonicalKey|type|extension)\b' src/ | grep -v internal-meta` returns nothing (allow a single documented exception if a transformer contract truly needs one — record it).
-- **STOP if:** the blast radius exceeds ~60 files, or frontmatter parsing itself (user files can contain `_draft`-style keys — those are *user data*, not meta; do not rename user frontmatter handling) becomes ambiguous.
+> CS-6 was rewritten on 2026-07-07 (four buckets, `canonicalPath` decision). Re-read it in full before starting. Work in three sub-steps, **one commit each** (`refactor(T3.1a): …` etc.).
+- **T3.1a — Buckets A+B.** In `src/types/content.ts`, define `ContentDocument` with the Bucket-A top-level fields and the Bucket-B nested optional `file` object; rename `_canonicalKey`→`canonicalPath` through the graph/manifest layer too (`core/content/graph.ts`, `parsers/path-meta.ts`). For every `_path` usage, decide per CS-6: stored-document context → `path`; canonical-identity context (`features/localization/results.ts:96-197`, `features/navigation/canonical.ts:220-227`) → `canonicalPath`, re-pointed at the document's `canonicalPath` value rather than deriving from the old `_path`. Then chase the compiler. Expected blast radius: ~35-50 src files + tests + `src/testing/provider-fixture.ts` + `examples/advanced/cms-cache-contract/`.
+- **T3.1b — Bucket C.** Fold the legacy resolution fields into the modern `resolved`/`localePaths`/`variants` envelope; delete every legacy field no code reads after the fold. Bucket D fields move to module-private types in `features/navigation`.
+- **T3.1c — Stub + guard.** `MissingDocument` + shared `isRealDocument` guard (replace the local copy in `runtime/server/api/cache.ts`); the reserved-key dev/build warning + its test.
+- **Accept:** typecheck + full tests green; `git grep -nE "\b_(id|path|collection|locale|canonicalKey|type|extension|source|file|stem|dir|basename|draft|partial|navigation|fallback|empty|requestedLocale|resolvedLocale|availableLocales|variantPaths|requestedPath|requestedRef|requestedRoute|resolvedRefs|navigationPath|navigationKind)\b" packages/content/src/ | grep -v "frontmatter"` returns nothing (documented exceptions recorded in the Status Log); i18n + translated-slugs playground fixtures produce identical route output before/after (compare built `publicDir` route lists).
+- **STOP if:** blast radius exceeds ~80 files; OR the re-pointing in T3.1a produces a *different value* than the old `_path`-derived canonical path in any i18n/translated-slugs fixture (report the fixture and both values); OR frontmatter handling becomes ambiguous (user files can contain underscore keys — user data, never renamed).
 
 ### T3.2 [CORNERSTONE CS-5] Provider wire contract v1
 - Create `src/public/provider-query.ts` with `ContentProviderQuery` per CS-5 (JSON-pure plan envelope). Change `ContentProvider.query`/`navigationQuery` (`src/public/provider.ts:88-90`) to take it. Update the internal call sites that construct provider queries (`src/runtime/server/provider-query.ts` and the providers registry `src/runtime/server/providers/index.ts`) to lower builder params → plan **before** the provider boundary, using the existing `lowerQueryPlan`.
@@ -211,7 +215,7 @@ Self-review checklist before marking any task done:
 - **Accept:** `git grep -n "ContentQueryBuilderParams"` → zero hits; typecheck green.
 
 ### T3.4 Single normalization seam for provider results
-- Create one helper (e.g. `src/runtime/server/provider-result.ts` extension) that takes a provider's raw document and produces the canonical envelope, so third-party providers emit **only** the envelope fields CS-6 marks as provider-required; core derives the rest (`canonicalKey`, resolved variants). Update `examples/advanced/cms-cache-contract/server/cms-provider.ts` to the minimal required set — the example is the de-facto provider tutorial.
+- Create one helper (e.g. `src/runtime/server/provider-result.ts` extension) that takes a provider's raw document and produces the canonical envelope, so third-party providers emit **only** the required fields: `id`, `collection`, `locale`, `path`, `canonicalPath`, `type`, `body` (+ optional `file`); core derives the rest (resolved variants, localePaths). Update `examples/advanced/cms-cache-contract/server/cms-provider.ts` to the minimal required set — the example is the de-facto provider tutorial.
 - **Accept:** provider fixture conformance green with a fixture that emits only the minimal set.
 ---
 
@@ -269,7 +273,7 @@ Self-review checklist before marking any task done:
 
 Phase 3+5 are breaking for ginko-cms. Record here; a separate ginko-cms task list executes them **after** this repo tags `0.2.0`:
 
-1. `packages/cms/src/nuxt-provider.mjs` must implement `ContentProviderQuery` (plan-based) and the new envelope; recommended: rewrite in TS importing `ContentProvider` (review CMS-7 already requires this).
+1. `packages/cms/src/nuxt-provider.mjs` must implement `ContentProviderQuery` (plan-based) and the new envelope — including emitting `canonicalPath` (replaces `_canonicalKey`) and the optional `file` object (omitted for CMS-backed documents); recommended: rewrite in TS importing `ContentProvider` (review CMS-7 already requires this).
 2. `packages/cms/src/module/content-contract.ts` consumes `buildCmsContract` — must pass explicit `cms.type` for tree collections (T5.4 removed the `docs` heuristic) and adopt the `editor` passthrough for layout fields.
 3. ginko-cms CI adds `runProviderContractSuite` (from T5.6) against the packed provider.
 4. Studio's `slugifyUrlSegment` import moves from `/config` to `/cms-contract` (one line, `studio-app/src/lib/slug.ts:1`).
@@ -520,24 +524,46 @@ query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promi
 2. **Fields the old params carried that the plan may not:** before coding, list every property of `ContentQueryBuilderParams` actually **read** by `src/runtime/server/providers/index.ts` and the filesystem provider (`resolveLocale`, `canonical`, `navigationFields`, `first`, `only`, `without`, …). `first/only/without` map to plan `mode`/`projection`. `resolveLocale`/locale envelope maps to the plan's locale-resolution block (it exists — see `plan.ts` after line 66). `navigationFields` does **not** belong in the plan: it configures `navigationQuery`, so give navigation its own small options type (`ContentProviderNavigationOptions { fields?: string[], locale?: … }`) instead of smuggling it through the query. Anything left over that no code reads: delete, don't port.
 3. **Capability validation** now derives the operator list by walking the `FilterExpr` tree (collect `compare` nodes' operators recursively including `and/or/not`) — write that walker once in the registry, with a unit test.
 
-### CS-6 — Envelope rename map (Phase 3)
+### CS-6 — Envelope field map (Phase 3) — REWRITTEN 2026-07-07 after the T3.1 block
 
-Mechanical map — apply to types first, then chase the compiler. `ParsedContent` should end up named `ContentDocument` (keep a `type ParsedContent = ContentDocument` alias **only inside the package** for the duration of Phase 3, delete it in T3.3 — it never ships in 0.2.0).
+> The original CS-6 was wrong: `_path` ≠ `path` (canonical identity vs locale-projected route), `_canonicalKey` must be public, and the table missed ~10 fields. This version is authoritative. Semantics reference: `parsers/path-meta.ts` (where most fields are born) and `features/localization/results.ts:96-197` (where `_path` is rewritten to the canonical path and `path` to the localized route).
 
-| Old (delete) | New | Notes |
+`ParsedContent` ends up named `ContentDocument` (a `type ParsedContent = ContentDocument` alias may exist **inside the package only** during Phase 3; deleted in T3.3; never ships in 0.2.0).
+
+**Bucket A — top-level public envelope (semantic identity; rename `_x` → name shown):**
+
+| Old | New | Notes |
 |---|---|---|
 | `_id` | `id` | Required. Fully-qualified, locale-suffixed id. |
-| `_path` | — (already `path`) | Verify semantics identical before deleting; if `_path` and `path` ever diverge in a code path, STOP and record it. |
 | `_collection` | `collection` | |
 | `_locale` | — (already `locale`) | |
+| `_path` | `path` **or** `canonicalPath` — by context | On stored/parsed documents, `_path` is the variant's own (possibly translated-slug-localized) route path → rename to `path`. In shaped results (`localization/results.ts`, `navigation/canonical.ts`), `_path` was rewritten to carry the canonical path → those write-sites move to `canonicalPath`. Decide per write-site, never by blanket rename. |
+| `_canonicalKey` | `canonicalPath` | **Public.** Locale-agnostic canonical identity (`generateCanonicalKey`). One concept, one name — the internal graph's `canonicalKey` field renames too. Providers must emit it. Supersedes ADR-0006's "internal only" (ADR addendum in T4.3). |
 | `_type` | `type` | Document kind (`markdown`/`yaml`/…). |
-| `_extension` | `extension` | |
-| `_source` (if present) | `source` | Check existence via grep. |
-| `_canonicalKey` | **internal meta only** | Move to the internal-meta type; strip from provider-facing and public result shapes. Public code resolves via graph indexes, per ADR-0006. |
-| `{ _id, body: null }` stub | `MissingDocument` | `interface MissingDocument { id: string, body: null, missing: true }`; loaders return `ContentDocument \| MissingDocument`; filters use `isRealDocument` type guard. |
-| any other `_`-prefixed **meta** field | camel-case equivalent | Enumerate first: `git grep -hoE '"?_[a-z][A-Za-z]+"?\s*[:?]' src/types/ \| sort -u`. |
+| `_draft` | `draft` | Already seeded from user frontmatter `draft` — same word, no collision. |
+| `_partial` | `partial` | |
 
-**The trap:** user frontmatter is passthrough data — a user file may legitimately contain `_draft: true` or any underscore key in its frontmatter. The rename applies to **system meta fields declared in our types**, never to dynamic frontmatter handling. Do not write a generic "strip leading underscore" transform anywhere.
+**Bucket B — file provenance → one nested, optional `file` object** (optional because non-filesystem providers have no file — this also fixes CMS-neutrality of the envelope):
+
+| Old | New |
+|---|---|
+| `_source` | `file.source` |
+| `_file` | `file.path` |
+| `_stem` | `file.stem` |
+| `_dir` | `file.dir` |
+| `_basename` (if on the envelope) | `file.basename` |
+| `_extension` | `file.extension` |
+
+**Bucket C — per-request resolution/shaping meta → fold into the existing modern `resolved` envelope** (ADR-0016 already defines `localePaths`, `variants`, `resolved`; these legacy fields are its pre-history — map each to its modern equivalent, add to the `resolved` object only if no equivalent exists, and delete any that no code reads after the fold):
+`_requestedLocale`, `_resolvedLocale`, `_availableLocales`, `_variantPaths`, `_requestedPath`, `_requestedRef`, `_requestedRoute`, `_resolvedRefs`, `_fallback`, `_empty`.
+
+**Bucket D — internal-only (never on the public envelope):** `_navigation` (is-a-`.navigation.yml`-file marker → internal meta `navigationFile`), `_navigationPath`, `_navigationKind`, `_key`, `_output` — these are `features/navigation` build internals; keep them module-private there (typed locally), not on `ContentDocument`.
+
+**Missing-document stub:** `{ _id, body: null }` → `interface MissingDocument { id: string, body: null, missing: true }`; loaders return `ContentDocument | MissingDocument`; one shared `isRealDocument` type guard (the snapshot route's local copy in `runtime/server/api/cache.ts` moves to this shared guard).
+
+**Reserved-key guard (new, small):** after the rename, system-computed identity keys (`id`, `collection`, `locale`, `path`, `canonicalPath`, `type`, `file`) are reserved. During parse, if user frontmatter defines one, the system value wins and a **dev/build warning** names the file and key. One test.
+
+**The trap (unchanged):** user frontmatter is passthrough data — a user file may legitimately contain any underscore key. The rename applies to **system meta fields declared in our types**, never to dynamic frontmatter handling. Do not write a generic "strip leading underscore" transform anywhere.
 
 ### CS-7 — i18n type holes (Phase 5, T5.5)
 
