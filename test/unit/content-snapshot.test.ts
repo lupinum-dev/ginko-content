@@ -47,6 +47,27 @@ describe('content snapshots', () => {
     })).toThrow(ContentSnapshotError)
   })
 
+  test('accepts shared (non-circular) references — stringify duplicates them', () => {
+    const sharedTags = ['a', 'b']
+    expect(() => buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md'],
+      documents: [doc({ tags: sharedTags, keywords: sharedTags } as Partial<ParsedContent>)]
+    })).not.toThrow()
+  })
+
+  test('rejects circular references', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    expect(() => buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md'],
+      documents: [doc({ meta: circular } as Partial<ParsedContent>)]
+    })).toThrow(ContentSnapshotError)
+  })
+
   test('reports every missing source id in the completeness assertion', () => {
     const snapshot = buildContentSnapshot({
       integrity: 'integrity',

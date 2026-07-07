@@ -4,10 +4,7 @@ import { buildContentGraph } from '../core/content/graph'
 import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { contentConfig } from './driver'
 import { getContentsList } from './contents'
-import { getProcessGraph } from './snapshot-runtime'
-
-const isPrerendering = import.meta.prerender
-const usesProcessSnapshot = process.env.NODE_ENV === 'production' && !isPrerendering
+import { getProcessGraph, usesProcessSnapshot } from './snapshot-runtime'
 
 export const getContentGraph = async (event: H3Event): Promise<ContentGraph> => {
   if (usesProcessSnapshot) {

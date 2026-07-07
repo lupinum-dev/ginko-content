@@ -5,6 +5,13 @@ import { buildContentGraph } from '../core/content/graph'
 import { isContentSnapshot } from '../core/content/snapshot'
 import { cacheStorage, contentConfig } from './driver'
 
+/**
+ * Single source of truth for "serve from the process-scoped snapshot".
+ * Prerender must stay on the request-scoped dev path — it is the phase that
+ * produces the snapshot in the first place.
+ */
+export const usesProcessSnapshot = process.env.NODE_ENV === 'production' && !import.meta.prerender
+
 interface ProcessSnapshotState {
   graph: ContentGraph
   documents: ParsedContent[]

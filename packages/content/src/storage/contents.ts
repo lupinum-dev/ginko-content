@@ -7,11 +7,10 @@ import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { parseContentVariants } from '../integrations/nitro/ingest'
 import { cacheStoreFor, getCachedContents, setCachedContents } from './cache'
 import { contentConfig, contentIgnorePredicate, getContentStorageRuntime, getContentsIds, resolveStorageId } from './driver'
-import { getProcessDocuments } from './snapshot-runtime'
+import { getProcessDocuments, usesProcessSnapshot } from './snapshot-runtime'
 import { validateContentGraph } from './validation'
 
 const isPrerendering = import.meta.prerender
-const usesProcessSnapshot = process.env.NODE_ENV === 'production' && !isPrerendering
 const shouldValidateAtRuntime = import.meta.dev || isPrerendering
 
 const isContentCacheArtifact = (value: unknown): value is ContentCacheArtifact<ParsedContent[]> => {

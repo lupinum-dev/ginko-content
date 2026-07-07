@@ -10,15 +10,44 @@ const isRealDocument = (document: ParsedContent) => {
   return document.body !== null && typeof document._path === 'string' && document._path.length > 0
 }
 
+/**
+ * A source id that produced no snapshot document failed one of two ways;
+ * naming which one turns a confusing build failure into an actionable one.
+ */
+const describeExcludedSource = (variants: ParsedContent[]) => {
+  if (variants.length === 0 || variants.every(variant => variant.body === null)) {
+    return 'unreadable (source missing or failed to parse)'
+  }
+  return 'no route path (parsed, but every variant lacks a path)'
+}
+
 export default defineEventHandler(async (event) => {
   const now = Date.now()
   const config = contentConfig()
   const sourceIds = await getSourceContentIds(event)
   const documents: ParsedContent[] = []
+  const excluded = new Map<string, string>()
 
   for (const chunk of chunksFromArray(sourceIds, 10)) {
-    const results = await Promise.all(chunk.map(id => loadContentVariants(event, id)))
-    documents.push(...results.flat().filter(isRealDocument))
+    const results = await Promise.all(chunk.map(async (id) => [id, await loadContentVariants(event, id)] as const))
+    for (const [id, variants] of results) {
+      const real = variants.filter(isRealDocument)
+      if (real.length === 0) {
+        excluded.set(id, describeExcludedSource(variants))
+      }
+      documents.push(...real)
+    }
+  }
+
+  if (excluded.size > 0) {
+    const details = [...excluded.entries()]
+      .slice(0, 20)
+      .map(([id, reason]) => `${id}: ${reason}`)
+      .join('; ')
+    throw new Error(
+      `[content] snapshot build failed: ${excluded.size} source document(s) produced no servable content `
+      + `and would silently 404 in production. First ${Math.min(excluded.size, 20)} — ${details}`
+    )
   }
 
   const snapshot = buildContentSnapshot({

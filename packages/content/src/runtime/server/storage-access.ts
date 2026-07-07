@@ -10,10 +10,7 @@ import {
   resolveStorageId,
   sourceStorage
 } from '../../integrations/nitro/storage'
-import { getProcessDocuments } from '../../storage/snapshot-runtime'
-
-const isPrerendering = import.meta.prerender
-const usesProcessSnapshot = process.env.NODE_ENV === 'production' && !isPrerendering
+import { getProcessDocuments, usesProcessSnapshot } from '../../storage/snapshot-runtime'
 
 export const getContentsIds = async (event: H3Event, prefix?: string) => {
   if (!usesProcessSnapshot) {

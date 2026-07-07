@@ -35,7 +35,10 @@ const isPlainObject = (value: object) => {
   return prototype === Object.prototype || prototype === null
 }
 
-const findNonJsonValue = (value: unknown, path: string, seen: WeakSet<object>): string | undefined => {
+// `ancestors` holds only the objects on the current traversal path, not every
+// visited object: a shared (non-circular) reference is valid JSON — stringify
+// duplicates it — so only true cycles may be flagged.
+const findNonJsonValue = (value: unknown, path: string, ancestors: WeakSet<object>): string | undefined => {
   if (
     value === null
     || typeof value === 'string'
@@ -52,38 +55,47 @@ const findNonJsonValue = (value: unknown, path: string, seen: WeakSet<object>): 
     return path
   }
 
-  if (seen.has(value)) {
+  if (ancestors.has(value)) {
     return path
   }
-  seen.add(value)
+  ancestors.add(value)
 
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value)) return `${path}[${index}]`
-      const invalid = findNonJsonValue(value[index], `${path}[${index}]`, seen)
+  try {
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        if (!(index in value)) return `${path}[${index}]`
+        const invalid = findNonJsonValue(value[index], `${path}[${index}]`, ancestors)
+        if (invalid) return invalid
+      }
+      return undefined
+    }
+
+    if (!isPlainObject(value)) {
+      return path
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      const invalid = findNonJsonValue(child, `${path}.${key}`, ancestors)
       if (invalid) return invalid
     }
-    return undefined
-  }
-
-  if (!isPlainObject(value)) {
-    return path
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    const invalid = findNonJsonValue(child, `${path}.${key}`, seen)
-    if (invalid) return invalid
+  } finally {
+    ancestors.delete(value)
   }
 }
 
 export const buildContentSnapshot = (args: BuildContentSnapshotArgs): ContentSnapshot => {
   const lossy: string[] = []
-  const documents = args.documents.map((document) => {
+  const documents: ParsedContent[] = []
+  for (const document of args.documents) {
+    // Skip the round-trip for flagged documents: JSON.stringify on a circular
+    // structure throws a raw TypeError, which would preempt the aggregated
+    // ContentSnapshotError below.
     if (findNonJsonValue(document, '$', new WeakSet())) {
       lossy.push(documentIdOf(document))
+      continue
     }
-    return JSON.parse(JSON.stringify(document)) as ParsedContent
-  })
+    documents.push(JSON.parse(JSON.stringify(document)) as ParsedContent)
+  }
 
   if (lossy.length > 0) {
     throw new ContentSnapshotError(
