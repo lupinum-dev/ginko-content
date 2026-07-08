@@ -88,7 +88,7 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
 Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: 59d833a)  [x] T2.3 (commit: 1be1303)  [x] T2.4 (commit: c386bc2)  [x] T2.5 (commit: 1091db4)
 Phase 3: [x] T3.1 ([x] T3.1a commit: 178a3b4; [x] T3.1b commit: 43027e0; [x] T3.1c commit: c305428)  [x] T3.2 (commit: bf9aee6)  [x] T3.3 (commit: 37e287c)  [x] T3.4 (commit: 09b53ef)  [x] T3.5 (commit: f51ddda; gate run by orchestrator — see checkpoint entry)  — PHASE 3 COMPLETE, checkpoint passed 2026-07-08
-Phase 4: [x] T4.1 (commit: 09c2480)  [x] T4.2a (commit: this commit)  [x] T4.2b (commit: this commit)  [x] T4.3 (commit: this commit)
+Phase 4: [x] T4.1 (commit: 09c2480)  [x] T4.2a (commit: 454f764)  [x] T4.2b (commit: 30edc1f)  [x] T4.3 (commit: 6327c64)  — PHASE 4 COMPLETE, checkpoint passed 2026-07-08
 Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6  [ ] T5.7
 Phase 6: [ ] T6.1  [ ] T6.2  [ ] T6.3
 Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
@@ -226,6 +226,8 @@ Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
   - **ADR-0010 addendum** (history preserved): full 15-dir map with allowed edges + notes on the Phase-4 `features/` internal edges, the `integrations↔storage`/`integrations→public` coupling, the `module→runtime` build-time edge, and the exact enforced-ban list; plus a short `agent`=LLM-markdown-output naming addendum.
   - **ADR-0006 addendum** (per the 2026-07-07/08 rulings): supersedes the "internal only" stance — `canonicalKey` (ex-`_canonicalKey`, value unchanged) is public-but-opaque ("never parse or render as a URL"; providers must emit it); authoring side stays internal (`ref` is the author alias, `id` alias retired); no `canonicalPath` on the envelope.
   - **ADR-0016 addendum** (T5.5 has NOT run): the "i18n requires locale has no hole" claim is flagged aspirational-not-yet-true and pointed at T5.5/CS-7 (`TreeOptions` composing `LocaleOption<H>`; missing-options-object hole) — claim left in place, not falsified.
+
+- **PHASE 4 SENIOR CHECKPOINT — PASSED (2026-07-08).** Final state: typecheck 0; **516/516** tests (69 files; +5 registry tests from T4.2b); boundary tests 6/6. T4.1 `features/query/` move (fourth ruling) verified as 16 pure renames with history. T4.2a/T4.2b delivered the fifth ruling's design: pure toolkit extracted, then the walker made a pure function of `(node, AgentMarkdownContext)` with per-app registry — user-facing registration signatures unchanged, so T5.2's subpath move is a pure re-export (promise kept: ONE API reshape in 0.2.0). T4.3 rewrote ARCHITECTURE.md with empirically derived edges and landed the ADR-0006 addendum (`canonicalKey` public/opaque) + ADR-0010 addendum. Two orchestrator-gated harness deaths this phase (agents completing work, then failing report serialization — T4.2a, and earlier T3.3's pattern); both commits verified directly, idempotent re-runs confirmed. One gate catch: dangling pre-amend SHA in the checklist → commit-pointer convention codified (§2 header). SHAs backfilled per that convention. Phase 5 may start.
 
 
 ---
