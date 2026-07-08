@@ -19,7 +19,9 @@ Rules of engagement:
 2. Work strictly in order: Phase 1 → Phase 7, task by task (T1.1, T1.2, …).
    Never start a task while the previous task's verification is red.
 3. One task = one commit. Commit message format: "refactor(T<phase>.<n>): <task title>".
-   Never push, never publish, never run any `release:*` or `publish` script.
+   Never push. Never publish. Never run `release:publish` or any publish/pack-upload
+   script. `release:verify` is ALLOWED and required at phase gates (§3/§13) — it is
+   the verification chain; publishing stays disabled in this repo.
 4. Before each task: re-read its Acceptance Criteria and its STOP conditions.
    After each task: run its Verify commands, then run the global gate
    (`pnpm -r typecheck && pnpm test` from the repo root, or the commands in §3).
@@ -49,13 +51,19 @@ Begin with Phase 1, task T1.1.
 
 ## 1. Mission and target architecture
 
-### Where we are (verified in code)
+### Baseline before this refactor (HISTORICAL — the starting state, not the current repo)
+
+> Phases 1–3 have landed. The facts below describe the repo as it was when this playbook was written; they are kept for rationale, not as current-state claims. Current state: sealed snapshot pipeline (Phase 2), canonical envelope + `ContentProviderQuery` wire + privatized params IR (Phase 3). See the Status Log (§2) for what is done.
 
 - Production requests **rebuild the entire content graph per request**: `src/storage/graph.ts:8-17` memoizes on `event.context.__contentRuntime.memo` (request-scoped, `src/integrations/nitro/context.ts:60-99`), and `src/storage/contents.ts:89-96` re-loads every parsed artifact in chunks of 10 on each request.
 - The production corpus is **whatever the prerender warm route wrote** (`/api/…/cache.<integrity>.json`, `src/module/server-handlers.ts:49-51` → `src/runtime/server/api/cache.ts`); `src/integrations/nitro/storage.ts:86-92` reads ids from the parsed cache with no completeness check → documents can be silently missing in prod (GC-2).
 - Two document vocabularies coexist: legacy underscore meta (`_id`, `_path`, `_collection`, `_locale`, `_canonicalKey`, `_type`, `_extension` — `src/types/content.ts:25-106,317-321`, ~20 files) and the modern envelope (`path`, `locale`, `localePaths`, `variants`, `resolved`).
 - Two query vocabularies coexist: the retired open-ended `ContentQueryBuilderParams` (`src/types/query-parts/transport.ts:39-57`, with `[key: string]: unknown`) is still the **provider wire contract** (`src/public/provider.ts:88`), while the clean `ContentQueryPlan` AST (`src/core/query/plan.ts`) is documented as "the stable boundary" but isn't used as one.
 - The tree has 15 top-level src dirs vs 8 documented; `runtime/` (7,784 LOC) contains framework-free domain logic (`runtime/query/` ≈1,315 LOC, `runtime/server/agent-markdown.ts` ≈701 LOC).
+
+### Terminology (added at the Phase 3 checkpoint)
+
+- **"LLM markdown output" (a.k.a. agent-readable content output)** = ginko-content's feature serving `/raw/*.md`, `/llms.txt`, `/llms-full.txt` and the component→markdown serializers. In *prose*, always use this term. The **code identifiers stay `agent`** (module option `agent: {...}`, `agent-*.ts` files, planned `./agent` subpath) — matching the shipped option name outweighs renaming churn. Do not confuse it with **ginko-cms "agent operations"** (MCP preview/confirm/audit mutation protocol) — different subsystem, different repo.
 
 ### Where we're going (the dream state this file implements)
 
@@ -78,9 +86,9 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 ```
 Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
 Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: 59d833a)  [x] T2.3 (commit: 1be1303)  [x] T2.4 (commit: c386bc2)  [x] T2.5 (commit: 1091db4)
-Phase 3: [x] T3.1 ([x] T3.1a commit: 178a3b4; [x] T3.1b commit: 43027e0; [x] T3.1c commit: this commit)  [x] T3.2 (commit: this commit)  [x] T3.3 (commit: this commit)  [x] T3.4 (commit: this commit)  [x] T3.5 (commit: this commit)
-Phase 4: [ ] T4.1  [ ] T4.2  [ ] T4.3
-Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6
+Phase 3: [x] T3.1 ([x] T3.1a commit: 178a3b4; [x] T3.1b commit: 43027e0; [x] T3.1c commit: c305428)  [x] T3.2 (commit: bf9aee6)  [x] T3.3 (commit: 37e287c)  [x] T3.4 (commit: 09b53ef)  [x] T3.5 (commit: f51ddda; gate run by orchestrator — see checkpoint entry)  — PHASE 3 COMPLETE, checkpoint passed 2026-07-08
+Phase 4: [ ] T4.1  [ ] T4.2a  [ ] T4.2b  [ ] T4.3
+Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6  [ ] T5.7
 Phase 6: [ ] T6.1  [ ] T6.2  [ ] T6.3
 Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
 ```
@@ -176,6 +184,8 @@ Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
   - **DEVIATION — retired-`id` alias doc fixes rolled in.** Two docs still presented user frontmatter `id` as a reference alias (retired in T3.1a in favor of `ref`): `1.getting-started/4.project-structure.md` ("Authors may set `ref` or `id`" → `ref` only) and `2.essentials/1.markdown.md` (`$`-link identities `id, ref, _path` → `ref, path`). Corrected to match the T3.1a `references.md` match order, since leaving them would document a removed feature.
   - **DEVIATION — false-positive filename example reworded.** `2.essentials/2.mdc.md` used a file literally named `_partial.md` to illustrate the leading-underscore partial-filename convention; the acceptance grep flags the `_partial` token. Reworded to `_shared.md` (still a valid leading-underscore partial name — `isPartialPath` matches any `_`-prefixed path part), preserving the example's meaning while clearing the grep. Underscore *filename* conventions elsewhere (`_shared-intro.md`, `_snippets/`) don't collide with the field-name grep and were left as-is.
   - **Dev-mode removed-field warning (task "Consider", recommended).** Added `warnOnRemovedEnvelopeFields` to `core/query/lower.ts` (~30 lines incl. a recursive `where` walker through `$and`/`$or`/`$not`, plus `sort`/`only`/`without`), gated by `!import.meta.dev` (same pattern as the T3.2 JSON-purity assertion and `features/sitemap/query.ts`). Maps the 10 removed underscore names to replacements and `console.warn`s the field + its new name when a query still references one. `lowerQueryPlan` is the single universal lowering choke point (its own header: "runs once per `.all()`/`.first()`/`.count()`"), so one call covers client + server paths; no-op in prod (`import.meta.dev` falsy/undefined under vitest → tests unaffected, count unchanged). `import.meta.dev` is not an import specifier, so the `core`-no-framework boundary test is unaffected (verified: `pnpm test` green).
+- **PHASE 3 SENIOR CHECKPOINT — PASSED (2026-07-08).** T3.5's independent gate agent stalled (structured-output failure, same mode as the earlier T3.3 report loss); the orchestrator ran the gate directly: acceptance grep over `playground/ examples/ test/fixtures/ docs/content/` → **zero** old-envelope hits outside migration guides; full suite **511/511**; typecheck exit 0; both playgrounds build (basic 30 routes, i18n 44 routes, per the T3.5 entry). Checkpoint items: `canonicalKey` verified public/opaque/provider-emitted with never-URL JSDoc; T3.2's JSON-purity assertion verified by its gate; the T3.4 seam verified (`ProviderDocumentInput` requires only `collection/locale/path/body`; `shapeProviderDocument` derives the rest); the ginko-cms break catalogue produced by direct tree verification (see rewritten §9). Phase 3 net: 6 tasks + 2 orchestrator-added, 3 STOP blocks (all upheld), 3 reviewer rulings (2 reversing the reviewer's own earlier spec), 1 orchestrator error caught by a gate, 0 silent regressions shipped. **Checkpoint patch applied in this commit** (22 edits): §1 rebadged historical; release:verify carve-out; CS-6 canonicalPath rule narrowed with the trace finding (result-shape `canonicalPath` = resolved variant's unprefixed route path — locale-specific, misnomer); §13 DoD fixed (params-IR survival legitimized; paths made repo-root-relative; stale 'canonicalKey internal' wording superseded); T4.2 split into T4.2a (mechanical move) / T4.2b (per-app registry — a public API change, coordinated with T5.2); T5.6 rename target corrected to `createDefaultProviderFixture` (collision with the existing generic builder); new T5.7 (rename result-shape `canonicalPath`, leading candidate `unprefixedPath`, JSDoc derivation mandatory); T6.2/CS-7 wording future-proofed; terminology note (prose says "LLM markdown output", code keeps `agent`); §9 rewritten as the verified 11-item ginko-cms cutover catalogue. **Ownership decisions — explicitly NOT taken:** no rename of `agent` code identifiers/module option/subpath (prose-only disambiguation); no pre-commitment to `unprefixedPath` (leading candidate, decided at T5.7); no resurrection of the params-IR deletion (stays deferred in `future-decisions.md`); Status-Log history untouched. Credit: the staleness pass, the `canonicalPath` trace, and the §9 base catalogue came from a second independent reviewer; every claim was verified against both repos before adoption. Phase 4 may start.
+
 
 ---
 
@@ -297,7 +307,7 @@ Self-review checklist before marking any task done:
 - The params IR stays (internal IRs are fine); it stops being **public**. Remove `ContentQueryBuilderParams` from `src/public/server.ts` (~line 76) and its entry from `meta/public-surface.json` (~line 816; keep `ContentQueryResponse` — legitimate response envelope); update the exports contract test; rewrite the user-facing sections of `packages/content/docs/QUERY_PIPELINE.md` and `docs/content/docs/9.api-reference/3.module-options.md` to point at the unified API + `ContentProviderQuery`; update `src/types/query-parts/transport.ts`'s header comment ("internal IR — not public, not wire").
 - Delete only provably-dead symbols: grep `QueryGroupBuilder` and the string-operator `CollectionQueryOperator` union for live non-test references; delete those with zero (plus deadness-only tests). Do NOT touch the live fluent internals (`ContentQueryBuilder`, `createQuery`, `storage/content.ts` and `runtime/server/provider-query.ts` consumers, `query-contracts` fluent tests).
 - Append one line to `future-decisions.md` (create if absent): full fluent+IR cutover deferred as a post-0.2.0 candidate.
-- **Accept:** `git grep -nP "ContentQueryBuilderParams" packages/content/src/public/ meta/public-surface.json` → zero hits; exports contract test green; typecheck + full tests green; docs-drift green; deleted symbols grep to zero repo-wide.
+- **Accept:** `git grep -nP "ContentQueryBuilderParams" packages/content/src/public/ meta/public-surface.json` → zero hits; exports contract test green; typecheck + full tests green; docs-drift green; for any symbol proven dead and actually deleted, grep to zero repo-wide; symbols found live must be documented in the Status Log and left untouched (T3.3 outcome: all candidates proved live — none deleted).
 
 ### T3.4 Single normalization seam for provider results
 - Create one helper (e.g. `src/runtime/server/provider-result.ts` extension) that takes a provider's raw document and produces the canonical envelope, so third-party providers emit **only** the required fields: `id`, `collection`, `locale`, `path`, `canonicalKey`, `type`, `body` (+ optional `file`); core derives the rest (resolved variants, localePaths). Update `examples/advanced/cms-cache-contract/server/cms-provider.ts` to the minimal required set — the example is the de-facto provider tutorial.
@@ -313,12 +323,17 @@ Self-review checklist before marking any task done:
 ## 7. Phase 4 — Directory re-cut (mechanical, after Phase 3)
 
 ### T4.1 Move query compilation into core
-- Move `src/runtime/query/` → `src/core/query/compile/` (or merge file-by-file into `src/core/query/` where natural). These files were verified framework-free. Update imports; keep git history with `git mv`.
+- Move `packages/content/src/runtime/query/` → `packages/content/src/core/query/compile/` (or merge file-by-file into `packages/content/src/core/query/` where natural). (All paths in task text are repo-root-relative.) These files were verified framework-free. Update imports; keep git history with `git mv`.
 - **Accept:** boundary test still proves `core/` has no framework imports; typecheck green; no file in `core/` imports from `runtime/`.
 
-### T4.2 Extract the agent feature
-- Move the pure serializer core of `src/runtime/server/agent-markdown.ts` (~701 LOC; its only H3 dependency is a type import) and `agent-site.ts` into `src/features/agent/`; leave thin H3 handlers in `runtime/server/`. Replace the module-global mutable `serializers` Map (`agent-markdown.ts:74`) with a per-app registry created during module setup and passed/injected — the global accumulates under dev HMR.
-- **Accept:** agent e2e/contract tests green; `git grep -n "new Map" src/features/agent` shows the registry is instantiated per app, not at module scope.
+### T4.2a Extract the LLM markdown output feature (mechanical move ONLY)
+- Move the pure serializer core of `packages/content/src/runtime/server/agent-markdown.ts` (~701 LOC; its only H3 dependency is a type import) and `agent-site.ts` into `packages/content/src/features/agent/`; leave thin H3 handlers in `runtime/server/`. **Zero behavior change** — the module-global registry stays as-is in this task (T4.2b changes it).
+- **Accept:** agent e2e/contract tests green with no test-content changes; boundary test proves `features/agent` is framework-free; `git diff` shows moves + import updates only.
+
+### T4.2b Per-app serializer registry (BEHAVIORAL — split from T4.2 at the Phase 3 checkpoint)
+- Replace the module-global mutable `serializers` Map with a per-app registry created during module setup and passed/injected — the global accumulates under dev HMR. **This is a public API change**: `registerAgentMarkdownSerializer`/`clearAgentMarkdownSerializers` are exported from `/server` today; the registration API's shape must change exactly ONCE in 0.2.0 — coordinate with T5.2 (which moves these exports to the `./agent` subpath) so move + reshape land coherently.
+- **Add focused tests** (this is why the split exists): dev-HMR accumulation regression (re-running module setup must not duplicate serializers), per-app isolation (two app instances register independently), registration API shape.
+- **Accept:** the new tests fail against the old global-registry implementation (prove once, revert); agent e2e green; `git grep -n "new Map" packages/content/src/features/agent` shows no module-scope registry.
 
 ### T4.3 Update the architecture docs to the real tree
 - Rewrite the layer diagram + rules in `packages/content/ARCHITECTURE.md` and amend ADR-0010 (add an addendum section, don't falsify history) to name all top-level dirs (`core`, `features`, `storage`, `parsers`, `runtime`, `module`, `integrations`, `cms-contract`, `cms-import`, `cli`, `testing`, `types`, `public`, `utils`, `config`) with allowed dependency edges. The boundary test (T1.5) is the enforcement; the doc must match it.
@@ -329,12 +344,12 @@ Self-review checklist before marking any task done:
 ## 8. Phase 5 — Public surface hardening
 
 ### T5.1 Curate the root entry (GC-4)
-- Replace `export type * from './types'` in `src/module.ts:43` with an explicit list. Start from: `ModuleOptions`, `ContentCollectionHandle`, the canonical envelope types (`ContentDocument`/`ParsedContent` post-rename, `NavItem`, `Toc`, `TocLink`), and whatever `git grep -l "from '@lupinum/ginko-content'"` in `docs/`, `playground/`, and `examples/` proves is actually used. Everything else is cut.
+- Replace `export type * from './types'` in `packages/content/src/module.ts:43` with an explicit list. Start from: `ModuleOptions`, `ContentCollectionHandle`, the canonical envelope types (`ContentDocument`/`ParsedContent` post-rename, `NavItem`, `Toc`, `TocLink`), and whatever `git grep -l "from '@lupinum/ginko-content'"` in `docs/`, `playground/`, and `examples/` proves is actually used. Everything else is cut.
 - Extend `test/contracts/package-exports-contracts.test.ts` to enumerate root-entry symbols against `meta/public-surface.json` the same way client/server facades are enforced.
 - **Accept:** typecheck of `test/fixtures/typecheck` + playgrounds green; exports contract test covers the root.
 
 ### T5.2 Split the server facade; one home per concept (GC-8)
-- Create `./agent` subpath (new `src/public/agent.ts`) and move the ~31 agent exports out of `src/public/server.ts`; remove the provider-type re-exports from `server.ts` (single home: `./provider`); move the 3 agent path helpers out of `./client` into `./agent` too.
+- Create `./agent` subpath (new `packages/content/src/public/agent.ts`) and move the ~31 LLM-markdown-output exports out of `packages/content/src/public/server.ts`; remove the provider-type re-exports from `server.ts` (single home: `./provider`); move the 3 agent path helpers out of `./client` into `./agent` too. **Coordinate with T4.2b**: the registration functions move AND change shape (per-app registry) in one release — land T4.2b first or together, never a moved-then-reshaped double break.
 - Delete the `./toc` subpath (hard cut — 0.2.0 is a breaking release anyway); `./client` already exports the same symbols.
 - Update `meta/public-surface.json`, package.json exports, docs.
 - **Accept:** exports contract green; `git grep -n "from '@lupinum/ginko-content/toc'"` in docs/playgrounds → zero.
@@ -344,8 +359,8 @@ Self-review checklist before marking any task done:
 - **Accept:** `pnpm build` then a script asserts `require.resolve`/import works for each listed entry and fails for `./transformers/utils`.
 
 ### T5.4 De-CMS the config types (GC-6)
-- Delete the `slug === 'docs'` (and sibling name checks) branch in `src/cms-contract/build.ts:223-231`; collection type must come from explicit `cms.type` config — when absent, default to `'flat'` (or whatever the current explicit default is) and emit a build-time warning telling the user to declare it.
-- Narrow `ContentCmsFieldConfig` (`src/types/config.ts:29-103`): keep semantic facts (type, required, localized, relation target, options); move pure layout policy (`width`, `order`, `hidden`, `condition`) into a single `editor?: Record<string, unknown>` passthrough bag that ginko-content stores and forwards **without typing it** — ginko-cms owns its schema. Keep `ContentCmsFieldType` as the single vocabulary union (ginko-cms will re-export it — §9).
+- Delete the `slug === 'docs'` (and sibling name checks) branch in `packages/content/src/cms-contract/build.ts:223-231`; collection type must come from explicit `cms.type` config — when absent, default to `'flat'` (or whatever the current explicit default is) and emit a build-time warning telling the user to declare it.
+- Narrow `ContentCmsFieldConfig` (`packages/content/src/types/config.ts:29-103`): keep semantic facts (type, required, localized, relation target, options); move pure layout policy (`width`, `order`, `hidden`, `condition`) into a single `editor?: Record<string, unknown>` passthrough bag that ginko-content stores and forwards **without typing it** — ginko-cms owns its schema. Keep `ContentCmsFieldType` as the single vocabulary union (ginko-cms will re-export it — §9).
 - **Accept:** `test/unit/cms-contract-*.test.ts` updated + green; contract build snapshot in tests shows `editor` passthrough preserved byte-for-byte.
 - **STOP if:** removing the width/order typings breaks `buildCmsContract` output *shape* in a way not representable by the passthrough — record the exact fields.
 
@@ -355,20 +370,32 @@ Self-review checklist before marking any task done:
 - **Accept:** the two new `@ts-expect-error` cases fail to compile when the fix is reverted (prove once by reverting locally), pass with the fix.
 
 ### T5.6 Rename/parameterize the provider conformance suite (GC-12d)
-- In `src/testing/provider-contract.ts`: rename `runSaasProviderFixtureContractSuite` → `runProviderContractSuite` (hard cut) and make expected capabilities a parameter — each capability block of assertions runs only when the provider declares that capability true, and *asserts the typed error* when declared false. Rename `createSaasProviderFixture` → `createProviderFixture`.
+- In `packages/content/src/testing/provider-contract.ts`: rename `runSaasProviderFixtureContractSuite` → `runProviderContractSuite` (hard cut) and make expected capabilities a parameter — each capability block of assertions runs only when the provider declares that capability true, and *asserts the typed error* when declared false. Rename `createSaasProviderFixture` → **`createDefaultProviderFixture`** (NOT `createProviderFixture` — that name is already taken by the generic fixture builder, which stays untouched; collision caught at the Phase 3 checkpoint).
 - **Accept:** the fixture provider passes with all-true; a locally constructed minimal provider (searchSections:false) passes the suite. This is the suite ginko-cms will adopt (§9).
+
+### T5.7 Rename the result-shape `canonicalPath` (ADDED at the Phase 3 checkpoint)
+- The Phase 3 trace proved `ContentPageResult`/`ContentRouteMeta`/nav-item `canonicalPath` means "the resolved variant's route path before locale prefixing" — locale-specific, not canonical (CS-6 note; `features/localization/results.ts:97`; `test/ginko-utils.test.ts:1094-1106` shows fr `'/demarrage'` vs en `'/getting-started'`). Rename it across result/route/nav shapes. **Leading candidate: `unprefixedPath`** (boring, precise). Rejected: `resolvedPath` (collides with `resolved.*`), `contentPath` (source-path confusion). If a better name emerges, it MUST come with the same precision.
+- Whatever the name, the field gets a JSDoc stating the derivation verbatim: "the resolved variant's route path before locale prefixing." Names without stated semantics are how the last three field-name incidents happened.
+- Update ginko-cms §9 note: the CMS follows this rename and must not have documented `canonicalPath` as a contract field meanwhile.
+- **Accept:** `git grep -nP "canonicalPath" packages/content/src/` → zero (or only the JSDoc history note); typecheck + tests green; docs updated; CHANGELOG entry.
 
 ---
 
 ## 9. Cross-repo coordination (ginko-cms) — DO NOT execute from this repo
 
-Phase 3+5 are breaking for ginko-cms. Record here; a separate ginko-cms task list executes them **after** this repo tags `0.2.0`:
+> REWRITTEN at the Phase 3 checkpoint (2026-07-08), from direct verification of the ginko-cms tree by the second reviewer + orchestrator. A separate ginko-cms task list executes this **after** this repo tags `0.2.0`. Framing: ginko-cms does **not** get a dual-contract compatibility layer — it hard-cuts to ginko-content 0.2, imports the real contract helpers, deletes local shadows, and lets the provider conformance suite prove the integration. The impact is mostly **one clean provider-contract cutover**, not scattered breakage.
 
-1. `packages/cms/src/nuxt-provider.mjs` must implement `ContentProviderQuery` (plan-based) and the new envelope — including emitting `canonicalKey` (replaces `_canonicalKey`; opaque identity key) and the optional `file` object (omitted for CMS-backed documents); recommended: rewrite in TS importing `ContentProvider` (review CMS-7 already requires this).
-2. `packages/cms/src/module/content-contract.ts` consumes `buildCmsContract` — must pass explicit `cms.type` for tree collections (T5.4 removed the `docs` heuristic) and adopt the `editor` passthrough for layout fields.
-3. ginko-cms CI adds `runProviderContractSuite` (from T5.6) against the packed provider.
-4. Studio's `slugifyUrlSegment` import moves from `/config` to `/cms-contract` (one line, `studio-app/src/lib/slug.ts:1`).
-5. Peer range bumps to `^0.2.0`; both `compatibility.json` files regenerate (T7.2 defines the generator).
+1. **Provider wire + envelope cutover — one commit, one vehicle.** `packages/cms/src/nuxt-provider.mjs` still speaks the legacy wire (`input.where`/`input.only`/`input.sort`, parses `clause._locale` at `:602`) and emits legacy underscore metadata (`_id/_source/_collection/_type/_path/_locale/_canonicalKey/_variantPaths`, `toContentEntry` `:436-449`). It must (a) accept `ContentProviderQuery` + the typed navigation options, and (b) emit the **minimal provider document** (`ProviderDocumentInput`: required `collection, locale, path, body`; optional `id, canonicalKey, type, file`) and let ginko-content's T3.4 seam (`shapeProviderDocument`) derive the shaped route envelope — it must NOT construct legacy underscore metadata or duplicate derived localization state (`variants`/`localePaths`/`resolved`) itself. (The provider API still returns shaped results — from the seam, not hand-built.) Vehicle: the standing CMS-7 finding (rewrite in TS importing `ContentProvider`, import the cache-tag vocabulary from `@lupinum/ginko-cms-contract`) — do the TS rewrite, wire cutover, minimal envelope, and tag import as **one gated commit**, never piecemeal in the untyped file.
+2. **`canonicalPath` prevention rule.** `packages/contract/src/publicContent.ts` does NOT currently expose `canonicalPath` (verified) — keep it that way while ginko-content's T5.7 rename is pending. The provider's internal `canonicalPath` derivation (`nuxt-provider.mjs:401,415-418`) follows the T5.7 rename (leading candidate `unprefixedPath`); it must not be documented as a CMS contract field meanwhile.
+3. **Delete the provider-contract shadow.** `test/refactor/provider-contract.test.ts:211+` defines its own `ContentProvider`/`ProviderResult`/unwrap-marker/old-query-input types with stale `_source/_collection/_path/_locale` expectations. Replace with the real ginko-content provider types + `runProviderContractSuite` (post-T5.6) run against the packed provider in CI.
+4. **Resync the vendored `/cms-contract`.** The vendored `describeId` (`packages/convex/src/lib/cmsContract/path.ts:17`) still returns underscored keys (`_source/_path/_extension/_file/_basename`); content 0.2 de-underscored them. Run `scripts/sync-cms-contract-vendor.mjs` after 0.2 lands; update consumers + `cms-contract-vendor-parity.test.ts`.
+5. **Migration/import envelope cutover + reserved-key test.** `packages/cms/src/migration/index.ts:803+` (`addContentGraphWarnings`) reads `_canonicalKey/_locale/_id/_file` → new names (`canonicalKey/locale/id/file.*`). Verified: stable-ID derivation uses `stableId` → `translationKey` → relative path, NOT frontmatter `id`. **New test requirement:** migration/export output must never emit reserved frontmatter keys (`id, collection, locale, path, canonicalKey, type, file`) — assert over the migration fixtures; anything that would have emitted `id` uses `ref`.
+6. **Studio slug import.** `studio-app/src/lib/slug.ts:1` imports `slugifyUrlSegment` from `/config` → move to `/cms-contract` (one line).
+7. **Docs/skills field-name cutover.** `docs/reference/nuxt-content-provider.md:68` and `skills/ginko-cms/references/public-content-and-provider.md:72` still list `_draft/_partial/_locale/_path/_stem` as public provider query fields → new names, or delete where `ContentProviderQuery` makes them implementation details.
+8. **Version metadata.** `packages/cms/package.json:136` peer `@lupinum/ginko-content ^0.1.6` → `^0.2.0`; regenerate both `compatibility.json` files (content-side generator lands in T7.2).
+9. **Contract version gate (standing High finding, now nearly free).** `packages/cms/src/module/content-contract.ts` calls `buildCmsContract` and proceeds without checking `contract.contractVersion`. The cutover PR must reject unsupported versions right there — immediately after contract creation, before `collectionFromContract` — using the exported `CMS_CONTRACT_VERSION` (or an explicit supported-version set) from `@lupinum/ginko-content/cms-contract`. No second CMS-side constant.
+10. **Contract-shape adoption** (from the original list, still valid): `content-contract.ts` must pass explicit `cms.type` for tree collections (T5.4 removes the `docs` heuristic) and adopt the `editor` passthrough for layout fields.
+11. **Confirmed non-issues** (verified): no ginko-cms source imports `ContentQueryBuilderParams` (the wire cutover in item 1 is the whole break); `describeId`'s new shape arrives via item 4's resync.
 
 ---
 
@@ -381,7 +408,7 @@ Phase 3+5 are breaking for ginko-cms. Record here; a separate ginko-cms task lis
 ### T6.2 Add the five missing behavior suites (the real protection)
 1. **Operator matrix** (`test/unit/query-operators.test.ts`): fixed 12-doc dataset; every `CompareOperator` (`eq ne gt gte lt lte in contains containsAny icontains exists type regex prefix`) × hit/miss/edge (null field, array field, numeric-vs-string). Execute through `executeQueryPlan`, not internals.
 2. **Sort stability** (`test/unit/query-sort.test.ts`): equal primary keys keep input order; multi-clause tiebreaks; `numeric`/`caseFirst`/`sensitivity` honored.
-3. **Locale fallback, unmocked** (`test/unit/locale-fallback.test.ts`): 3-locale chain (`de-AT → de → en`), missing-intermediate, `_variantPaths`/variant resolution — build a real graph via `buildContentGraph`, do NOT mock `resolveLocaleChain` (the existing query-contracts mock at ~line 83 stays for its own purpose).
+3. **Locale fallback, unmocked** (`test/unit/locale-fallback.test.ts`): 3-locale chain (`de-AT → de → en`), missing-intermediate, and the `resolved.variantPaths` → `variants`/`localePaths` projection (post-T3.1b names) — build a real graph via `buildContentGraph`, do NOT mock `resolveLocaleChain` (the existing query-contracts mock at ~line 83 stays for its own purpose).
 4. **Snapshot completeness + identity** (`test/unit/snapshot.test.ts`): T2.2's assertion (missing doc fails build-writer); process-loader single-flight (two concurrent `getProcessGraph` calls → same object); integrity mismatch → rebuild.
 5. **Invalidation wiring** (`test/runtime/cache-invalidate.test.ts`): mutate → computed tags/paths flow into `adapter.invalidate` end-to-end with a recording adapter.
 - **Accept:** each suite fails when its behavior is deliberately broken (spot-prove for #1 and #4).
@@ -404,7 +431,7 @@ Phase 3+5 are breaking for ginko-cms. Record here; a separate ginko-cms task lis
 
 ### T7.3 pagefind → optional peer; ship a working headers cache adapter (GC-11/12b)
 - Move `pagefind` from dependencies to `peerDependencies` + `peerDependenciesMeta.optional: true`; at module setup, when `search.engine === 'pagefind'` and the import fails, throw a one-line actionable error ("install pagefind: pnpm add -D pagefind").
-- In `src/runtime/server/cache-adapters.ts`: add `headersContentCache()` whose `apply` calls the existing `contentCacheHeaders()` (line ~46); document that the two existing adapters are intentionally inert and when to choose which.
+- In `packages/content/src/runtime/server/cache-adapters.ts`: add `headersContentCache()` whose `apply` calls the existing `contentCacheHeaders()` (line ~46); document that the two existing adapters are intentionally inert and when to choose which.
 - **Accept:** playground without pagefind installed builds when search engine ≠ pagefind and errors clearly when = pagefind; a runtime test asserts the headers adapter sets `Cache-Control`/`ETag` from a hint.
 
 ---
@@ -629,7 +656,7 @@ query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promi
 | `_collection` | `collection` | |
 | `_locale` | — (already `locale`) | |
 | `_path` | `path` — and the shaped "canonical slot" is **deleted** | On stored/parsed documents, `_path` is the variant's own (possibly translated-slug-localized) route path → rename to `path`. In shaped results (`localization/results.ts:160-167,192-197`, `navigation/canonical.ts:220-227`), `_path` was rewritten to carry a "canonical path" — per the 2026-07-08 reviewer decision that hybrid concept is deleted, not renamed: migrate each reader first (identity fallbacks → `canonicalKey`; filter/debug uses → `path`), then remove the write-sites. Never a blanket rename. |
-| `_canonicalKey` | `canonicalKey` | **Public, opaque.** Locale-agnostic identity join key (`generateCanonicalKey`) — a KEY, not a path (numeric like `1/1` under translated slugs; path-shaped otherwise, by coincidence). Value unchanged by the rename. Document on the type: "opaque; never parse or render as a URL." Providers must emit it. Supersedes ADR-0006's "internal only" (ADR addendum in T4.3). There is **no `canonicalPath` field** anywhere. |
+| `_canonicalKey` | `canonicalKey` | **Public, opaque.** Locale-agnostic identity join key (`generateCanonicalKey`) — a KEY, not a path (numeric like `1/1` under translated slugs; path-shaped otherwise, by coincidence). Value unchanged by the rename. Document on the type: "opaque; never parse or render as a URL." Providers must emit it. Supersedes ADR-0006's "internal only" (ADR addendum in T4.3). There is **no `canonicalPath` field on the document envelope**. The pre-existing `canonicalPath` on result/route/nav shapes survives Phase 3/4 — but the Phase 3 checkpoint trace proved it means "the resolved variant's route path before locale prefixing" (locale-*specific*, e.g. fr `'/demarrage'` vs en `'/getting-started'` for the same document — `features/localization/results.ts:97`, `test/ginko-utils.test.ts:1094-1106`), NOT anything canonical. It is renamed in **T5.7**. Until then: never document it as canonical, never add it to new shapes. |
 | `_type` | `type` | Document kind (`markdown`/`yaml`/…). |
 | `_draft` | `draft` | Already seeded from user frontmatter `draft` — same word, no collision. |
 | `_partial` | `partial` | |
@@ -682,7 +709,7 @@ export function many<H extends Handle, O extends ManyOptions<H> = ManyOptions<H>
 }
 ```
 
-Apply the same pattern to `tree` and to any other verb whose options parameter is defaulted. Mirror in **both** the client (`runtime/query/unified.ts`) and server (`runtime/server/query-api.ts`) implementations — they must stay signature-identical.
+Apply the same pattern to `tree` and to any other verb whose options parameter is defaulted. Mirror in **both** the client unified-query implementation and the server query facade — **wherever T4.1 moved them** (pre-T4.1 locations: `packages/content/src/runtime/query/unified.ts` and `packages/content/src/runtime/server/query-api.ts`; grep for the current homes first). They must stay signature-identical.
 
 Negative type tests to add in `test/fixtures/typecheck/types/ginko-api.ts` (alongside the existing 25):
 
@@ -703,9 +730,9 @@ If ADR-0016's tree-fallback-by-default turns out to be intentional (docstring at
 
 The refactor is done when **all** of:
 
-1. Status Log fully checked; global gate + full `release:verify` (minus publish) green.
-2. `git grep -nP '\b_(id|path|collection|locale|canonicalKey|type|extension)\b' src/` → empty (modulo the documented internal-meta file).
-3. `git grep -n "ContentQueryBuilderParams\|cms-exchange\|runSaasProviderFixture" src/ test/ docs/` → empty.
+1. Status Log fully checked; global gate + full `release:verify` green (`release:verify` is required; publishing remains forbidden — see §0 rule 3).
+2. `git grep -nP '\b_(id|path|collection|locale|canonicalKey|type|extension)\b' packages/content/src/` → only the Status-Log-documented exceptions (doctor migration-lint regexes).
+3. `git grep -nP "cms-exchange|runSaasProviderFixture|createSaasProviderFixture" packages/content/src/ test/ docs/` → empty. **`ContentQueryBuilderParams` is NOT in this list** (third ruling: it legitimately survives as internal IR; full cutover deferred per `future-decisions.md`) — instead assert it is not publicly exported: `git grep -nP "ContentQueryBuilderParams" packages/content/src/public/ meta/public-surface.json` → empty.
 4. Production playground request path: one snapshot load + one graph build per process (proven by T6.2 test #4).
 5. A build with a deliberately skipped document **fails** (T2.2 / T6.2 test #4).
 6. package.json version `0.2.0`, CHANGELOG migration guide complete (T7.1), preflight passes.
@@ -713,6 +740,6 @@ The refactor is done when **all** of:
 
 **Senior reviewer checkpoints** (review before the agent proceeds):
 - After Phase 2: read `snapshot.ts`, the rewritten cache route, `snapshot-runtime.ts`, and the `storage/graph.ts` fork end-to-end. Highest-risk questions: is prerender still on the request-scoped path? Is the failure-reset single-flight correct? Is the ignore predicate applied symmetrically in CS-2?
-- After Phase 3: sample 5 of the ~20 renamed files; verify `canonicalKey` is genuinely internal; verify the provider registry's JSON-purity assertion exists; run the ginko-cms test suite against the linked workspace **expecting it to break** — the break list must match §9.
+- After Phase 3 **[DONE 2026-07-08 — see the checkpoint entry in §2]**: renamed files sampled through per-task gates; verified `canonicalKey` is **public, opaque, provider-emitted, JSDoc'd never-parse/render-as-URL** (superseding this bullet's original stale 'internal' wording); JSON-purity assertion verified in the T3.2 gate; the ginko-cms break catalogue was produced by direct verification of the ginko-cms tree (see the rewritten §9) — running its suite against the linked workspace moves to the §9 execution itself.
 - After Phase 5: diff `meta/public-surface.json` against 0.1.7's version and confirm every removal is intentional and in the CHANGELOG.
 - Anything in the Status Log "Deviations" section — resolve each explicitly.
