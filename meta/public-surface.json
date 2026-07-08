@@ -541,6 +541,11 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "headersContentCache": {
+      "category": "stable-provider-cache-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "clearContentCacheHint": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",

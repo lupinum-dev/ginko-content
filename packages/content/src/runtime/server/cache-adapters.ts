@@ -1,8 +1,38 @@
+import type { H3Event } from 'h3'
+import { setHeader } from 'h3'
 import type { ContentCacheAdapter, ContentCacheHint, ContentCacheInvalidateInput } from '../../public/provider'
 
+/**
+ * Choosing a cache adapter:
+ * - `noopContentCache` — the default. Both `apply` and `invalidate` are intentionally
+ *   inert: the runtime still computes and stores a cache hint per request, but nothing
+ *   is written to the response and no upstream cache is purged. Use when caching is
+ *   handled entirely outside this module (a CDN/edge config you own) or disabled.
+ * - `vercelContentCache` — `apply` is intentionally inert (Vercel ISR revalidation is a
+ *   pull, not a per-response header this module sets); only `invalidate` does work,
+ *   firing prerender-revalidate HEAD requests. Use on Vercel ISR deployments.
+ * - `headersContentCache` — the active-`apply` adapter: writes `Cache-Control`/`ETag`/
+ *   `Last-Modified` onto every content response from the hint. Use when this module
+ *   should own response cache headers directly (self-hosted / generic CDN).
+ */
 export const noopContentCache = (): ContentCacheAdapter => ({
   name: 'noop',
   apply: () => {},
+  invalidate: async () => {}
+})
+
+/**
+ * Emits the per-request cache hint as HTTP response headers via {@link contentCacheHeaders}.
+ * `invalidate` is a no-op: header-based caching has no upstream store to purge.
+ */
+export const headersContentCache = (): ContentCacheAdapter => ({
+  name: 'headers',
+  apply: (event: H3Event, hint: ContentCacheHint) => {
+    const headers = contentCacheHeaders(hint)
+    headers.forEach((value, key) => {
+      setHeader(event, key, value)
+    })
+  },
   invalidate: async () => {}
 })
 

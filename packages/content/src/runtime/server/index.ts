@@ -7,6 +7,7 @@ export {
   contentCacheHeaders,
   noopContentCache,
   vercelContentCache,
+  headersContentCache,
   type VercelContentCacheOptions
 } from './cache-adapters'
 export {

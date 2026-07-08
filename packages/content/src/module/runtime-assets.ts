@@ -41,6 +41,7 @@ export const generatedContentServerValueNames = [
   'contentCacheHeaders',
   'noopContentCache',
   'vercelContentCache',
+  'headersContentCache',
   'clearContentCacheHint',
   'collectContentCacheHint',
   'getContentCacheHint',

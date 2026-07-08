@@ -66,6 +66,7 @@ export {
   contentCacheHeaders,
   noopContentCache,
   vercelContentCache,
+  headersContentCache,
   type VercelContentCacheOptions
 } from '../runtime/server/cache-adapters.js'
 export {

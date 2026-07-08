@@ -20,7 +20,7 @@ import {
   shouldRunSitemapAssertionOnPrerenderedSitemaps,
   assertGeneratedSitemaps
 } from './module/sitemap-assert'
-import { configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions } from './module/options'
+import { assertPagefindAvailable, configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions } from './module/options'
 import { validateContentPageRouteMetadata } from './module/route-meta-validation'
 import { hasAgentSurface, validateAgentConfig } from './module/agent-config'
 import { registerStaticOutputGeneration } from './module/static-output'
@@ -111,6 +111,7 @@ export default defineNuxtModule<ModuleOptions>({
     const resolvedI18n = resolveModuleI18nOptions(options, nuxt)
     const resolvedSitemap = normalizeSitemapOptions(options)
     const resolvedSearch = normalizeSearchOptions(options)
+    await assertPagefindAvailable(resolvedSearch)
 
     validateCollectionNames(appContentConfig.collections)
     if (!hasAgentSurface(appContentConfig)) {
