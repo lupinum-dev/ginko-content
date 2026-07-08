@@ -55,6 +55,16 @@ const findNonJsonValue = (value: unknown, path: string, ancestors: WeakSet<objec
     return path
   }
 
+  // Dates are admitted: JSON.stringify serializes them deterministically to
+  // ISO strings, which matches what the pre-snapshot production pipeline
+  // already served (parsed artifacts were stored as JSON), so round-tripping
+  // is value-preserving with prior prod behavior. Frontmatter like
+  // `date: 2026-01-01` parses to a Date and must not fail the build.
+  // Invalid dates have no faithful serialization and stay rejected.
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? path : undefined
+  }
+
   if (ancestors.has(value)) {
     return path
   }

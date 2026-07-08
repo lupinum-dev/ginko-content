@@ -36,12 +36,28 @@ describe('content snapshots', () => {
     expect(snapshot.documentSourceIds).toEqual(['content:docs:intro.md'])
   })
 
-  test('rejects documents that would lose data during JSON serialization', () => {
+  test('admits frontmatter dates and serializes them to ISO strings (prod parity)', () => {
+    const snapshot = buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md'],
+      documents: [doc({ publishedAt: new Date('2026-01-01T00:00:00.000Z') } as Partial<ParsedContent>)]
+    })
+    expect((snapshot.documents[0] as Record<string, unknown>).publishedAt).toBe('2026-01-01T00:00:00.000Z')
+  })
+
+  test('rejects invalid dates and genuinely lossy values (Map, undefined)', () => {
     expect(() => buildContentSnapshot({
       integrity: 'integrity',
       now: 123,
       sourceIds: ['content:docs:intro.md'],
-      documents: [doc({ publishedAt: new Date('2026-01-01') } as Partial<ParsedContent>)]
+      documents: [doc({ publishedAt: new Date('not-a-date') } as Partial<ParsedContent>)]
+    })).toThrow(ContentSnapshotError)
+    expect(() => buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md'],
+      documents: [doc({ meta: new Map([['a', 1]]) } as unknown as Partial<ParsedContent>)]
     })).toThrow(ContentSnapshotError)
   })
 
