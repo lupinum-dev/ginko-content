@@ -103,7 +103,7 @@ const identityMatchesDocument = (document: ParsedContent, identity: string) => {
     return false
   }
 
-  return [document._canonicalKey, document._path, document.ref]
+  return [document.canonicalKey, document.path, document.ref]
     .filter((value): value is string => typeof value === 'string')
     .some(value => normalizeReferenceValue(value) === normalizedIdentity)
 }
@@ -138,7 +138,7 @@ export const resolveProviderContentVariants = async (
   const provider = await getContentProvider(event)
   const baseQuery = {
     collection: options.collection,
-    only: ['_path', '_canonicalKey', '_locale', 'ref', 'title', 'description', 'body'],
+    only: ['path', 'canonicalKey', '_locale', 'ref', 'title', 'description', 'body'],
   }
   const documents = localesToQuery.length
     ? (
@@ -158,12 +158,12 @@ export const resolveProviderContentVariants = async (
       ).flat()
     : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, baseQuery), provider.name))
   const matched = documents.find(document => identityMatchesDocument(document, normalizedReference))
-  const canonicalKey = matched?._canonicalKey
+  const canonicalKey = matched?.canonicalKey
   if (!canonicalKey) {
     return null
   }
 
-  const variants = documents.filter(document => document._canonicalKey === canonicalKey)
+  const variants = documents.filter(document => document.canonicalKey === canonicalKey)
   if (!variants.length) {
     return null
   }
@@ -183,8 +183,8 @@ export const resolveProviderContentVariants = async (
   const availableLocales = Array.from(new Set(variants.map(document => document._locale).filter(Boolean))) as string[]
   const variantPaths = Object.fromEntries(
     variants
-      .filter(document => document._locale && document._path)
-      .map(document => [document._locale!, document._path!]),
+      .filter(document => document._locale && document.path)
+      .map(document => [document._locale!, document.path!]),
   )
 
   return {

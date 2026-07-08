@@ -19,7 +19,7 @@ export const getNavigationItemPath = (item: ContentNavigationItem | null | undef
     return undefined
   }
 
-  return stringValue(item.path) || stringValue(item._path)
+  return stringValue(item.path) || stringValue(item.path)
 }
 
 export const resolveNavigationItem = (item: ContentNavigationItem | null | undefined): ResolvedContentNavigationItem | null => {
@@ -27,13 +27,13 @@ export const resolveNavigationItem = (item: ContentNavigationItem | null | undef
   return item && path ? { ...item, path } : null
 }
 
-const fieldMatches = (item: ContentNavigationItem, field: 'path' | '_path' | 'canonicalPath' | 'stem' | 'title', value: string) => {
+const fieldMatches = (item: ContentNavigationItem, field: 'path' | 'canonicalPath' | 'stem' | 'title', value: string) => {
   const candidate = stringValue(item[field])
   if (!candidate) {
     return false
   }
 
-  if (field === 'path' || field === '_path' || field === 'canonicalPath') {
+  if (field === 'path' || field === 'canonicalPath') {
     return normalizePath(candidate) === normalizePath(value)
   }
 
@@ -43,13 +43,12 @@ const fieldMatches = (item: ContentNavigationItem, field: 'path' | '_path' | 'ca
 export const matchesNavigationItem = (item: ContentNavigationItem, match: string | ContentNavigationMatch): boolean => {
   if (typeof match === 'string') {
     return fieldMatches(item, 'path', match)
-      || fieldMatches(item, '_path', match)
       || fieldMatches(item, 'canonicalPath', match)
       || fieldMatches(item, 'stem', match)
       || fieldMatches(item, 'title', match)
   }
 
-  if (match.path && !(fieldMatches(item, 'path', match.path) || fieldMatches(item, '_path', match.path) || fieldMatches(item, 'canonicalPath', match.path))) {
+  if (match.path && !(fieldMatches(item, 'path', match.path) || fieldMatches(item, 'canonicalPath', match.path))) {
     return false
   }
 

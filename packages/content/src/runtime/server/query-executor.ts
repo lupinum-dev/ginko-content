@@ -106,8 +106,8 @@ const normalizePublicQuery = (
         : []
     normalized.where = [
       ...where,
-      { _draft: { $ne: true } },
-      { _partial: { $ne: true } }
+      { draft: { $ne: true } },
+      { partial: { $ne: true } }
     ]
   }
 

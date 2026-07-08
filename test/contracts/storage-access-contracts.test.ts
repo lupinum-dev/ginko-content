@@ -157,8 +157,8 @@ describe('storage access contracts', () => {
     })
     storageState.set('cache:content:parsed:content:intro.md', {
       parsed: [{
-        _id: 'content:intro.md',
-        _path: '/intro',
+        id: 'content:intro.md',
+        path: '/intro',
         title: 'Old Parsed Intro'
       }],
       hash: 'bundled-hash'
@@ -170,8 +170,8 @@ describe('storage access contracts', () => {
       documentIds: ['content:intro.md'],
       documentSourceIds: ['content:intro.md'],
       documents: [{
-        _id: 'content:intro.md',
-        _path: '/intro',
+        id: 'content:intro.md',
+        path: '/intro',
         title: 'Snapshot Intro'
       }]
     })
@@ -184,8 +184,8 @@ describe('storage access contracts', () => {
 
     await expect(getContentsList({} as any)).resolves.toEqual([
       expect.objectContaining({
-        _id: 'content:intro.md',
-        _path: '/intro',
+        id: 'content:intro.md',
+        path: '/intro',
         title: 'Snapshot Intro'
       })
     ])
@@ -208,9 +208,9 @@ describe('storage access contracts', () => {
         'content:guide:intro.md'
       ],
       documents: [
-        { _id: 'content:guide:intro.md', _path: '/guide/intro' },
-        { _id: 'content:guide:intro.md#__locale=de', _path: '/de/guide/intro' },
-        { _id: 'content:blog:hello.md', _path: '/blog/hello' }
+        { id: 'content:guide:intro.md', path: '/guide/intro' },
+        { id: 'content:guide:intro.md#__locale=de', path: '/de/guide/intro' },
+        { id: 'content:blog:hello.md', path: '/blog/hello' }
       ]
     })
     storageState.set('content:source:content:guide:stale.md', { _meta: {} })

@@ -25,7 +25,7 @@ export interface BuildContentSnapshotArgs {
 /** Build error carrying every offending path; never fail on just the first one. */
 export class ContentSnapshotError extends Error {}
 
-const documentIdOf = (document: ParsedContent) => document._id
+const documentIdOf = (document: ParsedContent) => document.id
 
 const documentSourceIdOf = (document: ParsedContent) =>
   splitInlineLocaleVariantId(documentIdOf(document)).sourceId

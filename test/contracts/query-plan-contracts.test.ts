@@ -10,13 +10,13 @@ describe('query plan contracts', () => {
       where: [
         {
           $or: [
-            { _path: '/guide/intro' },
+            { path: '/guide/intro' },
             { $and: [{ published: true }, { title: { $regex: /intro/i } }] }
           ]
         }
       ],
       sort: [{ date: -1, $numeric: true }],
-      only: ['title', '_path']
+      only: ['title', 'path']
     } as any)
 
     expect(plan).toMatchObject({
@@ -26,7 +26,7 @@ describe('query plan contracts', () => {
         clauses: [
           {
             type: 'compare',
-            field: '_path',
+            field: 'path',
             operator: 'eq',
             value: '/guide/intro'
           },
@@ -49,7 +49,7 @@ describe('query plan contracts', () => {
         ]
       },
       sort: [{ field: 'date', direction: -1, numeric: true }],
-      projection: { only: ['title', '_path'], without: [] },
+      projection: { only: ['title', 'path'], without: [] },
       mode: 'all'
     })
   })
@@ -98,13 +98,13 @@ describe('query plan contracts', () => {
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:a.md', _path: '/docs/a', _canonicalKey: 'docs/a', title: 'A', order: 1 }),
-      doc({ _collection: 'docs', _id: 'content:docs:b.md', _path: '/docs/b', _canonicalKey: 'docs/b', title: 'Outside', order: 2 }),
-      doc({ _collection: 'docs', _id: 'content:docs:c.md', _path: '/docs/c', _canonicalKey: 'docs/c', title: 'C', order: 3 })
+      doc({ collection: 'docs', id: 'content:docs:a.md', path: '/docs/a', canonicalKey: 'docs/a', title: 'A', order: 1 }),
+      doc({ collection: 'docs', id: 'content:docs:b.md', path: '/docs/b', canonicalKey: 'docs/b', title: 'Outside', order: 2 }),
+      doc({ collection: 'docs', id: 'content:docs:c.md', path: '/docs/c', canonicalKey: 'docs/c', title: 'C', order: 3 })
     ])
     const plan = lowerQueryPlan({
       collection: 'docs',
-      where: [{ $or: [{ _path: '/docs/a' }, { title: 'Outside' }] }],
+      where: [{ $or: [{ path: '/docs/a' }, { title: 'Outside' }] }],
       sort: [{ order: 1 }]
     } as any)
 
@@ -122,13 +122,13 @@ describe('query plan contracts', () => {
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:a.md', _path: '/docs/a', _canonicalKey: 'docs/a', title: 'A', order: 1 }),
-      doc({ _collection: 'docs', _id: 'content:docs:b.md', _path: '/docs/b', _canonicalKey: 'docs/b', title: 'B', order: 2 }),
-      doc({ _collection: 'docs', _id: 'content:docs:c.md', _path: '/docs/c', _canonicalKey: 'docs/c', title: 'C', order: 3 })
+      doc({ collection: 'docs', id: 'content:docs:a.md', path: '/docs/a', canonicalKey: 'docs/a', title: 'A', order: 1 }),
+      doc({ collection: 'docs', id: 'content:docs:b.md', path: '/docs/b', canonicalKey: 'docs/b', title: 'B', order: 2 }),
+      doc({ collection: 'docs', id: 'content:docs:c.md', path: '/docs/c', canonicalKey: 'docs/c', title: 'C', order: 3 })
     ])
     const plan = lowerQueryPlan({
       collection: 'docs',
-      where: [{ $not: { _path: '/docs/a' } }],
+      where: [{ $not: { path: '/docs/a' } }],
       sort: [{ order: 1 }]
     } as any)
 
@@ -146,12 +146,12 @@ describe('query plan contracts', () => {
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:a.md', _path: '/docs/a', _canonicalKey: 'docs/a', title: 'A', order: 1 }),
-      doc({ _collection: 'docs', _id: 'content:docs:b.md', _path: '/docs/b', _canonicalKey: 'docs/b', title: 'B', order: 2 })
+      doc({ collection: 'docs', id: 'content:docs:a.md', path: '/docs/a', canonicalKey: 'docs/a', title: 'A', order: 1 }),
+      doc({ collection: 'docs', id: 'content:docs:b.md', path: '/docs/b', canonicalKey: 'docs/b', title: 'B', order: 2 })
     ])
     const plan = lowerQueryPlan({
       collection: 'docs',
-      where: [{ _path: '/docs/b' }]
+      where: [{ path: '/docs/b' }]
     } as any)
 
     const result = executeQueryPlan<Record<string, unknown>>(graph, plan)
@@ -165,7 +165,7 @@ describe('query plan contracts', () => {
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:intro.md', _path: '/docs/intro', _locale: undefined, _canonicalKey: 'docs/intro', title: 'Intro' })
+      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', _locale: undefined, canonicalKey: 'docs/intro', title: 'Intro' })
     ])
     const plan = lowerQueryPlan({
       collection: 'docs',

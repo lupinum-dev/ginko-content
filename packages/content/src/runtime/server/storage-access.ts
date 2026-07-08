@@ -19,7 +19,7 @@ export const getContentsIds = async (event: H3Event, prefix?: string) => {
 
   const ids = new Set<string>()
   for (const document of await getProcessDocuments(event)) {
-    const { sourceId } = splitInlineLocaleVariantId(document._id)
+    const { sourceId } = splitInlineLocaleVariantId(document.id)
     if (!prefix || sourceId.startsWith(prefix)) {
       ids.add(sourceId)
     }

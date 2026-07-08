@@ -9,7 +9,7 @@
  *  2. **Inline locale variant id** — YAML/JSON sources can carry locale
  *     overrides inline (`i18n: { de: { title: '…' } }`). We split each
  *     such document into one variant per locale at ingest; the
- *     synthetic variants share a `_id` shape of
+ *     synthetic variants share a `id` shape of
  *     `${sourceId}#__locale=${locale}`. `splitInlineLocaleVariantId`
  *     reverses that for lookups.
  *
@@ -118,7 +118,7 @@ export const expandDataLocaleVariants = (
   document: ParsedContent,
   i18nConfig?: ContentCollectionI18nConfig
 ) => {
-  if (!i18nConfig || (document._type !== 'yaml' && document._type !== 'json')) {
+  if (!i18nConfig || (document.type !== 'yaml' && document.type !== 'json')) {
     return [document]
   }
 
@@ -138,7 +138,7 @@ export const expandDataLocaleVariants = (
 
     const override = rawI18n[locale]
     if (typeof override !== 'undefined' && !isPlainObject(override)) {
-      console.warn(`[content] Inline i18n override for locale "${locale}" in "${document._id}" must be an object. Skipping invalid override.`)
+      console.warn(`[content] Inline i18n override for locale "${locale}" in "${document.id}" must be an object. Skipping invalid override.`)
       continue
     }
 
@@ -149,7 +149,7 @@ export const expandDataLocaleVariants = (
     const merged = mergeLocaleOverride(baseDocument, override) as ParsedContent
     variants.push({
       ...merged,
-      _id: `${document._id}${INLINE_LOCALE_ID_SEPARATOR}${locale}`,
+      id: `${document.id}${INLINE_LOCALE_ID_SEPARATOR}${locale}`,
       _locale: locale
     })
   }

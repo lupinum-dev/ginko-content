@@ -19,12 +19,12 @@ describe('query transport contracts', () => {
 
     const params = {
       where: [
-        { _path: /^\/guide\/.+/ },
-        { _draft: { $ne: true } }
+        { path: /^\/guide\/.+/ },
+        { draft: { $ne: true } }
       ],
-      only: ['title', '_path'],
+      only: ['title', 'path'],
       without: ['body'],
-      sort: [{ _stem: 1, $numeric: true }],
+      sort: [{ 'file.stem': 1, $numeric: true }],
       limit: 10
     } as any
 
@@ -32,9 +32,9 @@ describe('query transport contracts', () => {
     expect(encoded).toContain('/')
 
     const decoded = decodeQueryParams(encoded)
-    expect(decoded.where[0]!._path).toBeInstanceOf(RegExp)
-    expect(String(decoded.where[0]!._path)).toBe(String(params.where[0]!._path))
-    expect(decoded.only).toEqual(['title', '_path'])
+    expect(decoded.where[0]!.path).toBeInstanceOf(RegExp)
+    expect(String(decoded.where[0]!.path)).toBe(String(params.where[0]!.path))
+    expect(decoded.only).toEqual(['title', 'path'])
   })
 
   test('getContentQuery only accepts encoded path params', async () => {
@@ -43,12 +43,12 @@ describe('query transport contracts', () => {
     const routeEvent: any = {
       context: {
         params: {
-          params: `abc123/${encodeQueryParams({ where: [{ _path: '/guide' }] } as any)}.json`
+          params: `abc123/${encodeQueryParams({ where: [{ path: '/guide' }] } as any)}.json`
         }
       }
     }
     expect(getContentQuery(routeEvent)).toEqual({
-      where: [{ _path: '/guide' }]
+      where: [{ path: '/guide' }]
     })
 
     expect(getContentQuery({ context: { params: {} } } as any)).toEqual({})

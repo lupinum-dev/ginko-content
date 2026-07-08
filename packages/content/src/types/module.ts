@@ -224,7 +224,7 @@ export interface ContentSearchOptions {
   /**
    * Query predicate applied before records are indexed.
    *
-   * @default { _draft: false, _partial: false }
+   * @default { draft: false, partial: false }
    */
   filterQuery?: ContentQueryBuilderWhere
   /**

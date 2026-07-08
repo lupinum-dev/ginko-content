@@ -3,11 +3,11 @@ import type { ContentNavigationItem } from '../../types/content'
 export function flattenCollectionNavigation (navigation: ContentNavigationItem[] = []): ContentNavigationItem[] {
   return navigation.flatMap((item) => {
     const children: ContentNavigationItem[] = item.children ? flattenCollectionNavigation(item.children) : []
-    if (!item._path && !item.path) {
+    if (!item.canonicalPath && !item.path) {
       return children
     }
 
-    if (item.page === false || (children.length && children.find(child => child._path === item._path))) {
+    if (item.page === false || (children.length && children.find(child => child.canonicalPath === item.canonicalPath))) {
       return children
     }
 
@@ -27,7 +27,9 @@ export function createCollectionSurroundings (
   const index = items.findIndex((item) => {
     const itemPath = typeof item.path === 'string'
       ? item.path
-      : item._path
+      : typeof item.canonicalPath === 'string'
+        ? item.canonicalPath
+        : undefined
 
     if (!itemPath) {
       return false

@@ -103,12 +103,12 @@ const routeMetaMatchesPath = (value: ContentRouteMeta | null | undefined, path: 
   if (!value) return false
   const normalizedPath = normalizeRoutePath(path)
   const legacyPath = (value as {
-    _path?: unknown
+    path?: unknown
     _requestedPath?: unknown
     _requestedRoute?: unknown
   })
   if (
-    normalizeRoutePath(legacyPath._path) === normalizedPath ||
+    normalizeRoutePath(legacyPath.path) === normalizedPath ||
     normalizeRoutePath(legacyPath._requestedPath) === normalizedPath ||
     normalizeRoutePath(legacyPath._requestedRoute) === normalizedPath
   ) return true

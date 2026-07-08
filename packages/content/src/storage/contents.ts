@@ -38,7 +38,7 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
   const config = contentConfig()
   const { sourceId: contentId } = splitInlineLocaleVariantId(id)
   if (!contentIgnorePredicate(contentId)) {
-    return [{ _id: contentId, body: null } as ParsedContent]
+    return [{ id: contentId, body: null } as ParsedContent]
   }
 
   const storageId = await resolveStorageId(event, contentId)
@@ -46,7 +46,7 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
   const cached = isContentCacheArtifact(cachedValue) ? cachedValue : null
   const body = await runtime.source.getItem(storageId)
   if (body === null) {
-    return [{ _id: contentId, body: null } as ParsedContent]
+    return [{ id: contentId, body: null } as ParsedContent]
   }
 
   const hash = ohash({
@@ -88,7 +88,7 @@ const loadContents = async (event: H3Event, prefix?: string) => {
     contents.push(...result.flat())
   }
 
-  const filtered = contents.filter(document => document && document._path)
+  const filtered = contents.filter(document => document && document.path)
   if (shouldValidateAtRuntime) {
     const outcome = validateContentGraph(filtered, contentConfig())
     if (!outcome.ok) {
@@ -106,7 +106,7 @@ const snapshotDocumentsFor = async (event: H3Event, prefix?: string) => {
   }
 
   return documents.filter((document) => {
-    const { sourceId } = splitInlineLocaleVariantId(document._id)
+    const { sourceId } = splitInlineLocaleVariantId(document.id)
     return sourceId.startsWith(prefix)
   })
 }
@@ -144,7 +144,7 @@ export const getContentsList = (event: H3Event, prefix?: string) => {
 export const getContent = async (event: H3Event, id: string): Promise<ParsedContent> => {
   const { sourceId, locale } = splitInlineLocaleVariantId(id)
   const parsed = usesProcessSnapshot
-    ? (await getProcessDocuments(event)).filter(document => splitInlineLocaleVariantId(document._id).sourceId === sourceId)
+    ? (await getProcessDocuments(event)).filter(document => splitInlineLocaleVariantId(document.id).sourceId === sourceId)
     : await loadContentVariants(event, sourceId)
   if (!locale) {
     return parsed[0] as ParsedContent

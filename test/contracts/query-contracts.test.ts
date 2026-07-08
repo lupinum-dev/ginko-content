@@ -61,13 +61,13 @@ describe('query execution contracts', () => {
 
   test('executeContentQuery resolves locale variants and composes count/skip/limit/projection', async () => {
     const dataset = [
-      doc({ _collection: 'docs', title: 'Intro EN', _canonicalKey: 'docs/intro', _locale: 'en', _path: '/guide/intro', order: 2 }),
-      doc({ _collection: 'docs', title: 'Intro DE', _id: 'content:de:guide:intro.md', _file: '/de/guide/intro.md', _canonicalKey: 'docs/intro', _locale: 'de', _path: '/leitfaden/einstieg', order: 1 }),
-      doc({ _collection: 'docs', title: 'Advanced EN', _id: 'content:en:guide:advanced.md', _file: '/en/guide/advanced.md', _canonicalKey: 'docs/advanced', _locale: 'en', _path: '/guide/advanced', order: 4 }),
-      doc({ _collection: 'docs', title: 'Guide EN', _id: 'content:en:guide:index.md', _file: '/en/guide/index.md', _canonicalKey: 'docs/guide', _locale: 'en', _path: '/guide', order: 3 }),
-      doc({ _collection: 'docs', title: 'Middle DE', _id: 'content:de:guide:middle.md', _file: '/de/guide/middle.md', _canonicalKey: 'docs/middle', _locale: 'de', _path: '/leitfaden/mitte', order: 3.5 }),
-      doc({ _collection: 'docs', title: 'Zed EN', _id: 'content:en:guide:zed.md', _file: '/en/guide/zed.md', _canonicalKey: 'docs/zed', _locale: 'en', _path: '/guide/zed', order: 0 }),
-      doc({ _collection: 'docs', title: 'Zed DE', _id: 'content:de:guide:zed.md', _file: '/de/guide/zed.md', _canonicalKey: 'docs/zed', _locale: 'de', _path: '/leitfaden/zed', order: 5 })
+      doc({ collection: 'docs', title: 'Intro EN', canonicalKey: 'docs/intro', _locale: 'en', path: '/guide/intro', order: 2 }),
+      doc({ collection: 'docs', title: 'Intro DE', id: 'content:de:guide:intro.md', file: { path: '/de/guide/intro.md' }, canonicalKey: 'docs/intro', _locale: 'de', path: '/leitfaden/einstieg', order: 1 }),
+      doc({ collection: 'docs', title: 'Advanced EN', id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, canonicalKey: 'docs/advanced', _locale: 'en', path: '/guide/advanced', order: 4 }),
+      doc({ collection: 'docs', title: 'Guide EN', id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, canonicalKey: 'docs/guide', _locale: 'en', path: '/guide', order: 3 }),
+      doc({ collection: 'docs', title: 'Middle DE', id: 'content:de:guide:middle.md', file: { path: '/de/guide/middle.md' }, canonicalKey: 'docs/middle', _locale: 'de', path: '/leitfaden/mitte', order: 3.5 }),
+      doc({ collection: 'docs', title: 'Zed EN', id: 'content:en:guide:zed.md', file: { path: '/en/guide/zed.md' }, canonicalKey: 'docs/zed', _locale: 'en', path: '/guide/zed', order: 0 }),
+      doc({ collection: 'docs', title: 'Zed DE', id: 'content:de:guide:zed.md', file: { path: '/de/guide/zed.md' }, canonicalKey: 'docs/zed', _locale: 'de', path: '/leitfaden/zed', order: 5 })
     ]
 
     getContentsList.mockResolvedValue(dataset)
@@ -172,9 +172,9 @@ describe('query execution contracts', () => {
 
   test('executeContentQuery reports not-found errors for missing locale-resolved results', async () => {
     const dataset = [
-      doc({ _collection: 'docs', title: 'Intro DE', _id: 'content:de:guide:intro.md', _file: '/de/guide/intro.md', _canonicalKey: 'docs/intro', _locale: 'de', _path: '/leitfaden/einstieg', order: 1 }),
-      doc({ _collection: 'docs', title: 'Guide EN', _id: 'content:en:guide:index.md', _file: '/en/guide/index.md', _canonicalKey: 'docs/guide', _locale: 'en', _path: '/guide', order: 2 }),
-      doc({ _collection: 'docs', title: 'Advanced EN', _id: 'content:en:guide:advanced.md', _file: '/en/guide/advanced.md', _canonicalKey: 'docs/advanced', _locale: 'en', _path: '/guide/advanced', order: 3 })
+      doc({ collection: 'docs', title: 'Intro DE', id: 'content:de:guide:intro.md', file: { path: '/de/guide/intro.md' }, canonicalKey: 'docs/intro', _locale: 'de', path: '/leitfaden/einstieg', order: 1 }),
+      doc({ collection: 'docs', title: 'Guide EN', id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, canonicalKey: 'docs/guide', _locale: 'en', path: '/guide', order: 2 }),
+      doc({ collection: 'docs', title: 'Advanced EN', id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, canonicalKey: 'docs/advanced', _locale: 'en', path: '/guide/advanced', order: 3 })
     ]
 
     getContentsList.mockResolvedValue(dataset)
@@ -194,7 +194,7 @@ describe('query execution contracts', () => {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] },
       first: true,
-      where: [{ _path: '/missing' }]
+      where: [{ path: '/missing' }]
     } as any)).rejects.toMatchObject({
       statusCode: 404
     })
@@ -203,18 +203,18 @@ describe('query execution contracts', () => {
   test('executeContentQuery resolves route variants and returns variant paths', async () => {
     getContentsList.mockResolvedValue([
       doc({
-        _collection: 'docs',
-        _id: 'content:en:guide:intro.md',
-        _canonicalKey: 'docs/intro',
-        _path: '/guide/intro',
+        collection: 'docs',
+        id: 'content:en:guide:intro.md',
+        canonicalKey: 'docs/intro',
+        path: '/guide/intro',
         title: 'Intro EN'
       }),
       doc({
-        _collection: 'docs',
-        _id: 'content:en:_dir.yml',
-        _path: '/guide/intro',
+        collection: 'docs',
+        id: 'content:en:_dir.yml',
+        path: '/guide/intro',
         _navigation: true,
-        _partial: true,
+        partial: true,
         body: { badge: 'New' }
       })
     ])
@@ -250,9 +250,9 @@ describe('query execution contracts', () => {
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
     const { createQuery } = await import('../../packages/content/src/core/query/builder')
     const contents = [
-      doc({ _collection: 'docs', _path: '/guide/intro', title: 'Intro', order: 1, group: 'docs' }),
-      doc({ _collection: 'docs', _path: '/guide/advanced', title: 'Advanced', order: 2, group: 'docs' }),
-      doc({ _collection: 'blog', _path: '/blog/post', title: 'Post', order: 0, group: 'blog' })
+      doc({ collection: 'docs', path: '/guide/intro', title: 'Intro', order: 1, group: 'docs' }),
+      doc({ collection: 'docs', path: '/guide/advanced', title: 'Advanced', order: 2, group: 'docs' }),
+      doc({ collection: 'blog', path: '/blog/post', title: 'Post', order: 0, group: 'blog' })
     ]
 
     const query = createQuery(async (builtQuery: any) => {
@@ -263,16 +263,16 @@ describe('query execution contracts', () => {
         collection: 'docs'
       } as any
     })
-      .where('_path', '=', '/guide/advanced')
+      .where('path', '=', '/guide/advanced')
       .where('group', '=', 'docs')
       .order('order', 'ASC')
-      .select('title', '_path')
+      .select('title', 'path')
 
     const plan = lowerQueryPlan((query as any).params())
     const result = executeQueryPlanOnDocuments(contents, plan)
 
     expect(result.result).toEqual([
-      { title: 'Advanced', _path: '/guide/advanced' }
+      { title: 'Advanced', path: '/guide/advanced' }
     ])
   })
 
@@ -280,7 +280,7 @@ describe('query execution contracts', () => {
     const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
 
     await expect(executeContentQuery(createEvent(), {
-      where: [{ _path: '/guide/intro' }]
+      where: [{ path: '/guide/intro' }]
     } as any)).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Invalid content query'
@@ -309,9 +309,9 @@ describe('query execution contracts', () => {
 
   test('executeContentQuery accepts public path prefix filters without exposing regex', async () => {
     const dataset = [
-      doc({ _collection: 'docs', _id: 'content:guide:intro.md', _file: '/guide/intro.md', _canonicalKey: 'guide/intro', _path: '/guide/intro', title: 'Intro' }),
-      doc({ _collection: 'docs', _id: 'content:guide:advanced.md', _file: '/guide/advanced.md', _canonicalKey: 'guide/advanced', _path: '/guide/advanced', title: 'Advanced' }),
-      doc({ _collection: 'docs', _id: 'content:api:index.md', _file: '/api/index.md', _canonicalKey: 'api/index', _path: '/api', title: 'API' })
+      doc({ collection: 'docs', id: 'content:guide:intro.md', file: { path: '/guide/intro.md' }, canonicalKey: 'guide/intro', path: '/guide/intro', title: 'Intro' }),
+      doc({ collection: 'docs', id: 'content:guide:advanced.md', file: { path: '/guide/advanced.md' }, canonicalKey: 'guide/advanced', path: '/guide/advanced', title: 'Advanced' }),
+      doc({ collection: 'docs', id: 'content:api:index.md', file: { path: '/api/index.md' }, canonicalKey: 'api/index', path: '/api', title: 'API' })
     ]
     getContentsList.mockResolvedValue(dataset)
     getContentManifest.mockResolvedValue({ byCanonical: {} })
@@ -322,11 +322,11 @@ describe('query execution contracts', () => {
       collection: 'docs',
       where: [{ path: { $prefix: '/guide' } }],
       sort: [{ title: 1 }],
-      only: ['title', '_path']
+      only: ['title', 'path']
     } as any)).resolves.toEqual({
       result: [
-        { title: 'Advanced', _path: '/guide/advanced' },
-        { title: 'Intro', _path: '/guide/intro' }
+        { title: 'Advanced', path: '/guide/advanced' },
+        { title: 'Intro', path: '/guide/intro' }
       ],
       skip: 0,
       limit: 0,
@@ -336,9 +336,9 @@ describe('query execution contracts', () => {
 
   test('executeContentQuery clamps public pagination bounds', async () => {
     const dataset = [
-      doc({ _collection: 'docs', _id: 'content:guide:a.md', _file: '/guide/a.md', _canonicalKey: 'guide/a', _path: '/guide/a', title: 'A', order: 1 }),
-      doc({ _collection: 'docs', _id: 'content:guide:b.md', _file: '/guide/b.md', _canonicalKey: 'guide/b', _path: '/guide/b', title: 'B', order: 2 }),
-      doc({ _collection: 'docs', _id: 'content:guide:c.md', _file: '/guide/c.md', _canonicalKey: 'guide/c', _path: '/guide/c', title: 'C', order: 3 })
+      doc({ collection: 'docs', id: 'content:guide:a.md', file: { path: '/guide/a.md' }, canonicalKey: 'guide/a', path: '/guide/a', title: 'A', order: 1 }),
+      doc({ collection: 'docs', id: 'content:guide:b.md', file: { path: '/guide/b.md' }, canonicalKey: 'guide/b', path: '/guide/b', title: 'B', order: 2 }),
+      doc({ collection: 'docs', id: 'content:guide:c.md', file: { path: '/guide/c.md' }, canonicalKey: 'guide/c', path: '/guide/c', title: 'C', order: 3 })
     ]
 
     getContentsList.mockResolvedValue(dataset)

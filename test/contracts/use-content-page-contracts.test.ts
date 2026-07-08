@@ -135,8 +135,8 @@ vi.mock('../../packages/content/src/runtime/app/composables/route', () => ({
 }))
 
 const doc = (path = '/docs/getting-started') => ({
-  _path: path,
-  _file: `${path}.md`,
+  path: path,
+  file: { path: `${path}.md` },
   _requestedRoute: path,
   _variantPaths: {
     en: path,
@@ -264,7 +264,7 @@ describe('useContentPage contracts', () => {
         route: '/plain/about'
       })
     }), expect.anything())
-    expect(state.page.value?._path).toBe('/plain/about')
+    expect(state.page.value?.path).toBe('/plain/about')
   })
 
   test('keeps the page reactive when route metadata reads it before async data resolves', async () => {

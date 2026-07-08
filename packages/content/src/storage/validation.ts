@@ -116,28 +116,24 @@ const collectDerivedReferenceIssues = (
 }
 
 const internalDocumentFields = new Set([
-  '_id',
-  '_file',
-  '_path',
-  '_type',
-  '_collection',
+  'id',
+  'file',
+  'path',
+  'type',
+  'collection',
+  'canonicalKey',
+  'partial',
+  'draft',
   '_dir',
   '_locale',
-  '_canonicalKey',
-  '_partial',
   '_navigation',
-  '_draft',
-  '_stem',
-  '_extension',
   '_resolvedLocale',
   '_requestedLocale',
   '_fallback',
   '_availableLocales',
   '_variantPaths',
   '_resolvedRefs',
-  '_source',
-  'body',
-  'draft'
+  'body'
 ])
 
 const toUserContentDocument = (document: ParsedContent) => {
@@ -178,7 +174,7 @@ const validateNavigationDocument = (document: ParsedContent): Result<void, Conte
   if (invalidFields.length) {
     return fail(createContentError(
       'INVALID_NAVIGATION_YAML',
-      document._file || document._id,
+      document.file?.path || document.id,
       'malformed .navigation.yml',
       invalidFields.join('; ')
     ))
@@ -188,15 +184,11 @@ const validateNavigationDocument = (document: ParsedContent): Result<void, Conte
 }
 
 export const getCanonicalContentId = (document: ParsedContent, locales: string[] = []) => {
-  if (typeof document.id === 'string' && document.id.length) {
-    return document.id
+  if (typeof document.canonicalKey === 'string' && document.canonicalKey.length) {
+    return document.canonicalKey
   }
 
-  if (typeof document._canonicalKey === 'string' && document._canonicalKey.length) {
-    return document._canonicalKey
-  }
-
-  const file = (document._file || '').replace(/^\/+/, '')
+  const file = (document.file?.path || '').replace(/^\/+/, '')
   const parts = file.split('/').filter(Boolean)
   const normalized = parts[0] && locales.includes(parts[0]) ? parts.slice(1) : parts
   return normalized.join('/').replace(/\.[^.]+$/, '')
@@ -222,11 +214,11 @@ export const validateCollectionDocument = (
     return navigationResult
   }
 
-  if (!document._collection) {
+  if (!document.collection) {
     return ok(document)
   }
 
-  const collection = getCollectionConfig(document._collection, collections)
+  const collection = getCollectionConfig(document.collection, collections)
   const schema = collection?.schema
   if (!hasSafeParse(schema)) {
     return ok(document)
@@ -245,7 +237,7 @@ export const validateCollectionDocument = (
     return `${path}: ${issue.message}`
   }).join('; ')
 
-  const message = `Invalid content in ${document._file || document._id}${details ? ` (${details})` : ''}`
+  const message = `Invalid content in ${document.file?.path || document.id}${details ? ` (${details})` : ''}`
   if (collection?.strict === false) {
     console.warn(message)
     return ok(document)
@@ -255,8 +247,8 @@ export const validateCollectionDocument = (
     'SCHEMA_VALIDATION_FAILED',
     message,
     {
-      file: document._file || document._id,
-      collection: document._collection,
+      file: document.file?.path || document.id,
+      collection: document.collection,
       ...(details ? { details } : {})
     }
   ))
@@ -285,25 +277,23 @@ export const validateContentGraph = (
   config: { collections?: Record<string, ContentCollectionConfig>, locales?: string[], translatedSlugs?: boolean, strictTranslatedSlugs?: boolean }
 ): Result<void, ContentError> => {
   const locales = config.locales || []
-  const docs = contents.filter(content => content && content._path)
-  const routeEntries = docs.filter(content => !content._partial && !content._navigation)
-  const markdownEntries = routeEntries.filter(content => content._type === 'markdown')
+  const docs = contents.filter(content => content && content.path)
+  const routeEntries = docs.filter(content => !content.partial && !content._navigation)
+  const markdownEntries = routeEntries.filter(content => content.type === 'markdown')
   const idsByLocale = new Map<string, ParsedContent>()
   const pathsByLocale = new Map<string, ParsedContent>()
   const referenceTargets = buildReferenceTargets(routeEntries, locales)
   const targetCollections = new Map<string, Set<string>>()
-  const variantsByCanonicalKey = new Map<string, ParsedContent[]>()
   const markdownVariantsByCanonicalKey = new Map<string, ParsedContent[]>()
-  const explicitIdsByValue = new Map<string, { document: ParsedContent, variantKey: string }>()
   const refsByValue = new Map<string, ParsedContent>()
 
   for (const document of routeEntries) {
-    const canonicalId = document._canonicalKey || getCanonicalContentId(document, locales)
-    if (!canonicalId || !document._collection) {
+    const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
+    if (!canonicalId || !document.collection) {
       continue
     }
     const collections = targetCollections.get(canonicalId) || new Set<string>()
-    collections.add(document._collection)
+    collections.add(document.collection)
     targetCollections.set(canonicalId, collections)
   }
 
@@ -324,61 +314,11 @@ export const validateContentGraph = (
     return fail(createContentError('TRANSLATED_SLUG_CONFLICT', issue.file, issue.reason, issue.details))
   }
 
-  for (const document of routeEntries) {
-    const variantKey = document._canonicalKey || getCanonicalContentId(document, locales)
-    const siblings = variantsByCanonicalKey.get(variantKey) || []
-    siblings.push(document)
-    variantsByCanonicalKey.set(variantKey, siblings)
-  }
-
   for (const document of markdownEntries) {
-    const variantKey = document._canonicalKey || getCanonicalContentId(document, locales)
+    const variantKey = document.canonicalKey || getCanonicalContentId(document, locales)
     const siblings = markdownVariantsByCanonicalKey.get(variantKey) || []
     siblings.push(document)
     markdownVariantsByCanonicalKey.set(variantKey, siblings)
-  }
-
-  for (const [variantKey, variants] of variantsByCanonicalKey.entries()) {
-    const explicitIds = Array.from(new Set(variants
-      .map(document => typeof document.id === 'string' && document.id.length ? document.id : undefined)
-      .filter((value): value is string => Boolean(value))))
-
-    if (explicitIds.length > 1) {
-      return fail(createContentError(
-        'CONFLICTING_REFS',
-        variants[0]?._file || variants[0]?._id || variantKey,
-        `conflicting explicit ids across locale variants for canonical key "${variantKey}"`,
-        explicitIds.join(', ')
-      ))
-    }
-
-    if (explicitIds.length === 1 && variants.some(document => document.id !== explicitIds[0])) {
-      return fail(createContentError(
-        'CONFLICTING_REFS',
-        variants[0]?._file || variants[0]?._id || variantKey,
-        `explicit id "${explicitIds[0]}" must be declared consistently across locale variants for canonical key "${variantKey}"`
-      ))
-    }
-  }
-
-  for (const document of routeEntries) {
-    const explicitId = typeof document.id === 'string' && document.id.length ? document.id : undefined
-    if (!explicitId) {
-      continue
-    }
-
-    const variantKey = document._canonicalKey || getCanonicalContentId(document, locales)
-    const previous = explicitIdsByValue.get(explicitId)
-    if (previous && previous.variantKey !== variantKey) {
-      return fail(createContentError(
-        'CONFLICTING_REFS',
-        document._file || document._id,
-        `duplicate explicit id "${explicitId}"`,
-        `conflicts with ${previous.document._file || previous.document._id}`
-      ))
-    }
-
-    explicitIdsByValue.set(explicitId, { document, variantKey })
   }
 
   for (const [variantKey, variants] of markdownVariantsByCanonicalKey.entries()) {
@@ -389,7 +329,7 @@ export const validateContentGraph = (
     if (explicitRefs.length > 1) {
       return fail(createContentError(
         'CONFLICTING_REFS',
-        variants[0]?._file || variants[0]?._id || variantKey,
+        variants[0]?.file?.path || variants[0]?.id || variantKey,
         `conflicting refs across locale variants for canonical key "${variantKey}"`,
         explicitRefs.join(', ')
       ))
@@ -397,27 +337,27 @@ export const validateContentGraph = (
   }
 
   for (const document of routeEntries) {
-    const canonicalId = document._canonicalKey || getCanonicalContentId(document, locales)
+    const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
     const localeKey = `${canonicalId}:${document._locale || ''}`
     if (idsByLocale.has(localeKey)) {
       const previous = idsByLocale.get(localeKey)!
       return fail(createContentError(
         'DUPLICATE_CANONICAL_ID',
-        document._file || document._id,
+        document.file?.path || document.id,
         `duplicate canonical id "${canonicalId}" for locale "${document._locale || 'default'}"`,
-        `conflicts with ${previous._file || previous._id}`
+        `conflicts with ${previous.file?.path || previous.id}`
       ))
     }
     idsByLocale.set(localeKey, document)
 
-    const pathKey = `${document._locale || ''}:${document._path || ''}`
+    const pathKey = `${document._locale || ''}:${document.path || ''}`
     if (pathsByLocale.has(pathKey)) {
       const previous = pathsByLocale.get(pathKey)!
       return fail(createContentError(
         'DUPLICATE_LOCALIZED_PATH',
-        document._file || document._id,
-        `duplicate localized path "${document._path}" for locale "${document._locale || 'default'}"`,
-        `conflicts with ${previous._file || previous._id}`
+        document.file?.path || document.id,
+        `duplicate localized path "${document.path}" for locale "${document._locale || 'default'}"`,
+        `conflicts with ${previous.file?.path || previous.id}`
       ))
     }
     pathsByLocale.set(pathKey, document)
@@ -427,7 +367,7 @@ export const validateContentGraph = (
     if (typeof document.ref !== 'undefined' && (typeof document.ref !== 'string' || !document.ref.length)) {
       return fail(createContentError(
         'INVALID_REF_VALUE',
-        document._file || document._id,
+        document.file?.path || document.id,
         'ref must be a non-empty string'
       ))
     }
@@ -438,12 +378,12 @@ export const validateContentGraph = (
     }
 
     const previous = refsByValue.get(ref)
-    if (previous && (previous._canonicalKey || getCanonicalContentId(previous, locales)) !== (document._canonicalKey || getCanonicalContentId(document, locales))) {
+    if (previous && (previous.canonicalKey || getCanonicalContentId(previous, locales)) !== (document.canonicalKey || getCanonicalContentId(document, locales))) {
       return fail(createContentError(
         'CONFLICTING_REFS',
-        document._file || document._id,
+        document.file?.path || document.id,
         `duplicate ref "${ref}"`,
-        `conflicts with ${previous._file || previous._id}`
+        `conflicts with ${previous.file?.path || previous.id}`
       ))
     }
 
@@ -451,11 +391,11 @@ export const validateContentGraph = (
   }
 
   for (const document of docs) {
-    if (!document._collection) {
+    if (!document.collection) {
       continue
     }
 
-    const collection = getCollectionConfig(document._collection, config.collections)
+    const collection = getCollectionConfig(document.collection, config.collections)
     const references = (collection as { references?: Record<string, string[]> } | undefined)?.references
     const schema = collection?.schema
     if (!schema && !references) {
@@ -481,7 +421,7 @@ export const validateContentGraph = (
 
     const error = createContentError(
       'SCHEMA_VALIDATION_FAILED',
-      document._file || document._id,
+      document.file?.path || document.id,
       'unresolved content references',
       issues.join('; ')
     )

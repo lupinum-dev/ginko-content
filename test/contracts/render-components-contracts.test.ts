@@ -40,7 +40,7 @@ describe('render component contracts', () => {
     const html = await renderToString(createSSRApp({
       render: () => h(ContentRenderer, {
         value: {
-          _path: '/docs/missing-body',
+          path: '/docs/missing-body',
           title: 'Missing Body'
         }
       })

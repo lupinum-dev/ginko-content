@@ -7,7 +7,7 @@ import { createContentProviderError } from '../../../public/provider-errors'
 import { cacheStorage, contentConfig, getSourceContentIds } from '../storage-access'
 
 const isRealDocument = (document: ParsedContent) => {
-  return document.body !== null && typeof document._path === 'string' && document._path.length > 0
+  return document.body !== null && typeof document.path === 'string' && document.path.length > 0
 }
 
 /**

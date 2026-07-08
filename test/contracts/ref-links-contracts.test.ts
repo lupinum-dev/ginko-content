@@ -122,7 +122,7 @@ describe('ref link contracts', () => {
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
     await expect(withResolvedRefs(createEvent(), doc({
-      _file: '/de/guide/missing-translation.md',
+      file: { path: '/de/guide/missing-translation.md' },
       body: {
         type: 'root',
         children: [
@@ -147,8 +147,8 @@ describe('ref link contracts', () => {
 
     const { withResolvedRefs, withResolvedRefsList, withResolvedRefsQueryResponse } = await import('../../packages/content/src/storage/references')
 
-    await expect(withResolvedRefs(createEvent(), doc({ _type: 'yaml', body: null as any }), 'de')).resolves.toMatchObject({
-      _type: 'yaml'
+    await expect(withResolvedRefs(createEvent(), doc({ type: 'yaml', body: null as any }), 'de')).resolves.toMatchObject({
+      type: 'yaml'
     })
 
     const unresolved = await withResolvedRefs(createEvent(), doc({
@@ -168,7 +168,7 @@ describe('ref link contracts', () => {
     expect((unresolved as any)._resolvedRefs).toEqual({
       '$missing/ref': '$missing/ref'
     })
-    await expect(withResolvedRefsList(createEvent(), [doc(), doc({ _type: 'yaml', body: null as any })], 'de')).resolves.toHaveLength(2)
+    await expect(withResolvedRefsList(createEvent(), [doc(), doc({ type: 'yaml', body: null as any })], 'de')).resolves.toHaveLength(2)
 
     const firstResponse = await withResolvedRefsQueryResponse(createEvent(), {
       result: doc({

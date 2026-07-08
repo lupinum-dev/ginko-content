@@ -12,7 +12,7 @@ import type { RuntimeContentProvider } from './provider-result'
 
 export { searchRecords } from '../shared/search'
 
-type SearchablePage = Pick<ParsedContent, '_path' | '_locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
+type SearchablePage = Pick<ParsedContent, 'path' | '_locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
 type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { _locale?: string, collection?: string }
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
@@ -107,7 +107,7 @@ export async function serverSearchContent (
   const results = await Promise.all(collections.map(async (collection) => {
     const loadPages = async (queryLocale?: string) => {
       const query = serverQueryCollection(event, collection)
-        .select('_path', '_locale', 'title', 'description', 'body')
+        .select('path', '_locale', 'title', 'description', 'body')
       const mergedFilter = mergeSearchFilter(filterQuery, queryLocale)
 
       if (mergedFilter) {

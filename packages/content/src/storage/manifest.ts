@@ -102,8 +102,8 @@ export async function getIndexedContentsList (event: H3Event, query: ContentQuer
   }
 
   const params = query.params()
-  const paths = collectQueryWhere(params?.where, where => typeof where._path !== 'undefined')
-    .map(where => where._path)
+  const paths = collectQueryWhere(params?.where, where => typeof where.path !== 'undefined')
+    .map(where => where.path)
     .filter((path): path is string | RegExp => typeof path === 'string' || path instanceof RegExp)
   const graph = await getContentGraph(event)
 

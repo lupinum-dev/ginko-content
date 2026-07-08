@@ -23,7 +23,7 @@ export type ContentNavigationNode<T> = Omit<ContentTreeItem<T>, 'children'> & {
 }
 
 const navigationNodeId = (item: ContentTreeItem<unknown> & Record<string, unknown>) => {
-  const id = item.id ?? item._id ?? item._canonicalKey ?? item.path ?? item._path ?? item.title
+  const id = item.id ?? item.id ?? item.canonicalKey ?? item.path ?? item.path ?? item.title
   return typeof id === 'string' && id.length ? id : item.title
 }
 

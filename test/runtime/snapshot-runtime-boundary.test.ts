@@ -17,13 +17,12 @@ const runtimeContent = {
 }
 
 const document = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
-  _id: 'content:docs:intro.md',
-  _path: '/docs/intro',
-  _file: '/docs/intro.md',
-  _source: 'content',
-  _type: 'markdown',
+  id: 'content:docs:intro.md',
+  path: '/docs/intro',
+  file: { source: 'content', path: '/docs/intro.md' },
+  type: 'markdown',
   _locale: 'en',
-  _canonicalKey: 'docs/intro',
+  canonicalKey: 'docs/intro',
   title: 'Intro',
   body: { type: 'root', children: [] },
   ...overrides

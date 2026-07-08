@@ -37,7 +37,7 @@ describe('search matrix', () => {
           title: 'Searchable Roadmap'
         })
       ]))
-      expect(JSON.stringify(index)).not.toContain('._path')
+      expect(JSON.stringify(index)).not.toContain('.path')
 
       const results = await getJson<Array<Record<string, unknown>>>(`${server.baseURL}/api/_content/search?q=milestone`)
       expect(results).toEqual([

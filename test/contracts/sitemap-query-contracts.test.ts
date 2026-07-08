@@ -10,7 +10,7 @@ describe('sitemap query contracts', () => {
       runtimeSiteUrl: 'https://docs.example.test'
     }, {
       loadCollectionPages: async () => [{
-        _path: '/docs/intro'
+        path: '/docs/intro'
       }],
       loadRouteMeta: async () => ({
         locale: '',
@@ -36,8 +36,8 @@ describe('sitemap query contracts', () => {
       localeConfigs: [{ code: 'en', language: 'en-US' }]
     }, {
       loadCollectionPages: async () => [{
-        _canonicalKey: 'guide/intro',
-        _path: '/guide/intro',
+        canonicalKey: 'guide/intro',
+        path: '/guide/intro',
         _locale: 'en'
       }],
       loadRouteMeta: async () => ({
@@ -65,9 +65,9 @@ describe('sitemap query contracts', () => {
       localeConfigs: [{ code: 'en', language: 'en-US' }]
     }, {
       loadCollectionPages: async () => [{
-        _collection: 'docs',
-        _canonicalKey: 'guide/intro',
-        _path: '/guide/intro',
+        collection: 'docs',
+        canonicalKey: 'guide/intro',
+        path: '/guide/intro',
         _locale: 'en',
         image: {
           src: '/images/intro.png'

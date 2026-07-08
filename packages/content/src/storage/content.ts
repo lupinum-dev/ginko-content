@@ -75,7 +75,7 @@ export const resolveContentReference = async <T = ParsedContent> (
 
   const variants = Object.values(graph.byCanonical[canonicalId] || {})
     .map(entry => entry.document)
-    .filter(document => !options.collection || document._collection === options.collection)
+    .filter(document => !options.collection || document.collection === options.collection)
 
   if (!variants.length) {
     return null
@@ -97,8 +97,8 @@ export const resolveContentReference = async <T = ParsedContent> (
   const availableLocales = Array.from(new Set(variants.map(document => document._locale).filter(Boolean))) as string[]
   const variantPaths = Object.fromEntries(
     variants
-      .filter(document => document._locale && document._path)
-      .map(document => [document._locale!, document._path!])
+      .filter(document => document._locale && document.path)
+      .map(document => [document._locale!, document.path!])
   )
 
   return {

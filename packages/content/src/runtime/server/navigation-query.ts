@@ -45,8 +45,8 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
     },
     loadLocaleNavigation: async (locale?: string) => {
       let contentsQuery = createServerContentQuery(event, sourceQuery)
-        .where('_partial', '=', false)
-        .where('_type', '=', 'markdown')
+        .where('partial', '=', false)
+        .where('type', '=', 'markdown')
         .where('navigation', '!=', false)
 
       if (locale) {
@@ -55,7 +55,7 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
 
       let dirConfigsQuery = createServerContentQuery(event)
         .where('_navigation', '=', true)
-        .where('_partial', '=', true)
+        .where('partial', '=', true)
 
       if (locale) {
         dirConfigsQuery = dirConfigsQuery.where('_locale', '=', locale)
@@ -64,10 +64,10 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
       const contents = await contentsQuery.all()
       const dirConfigs = await dirConfigsQuery.all()
       const configs = dirConfigs.reduce((accumulator, config) => {
-        accumulator[config._path || '/'] = {
+        accumulator[config.path || '/'] = {
           ...config,
           ...config.body
-        }
+        } as ParsedContentMeta
         return accumulator
       }, {} as Record<string, ParsedContentMeta>)
 

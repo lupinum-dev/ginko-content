@@ -7,7 +7,7 @@ export interface SaasProviderFixtureContractSuiteOptions {
   expectedProviderName: string
   loadProvider: () => Promise<ContentProvider>
   createEvent: () => any
-  collectNavPaths?: (items: Array<{ _path?: string, children?: any[] }>) => string[]
+  collectNavPaths?: (items: Array<{ canonicalPath?: string, children?: any[] }>) => string[]
 }
 
 export interface AuthorDependencyContractOptions {
@@ -17,9 +17,9 @@ export interface AuthorDependencyContractOptions {
   getCacheEvents: (provider: ContentProvider) => Array<{ type: string, key: string }>
 }
 
-const defaultCollectNavPaths = (items: Array<{ _path?: string, children?: any[] }>): string[] =>
+const defaultCollectNavPaths = (items: Array<{ canonicalPath?: string, children?: any[] }>): string[] =>
   items.flatMap(item => [
-    item._path,
+    item.canonicalPath,
     ...defaultCollectNavPaths(item.children || [])
   ].filter(Boolean) as string[])
 
@@ -102,13 +102,13 @@ export const runSaasProviderFixtureContractSuite = ({
       resolveLocale: { locale: 'de', fallback: false },
       sort: [{ date: -1 }],
       limit: 1,
-      only: ['title', '_path', '_locale']
-    })) as { result: Array<{ title?: string, _path?: string, _locale?: string }>, total?: number }
+      only: ['title', 'path', '_locale']
+    })) as { result: Array<{ title?: string, path?: string, _locale?: string }>, total?: number }
 
     expect(response.result).toEqual([
       {
         title: 'Mehrsprachiges Onboarding',
-        _path: '/magazin/mehrsprachiges-onboarding',
+        path: '/magazin/mehrsprachiges-onboarding',
         _locale: 'de'
       }
     ])
@@ -159,7 +159,7 @@ export const runSaasProviderFixtureContractSuite = ({
 
     const surround = unwrapProviderResult(await provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }))
     expect(surround).toHaveLength(2)
-    expect(surround?.map(item => item?._path)).toContain('/dokumentation/einstieg/alltag')
+    expect(surround?.map(item => item?.canonicalPath)).toContain('/dokumentation/einstieg/alltag')
 
     const sections = unwrapProviderResult(await provider.searchSections?.(event, 'docs', { locale: 'de' }))
     expect(sections?.some(section => section.id.startsWith('/de/dokumentation/einstieg') || section.id.startsWith('/dokumentation/einstieg'))).toBe(true)

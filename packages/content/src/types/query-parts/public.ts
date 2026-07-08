@@ -258,7 +258,6 @@ export type ContentTreeItem<
 > = {
   title: string
   path: string
-  _path?: string
   children?: Array<ContentTreeItem<T, Fields>>
 } & (Fields extends ReadonlyArray<infer K>
   ? Pick<T, Extract<K, keyof T>>

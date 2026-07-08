@@ -27,13 +27,17 @@ export const createStorage = <T = any>(initial: Record<string, T> = {}) => {
 }
 
 export const doc = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
-  _id: 'content:en:guide:getting-started.md',
-  _path: '/guide/getting-started',
-  _file: '/en/guide/getting-started.md',
-  _source: 'content',
-  _type: 'markdown',
+  id: 'content:en:guide:getting-started.md',
+  path: '/guide/getting-started',
+  file: {
+    source: 'content',
+    path: '/en/guide/getting-started.md',
+    stem: 'en/guide/getting-started',
+    extension: 'md'
+  },
+  type: 'markdown',
   _locale: 'en',
-  _canonicalKey: 'guide/getting-started',
+  canonicalKey: 'guide/getting-started',
   title: 'Getting Started',
   body: { type: 'root', children: [] },
   ...overrides
@@ -41,9 +45,14 @@ export const doc = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
 
 export const navDoc = (overrides: Partial<ParsedContent> = {}) => doc({
   title: 'Guide',
-  _id: 'content:en:guide:index.md',
-  _path: '/guide',
-  _file: '/en/guide/index.md',
-  _canonicalKey: 'guide',
+  id: 'content:en:guide:index.md',
+  path: '/guide',
+  file: {
+    source: 'content',
+    path: '/en/guide/index.md',
+    stem: 'en/guide/index',
+    extension: 'md'
+  },
+  canonicalKey: 'guide',
   ...overrides
 })

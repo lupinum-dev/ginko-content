@@ -12,7 +12,7 @@ export interface CollectionResolveRuntime extends RuntimeContentI18nInput {
 }
 
 export const resolveCollectionNavigationData = async (
-  _collection: string,
+  collection: string,
   _runtime: CollectionResolveRuntime,
   options: {
     fields?: string[]
@@ -54,7 +54,7 @@ export const resolveCollectionSearchSectionsData = async (
   collection: string,
   runtime: CollectionResolveRuntime,
   options: (GenerateSearchSectionsOptions & { locale?: string, canonical?: boolean, activeLocale?: string }) & {
-    loadPages: (extraFields: string[]) => Promise<Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>>
+    loadPages: (extraFields: string[]) => Promise<Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>>
   }
 ) => {
   const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)
@@ -94,7 +94,7 @@ export const resolveCollectionPageData = async <T = ParsedContent> (
   }
 
   if (options.canonical) {
-    const canonicalPath = normalizeContentPath(page._path || '/')
+    const canonicalPath = normalizeContentPath(page.path || '/')
     const resolvedLocale = page._resolvedLocale || page._locale || resolved.locale || defaultLocale || ''
     const requestedLocale = page._requestedLocale || resolved.locale
     const fallback = Boolean(page._fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
@@ -118,7 +118,7 @@ export const resolveCollectionPageData = async <T = ParsedContent> (
         availableLocales: page._availableLocales || Object.keys(page._variantPaths || {})
       },
       stem: canonicalPath.replace(/^\/+/, '') || 'index',
-      extension: page._extension
+      extension: page.file?.extension
     } as ContentPageResult<T>
   }
 

@@ -19,7 +19,7 @@ type TranslatedSlugEntry = {
 }
 
 const getTranslatedSlugEntries = (document: ParsedContent, locales: string[] = []): TranslatedSlugEntry[] => {
-  const file = (document._file || '').replace(/^\/+/, '')
+  const file = (document.file?.path || '').replace(/^\/+/, '')
   const parts = file.split('/').filter(Boolean)
   const localizedParts = parts[0] && locales.includes(parts[0]) ? parts.slice(1) : parts
 
@@ -37,7 +37,7 @@ const getTranslatedSlugEntries = (document: ParsedContent, locales: string[] = [
     const match = directory.match(TRANSLATED_SLUG_SEGMENT_RE)
     entries.push({
       locale,
-      file: document._file || document._id,
+      file: document.file?.path || document.id,
       parentKey,
       raw: directory,
       number: match?.[1],
@@ -50,7 +50,7 @@ const getTranslatedSlugEntries = (document: ParsedContent, locales: string[] = [
     const match = basename.match(TRANSLATED_SLUG_SEGMENT_RE)
     entries.push({
       locale,
-      file: document._file || document._id,
+      file: document.file?.path || document.id,
       parentKey,
       raw: basename,
       number: match?.[1],
@@ -80,7 +80,7 @@ export const collectTranslatedSlugValidationIssues = (
     if (hasMissingPrefix) {
       issues.push({
         level: 'warn',
-        file: document._file || document._id,
+        file: document.file?.path || document.id,
         reason: 'translated slug mode expects numeric prefixes for localized route segments'
       })
     }

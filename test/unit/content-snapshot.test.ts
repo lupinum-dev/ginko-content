@@ -3,13 +3,11 @@ import { assertSnapshotComplete, buildContentSnapshot, ContentSnapshotError, isC
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
 const doc = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
-  _id: 'content:docs:intro.md',
-  _path: '/docs/intro',
-  _file: 'docs/intro.md',
-  _source: 'content',
-  _type: 'markdown',
-  _extension: 'md',
-  _canonicalKey: '/docs/intro',
+  id: 'content:docs:intro.md',
+  path: '/docs/intro',
+  file: { source: 'content', path: 'docs/intro.md', extension: 'md' },
+  type: 'markdown',
+  canonicalKey: '/docs/intro',
   body: { type: 'root', children: [] },
   ...overrides
 }) as ParsedContent
@@ -23,9 +21,9 @@ describe('content snapshots', () => {
       documents: [
         doc(),
         doc({
-          _id: 'content:docs:intro.md#__locale=de',
+          id: 'content:docs:intro.md#__locale=de',
           _locale: 'de',
-          _path: '/de/docs/intro'
+          path: '/de/docs/intro'
         })
       ]
     })

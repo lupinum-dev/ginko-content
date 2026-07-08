@@ -7,37 +7,37 @@ describe('graph contracts', () => {
 
     const graph = buildContentGraph([
       doc({
-        _id: 'content:en:guide:intro.md',
-        _collection: 'docs',
-        _canonicalKey: 'guide/intro',
+        id: 'content:en:guide:intro.md',
+        collection: 'docs',
+        canonicalKey: 'guide/intro',
         ref: 'intro'
       }),
       doc({
-        _id: 'content:de:guide:intro.md',
-        _file: '/de/guide/intro.md',
-        _path: '/leitfaden/einstieg',
+        id: 'content:de:guide:intro.md',
+        file: { path: '/de/guide/intro.md' },
+        path: '/leitfaden/einstieg',
         _locale: 'de',
-        _collection: 'docs',
-        _canonicalKey: 'guide/intro',
+        collection: 'docs',
+        canonicalKey: 'guide/intro',
         ref: 'intro'
       }),
       doc({
-        _id: 'content:en:guide:index.yml',
-        _path: '/guide',
-        _file: '/en/guide/.navigation.yml',
-        _partial: true,
+        id: 'content:en:guide:index.yml',
+        path: '/guide',
+        file: { path: '/en/guide/.navigation.yml' },
+        partial: true,
         _navigation: true,
-        _collection: 'docs',
+        collection: 'docs',
         body: { badge: 'New' }
       }),
       doc({
-        _id: 'content:authors:evan.yml',
-        _file: '/authors/evan.yml',
-        _path: '/authors/evan',
-        _type: 'yaml',
-        _collection: 'authors',
-        _canonicalKey: 'authors/evan',
-        id: 'evan'
+        id: 'content:authors:evan.yml',
+        file: { path: '/authors/evan.yml' },
+        path: '/authors/evan',
+        type: 'yaml',
+        collection: 'authors',
+        canonicalKey: 'authors/evan',
+        ref: 'evan'
       })
     ] as any, {
       locales: ['en', 'de'],

@@ -54,10 +54,10 @@ describe('cms-import', () => {
     })
     expect(markdown.body).toBe('# Intro\n\nWelcome to the docs.')
     expect(markdown.document).toMatchObject({
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'en',
-      _path: '/docs/intro',
-      _type: 'markdown',
+      path: '/docs/intro',
+      type: 'markdown',
       title: 'Intro',
       ref: 'docs-intro'
     })
@@ -81,10 +81,10 @@ describe('cms-import', () => {
     expect(mdc.frontmatter).toEqual({ title: 'Einstieg' })
     expect(mdc.body).toContain('::callout')
     expect(mdc.document).toMatchObject({
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'de',
-      _path: '/docs/einstieg',
-      _type: 'markdown',
+      path: '/docs/einstieg',
+      type: 'markdown',
       title: 'Einstieg'
     })
   })
@@ -103,8 +103,8 @@ describe('cms-import', () => {
         enabled: true
       },
       document: {
-        _collection: 'data',
-        _type: 'yaml',
+        collection: 'data',
+        type: 'yaml',
         title: 'Settings'
       }
     })
@@ -119,8 +119,8 @@ describe('cms-import', () => {
         enabled: true
       },
       document: {
-        _collection: 'data',
-        _type: 'json',
+        collection: 'data',
+        type: 'json',
         title: 'JSON Settings'
       }
     })
@@ -135,8 +135,8 @@ describe('cms-import', () => {
         enabled: true
       },
       document: {
-        _collection: 'data',
-        _type: 'json',
+        collection: 'data',
+        type: 'json',
         title: 'JSON5 Settings'
       }
     })

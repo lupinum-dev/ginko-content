@@ -49,15 +49,15 @@ const parseSource = async (
 
 const expandLocaleVariants = async (document: ParsedContent, options: ParseContentOptions) => {
   try {
-    const collection = document._collection && options.pathMeta?.collections
-      ? options.pathMeta.collections[document._collection]
+    const collection = document.collection && options.pathMeta?.collections
+      ? options.pathMeta.collections[document.collection]
       : undefined
     return expandDataLocaleVariants(document, collection?.i18n === true ? undefined : collection?.i18n)
   } catch (cause) {
     throw new ContentError(
       'TRANSFORM_FAILED',
-      `Failed to transform content "${document._file || document._id}"`,
-      { id: document._id, file: document._file },
+      `Failed to transform content "${document.file?.path || document.id}"`,
+      { id: document.id, file: document.file?.path },
       { cause }
     )
   }
@@ -88,7 +88,7 @@ const validateVariants = (
       'VALIDATION_FAILED',
       'Failed to validate parsed content',
       {
-        files: variants.map(document => document._file || document._id)
+        files: variants.map(document => document.file?.path || document.id)
       },
       { cause }
     ))
@@ -132,17 +132,17 @@ export const parseContentVariants = async (
     }
   ) as unknown as ParseContentOptions
 
-  const file = { _id: id, body: typeof content === 'string' ? content.replace(/\r\n|\r/g, '\n') : content }
+  const file = { id: id, body: typeof content === 'string' ? content.replace(/\r\n|\r/g, '\n') : content }
   await nitroApp.hooks.callHook('content:file:beforeParse', file)
 
   const parsedDocument = await parseSource(id, file.body, options)
   const variants = validateVariants(id, await expandLocaleVariants(parsedDocument, options), options)
   const parsed = variants[0]
-  const matchedCollections = resolveCollections(parsed?._file || id, options.pathMeta?.collections, options.pathMeta?.locales || [])
+  const matchedCollections = resolveCollections(parsed?.file?.path || id, options.pathMeta?.collections, options.pathMeta?.locales || [])
   if (matchedCollections.length > 1) {
     throw createContentError(
       'CONFLICTING_COLLECTION_MATCH',
-      parsed?._file || id,
+      parsed?.file?.path || id,
       'conflicting collection matches',
       matchedCollections.join(', '),
       { collections: matchedCollections }

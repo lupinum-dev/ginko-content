@@ -16,19 +16,20 @@ describe('transformer contracts', () => {
     const pathMeta = (await import('../../packages/content/src/runtime/transformers/path-meta')).default
 
     const transformed = await pathMeta.transform?.({
-      _id: 'content:en:guide:intro.md',
+      id: 'content:en:guide:intro.md',
       title: 'Intro',
       draft: false,
-      _path: '/frontmatter-path',
-      _draft: true,
-      _partial: true,
+      path: '/frontmatter-path',
+      partial: true,
       _locale: 'de',
-      _canonicalKey: 'frontmatter-key',
-      _collection: 'frontmatter-collection',
-      _file: 'frontmatter-file',
-      _source: 'frontmatter-source',
-      _stem: 'frontmatter-stem',
-      _extension: 'frontmatter-extension',
+      canonicalKey: 'frontmatter-key',
+      collection: 'frontmatter-collection',
+      file: {
+        source: 'frontmatter-source',
+        path: 'frontmatter-file',
+        stem: 'frontmatter-stem',
+        extension: 'frontmatter-extension'
+      },
       body: { type: 'root', children: [] }
     } as any, {
       locales: ['en', 'de'],
@@ -38,16 +39,18 @@ describe('transformer contracts', () => {
 
     expect(transformed).toMatchObject({
       title: 'Intro',
-      _path: '/guide/intro',
-      _draft: false,
-      _partial: false,
+      path: '/guide/intro',
+      draft: false,
+      partial: false,
       _locale: 'en',
-      _canonicalKey: '/guide/intro',
-      _collection: 'docs',
-      _source: 'content',
-      _file: 'en/guide/intro.md',
-      _stem: 'en/guide/intro',
-      _extension: 'md'
+      canonicalKey: '/guide/intro',
+      collection: 'docs',
+      file: {
+        source: 'content',
+        path: 'en/guide/intro.md',
+        stem: 'en/guide/intro',
+        extension: 'md'
+      }
     })
   })
 
@@ -61,8 +64,8 @@ describe('transformer contracts', () => {
     ].join('\n\n'), {
       plugins: []
     } as any)).resolves.toMatchObject({
-      _id: 'content:test.md',
-      _type: 'markdown',
+      id: 'content:test.md',
+      type: 'markdown',
       body: {
         children: [
           { type: 'element', tag: 'p', props: {}, children: [{ type: 'element', tag: 'a', props: { href: 'guide/getting-started#intro' }, children: [{ type: 'text', value: 'intro' }] }] },
@@ -192,8 +195,8 @@ describe('transformer contracts', () => {
     await expect(csv.parse?.('content:test.csv', 'name,role\nAda,admin', {
       json: true
     } as any)).resolves.toMatchObject({
-      _id: 'content:test.csv',
-      _type: 'csv',
+      id: 'content:test.csv',
+      type: 'csv',
       body: [{ name: 'Ada', role: 'admin' }]
     })
   })

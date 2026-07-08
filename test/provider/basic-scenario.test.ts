@@ -39,28 +39,28 @@ describe('basic content scenario harness', () => {
         $and: [
           { category: 'journal' },
           { tags: { $contains: 'content' } },
-          { _draft: { $ne: true } }
+          { draft: { $ne: true } }
         ]
       },
       sort: [{ order: 1 }],
-      only: ['title', '_path']
+      only: ['title', 'path']
     })).resolves.toMatchObject({
       result: [
-        { title: 'Hello World', _path: '/blog/hello-world' },
-        { title: 'Second Post', _path: '/blog/second-post' }
+        { title: 'Hello World', path: '/blog/hello-world' },
+        { title: 'Second Post', path: '/blog/second-post' }
       ],
       total: 2
     })
 
     await expect(provider.query(event, {
       collection: 'posts',
-      where: { _draft: { $ne: true } },
+      where: { draft: { $ne: true } },
       count: true
     })).resolves.toEqual({ result: 2 })
 
     await expect(provider.query(event, {
       collection: 'posts',
-      where: { _draft: { $ne: true } },
+      where: { draft: { $ne: true } },
       sort: [{ order: 1 }],
       skip: 1,
       limit: 1,
@@ -74,7 +74,7 @@ describe('basic content scenario harness', () => {
 
     await expect(provider.query(event, {
       collection: 'data',
-      sort: [{ _path: 1 }],
+      sort: [{ path: 1 }],
       only: ['title', 'version', 'owner', 'downloads']
     })).resolves.toMatchObject({
       result: [

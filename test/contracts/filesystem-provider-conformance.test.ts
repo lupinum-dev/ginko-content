@@ -26,7 +26,7 @@ vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
       result: [
         {
           title: 'Mehrsprachiges Onboarding',
-          _path: '/magazin/mehrsprachiges-onboarding',
+          path: '/magazin/mehrsprachiges-onboarding',
           _locale: 'de'
         }
       ],
@@ -37,17 +37,17 @@ vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
 
 vi.mock('../../packages/content/src/runtime/server/navigation-query', () => ({
   resolveContentNavigation: vi.fn(async () => [
-    { title: 'Einstieg', _path: '/dokumentation/einstieg' }
+    { title: 'Einstieg', path: '/dokumentation/einstieg' }
   ])
 }))
 
 vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
   queryFilesystemCollectionNavigation: vi.fn(async () => [
-    { title: 'Einstieg', description: 'Start here', _path: '/dokumentation/einstieg', _locale: 'de', ref: 'docs.getting-started', stableId: 'docs.getting-started' },
-    { title: 'Installation', _path: '/dokumentation/einstieg/installation', _locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
+    { title: 'Einstieg', description: 'Start here', path: '/dokumentation/einstieg', _locale: 'de', ref: 'docs.getting-started', stableId: 'docs.getting-started' },
+    { title: 'Installation', path: '/dokumentation/einstieg/installation', _locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
   ]),
   queryFilesystemCollectionItemSurroundings: vi.fn(async () => [
-    { title: 'Alltag', _path: '/dokumentation/einstieg/alltag' },
+    { title: 'Alltag', canonicalPath: '/dokumentation/einstieg/alltag', path: '/de/dokumentation/einstieg/alltag' },
     null
   ]),
   queryFilesystemCollectionSearchSections: vi.fn(async () => [
@@ -58,7 +58,7 @@ vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
       content: 'Einstieg'
     }
   ]),
-  queryFilesystemCollectionPage: vi.fn(async (event, _collection, routeOrPath) => {
+  queryFilesystemCollectionPage: vi.fn(async (event, collection, routeOrPath) => {
     if (routeOrPath === '/de/dokumentation/not-found') {
       return null
     }
@@ -116,9 +116,9 @@ vi.mock('../../packages/content/src/runtime/server/sitemap', () => ({
 }))
 
 describe('filesystem provider conformance', () => {
-  const collectNavPaths = (items: Array<{ _path?: string, children?: any[] }>): string[] =>
+  const collectNavPaths = (items: Array<{ path?: string, children?: any[] }>): string[] =>
     items.flatMap(item => [
-      item._path,
+      item.path,
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
@@ -138,7 +138,7 @@ describe('filesystem provider conformance', () => {
 
     await expect(filesystemProvider.query(createEvent(), {
       collection: 'posts',
-      where: { _path: { $prefix: '/magazin' } }
+      where: { path: { $prefix: '/magazin' } }
     })).resolves.toMatchObject({
       result: expect.any(Array)
     })

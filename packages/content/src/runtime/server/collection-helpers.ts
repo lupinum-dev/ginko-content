@@ -21,7 +21,7 @@ const isNotFoundError = (error: unknown) => {
 }
 
 const searchPageFields = (fields: string[] = []): Array<Extract<keyof ParsedContent, string>> => [
-  '_path',
+  'path',
   'title',
   'description',
   'body',
@@ -82,10 +82,10 @@ export async function queryFilesystemCollectionSearchSections (
         .select(...searchPageFields(extraFields))
       const filterQuery = mergeFilterQuery(opts.filterQuery, opts.locale)
       if (filterQuery) {
-        return await (query as any).where(filterQuery).all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        return await (query as any).where(filterQuery).all() as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
       }
       return await query
-        .all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        .all() as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
     }
   })
 }
@@ -122,7 +122,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
     loadPathPage: async (path) => {
       try {
         return await serverQueryCollection(event, collection)
-          .where('_path', '=', path)
+          .where('path', '=', path)
           .first() as (T & ParsedContent) | null
       }
       catch (error) {

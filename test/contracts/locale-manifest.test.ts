@@ -120,34 +120,34 @@ describe('locale and manifest contracts', () => {
     getContentsList.mockResolvedValue([
       doc(),
       doc({
-        _id: 'content:de:leitfaden:erste-schritte.md',
-        _file: '/de/leitfaden/erste-schritte.md',
-        _path: '/leitfaden/erste-schritte',
+        id: 'content:de:leitfaden:erste-schritte.md',
+        file: { path: '/de/leitfaden/erste-schritte.md' },
+        path: '/leitfaden/erste-schritte',
         _locale: 'de',
         title: 'Einstieg'
       }),
       doc({
-        _id: 'content:en:guide:advanced.md',
-        _file: '/en/guide/advanced.md',
-        _path: '/guide/advanced',
-        _canonicalKey: 'guide/advanced',
+        id: 'content:en:guide:advanced.md',
+        file: { path: '/en/guide/advanced.md' },
+        path: '/guide/advanced',
+        canonicalKey: 'guide/advanced',
         title: 'Advanced'
       }),
       doc({
-        _id: 'content:fr:guide:advanced.md',
-        _file: '/fr/guide/advanced.md',
-        _path: '/guide/advanced',
+        id: 'content:fr:guide:advanced.md',
+        file: { path: '/fr/guide/advanced.md' },
+        path: '/guide/advanced',
         _locale: 'fr',
-        _canonicalKey: 'guide/advanced',
+        canonicalKey: 'guide/advanced',
         title: 'Avance'
       }),
       doc({
-        _id: 'content:en:data:authors.yml#__locale=de',
-        _file: '/authors.yml',
-        _path: '/authors/evan',
-        _type: 'yaml',
+        id: 'content:en:data:authors.yml#__locale=de',
+        file: { path: '/authors.yml' },
+        path: '/authors/evan',
+        type: 'yaml',
         _locale: 'de',
-        _canonicalKey: 'authors/evan',
+        canonicalKey: 'authors/evan',
         title: 'Evan DE'
       })
     ])
@@ -189,23 +189,23 @@ describe('locale and manifest contracts', () => {
   test('getIndexedContentsList honors grouped path predicates', async () => {
     const contents = [
       doc({
-        _id: 'content:en:guide:intro.md',
-        _file: '/en/guide/intro.md',
-        _path: '/guide/intro',
-        _canonicalKey: 'guide/intro',
+        id: 'content:en:guide:intro.md',
+        file: { path: '/en/guide/intro.md' },
+        path: '/guide/intro',
+        canonicalKey: 'guide/intro',
         title: 'Intro'
       }),
       doc({
-        _id: 'content:en:guide:advanced.md',
-        _file: '/en/guide/advanced.md',
-        _path: '/guide/advanced',
-        _canonicalKey: 'guide/advanced',
+        id: 'content:en:guide:advanced.md',
+        file: { path: '/en/guide/advanced.md' },
+        path: '/guide/advanced',
+        canonicalKey: 'guide/advanced',
         title: 'Advanced'
       })
     ]
 
     getContentsList.mockResolvedValue(contents)
-    getContent.mockImplementation(async (_event, id) => contents.find(content => content._id === id))
+    getContent.mockImplementation(async (_event, id) => contents.find(content => content.id === id))
 
     const { getIndexedContentsList } = await import('../../packages/content/src/runtime/server/manifest')
     const event = {
@@ -216,13 +216,13 @@ describe('locale and manifest contracts', () => {
     } as any
     const results = await getIndexedContentsList(event, {
       params: () => ({
-        where: [{ $or: [{ _path: '/guide/intro' }, { _path: '/guide/advanced' }] }]
+        where: [{ $or: [{ path: '/guide/intro' }, { path: '/guide/advanced' }] }]
       })
     })
 
     expect(results).toEqual([
-      expect.objectContaining({ _path: '/guide/intro' }),
-      expect.objectContaining({ _path: '/guide/advanced' })
+      expect.objectContaining({ path: '/guide/intro' }),
+      expect.objectContaining({ path: '/guide/advanced' })
     ])
     expect(getContent).not.toHaveBeenCalled()
   })

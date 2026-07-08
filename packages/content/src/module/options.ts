@@ -144,7 +144,7 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
   return {
     engine: options.search?.engine || 'minisearch',
     ignoredTags: options.search?.ignoredTags || ['script', 'style', 'pre'],
-    filterQuery: options.search?.filterQuery || { _draft: false, _partial: false },
+    filterQuery: options.search?.filterQuery || { draft: false, partial: false },
     collections: options.search?.collections,
     extraFields: options.search?.extraFields || [],
     apiBaseURL: options.search?.apiBaseURL,

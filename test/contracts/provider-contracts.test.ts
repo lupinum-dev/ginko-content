@@ -417,18 +417,16 @@ describe('content provider contract', () => {
     const cmsNavigation = [
       {
         title: 'Einfuehrung',
-        _path: '/dokumentation/einstieg',
         path: '/de/dokumentation/einstieg',
-        _canonicalKey: 'docs/getting-started',
+        canonicalKey: 'docs/getting-started',
         _locale: 'de',
         stableId: 'docs-getting-started',
         ref: 'docs-getting-started',
         children: [
           {
             title: 'Installation',
-            _path: '/dokumentation/einstieg/installation',
             path: '/de/dokumentation/einstieg/installation',
-            _canonicalKey: 'docs/getting-started/installation',
+            canonicalKey: 'docs/getting-started/installation',
             _locale: 'de',
             stableId: 'docs-installation',
             ref: 'docs-installation'
@@ -437,14 +435,13 @@ describe('content provider contract', () => {
       },
       {
         title: 'Grundlagen',
-        _canonicalKey: 'docs/essentials',
+        canonicalKey: 'docs/essentials',
         _locale: 'de',
         children: [
           {
             title: 'Fallback Lab',
-            _path: '/docs/essentials/fallback-lab',
             path: '/de/docs/essentials/fallback-lab',
-            _canonicalKey: 'docs/essentials/fallback-lab',
+            canonicalKey: 'docs/essentials/fallback-lab',
             _locale: 'en',
             _fallback: true,
             stableId: 'docs-fallback-lab',
@@ -455,11 +452,11 @@ describe('content provider contract', () => {
     ]
     const navigationQuery = vi.fn(async () => cmsNavigation)
     const navigation = vi.fn(async () => cmsNavigation)
-    const surroundings = vi.fn(async () => [null, { _path: '/docs/next' }])
+    const surroundings = vi.fn(async () => [null, { path: '/docs/next' }])
     const search = vi.fn(async () => [{ id: 'cms-hit', title: 'CMS hit' }])
     const searchSections = vi.fn(async () => [])
     const siteData = vi.fn(async () => ({ title: 'CMS site' }))
-    const page = vi.fn(async () => ({ _path: '/docs', title: 'CMS page' }))
+    const page = vi.fn(async () => ({ path: '/docs', title: 'CMS page' }))
     const routeMeta = vi.fn(async () => ({ path: '/docs', locale: 'en' }))
     const sitemapEntries = vi.fn(async () => [{ loc: 'https://example.test/docs' }])
 
@@ -502,7 +499,7 @@ describe('content provider contract', () => {
     })
     await expect(provider.query(event, {
       collection: 'docs',
-      where: { _path: { $eq: '/docs' } },
+      where: { path: { $eq: '/docs' } },
       limit: 1
     })).resolves.toMatchObject({
       result: [{ title: 'CMS page' }]
@@ -513,7 +510,7 @@ describe('content provider contract', () => {
     ])
     await expect(provider.surroundings?.(event, 'docs', '/docs')).resolves.toEqual([
       null,
-      { _path: '/docs/next' }
+      { path: '/docs/next' }
     ])
     await expect(provider.search?.(event, { query: 'cms' })).resolves.toEqual([
       { id: 'cms-hit', title: 'CMS hit' }

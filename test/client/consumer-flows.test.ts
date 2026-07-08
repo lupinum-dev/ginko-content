@@ -63,8 +63,8 @@ describe('public client query flows against an in-memory content scenario', () =
         }
       },
       transport: async () => ({
-        _path: '/plain/about',
-        _file: 'plain/about.md',
+        path: '/plain/about',
+        file: { path: 'plain/about.md' },
         _locale: 'en',
         _variantPaths: {
           en: '/plain/about'
@@ -97,14 +97,12 @@ describe('public client query flows against an in-memory content scenario', () =
           return [
             {
               title: 'Getting Started',
-              _path: '/docs/getting-started',
               path: '/docs/getting-started'
             }
           ]
         }
         return {
           title: 'Docs',
-          _path: '/docs',
           path: '/docs'
         }
       }
@@ -135,14 +133,12 @@ describe('public client query flows against an in-memory content scenario', () =
           return [
             {
               title: 'Getting Started',
-              _path: '/docs/getting-started',
               path: '/docs/getting-started'
             }
           ]
         }
         return {
           title: 'Hidden',
-          _path: '/docs/hidden',
           path: '/docs/hidden'
         }
       }

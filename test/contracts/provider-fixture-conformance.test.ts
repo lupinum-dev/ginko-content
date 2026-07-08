@@ -13,9 +13,9 @@ const expectProviderResultInvalid = (callback: () => unknown) => {
 describe('provider fixture conformance', () => {
   const fixture = createSaasProviderFixture()
   const provider = createFixtureContentProvider(fixture)
-  const collectNavPaths = (items: Array<{ _path?: string, children?: any[] }>): string[] =>
+  const collectNavPaths = (items: Array<{ canonicalPath?: string, children?: any[] }>): string[] =>
     items.flatMap(item => [
-      item._path,
+      item.canonicalPath,
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
@@ -182,16 +182,16 @@ describe('provider fixture conformance', () => {
         authors: { type: 'page', route: '/authors' }
       },
       documents: [
-        { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
-        { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
+        { collection: 'authors', path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
+        { collection: 'authors', path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
         ...Array.from({ length: 5 }, (_, index) => ({
-          _collection: 'posts',
-          _path: `/blog/post-${index + 1}`,
+          collection: 'posts',
+          path: `/blog/post-${index + 1}`,
           ref: `posts.post-${index + 1}`,
           title: `Post ${index + 1}`,
           authors: ['authors.alice']
         })),
-        { _collection: 'posts', _path: '/blog/post-6', ref: 'posts.post-6', title: 'Post 6', authors: ['authors.bob'] }
+        { collection: 'posts', path: '/blog/post-6', ref: 'posts.post-6', title: 'Post 6', authors: ['authors.bob'] }
       ]
     })
     const authorProvider = createFixtureContentProvider(authorFixture)
@@ -239,9 +239,9 @@ describe('provider fixture conformance', () => {
         authors: { type: 'page', route: '/authors' }
       },
       documents: [
-        { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
-        { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
-        { _collection: 'posts', _path: '/blog/post-1', ref: 'posts.post-1', title: 'Post 1', author: 'authors.alice' }
+        { collection: 'authors', path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
+        { collection: 'authors', path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
+        { collection: 'posts', path: '/blog/post-1', ref: 'posts.post-1', title: 'Post 1', author: 'authors.alice' }
       ]
     })
     const authorProvider = createFixtureContentProvider(authorFixture)

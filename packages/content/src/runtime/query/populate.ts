@@ -12,10 +12,10 @@ import type { ContentQueryContext, RuntimeContentConfig } from './context'
 import { ensureCollectionName } from './handles'
 
 const LOCALIZED_DOC_INTERNAL_FIELDS = [
-  '_id',
-  '_path',
-  '_file',
-  '_canonicalKey',
+  'id',
+  'path',
+  'file',
+  'canonicalKey',
   '_locale',
   '_resolvedLocale',
   '_requestedLocale',
@@ -25,7 +25,7 @@ const LOCALIZED_DOC_INTERNAL_FIELDS = [
   '_requestedPath',
   '_requestedRoute',
   '_requestedRef',
-  '_extension'
+  'file'
 ] as const
 
 const wildcardReferenceTarget = '*'

@@ -212,7 +212,7 @@ const withDirConfig = <T extends ParsedContent>(content: T | undefined, dirConfi
 
 export const executeQueryPlanOnDocuments = <T>(documents: T[], plan: ContentQueryPlan): ContentQueryResponse<T> => {
   const matched = documents
-    .filter(item => (!plan.collection || (item as Partial<ParsedContent> | undefined)?._collection === plan.collection))
+    .filter(item => (!plan.collection || (item as Partial<ParsedContent> | undefined)?.collection === plan.collection))
     .filter(item => evaluateQueryPlanFilter(item as Record<string, unknown>, plan.filter))
     .map(item => ({ ...item })) as T[]
 
@@ -224,7 +224,7 @@ export const executeQueryPlanOnDocuments = <T>(documents: T[], plan: ContentQuer
 const executeStandardPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan): ContentQueryResponse<T> => {
   const candidates = selectGraphDocuments(graph, {
     collection: plan.collection,
-    paths: collectFieldComparisons(plan.filter, '_path')
+    paths: collectFieldComparisons(plan.filter, 'path')
   }) as Array<Record<string, unknown>>
 
   const matched = candidates
@@ -260,7 +260,7 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
   const requestedLocale = plan.resolveLocale?.locale
   const candidates = selectGraphDocuments(graph, {
     collection: plan.collection,
-    paths: collectFieldComparisons(plan.filter, '_path')
+    paths: collectFieldComparisons(plan.filter, 'path')
   }) as Array<Record<string, unknown> & ParsedContent>
 
   const localeChain = resolveLocaleChain(
@@ -279,10 +279,10 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
       continue
     }
 
-    const key = item._canonicalKey || item.id || item._id || item._path
+    const key = item.canonicalKey || item.id || item.id || item.path
     const rank = localeRank.get(item._locale || '') ?? Number.MAX_SAFE_INTEGER
-    const availableLocales = item._canonicalKey
-      ? Object.keys(graph.byCanonical[item._canonicalKey] || {})
+    const availableLocales = item.canonicalKey
+      ? Object.keys(graph.byCanonical[item.canonicalKey] || {})
       : [item._locale].filter(Boolean) as string[]
     const enriched = {
       ...item,
@@ -403,10 +403,10 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
   // Belt-and-braces: even with collection-scoped resolution above, double-
   // check the resolved doc actually lives in the expected collection.
   const content = graph.byId[variant.contentId] as ParsedContent | undefined
-  if (plan.collection && content?._collection !== plan.collection) {
+  if (plan.collection && content?.collection !== plan.collection) {
     return { result: undefined }
   }
-  const dirConfig = findDirConfig(graph, content?._path, variant.resolvedLocale)
+  const dirConfig = findDirConfig(graph, content?.path, variant.resolvedLocale)
   const variantPaths = Object.fromEntries(
     Object.entries(graph.byCanonical[variant.canonicalKey] || {}).map(([locale, entry]) => [locale, entry.path])
   )

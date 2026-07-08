@@ -36,30 +36,30 @@ describe('server reference contracts', () => {
   const sourceMeta = new Map<string, any>()
   const docs = [
     doc({
-      _id: 'content:en:index.yml',
-      _file: '/en/index.yml',
-      _path: '/',
-      _type: 'yaml',
-      _collection: 'landing',
-      _canonicalKey: 'index',
+      id: 'content:en:index.yml',
+      file: { path: '/en/index.yml' },
+      path: '/',
+      type: 'yaml',
+      collection: 'landing',
+      canonicalKey: 'index',
       title: 'Home'
     }),
     doc({
-      _id: 'content:de:index.yml',
-      _file: '/de/index.yml',
-      _path: '/',
+      id: 'content:de:index.yml',
+      file: { path: '/de/index.yml' },
+      path: '/',
       _locale: 'de',
-      _type: 'yaml',
-      _collection: 'landing',
-      _canonicalKey: 'index',
+      type: 'yaml',
+      collection: 'landing',
+      canonicalKey: 'index',
       title: 'Start'
     }),
     doc({
-      _id: 'content:en:guide:advanced.md',
-      _file: '/en/guide/advanced.md',
-      _path: '/guide/advanced',
-      _canonicalKey: 'guide/advanced',
-      _collection: 'docs',
+      id: 'content:en:guide:advanced.md',
+      file: { path: '/en/guide/advanced.md' },
+      path: '/guide/advanced',
+      canonicalKey: 'guide/advanced',
+      collection: 'docs',
       ref: 'guide/advanced',
       title: 'Advanced',
       image: {
@@ -67,12 +67,12 @@ describe('server reference contracts', () => {
       }
     }),
     doc({
-      _id: 'content:de:guide:advanced.md',
-      _file: '/de/guide/advanced.md',
-      _path: '/leitfaden/fortgeschritten',
+      id: 'content:de:guide:advanced.md',
+      file: { path: '/de/guide/advanced.md' },
+      path: '/leitfaden/fortgeschritten',
       _locale: 'de',
-      _canonicalKey: 'guide/advanced',
-      _collection: 'docs',
+      canonicalKey: 'guide/advanced',
+      collection: 'docs',
       ref: 'guide/advanced',
       title: 'Fortgeschritten',
       image: {
@@ -80,13 +80,13 @@ describe('server reference contracts', () => {
       }
     }),
     doc({
-      _id: 'content:en:authors:evan.yml',
-      _file: '/authors/evan.yml',
-      _path: '/authors/evan',
-      _type: 'yaml',
-      _collection: 'authors',
-      _canonicalKey: 'authors/evan',
-      id: 'evan',
+      id: 'content:en:authors:evan.yml',
+      file: { path: '/authors/evan.yml' },
+      path: '/authors/evan',
+      type: 'yaml',
+      collection: 'authors',
+      canonicalKey: 'authors/evan',
+      ref: 'evan',
       name: 'Evan'
     })
   ]
@@ -175,7 +175,7 @@ describe('server reference contracts', () => {
       }
     })
     vi.doMock('../../packages/content/src/integrations/nitro/ingest', () => ({
-      parseContentVariants: vi.fn(async (id: string) => docs.filter(doc => doc._id === id)),
+      parseContentVariants: vi.fn(async (id: string) => docs.filter(doc => doc.id === id)),
       parseContent: vi.fn()
     }))
     vi.doMock('../../packages/content/src/storage/validation', async () => {
@@ -226,7 +226,7 @@ describe('server reference contracts', () => {
     await expect(resolveContentReference(createEvent(), 'evan', {
       collection: 'authors'
     })).resolves.toMatchObject({
-      _canonicalKey: 'authors/evan'
+      canonicalKey: 'authors/evan'
     })
 
     await expect(resolveContentReference(createEvent(), 'missing/ref', {
@@ -247,16 +247,16 @@ describe('server reference contracts', () => {
   test('serverQueryCollection supports explicit path filtering through where', async () => {
     const { serverQueryCollection } = await import('../../packages/content/src/runtime/server/provider-query')
 
-    const query = serverQueryCollection(createEvent(), 'docs').where('_path', '=', '/guide/advanced')
+    const query = serverQueryCollection(createEvent(), 'docs').where('path', '=', '/guide/advanced')
 
     expect(query.params()).toMatchObject({
       where: [
-        { _path: '/guide/advanced' },
-        { _draft: { $ne: true } },
+        { path: '/guide/advanced' },
+        { draft: { $ne: true } },
         { _locale: 'en' }
       ],
       collection: 'docs',
-      sort: [{ _stem: 1, $numeric: true }]
+      sort: [{ 'file.stem': 1, $numeric: true }]
     })
   })
 
@@ -278,7 +278,6 @@ describe('server reference contracts', () => {
     const { queryCollectionPage } = await import('../../packages/content/src/runtime/server/collection-helpers')
 
     await expect(queryCollectionPage(createEvent(), 'docs' as any, '/de/leitfaden/fortgeschritten')).resolves.toMatchObject({
-      _path: '/leitfaden/fortgeschritten',
       path: '/de/leitfaden/fortgeschritten',
       canonicalPath: '/leitfaden/fortgeschritten',
       locale: 'de',
@@ -295,16 +294,16 @@ describe('server reference contracts', () => {
     const { queryCollectionPage } = await import('../../packages/content/src/runtime/server/collection-helpers')
 
     await expect(queryCollectionPage(createEvent(), 'landing' as any, '/')).resolves.toMatchObject({
-      _path: '/',
-      _type: 'yaml',
+      path: '/',
+      type: 'yaml',
       canonicalPath: '/',
       locale: 'en',
       path: '/'
     })
 
     await expect(queryCollectionPage(createEvent(), 'landing' as any, '/de')).resolves.toMatchObject({
-      _path: '/',
-      _type: 'yaml',
+      path: '/',
+      type: 'yaml',
       canonicalPath: '/',
       locale: 'de',
       path: '/de'

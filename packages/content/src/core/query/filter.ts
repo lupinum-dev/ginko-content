@@ -99,7 +99,7 @@ export const compileWhere = (where: QueryWhere | undefined): ContentQueryBuilder
       continue
     }
 
-    const targetKey = key === 'path' ? '_path' : key
+    const targetKey = key === 'path' ? 'path' : key
     const operand = compileFieldOperand(value)
     if (operand !== undefined) {
       ;(out as Record<string, unknown>)[targetKey] = operand
@@ -190,7 +190,7 @@ export const compileQueryParams = (input: {
 
   // `by` selectors → graph-based variant resolver, but only when the caller
   // signals they care about locale resolution (locale or fallback).
-  // For plain non-i18n queries we treat `path` as a `_path` field equality so
+  // For plain non-i18n queries we treat `path` as a `path` field equality so
   // the query still works against collections that have no i18n config.
   // `ref` always uses the graph (refs are inherently a graph concept).
   const useVariantResolver = route || ref || (path && (input.locale !== undefined || fallback !== undefined))
@@ -205,9 +205,9 @@ export const compileQueryParams = (input: {
       ...(params.resolveLocale?.exact ? { exact: true } : {})
     }
   } else if (path) {
-    // Plain path lookup — push `_path` equality into where so the standard
+    // Plain path lookup — push `path` equality into where so the standard
     // executor handles it without any variant logic.
-    const pathClause: ContentQueryBuilderWhere = { _path: path }
+    const pathClause: ContentQueryBuilderWhere = { path: path }
     const existing = Array.isArray(params.where) ? params.where : params.where ? [params.where] : []
     params.where = [...existing, pathClause]
   }

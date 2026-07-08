@@ -93,7 +93,7 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
   locales: string[] = [],
   routeMounts?: RouteMounts
 ): ContentPageResult<T> => {
-  const canonicalPath = normalizeContentPath(page._path || '/')
+  const canonicalPath = normalizeContentPath(page.path || '/')
   const variants = createLocaleVariants(page._variantPaths, defaultLocale, routeMounts)
   const path = projectContentPathToLocale(canonicalPath, locale || page._resolvedLocale || page._locale, defaultLocale, routeMounts)
   const resolvedLocale = page._resolvedLocale || page._locale || locale || defaultLocale || ''
@@ -118,8 +118,8 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
       ...(page._requestedRef ? { requestedRef: page._requestedRef } : {}),
       availableLocales: page._availableLocales || Object.keys(page._variantPaths || {})
     },
-    stem: getContentStem(canonicalPath, page._file),
-    extension: page._extension
+    stem: getContentStem(canonicalPath, page.file?.path),
+    extension: page.file?.extension
   } as ContentPageResult<T>
 
   const links = (result as ContentPageResult<T> & { links?: unknown }).links
@@ -145,8 +145,8 @@ const localizeNavigationItem = (
   locales: string[] = [],
   routeMounts?: RouteMounts
 ): ContentNavigationItem => {
-  const rawPath = typeof item._path === 'string'
-    ? item._path
+  const rawPath = typeof item.canonicalPath === 'string'
+    ? item.canonicalPath
     : typeof item.path === 'string'
       ? item.path
       : undefined
@@ -159,10 +159,9 @@ const localizeNavigationItem = (
 
   const canonicalPath = normalizeContentPath(rawPath)
   const localizedPath = projectContentPathToLocale(canonicalPath, locale, defaultLocale, routeMounts)
-  const file = typeof item._file === 'string' ? item._file : undefined
+  const file = (item.file as { path?: string } | undefined)?.path
   return {
     ...item,
-    _path: canonicalPath,
     path: localizedPath,
     canonicalPath,
     stem: item.stem || getContentStem(canonicalPath, file),
@@ -189,13 +188,12 @@ export const localizeSurround = <T extends Record<string, unknown>>(
     return item
   }
 
-  const canonicalPath = normalizeContentPath(String(item._path || item.path || '/'))
+  const canonicalPath = normalizeContentPath(String(item.canonicalPath || item.path || '/'))
   return {
     ...item,
-    _path: canonicalPath,
     path: projectContentPathToLocale(canonicalPath, locale, defaultLocale, routeMounts),
     canonicalPath,
-    stem: item.stem || getContentStem(canonicalPath, typeof item._file === 'string' ? item._file : undefined)
+    stem: item.stem || getContentStem(canonicalPath, (item.file as { path?: string } | undefined)?.path)
   }
 }) as Array<T | null>
 
@@ -215,7 +213,7 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
   defaultLocale?: string,
   routeMounts?: RouteMounts
 ): ContentRouteMeta => {
-  const canonicalPath = normalizeContentPath(page._path || '/')
+  const canonicalPath = normalizeContentPath(page.path || '/')
   const resolvedLocale = page._resolvedLocale || page._locale || locale || defaultLocale || ''
   const requestedLocale = page._requestedLocale || locale
   const fallback = Boolean(page._fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))

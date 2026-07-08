@@ -1,14 +1,14 @@
 import { contentProviderResultMarker, type ContentCacheHint, type ContentCacheInvalidateInput, type ContentProvider } from '../public/provider'
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../types/api'
-import type { NavItem, ParsedContent } from '../types/content'
+import type { ContentFileMeta, NavItem, ParsedContent } from '../types/content'
 import type { ContentCollectionPageOptions, ContentPageResult, ContentQueryBuilderParams } from '../types/query'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
 import { findUnsupportedQueryOperator, SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
-import { normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
+import { normalizeContentPath, normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
 import { createRouteMeta, localizePageResult } from '../features/localization/results'
 import { createContentProviderError } from '../public/provider-errors'
 
@@ -112,7 +112,7 @@ const navFieldsFromDoc = (doc: ParsedContent, fields: string[] = []) =>
 
 const navIdentityFromDoc = (doc: ParsedContent) => ({
   ref: doc.ref,
-  stableId: doc.ref || doc._canonicalKey || doc._id
+  stableId: doc.ref || doc.canonicalKey || doc.id
 })
 
 const normalizeCachePath = (path: string) => {
@@ -120,7 +120,7 @@ const normalizeCachePath = (path: string) => {
   return normalized.replace(/\/{2,}/g, '/')
 }
 
-const documentEntryTag = (doc: ParsedContent) => `entry:${doc._collection}:${String(doc.ref || doc._canonicalKey || doc._id)}`
+const documentEntryTag = (doc: ParsedContent) => `entry:${doc.collection}:${String(doc.ref || doc.canonicalKey || doc.id)}`
 const collectionTag = (collection: string) => `collection:${collection}`
 const routeTag = (path: string) => `route:${normalizeCachePath(path)}`
 
@@ -189,7 +189,7 @@ const createCacheHintForDocument = (
   doc: ParsedContent,
   path: string
 ): ContentCacheHint => {
-  const collection = doc._collection || 'content'
+  const collection = doc.collection || 'content'
   return {
     tags: Array.from(new Set([
       documentEntryTag(doc),
@@ -273,22 +273,24 @@ const invalidateFixtureCache = (
 export const createProviderFixtureDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
 ): ParsedContent => {
-  const collection = String(input._collection || 'docs')
+  const collection = String(input.collection || 'docs')
   const locale = String(input._locale || 'en')
-  const path = String(input._path || '/')
-  const canonicalKey = String(input._canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
-  const extension = input._extension || (input._type === 'yaml' ? 'yml' : 'md')
+  const path = String(input.path || '/')
+  const canonicalKey = String(input.canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
+  const extension = input.file?.extension || (input.type === 'yaml' ? 'yml' : 'md')
 
   return {
-    _id: String(input._id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
-    _source: String(input._source || 'content'),
-    _collection: collection,
+    id: String(input.id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
+    collection: collection,
     _locale: locale,
-    _canonicalKey: canonicalKey,
-    _path: path,
-    _file: String(input._file || `/${locale}/${trimSlashes(path) || 'index'}.${extension}`),
-    _type: (input._type || 'markdown') as ParsedContent['_type'],
-    _extension: extension as ParsedContent['_extension'],
+    canonicalKey: canonicalKey,
+    path: path,
+    type: (input.type || 'markdown') as ParsedContent['type'],
+    file: {
+      source: String(input.file?.source || 'content'),
+      path: String(input.file?.path || `/${locale}/${trimSlashes(path) || 'index'}.${extension}`),
+      extension: extension as ContentFileMeta['extension']
+    },
     title: String(input.title || canonicalKey),
     body: {
       type: 'root',
@@ -387,7 +389,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
   const docsForNavigation = async (event: H3Event, params: ContentQueryBuilderParams) => {
     const response = await query<ParsedContent>(event, params)
     return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-      .filter(doc => !doc._draft && !doc._partial && !doc._navigation && doc.navigation !== false && doc._path)
+      .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
   }
 
   const provider: ContentProvider = {
@@ -421,8 +423,8 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       return docs.map(doc => ({
         title: doc.title,
         ...navIdentityFromDoc(doc),
-        _path: doc._path,
-        path: localizePath(fixture, doc._collection || params.collection || '', doc._path || '/', queryLocale || doc._requestedLocale || doc._locale),
+        canonicalPath: normalizeContentPath(doc.path || '/'),
+        path: localizePath(fixture, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc._requestedLocale || doc._locale),
         _locale: doc._locale
       })) as NavItem[]
     },
@@ -441,14 +443,14 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
               fallback: fixture.localeFallback[locale] || [fixture.defaultLocale]
             }
           : undefined,
-        sort: [{ _path: 1 }]
+        sort: [{ path: 1 }]
       })
       return docs.map(doc => ({
         title: doc.title,
         ...navFieldsFromDoc(doc, fields),
         ...navIdentityFromDoc(doc),
-        _path: doc._path,
-        path: localizePath(fixture, collection, doc._path || '/', locale || doc._locale),
+        canonicalPath: normalizeContentPath(doc.path || '/'),
+        path: localizePath(fixture, collection, doc.path || '/', locale || doc._locale),
         _locale: doc._locale
       })) as NavItem[]
     },
@@ -463,15 +465,15 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
               fallback: fixture.localeFallback[locale] || [fixture.defaultLocale]
             }
           : undefined,
-        sort: [{ _path: 1 }]
+        sort: [{ path: 1 }]
       })
-      const index = docs.findIndex(doc => doc._path === path || localizePath(fixture, collection, doc._path || '/', locale || doc._locale) === path)
+      const index = docs.findIndex(doc => doc.path === path || localizePath(fixture, collection, doc.path || '/', locale || doc._locale) === path)
       if (index === -1) return [null, null]
       return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
         ? {
             title: doc.title,
-            _path: doc._path,
-            path: localizePath(fixture, collection, doc._path || '/', locale || doc._locale)
+            canonicalPath: normalizeContentPath(doc.path || '/'),
+            path: localizePath(fixture, collection, doc.path || '/', locale || doc._locale)
           }
         : null) as Array<NavItem | null>
     },
@@ -495,7 +497,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         ...Object.fromEntries(extraFields
           .filter(field => field in doc)
           .map(field => [field, (doc as Record<string, unknown>)[field]])),
-        id: localizePath(fixture, collection, doc._path || '/', options.locale || doc._locale),
+        id: localizePath(fixture, collection, doc.path || '/', options.locale || doc._locale),
         title: doc.title || '',
         titles: [doc.title || ''],
         content: String(doc.description || doc.title || ''),
@@ -505,15 +507,15 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     search: async (_event, request) => {
       const term = request.term.toLocaleLowerCase()
       return fixture.documents
-        .filter(doc => !request.collections?.length || request.collections.includes(doc._collection || ''))
+        .filter(doc => !request.collections?.length || request.collections.includes(doc.collection || ''))
         .filter(doc => !request.locale || doc._locale === request.locale)
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
         .map(doc => ({
           score: 1,
-          collection: doc._collection || '',
+          collection: doc.collection || '',
           title: doc.title || '',
           excerpt: String(doc.description || ''),
-          path: localizePath(fixture, doc._collection || '', doc._path || '/', doc._locale),
+          path: localizePath(fixture, doc.collection || '', doc.path || '/', doc._locale),
           locale: doc._locale
         }))
     },
@@ -580,9 +582,9 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
           }
           continue
         }
-        for (const doc of fixture.documents.filter(doc => doc._collection === collection && !doc._draft && !doc._partial && !doc._navigation)) {
+        for (const doc of fixture.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc._navigation)) {
           entries.push({
-            loc: localizePath(fixture, collection, doc._path || '/', doc._locale)
+            loc: localizePath(fixture, collection, doc.path || '/', doc._locale)
           })
         }
       }
@@ -626,81 +628,81 @@ export const createSaasProviderFixture = () => createProviderFixture({
   },
   documents: [
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'en',
-      _canonicalKey: 'docs:getting-started',
-      _path: '/docs/getting-started',
+      canonicalKey: 'docs:getting-started',
+      path: '/docs/getting-started',
       ref: 'docs.getting-started',
       title: 'Getting Started',
       description: 'Start here',
       order: 1
     },
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'de',
-      _canonicalKey: 'docs:getting-started',
-      _path: '/dokumentation/einstieg',
+      canonicalKey: 'docs:getting-started',
+      path: '/dokumentation/einstieg',
       ref: 'docs.getting-started',
       title: 'Einstieg',
       description: 'Hier starten',
       order: 1
     },
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'de',
-      _canonicalKey: 'docs:getting-started-installation',
-      _path: '/dokumentation/einstieg/installation',
+      canonicalKey: 'docs:getting-started-installation',
+      path: '/dokumentation/einstieg/installation',
       ref: 'docs.getting-started.installation',
       title: 'Installation',
       description: 'Installieren',
       order: 2
     },
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'de',
-      _canonicalKey: 'docs:getting-started-everyday',
-      _path: '/dokumentation/einstieg/alltag',
+      canonicalKey: 'docs:getting-started-everyday',
+      path: '/dokumentation/einstieg/alltag',
       ref: 'docs.getting-started.everyday',
       title: 'Alltag',
       description: 'Arbeiten',
       order: 3
     },
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'en',
-      _canonicalKey: 'docs:markdown-syntax',
-      _path: '/docs/essentials/markdown-syntax',
+      canonicalKey: 'docs:markdown-syntax',
+      path: '/docs/essentials/markdown-syntax',
       ref: 'docs.markdown-syntax',
       title: 'Markdown Syntax',
       description: 'Writing docs',
       order: 4
     },
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'en',
-      _canonicalKey: 'docs:draft-roadmap',
-      _path: '/docs/draft-roadmap',
+      canonicalKey: 'docs:draft-roadmap',
+      path: '/docs/draft-roadmap',
       ref: 'docs.draft-roadmap',
       title: 'Draft Roadmap',
       description: 'Unpublished draft',
-      _draft: true,
+      draft: true,
       order: 5
     },
     {
-      _collection: 'docs',
+      collection: 'docs',
       _locale: 'de',
-      _canonicalKey: 'docs:markdown-syntax',
-      _path: '/dokumentation/grundlagen/markdown-syntax',
+      canonicalKey: 'docs:markdown-syntax',
+      path: '/dokumentation/grundlagen/markdown-syntax',
       ref: 'docs.markdown-syntax',
       title: 'Markdown Syntax DE',
       description: 'Dokumentation schreiben',
       order: 4
     },
     {
-      _collection: 'posts',
+      collection: 'posts',
       _locale: 'en',
-      _canonicalKey: 'posts:onboarding',
-      _path: '/blog/multilingual-onboarding',
+      canonicalKey: 'posts:onboarding',
+      path: '/blog/multilingual-onboarding',
       ref: 'posts.onboarding',
       title: 'Multilingual Onboarding',
       description: 'Launch notes',
@@ -708,10 +710,10 @@ export const createSaasProviderFixture = () => createProviderFixture({
       authors: ['authors.emily']
     },
     {
-      _collection: 'posts',
+      collection: 'posts',
       _locale: 'de',
-      _canonicalKey: 'posts:onboarding',
-      _path: '/magazin/mehrsprachiges-onboarding',
+      canonicalKey: 'posts:onboarding',
+      path: '/magazin/mehrsprachiges-onboarding',
       ref: 'posts.onboarding',
       title: 'Mehrsprachiges Onboarding',
       description: 'Startnotizen',
@@ -719,30 +721,30 @@ export const createSaasProviderFixture = () => createProviderFixture({
       authors: ['authors.emily']
     },
     {
-      _collection: 'authors',
+      collection: 'authors',
       _locale: 'en',
-      _canonicalKey: 'authors:emily',
-      _path: '/authors/emily',
+      canonicalKey: 'authors:emily',
+      path: '/authors/emily',
       ref: 'authors.emily',
       title: 'Emily',
       name: 'Emily',
       description: 'Author'
     },
     {
-      _collection: 'authors',
+      collection: 'authors',
       _locale: 'de',
-      _canonicalKey: 'authors:emily',
-      _path: '/autoren/emily',
+      canonicalKey: 'authors:emily',
+      path: '/autoren/emily',
       ref: 'authors.emily',
       title: 'Emily DE',
       name: 'Emily',
       description: 'Autorin'
     },
     {
-      _collection: 'versions',
+      collection: 'versions',
       _locale: 'en',
-      _canonicalKey: 'versions:launch-readiness',
-      _path: '/changelog/launch-readiness',
+      canonicalKey: 'versions:launch-readiness',
+      path: '/changelog/launch-readiness',
       ref: 'versions.launch-readiness',
       title: 'Launch readiness',
       date: '2026-01-01'
@@ -760,18 +762,18 @@ export const createAuthorDependencyProviderFixture = () => createProviderFixture
     authors: { type: 'page', route: '/authors' }
   },
   documents: [
-    { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice', name: 'Alice' },
-    { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob', name: 'Bob' },
+    { collection: 'authors', path: '/authors/alice', ref: 'authors.alice', title: 'Alice', name: 'Alice' },
+    { collection: 'authors', path: '/authors/bob', ref: 'authors.bob', title: 'Bob', name: 'Bob' },
     ...Array.from({ length: 5 }, (_, index) => ({
-      _collection: 'blog',
-      _path: `/blog/post-${index + 1}`,
+      collection: 'blog',
+      path: `/blog/post-${index + 1}`,
       ref: `blog.post-${index + 1}`,
       title: `Post ${index + 1}`,
       authors: ['authors.alice']
     })),
     {
-      _collection: 'blog',
-      _path: '/blog/post-6',
+      collection: 'blog',
+      path: '/blog/post-6',
       ref: 'blog.post-6',
       title: 'Post 6',
       authors: ['authors.bob']

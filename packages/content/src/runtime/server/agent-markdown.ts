@@ -326,8 +326,8 @@ const isPublicPage = (page: ParsedContent, config: ContentCollectionConfig | und
     && config
     && config.type !== 'data'
     && config.sitemap !== false
-    && !page._draft
-    && !page._partial
+    && !page.draft
+    && !page.partial
     && !page._navigation
     && (page as { navigation?: unknown }).navigation !== false
     && (page as { robots?: unknown }).robots !== 'noindex'
@@ -534,7 +534,7 @@ const toAgentMarkdown = (
   page: ParsedContent,
   options: ResolvedAgentMarkdownOptions
 ): AgentMarkdown => {
-  const path = normalizeAgentRoutePath((page as { path?: string }).path || page._requestedRoute || page._path)
+  const path = normalizeAgentRoutePath((page as { path?: string }).path || page._requestedRoute)
   const locale = (page as { locale?: string }).locale || page._resolvedLocale || page._locale
   const title = typeof page.title === 'string' && page.title.trim()
     ? page.title.trim()
@@ -549,7 +549,7 @@ const toAgentMarkdown = (
     title,
     description,
     markdown: renderAgentMarkdown(page, collection, path, locale, options),
-    ...(page._file ? { sourceFile: page._file } : {}),
+    ...(page.file?.path ? { sourceFile: page.file?.path } : {}),
     canonicalUrl: path,
     ...(typeof (page as { updated?: unknown }).updated === 'string' ? { lastModified: (page as unknown as { updated: string }).updated } : {}),
     metadataFields: options.metadata,
@@ -610,7 +610,7 @@ const publicPathForQueryRow = (
   if (requested) return normalizeAgentRoutePath(requested)
 
   const defaultLocale = collectionDefaultLocale(config)
-  const rowPath = normalizeAgentRoutePath(row._path || '/')
+  const rowPath = normalizeAgentRoutePath(row.path || '/')
   const resolvedLocale = row._resolvedLocale || row._locale
   if (locale && resolvedLocale && locale !== resolvedLocale) {
     const sourceLocalePath = publicPathForLocale(collection, config, rowPath, resolvedLocale, defaultLocale)
@@ -667,7 +667,7 @@ export async function queryMarkdownEnabledContent (
     if (!agentOptions) continue
     const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
       collection,
-      only: ['path', 'locale', 'localePaths', '_path', '_locale', '_resolvedLocale', '_requestedRoute', '_file', '_draft', '_partial', '_navigation', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
+      only: ['path', 'locale', 'localePaths', '_locale', '_resolvedLocale', '_requestedRoute', 'file', 'draft', 'partial', '_navigation', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     }))
@@ -687,7 +687,7 @@ export async function queryMarkdownEnabledContent (
         collection,
         title,
         description,
-        ...(row._file ? { sourceFile: row._file } : {}),
+        ...(row.file?.path ? { sourceFile: row.file?.path } : {}),
         canonicalUrl: path,
         ...(typeof (row as { updated?: unknown }).updated === 'string' ? { lastModified: (row as unknown as { updated: string }).updated } : {}),
         metadataFields: agentOptions.metadata,

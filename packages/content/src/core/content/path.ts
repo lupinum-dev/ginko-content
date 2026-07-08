@@ -6,21 +6,21 @@ const SEMVER_REGEX = /^(\d+)(\.\d+)*(\.x)?$/
 const NUMERIC_PREFIX_RE = /^(\d+)\.(.+)$/
 
 export const describeId = (id: string) => {
-  const [_source, ...parts] = id.split(':')
-  const [, basename, _extension] = parts[parts.length - 1]?.match(/(.*)\.([^.]+)$/) || []
+  const [source, ...parts] = id.split(':')
+  const [, basename, extension] = parts[parts.length - 1]?.match(/(.*)\.([^.]+)$/) || []
 
   if (basename) {
     parts[parts.length - 1] = basename
   }
 
-  const _path = (parts || []).join('/')
+  const path = (parts || []).join('/')
 
   return {
-    _source,
-    _path,
-    _extension,
-    _file: _extension ? `${_path}.${_extension}` : _path,
-    _basename: basename || ''
+    source,
+    path,
+    extension,
+    file: extension ? `${path}.${extension}` : path,
+    basename: basename || ''
   }
 }
 

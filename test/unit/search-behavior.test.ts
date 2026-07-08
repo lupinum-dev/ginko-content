@@ -113,7 +113,7 @@ describe('search behavior', () => {
   test('createSearchSections splits markdown into page and heading sections with ignored tags and extra metadata', () => {
     const sections = createSearchSections([
       {
-        _path: '/docs/search',
+        path: '/docs/search',
         _locale: 'de',
         title: 'Search',
         description: 'Find content quickly',
@@ -193,7 +193,7 @@ describe('search behavior', () => {
   test('createSearchSections normalizes inline MDC syntax in result titles', () => {
     const sections = createSearchSections([
       {
-        _path: '/',
+        path: '/',
         title: 'Ship Your [SaaS]{class="text-primary"} at light speed',
         description: 'Build faster',
         body: {

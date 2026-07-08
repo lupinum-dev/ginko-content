@@ -65,7 +65,7 @@ export const createInMemoryProvider = (scenario: ContentScenario, name = 'in-mem
 const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) => {
     const response = await query<ParsedContent>(event, params)
     return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-      .filter(doc => !doc._draft && !doc._partial && !doc._navigation && doc.navigation !== false && doc._path)
+      .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
   }
 
   const provider: ContentProvider = {
@@ -92,8 +92,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       const queryLocale = params.resolveLocale?.locale
       return docs.map(doc => ({
         title: doc.title,
-        _path: doc._path,
-        path: localizePath(scenario, doc._collection || params.collection || '', doc._path || '/', queryLocale || doc._requestedLocale || doc._locale),
+        path: localizePath(scenario, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc._requestedLocale || doc._locale),
         _locale: doc._locale
       })) as NavItem[]
     },
@@ -108,12 +107,11 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
               fallback: scenario.localeFallback[locale] || [scenario.defaultLocale]
             }
           : undefined,
-        sort: [{ _path: 1 }]
+        sort: [{ path: 1 }]
       })
       return docs.map(doc => ({
         title: doc.title,
-        _path: doc._path,
-        path: localizePath(scenario, collection, doc._path || '/', locale || doc._locale),
+        path: localizePath(scenario, collection, doc.path || '/', locale || doc._locale),
         _locale: doc._locale
       })) as NavItem[]
     },
@@ -128,15 +126,14 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
               fallback: scenario.localeFallback[locale] || [scenario.defaultLocale]
             }
           : undefined,
-        sort: [{ _path: 1 }]
+        sort: [{ path: 1 }]
       })
-      const index = docs.findIndex(doc => doc._path === path || localizePath(scenario, collection, doc._path || '/', locale || doc._locale) === path)
+      const index = docs.findIndex(doc => doc.path === path || localizePath(scenario, collection, doc.path || '/', locale || doc._locale) === path)
       if (index === -1) return [null, null]
       return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
         ? {
             title: doc.title,
-            _path: doc._path,
-            path: localizePath(scenario, collection, doc._path || '/', locale || doc._locale)
+            path: localizePath(scenario, collection, doc.path || '/', locale || doc._locale)
           }
         : null) as Array<NavItem | null>
     },
@@ -152,7 +149,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
           : undefined
       })
       return docs.map(doc => ({
-        id: localizePath(scenario, collection, doc._path || '/', options.locale || doc._locale),
+        id: localizePath(scenario, collection, doc.path || '/', options.locale || doc._locale),
         title: doc.title || '',
         titles: [doc.title || ''],
         content: String(doc.description || doc.title || '')
@@ -165,10 +162,10 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
         .map(doc => ({
           score: 1,
-          collection: doc._collection || '',
+          collection: doc.collection || '',
           title: doc.title || '',
           excerpt: String(doc.description || ''),
-          path: doc._path || '/',
+          path: doc.path || '/',
           locale: doc._locale
         }))
     },
@@ -216,9 +213,9 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
         if (scenario.collections[collection]?.type === 'data' || scenario.collections[collection]?.sitemap === false) {
           throw createContentProviderError('data_collection_sitemap_access', `${collection} cannot be listed in the sitemap.`, { collection })
         }
-        for (const doc of scenario.documents.filter(doc => doc._collection === collection && !doc._draft && !doc._partial && !doc._navigation)) {
+        for (const doc of scenario.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc._navigation)) {
           entries.push({
-            loc: localizePath(scenario, collection, doc._path || '/', doc._locale)
+            loc: localizePath(scenario, collection, doc.path || '/', doc._locale)
           })
         }
       }

@@ -45,11 +45,11 @@ describe('runtime cache API boundary', () => {
 
   test('cache API persists a snapshot and provider navigation without preloading the filesystem manifest', async () => {
     const navigation = [
-      { title: 'Docs', _path: '/docs', path: '/docs' }
+      { title: 'Docs', path: '/docs' }
     ]
     const document = {
-      _id: 'content:docs:intro.md',
-      _path: '/docs/intro',
+      id: 'content:docs:intro.md',
+      path: '/docs/intro',
       body: { type: 'root', children: [] }
     }
     mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md'])
@@ -88,8 +88,8 @@ describe('runtime cache API boundary', () => {
 
   test('cache API fails before persisting when the snapshot is missing a source document', async () => {
     const document = {
-      _id: 'content:docs:intro.md',
-      _path: '/docs/intro',
+      id: 'content:docs:intro.md',
+      path: '/docs/intro',
       body: { type: 'root', children: [] }
     }
     mocks.getSourceContentIds.mockResolvedValue([

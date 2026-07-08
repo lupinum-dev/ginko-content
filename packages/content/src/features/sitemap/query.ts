@@ -2,11 +2,11 @@ import type { ContentSitemapAlternative, ContentSitemapEntry, ContentSitemapImag
 import { createContentProviderError } from '../../core/provider-errors'
 
 type ContentLikePage = {
-  _path?: string
-  _collection?: string
-  _canonicalKey?: string
+  path?: string
+  collection?: string
+  canonicalKey?: string
   _locale?: string
-  _draft?: boolean
+  draft?: boolean
   sitemap?: unknown
   body?: unknown
   image?: unknown
@@ -234,7 +234,7 @@ export async function queryCollectionsSitemapEntriesData (
     const collectionPages = await loaders.loadCollectionPages(collection)
     return collectionPages.map(page => ({
       ...page,
-      _collection: page._collection || collection
+      collection: page.collection || collection
     }))
   }))).flat()
     .filter((page) => {
@@ -242,21 +242,21 @@ export async function queryCollectionsSitemapEntriesData (
         return false
       }
 
-      return shouldIncludeDrafts || !page._draft
+      return shouldIncludeDrafts || !page.draft
     })
   const uniquePages = Array.from(new Map(
     pages.map(page => [
-      `${page._collection || ''}:${page._canonicalKey || page._path || ''}`,
+      `${page.collection || ''}:${page.canonicalKey || page.path || ''}`,
       page
     ])
   ).values())
 
   const rawEntries = await Promise.all(uniquePages.map(async (page) => {
-    if (!page._path || !page._collection) {
+    if (!page.path || !page.collection) {
       return []
     }
 
-    const meta = await loaders.loadRouteMeta(page._collection, page._path, page._locale)
+    const meta = await loaders.loadRouteMeta(page.collection, page.path, page._locale)
     if (!meta) {
       return []
     }
@@ -268,7 +268,7 @@ export async function queryCollectionsSitemapEntriesData (
       : undefined
 
     return await Promise.all(variants.map(async (variant) => {
-      const variantPage = await loaders.loadPage(page._collection!, variant.path, variant.locale)
+      const variantPage = await loaders.loadPage(page.collection!, variant.path, variant.locale)
       const images = toPageSitemapImages(
         siteUrl,
         variantPage ? { ...page, ...(variantPage as ContentLikePage) } : page,

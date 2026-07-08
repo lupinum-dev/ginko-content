@@ -42,39 +42,39 @@ describe('vNext golden demo', () => {
       },
       documents: [
         {
-          _collection: 'docs',
-          _canonicalKey: 'docs:start',
+          collection: 'docs',
+          canonicalKey: 'docs:start',
           _locale: 'en',
-          _path: '/docs/start',
+          path: '/docs/start',
           ref: 'docs.start',
           title: 'Start',
           description: 'Start here',
           order: 1
         },
         {
-          _collection: 'docs',
-          _canonicalKey: 'docs:start',
+          collection: 'docs',
+          canonicalKey: 'docs:start',
           _locale: 'de',
-          _path: '/dokumentation/start',
+          path: '/dokumentation/start',
           ref: 'docs.start',
           title: 'Startseite',
           description: 'Hier starten',
           order: 1
         },
         {
-          _collection: 'docs',
-          _canonicalKey: 'docs:install',
+          collection: 'docs',
+          canonicalKey: 'docs:install',
           _locale: 'en',
-          _path: '/docs/install',
+          path: '/docs/install',
           ref: 'docs.install',
           title: 'Install',
           order: 2
         },
         {
-          _collection: 'blog',
-          _canonicalKey: 'blog:release',
+          collection: 'blog',
+          canonicalKey: 'blog:release',
           _locale: 'en',
-          _path: '/blog/release',
+          path: '/blog/release',
           ref: 'blog.release',
           title: 'Release',
           description: 'Release post',
@@ -82,10 +82,10 @@ describe('vNext golden demo', () => {
           order: 1
         },
         {
-          _collection: 'blog',
-          _canonicalKey: 'blog:release',
+          collection: 'blog',
+          canonicalKey: 'blog:release',
           _locale: 'de',
-          _path: '/blog/veroeffentlichung',
+          path: '/blog/veroeffentlichung',
           ref: 'blog.release',
           title: 'Veroeffentlichung',
           description: 'Release auf Deutsch',
@@ -93,19 +93,19 @@ describe('vNext golden demo', () => {
           order: 1
         },
         {
-          _collection: 'authors',
-          _canonicalKey: 'authors:ada',
+          collection: 'authors',
+          canonicalKey: 'authors:ada',
           _locale: 'en',
-          _path: '/authors/ada',
+          path: '/authors/ada',
           ref: 'authors.ada',
           title: 'Ada',
           name: 'Ada'
         },
         {
-          _collection: 'authors',
-          _canonicalKey: 'authors:ada',
+          collection: 'authors',
+          canonicalKey: 'authors:ada',
           _locale: 'de',
-          _path: '/autoren/ada',
+          path: '/autoren/ada',
           ref: 'authors.ada',
           title: 'Ada',
           name: 'Ada'
@@ -141,7 +141,7 @@ describe('vNext golden demo', () => {
     const posts = unwrap(await provider.query(event, {
       collection: 'blog',
       resolveLocale: { locale: 'de', fallback: false },
-      only: ['title', 'authors', '_path', '_locale'],
+      only: ['title', 'authors', 'path', '_locale'],
       sort: [{ order: 1 }]
     }))
     expect(posts.result[0]).toMatchObject({

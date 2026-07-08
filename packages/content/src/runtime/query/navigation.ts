@@ -16,12 +16,12 @@ import { isCollectionRouteRoot, isNavigationRootPath } from './localized-docs'
 import { resolveFallback } from './locale-options'
 
 const NAVIGATION_INTERNAL_FIELDS = [
-  '_id',
-  '_path',
-  '_file',
-  '_canonicalKey',
+  'id',
+  'path',
+  'file',
+  'canonicalKey',
   '_locale',
-  '_draft',
+  'draft',
   'navigation',
   'title'
 ] as const
@@ -101,9 +101,9 @@ export async function resolveNeighbors<H extends ContentCollectionHandle | strin
   const flat: Array<{ path: string, item: unknown }> = []
   const walk = (nodes: unknown[]) => {
     for (const node of nodes) {
-      const n = node as { path?: string, _path?: string, children?: unknown[] }
-      if (n.path || n._path) {
-        flat.push({ path: n.path || n._path || '', item: node })
+      const n = node as { path?: string, children?: unknown[] }
+      if (n.path) {
+        flat.push({ path: n.path || '', item: node })
       }
       if (Array.isArray(n.children)) walk(n.children)
     }

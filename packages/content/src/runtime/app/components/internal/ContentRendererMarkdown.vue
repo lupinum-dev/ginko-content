@@ -128,7 +128,7 @@ const rendererAttrs = computed(() => {
     :default-locale="defaultLocale"
     :locales="locales"
     :components="resolvedComponents"
-    :data-content-id="debug ? value._id : undefined"
+    :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"
   />
 </template>

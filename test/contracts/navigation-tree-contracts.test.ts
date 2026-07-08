@@ -8,10 +8,10 @@ describe('navigation tree contracts', () => {
     const navigation = buildCanonicalNavigation([
       {
         title: 'Installation',
-        _id: 'content:de:docs:getting-started:installation.md',
-        _file: '/de/1.dokumentation/1.erste-schritte/installation.md',
-        _path: '/dokumentation/erste-schritte/installation',
-        _canonicalKey: 'docs/getting-started/installation',
+        id: 'content:de:docs:getting-started:installation.md',
+        file: { path: '/de/1.dokumentation/1.erste-schritte/installation.md' },
+        path: '/dokumentation/erste-schritte/installation',
+        canonicalKey: 'docs/getting-started/installation',
         _locale: 'de'
       } as any
     ], {}, [])
@@ -19,13 +19,13 @@ describe('navigation tree contracts', () => {
     expect(navigation[0]).toMatchObject({
       title: 'Dokumentation',
       _navigationKind: 'folder',
-      _canonicalKey: 'docs',
+      canonicalKey: 'docs',
       _locale: 'de'
     })
     expect(navigation[0]?.children?.[0]).toMatchObject({
       title: 'Erste Schritte',
       _navigationKind: 'folder',
-      _canonicalKey: 'docs/getting-started',
+      canonicalKey: 'docs/getting-started',
       _locale: 'de'
     })
   })
@@ -34,37 +34,37 @@ describe('navigation tree contracts', () => {
     const merged = mergeCanonicalNavigation([
       {
         title: 'Grundlagen',
-        _canonicalKey: 'docs/essentials',
+        canonicalKey: 'docs/essentials',
         _navigationKind: 'folder',
         children: [
-          { title: 'Markdown Syntax', _path: '/dokumentation/grundlagen/markdown-syntax', _canonicalKey: 'docs/essentials/markdown-syntax', _navigationKind: 'page' }
+          { title: 'Markdown Syntax', path: '/dokumentation/grundlagen/markdown-syntax', canonicalKey: 'docs/essentials/markdown-syntax', _navigationKind: 'page' }
         ]
       }
     ], [
       {
         title: 'Essentials',
-        _canonicalKey: 'docs/essentials',
+        canonicalKey: 'docs/essentials',
         _navigationKind: 'folder',
         children: [
-          { title: 'Fallback Lab', _path: '/docs/essentials/fallback-lab', _canonicalKey: 'docs/essentials/fallback-lab', _navigationKind: 'page' }
+          { title: 'Fallback Lab', path: '/docs/essentials/fallback-lab', canonicalKey: 'docs/essentials/fallback-lab', _navigationKind: 'page' }
         ]
       }
     ])
 
     expect(merged).toHaveLength(1)
-    expect(merged[0]).toMatchObject({ title: 'Grundlagen', _canonicalKey: 'docs/essentials' })
+    expect(merged[0]).toMatchObject({ title: 'Grundlagen', canonicalKey: 'docs/essentials' })
     expect(merged[0]?.children?.map(item => item.title)).toEqual(['Markdown Syntax', 'Fallback Lab'])
 
     expect(getNavigationIdentity({ title: 'Display Only' } as any)).toBeUndefined()
     expect(mergeCanonicalNavigation([
-      { title: 'Same', _path: '/one', _navigationKind: 'page' }
+      { title: 'Same', path: '/one', _navigationKind: 'page' }
     ], [
-      { title: 'Same', _path: '/two', _navigationKind: 'page' }
+      { title: 'Same', path: '/two', _navigationKind: 'page' }
     ])).toHaveLength(2)
     expect(mergeCanonicalNavigation([
-      { title: 'Same', _path: '/same', _navigationKind: 'page' }
+      { title: 'Same', path: '/same', _navigationKind: 'page' }
     ], [
-      { title: 'Same', _path: '/same', _navigationKind: 'page' }
+      { title: 'Same', path: '/same', _navigationKind: 'page' }
     ])).toHaveLength(2)
   })
 
@@ -76,26 +76,26 @@ describe('navigation tree contracts', () => {
     const canonicalNavigation = markCollectionNavigationRoot([
       {
         title: 'Dokumentation',
-        _path: '/dokumentation',
-        _canonicalKey: '1',
+        path: '/dokumentation',
+        canonicalKey: '1',
         _navigationKind: 'folder',
         children: [
           {
             title: 'Arbeitsablaeufe',
-            _path: '/dokumentation/arbeitsablaeufe',
-            _canonicalKey: '1/2',
+            path: '/dokumentation/arbeitsablaeufe',
+            canonicalKey: '1/2',
             _navigationKind: 'folder',
             children: [
               {
                 title: 'Content Routing',
-                _path: '/dokumentation/arbeitsablaeufe/content-routing',
-                _canonicalKey: '1/2/1',
+                path: '/dokumentation/arbeitsablaeufe/content-routing',
+                canonicalKey: '1/2/1',
                 _navigationKind: 'page'
               },
               {
                 title: 'Launch Checkliste',
-                _path: '/dokumentation/arbeitsablaeufe/launch-checkliste',
-                _canonicalKey: '1/2/2',
+                path: '/dokumentation/arbeitsablaeufe/launch-checkliste',
+                canonicalKey: '1/2/2',
                 _navigationKind: 'page'
               }
             ]
@@ -113,9 +113,9 @@ describe('navigation tree contracts', () => {
     expect(navigation).toHaveLength(1)
     expect(navigation[0]).toMatchObject({
       title: 'Arbeitsablaeufe',
-      _canonicalKey: '1/2'
+      canonicalKey: '1/2'
     })
-    expect(navigation[0]).not.toHaveProperty('_path')
+    expect(navigation[0]).not.toHaveProperty('path')
     expect(navigation[0]).not.toHaveProperty('path')
     expect(navigation[0]?.children?.map(item => item.path)).toEqual([
       '/de/dokumentation/arbeitsablaeufe/content-routing',

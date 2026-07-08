@@ -82,14 +82,14 @@ export const normalizeContentQueryParams = (
 
   if (options.path) {
     if (normalized.first && where.length === 0) {
-      where.push({ _path: withoutTrailingSlash(options.path) })
+      where.push({ path: withoutTrailingSlash(options.path) })
     } else {
-      where.push({ _path: new RegExp(`^${escapeContentPath(options.path)}`) })
+      where.push({ path: new RegExp(`^${escapeContentPath(options.path)}`) })
     }
   }
 
   if (!normalized.sort?.length) {
-    normalized.sort = [{ _stem: 1, $numeric: true }]
+    normalized.sort = [{ 'file.stem': 1, $numeric: true }]
   }
 
   if (normalized.resolveLocale?.locale && normalized.resolveLocale.fallback === true) {
@@ -104,8 +104,8 @@ export const normalizeContentQueryParams = (
   }
 
   if (options.includeDraftFilter) {
-    if (!findQueryWhere(where, item => typeof item._draft !== 'undefined')) {
-      where.push({ _draft: { $ne: true } })
+    if (!findQueryWhere(where, item => typeof item.draft !== 'undefined')) {
+      where.push({ draft: { $ne: true } })
     }
   }
 
