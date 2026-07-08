@@ -41,9 +41,15 @@ const isPlainObject = (value: object) => {
 const findNonJsonValue = (value: unknown, path: string, ancestors: WeakSet<object>): string | undefined => {
   if (
     value === null
+    || value === undefined
     || typeof value === 'string'
     || typeof value === 'boolean'
   ) {
+    // `undefined` is admitted for the same prod-parity reason as Date:
+    // JSON.stringify drops undefined-valued object keys (and nulls them in
+    // arrays), which is exactly what the pre-snapshot production pipeline
+    // served. Disabled-feature decorations (e.g. search: false) legitimately
+    // set undefined fields on every document.
     return undefined
   }
 
