@@ -869,8 +869,10 @@ describe('agent markdown', () => {
           {
             path: '/guide/advanced',
             _locale: 'en',
-            _resolvedLocale: 'en',
-            _fallback: true,
+            resolved: {
+              locale: 'en',
+              fallback: true
+            },
             file: { path: 'en/1.guide/2.advanced.md' },
             title: 'Advanced'
           }

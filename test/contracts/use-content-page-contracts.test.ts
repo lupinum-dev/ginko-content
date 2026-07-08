@@ -137,10 +137,12 @@ vi.mock('../../packages/content/src/runtime/app/composables/route', () => ({
 const doc = (path = '/docs/getting-started') => ({
   path: path,
   file: { path: `${path}.md` },
-  _requestedRoute: path,
-  _variantPaths: {
-    en: path,
-    de: path.replace('/docs/', '/de/docs/')
+  resolved: {
+    requestedRoute: path,
+    variantPaths: {
+      en: path,
+      de: path.replace('/docs/', '/de/docs/')
+    }
   },
   title: path.endsWith('advanced') ? 'Advanced' : 'Getting Started'
 })
@@ -169,7 +171,10 @@ describe('useContentPage contracts', () => {
       if (params.resolveVariant?.route === '/docs/alias') {
         return {
           ...doc('/docs/canonical'),
-          _requestedRoute: '/docs/alias',
+          resolved: {
+            ...doc('/docs/canonical').resolved,
+            requestedRoute: '/docs/alias'
+          },
           title: 'Aliased'
         }
       }

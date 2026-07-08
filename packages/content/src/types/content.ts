@@ -47,6 +47,37 @@ export interface ContentFileMeta {
 }
 
 /**
+ * Per-request locale/reference resolution carrier.
+ *
+ * Folded from the legacy underscore resolution meta into one object. It is the
+ * pre-shaping form of the modern `resolved`/`localePaths`/`variants` envelope:
+ * the query pipeline attaches it, and result shaping reads it to build
+ * `ContentRouteMeta`. Field names mirror `ContentResolvedMeta` so a consumer
+ * can read `resolved.locale`/`resolved.requestedRoute`/… off either a raw
+ * document or a fully shaped result.
+ */
+export interface ContentDocumentResolution {
+  /** Resolved locale after locale fallback. */
+  locale?: string
+  /** Requested locale before locale fallback. */
+  requestedLocale?: string
+  /** Whether the returned content was resolved through fallback. */
+  fallback?: boolean
+  /** Locales that have a concrete variant for this document. */
+  availableLocales?: string[]
+  /** Map of available locale code to its locale-specific path. */
+  variantPaths?: Record<string, string>
+  /** Requested route path before locale fallback. */
+  requestedPath?: string
+  /** Requested public route before locale fallback. */
+  requestedRoute?: string
+  /** Requested authored reference before locale fallback. */
+  requestedRef?: string
+  /** Resolved markdown `$ref` links for the current runtime locale. */
+  resolvedRefs?: Record<string, string>
+}
+
+/**
  * Internal metadata attached to every parsed content record.
  */
 export interface ParsedContentInternalMeta {
@@ -96,49 +127,21 @@ export interface ParsedContentInternalMeta {
    */
   canonicalKey?: string
   /**
-   * Requested route path before locale fallback.
+   * Per-request locale/reference resolution carrier (folded from the legacy
+   * underscore resolution meta). Absent until the query pipeline resolves a
+   * variant; shaping reads it to build the `resolved`/`localePaths`/`variants`
+   * route envelope.
    */
-  _requestedPath?: string
-  /**
-   * Requested public route before locale fallback.
-   */
-  _requestedRoute?: string
-  /**
-   * Requested authored reference before locale fallback.
-   */
-  _requestedRef?: string
-  /**
-   * Requested locale before locale fallback.
-   */
-  _requestedLocale?: string
-  /**
-   * Resolved locale after locale fallback.
-   */
-  _resolvedLocale?: string
-  /**
-   * Whether the returned content was resolved through fallback.
-   */
-  _fallback?: boolean
-  /**
-   * Locales that have a concrete variant for this document.
-   */
-  _availableLocales?: string[]
-  /**
-   * Map of available locale code to its locale-specific path.
-   */
-  _variantPaths?: Record<string, string>
-  /**
-   * Resolved markdown `$ref` links for the current runtime locale.
-   */
-  _resolvedRefs?: Record<string, string>
+  resolved?: ContentDocumentResolution
   /**
    * Collection name, when matched by a configured collection glob.
    */
   collection?: string
   /**
-   * Marks folder-scoped navigation metadata documents.
+   * Internal marker: this parsed record is a folder-scoped `.navigation.yml`
+   * configuration document, not a routable page. Never a public field.
    */
-  _navigation?: boolean
+  navigationFile?: boolean
   /**
    * Parsed document kind.
    */
@@ -279,10 +282,6 @@ export interface StrictParsedContent extends StrictParsedContentMeta {
 export interface MarkdownParsedContent extends ParsedContent {
   type: 'markdown',
   /**
-   * Whether the markdown source rendered no meaningful body content.
-   */
-  _empty: boolean
-  /**
    * Description resolved from frontmatter or excerpt generation.
    */
   description: string
@@ -343,7 +342,7 @@ export interface NavItem {
   id?: string
   canonicalKey?: string
   _locale?: string
-  _fallback?: boolean
+  fallback?: boolean
   draft?: boolean
   children?: NavItem[]
 

@@ -276,9 +276,11 @@ describe('unified query populate', () => {
             path: '/blog/krypto',
             collection: 'localizedPosts',
             _locale: 'de',
-            _variantPaths: {
-              en: '/blog/crypto',
-              de: '/blog/krypto'
+            resolved: {
+              variantPaths: {
+                en: '/blog/crypto',
+                de: '/blog/krypto'
+              }
             },
             ref: 'posts.krypto',
             title: 'Krypto',
@@ -295,9 +297,11 @@ describe('unified query populate', () => {
             path: '/autoren/emily',
             collection: 'localizedAuthors',
             _locale: 'de',
-            _variantPaths: {
-              en: '/authors/emily',
-              de: '/autoren/emily'
+            resolved: {
+              variantPaths: {
+                en: '/authors/emily',
+                de: '/autoren/emily'
+              }
             },
             ref: 'authors.emily',
             title: 'Emily DE',

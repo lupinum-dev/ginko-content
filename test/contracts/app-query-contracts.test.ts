@@ -44,10 +44,12 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
   if (params.resolveVariant) {
     return {
       path: '/leitfaden/einstieg',
-      _resolvedLocale: 'de',
-      _variantPaths: {
-        en: '/guide/getting-started',
-        de: '/leitfaden/einstieg'
+      resolved: {
+        locale: 'de',
+        variantPaths: {
+          en: '/guide/getting-started',
+          de: '/leitfaden/einstieg'
+        }
       },
       title: 'Einstieg',
       body: {

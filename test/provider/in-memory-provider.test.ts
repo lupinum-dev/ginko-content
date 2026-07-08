@@ -17,7 +17,7 @@ describe('in-memory provider scenario harness', () => {
 
     expect(page).toMatchObject({
       title: 'Fallback Lab',
-      _requestedRoute: '/de/dokumentation/essentials/fallback-lab'
+      resolved: { requestedRoute: '/de/dokumentation/essentials/fallback-lab' }
     })
     expectLocalizedDocument(page, {
       path: '/de/dokumentation/essentials/fallback-lab',
@@ -40,12 +40,12 @@ describe('in-memory provider scenario harness', () => {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] },
       sort: [{ order: 1 }],
-      only: ['title', '_resolvedLocale', '_fallback']
+      only: ['title', 'resolved']
     })).resolves.toMatchObject({
       result: [
-        { title: 'Erste Schritte', _resolvedLocale: 'de', _fallback: false },
-        { title: 'Markdown Syntax DE', _resolvedLocale: 'de', _fallback: false },
-        { title: 'Fallback Lab', _resolvedLocale: 'en', _fallback: true }
+        { title: 'Erste Schritte', resolved: { locale: 'de', fallback: false } },
+        { title: 'Markdown Syntax DE', resolved: { locale: 'de', fallback: false } },
+        { title: 'Fallback Lab', resolved: { locale: 'en', fallback: true } }
       ],
       total: 3
     })

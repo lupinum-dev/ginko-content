@@ -205,8 +205,10 @@ describe('server reference contracts', () => {
       collection: 'docs'
     })).resolves.toMatchObject({
       _locale: 'de',
-      _resolvedLocale: 'de',
-      _fallback: false
+      resolved: {
+        locale: 'de',
+        fallback: false
+      }
     })
 
     await expect(resolveContentReference(createEvent(), 'guide/advanced', {
@@ -215,11 +217,13 @@ describe('server reference contracts', () => {
       collection: 'docs'
     })).resolves.toMatchObject({
       _locale: 'de',
-      _resolvedLocale: 'de',
-      _fallback: true,
-      _variantPaths: {
-        en: '/guide/advanced',
-        de: '/leitfaden/fortgeschritten'
+      resolved: {
+        locale: 'de',
+        fallback: true,
+        variantPaths: {
+          en: '/guide/advanced',
+          de: '/leitfaden/fortgeschritten'
+        }
       }
     })
 

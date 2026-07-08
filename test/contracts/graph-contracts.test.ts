@@ -26,7 +26,7 @@ describe('graph contracts', () => {
         path: '/guide',
         file: { path: '/en/guide/.navigation.yml' },
         partial: true,
-        _navigation: true,
+        navigationFile: true,
         collection: 'docs',
         body: { badge: 'New' }
       }),
@@ -52,7 +52,7 @@ describe('graph contracts', () => {
     expect(graph.byPath['/guide/getting-started']).toEqual(['content:en:guide:intro.md'])
     expect(graph.byRef.intro).toBe('guide/intro')
     expect(graph.byNavigationPath['/guide']!.en).toMatchObject({
-      _navigation: true
+      navigationFile: true
     })
     const { resolveGraphCanonicalKey } = await import('../../packages/content/src/core/content/graph')
     expect(resolveGraphCanonicalKey(graph, 'evan', 'authors')).toBe('authors/evan')

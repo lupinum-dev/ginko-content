@@ -350,19 +350,19 @@ describe('navigation contracts', () => {
         id: 'content:de:guide:index.md',
         canonicalKey: 'guide',
         _locale: 'de',
-        _fallback: false,
+        fallback: false,
         children: [
           expect.objectContaining({
             title: 'Einstieg',
             canonicalPath: '/leitfaden/einstieg',
             _locale: 'de',
-            _fallback: false
+            fallback: false
           }),
           expect.objectContaining({
             title: 'Advanced',
             path: '/de/guide/advanced',
             _locale: 'en',
-            _fallback: true
+            fallback: true
           })
         ]
       })
@@ -423,12 +423,12 @@ describe('navigation contracts', () => {
       expect.objectContaining({ title: 'Essentials' })
     ]))
     expect(nav[0]!.children).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: 'Installation', _locale: 'de', _fallback: false }),
-      expect.objectContaining({ title: 'Usage', _locale: 'en', _fallback: true })
+      expect.objectContaining({ title: 'Installation', _locale: 'de', fallback: false }),
+      expect.objectContaining({ title: 'Usage', _locale: 'en', fallback: true })
     ]))
     expect(nav[1]!.children).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: 'Markdown Syntax', _locale: 'de', _fallback: false }),
-      expect.objectContaining({ title: 'Fallback Lab', _locale: 'en', _fallback: true })
+      expect.objectContaining({ title: 'Markdown Syntax', _locale: 'de', fallback: false }),
+      expect.objectContaining({ title: 'Fallback Lab', _locale: 'en', fallback: true })
     ]))
 
     delete (runtimeConfig.content as any).collections

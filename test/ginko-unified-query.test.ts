@@ -378,9 +378,11 @@ describe('route mount resolution', () => {
 
     expect(response.result).toMatchObject({
       title: 'Fallback Lab',
-      _requestedRoute: '/de/dokumentation/essentials/fallback-lab',
-      _resolvedLocale: 'en',
-      _fallback: true
+      resolved: {
+        requestedRoute: '/de/dokumentation/essentials/fallback-lab',
+        locale: 'en',
+        fallback: true
+      }
     })
   })
 

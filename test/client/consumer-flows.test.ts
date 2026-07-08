@@ -66,8 +66,10 @@ describe('public client query flows against an in-memory content scenario', () =
         path: '/plain/about',
         file: { path: 'plain/about.md' },
         _locale: 'en',
-        _variantPaths: {
-          en: '/plain/about'
+        resolved: {
+          variantPaths: {
+            en: '/plain/about'
+          }
         },
         title: 'About'
       })

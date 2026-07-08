@@ -94,10 +94,11 @@ export const resolveCollectionPageData = async <T = ParsedContent> (
   }
 
   if (options.canonical) {
+    const resolution = page.resolved
     const canonicalPath = normalizeContentPath(page.path || '/')
-    const resolvedLocale = page._resolvedLocale || page._locale || resolved.locale || defaultLocale || ''
-    const requestedLocale = page._requestedLocale || resolved.locale
-    const fallback = Boolean(page._fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
+    const resolvedLocale = resolution?.locale || page._locale || resolved.locale || defaultLocale || ''
+    const requestedLocale = resolution?.requestedLocale || resolved.locale
+    const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
     return {
       ...page,
       path: canonicalPath,
@@ -112,10 +113,11 @@ export const resolveCollectionPageData = async <T = ParsedContent> (
         fallback,
         ...(fallback ? { fallbackLocale: resolvedLocale } : {}),
         path: canonicalPath,
-        ...(page._requestedPath ? { requestedPath: page._requestedPath } : {}),
-        ...(page._requestedRoute ? { requestedRoute: page._requestedRoute } : {}),
-        ...(page._requestedRef ? { requestedRef: page._requestedRef } : {}),
-        availableLocales: page._availableLocales || Object.keys(page._variantPaths || {})
+        ...(resolution?.requestedPath ? { requestedPath: resolution.requestedPath } : {}),
+        ...(resolution?.requestedRoute ? { requestedRoute: resolution.requestedRoute } : {}),
+        ...(resolution?.requestedRef ? { requestedRef: resolution.requestedRef } : {}),
+        availableLocales: resolution?.availableLocales || Object.keys(resolution?.variantPaths || {}),
+        ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
       },
       stem: canonicalPath.replace(/^\/+/, '') || 'index',
       extension: page.file?.extension

@@ -18,13 +18,13 @@ describe('navigation tree contracts', () => {
 
     expect(navigation[0]).toMatchObject({
       title: 'Dokumentation',
-      _navigationKind: 'folder',
+      navigationKind: 'folder',
       canonicalKey: 'docs',
       _locale: 'de'
     })
     expect(navigation[0]?.children?.[0]).toMatchObject({
       title: 'Erste Schritte',
-      _navigationKind: 'folder',
+      navigationKind: 'folder',
       canonicalKey: 'docs/getting-started',
       _locale: 'de'
     })
@@ -35,18 +35,18 @@ describe('navigation tree contracts', () => {
       {
         title: 'Grundlagen',
         canonicalKey: 'docs/essentials',
-        _navigationKind: 'folder',
+        navigationKind: 'folder',
         children: [
-          { title: 'Markdown Syntax', path: '/dokumentation/grundlagen/markdown-syntax', canonicalKey: 'docs/essentials/markdown-syntax', _navigationKind: 'page' }
+          { title: 'Markdown Syntax', path: '/dokumentation/grundlagen/markdown-syntax', canonicalKey: 'docs/essentials/markdown-syntax', navigationKind: 'page' }
         ]
       }
     ], [
       {
         title: 'Essentials',
         canonicalKey: 'docs/essentials',
-        _navigationKind: 'folder',
+        navigationKind: 'folder',
         children: [
-          { title: 'Fallback Lab', path: '/docs/essentials/fallback-lab', canonicalKey: 'docs/essentials/fallback-lab', _navigationKind: 'page' }
+          { title: 'Fallback Lab', path: '/docs/essentials/fallback-lab', canonicalKey: 'docs/essentials/fallback-lab', navigationKind: 'page' }
         ]
       }
     ])
@@ -57,14 +57,14 @@ describe('navigation tree contracts', () => {
 
     expect(getNavigationIdentity({ title: 'Display Only' } as any)).toBeUndefined()
     expect(mergeCanonicalNavigation([
-      { title: 'Same', path: '/one', _navigationKind: 'page' }
+      { title: 'Same', path: '/one', navigationKind: 'page' }
     ], [
-      { title: 'Same', path: '/two', _navigationKind: 'page' }
+      { title: 'Same', path: '/two', navigationKind: 'page' }
     ])).toHaveLength(2)
     expect(mergeCanonicalNavigation([
-      { title: 'Same', path: '/same', _navigationKind: 'page' }
+      { title: 'Same', path: '/same', navigationKind: 'page' }
     ], [
-      { title: 'Same', path: '/same', _navigationKind: 'page' }
+      { title: 'Same', path: '/same', navigationKind: 'page' }
     ])).toHaveLength(2)
   })
 
@@ -78,25 +78,25 @@ describe('navigation tree contracts', () => {
         title: 'Dokumentation',
         path: '/dokumentation',
         canonicalKey: '1',
-        _navigationKind: 'folder',
+        navigationKind: 'folder',
         children: [
           {
             title: 'Arbeitsablaeufe',
             path: '/dokumentation/arbeitsablaeufe',
             canonicalKey: '1/2',
-            _navigationKind: 'folder',
+            navigationKind: 'folder',
             children: [
               {
                 title: 'Content Routing',
                 path: '/dokumentation/arbeitsablaeufe/content-routing',
                 canonicalKey: '1/2/1',
-                _navigationKind: 'page'
+                navigationKind: 'page'
               },
               {
                 title: 'Launch Checkliste',
                 path: '/dokumentation/arbeitsablaeufe/launch-checkliste',
                 canonicalKey: '1/2/2',
-                _navigationKind: 'page'
+                navigationKind: 'page'
               }
             ]
           }

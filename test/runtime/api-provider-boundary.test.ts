@@ -42,8 +42,10 @@ describe('runtime API provider boundary', () => {
     await expect(handler(event)).resolves.toMatchObject({
       result: {
         title: 'Fallback Lab',
-        _resolvedLocale: 'en',
-        _fallback: true
+        resolved: {
+          locale: 'en',
+          fallback: true
+        }
       }
     })
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)

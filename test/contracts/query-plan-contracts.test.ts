@@ -179,7 +179,7 @@ describe('query plan contracts', () => {
 
     expect(result.result).toMatchObject({
       title: 'Intro',
-      _requestedRoute: '/docs/intro'
+      resolved: { requestedRoute: '/docs/intro' }
     })
   })
 

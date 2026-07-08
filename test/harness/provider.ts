@@ -92,7 +92,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       const queryLocale = params.resolveLocale?.locale
       return docs.map(doc => ({
         title: doc.title,
-        path: localizePath(scenario, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc._requestedLocale || doc._locale),
+        path: localizePath(scenario, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc._locale),
         _locale: doc._locale
       })) as NavItem[]
     },
@@ -193,7 +193,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       if (!doc) return null
       return localizePageResult(
         doc,
-        options.locale || doc._resolvedLocale || doc._locale,
+        options.locale || doc.resolved?.locale || doc._locale,
         scenario.defaultLocale,
         scenario.locales,
         routeMountsFor(scenario, collection)

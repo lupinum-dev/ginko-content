@@ -1,7 +1,7 @@
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
 import type { ContentCollectionMap } from '@lupinum/ginko-content'
-import type { ParsedContent } from '../../types/content'
+import type { ContentDocumentResolution, ParsedContent } from '../../types/content'
 import type { ContentQueryCountResponse, ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type {
   CollectionQueryBuilder,
@@ -262,13 +262,7 @@ export const resolveContentReference = async <T = ParsedContent>(
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & {
-  _requestedLocale?: string
-  _resolvedLocale?: string
-  _fallback?: boolean
-  _availableLocales?: string[]
-  _variantPaths?: Record<string, string>
-}) | null> => {
+): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
   const resolved = await resolveProviderContentVariants(event, reference, options)
   if (!resolved) {
     return null
@@ -276,10 +270,13 @@ export const resolveContentReference = async <T = ParsedContent>(
 
   return {
     ...(resolved.selected as T),
-    _requestedLocale: resolved.requestedLocale,
-    _resolvedLocale: resolved.resolvedLocale,
-    _fallback: resolved.fallback,
-    _availableLocales: resolved.availableLocales,
-    _variantPaths: resolved.variantPaths,
+    resolved: {
+      ...((resolved.selected as ParsedContent).resolved || {}),
+      requestedLocale: resolved.requestedLocale,
+      locale: resolved.resolvedLocale,
+      fallback: resolved.fallback,
+      availableLocales: resolved.availableLocales,
+      variantPaths: resolved.variantPaths,
+    }
   }
 }

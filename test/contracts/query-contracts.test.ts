@@ -89,7 +89,7 @@ describe('query execution contracts', () => {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] },
       sort: [{ order: 1 }],
-      only: ['title', '_resolvedLocale', '_requestedLocale', '_fallback', '_availableLocales'],
+      only: ['title', 'resolved'],
       without: ['body']
     } as any)
 
@@ -97,38 +97,48 @@ describe('query execution contracts', () => {
       result: [
       {
         title: 'Intro DE',
-        _requestedLocale: 'de',
-        _resolvedLocale: 'de',
-        _fallback: false,
-        _availableLocales: ['en', 'de']
+        resolved: {
+          requestedLocale: 'de',
+          locale: 'de',
+          fallback: false,
+          availableLocales: ['en', 'de']
+        }
       },
       {
         title: 'Guide EN',
-        _requestedLocale: 'de',
-        _resolvedLocale: 'en',
-        _fallback: true,
-        _availableLocales: ['en']
+        resolved: {
+          requestedLocale: 'de',
+          locale: 'en',
+          fallback: true,
+          availableLocales: ['en']
+        }
       },
       {
         title: 'Middle DE',
-        _requestedLocale: 'de',
-        _resolvedLocale: 'de',
-        _fallback: false,
-        _availableLocales: ['de']
+        resolved: {
+          requestedLocale: 'de',
+          locale: 'de',
+          fallback: false,
+          availableLocales: ['de']
+        }
       },
       {
         title: 'Advanced EN',
-        _requestedLocale: 'de',
-        _resolvedLocale: 'en',
-        _fallback: true,
-        _availableLocales: ['en']
+        resolved: {
+          requestedLocale: 'de',
+          locale: 'en',
+          fallback: true,
+          availableLocales: ['en']
+        }
       },
       {
         title: 'Zed DE',
-        _requestedLocale: 'de',
-        _resolvedLocale: 'de',
-        _fallback: false,
-        _availableLocales: ['en', 'de']
+        resolved: {
+          requestedLocale: 'de',
+          locale: 'de',
+          fallback: false,
+          availableLocales: ['en', 'de']
+        }
       }
       ],
       skip: 0,
@@ -144,7 +154,7 @@ describe('query execution contracts', () => {
     } as any)).resolves.toMatchObject({
       result: {
         title: 'Intro DE',
-        _resolvedLocale: 'de'
+        resolved: { locale: 'de' }
       }
     })
 
@@ -213,7 +223,7 @@ describe('query execution contracts', () => {
         collection: 'docs',
         id: 'content:en:_dir.yml',
         path: '/guide/intro',
-        _navigation: true,
+        navigationFile: true,
         partial: true,
         body: { badge: 'New' }
       })
@@ -232,11 +242,13 @@ describe('query execution contracts', () => {
     } as any)).resolves.toMatchObject({
       result: {
         title: 'Intro EN',
-        _requestedLocale: 'de',
-        _resolvedLocale: 'en',
-        _fallback: true,
-        _variantPaths: {
-          en: '/guide/intro'
+        resolved: {
+          requestedLocale: 'de',
+          locale: 'en',
+          fallback: true,
+          variantPaths: {
+            en: '/guide/intro'
+          }
         },
         _dir: {
           badge: 'New'

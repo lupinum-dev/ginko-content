@@ -12,7 +12,7 @@
  */
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ParsedContent } from '../types/content'
+import type { ContentDocumentResolution, ParsedContent } from '../types/content'
 import type { ContentCollectionI18nConfig } from '../types/config'
 import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
@@ -57,13 +57,7 @@ export const resolveContentReference = async <T = ParsedContent> (
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & {
-  _requestedLocale?: string
-  _resolvedLocale?: string
-  _fallback?: boolean
-  _availableLocales?: string[]
-  _variantPaths?: Record<string, string>
-}) | null> => {
+): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
   const config = contentConfig()
   const graph = await getContentGraph(event)
   const normalizedReference = normalizeReferenceValue(reference)
@@ -103,11 +97,14 @@ export const resolveContentReference = async <T = ParsedContent> (
 
   return {
     ...(resolved as T),
-    _requestedLocale: resolvedVariant.requestedLocale,
-    _resolvedLocale: resolvedVariant.resolvedLocale,
-    _fallback: resolvedVariant.fallback,
-    _availableLocales: availableLocales,
-    _variantPaths: variantPaths
+    resolved: {
+      ...((resolved as ParsedContent).resolved || {}),
+      requestedLocale: resolvedVariant.requestedLocale,
+      locale: resolvedVariant.resolvedLocale,
+      fallback: resolvedVariant.fallback,
+      availableLocales,
+      variantPaths
+    }
   }
 }
 

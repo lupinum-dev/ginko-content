@@ -55,8 +55,10 @@ describe('ref link contracts', () => {
     })
 
     await expect(withResolvedRefs(createEvent(), content, 'de')).resolves.toMatchObject({
-      _resolvedRefs: {
-        '$guide/advanced#deep-dive': '/de/leitfaden/fortgeschritten#deep-dive'
+      resolved: {
+        resolvedRefs: {
+          '$guide/advanced#deep-dive': '/de/leitfaden/fortgeschritten#deep-dive'
+        }
       }
     })
     expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'guide/advanced')
@@ -104,7 +106,7 @@ describe('ref link contracts', () => {
       'guide/advanced',
       'de/leitfaden/einstieg'
     ])
-    expect((resolved as any)._resolvedRefs).toEqual({
+    expect((resolved as any).resolved?.resolvedRefs).toEqual({
       '$stable-page-id': '/de/stabile-seite',
       '$guide/advanced#deep-dive': '/de/guide/advanced#deep-dive',
       '$de/leitfaden/einstieg': '/de/leitfaden/einstieg'
@@ -135,8 +137,10 @@ describe('ref link contracts', () => {
         ]
       }
     }), 'de')).resolves.toMatchObject({
-      _resolvedRefs: {
-        '$guide/advanced#deep-dive': '/de/guide/advanced#deep-dive'
+      resolved: {
+        resolvedRefs: {
+          '$guide/advanced#deep-dive': '/de/guide/advanced#deep-dive'
+        }
       }
     })
   })
@@ -165,7 +169,7 @@ describe('ref link contracts', () => {
       }
     }), 'de')
 
-    expect((unresolved as any)._resolvedRefs).toEqual({
+    expect((unresolved as any).resolved?.resolvedRefs).toEqual({
       '$missing/ref': '$missing/ref'
     })
     await expect(withResolvedRefsList(createEvent(), [doc(), doc({ type: 'yaml', body: null as any })], 'de')).resolves.toHaveLength(2)
@@ -188,7 +192,7 @@ describe('ref link contracts', () => {
       first: true,
       resolveLocale: { locale: 'de' }
     } as any)
-    expect((firstResponse.result as any)._resolvedRefs).toBeTruthy()
+    expect((firstResponse.result as any).resolved?.resolvedRefs).toBeTruthy()
   })
 
   test('withResolvedRefs preserves configured quick links without unresolved-ref warnings', async () => {
@@ -215,7 +219,7 @@ describe('ref link contracts', () => {
       }
     }), 'de')
 
-    expect((resolved as any)._resolvedRefs).toEqual({
+    expect((resolved as any).resolved?.resolvedRefs).toEqual({
       '$main.services#plans': '$main.services#plans'
     })
     expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'main.services')
@@ -253,7 +257,7 @@ describe('ref link contracts', () => {
     }), 'de')
 
     expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'main.services')
-    expect((resolved as any)._resolvedRefs).toEqual({
+    expect((resolved as any).resolved?.resolvedRefs).toEqual({
       '$main.services#plans': '/de/services#plans'
     })
   })

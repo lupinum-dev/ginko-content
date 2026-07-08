@@ -328,7 +328,7 @@ const isPublicPage = (page: ParsedContent, config: ContentCollectionConfig | und
     && config.sitemap !== false
     && !page.draft
     && !page.partial
-    && !page._navigation
+    && !page.navigationFile
     && (page as { navigation?: unknown }).navigation !== false
     && (page as { robots?: unknown }).robots !== 'noindex'
     && (page as { sitemap?: unknown }).sitemap !== false
@@ -534,8 +534,8 @@ const toAgentMarkdown = (
   page: ParsedContent,
   options: ResolvedAgentMarkdownOptions
 ): AgentMarkdown => {
-  const path = normalizeAgentRoutePath((page as { path?: string }).path || page._requestedRoute)
-  const locale = (page as { locale?: string }).locale || page._resolvedLocale || page._locale
+  const path = normalizeAgentRoutePath((page as { path?: string }).path || page.resolved?.requestedRoute)
+  const locale = (page as { locale?: string }).locale || page.resolved?.locale || page._locale
   const title = typeof page.title === 'string' && page.title.trim()
     ? page.title.trim()
     : path.split('/').filter(Boolean).pop() || 'Index'
@@ -606,12 +606,12 @@ const publicPathForQueryRow = (
   row: ParsedContent,
   locale?: string
 ) => {
-  const requested = (row as { path?: string }).path || row._requestedRoute
+  const requested = (row as { path?: string }).path || row.resolved?.requestedRoute
   if (requested) return normalizeAgentRoutePath(requested)
 
   const defaultLocale = collectionDefaultLocale(config)
   const rowPath = normalizeAgentRoutePath(row.path || '/')
-  const resolvedLocale = row._resolvedLocale || row._locale
+  const resolvedLocale = row.resolved?.locale || row._locale
   if (locale && resolvedLocale && locale !== resolvedLocale) {
     const sourceLocalePath = publicPathForLocale(collection, config, rowPath, resolvedLocale, defaultLocale)
     return prefixRequestedLocale(sourceLocalePath, locale, defaultLocale)
@@ -667,13 +667,13 @@ export async function queryMarkdownEnabledContent (
     if (!agentOptions) continue
     const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
       collection,
-      only: ['path', 'locale', 'localePaths', '_locale', '_resolvedLocale', '_requestedRoute', 'file', 'draft', 'partial', '_navigation', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
+      only: ['path', 'locale', 'localePaths', '_locale', 'resolved', 'file', 'draft', 'partial', 'navigationFile', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     }))
     for (const row of rows) {
       if (!isPublicPage(row, config as any)) continue
-      const locale = options.locale || row._resolvedLocale || row._locale
+      const locale = options.locale || row.resolved?.locale || row._locale
       const path = publicPathForQueryRow(collection, config as any, row, locale)
       const title = typeof row.title === 'string' && row.title.trim()
         ? row.title.trim()

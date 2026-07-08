@@ -37,7 +37,7 @@ describe('Ginko metadata helpers', () => {
       { locales: [], defaultLocale: 'en' }
     )
 
-    expect(transformed._navigation).toBe(true)
+    expect(transformed.navigationFile).toBe(true)
     expect(transformed.partial).toBe(true)
     expect(transformed.path).toBe('/guide')
   })
@@ -998,10 +998,12 @@ describe('Ginko metadata helpers', () => {
     const page = {
       path: '/demarrage',
       file: { path: 'fr/1.demarrage.md', extension: 'md' },
-      _resolvedLocale: 'fr',
-      _variantPaths: {
-        en: '/getting-started',
-        fr: '/demarrage'
+      resolved: {
+        locale: 'fr',
+        variantPaths: {
+          en: '/getting-started',
+          fr: '/demarrage'
+        }
       },
       links: [
         { to: '/demarrage/installation' }
@@ -1050,13 +1052,15 @@ describe('Ginko metadata helpers', () => {
       path: '/docs/essentials/fallback-lab',
       file: { path: 'en/1.docs/2.essentials/5.fallback-lab.md', extension: 'md' },
       _locale: 'en',
-      _requestedLocale: 'de',
-      _resolvedLocale: 'en',
-      _fallback: true,
-      _requestedRoute: '/de/dokumentation/essentials/fallback-lab',
-      _availableLocales: ['en'],
-      _variantPaths: {
-        en: '/docs/essentials/fallback-lab'
+      resolved: {
+        requestedLocale: 'de',
+        locale: 'en',
+        fallback: true,
+        requestedRoute: '/de/dokumentation/essentials/fallback-lab',
+        availableLocales: ['en'],
+        variantPaths: {
+          en: '/docs/essentials/fallback-lab'
+        }
       },
       body: null
     } as any, 'de', 'en', ['en', 'de'])
@@ -1076,10 +1080,12 @@ describe('Ginko metadata helpers', () => {
   test('creates route metadata and localized navigation ready for rendering', () => {
     const meta = createRouteMeta({
       path: '/demarrage',
-      _resolvedLocale: 'fr',
-      _variantPaths: {
-        en: '/getting-started',
-        fr: '/demarrage'
+      resolved: {
+        locale: 'fr',
+        variantPaths: {
+          en: '/getting-started',
+          fr: '/demarrage'
+        }
       }
     } as any, 'fr', 'en')
 

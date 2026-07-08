@@ -11,11 +11,11 @@ export interface CanonicalNavigationItem {
   id?: string
   canonicalKey?: string
   _locale?: string
-  _fallback?: boolean
+  fallback?: boolean
   draft?: boolean
   file?: ContentFileMeta
-  _navigationKind?: NavigationNodeKind
-  _navigationPath?: string
+  navigationKind?: NavigationNodeKind
+  navigationPath?: string
   _collectionRoot?: string
   children?: CanonicalNavigationItem[]
   [key: string]: unknown
@@ -41,7 +41,7 @@ export const getNavigationIdentity = (node: Pick<CanonicalNavigationItem, 'canon
 
 const cloneFallbackNode = (node: CanonicalNavigationItem): CanonicalNavigationItem => ({
   ...node,
-  _fallback: true,
+  fallback: true,
   children: node.children?.map(cloneFallbackNode)
 })
 
@@ -102,11 +102,11 @@ const normalizeRoutePath = (path?: string) => {
 }
 
 const isFolderNode = (item: CanonicalNavigationItem) => {
-  if (item._navigationKind === 'folder') {
+  if (item.navigationKind === 'folder') {
     return true
   }
 
-  if (item._navigationKind === 'page') {
+  if (item.navigationKind === 'page') {
     return false
   }
 
@@ -127,7 +127,7 @@ const matchesCollectionRootConfig = (
     return true
   }
 
-  const rootPath = normalizeRoutePath(root._navigationPath || root.path)
+  const rootPath = normalizeRoutePath(root.navigationPath || root.path)
   if (rootPath === '/' || rootPath === `/${collection}`) {
     return true
   }
@@ -178,8 +178,8 @@ const publicFields = (item: CanonicalNavigationItem) => {
     path,
     stem,
     file,
-    _navigationKind,
-    _navigationPath,
+    navigationKind,
+    navigationPath,
     _collectionRoot,
     ...fields
   } = item
@@ -187,8 +187,8 @@ const publicFields = (item: CanonicalNavigationItem) => {
   void path
   void stem
   void file
-  void _navigationKind
-  void _navigationPath
+  void navigationKind
+  void navigationPath
   void _collectionRoot
   return fields
 }
@@ -203,7 +203,7 @@ const projectNavigationItem = (
   const hasChildren = Boolean(children?.length)
   const base = {
     ...publicFields(item),
-    _fallback: item._fallback === true
+    fallback: item.fallback === true
   }
 
   if (isFolderNode(item)) {
@@ -213,7 +213,7 @@ const projectNavigationItem = (
     } as ContentNavigationItem
   }
 
-  const rawPath = item._navigationPath || item.path
+  const rawPath = item.navigationPath || item.path
   if (!rawPath) {
     return {
       ...base,
