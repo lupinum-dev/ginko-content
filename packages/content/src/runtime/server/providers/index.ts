@@ -156,7 +156,7 @@ const assertProviderOperationSupported = (
   }
 }
 
-const enforceProviderCapabilities = (provider: ContentProvider): ContentProvider => ({
+export const enforceProviderCapabilities = (provider: ContentProvider): ContentProvider => ({
   ...provider,
   query: async (event, query) => {
     assertJsonPureProviderQuery(provider, query)

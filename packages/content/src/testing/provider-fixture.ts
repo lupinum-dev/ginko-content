@@ -605,7 +605,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
   return Object.assign(provider as ContentProvider, { cache })
 }
 
-export const createSaasProviderFixture = () => createProviderFixture({
+export const createDefaultProviderFixture = () => createProviderFixture({
   name: 'saas-i18n',
   providerName: 'fixture',
   defaultLocale: 'en',

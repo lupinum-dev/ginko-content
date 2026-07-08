@@ -347,7 +347,7 @@ describe('package export contracts', () => {
     expect(fixtureModule.createProviderFixture).toBeTypeOf('function')
     expect(fixtureModule.createFixtureContentProvider).toBeTypeOf('function')
     expect(fixtureModule.createProviderFixtureEvent).toBeTypeOf('function')
-    expect(fixtureModule.createSaasProviderFixture).toBeTypeOf('function')
+    expect(fixtureModule.createDefaultProviderFixture).toBeTypeOf('function')
     expect(fixtureModule.createAuthorDependencyProviderFixture).toBeTypeOf('function')
   })
 
@@ -355,7 +355,7 @@ describe('package export contracts', () => {
     const contractModule = await import('@lupinum/ginko-content/testing/provider-contract')
 
     expect(contractModule.createAuthorDependencyContractProvider).toBeTypeOf('function')
-    expect(contractModule.runSaasProviderFixtureContractSuite).toBeTypeOf('function')
+    expect(contractModule.runProviderContractSuite).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyContractTest).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyFixtureSelfTest).toBeTypeOf('function')
   })

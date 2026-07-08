@@ -1,8 +1,22 @@
 import { describe, expect, test } from 'vitest'
-import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent, createSaasProviderFixture } from '../../packages/content/src/testing/provider-fixture'
-import { runAuthorDependencyFixtureSelfTest, runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { createDefaultProviderFixture, createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '../../packages/content/src/testing/provider-fixture'
+import { runAuthorDependencyFixtureSelfTest, runProviderContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { enforceProviderCapabilities } from '../../packages/content/src/runtime/server/providers'
+import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+
+const allTrueCapabilities: ContentProviderCapabilities = {
+  routeBackedCollections: true,
+  dataCollections: true,
+  localizedRoutes: true,
+  translatedSlugs: true,
+  navigation: true,
+  surroundings: true,
+  searchSections: true,
+  sitemap: true,
+  query: { operators: ['$eq', '$contains'], limit: true, skip: true, count: true }
+}
 
 const expectProviderResultInvalid = (callback: () => unknown) => {
   expect(callback).toThrow(expect.objectContaining({
@@ -11,7 +25,7 @@ const expectProviderResultInvalid = (callback: () => unknown) => {
 }
 
 describe('provider fixture conformance', () => {
-  const fixture = createSaasProviderFixture()
+  const fixture = createDefaultProviderFixture()
   const provider = createFixtureContentProvider(fixture)
   const collectNavPaths = (items: Array<{ canonicalPath?: string, children?: any[] }>): string[] =>
     items.flatMap(item => [
@@ -19,14 +33,37 @@ describe('provider fixture conformance', () => {
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
-  runSaasProviderFixtureContractSuite({
+  runProviderContractSuite({
     name: 'provider fixture',
     expectedProviderName: 'fixture',
     loadProvider: async () => provider,
     createEvent: () => createProviderFixtureEvent({ fixture, provider }),
+    expectedCapabilities: allTrueCapabilities,
     collectNavPaths
   })
   runAuthorDependencyFixtureSelfTest()
+
+  // A minimal provider that declares searchSections:false must still pass the
+  // capability-parameterized suite: every other block runs its positive
+  // assertions, and the searchSections block asserts the typed provider error.
+  describe('minimal provider (searchSections:false)', () => {
+    const minimalFixture = createDefaultProviderFixture()
+    const baseProvider = createFixtureContentProvider(minimalFixture)
+    baseProvider.capabilities.searchSections = false
+    const minimalProvider = Object.assign(
+      enforceProviderCapabilities(baseProvider),
+      { cache: baseProvider.cache }
+    )
+
+    runProviderContractSuite({
+      name: 'minimal provider',
+      expectedProviderName: 'fixture',
+      loadProvider: async () => minimalProvider,
+      createEvent: () => createProviderFixtureEvent({ fixture: minimalFixture, provider: minimalProvider }),
+      expectedCapabilities: { ...allTrueCapabilities, searchSections: false },
+      collectNavPaths
+    })
+  })
 
   test('shapes a minimal-set provider into the canonical route envelope', async () => {
     // Documents carry ONLY the minimal fields a third-party provider must emit

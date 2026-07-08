@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createEvent } from './_utils'
-import { runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { runProviderContractSuite } from '../../packages/content/src/testing/provider-contract'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 
 const providerError = (code: string, details: Record<string, unknown> = {}) => Object.assign(new Error(code), {
   statusCode: code === 'missing_locale_route' ? 404 : 400,
@@ -121,7 +122,19 @@ describe('filesystem provider conformance', () => {
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
-  runSaasProviderFixtureContractSuite({
+  const filesystemCapabilities: ContentProviderCapabilities = {
+    routeBackedCollections: true,
+    dataCollections: true,
+    localizedRoutes: true,
+    translatedSlugs: true,
+    navigation: true,
+    surroundings: true,
+    searchSections: true,
+    sitemap: true,
+    query: { operators: ['$eq', '$contains'], limit: true, skip: true, count: true }
+  }
+
+  runProviderContractSuite({
     name: 'filesystem',
     expectedProviderName: 'filesystem',
     loadProvider: async () => {
@@ -129,6 +142,7 @@ describe('filesystem provider conformance', () => {
       return filesystemProvider
     },
     createEvent,
+    expectedCapabilities: filesystemCapabilities,
     collectNavPaths
   })
 
