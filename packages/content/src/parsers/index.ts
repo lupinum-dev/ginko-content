@@ -45,7 +45,7 @@ export async function transformContent (id: string, content: StorageValue, optio
   if (!parser) {
      
     console.warn(`${ext} files are not supported, "${id}" storing body as null`)
-    return { id: file.id, body: null }
+    return { id: file.id, body: null, missing: true } as ParsedContent
   }
 
   const parserOptions = options[camelCase(parser.name)] || {}

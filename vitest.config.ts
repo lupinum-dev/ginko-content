@@ -6,6 +6,7 @@ const alias = {
   'bun:test': resolve('./test/mock/bun-test-stub.ts'),
   '#build/content-i18n.mjs': resolve('./test/mock/content-i18n.ts'),
   '#content/virtual/config': resolve('./test/mock/content-config.ts'),
+  '#content/virtual/transformers': resolve('./test/mock/content-transformers.ts'),
   '#content/virtual/providers': resolve('./test/mock/content-provider-registry.ts'),
   '@lupinum/ginko-content/transformers': resolve('./packages/content/src/runtime/transformers/define.ts'),
   'pagefind': resolve('./test/mock/pagefind.ts'),

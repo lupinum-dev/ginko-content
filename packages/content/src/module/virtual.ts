@@ -20,7 +20,12 @@ export const createVirtualContentTemplates = (
     write: true,
     getContents: () => {
       const transformers = contentContext.transformers.map((transformer) => {
-        const name = genSafeVariableName(relative(nuxt.options.rootDir, transformer)).replace(/_(45|46|47)/g, '_') + '_' + hash(transformer)
+        // hash() can emit base64url chars ('-') that are invalid in JS
+        // identifiers — sanitize, or the generated module is a syntax error
+        // the moment anything actually bundles it (caught when the ingest
+        // import became static and rollup parsed this template for the
+        // first time).
+        const name = genSafeVariableName(relative(nuxt.options.rootDir, transformer)).replace(/_(45|46|47)/g, '_') + '_' + hash(transformer).replace(/[^a-zA-Z0-9_$]/g, '_')
         return { name, import: genImport(transformer, name) }
       })
 

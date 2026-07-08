@@ -10,15 +10,13 @@ import { createContentError, validateCollectionDocument } from '../../storage/va
 import type { ParseContentOptions } from '../../types/runtime'
 import type { ResolvedContentContext } from '../../types/module'
 
-const loadCustomTransformers = async () => {
-  try {
-    const specifier = '#content/virtual/' + 'transformers'
-    const module = await import(/* @vite-ignore */ specifier)
-    return module.transformers || []
-  } catch {
-    return []
-  }
-}
+// Static import through the build-time alias, matching the sibling virtuals
+// (#content/virtual/config, #content/virtual/providers). The previous
+// obfuscated dynamic import ('#content/virtual/' + 'transformers') could never
+// resolve in the bundled Nitro server, so custom transformers silently loaded
+// only in dev — caught by the snapshot completeness assertion building
+// examples/advanced/transformer.
+import { transformers as customContentTransformers } from '#content/virtual/transformers'
 
 const invalidContentError = (id: string, cause: unknown) =>
   new ContentError('INVALID_CONTENT', `Failed to ingest content "${id}"`, { id }, { cause })
@@ -114,7 +112,7 @@ export const parseContentVariants = async (
   opts: ParseContentOptions = {}
 ) => {
   const nitroApp = useNitroApp()
-  const customTransformers = await loadCustomTransformers()
+  const customTransformers = customContentTransformers || []
   const options = defu(
     opts,
     {

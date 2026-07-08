@@ -2,13 +2,14 @@ import type { MissingDocument, ParsedContent } from '../../types/content'
 
 /**
  * True when a loader result is a {@link MissingDocument} sentinel rather than a
- * real parsed document. Keyed on `body === null`, which every missing stub
- * carries (ignored file, absent source body, or unsupported extension); a real
- * document always has a non-null body.
+ * real parsed document. Keyed on the `missing: true` discriminant that every
+ * stub site sets — NOT on `body === null`: a real document may legitimately
+ * have a null body (data-style documents from custom transformers, e.g. the
+ * transformer example's `.names` files) and must not be treated as missing.
  */
 export const isMissingDocument = (
   document: ParsedContent | MissingDocument
-): document is MissingDocument => document.body === null
+): document is MissingDocument => (document as MissingDocument).missing === true
 
 /**
  * Shared type guard narrowing a loader result to a servable

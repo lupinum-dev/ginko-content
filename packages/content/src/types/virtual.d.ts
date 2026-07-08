@@ -12,6 +12,12 @@ declare module '#content/virtual/providers' {
   export const loadExternalContentProvider: (name: string) => Promise<ContentProvider | undefined> | ContentProvider | undefined
 }
 
+declare module '#content/virtual/transformers' {
+  import type { ContentTransformer } from './content'
+
+  export const transformers: ContentTransformer[]
+}
+
 declare module '#content/virtual/cache-adapter' {
   import type { ContentCacheAdapter } from '../public/provider'
 

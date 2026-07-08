@@ -11,12 +11,16 @@ describe('shared document guard', () => {
     expect(isRealDocument(missing)).toBe(false)
   })
 
-  test('isMissingDocument is the inverse and keys on a null body', () => {
+  test('isMissingDocument keys on the missing discriminant, not on a null body', () => {
     expect(isMissingDocument(missing)).toBe(true)
     expect(isMissingDocument(real)).toBe(false)
-    // A body-less real document (e.g. an unsupported-extension stub) is treated
-    // as missing regardless of the discriminant flag.
-    expect(isMissingDocument({ id: 'x', body: null } as unknown as ParsedContent)).toBe(true)
+    // A body-less REAL document (data-style output from a custom transformer,
+    // e.g. the transformer example's .names files) is NOT missing — keying on
+    // body === null wrongly failed the snapshot completeness assertion for it
+    // (caught by release:verify building examples/advanced/transformer).
+    const bodylessData = { id: 'content:1.index.names', path: '/', body: null, names: ['John'] } as unknown as ParsedContent
+    expect(isMissingDocument(bodylessData)).toBe(false)
+    expect(isRealDocument(bodylessData)).toBe(true)
   })
 
   test('the guard narrows a loader union to ParsedContent', () => {
