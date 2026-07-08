@@ -82,12 +82,13 @@ Phases 1–2 are independent of Phase 3. Phase 3 (envelope/wire) must land **bef
 ## 2. Status Log (maintained by the agent)
 
 > Mark tasks as you complete them. Never delete entries. Add deviations at the bottom.
+> **Commit-pointer convention (added 2026-07-08 after a gate caught a dangling pre-amend SHA):** a task commit cannot contain its own final hash — write `(commit: this commit)` in the checklist and the orchestrator backfills the real SHA at the next checkpoint. Never write a hash produced before a final `--amend`.
 
 ```
 Phase 1: [x] T1.1 (commit: d49c87c)  [x] T1.2 (commit: 7e3a415)  [x] T1.3 (commit: da1fa27)  [x] T1.4 (commit: c9b68a0)  [x] T1.5 (commit: 8a3f7d3)
 Phase 2: [x] T2.1 (commit: d93ef1f)  [x] T2.2 (commit: 59d833a)  [x] T2.3 (commit: 1be1303)  [x] T2.4 (commit: c386bc2)  [x] T2.5 (commit: 1091db4)
 Phase 3: [x] T3.1 ([x] T3.1a commit: 178a3b4; [x] T3.1b commit: 43027e0; [x] T3.1c commit: c305428)  [x] T3.2 (commit: bf9aee6)  [x] T3.3 (commit: 37e287c)  [x] T3.4 (commit: 09b53ef)  [x] T3.5 (commit: f51ddda; gate run by orchestrator — see checkpoint entry)  — PHASE 3 COMPLETE, checkpoint passed 2026-07-08
-Phase 4: [x] T4.1 (commit: 78bd5ad)  [ ] T4.2a  [ ] T4.2b  [ ] T4.3
+Phase 4: [x] T4.1 (commit: 09c2480)  [ ] T4.2a  [ ] T4.2b  [ ] T4.3
 Phase 5: [ ] T5.1  [ ] T5.2  [ ] T5.3  [ ] T5.4  [ ] T5.5  [ ] T5.6  [ ] T5.7
 Phase 6: [ ] T6.1  [ ] T6.2  [ ] T6.3
 Phase 7: [ ] T7.1  [ ] T7.2  [ ] T7.3
