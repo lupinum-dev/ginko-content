@@ -40,7 +40,28 @@ const hookNuxtBoundary = <T>(
 }
 
 export { agentMetadataFields, defineAgentAppPage, defineAgentMarkdownPolicy, defineAgentMetadataFields, defineAgentSection, defineCollection, defineContentConfig, reference } from './types/config.js'
-export type * from './types'
+// Curated root-entry type surface (GC-4). The former wildcard type re-export
+// leaked the entire internal type graph — including the retired fluent-builder
+// types — through the package root. Keep this list minimal: the module options,
+// the collection handle, and the canonical document/navigation/toc envelope types
+// that docs, playgrounds, and examples actually import. The collection-map
+// registries + `StrictParsedContent` stay because the generated app types
+// (registerGeneratedTypes) import `StrictParsedContent` from this specifier and
+// augment `ContentCollectionMap`/`ContentCollectionI18nMap` through it — dropping
+// them un-narrows string collection-name queries. Enforced against
+// `meta/public-surface.json` by `test/contracts/package-exports-contracts.test.ts`.
+export type {
+  ContentCollectionHandle,
+  ContentCollectionI18nMap,
+  ContentCollectionMap,
+  ContentNavigationItem,
+  ModuleOptions,
+  NavItem,
+  ParsedContent,
+  StrictParsedContent,
+  Toc,
+  TocLink
+} from './types'
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {

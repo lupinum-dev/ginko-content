@@ -15,6 +15,8 @@ type PublicSurface = {
   clientTypeExports: Record<string, PublicSurfaceEntry>
   serverValueExports: Record<string, PublicSurfaceEntry>
   serverTypeExports: Record<string, PublicSurfaceEntry>
+  rootValueExports: Record<string, PublicSurfaceEntry>
+  rootTypeExports: Record<string, PublicSurfaceEntry>
   runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
 }
 
@@ -137,6 +139,26 @@ describe('package export contracts', () => {
     expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
   })
 
+  test('source root entry value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/module.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.rootValueExports).sort())
+  })
+
+  test('source root entry type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/module.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.rootTypeExports).sort())
+  })
+
+  test('root entry no longer wildcard-exports the internal type graph', async () => {
+    const source = await readFile('packages/content/src/module.ts', 'utf8')
+
+    expect(source).not.toMatch(/export\s+type\s*\*/)
+  })
+
   test('runtime app auto-imports stay intentionally curated', async () => {
     const publicSurface = await readPublicSurface()
 
@@ -201,6 +223,8 @@ describe('package export contracts', () => {
       ...Object.values(publicSurface.clientTypeExports),
       ...Object.values(publicSurface.serverValueExports),
       ...Object.values(publicSurface.serverTypeExports),
+      ...Object.values(publicSurface.rootValueExports),
+      ...Object.values(publicSurface.rootTypeExports),
       ...Object.values(publicSurface.runtimeAppAutoImports)
     ]
 

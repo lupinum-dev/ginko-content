@@ -1125,5 +1125,99 @@
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     }
+  },
+  "rootValueExports": {
+    "agentMetadataFields": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "defineAgentAppPage": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "defineAgentMarkdownPolicy": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "defineAgentMetadataFields": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "defineAgentSection": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "defineCollection": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "defineContentConfig": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "reference": {
+      "category": "content-config-author",
+      "audience": "content-author",
+      "docs": "docs/content/docs/3.collections/3.references.md"
+    }
+  },
+  "rootTypeExports": {
+    "ContentCollectionHandle": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+    },
+    "ContentCollectionI18nMap": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionMap": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentNavigationItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ModuleOptions": {
+      "category": "nuxt-module-entry",
+      "audience": "library-user",
+      "docs": "docs/content/docs/9.api-reference/3.module-options.md"
+    },
+    "NavItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ParsedContent": {
+      "category": "stable-content-rendering-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/ONBOARDING.md"
+    },
+    "StrictParsedContent": {
+      "category": "stable-content-rendering-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/ONBOARDING.md"
+    },
+    "Toc": {
+      "category": "stable-toc-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "TocLink": {
+      "category": "stable-toc-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    }
   }
 }

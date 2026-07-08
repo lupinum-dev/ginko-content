@@ -1,10 +1,10 @@
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ContentCollectionMap } from '@lupinum/ginko-content'
 import type { ContentDocumentResolution, ParsedContent } from '../../types/content'
 import type { ContentQueryCountResponse, ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type {
   CollectionQueryBuilder,
+  ContentCollectionMap,
   ContentQueryBuilderParams,
   ContentQueryRequest,
   ResolveContentReferenceOptions
