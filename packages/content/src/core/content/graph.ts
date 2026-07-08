@@ -151,7 +151,7 @@ export const buildContentGraph = (
       manifest.collections[document.collection]!.push(documentId)
     }
 
-    if (document.navigationFile) {
+    if (document._navigation) {
       const locale = document._locale || defaultLocale
       byNavigationPath[path] ||= {}
       byNavigationPath[path]![locale] = document
@@ -160,7 +160,7 @@ export const buildContentGraph = (
     // Only real variant documents enter the canonical/ref indices.
     // Partials and navigation docs support other documents; they are not
     // themselves resolvable by ref or route.
-    const isVariantDocument = !document.partial && !document.navigationFile && document.canonicalKey
+    const isVariantDocument = !document.partial && !document._navigation && document.canonicalKey
     if (!isVariantDocument) {
       continue
     }
@@ -203,7 +203,7 @@ export const buildContentGraph = (
     byRoute: manifest.byRoute,
     byRef: manifest.byRef,
     byNavigationPath,
-    referenceTargets: buildReferenceTargets(documents.filter(document => !document.partial && !document.navigationFile), options.locales || []),
+    referenceTargets: buildReferenceTargets(documents.filter(document => !document.partial && !document._navigation), options.locales || []),
     manifest
   }
 }

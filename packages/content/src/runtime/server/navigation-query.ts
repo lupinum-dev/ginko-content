@@ -54,7 +54,7 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
       }
 
       let dirConfigsQuery = createServerContentQuery(event)
-        .where('navigationFile', '=', true)
+        .where('_navigation', '=', true)
         .where('partial', '=', true)
 
       if (locale) {
@@ -75,7 +75,7 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
       return buildCanonicalNavigation(contents as ParsedContentMeta[], configs, [...new Set([...configuredFields, ...requestedFields])]) as NavItem[]
     },
     resolveLocaleChain,
-    localizeNavigation: async (items, locale, _unusedFallback = [], collection, canonical) => {
+    localizeNavigation: async (items, locale, _fallback = [], collection, canonical) => {
       const collectionI18n = collection ? runtimeConfig.content.collections?.[collection]?.i18n : undefined
       const collectionLocales = collectionI18n && typeof collectionI18n === 'object' ? collectionI18n.locales : undefined
       const collectionDefault = collectionI18n && typeof collectionI18n === 'object' ? collectionI18n.defaultLocale : undefined

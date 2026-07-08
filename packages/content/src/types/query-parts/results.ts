@@ -67,8 +67,6 @@ export interface ContentResolvedMeta {
   requestedRoute?: string
   requestedRef?: string
   availableLocales: string[]
-  /** Resolved markdown `$ref` links for the current runtime locale. */
-  resolvedRefs?: Record<string, string>
 }
 
 export interface ContentRouteMeta {

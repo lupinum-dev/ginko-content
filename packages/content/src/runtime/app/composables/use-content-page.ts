@@ -102,15 +102,20 @@ const localePathMatches = (entry: unknown, path: string) => {
 const routeMetaMatchesPath = (value: ContentRouteMeta | null | undefined, path: string) => {
   if (!value) return false
   const normalizedPath = normalizeRoutePath(path)
-  const resolved = (value as {
-    resolved?: { requestedPath?: unknown, requestedRoute?: unknown }
-  }).resolved
+  const legacyPath = (value as {
+    path?: unknown
+    _requestedPath?: unknown
+    _requestedRoute?: unknown
+  })
   if (
-    normalizeRoutePath(value.path) === normalizedPath ||
-    normalizeRoutePath(resolved?.requestedPath) === normalizedPath ||
-    normalizeRoutePath(resolved?.requestedRoute) === normalizedPath
+    normalizeRoutePath(legacyPath.path) === normalizedPath ||
+    normalizeRoutePath(legacyPath._requestedPath) === normalizedPath ||
+    normalizeRoutePath(legacyPath._requestedRoute) === normalizedPath
   ) return true
-  const requestedRoute = resolved?.requestedRoute
+  const requestedRoute = (value as {
+    _requestedRoute?: unknown
+    resolved?: { requestedRoute?: unknown }
+  }).resolved?.requestedRoute ?? (value as { _requestedRoute?: unknown })._requestedRoute
   return normalizeRoutePath(value.path) === normalizedPath ||
     normalizeRoutePath(value.canonicalPath) === normalizedPath ||
     normalizeRoutePath(requestedRoute) === normalizedPath ||

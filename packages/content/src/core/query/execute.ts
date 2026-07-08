@@ -286,13 +286,10 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
       : [item._locale].filter(Boolean) as string[]
     const enriched = {
       ...item,
-      resolved: {
-        ...(item.resolved || {}),
-        requestedLocale,
-        locale: item._locale,
-        fallback: item._locale !== requestedLocale,
-        availableLocales
-      }
+      _requestedLocale: requestedLocale,
+      _resolvedLocale: item._locale,
+      _fallback: item._locale !== requestedLocale,
+      _availableLocales: availableLocales
     } as T
 
     if (typeof key !== 'string') {
@@ -416,17 +413,14 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
 
   const enriched = {
     ...withDirConfig(content, dirConfig),
-    resolved: {
-      ...((content as ParsedContent | undefined)?.resolved || {}),
-      ...(plan.resolveVariant.path ? { requestedPath: plan.resolveVariant.path } : {}),
-      ...(plan.resolveVariant.route ? { requestedRoute: plan.resolveVariant.route } : {}),
-      ...(plan.resolveVariant.ref ? { requestedRef: plan.resolveVariant.ref } : {}),
-      requestedLocale: variant.requestedLocale,
-      locale: variant.resolvedLocale,
-      fallback: variant.fallback,
-      availableLocales: variant.availableLocales,
-      variantPaths
-    }
+    ...(plan.resolveVariant.path ? { _requestedPath: plan.resolveVariant.path } : {}),
+    ...(plan.resolveVariant.route ? { _requestedRoute: plan.resolveVariant.route } : {}),
+    ...(plan.resolveVariant.ref ? { _requestedRef: plan.resolveVariant.ref } : {}),
+    _requestedLocale: variant.requestedLocale,
+    _resolvedLocale: variant.resolvedLocale,
+    _fallback: variant.fallback,
+    _availableLocales: variant.availableLocales,
+    _variantPaths: variantPaths
   } as T
 
   const matched = evaluateQueryPlanFilter(enriched as Record<string, unknown>, plan.filter)

@@ -29,7 +29,7 @@ export default defineTransformer({
       _locale,
       canonicalKey,
       collection,
-      navigationFile: isNavigation,
+      _navigation: isNavigation,
       file: {
         source,
         path: file,

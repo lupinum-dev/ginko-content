@@ -46,10 +46,13 @@ export const decorateLocalizedDocument = <T extends ParsedContent & Record<strin
     : {
         ...doc,
         _locale: '',
-        resolved: { availableLocales: [] }
+        _resolvedLocale: undefined,
+        _requestedLocale: undefined,
+        _variantPaths: undefined,
+        _availableLocales: []
       }
   const result = localizePageResult(page, hasLocaleConfig ? requestedLocale : undefined, defaultLocale, locales, routeMounts)
-  const fallbackLocale = (doc.resolved?.locale || requestedLocale || defaultLocale) as string | undefined
+  const fallbackLocale = (doc._resolvedLocale || requestedLocale || defaultLocale) as string | undefined
   result.localePaths = decorateLocalePathsWithFallbacks(result.localePaths, locales, fallbackLocale, defaultLocale, routeMounts)
   return result as LocalizedDoc<T>
 }

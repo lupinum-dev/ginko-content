@@ -152,7 +152,7 @@ export const collectDerivedPrerenderRoutes = async (
 
     for (const contentId of graph.byCollection[collection] || []) {
       const document = graph.byId[contentId]
-      if (!document || !document.canonicalKey || document.partial || document.navigationFile) {
+      if (!document || !document.canonicalKey || document.partial || document._navigation) {
         continue
       }
       if (document.draft && !includeDrafts) {
@@ -197,7 +197,7 @@ export const collectSitemapCollectionRouteCounts = async (
 
     for (const contentId of graph.byCollection[collection] || []) {
       const document = graph.byId[contentId]
-      if (!document || !document.canonicalKey || document.partial || document.navigationFile) {
+      if (!document || !document.canonicalKey || document.partial || document._navigation) {
         continue
       }
       if (document.draft && !includeDrafts) {

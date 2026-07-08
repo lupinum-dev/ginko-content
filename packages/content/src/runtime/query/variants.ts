@@ -38,15 +38,15 @@ export async function resolveVariants<H extends ContentCollectionHandle | string
   } as unknown as OneOptions<H>)
   if (!seed) return []
 
-  const localePaths = seed.localePaths || {}
+  const variantPaths = seed._variantPaths || {}
   const sourceLocale = seed.locale || defaultLocale || ''
 
   return requestedLocales.map((locale) => {
-    const entry = localePaths[locale]
-    if (entry?.translated) {
+    const variantPath = variantPaths[locale]
+    if (variantPath) {
       return {
         locale,
-        path: entry.path,
+        path: seed.localePaths[locale]?.path || variantPath,
         translated: true
       } as ContentVariant
     }

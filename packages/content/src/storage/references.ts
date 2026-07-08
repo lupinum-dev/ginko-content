@@ -86,13 +86,9 @@ export const withResolvedRefs = async <T> (event: H3Event, content: T, requested
     return content
   }
 
-  const existingResolution = (content as unknown as ParsedContent).resolved
   return {
     ...(content as Record<string, unknown>),
-    resolved: {
-      ...(existingResolution || {}),
-      resolvedRefs
-    }
+    _resolvedRefs: resolvedRefs
   } as T
 }
 

@@ -31,6 +31,7 @@ export default defineTransformer({
 
     return <MarkdownParsedContent>{
       ...tree.frontmatter,
+      _empty: body.children.length === 0,
       description: typeof tree.frontmatter.description === 'string' ? tree.frontmatter.description : '',
       excerpt,
       body,
