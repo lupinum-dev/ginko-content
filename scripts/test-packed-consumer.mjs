@@ -325,7 +325,7 @@ The packed package rendered this page.
       }
     `)
 
-    run('pnpm', ['install', '--frozen-lockfile=false'], appDir)
+    run('pnpm', ['install', '--frozen-lockfile=false', '--config.dangerously-allow-all-builds=true'], appDir)
     assertDeclarations(appDir)
     run('pnpm', ['exec', 'node', 'scripts/import-public-subpaths.mjs'], appDir)
     run('pnpm', ['exec', 'nuxi', 'prepare'], appDir)
