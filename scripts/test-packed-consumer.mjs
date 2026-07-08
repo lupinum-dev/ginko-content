@@ -9,7 +9,7 @@ const packageRoot = resolve(repoRoot, 'packages/content')
 
 const nodeImportableSubpaths = [
   '@lupinum/ginko-content/config',
-  '@lupinum/ginko-content/toc',
+  '@lupinum/ginko-content/provider',
   '@lupinum/ginko-content/transformers',
   '@lupinum/ginko-content/cms-contract',
   '@lupinum/ginko-content/cms-import',
@@ -28,6 +28,7 @@ const expectedDeclarations = [
   'dist/public/client.d.ts',
   'dist/public/server.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
+  'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
   'dist/cms-contract/index.d.ts',
   'dist/cms-import/index.d.ts',
@@ -280,8 +281,7 @@ async function main() {
 
     writeFile(resolve(appDir, 'pages/import-smoke.vue'), `
       <script setup lang="ts">
-      import { one, useContentPage, useContentSearchResults } from '@lupinum/ginko-content/client'
-      import { extractContentToc, useContentToc } from '@lupinum/ginko-content/toc'
+      import { one, useContentPage, useContentSearchResults, extractContentToc, useContentToc } from '@lupinum/ginko-content/client'
 
       void [one, useContentPage, useContentSearchResults, extractContentToc, useContentToc]
       </script>
@@ -295,12 +295,12 @@ async function main() {
 
     writeFile(resolve(appDir, 'server/api/import-smoke.get.ts'), `
       import { one, many } from '@lupinum/ginko-content/server'
-      import { extractContentToc } from '@lupinum/ginko-content/toc'
+      import { agentMarkdownPathForRoute } from '@lupinum/ginko-content/agent'
 
       export default defineEventHandler(() => ({
         server: typeof one,
         many: typeof many,
-        toc: extractContentToc('## Import Smoke').links[0]?.text
+        agentPath: agentMarkdownPathForRoute('/import-smoke')
       }))
     `)
 
@@ -351,7 +351,8 @@ async function main() {
 
     const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
     const importSmokeBody = await importSmokeResponse.text()
-    if (!importSmokeResponse.ok || !importSmokeBody.includes('Import Smoke')) {
+    // Asserts the /agent subpath function actually computed (not just imported).
+    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentPath":"/import-smoke/index.md"')) {
       throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
     }
 
