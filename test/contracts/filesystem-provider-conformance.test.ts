@@ -1,6 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createEvent } from './_utils'
-import { runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { runProviderContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 
 const providerError = (code: string, details: Record<string, unknown> = {}) => Object.assign(new Error(code), {
   statusCode: code === 'missing_locale_route' ? 404 : 400,
@@ -9,25 +11,23 @@ const providerError = (code: string, details: Record<string, unknown> = {}) => O
 })
 
 vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
-  executeFilesystemContentQuery: vi.fn(async (_event, query) => {
-    if (query.collection === 'missing') {
+  // Receives a lowered ContentQueryPlan (CS-5), not builder params.
+  executeFilesystemContentQuery: vi.fn(async (_event, plan) => {
+    if (plan.collection === 'missing') {
       throw providerError('unknown_collection', { collection: 'missing' })
     }
-    if (query.where?.title?.$near) {
-      throw providerError('unsupported_query_operator', { operator: '$near' })
-    }
-    if (query.collection === 'versions') {
+    if (plan.collection === 'versions') {
       return { result: [{ title: 'Launch readiness' }], total: 1 }
     }
-    if (query.count) {
+    if (plan.mode === 'count') {
       return { result: 1 }
     }
     return {
       result: [
         {
           title: 'Mehrsprachiges Onboarding',
-          _path: '/magazin/mehrsprachiges-onboarding',
-          _locale: 'de'
+          path: '/magazin/mehrsprachiges-onboarding',
+          locale: 'de'
         }
       ],
       total: 1
@@ -37,17 +37,17 @@ vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
 
 vi.mock('../../packages/content/src/runtime/server/navigation-query', () => ({
   resolveContentNavigation: vi.fn(async () => [
-    { title: 'Einstieg', _path: '/dokumentation/einstieg' }
+    { title: 'Einstieg', path: '/dokumentation/einstieg' }
   ])
 }))
 
 vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
   queryFilesystemCollectionNavigation: vi.fn(async () => [
-    { title: 'Einstieg', description: 'Start here', _path: '/dokumentation/einstieg', _locale: 'de', ref: 'docs.getting-started', stableId: 'docs.getting-started' },
-    { title: 'Installation', _path: '/dokumentation/einstieg/installation', _locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
+    { title: 'Einstieg', description: 'Start here', path: '/dokumentation/einstieg', locale: 'de', ref: 'docs.getting-started', stableId: 'docs.getting-started' },
+    { title: 'Installation', path: '/dokumentation/einstieg/installation', locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
   ]),
   queryFilesystemCollectionItemSurroundings: vi.fn(async () => [
-    { title: 'Alltag', _path: '/dokumentation/einstieg/alltag' },
+    { title: 'Alltag', unprefixedPath: '/dokumentation/einstieg/alltag', path: '/de/dokumentation/einstieg/alltag' },
     null
   ]),
   queryFilesystemCollectionSearchSections: vi.fn(async () => [
@@ -58,7 +58,7 @@ vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
       content: 'Einstieg'
     }
   ]),
-  queryFilesystemCollectionPage: vi.fn(async (event, _collection, routeOrPath) => {
+  queryFilesystemCollectionPage: vi.fn(async (event, collection, routeOrPath) => {
     if (routeOrPath === '/de/dokumentation/not-found') {
       return null
     }
@@ -116,13 +116,25 @@ vi.mock('../../packages/content/src/runtime/server/sitemap', () => ({
 }))
 
 describe('filesystem provider conformance', () => {
-  const collectNavPaths = (items: Array<{ _path?: string, children?: any[] }>): string[] =>
+  const collectNavPaths = (items: Array<{ path?: string, children?: any[] }>): string[] =>
     items.flatMap(item => [
-      item._path,
+      item.path,
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
-  runSaasProviderFixtureContractSuite({
+  const filesystemCapabilities: ContentProviderCapabilities = {
+    routeBackedCollections: true,
+    dataCollections: true,
+    localizedRoutes: true,
+    translatedSlugs: true,
+    navigation: true,
+    surroundings: true,
+    searchSections: true,
+    sitemap: true,
+    query: { operators: ['$eq', '$contains'], limit: true, skip: true, count: true }
+  }
+
+  runProviderContractSuite({
     name: 'filesystem',
     expectedProviderName: 'filesystem',
     loadProvider: async () => {
@@ -130,16 +142,17 @@ describe('filesystem provider conformance', () => {
       return filesystemProvider
     },
     createEvent,
+    expectedCapabilities: filesystemCapabilities,
     collectNavPaths
   })
 
   test('accepts public prefix filters advertised by the query contract', async () => {
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    await expect(filesystemProvider.query(createEvent(), {
+    await expect(filesystemProvider.query(createEvent(), toContentProviderQuery({
       collection: 'posts',
-      where: { _path: { $prefix: '/magazin' } }
-    })).resolves.toMatchObject({
+      where: { path: { $prefix: '/magazin' } }
+    }))).resolves.toMatchObject({
       result: expect.any(Array)
     })
   })
@@ -148,7 +161,9 @@ describe('filesystem provider conformance', () => {
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
     expect(filesystemProvider.capabilities.query.operators).not.toContain('$options')
-    expect(() => filesystemProvider.query(createEvent(), {
+    // Standalone `$options` is rejected while lowering to the wire plan (CS-5),
+    // before the provider is reached.
+    expect(() => toContentProviderQuery({
       collection: 'posts',
       where: { title: { $options: 'i' } }
     })).toThrow('$options requires $regex')

@@ -13,11 +13,16 @@ const { page, surround } = await useContentPage(docs, {
 })
 
 const surroundLinks = computed(() => {
-  const [prev, nextLink] = surround.value as Array<{ _path?: string, path?: string }>
+  const [prev, nextLink] = surround.value as Array<{ path?: string }>
   return [
-    prev ? { ...prev, _path: prefixDocsPath(prev._path || prev.path) } : null,
-    nextLink ? { ...nextLink, _path: prefixDocsPath(nextLink._path || nextLink.path) } : null
+    prev?.path ? { ...prev, path: prefixDocsPath(prev.path) } : null,
+    nextLink?.path ? { ...nextLink, path: prefixDocsPath(nextLink.path) } : null
   ].filter(Boolean)
+})
+
+const editLink = computed(() => {
+  const filePath = (page.value as any)?.file?.path
+  return filePath ? `${toc.bottom.edit}/${filePath}` : null
 })
 
 const pageTitle = computed(() => (page.value as any)?.seo?.title || (page.value as any)?.title || '')
@@ -66,7 +71,7 @@ if (import.meta.server) {
             Report an issue
           </UButton>
           or
-          <UButton size="sm" variant="link" color="neutral" :to="`${toc.bottom.edit}/${(page as any)?._file}`" target="_blank">
+          <UButton v-if="editLink" size="sm" variant="link" color="neutral" :to="editLink" target="_blank">
             Edit this page on GitHub
           </UButton>
         </div>

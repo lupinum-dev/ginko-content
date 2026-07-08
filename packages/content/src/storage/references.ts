@@ -25,7 +25,7 @@ const isConfiguredQuickLink = (href: string) => {
 }
 
 const resolveDocumentRefLinks = async (event: H3Event, content: ParsedContent, requestedLocale?: string) => {
-  if (!content || content._type !== 'markdown' || !content.body) {
+  if (!content || content.type !== 'markdown' || !content.body) {
     return undefined
   }
 
@@ -47,7 +47,7 @@ const resolveDocumentRefLinks = async (event: H3Event, content: ParsedContent, r
       }
 
       if (import.meta.dev) {
-        console.warn(`[content] Could not resolve markdown ref "${href}" in "${content._file || content._id}"`)
+        console.warn(`[content] Could not resolve markdown ref "${href}" in "${content.file?.path || content.id}"`)
       }
 
       return [href, href] as const
@@ -56,14 +56,14 @@ const resolveDocumentRefLinks = async (event: H3Event, content: ParsedContent, r
     const variant = await resolveVariant(event, canonicalKey, requestedLocale)
     if (!variant?.path) {
       if (import.meta.dev) {
-        console.warn(`[content] Could not resolve markdown ref "${href}" in "${content._file || content._id}"`)
+        console.warn(`[content] Could not resolve markdown ref "${href}" in "${content.file?.path || content.id}"`)
       }
 
       return [href, href] as const
     }
 
     if (import.meta.dev && requestedLocale && variant.resolvedLocale && variant.resolvedLocale !== requestedLocale) {
-      console.warn(`[content] Markdown ref "${href}" in "${content._file || content._id}" fell back from locale "${requestedLocale}" to "${variant.resolvedLocale}"`)
+      console.warn(`[content] Markdown ref "${href}" in "${content.file?.path || content.id}" fell back from locale "${requestedLocale}" to "${variant.resolvedLocale}"`)
     }
 
     const routeLocale = variant.fallback && requestedLocale
@@ -86,9 +86,13 @@ export const withResolvedRefs = async <T> (event: H3Event, content: T, requested
     return content
   }
 
+  const existingResolution = (content as unknown as ParsedContent).resolved
   return {
     ...(content as Record<string, unknown>),
-    _resolvedRefs: resolvedRefs
+    resolved: {
+      ...(existingResolution || {}),
+      resolvedRefs
+    }
   } as T
 }
 

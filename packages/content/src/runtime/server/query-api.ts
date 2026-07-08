@@ -13,6 +13,7 @@ import type {
   NeighborsOptions,
   NeighborsResult,
   OneOptions,
+  OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
@@ -33,11 +34,11 @@ import {
   tree as treeWithContext,
   variants as variantsWithContext,
   type ContentQueryContext
-} from '../query/unified'
+} from '../../features/query/unified'
 import { getContentProvider } from './providers'
 import { createContentProviderError } from '../../public/provider-errors'
 import { getContentRuntimeConfig } from './runtime-config'
-import { normalizeProviderQueryResponse } from './provider-query'
+import { createProviderNavigationQuery, createProviderQuery, normalizeProviderQueryResponse } from './provider-query'
 
 export const createServerContentQueryContext = async (event: H3Event): Promise<ContentQueryContext> => {
   const provider = await getContentProvider(event)
@@ -51,9 +52,10 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
             provider: provider.name
           })
         }
-        return await provider.navigationQuery(event, params)
+        const { query, options } = createProviderNavigationQuery(params)
+        return await provider.navigationQuery(event, query, options)
       }
-      return normalizeProviderQueryResponse(params, await provider.query(event, params), provider.name)
+      return normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name)
     }
   }
 }
@@ -86,8 +88,9 @@ export async function many<
 >(
   event: H3Event,
   handle: H,
-  options: O = {} as O
+  ...args: OptionsArg<H, O>
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
+  const options = (args[0] ?? {}) as O
   return await manyWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
@@ -128,8 +131,9 @@ export async function tree<
 >(
   event: H3Event,
   handle: H,
-  options: Omit<TreeOptions<H>, 'fields'> & { fields?: Fields } = {} as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
+  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
 ): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
+  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
   return await treeWithContext(await createServerContentQueryContext(event), handle, options)
 }
 

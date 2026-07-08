@@ -16,19 +16,20 @@ describe('transformer contracts', () => {
     const pathMeta = (await import('../../packages/content/src/runtime/transformers/path-meta')).default
 
     const transformed = await pathMeta.transform?.({
-      _id: 'content:en:guide:intro.md',
+      id: 'content:en:guide:intro.md',
       title: 'Intro',
       draft: false,
-      _path: '/frontmatter-path',
-      _draft: true,
-      _partial: true,
-      _locale: 'de',
-      _canonicalKey: 'frontmatter-key',
-      _collection: 'frontmatter-collection',
-      _file: 'frontmatter-file',
-      _source: 'frontmatter-source',
-      _stem: 'frontmatter-stem',
-      _extension: 'frontmatter-extension',
+      path: '/frontmatter-path',
+      partial: true,
+      locale: 'de',
+      canonicalKey: 'frontmatter-key',
+      collection: 'frontmatter-collection',
+      file: {
+        source: 'frontmatter-source',
+        path: 'frontmatter-file',
+        stem: 'frontmatter-stem',
+        extension: 'frontmatter-extension'
+      },
       body: { type: 'root', children: [] }
     } as any, {
       locales: ['en', 'de'],
@@ -38,17 +39,45 @@ describe('transformer contracts', () => {
 
     expect(transformed).toMatchObject({
       title: 'Intro',
-      _path: '/guide/intro',
-      _draft: false,
-      _partial: false,
-      _locale: 'en',
-      _canonicalKey: '/guide/intro',
-      _collection: 'docs',
-      _source: 'content',
-      _file: 'en/guide/intro.md',
-      _stem: 'en/guide/intro',
-      _extension: 'md'
+      path: '/guide/intro',
+      draft: false,
+      partial: false,
+      locale: 'en',
+      canonicalKey: '/guide/intro',
+      collection: 'docs',
+      file: {
+        source: 'content',
+        path: 'en/guide/intro.md',
+        stem: 'en/guide/intro',
+        extension: 'md'
+      }
     })
+  })
+
+  test('markdown strips derived localization fields from frontmatter', async () => {
+    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+
+    const parsed = await markdown.parse?.('content:guide/intro.md', [
+      '---',
+      'title: Intro',
+      'resolved:',
+      '  locale: de',
+      'variants:',
+      '  - locale: de',
+      '    path: /fake',
+      'localePaths:',
+      '  de:',
+      '    path: /fake',
+      'unprefixedPath: /fake',
+      '---',
+      '# Intro'
+    ].join('\n'), { plugins: [] } as any)
+
+    expect(parsed).toMatchObject({ title: 'Intro' })
+    expect(parsed).not.toHaveProperty('resolved')
+    expect(parsed).not.toHaveProperty('variants')
+    expect(parsed).not.toHaveProperty('localePaths')
+    expect(parsed).not.toHaveProperty('unprefixedPath')
   })
 
   test('markdown normalizes relative links, preserves anchors, and leaves external links untouched', async () => {
@@ -61,8 +90,8 @@ describe('transformer contracts', () => {
     ].join('\n\n'), {
       plugins: []
     } as any)).resolves.toMatchObject({
-      _id: 'content:test.md',
-      _type: 'markdown',
+      id: 'content:test.md',
+      type: 'markdown',
       body: {
         children: [
           { type: 'element', tag: 'p', props: {}, children: [{ type: 'element', tag: 'a', props: { href: 'guide/getting-started#intro' }, children: [{ type: 'text', value: 'intro' }] }] },
@@ -192,8 +221,8 @@ describe('transformer contracts', () => {
     await expect(csv.parse?.('content:test.csv', 'name,role\nAda,admin', {
       json: true
     } as any)).resolves.toMatchObject({
-      _id: 'content:test.csv',
-      _type: 'csv',
+      id: 'content:test.csv',
+      type: 'csv',
       body: [{ name: 'Ada', role: 'admin' }]
     })
   })

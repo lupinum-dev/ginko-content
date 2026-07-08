@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { setResponseStatus, useContentPage } from '#imports'
+import { setResponseStatus } from 'nuxt/app'
+import { useContentPage } from '../composables/use-content'
 
 const { page } = await useContentPage('pages', {
   notFound: false

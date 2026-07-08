@@ -9,7 +9,6 @@ import type {
   ContentCollectionRouteMetaOptions,
   ContentCollectionSearchSectionsOptions,
   ContentPageResult,
-  ContentQueryBuilderParams,
   ContentRouteMeta,
   ContentSearchSection,
   ContentSitemapEntry
@@ -17,8 +16,11 @@ import type {
 import type { QueryCollectionsSitemapEntriesOptions } from '../features/sitemap/query'
 import type { ContentProviderSearchRequest, ContentSearchResult } from '../types/search'
 import type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
+import type { ContentProviderNavigationOptions, ContentProviderQuery } from './provider-query'
 
 export type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
+export type { ContentProviderQuery, ContentProviderNavigationOptions, ContentQueryPlan } from './provider-query'
+export { PROVIDER_QUERY_VERSION, toContentProviderQuery, toContentProviderNavigationQuery } from './provider-query'
 export { createContentProviderError } from './provider-errors'
 export type { ContentProviderErrorCode } from './provider-errors'
 
@@ -81,8 +83,8 @@ export interface ContentProviderCapabilities {
 export interface ContentProvider {
   name: ContentProviderName
   capabilities: ContentProviderCapabilities
-  query: <T = ParsedContent>(event: H3Event, query: ContentQueryBuilderParams) => Promise<MaybeContentProviderResult<ContentQueryResponse<T>>>
-  navigationQuery?: (event: H3Event, query: ContentQueryBuilderParams) => Promise<MaybeContentProviderResult<NavItem[]>>
+  query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promise<MaybeContentProviderResult<ContentQueryResponse<T>>>
+  navigationQuery?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<MaybeContentProviderResult<NavItem[]>>
   navigation?: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) => Promise<MaybeContentProviderResult<NavItem[]>>
   surroundings?: (event: H3Event, collection: string, path: string, options?: ContentCollectionItemSurroundingsOptions) => Promise<MaybeContentProviderResult<Array<NavItem | null>>>
   searchSections?: (event: H3Event, collection: string, options?: ContentCollectionSearchSectionsOptions) => Promise<MaybeContentProviderResult<ContentSearchSection[]>>

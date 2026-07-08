@@ -46,8 +46,8 @@ const runtimeContent = useRuntimeConfig().public?.content || {}
 const attrs = useAttrs()
 const { unwrap: unwrapRoot } = useUnwrap()
 const localePath = useLocalePath()
-const locale = computed(() => props.value.locale || props.value._resolvedLocale || props.value._locale)
-const linkLocale = computed(() => props.value._requestedLocale || locale.value)
+const locale = computed(() => props.value.locale || props.value.resolved?.locale || props.value.locale)
+const linkLocale = computed(() => props.value.resolved?.requestedLocale || locale.value)
 const defaultLocale = computed(() => props.value.defaultLocale || runtimeContent.defaultLocale)
 const locales = computed(() => {
   const variantLocales = Array.isArray(props.value.variants)
@@ -74,7 +74,7 @@ const body = computed(() => {
 
   const resolvedRefs = resolveMarkdownRenderRefs(
     body,
-    props.value._resolvedRefs,
+    props.value.resolved?.resolvedRefs,
     runtimeContent.links,
     route => localePath(route, linkLocale.value)
   )
@@ -128,7 +128,7 @@ const rendererAttrs = computed(() => {
     :default-locale="defaultLocale"
     :locales="locales"
     :components="resolvedComponents"
-    :data-content-id="debug ? value._id : undefined"
+    :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"
   />
 </template>

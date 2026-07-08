@@ -9,7 +9,7 @@ import {
   createSitemapAssertionTargetsFromPrerenderedSitemaps,
   normalizeContentSitemapAssertOptions
 } from '../../packages/content/src/module/sitemap-assert'
-import { contentProviderResultMarker } from '../../packages/content/src/public/provider'
+import { contentProviderResultMarker, toContentProviderQuery } from '../../packages/content/src/public/provider'
 
 const unwrap = <T>(value: T): T extends { data: infer Data } ? Data : T =>
   value && typeof value === 'object' && (value as Record<string, unknown>)[contentProviderResultMarker]
@@ -42,39 +42,39 @@ describe('vNext golden demo', () => {
       },
       documents: [
         {
-          _collection: 'docs',
-          _canonicalKey: 'docs:start',
-          _locale: 'en',
-          _path: '/docs/start',
+          collection: 'docs',
+          canonicalKey: 'docs:start',
+          locale: 'en',
+          path: '/docs/start',
           ref: 'docs.start',
           title: 'Start',
           description: 'Start here',
           order: 1
         },
         {
-          _collection: 'docs',
-          _canonicalKey: 'docs:start',
-          _locale: 'de',
-          _path: '/dokumentation/start',
+          collection: 'docs',
+          canonicalKey: 'docs:start',
+          locale: 'de',
+          path: '/dokumentation/start',
           ref: 'docs.start',
           title: 'Startseite',
           description: 'Hier starten',
           order: 1
         },
         {
-          _collection: 'docs',
-          _canonicalKey: 'docs:install',
-          _locale: 'en',
-          _path: '/docs/install',
+          collection: 'docs',
+          canonicalKey: 'docs:install',
+          locale: 'en',
+          path: '/docs/install',
           ref: 'docs.install',
           title: 'Install',
           order: 2
         },
         {
-          _collection: 'blog',
-          _canonicalKey: 'blog:release',
-          _locale: 'en',
-          _path: '/blog/release',
+          collection: 'blog',
+          canonicalKey: 'blog:release',
+          locale: 'en',
+          path: '/blog/release',
           ref: 'blog.release',
           title: 'Release',
           description: 'Release post',
@@ -82,10 +82,10 @@ describe('vNext golden demo', () => {
           order: 1
         },
         {
-          _collection: 'blog',
-          _canonicalKey: 'blog:release',
-          _locale: 'de',
-          _path: '/blog/veroeffentlichung',
+          collection: 'blog',
+          canonicalKey: 'blog:release',
+          locale: 'de',
+          path: '/blog/veroeffentlichung',
           ref: 'blog.release',
           title: 'Veroeffentlichung',
           description: 'Release auf Deutsch',
@@ -93,19 +93,19 @@ describe('vNext golden demo', () => {
           order: 1
         },
         {
-          _collection: 'authors',
-          _canonicalKey: 'authors:ada',
-          _locale: 'en',
-          _path: '/authors/ada',
+          collection: 'authors',
+          canonicalKey: 'authors:ada',
+          locale: 'en',
+          path: '/authors/ada',
           ref: 'authors.ada',
           title: 'Ada',
           name: 'Ada'
         },
         {
-          _collection: 'authors',
-          _canonicalKey: 'authors:ada',
-          _locale: 'de',
-          _path: '/autoren/ada',
+          collection: 'authors',
+          canonicalKey: 'authors:ada',
+          locale: 'de',
+          path: '/autoren/ada',
           ref: 'authors.ada',
           title: 'Ada',
           name: 'Ada'
@@ -138,12 +138,12 @@ describe('vNext golden demo', () => {
     const surroundings = unwrap(await provider.surroundings?.(event, 'docs', '/docs/start', { locale: 'en' })) || []
     expect(surroundings[0]).toMatchObject({ path: '/docs/install' })
 
-    const posts = unwrap(await provider.query(event, {
+    const posts = unwrap(await provider.query(event, toContentProviderQuery({
       collection: 'blog',
       resolveLocale: { locale: 'de', fallback: false },
-      only: ['title', 'authors', '_path', '_locale'],
+      only: ['title', 'authors', 'path', 'locale'],
       sort: [{ order: 1 }]
-    }))
+    })))
     expect(posts.result[0]).toMatchObject({
       title: 'Veroeffentlichung',
       authors: ['authors.ada']

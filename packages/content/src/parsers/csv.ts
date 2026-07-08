@@ -28,7 +28,7 @@ function toJsonArray (tree: CsvRootNode) {
 export default defineTransformer({
   name: 'csv',
   extensions: ['.csv'],
-  parse: async (_id, content, options = {}) => {
+  parse: async (id, content, options = {}) => {
     const csvOptions = typeof options === 'object' && options !== null
       ? options as { delimiter?: string, json?: boolean }
       : {}
@@ -40,8 +40,8 @@ export default defineTransformer({
     const result = csvOptions.json === false ? toJsonArray(tree) : toJsonObject(tree)
 
     return {
-      _id,
-      _type: 'csv',
+      id,
+      type: 'csv',
       body: result
     } as unknown as ParsedContent
   }

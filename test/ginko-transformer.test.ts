@@ -6,7 +6,7 @@ describe('Custom transformer example', () => {
     const parsed = transformer.parse?.('content:1.index.names', 'John\nJoes\nJessi\nJason')
 
     expect(parsed).toMatchObject({
-      _id: 'content:1.index.names',
+      id: 'content:1.index.names',
       body: ['Jason', 'Jessi', 'Joes', 'John']
     })
   })

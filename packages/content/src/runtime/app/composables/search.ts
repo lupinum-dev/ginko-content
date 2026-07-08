@@ -206,8 +206,8 @@ const loadSearchSections = async (
     loadPages: async (extraFields) => {
       return await many(collection, {
         ...(locale ? { locale } : {}),
-        select: ['_path', 'title', 'description', 'body', ...extraFields]
-      }) as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        select: ['path', 'title', 'description', 'body', ...extraFields]
+      }) as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
     }
   })
 }

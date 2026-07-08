@@ -4,6 +4,7 @@ const schemaSafeParse = vi.hoisted(() => vi.fn(() => ({ success: true, data: {} 
 
 const runtimeContent = {
   ignores: ['\\.tmp$'],
+  cacheIntegrity: 'integrity',
   collections: {
     docs: {
       source: '*.md',
@@ -146,7 +147,7 @@ describe('storage access contracts', () => {
     }))
   })
 
-  test('getContentsList serves bundled parsed artifacts directly in production runtime', async () => {
+  test('getContentsList serves the production snapshot instead of parsed artifacts', async () => {
     process.env.NODE_ENV = 'production'
     schemaSafeParse.mockReturnValue({
       success: false,
@@ -156,11 +157,23 @@ describe('storage access contracts', () => {
     })
     storageState.set('cache:content:parsed:content:intro.md', {
       parsed: [{
-        _id: 'content:intro.md',
-        _path: '/intro',
-        title: 'Bundled Intro'
+        id: 'content:intro.md',
+        path: '/intro',
+        title: 'Old Parsed Intro'
       }],
       hash: 'bundled-hash'
+    })
+    storageState.set('cache:content:snapshot.json', {
+      version: 1,
+      integrity: 'integrity',
+      generatedAt: 1,
+      documentIds: ['content:intro.md'],
+      documentSourceIds: ['content:intro.md'],
+      documents: [{
+        id: 'content:intro.md',
+        path: '/intro',
+        title: 'Snapshot Intro'
+      }]
     })
     storageState.set('content:source:content:intro.md', {
       _meta: { mtime: 1, size: 12 },
@@ -171,12 +184,42 @@ describe('storage access contracts', () => {
 
     await expect(getContentsList({} as any)).resolves.toEqual([
       expect.objectContaining({
-        _id: 'content:intro.md',
-        _path: '/intro',
-        title: 'Bundled Intro'
+        id: 'content:intro.md',
+        path: '/intro',
+        title: 'Snapshot Intro'
       })
     ])
     expect(schemaSafeParse).not.toHaveBeenCalled()
+  })
+
+  test('getContentsIds serves production ids from the snapshot', async () => {
+    process.env.NODE_ENV = 'production'
+    storageState.set('cache:content:snapshot.json', {
+      version: 1,
+      integrity: 'integrity',
+      generatedAt: 1,
+      documentIds: [
+        'content:guide:intro.md',
+        'content:guide:intro.md#__locale=de',
+        'content:blog:hello.md'
+      ],
+      documentSourceIds: [
+        'content:blog:hello.md',
+        'content:guide:intro.md'
+      ],
+      documents: [
+        { id: 'content:guide:intro.md', path: '/guide/intro' },
+        { id: 'content:guide:intro.md#__locale=de', path: '/de/guide/intro' },
+        { id: 'content:blog:hello.md', path: '/blog/hello' }
+      ]
+    })
+    storageState.set('content:source:content:guide:stale.md', { _meta: {} })
+
+    const { getContentsIds } = await import('../../packages/content/src/runtime/server/storage-access')
+
+    await expect(getContentsIds({} as any, 'content:guide:')).resolves.toEqual([
+      'content:guide:intro.md'
+    ])
   })
 
   test('getContentsIds merges preview overrides and deletions', async () => {

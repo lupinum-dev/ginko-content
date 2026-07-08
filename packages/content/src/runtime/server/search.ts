@@ -12,9 +12,9 @@ import type { RuntimeContentProvider } from './provider-result'
 
 export { searchRecords } from '../shared/search'
 
-type SearchablePage = Pick<ParsedContent, '_path' | '_locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
+type SearchablePage = Pick<ParsedContent, 'path' | 'locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
-type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { _locale?: string, collection?: string }
+type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { locale?: string, collection?: string }
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
 type RuntimeSearchConfig = {
   search?: {
@@ -83,7 +83,7 @@ const mergeSearchFilter = (
   filterQuery?: ContentQueryBuilderWhere,
   locale?: string
 ): ContentQueryBuilderWhere | undefined => {
-  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { _locale: locale } : undefined
+  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { locale: locale } : undefined
 
   if (filterQuery && localeFilter) {
     return { $and: [filterQuery, localeFilter] }
@@ -107,7 +107,7 @@ export async function serverSearchContent (
   const results = await Promise.all(collections.map(async (collection) => {
     const loadPages = async (queryLocale?: string) => {
       const query = serverQueryCollection(event, collection)
-        .select('_path', '_locale', 'title', 'description', 'body')
+        .select('path', 'locale', 'title', 'description', 'body')
       const mergedFilter = mergeSearchFilter(filterQuery, queryLocale)
 
       if (mergedFilter) {
@@ -152,7 +152,7 @@ const toSearchRecord = (section: SearchSectionWithLocale): ContentSearchIndexRec
     content: section.content,
     headings: section.titles,
     anchor: anchor || undefined,
-    locale: typeof section._locale === 'string' ? section._locale : undefined
+    locale: typeof section.locale === 'string' ? section.locale : undefined
   }
 }
 
@@ -172,7 +172,7 @@ const buildProviderSearchSections = async (
   const sections = await Promise.all(collections.map(async (collection) => {
     const loadCollectionLocale = async (locale?: string) => (await provider.searchSections(event, collection, {
       ignoredTags: opts.ignoredTags || [],
-      extraFields: unique(['_locale', ...(opts.extraFields || [])]),
+      extraFields: unique(['locale', ...(opts.extraFields || [])]),
       filterQuery: opts.filterQuery,
       locale
     }) as SearchSectionWithLocale[]).map(section => ({

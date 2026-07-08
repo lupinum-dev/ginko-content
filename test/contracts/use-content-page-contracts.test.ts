@@ -135,12 +135,14 @@ vi.mock('../../packages/content/src/runtime/app/composables/route', () => ({
 }))
 
 const doc = (path = '/docs/getting-started') => ({
-  _path: path,
-  _file: `${path}.md`,
-  _requestedRoute: path,
-  _variantPaths: {
-    en: path,
-    de: path.replace('/docs/', '/de/docs/')
+  path: path,
+  file: { path: `${path}.md` },
+  resolved: {
+    requestedRoute: path,
+    variantPaths: {
+      en: path,
+      de: path.replace('/docs/', '/de/docs/')
+    }
   },
   title: path.endsWith('advanced') ? 'Advanced' : 'Getting Started'
 })
@@ -169,7 +171,10 @@ describe('useContentPage contracts', () => {
       if (params.resolveVariant?.route === '/docs/alias') {
         return {
           ...doc('/docs/canonical'),
-          _requestedRoute: '/docs/alias',
+          resolved: {
+            ...doc('/docs/canonical').resolved,
+            requestedRoute: '/docs/alias'
+          },
           title: 'Aliased'
         }
       }
@@ -264,7 +269,7 @@ describe('useContentPage contracts', () => {
         route: '/plain/about'
       })
     }), expect.anything())
-    expect(state.page.value?._path).toBe('/plain/about')
+    expect(state.page.value?.path).toBe('/plain/about')
   })
 
   test('keeps the page reactive when route metadata reads it before async data resolves', async () => {

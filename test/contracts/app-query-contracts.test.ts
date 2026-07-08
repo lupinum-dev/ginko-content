@@ -28,15 +28,13 @@ const asyncDataCalls: any[] = []
 const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) => {
   if (kind === 'navigation') {
     return [{
-      _id: 'folder:guide',
+      id: 'folder:guide',
       title: 'Guide',
-      _path: '/guide',
       path: '/de/guide',
       icon: 'book',
       children: [{
-        _canonicalKey: 'docs/advanced',
+        canonicalKey: 'docs/advanced',
         title: 'Advanced',
-        _path: '/guide/advanced',
         path: '/de/guide/advanced',
         badge: 'New'
       }]
@@ -45,11 +43,13 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
 
   if (params.resolveVariant) {
     return {
-      _path: '/leitfaden/einstieg',
-      _resolvedLocale: 'de',
-      _variantPaths: {
-        en: '/guide/getting-started',
-        de: '/leitfaden/einstieg'
+      path: '/leitfaden/einstieg',
+      resolved: {
+        locale: 'de',
+        variantPaths: {
+          en: '/guide/getting-started',
+          de: '/leitfaden/einstieg'
+        }
       },
       title: 'Einstieg',
       body: {
@@ -70,14 +70,14 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
 
   if (params.first) {
     return {
-      _path: '/guide/advanced',
+      path: '/guide/advanced',
       title: 'Advanced'
     }
   }
 
   return [
     {
-      _path: '/guide/advanced',
+      path: '/guide/advanced',
       title: 'Advanced',
       description: 'Deep dive',
       body: {
@@ -353,19 +353,19 @@ describe('app query/composable contracts', () => {
 
     const { data } = await useContentMany('docs', {
       locale: 'de',
-      where: { _path: { $prefix: '/guide' } },
+      where: { path: { $prefix: '/guide' } },
       select: ['title']
     })
 
     expect(data.value).toEqual([
       expect.objectContaining({
-        _path: '/guide/advanced',
+        unprefixedPath: '/guide/advanced',
         title: 'Advanced'
       })
     ])
     expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
       collection: 'docs',
-      only: expect.arrayContaining(['title', '_path', '_locale']),
+      only: expect.arrayContaining(['title', 'path', 'locale']),
       resolveLocale: expect.objectContaining({
         locale: 'de'
       })
@@ -381,7 +381,6 @@ describe('app query/composable contracts', () => {
     expect(searchData.searchNavigation.value).toEqual([
       expect.objectContaining({
         title: 'Guide',
-        _path: '/guide',
         path: '/de/guide'
       })
     ])

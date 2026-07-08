@@ -4,13 +4,13 @@ import { posts, data } from '../content.config'
 
 const exact = await one(posts, { by: { path: '/blog/hello-world' } })
 const allPosts = await many(posts, {
-  where: { _navigation: { $ne: true }, _partial: { $ne: true }, _draft: { $ne: true } },
+  where: { navigationFile: { $ne: true }, partial: { $ne: true }, draft: { $ne: true } },
   sort: { date: 'asc' }
 })
-const draftCount = (await many(posts, { where: { _draft: true } })).length
+const draftCount = (await many(posts, { where: { draft: true } })).length
 const postCount = allPosts.length
 const windowed = await many(posts, {
-  where: { _navigation: { $ne: true }, _partial: { $ne: true }, _draft: { $ne: true } },
+  where: { navigationFile: { $ne: true }, partial: { $ne: true }, draft: { $ne: true } },
   sort: { date: 'asc' },
   skip: 1,
   limit: 1
@@ -26,7 +26,7 @@ const csvDoc = await one(data, { by: { path: '/data/metrics' } })
 
 <template>
   <pre>{{ JSON.stringify({
-    exactPath: exact?._path,
+    exactPath: exact?.path,
     postTitles: allPosts.map(post => post.title),
     postCount,
     postCountViaCount: postCount,

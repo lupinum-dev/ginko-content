@@ -16,13 +16,17 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/config`
 - `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/server`
-- `@lupinum/ginko-content/toc`
+- `@lupinum/ginko-content/provider`
+- `@lupinum/ginko-content/agent`
 - `@lupinum/ginko-content/cms-contract`
 - `@lupinum/ginko-content/cms-import`
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
-- `@lupinum/ginko-content/transformers/*`
+- `@lupinum/ginko-content/transformers/markdown`
+- `@lupinum/ginko-content/transformers/yaml`
+- `@lupinum/ginko-content/transformers/json`
+- `@lupinum/ginko-content/transformers/csv`
 
 Do not document or encourage deep runtime imports unless deliberately promoting an internal API.
 

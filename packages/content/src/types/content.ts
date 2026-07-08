@@ -16,22 +16,82 @@ export interface ContentSeoMeta {
 }
 
 /**
+ * Optional file-provenance metadata. Absent for non-filesystem providers
+ * (e.g. CMS-backed documents) that have no backing file.
+ */
+export interface ContentFileMeta {
+  /**
+   * Backing source name when multiple content sources are configured.
+   */
+  source?: string
+  /**
+   * Source file path relative to the content root.
+   */
+  path?: string
+  /**
+   * Path stem (the source path without its extension).
+   */
+  stem?: string
+  /**
+   * Parent directory segment of the source file.
+   */
+  dir?: string
+  /**
+   * Source file basename without extension.
+   */
+  basename?: string
+  /**
+   * Source file extension.
+   */
+  extension?: 'md' | 'yaml' | 'yml' | 'json' | 'json5' | 'csv'
+}
+
+/**
+ * Per-request locale/reference resolution carrier.
+ *
+ * Folded from the legacy underscore resolution meta into one object. It is the
+ * pre-shaping form of the modern `resolved`/`localePaths`/`variants` envelope:
+ * the query pipeline attaches it, and result shaping reads it to build
+ * `ContentRouteMeta`. Field names mirror `ContentResolvedMeta` so a consumer
+ * can read `resolved.locale`/`resolved.requestedRoute`/… off either a raw
+ * document or a fully shaped result.
+ */
+export interface ContentDocumentResolution {
+  /** Resolved locale after locale fallback. */
+  locale?: string
+  /** Requested locale before locale fallback. */
+  requestedLocale?: string
+  /** Whether the returned content was resolved through fallback. */
+  fallback?: boolean
+  /** Locales that have a concrete variant for this document. */
+  availableLocales?: string[]
+  /** Map of available locale code to its locale-specific path. */
+  variantPaths?: Record<string, string>
+  /** Requested route path before locale fallback. */
+  requestedPath?: string
+  /** Requested public route before locale fallback. */
+  requestedRoute?: string
+  /** Requested authored reference before locale fallback. */
+  requestedRef?: string
+  /** Resolved markdown `$ref` links for the current runtime locale. */
+  resolvedRefs?: Record<string, string>
+}
+
+/**
  * Internal metadata attached to every parsed content record.
  */
 export interface ParsedContentInternalMeta {
   /**
-   * Stable unique id for the parsed source record.
+   * Stable, fully-qualified, locale-suffixed system id for the parsed record.
+   * System-computed and reserved: user frontmatter `id` does not override it —
+   * use `ref` for a stable authored alias.
    */
-  _id: string
-  /**
-   * Backing source name when multiple content sources are configured.
-   */
-  _source?: string
+  id: string
   /**
    * Canonical content path. This is source-agnostic, so the same route can be
    * backed by local files, remote storage, or generated data.
    */
-  _path?: string
+  path?: string
   /**
    * Human-readable title resolved from frontmatter or generated metadata.
    */
@@ -51,75 +111,46 @@ export interface ParsedContentInternalMeta {
   /**
    * Marks the document as a draft.
    */
-  _draft?: boolean
+  draft?: boolean
   /**
    * Marks the document as a partial that should not become a page by default.
    */
-  _partial?: boolean
+  partial?: boolean
   /**
    * Locale code for the concrete variant.
    */
-  _locale?: string
+  locale?: string
   /**
-   * Locale-agnostic content identity used to resolve variants.
+   * Opaque, locale-agnostic content identity join key used to resolve variants.
+   * Never parse or render this as a URL — under translated slugs it is a numeric
+   * identity (e.g. `1/1`), not a path.
    */
-  _canonicalKey?: string
+  canonicalKey?: string
   /**
-   * Requested route path before locale fallback.
+   * Per-request locale/reference resolution carrier (folded from the legacy
+   * underscore resolution meta). Absent until the query pipeline resolves a
+   * variant; shaping reads it to build the `resolved`/`localePaths`/`variants`
+   * route envelope.
    */
-  _requestedPath?: string
-  /**
-   * Requested public route before locale fallback.
-   */
-  _requestedRoute?: string
-  /**
-   * Requested authored reference before locale fallback.
-   */
-  _requestedRef?: string
-  /**
-   * Requested locale before locale fallback.
-   */
-  _requestedLocale?: string
-  /**
-   * Resolved locale after locale fallback.
-   */
-  _resolvedLocale?: string
-  /**
-   * Whether the returned content was resolved through fallback.
-   */
-  _fallback?: boolean
-  /**
-   * Locales that have a concrete variant for this document.
-   */
-  _availableLocales?: string[]
-  /**
-   * Map of available locale code to its locale-specific path.
-   */
-  _variantPaths?: Record<string, string>
-  /**
-   * Resolved markdown `$ref` links for the current runtime locale.
-   */
-  _resolvedRefs?: Record<string, string>
+  resolved?: ContentDocumentResolution
   /**
    * Collection name, when matched by a configured collection glob.
    */
-  _collection?: string
+  collection?: string
   /**
-   * Marks folder-scoped navigation metadata documents.
+   * Internal marker: this parsed record is a folder-scoped `.navigation.yml`
+   * configuration document, not a routable page. Providers may expose it so
+   * generic filtering can consistently exclude navigation config records.
    */
-  _navigation?: boolean
+  navigationFile?: boolean
   /**
    * Parsed document kind.
    */
-  _type?: 'markdown' | 'yaml' | 'json' | 'csv'
+  type?: 'markdown' | 'yaml' | 'json' | 'csv'
   /**
-   * Source file path relative to the content root.
+   * File-provenance metadata. Optional: absent for providers with no backing file.
    */
-  _file?: string
-  /**
-   * Source file extension.
-   */
-  _extension?: 'md' | 'yaml' | 'yml' | 'json' | 'json5' | 'csv'
+  file?: ContentFileMeta
 }
 
 /**
@@ -209,6 +240,20 @@ export interface ParsedContentMeta extends ParsedContentInternalMeta {
 }
 
 /**
+ * Sentinel returned by content loaders for a source id that produced no
+ * servable document — an ignored file, a missing source body, or an
+ * unsupported extension. It carries only the id and a `null` body; the
+ * `missing` flag is the discriminant separating it from a real
+ * {@link ParsedContent}. Use the shared `isRealDocument` guard
+ * (`core/content/document`) to filter these out.
+ */
+export interface MissingDocument {
+  id: string
+  body: null
+  missing: true
+}
+
+/**
  * Strict parsed content shape with no open-ended index signature.
  */
 export interface StrictParsedContentMeta extends ParsedContentInternalMeta {
@@ -250,11 +295,7 @@ export interface StrictParsedContent extends StrictParsedContentMeta {
  * Specialized parsed content shape for markdown sources.
  */
 export interface MarkdownParsedContent extends ParsedContent {
-  _type: 'markdown',
-  /**
-   * Whether the markdown source rendered no meaningful body content.
-   */
-  _empty: boolean
+  type: 'markdown',
   /**
    * Description resolved from frontmatter or excerpt generation.
    */
@@ -311,17 +352,13 @@ export interface NavItem {
    * Nuxt Content compatible route path used by Nuxt UI content components.
    */
   path: string
-  /**
-   * Canonical content route without locale prefix.
-   */
-  _path: string
   stem?: string
   page?: false
-  _id?: string
-  _canonicalKey?: string
-  _locale?: string
-  _fallback?: boolean
-  _draft?: boolean
+  id?: string
+  canonicalKey?: string
+  locale?: string
+  fallback?: boolean
+  draft?: boolean
   children?: NavItem[]
 
   [key: string]: unknown

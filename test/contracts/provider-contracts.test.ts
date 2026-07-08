@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent } from './_utils'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 
 const externalProviderModules = vi.hoisted(() => new Map<string, unknown>())
 
@@ -297,10 +298,10 @@ describe('content provider contract', () => {
     runtime.content.provider = 'limited-query'
     const provider = await getContentProvider(createProviderEvent())
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       where: { title: { $contains: 'hello' } }
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_operator',
       data: expect.objectContaining({
         provider: 'limited-query',
@@ -308,10 +309,10 @@ describe('content provider contract', () => {
       })
     })
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       skip: 10
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'limited-query',
@@ -319,10 +320,10 @@ describe('content provider contract', () => {
       })
     })
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       count: true
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'limited-query',
@@ -332,23 +333,160 @@ describe('content provider contract', () => {
 
     expect(query).not.toHaveBeenCalled()
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       where: { title: { $eq: 'hello' } },
       sort: [{ date: -1 }],
       only: ['title', 'date'],
       without: ['body'],
       limit: 1
-    })).resolves.toEqual([])
+    }))).resolves.toEqual([])
     expect(query).toHaveBeenCalledTimes(1)
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      v: 1,
       collection: 'posts',
-      where: { title: { $eq: 'hello' } },
-      sort: [{ date: -1 }],
-      only: ['title', 'date'],
-      without: ['body'],
-      limit: 1
+      plan: expect.objectContaining({
+        collection: 'posts',
+        filter: { type: 'compare', field: 'title', operator: 'eq', value: 'hello' },
+        sort: [{ field: 'date', direction: -1 }],
+        projection: { only: ['title', 'date'], without: ['body'] },
+        limit: 1
+      })
     }))
+  })
+
+  test('provider query version is enforced before provider query execution', async () => {
+    const { getContentProvider } = await import('../../packages/content/src/runtime/server/providers')
+    const query = vi.fn(async () => [])
+
+    externalProviderModules.set('versioned-query', {
+      name: 'versioned-query',
+      capabilities: {
+        routeBackedCollections: true,
+        dataCollections: true,
+        localizedRoutes: true,
+        translatedSlugs: true,
+        navigation: true,
+        surroundings: true,
+        searchSections: true,
+        sitemap: true,
+        query: {
+          operators: ['$eq'],
+          limit: true,
+          skip: true,
+          count: true
+        }
+      },
+      query,
+      navigationQuery: vi.fn(),
+      navigation: vi.fn(),
+      surroundings: vi.fn(),
+      searchSections: vi.fn(),
+      page: vi.fn(),
+      routeMeta: vi.fn(),
+      sitemapEntries: vi.fn()
+    })
+
+    runtime.content.provider = 'versioned-query'
+    const provider = await getContentProvider(createProviderEvent())
+    const badQuery = {
+      ...toContentProviderQuery({ collection: 'posts' }),
+      v: 99
+    } as any
+
+    await expect(provider.query(createProviderEvent(), badQuery)).rejects.toMatchObject({
+      statusMessage: 'unsupported_query_shape',
+      data: expect.objectContaining({
+        provider: 'versioned-query',
+        field: 'v'
+      })
+    })
+    expect(query).not.toHaveBeenCalled()
+  })
+
+  test('provider navigationQuery capabilities are enforced before provider execution', async () => {
+    const { getContentProvider } = await import('../../packages/content/src/runtime/server/providers')
+    const navigationQuery = vi.fn(async () => [])
+
+    externalProviderModules.set('limited-navigation-query', {
+      name: 'limited-navigation-query',
+      capabilities: {
+        routeBackedCollections: true,
+        dataCollections: true,
+        localizedRoutes: true,
+        translatedSlugs: true,
+        navigation: true,
+        surroundings: true,
+        searchSections: true,
+        sitemap: true,
+        query: {
+          operators: ['$eq'],
+          limit: false,
+          skip: true,
+          count: true
+        }
+      },
+      query: vi.fn(async () => []),
+      navigationQuery,
+      navigation: vi.fn(),
+      surroundings: vi.fn(),
+      searchSections: vi.fn(),
+      page: vi.fn(),
+      routeMeta: vi.fn(),
+      sitemapEntries: vi.fn()
+    })
+
+    runtime.content.provider = 'limited-navigation-query'
+    const provider = await getContentProvider(createProviderEvent())
+
+    await expect(provider.navigationQuery?.(createProviderEvent(), toContentProviderNavigationQuery({
+      collection: 'posts',
+      where: { title: { $contains: 'hello' } }
+    }).query)).rejects.toMatchObject({
+      statusMessage: 'unsupported_query_operator',
+      data: expect.objectContaining({
+        provider: 'limited-navigation-query',
+        operator: '$contains'
+      })
+    })
+
+    await expect(provider.navigationQuery?.(createProviderEvent(), toContentProviderNavigationQuery({
+      collection: 'posts',
+      limit: 1
+    }).query)).rejects.toMatchObject({
+      statusMessage: 'unsupported_query_shape',
+      data: expect.objectContaining({
+        provider: 'limited-navigation-query',
+        field: 'limit'
+      })
+    })
+
+    await expect(provider.navigationQuery?.(createProviderEvent(), {
+      ...toContentProviderNavigationQuery({ collection: 'posts' }).query,
+      v: 99
+    } as any)).rejects.toMatchObject({
+      statusMessage: 'unsupported_query_shape',
+      data: expect.objectContaining({
+        provider: 'limited-navigation-query',
+        field: 'v'
+      })
+    })
+
+    expect(navigationQuery).not.toHaveBeenCalled()
+
+    const wire = toContentProviderNavigationQuery({
+      collection: 'posts',
+      where: { title: { $eq: 'hello' } }
+    })
+    await expect(provider.navigationQuery?.(createProviderEvent(), wire.query, wire.options)).resolves.toEqual([])
+    expect(navigationQuery).toHaveBeenCalledTimes(1)
+    expect(navigationQuery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      v: 1,
+      collection: 'posts',
+      plan: expect.objectContaining({
+        filter: { type: 'compare', field: 'title', operator: 'eq', value: 'hello' }
+      })
+    }), wire.options)
   })
 
   test('provider operation capabilities are enforced even when unsupported methods exist', async () => {
@@ -417,19 +555,17 @@ describe('content provider contract', () => {
     const cmsNavigation = [
       {
         title: 'Einfuehrung',
-        _path: '/dokumentation/einstieg',
         path: '/de/dokumentation/einstieg',
-        _canonicalKey: 'docs/getting-started',
-        _locale: 'de',
+        canonicalKey: 'docs/getting-started',
+        locale: 'de',
         stableId: 'docs-getting-started',
         ref: 'docs-getting-started',
         children: [
           {
             title: 'Installation',
-            _path: '/dokumentation/einstieg/installation',
             path: '/de/dokumentation/einstieg/installation',
-            _canonicalKey: 'docs/getting-started/installation',
-            _locale: 'de',
+            canonicalKey: 'docs/getting-started/installation',
+            locale: 'de',
             stableId: 'docs-installation',
             ref: 'docs-installation'
           }
@@ -437,15 +573,14 @@ describe('content provider contract', () => {
       },
       {
         title: 'Grundlagen',
-        _canonicalKey: 'docs/essentials',
-        _locale: 'de',
+        canonicalKey: 'docs/essentials',
+        locale: 'de',
         children: [
           {
             title: 'Fallback Lab',
-            _path: '/docs/essentials/fallback-lab',
             path: '/de/docs/essentials/fallback-lab',
-            _canonicalKey: 'docs/essentials/fallback-lab',
-            _locale: 'en',
+            canonicalKey: 'docs/essentials/fallback-lab',
+            locale: 'en',
             _fallback: true,
             stableId: 'docs-fallback-lab',
             ref: 'docs-fallback-lab'
@@ -455,11 +590,11 @@ describe('content provider contract', () => {
     ]
     const navigationQuery = vi.fn(async () => cmsNavigation)
     const navigation = vi.fn(async () => cmsNavigation)
-    const surroundings = vi.fn(async () => [null, { _path: '/docs/next' }])
+    const surroundings = vi.fn(async () => [null, { path: '/docs/next' }])
     const search = vi.fn(async () => [{ id: 'cms-hit', title: 'CMS hit' }])
     const searchSections = vi.fn(async () => [])
     const siteData = vi.fn(async () => ({ title: 'CMS site' }))
-    const page = vi.fn(async () => ({ _path: '/docs', title: 'CMS page' }))
+    const page = vi.fn(async () => ({ path: '/docs', title: 'CMS page' }))
     const routeMeta = vi.fn(async () => ({ path: '/docs', locale: 'en' }))
     const sitemapEntries = vi.fn(async () => [{ loc: 'https://example.test/docs' }])
 
@@ -500,20 +635,21 @@ describe('content provider contract', () => {
     await expect(provider.page?.(event, 'docs', '/docs')).resolves.toMatchObject({
       title: 'CMS page'
     })
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'docs',
-      where: { _path: { $eq: '/docs' } },
+      where: { path: { $eq: '/docs' } },
       limit: 1
-    })).resolves.toMatchObject({
+    }))).resolves.toMatchObject({
       result: [{ title: 'CMS page' }]
     })
     await expect(provider.navigation?.(event, 'docs')).resolves.toEqual(cmsNavigation)
-    await expect(provider.navigationQuery?.(event, { collection: 'docs' })).resolves.toEqual([
+    const cmsNavWire = toContentProviderNavigationQuery({ collection: 'docs' })
+    await expect(provider.navigationQuery?.(event, cmsNavWire.query, cmsNavWire.options)).resolves.toEqual([
       ...cmsNavigation
     ])
     await expect(provider.surroundings?.(event, 'docs', '/docs')).resolves.toEqual([
       null,
-      { _path: '/docs/next' }
+      { path: '/docs/next' }
     ])
     await expect(provider.search?.(event, { query: 'cms' })).resolves.toEqual([
       { id: 'cms-hit', title: 'CMS hit' }
@@ -536,10 +672,10 @@ describe('content provider contract', () => {
         operation: 'search sections'
       })
     })
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'docs',
       skip: 1
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'cms-like',
@@ -594,6 +730,95 @@ describe('content provider contract', () => {
         field: 'loc'
       })
     })
+  })
+
+  test('provider-wire availableLocales order matches the graph-backed query for every requested locale', async () => {
+    // The provider path reads the collection i18n config through
+    // `getContentRuntimeConfig`; inject `runtime.content` (docs → { en, de },
+    // defaultLocale en) so locale discovery + canonicalization run as in production.
+    vi.resetModules()
+    vi.doMock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
+      getContentRuntimeConfig: () => ({ content: runtime.content })
+    }))
+
+    const { resolveContentReference } = await import('../../packages/content/src/runtime/server/provider-query')
+    const { buildContentGraph, resolveGraphVariant } = await import('../../packages/content/src/core/content/graph')
+
+    // Same document, two locale variants. Graph insertion order en-then-de.
+    const introDocs = [
+      {
+        id: 'content:en:guide:intro.md',
+        collection: 'docs',
+        canonicalKey: 'docs/intro',
+        locale: 'en',
+        path: '/guide/intro',
+        title: 'Intro EN'
+      },
+      {
+        id: 'content:de:guide:intro.md',
+        collection: 'docs',
+        canonicalKey: 'docs/intro',
+        locale: 'de',
+        path: '/leitfaden/einstieg',
+        title: 'Intro DE'
+      }
+    ]
+
+    // A CMS-style provider that answers each locale-scoped sub-query with the
+    // single variant for that locale — so the provider path collects variants
+    // in `localesToQuery` order (`[requestedLocale, ...fallbacks, ...configLocales]`),
+    // which differs per requested locale before canonicalization.
+    const query = vi.fn(async (_event: unknown, wire: any) => {
+      const locale = wire?.plan?.resolveLocale?.locale
+      const result = introDocs.filter(document => document.locale === locale)
+      return { result, skip: 0, limit: 0, total: result.length }
+    })
+    externalProviderModules.set('cross-path-cms', {
+      name: 'cross-path-cms',
+      capabilities: {
+        routeBackedCollections: false,
+        dataCollections: true,
+        localizedRoutes: false,
+        translatedSlugs: true,
+        navigation: false,
+        surroundings: false,
+        searchSections: false,
+        sitemap: false,
+        query: { operators: ['$eq'], limit: true, skip: false, count: false }
+      },
+      query
+    })
+    runtime.content.provider = 'cross-path-cms'
+
+    const graph = buildContentGraph(introDocs as any, { defaultLocale: 'en', locales: ['en', 'de'] })
+    const graphAvailableLocales = (requestedLocale: string) =>
+      resolveGraphVariant(graph, 'docs/intro', requestedLocale, {
+        defaultLocale: 'en',
+        locales: ['en', 'de'],
+        localeFallback: { de: ['en'] },
+        collection: 'docs'
+      })?.availableLocales
+
+    const providerAvailableLocales = async (requestedLocale: string) => {
+      const resolved = await resolveContentReference(createProviderEvent(), 'docs/intro', {
+        collection: 'docs',
+        locale: requestedLocale,
+        fallback: true
+      })
+      return resolved?.resolved?.availableLocales
+    }
+
+    // Graph-backed order is canonical (default-locale first) for both requests.
+    expect(graphAvailableLocales('en')).toEqual(['en', 'de'])
+    expect(graphAvailableLocales('de')).toEqual(['en', 'de'])
+
+    // Provider-wire order matches the graph-backed order for BOTH requested
+    // locales — not the per-request `localesToQuery` order. (Pre-fix, the
+    // de-request provider path returns ['de', 'en'] and diverges here.)
+    expect(await providerAvailableLocales('en')).toEqual(graphAvailableLocales('en'))
+    expect(await providerAvailableLocales('de')).toEqual(graphAvailableLocales('de'))
+
+    vi.doUnmock('../../packages/content/src/integrations/nitro/runtime-config')
   })
 
 })

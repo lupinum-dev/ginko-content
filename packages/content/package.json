@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://ginko-content.nuxt.dev",
   "bugs": {
@@ -53,10 +53,10 @@
       "import": "./dist/public/client.js",
       "default": "./dist/public/client.js"
     },
-    "./toc": {
-      "types": "./dist/runtime/app/composables/toc.d.ts",
-      "import": "./dist/runtime/app/composables/toc.js",
-      "default": "./dist/runtime/app/composables/toc.js"
+    "./agent": {
+      "types": "./dist/public/agent.d.ts",
+      "import": "./dist/public/agent.js",
+      "default": "./dist/public/agent.js"
     },
     "./cms-contract": {
       "types": "./dist/cms-contract/index.d.ts",
@@ -67,11 +67,6 @@
       "types": "./dist/cms-import/index.d.ts",
       "import": "./dist/cms-import/index.js",
       "default": "./dist/cms-import/index.js"
-    },
-    "./cms-exchange": {
-      "types": "./dist/cms-exchange/index.d.ts",
-      "import": "./dist/cms-exchange/index.js",
-      "default": "./dist/cms-exchange/index.js"
     },
     "./testing/provider-fixture": {
       "types": "./dist/testing/provider-fixture.d.ts",
@@ -88,7 +83,26 @@
       "import": "./dist/runtime/transformers/define.js",
       "default": "./dist/runtime/transformers/define.js"
     },
-    "./transformers/*": "./dist/runtime/transformers/*.js"
+    "./transformers/markdown": {
+      "types": "./dist/runtime/transformers/markdown.d.ts",
+      "import": "./dist/runtime/transformers/markdown.js",
+      "default": "./dist/runtime/transformers/markdown.js"
+    },
+    "./transformers/yaml": {
+      "types": "./dist/runtime/transformers/yaml.d.ts",
+      "import": "./dist/runtime/transformers/yaml.js",
+      "default": "./dist/runtime/transformers/yaml.js"
+    },
+    "./transformers/json": {
+      "types": "./dist/runtime/transformers/json.d.ts",
+      "import": "./dist/runtime/transformers/json.js",
+      "default": "./dist/runtime/transformers/json.js"
+    },
+    "./transformers/csv": {
+      "types": "./dist/runtime/transformers/csv/index.d.ts",
+      "import": "./dist/runtime/transformers/csv/index.js",
+      "default": "./dist/runtime/transformers/csv/index.js"
+    }
   },
   "web-types": "./dist/web-types.json",
   "files": [
@@ -100,7 +114,8 @@
   "scripts": {
     "build": "nuxt-module-build build && pnpm build:web-types",
     "build:web-types": "vue-docgen-web-types src/runtime/app/components/ ./dist/web-types.json",
-    "prepack": "pnpm run build"
+    "prepack": "pnpm run build",
+    "prepublishOnly": "node ../../scripts/preflight-release.mjs"
   },
   "dependencies": {
     "@comark/vue": "^0.4.0",
@@ -119,7 +134,6 @@
     "minisearch": "^7.2.0",
     "nitropack": "^2.13.4",
     "ohash": "^2.0.11",
-    "pagefind": "^1.5.2",
     "pathe": "^2.0.3",
     "picomatch": "^4.0.4",
     "scule": "^1.3.0",
@@ -138,10 +152,14 @@
   },
   "peerDependencies": {
     "nuxt": ">=4.4.7",
+    "pagefind": "^1.5.2",
     "vitest": ">=4.1.6",
     "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
+    "pagefind": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }

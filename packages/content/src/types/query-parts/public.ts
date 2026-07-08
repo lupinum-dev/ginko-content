@@ -93,6 +93,18 @@ type LocaleOption<H, OptKey extends string = 'locale'> = HandleIsI18n<H> extends
   ? { [K in OptKey]: string }
   : { [K in OptKey]?: string }
 
+/**
+ * Argument tuple for verbs whose options parameter is defaulted (`many`, `tree`).
+ *
+ * For i18n handles the options object is REQUIRED (its type already requires
+ * `locale` via `LocaleOption`) — a defaulted `options = {}` parameter would
+ * otherwise silently satisfy the locale obligation and reopen the i18n hole.
+ * For non-i18n handles the options object stays optional. (CS-7, T5.5.)
+ */
+export type OptionsArg<H, O> = HandleIsI18n<H> extends true
+  ? [options: O]
+  : [options?: O]
+
 type SourceIsI18n<S> = S extends ReadonlyArray<infer I>
   ? true extends HandleIsI18n<I> ? true : false
   : HandleIsI18n<S>
@@ -108,7 +120,8 @@ export type LocaleFallback = false | true | 'default' | string | string[]
 export type LocalizedContentDocument<T = ParsedContentMeta> = T & ContentRouteMeta & {
   locale: string
   path: string
-  canonicalPath: string
+  /** the resolved variant's route path before locale prefixing */
+  unprefixedPath: string
   localePaths: Record<string, LocalePathEntry>
   stem?: string
   extension?: string
@@ -130,7 +143,8 @@ export interface ResolutionEnvelope {
     found: boolean
     collection: string
     path?: string
-    canonicalPath?: string
+    /** the resolved variant's route path before locale prefixing */
+    unprefixedPath?: string
     ref?: string
     locale?: string
   }
@@ -249,8 +263,7 @@ export type TreeOptions<
   sort?: SortSpec<HandleSchema<H>>
   fields?: Fields
   fallback?: LocaleFallback
-  locale?: string
-}
+} & LocaleOption<H>
 
 export type ContentTreeItem<
   T = ParsedContentMeta,
@@ -258,7 +271,6 @@ export type ContentTreeItem<
 > = {
   title: string
   path: string
-  _path?: string
   children?: Array<ContentTreeItem<T, Fields>>
 } & (Fields extends ReadonlyArray<infer K>
   ? Pick<T, Extract<K, keyof T>>

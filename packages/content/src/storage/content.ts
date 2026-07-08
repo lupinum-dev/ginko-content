@@ -12,11 +12,12 @@
  */
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ParsedContent } from '../types/content'
+import type { ContentDocumentResolution, ParsedContent } from '../types/content'
 import type { ContentCollectionI18nConfig } from '../types/config'
 import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
 import { resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
+import { sortLocalesCanonically } from '../core/content/locale'
 import { normalizeReferenceValue } from '../core/references/resolve'
 import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
@@ -57,13 +58,7 @@ export const resolveContentReference = async <T = ParsedContent> (
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & {
-  _requestedLocale?: string
-  _resolvedLocale?: string
-  _fallback?: boolean
-  _availableLocales?: string[]
-  _variantPaths?: Record<string, string>
-}) | null> => {
+): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
   const config = contentConfig()
   const graph = await getContentGraph(event)
   const normalizedReference = normalizeReferenceValue(reference)
@@ -75,7 +70,7 @@ export const resolveContentReference = async <T = ParsedContent> (
 
   const variants = Object.values(graph.byCanonical[canonicalId] || {})
     .map(entry => entry.document)
-    .filter(document => !options.collection || document._collection === options.collection)
+    .filter(document => !options.collection || document.collection === options.collection)
 
   if (!variants.length) {
     return null
@@ -94,20 +89,32 @@ export const resolveContentReference = async <T = ParsedContent> (
     return null
   }
 
-  const availableLocales = Array.from(new Set(variants.map(document => document._locale).filter(Boolean))) as string[]
+  // `variants` is drawn from `byCanonical` in graph-insertion order; canonicalize
+  // so `availableLocales` matches every other producer regardless of requested locale.
+  const collectionI18n = getServerCollectionI18n(options.collection)
+  const availableLocales = sortLocalesCanonically(
+    Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[],
+    {
+      defaultLocale: collectionI18n?.defaultLocale || config.defaultLocale,
+      locales: collectionI18n?.locales
+    }
+  )
   const variantPaths = Object.fromEntries(
     variants
-      .filter(document => document._locale && document._path)
-      .map(document => [document._locale!, document._path!])
+      .filter(document => document.locale && document.path)
+      .map(document => [document.locale!, document.path!])
   )
 
   return {
     ...(resolved as T),
-    _requestedLocale: resolvedVariant.requestedLocale,
-    _resolvedLocale: resolvedVariant.resolvedLocale,
-    _fallback: resolvedVariant.fallback,
-    _availableLocales: availableLocales,
-    _variantPaths: variantPaths
+    resolved: {
+      ...((resolved as ParsedContent).resolved || {}),
+      requestedLocale: resolvedVariant.requestedLocale,
+      locale: resolvedVariant.resolvedLocale,
+      fallback: resolvedVariant.fallback,
+      availableLocales,
+      variantPaths
+    }
   }
 }
 

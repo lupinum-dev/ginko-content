@@ -146,7 +146,7 @@ describe('module contracts', () => {
     const nitroConfig: Record<string, any> = {}
     hooks.get('nitro:config')?.(nitroConfig)
 
-    expect(nitroConfig.plugins).toContain('/resolved/./runtime/server/plugins/sitemap.js')
+    expect((nitroConfig.plugins as string[]).some(plugin => plugin.includes('runtime/server/plugins/sitemap.js'))).toBe(true)
     expect(nuxt.options.sitemap.sources).toEqual([
       {
         context: {
@@ -368,10 +368,9 @@ describe('module contracts', () => {
     }
     hooks.get('nitro:config')?.(nitroConfig)
 
-    expect(nitroConfig.plugins).toEqual([
-      '/existing/plugin',
-      '/resolved/./runtime/server/plugins/sitemap.js'
-    ])
+    expect(nitroConfig.plugins).toHaveLength(2)
+    expect(nitroConfig.plugins[0]).toBe('/existing/plugin')
+    expect(nitroConfig.plugins[1]).toEqual(expect.stringContaining('runtime/server/plugins/sitemap.js'))
   })
 
   test('bundles production parsed content with the same storage key runtime readers use', async () => {
@@ -557,7 +556,7 @@ describe('module contracts', () => {
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.externals?.inline).toEqual(expect.arrayContaining([
-      '/resolved/./runtime',
+      expect.stringContaining('runtime'),
       'comark',
       '@comark/vue'
     ]))

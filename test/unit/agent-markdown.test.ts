@@ -79,10 +79,9 @@ describe('agent markdown', () => {
   test('renders normalized markdown with registered serializers', async () => {
     const page = {
       path: '/docs/intro',
-      _path: '/intro',
-      _collection: 'docs',
-      _type: 'markdown',
-      _file: 'docs/intro.md',
+      collection: 'docs',
+      type: 'markdown',
+      file: { path: 'docs/intro.md' },
       title: 'Intro',
       description: 'Start here.',
       body: markdownBody([
@@ -159,7 +158,6 @@ describe('agent markdown', () => {
   test('renders mapped component tags with bulk registered serializers', async () => {
     const page = {
       path: '/docs/cards',
-      _path: '/cards',
       title: 'Cards',
       description: 'Mapped components.',
       body: markdownBody([
@@ -222,7 +220,6 @@ describe('agent markdown', () => {
   test('preserves unknown components with children as XML fallback', async () => {
     const page = {
       path: '/docs/wrapper',
-      _path: '/wrapper',
       title: 'Wrapper',
       description: 'Wrapper components.',
       body: markdownBody([
@@ -271,7 +268,6 @@ describe('agent markdown', () => {
   test('preserves unknown components with props as self-closing XML fallback', async () => {
     const page = {
       path: '/docs/chart',
-      _path: '/chart',
       title: 'Chart',
       description: 'Chart component.',
       body: markdownBody([
@@ -316,7 +312,6 @@ describe('agent markdown', () => {
   test('drops credential-like props from unknown component XML fallback', async () => {
     const page = {
       path: '/docs/secret',
-      _path: '/secret',
       title: 'Secret',
       description: 'Secret component.',
       body: markdownBody([
@@ -368,7 +363,6 @@ describe('agent markdown', () => {
   test('drops nested credential-like props from XML fallback JSON payloads', async () => {
     const page = {
       path: '/docs/nested-secret',
-      _path: '/nested-secret',
       title: 'Nested Secret',
       description: 'Nested secret component.',
       body: markdownBody([
@@ -429,7 +423,6 @@ describe('agent markdown', () => {
   test('normalizes bound component props for XML fallback', async () => {
     const page = {
       path: '/docs/media',
-      _path: '/media',
       title: 'Media',
       description: 'Bound props.',
       body: markdownBody([
@@ -480,7 +473,6 @@ describe('agent markdown', () => {
   test('renders component-owned XML and JSON payloads through the component API', async () => {
     const page = {
       path: '/docs/chart',
-      _path: '/chart',
       title: 'Chart',
       description: 'Chart component.',
       body: markdownBody([
@@ -540,7 +532,6 @@ describe('agent markdown', () => {
   test('renders span nodes as transparent inline content', async () => {
     const page = {
       path: '/docs/syntax',
-      _path: '/syntax',
       title: 'Syntax',
       description: 'Inline syntax.',
       body: markdownBody([
@@ -595,7 +586,6 @@ describe('agent markdown', () => {
   test('sanitizes unsafe links and images in agent markdown', async () => {
     const page = {
       path: '/docs/media-safety',
-      _path: '/media-safety',
       title: 'Media Safety',
       description: 'Unsafe links and images.',
       body: markdownBody([
@@ -663,7 +653,6 @@ describe('agent markdown', () => {
   test('rewrites relative page links against the current content route', async () => {
     const page = {
       path: '/docs/reference/api-keys',
-      _path: '/reference/api-keys',
       title: 'API Keys',
       description: 'Relative links.',
       body: markdownBody([
@@ -719,7 +708,6 @@ describe('agent markdown', () => {
   test('preserves unknown components as explicit fallback notes', async () => {
     const page = {
       path: '/docs/intro',
-      _path: '/intro',
       title: 'Intro',
       description: 'Start here.',
       body: markdownBody([
@@ -759,7 +747,6 @@ describe('agent markdown', () => {
       result: [
         {
           path: '/docs/intro',
-          _path: '/intro',
           title: 'Intro',
           description: 'Start here.',
           body: markdownBody([
@@ -816,7 +803,9 @@ describe('agent markdown', () => {
     })
     expect(serializer).not.toHaveBeenCalled()
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      only: expect.not.arrayContaining(['body'])
+      plan: expect.objectContaining({
+        projection: expect.objectContaining({ only: expect.not.arrayContaining(['body']) })
+      })
     }))
   })
 
@@ -850,8 +839,7 @@ describe('agent markdown', () => {
           result: [
             {
               path: '/docs/intro',
-              _path: '/intro',
-              _file: 'content/docs/intro.md',
+              file: { path: 'content/docs/intro.md' },
               title: 'Intro'
             }
           ],
@@ -873,19 +861,25 @@ describe('agent markdown', () => {
 
   test('uses the source-locale public route for localized fallback agent pages', async () => {
     const query = vi.fn(async (_event, params) => {
+      // Providers now receive the lowered wire query (CS-5), not builder params.
       expect(params).toEqual(expect.objectContaining({
-        resolveLocale: { locale: 'de', fallback: true },
-        only: expect.arrayContaining(['path', 'locale', 'localePaths'])
+        v: 1,
+        plan: expect.objectContaining({
+          resolveLocale: expect.objectContaining({ locale: 'de' }),
+          projection: expect.objectContaining({ only: expect.arrayContaining(['path', 'locale', 'localePaths']) })
+        })
       }))
 
       return {
         result: [
           {
-            _path: '/guide/advanced',
-            _locale: 'en',
-            _resolvedLocale: 'en',
-            _fallback: true,
-            _file: 'en/1.guide/2.advanced.md',
+            path: '/guide/advanced',
+            locale: 'en',
+            resolved: {
+              locale: 'en',
+              fallback: true
+            },
+            file: { path: 'en/1.guide/2.advanced.md' },
             title: 'Advanced'
           }
         ],
@@ -981,7 +975,6 @@ describe('agent markdown', () => {
           result: [
             {
               path: '/docs/intro',
-              _path: '/intro',
               title: 'Content Intro',
               description: 'Content intro.'
             }
@@ -1058,7 +1051,7 @@ describe('agent markdown', () => {
   })
 
   test('exports one canonical raw markdown route helper', async () => {
-    const { agentRawPathForRoute, agentMarkdownPathForRoute } = await import('../../packages/content/src/runtime/agent-paths')
+    const { agentRawPathForRoute, agentMarkdownPathForRoute } = await import('../../packages/content/src/features/agent/agent-paths')
 
     expect(agentRawPathForRoute('/')).toBe('/raw/index.md')
     expect(agentRawPathForRoute('/docs/intro/')).toBe('/raw/docs/intro.md')
@@ -1066,7 +1059,7 @@ describe('agent markdown', () => {
   })
 
   test('detects unsafe agent route paths before markdown resolution', async () => {
-    const { isUnsafeAgentRoutePath, normalizeAgentRoutePath } = await import('../../packages/content/src/runtime/agent-paths')
+    const { isUnsafeAgentRoutePath, normalizeAgentRoutePath } = await import('../../packages/content/src/features/agent/agent-paths')
 
     expect(isUnsafeAgentRoutePath('/docs/intro')).toBe(false)
     expect(isUnsafeAgentRoutePath('/docs//intro')).toBe(false)

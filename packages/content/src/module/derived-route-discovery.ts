@@ -106,7 +106,7 @@ const parseDerivedCollectionFiles = async (
         collectionResolver: (filePath: string) => resolveCollection(filePath, collections, contentContext.locales || [])
       }
     })
-    const collection = typeof parsed._collection === 'string' ? collections[parsed._collection] : undefined
+    const collection = typeof parsed.collection === 'string' ? collections[parsed.collection] : undefined
     documents.push(...expandDataLocaleVariants(parsed, collection?.i18n === true ? undefined : collection?.i18n))
   }
 
@@ -152,18 +152,18 @@ export const collectDerivedPrerenderRoutes = async (
 
     for (const contentId of graph.byCollection[collection] || []) {
       const document = graph.byId[contentId]
-      if (!document || !document._canonicalKey || document._partial || document._navigation) {
+      if (!document || !document.canonicalKey || document.partial || document.navigationFile) {
         continue
       }
-      if (document._draft && !includeDrafts) {
+      if (document.draft && !includeDrafts) {
         continue
       }
-      if (seenCanonicalKeys.has(document._canonicalKey)) {
+      if (seenCanonicalKeys.has(document.canonicalKey)) {
         continue
       }
 
-      seenCanonicalKeys.add(document._canonicalKey)
-      const variants = graph.byCanonical[document._canonicalKey] || {}
+      seenCanonicalKeys.add(document.canonicalKey)
+      const variants = graph.byCanonical[document.canonicalKey] || {}
       for (const [locale, variant] of Object.entries(variants)) {
         if (!variant.path) {
           continue
@@ -197,22 +197,22 @@ export const collectSitemapCollectionRouteCounts = async (
 
     for (const contentId of graph.byCollection[collection] || []) {
       const document = graph.byId[contentId]
-      if (!document || !document._canonicalKey || document._partial || document._navigation) {
+      if (!document || !document.canonicalKey || document.partial || document.navigationFile) {
         continue
       }
-      if (document._draft && !includeDrafts) {
+      if (document.draft && !includeDrafts) {
         continue
       }
-      if (seenCanonicalKeys.has(document._canonicalKey)) {
+      if (seenCanonicalKeys.has(document.canonicalKey)) {
         continue
       }
 
-      const variants = Object.values(graph.byCanonical[document._canonicalKey] || {})
+      const variants = Object.values(graph.byCanonical[document.canonicalKey] || {})
       if (!variants.some(variant => variant.path)) {
         continue
       }
 
-      seenCanonicalKeys.add(document._canonicalKey)
+      seenCanonicalKeys.add(document.canonicalKey)
       counts[collection] += 1
     }
   }

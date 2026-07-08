@@ -252,17 +252,17 @@ export function createQuery <T = ParsedContent> (fetcher: ContentQueryFetcher<T>
       const snapshot: ContentQueryRequest = { params: () => ({ ...this.params(), count: true }) }
       return fetcher(snapshot).then(resolveQueryResult)
     },
-    locale: (_locale: string, options?: { fallback?: boolean | string[] }) => {
-      // When applying a locale, we also strip any existing `_locale` predicates
+    locale: (locale: string, options?: { fallback?: boolean | string[] }) => {
+      // When applying a locale, we also strip any existing `locale` predicates
       // from `where` so `.locale(x)` is always the authoritative scope. The
       // filter produces a new array rather than mutating the existing one.
       const filteredWhere = queryParams.where
-        ? ensureArray(queryParams.where).filter(item => typeof item._locale === 'undefined')
+        ? ensureArray(queryParams.where).filter(item => typeof item.locale === 'undefined')
         : undefined
 
       return next({
         resolveLocale: {
-          locale: _locale,
+          locale: locale,
           fallback: Array.isArray(options?.fallback) ? options?.fallback : Boolean(options?.fallback),
           exact: !options?.fallback
         },

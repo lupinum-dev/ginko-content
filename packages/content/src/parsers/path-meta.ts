@@ -7,34 +7,36 @@ export default defineTransformer({
   extensions: ['.*'],
   transform (content, options: any = {}) {
     const { locales = [], defaultLocale = 'en', respectPathCase = false, translatedSlugs = false } = options
-    const { _source, _file, _path, _extension, _basename } = describeId(content._id)
-    const parts = _path.split('/')
+    const { source, file, path, extension, basename } = describeId(content.id)
+    const parts = path.split('/')
     // Check first part for locale name
-    const _locale = locales.includes(parts[0]) ? parts.shift() : defaultLocale
-    const isNavigation = _basename === '.navigation'
+    const locale = locales.includes(parts[0]) ? parts.shift() : defaultLocale
+    const isNavigation = basename === '.navigation'
     const rawPath = isNavigation ? parts.slice(0, -1).join('/') : parts.join('/')
     const filePath = generatePath(rawPath, { respectPathCase })
-    const _canonicalKey = generateCanonicalKey(isNavigation ? parts.slice(0, -1) : parts, { translatedSlugs, respectPathCase })
-    const _collection = options.collectionResolver?.(_file)
+    const canonicalKey = generateCanonicalKey(isNavigation ? parts.slice(0, -1) : parts, { translatedSlugs, respectPathCase })
+    const collection = options.collectionResolver?.(file)
 
     return {
       ...content,
       // Fallback title synthesis lives here (not in the markdown parser) so it
       // applies uniformly to every parser output. Moving it into the markdown
       // parser would duplicate the logic in the yaml / json / csv parsers.
-      title: content.title || (isNavigation ? undefined : generateTitle(refineUrlPart(_basename))),
-      _path: filePath,
-      _dir: filePath.split('/').slice(-2)[0],
-      _draft: content.draft || isDraftPath(_path),
-      _partial: isNavigation || isPartialPath(_path),
-      _locale,
-      _canonicalKey,
-      _collection,
-      _navigation: isNavigation,
-      _source,
-      _file,
-      _stem: _path,
-      _extension
+      title: content.title || (isNavigation ? undefined : generateTitle(refineUrlPart(basename))),
+      path: filePath,
+      draft: content.draft || isDraftPath(path),
+      partial: isNavigation || isPartialPath(path),
+      locale,
+      canonicalKey,
+      collection,
+      navigationFile: isNavigation,
+      file: {
+        source,
+        path: file,
+        stem: path,
+        dir: filePath.split('/').slice(-2)[0],
+        extension
+      }
     } as unknown as ParsedContent
   }
 })

@@ -44,17 +44,17 @@ describe('storage contracts', () => {
     sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 10 })
     parseVariants.mockResolvedValue([
       doc({
-        _id: 'content:guide:intro.md',
-        _file: '/guide/intro.md',
-        _path: '/guide/intro',
-        _canonicalKey: 'guide/intro'
+        id: 'content:guide:intro.md',
+        file: { path: '/guide/intro.md' },
+        path: '/guide/intro',
+        canonicalKey: 'guide/intro'
       }),
       doc({
-        _id: 'content:guide:intro.md#__locale=de',
-        _file: '/guide/intro.md',
-        _path: '/guide/einstieg',
-        _canonicalKey: 'guide/intro',
-        _locale: 'de',
+        id: 'content:guide:intro.md#__locale=de',
+        file: { path: '/guide/intro.md' },
+        path: '/guide/einstieg',
+        canonicalKey: 'guide/intro',
+        locale: 'de',
         title: 'Einstieg'
       })
     ])
@@ -137,9 +137,9 @@ describe('storage contracts', () => {
     parseVariants.mockImplementation(() => new Promise(resolve => {
       release = () => resolve([
         doc({
-          _id: 'content:guide:intro.md',
-          _file: '/guide/intro.md',
-          _path: '/guide/intro'
+          id: 'content:guide:intro.md',
+          file: { path: '/guide/intro.md' },
+          path: '/guide/intro'
         })
       ])
     }))
@@ -164,9 +164,9 @@ describe('storage contracts', () => {
         releases += 1
         resolve([
           doc({
-            _id: `content:guide:intro-${releases}.md`,
-            _file: '/guide/intro.md',
-            _path: '/guide/intro'
+            id: `content:guide:intro-${releases}.md`,
+            file: { path: '/guide/intro.md' },
+            path: '/guide/intro'
           })
         ])
       }, 0)
@@ -184,12 +184,12 @@ describe('storage contracts', () => {
     const { getContent } = await import('../../packages/content/src/runtime/server/storage')
 
     await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=de')).resolves.toMatchObject({
-      _locale: 'de',
+      locale: 'de',
       title: 'Einstieg'
     })
 
     await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=fr')).resolves.toMatchObject({
-      _locale: 'en',
+      locale: 'en',
       title: 'Getting Started'
     })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('Locale variant "fr" not found'))
@@ -198,8 +198,7 @@ describe('storage contracts', () => {
   test('cached parsed artifacts bypass reparsing until the hash changes', async () => {
     parsedCacheState.set('content:guide:intro.md', {
       hash: ohash({
-        mtime: 1,
-        size: 10,
+        body: ohash('# Intro'),
         version: runtimeContent.cacheVersion,
         integrity: runtimeContent.cacheIntegrity,
         collections: runtimeContent.collections,
@@ -209,7 +208,7 @@ describe('storage contracts', () => {
         strictTranslatedSlugs: runtimeContent.strictTranslatedSlugs,
         respectPathCase: runtimeContent.respectPathCase
       }),
-      parsed: [doc({ _id: 'content:guide:intro.md', _path: '/guide/intro', _file: '/guide/intro.md' })]
+      parsed: [doc({ id: 'content:guide:intro.md', path: '/guide/intro', file: { path: '/guide/intro.md' } })]
     })
 
     const { getContent } = await import('../../packages/content/src/runtime/server/storage')
@@ -228,8 +227,7 @@ describe('storage contracts', () => {
   test('cached parsed artifacts reparse when collection config changes', async () => {
     parsedCacheState.set('content:guide:intro.md', {
       hash: ohash({
-        mtime: 1,
-        size: 10,
+        body: ohash('# Intro'),
         version: runtimeContent.cacheVersion,
         integrity: runtimeContent.cacheIntegrity,
         collections: {},
@@ -239,7 +237,7 @@ describe('storage contracts', () => {
         strictTranslatedSlugs: runtimeContent.strictTranslatedSlugs,
         respectPathCase: runtimeContent.respectPathCase
       }),
-      parsed: [doc({ _id: 'content:guide:intro.md', _path: '/guide/intro', _file: '/guide/intro.md' })]
+      parsed: [doc({ id: 'content:guide:intro.md', path: '/guide/intro', file: { path: '/guide/intro.md' } })]
     })
     runtimeContent.collections = {
       docs: { source: 'guide/**/*.md' }
@@ -251,12 +249,38 @@ describe('storage contracts', () => {
     expect(parseVariants).toHaveBeenCalledTimes(1)
   })
 
+  test('cached parsed artifacts reparse when same-size source content changes', async () => {
+    sourceItems.set('content:guide:intro.md', '# One')
+    sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 5 })
+    parseVariants.mockImplementation(async (id: string, body: string) => [
+      doc({
+        id: 'content:guide:intro.md',
+        file: { path: '/guide/intro.md' },
+        path: '/guide/intro',
+        title: body
+      })
+    ])
+    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+
+    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+      title: '# One'
+    })
+
+    sourceItems.set('content:guide:intro.md', '# Two')
+    sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 5 })
+
+    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+      title: '# Two'
+    })
+    expect(parseVariants).toHaveBeenCalledTimes(2)
+  })
+
   test('malformed parsed cache artifacts are ignored and replaced', async () => {
     parsedCacheState.set('content:guide:intro.md', '# raw source is not a parsed artifact')
 
     const { getContent } = await import('../../packages/content/src/runtime/server/storage')
     await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
-      _path: '/guide/intro'
+      path: '/guide/intro'
     })
 
     expect(parseVariants).toHaveBeenCalledTimes(1)
@@ -319,26 +343,26 @@ describe('storage contracts', () => {
     const { buildReferenceTargets } = await import('../../packages/content/src/core/references/resolve')
     const documents = [
       doc({
-        _collection: 'docs',
+        collection: 'docs',
         ref: 'intro'
       }),
       doc({
-        _id: 'content:de:guide:intro.md',
-        _file: '/de/guide/intro.md',
-        _path: '/leitfaden/einstieg',
-        _locale: 'de',
-        _collection: 'docs',
-        _canonicalKey: 'guide/intro',
+        id: 'content:de:guide:intro.md',
+        file: { path: '/de/guide/intro.md' },
+        path: '/leitfaden/einstieg',
+        locale: 'de',
+        collection: 'docs',
+        canonicalKey: 'guide/intro',
         ref: 'intro'
       }),
       doc({
-        _id: 'content:en:authors:evan.yml',
-        _file: '/authors/evan.yml',
-        _path: '/authors/evan',
-        _collection: 'authors',
-        _type: 'yaml',
-        _canonicalKey: 'authors/evan',
-        id: 'authors/evan'
+        id: 'content:en:authors:evan.yml',
+        file: { path: '/authors/evan.yml' },
+        path: '/authors/evan',
+        collection: 'authors',
+        type: 'yaml',
+        canonicalKey: 'authors/evan',
+        ref: 'authors/evan'
       })
     ]
 
@@ -351,11 +375,11 @@ describe('storage contracts', () => {
     const outcome = validateContentGraph([
       ...documents,
       doc({
-        _id: 'content:de:guide:intro-duplicate.md',
-        _file: '/de/guide/intro-duplicate.md',
-        _path: '/leitfaden/einstieg',
-        _locale: 'de',
-        _canonicalKey: 'guide/other'
+        id: 'content:de:guide:intro-duplicate.md',
+        file: { path: '/de/guide/intro-duplicate.md' },
+        path: '/leitfaden/einstieg',
+        locale: 'de',
+        canonicalKey: 'guide/other'
       })
     ], {
       locales: ['en', 'de'],

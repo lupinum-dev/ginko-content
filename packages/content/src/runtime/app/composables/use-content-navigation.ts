@@ -11,7 +11,7 @@ import type {
 } from '../../../types/query'
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { createClientContentQueryContext } from './query-api'
-import { neighbors as neighborsWithContext, tree as treeWithContext } from '../../query/unified'
+import { neighbors as neighborsWithContext, tree as treeWithContext } from '../../../features/query/unified'
 import { getContentRoute, getContentRuntime } from './runtime'
 import { contentCollectionName, resolveLocaleFromRoutePath, resolveOptions, stableKey, type Reactive } from './use-content-shared'
 
@@ -23,7 +23,7 @@ export type ContentNavigationNode<T> = Omit<ContentTreeItem<T>, 'children'> & {
 }
 
 const navigationNodeId = (item: ContentTreeItem<unknown> & Record<string, unknown>) => {
-  const id = item.id ?? item._id ?? item._canonicalKey ?? item.path ?? item._path ?? item.title
+  const id = item.id ?? item.id ?? item.canonicalKey ?? item.path ?? item.path ?? item.title
   return typeof id === 'string' && id.length ? id : item.title
 }
 

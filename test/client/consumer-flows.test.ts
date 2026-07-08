@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { defineCollection, defineContentConfig } from '../../packages/content/src/types/config'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -11,9 +12,10 @@ const context = {
   runtime: scenario.runtime,
   transport: (endpoint: 'query' | 'navigation', params: any) => {
     if (endpoint === 'navigation') {
-      return provider.navigationQuery(event, params)
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return provider.navigationQuery!(event, query, options)
     }
-    return provider.query(event, params)
+    return provider.query(event, toContentProviderQuery(params))
   }
 }
 
@@ -44,7 +46,7 @@ const { docs, posts, authors } = contentConfig.collections
 
 describe('public client query flows against an in-memory content scenario', () => {
   test('does not invent locale-prefixed paths for non-i18n runtime results', async () => {
-    const { one } = await import('../../packages/content/src/runtime/query/unified')
+    const { one } = await import('../../packages/content/src/features/query/unified')
     const plainConfig = defineContentConfig({
       collections: {
         plain: defineCollection({
@@ -63,11 +65,13 @@ describe('public client query flows against an in-memory content scenario', () =
         }
       },
       transport: async () => ({
-        _path: '/plain/about',
-        _file: 'plain/about.md',
-        _locale: 'en',
-        _variantPaths: {
-          en: '/plain/about'
+        path: '/plain/about',
+        file: { path: 'plain/about.md' },
+        locale: 'en',
+        resolved: {
+          variantPaths: {
+            en: '/plain/about'
+          }
         },
         title: 'About'
       })
@@ -77,14 +81,14 @@ describe('public client query flows against an in-memory content scenario', () =
 
     expect(page).toMatchObject({
       path: '/plain/about',
-      canonicalPath: '/plain/about',
+      unprefixedPath: '/plain/about',
       localePaths: {},
       variants: []
     })
   })
 
   test('uses the first visible navigation item as the collection root surround next entry', async () => {
-    const { neighbors } = await import('../../packages/content/src/runtime/query/unified')
+    const { neighbors } = await import('../../packages/content/src/features/query/unified')
 
     const surround = await neighbors({
       runtime: {
@@ -97,14 +101,12 @@ describe('public client query flows against an in-memory content scenario', () =
           return [
             {
               title: 'Getting Started',
-              _path: '/docs/getting-started',
               path: '/docs/getting-started'
             }
           ]
         }
         return {
           title: 'Docs',
-          _path: '/docs',
           path: '/docs'
         }
       }
@@ -122,7 +124,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('does not treat hidden non-root pages as collection roots', async () => {
-    const { neighbors } = await import('../../packages/content/src/runtime/query/unified')
+    const { neighbors } = await import('../../packages/content/src/features/query/unified')
 
     const surround = await neighbors({
       runtime: {
@@ -135,14 +137,12 @@ describe('public client query flows against an in-memory content scenario', () =
           return [
             {
               title: 'Getting Started',
-              _path: '/docs/getting-started',
               path: '/docs/getting-started'
             }
           ]
         }
         return {
           title: 'Hidden',
-          _path: '/docs/hidden',
           path: '/docs/hidden'
         }
       }
@@ -157,7 +157,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('resolves one document by localized route with fallback metadata', async () => {
-    const { one } = await import('../../packages/content/src/runtime/query/unified')
+    const { one } = await import('../../packages/content/src/features/query/unified')
 
     const page = await one(context, docs, {
       locale: 'de',
@@ -177,7 +177,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('keeps route and locale metadata when callers select content fields', async () => {
-    const { one } = await import('../../packages/content/src/runtime/query/unified')
+    const { one } = await import('../../packages/content/src/features/query/unified')
 
     const page = await one(context, docs, {
       locale: 'de',
@@ -189,7 +189,7 @@ describe('public client query flows against an in-memory content scenario', () =
     expect(page).toMatchObject({
       title: 'Fallback Lab',
       path: '/de/dokumentation/essentials/fallback-lab',
-      canonicalPath: '/docs/essentials/fallback-lab',
+      unprefixedPath: '/docs/essentials/fallback-lab',
       locale: 'de',
       defaultLocale: 'en',
       localePaths: {
@@ -214,7 +214,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('runs consumer-style many, tree, variants, neighbors, resolve, and populate flows', async () => {
-    const { many, neighbors, resolveOne, tree, variants, one } = await import('../../packages/content/src/runtime/query/unified')
+    const { many, neighbors, resolveOne, tree, variants, one } = await import('../../packages/content/src/features/query/unified')
 
     await expect(many(context, posts, {
       locale: 'de',

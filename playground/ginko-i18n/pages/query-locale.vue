@@ -7,21 +7,21 @@ const { locale } = useI18n()
 
 const { data: implicit } = await useContentMany(docs, {
   locale: () => locale.value,
-  where: { _navigation: { $ne: true }, _partial: { $ne: true } },
-  sort: { _path: 'asc' }
+  where: { navigationFile: { $ne: true }, partial: { $ne: true } },
+  sort: { path: 'asc' }
 })
 
 const { data: strictGerman } = await useContentMany(docs, {
   locale: 'de',
-  where: { _navigation: { $ne: true }, _partial: { $ne: true } },
-  sort: { _path: 'asc' }
+  where: { navigationFile: { $ne: true }, partial: { $ne: true } },
+  sort: { path: 'asc' }
 })
 
 const { data: fallbackGerman } = await useContentMany(docs, {
   locale: 'de',
   fallback: true,
-  where: { _navigation: { $ne: true }, _partial: { $ne: true } },
-  sort: { _path: 'asc' }
+  where: { navigationFile: { $ne: true }, partial: { $ne: true } },
+  sort: { path: 'asc' }
 })
 </script>
 

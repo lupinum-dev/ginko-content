@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const gettingStarted = (await many('docs' as any, {
     locale,
     fallback: true,
-    where: { _canonicalKey: '1/1' as any },
+    where: { canonicalKey: '1/1' as any },
     limit: 1
   }))[0] || null
 

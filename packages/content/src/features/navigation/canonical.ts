@@ -1,4 +1,4 @@
-import type { ContentNavigationItem, NavItem } from '../../types/content'
+import type { ContentFileMeta, ContentNavigationItem, NavItem } from '../../types/content'
 import { getContentStem, normalizeContentPath, projectContentPathToLocale, type RouteMounts } from '../localization/path'
 
 export type NavigationNodeKind = 'page' | 'folder'
@@ -6,17 +6,16 @@ export type NavigationNodeKind = 'page' | 'folder'
 export interface CanonicalNavigationItem {
   title: string
   path?: string
-  _path?: string
   stem?: string
   page?: false
-  _id?: string
-  _canonicalKey?: string
-  _locale?: string
-  _fallback?: boolean
-  _draft?: boolean
-  _file?: string
-  _navigationKind?: NavigationNodeKind
-  _navigationPath?: string
+  id?: string
+  canonicalKey?: string
+  locale?: string
+  fallback?: boolean
+  draft?: boolean
+  file?: ContentFileMeta
+  navigationKind?: NavigationNodeKind
+  navigationPath?: string
   _collectionRoot?: string
   children?: CanonicalNavigationItem[]
   [key: string]: unknown
@@ -32,9 +31,9 @@ export interface ProjectNavigationOptions {
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 
-export const getNavigationIdentity = (node: Pick<CanonicalNavigationItem, '_canonicalKey' | '_path' | '_id'>) => {
-  if (isString(node._canonicalKey)) {
-    return node._canonicalKey
+export const getNavigationIdentity = (node: Pick<CanonicalNavigationItem, 'canonicalKey'>) => {
+  if (isString(node.canonicalKey)) {
+    return node.canonicalKey
   }
 
   return undefined
@@ -42,7 +41,7 @@ export const getNavigationIdentity = (node: Pick<CanonicalNavigationItem, '_cano
 
 const cloneFallbackNode = (node: CanonicalNavigationItem): CanonicalNavigationItem => ({
   ...node,
-  _fallback: true,
+  fallback: true,
   children: node.children?.map(cloneFallbackNode)
 })
 
@@ -103,15 +102,15 @@ const normalizeRoutePath = (path?: string) => {
 }
 
 const isFolderNode = (item: CanonicalNavigationItem) => {
-  if (item._navigationKind === 'folder') {
+  if (item.navigationKind === 'folder') {
     return true
   }
 
-  if (item._navigationKind === 'page') {
+  if (item.navigationKind === 'page') {
     return false
   }
 
-  return Boolean(item.children?.length && !item._id && !item._path && !item.path)
+  return Boolean(item.children?.length && !item.id && !item.path)
 }
 
 const matchesCollectionRootConfig = (
@@ -128,7 +127,7 @@ const matchesCollectionRootConfig = (
     return true
   }
 
-  const rootPath = normalizeRoutePath(root._path || root._navigationPath || root.path)
+  const rootPath = normalizeRoutePath(root.navigationPath || root.path)
   if (rootPath === '/' || rootPath === `/${collection}`) {
     return true
   }
@@ -175,17 +174,22 @@ export const scopeNavigationTree = (
 
 const publicFields = (item: CanonicalNavigationItem) => {
   const {
-    children: _children,
-    path: _path,
-    _path: _canonicalPath,
-    stem: _stem,
-    _file: _file,
-    _navigationKind: _navigationKind,
-    _navigationPath: _navigationPath,
-    _collectionRoot: _collectionRoot,
+    children,
+    path,
+    stem,
+    file,
+    navigationKind,
+    navigationPath,
+    _collectionRoot,
     ...fields
   } = item
-
+  void children
+  void path
+  void stem
+  void file
+  void navigationKind
+  void navigationPath
+  void _collectionRoot
   return fields
 }
 
@@ -199,7 +203,7 @@ const projectNavigationItem = (
   const hasChildren = Boolean(children?.length)
   const base = {
     ...publicFields(item),
-    _fallback: item._fallback === true
+    fallback: item.fallback === true
   }
 
   if (isFolderNode(item)) {
@@ -209,7 +213,7 @@ const projectNavigationItem = (
     } as ContentNavigationItem
   }
 
-  const rawPath = item._path || item._navigationPath || item.path
+  const rawPath = item.navigationPath || item.path
   if (!rawPath) {
     return {
       ...base,
@@ -217,15 +221,14 @@ const projectNavigationItem = (
     } as ContentNavigationItem
   }
 
-  const canonicalPath = normalizeContentPath(rawPath)
+  const unprefixedPath = normalizeContentPath(rawPath)
   return {
     ...base,
-    _path: canonicalPath,
     path: options.canonical
-      ? canonicalPath
-      : projectContentPathToLocale(canonicalPath, options.locale || item._locale, options.defaultLocale, options.routeMounts),
-    canonicalPath,
-    stem: item.stem || getContentStem(canonicalPath, item._file),
+      ? unprefixedPath
+      : projectContentPathToLocale(unprefixedPath, options.locale || item.locale, options.defaultLocale, options.routeMounts),
+    unprefixedPath,
+    stem: item.stem || getContentStem(unprefixedPath, item.file?.path),
     ...(hasChildren ? { children } : {})
   } as ContentNavigationItem
 }

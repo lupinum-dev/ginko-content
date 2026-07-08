@@ -31,7 +31,32 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm docs-drift
+
       - run: pnpm verify
+
+  pr-e2e-smoke:
+    name: PR e2e smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      # Slim canary: builds playground/ginko-basic, boots the prod server, and
+      # asserts `/`, one nested route, and the search index respond 200 with
+      # expected content. The heavy browser-e2e/search/sitemap suites stay gated
+      # on the main-only release-verify job below. Target wall time <3 min; the
+      # 15 min ceiling is a safety net for cold CI caches.
+      - run: node scripts/pr-e2e-smoke.mjs
 
   release-verify:
     name: Release verification

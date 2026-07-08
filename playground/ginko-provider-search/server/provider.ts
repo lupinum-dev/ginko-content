@@ -1,4 +1,4 @@
-import type { ContentProvider } from '@lupinum/ginko-content/server'
+import type { ContentProvider } from '@lupinum/ginko-content/provider'
 
 const documents = [
   {

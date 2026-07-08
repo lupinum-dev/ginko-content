@@ -36,7 +36,7 @@ const createRuntime = (search: Record<string, unknown> = {}) => ({
     search: {
       engine: 'minisearch',
       ignoredTags: ['pre'],
-      filterQuery: { _draft: false, _partial: false },
+      filterQuery: { draft: false, partial: false },
       extraFields: [],
       ...search
     }
@@ -53,7 +53,7 @@ describe('runtime search collection defaults', () => {
       const builder = {
         select: vi.fn(() => builder),
         where: vi.fn(() => builder),
-        find: vi.fn(async () => scenario.documents.filter(document => document._collection === collection))
+        find: vi.fn(async () => scenario.documents.filter(document => document.collection === collection))
       }
       return builder
     })
@@ -95,10 +95,10 @@ describe('runtime search collection defaults', () => {
   test('server search content uses the same default collection boundary', async () => {
     const records = await serverSearchContent(createTestEvent({ scenario, provider }))
 
-    expect(records.map(record => record._collection)).toEqual(
+    expect(records.map(record => record.collection)).toEqual(
       expect.arrayContaining(['pages', 'docs', 'posts'])
     )
-    expect(records.map(record => record._collection)).not.toContain('data')
+    expect(records.map(record => record.collection)).not.toContain('data')
     expect(mocks.serverQueryCollection.mock.calls.map(([, collection]) => collection)).toEqual(['pages', 'docs', 'posts'])
   })
 })

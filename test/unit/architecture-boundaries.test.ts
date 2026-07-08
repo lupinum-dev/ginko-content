@@ -4,6 +4,7 @@ import ts from 'typescript'
 import { describe, expect, test } from 'vitest'
 
 const sourceRoot = 'packages/content/src'
+const publicSurfacePath = 'meta/public-surface.json'
 
 const sourceFiles = async (dir: string): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -62,6 +63,58 @@ const importsRuntimeFramework = (specifier: string) =>
   || specifier.startsWith('@nuxt/')
   || specifier.startsWith('nitropack/')
 
+const readJson = async <T>(path: string): Promise<T> =>
+  JSON.parse(await readFile(path, 'utf8')) as T
+
+const exportedIdentifiers = (source: string, file: string): string[] => {
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+  const identifiers: string[] = []
+  const hasExportModifier = (node: ts.Node) =>
+    ts.canHaveModifiers(node) && (ts.getModifiers(node) ?? []).some(modifier =>
+      modifier.kind === ts.SyntaxKind.ExportKeyword
+    )
+
+  const visit = (node: ts.Node) => {
+    if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
+      for (const element of node.exportClause.elements) {
+        identifiers.push(element.name.text)
+      }
+    } else if (
+      (ts.isFunctionDeclaration(node)
+        || ts.isClassDeclaration(node)
+        || ts.isInterfaceDeclaration(node)
+        || ts.isTypeAliasDeclaration(node))
+      && hasExportModifier(node)
+      && node.name
+    ) {
+      identifiers.push(node.name.text)
+    } else if (ts.isVariableStatement(node) && hasExportModifier(node)) {
+      for (const declaration of node.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name)) identifiers.push(declaration.name.text)
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+
+  visit(ast)
+  return identifiers
+}
+
+type PublicSurface = {
+  packageExportSubpaths: Record<string, PublicSurfaceEntry>
+  clientValueExports: Record<string, PublicSurfaceEntry>
+  clientTypeExports: Record<string, PublicSurfaceEntry>
+  serverValueExports: Record<string, PublicSurfaceEntry>
+  serverTypeExports: Record<string, PublicSurfaceEntry>
+  runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
+}
+
+type PublicSurfaceEntry = {
+  category: string
+  audience: string
+  docs: string
+}
+
 describe('architecture boundaries', () => {
   test('core does not import runtime modules', async () => {
     await expect(importsFrom('core', importsSourceSegment('runtime'))).resolves.toEqual([])
@@ -81,5 +134,32 @@ describe('architecture boundaries', () => {
 
   test('core does not import runtime framework modules', async () => {
     await expect(importsFrom('core', importsRuntimeFramework)).resolves.toEqual([])
+  })
+
+  test('public package surface does not expose CMS admin/editor/workflow/MCP behavior', async () => {
+    const packageJson = await readJson<{ exports?: Record<string, unknown> }>('packages/content/package.json')
+    const publicSurface = await readJson<PublicSurface>(publicSurfacePath)
+    const publicFiles = await sourceFiles(join(sourceRoot, 'public'))
+    const publicSources = await Promise.all(publicFiles.map(async file => ({
+      file: relative(process.cwd(), file),
+      source: await readFile(file, 'utf8'),
+    })))
+
+    const forbidden = /\b(?:mcp|admin|editor|workflow|studio|convex)\b/i
+    const publicIdentifiers = [
+      ...Object.keys(packageJson.exports ?? {}),
+      ...Object.keys(publicSurface.packageExportSubpaths),
+      ...Object.values(publicSurface.packageExportSubpaths).flatMap(entry => [
+        entry.category,
+        entry.audience,
+        entry.docs,
+      ]),
+      ...publicSources.flatMap(({ file, source }) => [
+        file,
+        ...exportedIdentifiers(source, file),
+      ]),
+    ].filter(Boolean)
+
+    expect(publicIdentifiers.filter(identifier => forbidden.test(String(identifier)))).toEqual([])
   })
 })

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
-import { backlinks, one, paginate } from '../packages/content/src/runtime/query/unified'
+import { backlinks, one, paginate } from '../packages/content/src/features/query/unified'
 import { z } from 'zod'
 
 const mocks = vi.hoisted(() => ({
@@ -63,9 +63,9 @@ describe('unified query populate', () => {
       if (params.collection === 'posts') {
         return {
           result: {
-            _id: 'content:posts:hello.md',
-            _path: '/hello',
-            _collection: 'posts',
+            id: 'content:posts:hello.md',
+            path: '/hello',
+            collection: 'posts',
             title: 'Hello',
             authors: ['authors.ada'],
             body: null
@@ -76,9 +76,9 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null
@@ -115,7 +115,7 @@ describe('unified query populate', () => {
     expect(mocks.transport.mock.calls[0]?.[1]).toMatchObject({
       collection: 'posts',
       first: true,
-      only: expect.arrayContaining(['title', 'authors', '_path', '_file', '_canonicalKey', '_locale'])
+      only: expect.arrayContaining(['title', 'authors', 'path', 'file', 'canonicalKey', 'locale'])
     })
     expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
       collection: 'authors',
@@ -129,9 +129,9 @@ describe('unified query populate', () => {
       if (params.collection === 'docs') {
         return {
           result: {
-            _id: 'content:docs:guide.md',
-            _path: '/docs/guide',
-            _collection: 'docs',
+            id: 'content:docs:guide.md',
+            path: '/docs/guide',
+            collection: 'docs',
             title: 'Guide',
             relatedAuthor: 'authors.ada',
             body: null
@@ -142,9 +142,9 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null
@@ -171,7 +171,7 @@ describe('unified query populate', () => {
     expect(mocks.transport.mock.calls[0]?.[1]).toMatchObject({
       collection: 'docs',
       first: true,
-      only: expect.arrayContaining(['title', 'relatedAuthor', '_path', '_file', '_canonicalKey', '_locale'])
+      only: expect.arrayContaining(['title', 'relatedAuthor', 'path', 'file', 'canonicalKey', 'locale'])
     })
     expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
       collection: 'authors',
@@ -185,9 +185,9 @@ describe('unified query populate', () => {
       if (params.collection === 'docs') {
         return {
           result: {
-            _id: 'content:docs:guide.md',
-            _path: '/docs/guide',
-            _collection: 'docs',
+            id: 'content:docs:guide.md',
+            path: '/docs/guide',
+            collection: 'docs',
             title: 'Guide',
             relatedPost: 'posts.hello',
             body: null
@@ -198,9 +198,9 @@ describe('unified query populate', () => {
       if (params.collection === 'posts') {
         return {
           result: {
-            _id: 'content:posts:hello.md',
-            _path: '/hello',
-            _collection: 'posts',
+            id: 'content:posts:hello.md',
+            path: '/hello',
+            collection: 'posts',
             ref: 'posts.hello',
             title: 'Hello',
             authors: [],
@@ -272,13 +272,15 @@ describe('unified query populate', () => {
       if (params.collection === 'localizedPosts') {
         return {
           result: {
-            _id: 'content:localized-posts:krypto.md',
-            _path: '/blog/krypto',
-            _collection: 'localizedPosts',
-            _locale: 'de',
-            _variantPaths: {
-              en: '/blog/crypto',
-              de: '/blog/krypto'
+            id: 'content:localized-posts:krypto.md',
+            path: '/blog/krypto',
+            collection: 'localizedPosts',
+            locale: 'de',
+            resolved: {
+              variantPaths: {
+                en: '/blog/crypto',
+                de: '/blog/krypto'
+              }
             },
             ref: 'posts.krypto',
             title: 'Krypto',
@@ -291,13 +293,15 @@ describe('unified query populate', () => {
       if (params.collection === 'localizedAuthors') {
         return {
           result: {
-            _id: 'content:localized-authors:emily.md',
-            _path: '/autoren/emily',
-            _collection: 'localizedAuthors',
-            _locale: 'de',
-            _variantPaths: {
-              en: '/authors/emily',
-              de: '/autoren/emily'
+            id: 'content:localized-authors:emily.md',
+            path: '/autoren/emily',
+            collection: 'localizedAuthors',
+            locale: 'de',
+            resolved: {
+              variantPaths: {
+                en: '/authors/emily',
+                de: '/autoren/emily'
+              }
             },
             ref: 'authors.emily',
             title: 'Emily DE',
@@ -368,17 +372,17 @@ describe('unified query populate', () => {
       return {
         result: [
           {
-            _id: 'content:posts:two.md',
-            _path: '/two',
-            _collection: 'posts',
+            id: 'content:posts:two.md',
+            path: '/two',
+            collection: 'posts',
             title: 'Two',
             authors: [],
             body: null
           },
           {
-            _id: 'content:posts:three.md',
-            _path: '/three',
-            _collection: 'posts',
+            id: 'content:posts:three.md',
+            path: '/three',
+            collection: 'posts',
             title: 'Three',
             authors: [],
             body: null
@@ -431,17 +435,17 @@ describe('unified query populate', () => {
       })
       return [
         {
-          _id: 'content:posts:two.md',
-          _path: '/two',
-          _collection: 'posts',
+          id: 'content:posts:two.md',
+          path: '/two',
+          collection: 'posts',
           title: 'Two',
           authors: [],
           body: null
         },
         {
-          _id: 'content:posts:three.md',
-          _path: '/three',
-          _collection: 'posts',
+          id: 'content:posts:three.md',
+          path: '/three',
+          collection: 'posts',
           title: 'Three',
           authors: [],
           body: null
@@ -507,10 +511,10 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _canonicalKey: 'authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            canonicalKey: 'authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null
@@ -534,9 +538,9 @@ describe('unified query populate', () => {
         return {
           result: [
             {
-              _id: 'content:posts:hello.md',
-              _path: '/hello',
-              _collection: 'posts',
+              id: 'content:posts:hello.md',
+              path: '/hello',
+              collection: 'posts',
               title: 'Hello',
               authors: ['authors.ada'],
               body: null
@@ -569,9 +573,9 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null
@@ -612,9 +616,9 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null
@@ -666,9 +670,9 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null
@@ -696,10 +700,10 @@ describe('unified query populate', () => {
       if (params.collection === 'authors') {
         return {
           result: {
-            _id: 'content:authors:ada.yml',
-            _path: '/authors/ada',
-            _canonicalKey: 'authors/ada',
-            _collection: 'authors',
+            id: 'content:authors:ada.yml',
+            path: '/authors/ada',
+            canonicalKey: 'authors/ada',
+            collection: 'authors',
             ref: 'authors.ada',
             name: 'Ada',
             body: null

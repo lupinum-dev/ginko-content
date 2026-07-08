@@ -12,6 +12,7 @@ import {
   runtimeAppImportSpecs,
   runtimeServerImportSpecs
 } from '../../packages/content/src/module/runtime-assets'
+import { registerContentComponentsTemplate } from '../../packages/content/src/module/content-components-template'
 
 const kitMocks = vi.hoisted(() => ({
   addImports: vi.fn(),
@@ -104,12 +105,12 @@ describe('runtime asset contracts', () => {
     expect(contentTypeTemplate).toBeDefined()
     const contents = contentTypeTemplate!.getContents()
     for (const name of runtimeServerImportSpecs.map(spec => spec.name)) {
-      expect(contents).toContain(`  const ${name}: typeof import('/runtime/./server').${name}`)
+      expect(contents).toContain(`  const ${name}: typeof import("/runtime/./server").${name}`)
     }
   })
 
   test('generated #content/server declarations are complete and explicit', () => {
-    registerGeneratedTypes('/content.config.ts', path => `/runtime/${path}`)
+    registerGeneratedTypes('/content.config.ts', path => `/runtime/quote'/${path}`)
 
     const contentTypeTemplate = kitMocks.addTypeTemplate.mock.calls
       .map(([template]) => template)
@@ -118,11 +119,42 @@ describe('runtime asset contracts', () => {
     expect(contentTypeTemplate).toBeDefined()
     const contents = contentTypeTemplate!.getContents()
     for (const name of generatedContentServerValueNames) {
-      expect(contents).toContain(`  const ${name}: typeof import('/runtime/./server').${name}`)
+      expect(contents).toContain(`  const ${name}: typeof import("/runtime/quote'/./server").${name}`)
     }
     for (const spec of generatedContentServerTypeSpecs) {
-      expect(contents).toContain(`  type ${spec.local} = import('/runtime/./server').${spec.exported}`)
+      expect(contents).toContain(`  type ${spec.local} = import("/runtime/quote'/./server").${spec.exported}`)
     }
+  })
+
+  test('content component template quotes generated loader keys and import paths', () => {
+    const templates: Array<{ filename: string, getContents: (context: any) => string }> = []
+    registerContentComponentsTemplate((template: any) => {
+      templates.push(template)
+      return template
+    })
+
+    const template = templates.find(item => item.filename === 'content-components.mjs')
+    expect(template).toBeDefined()
+
+    const contents = template!.getContents({
+      nuxt: {
+        options: {
+          buildDir: '/app/.nuxt'
+        }
+      },
+      app: {
+        components: [
+          {
+            pascalName: 'Bad-Key',
+            filePath: "/app/components/content/Bad'Key.vue",
+            global: false
+          }
+        ]
+      }
+    })
+
+    expect(contents).toContain(`  "Bad-Key": () => import("./../components/content/Bad'Key.vue")`)
+    expect(contents).not.toContain('  Bad-Key:')
   })
 
   test('fallback content i18n localePath resolves named routes through Nuxt router', () => {

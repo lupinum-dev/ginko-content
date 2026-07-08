@@ -9,7 +9,7 @@
  *  2. **Inline locale variant id** — YAML/JSON sources can carry locale
  *     overrides inline (`i18n: { de: { title: '…' } }`). We split each
  *     such document into one variant per locale at ingest; the
- *     synthetic variants share a `_id` shape of
+ *     synthetic variants share a `id` shape of
  *     `${sourceId}#__locale=${locale}`. `splitInlineLocaleVariantId`
  *     reverses that for lookups.
  *
@@ -81,6 +81,23 @@ export const buildLocaleFallbackChain = (
   ]))
 }
 
+/** Canonical locale order: default locale first, then configured locale order. */
+export const sortLocalesCanonically = (
+  locales: string[],
+  config: { defaultLocale?: string, locales?: string[] } = {}
+): string[] => {
+  const order = [
+    ...(config.defaultLocale ? [config.defaultLocale] : []),
+    ...(config.locales || [])
+  ]
+  const rank = new Map(order.map((locale, index) => [locale, index]))
+  const inputOrder = new Map(locales.map((locale, index) => [locale, index]))
+  return Array.from(new Set(locales)).sort((left, right) =>
+    (rank.get(left) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right) ?? Number.MAX_SAFE_INTEGER) ||
+    (inputOrder.get(left) ?? Number.MAX_SAFE_INTEGER) - (inputOrder.get(right) ?? Number.MAX_SAFE_INTEGER)
+  )
+}
+
 /**
  * Split an inline-variant id back into `{ sourceId, locale }`. Returns the
  * input unchanged (with `locale: undefined`) when no separator is found.
@@ -118,7 +135,7 @@ export const expandDataLocaleVariants = (
   document: ParsedContent,
   i18nConfig?: ContentCollectionI18nConfig
 ) => {
-  if (!i18nConfig || (document._type !== 'yaml' && document._type !== 'json')) {
+  if (!i18nConfig || (document.type !== 'yaml' && document.type !== 'json')) {
     return [document]
   }
 
@@ -128,8 +145,8 @@ export const expandDataLocaleVariants = (
   }
 
   const { i18n: _removed, ...baseDocument } = document as ParsedContent & { i18n?: Record<string, unknown> }
-  const sourceLocale = document._locale || i18nConfig.defaultLocale
-  const variants: ParsedContent[] = [{ ...baseDocument, _locale: sourceLocale }]
+  const sourceLocale = document.locale || i18nConfig.defaultLocale
+  const variants: ParsedContent[] = [{ ...baseDocument, locale: sourceLocale }]
 
   for (const locale of i18nConfig.locales) {
     if (locale === sourceLocale) {
@@ -138,7 +155,7 @@ export const expandDataLocaleVariants = (
 
     const override = rawI18n[locale]
     if (typeof override !== 'undefined' && !isPlainObject(override)) {
-      console.warn(`[content] Inline i18n override for locale "${locale}" in "${document._id}" must be an object. Skipping invalid override.`)
+      console.warn(`[content] Inline i18n override for locale "${locale}" in "${document.id}" must be an object. Skipping invalid override.`)
       continue
     }
 
@@ -149,8 +166,8 @@ export const expandDataLocaleVariants = (
     const merged = mergeLocaleOverride(baseDocument, override) as ParsedContent
     variants.push({
       ...merged,
-      _id: `${document._id}${INLINE_LOCALE_ID_SEPARATOR}${locale}`,
-      _locale: locale
+      id: `${document.id}${INLINE_LOCALE_ID_SEPARATOR}${locale}`,
+      locale
     })
   }
 

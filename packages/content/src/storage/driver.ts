@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { Storage, StorageValue } from 'unstorage'
-import { sourceStorage, cacheStorage, cacheParsedStorage, contentConfig, contentIgnorePredicate, getContentsIds, resolveStorageId } from '../integrations/nitro/storage'
+import { sourceStorage, cacheStorage, cacheParsedStorage, contentConfig, contentIgnorePredicate, getContentsIds, getSourceContentIds, resolveStorageId } from '../integrations/nitro/storage'
 import { getContentRuntimeContext } from '../integrations/nitro/context'
 
 export interface ContentSourceDriver {
@@ -43,6 +43,7 @@ export {
   contentConfig,
   contentIgnorePredicate,
   getContentsIds,
+  getSourceContentIds,
   resolveStorageId,
   sourceStorage
 }

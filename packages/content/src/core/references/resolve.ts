@@ -235,13 +235,13 @@ export const buildReferenceTargets = (contents: ParsedContent[], locales: string
   const targets = new Map<string, string>()
 
   for (const document of contents) {
-    if (!document || document._partial || document._navigation) {
+    if (!document || document.partial || document.navigationFile) {
       continue
     }
 
-    const fileParts = (document._file || '').replace(/^\/+/, '').split('/').filter(Boolean)
-    const canonicalId = typeof document._canonicalKey === 'string' && document._canonicalKey.length
-      ? document._canonicalKey
+    const fileParts = (document.file?.path || '').replace(/^\/+/, '').split('/').filter(Boolean)
+    const canonicalId = typeof document.canonicalKey === 'string' && document.canonicalKey.length
+      ? document.canonicalKey
       : fileParts.slice(fileParts[0] && locales.includes(fileParts[0]) ? 1 : 0).join('/').replace(/\.[^.]+$/, '')
 
     if (!canonicalId) {
@@ -250,21 +250,17 @@ export const buildReferenceTargets = (contents: ParsedContent[], locales: string
 
     targets.set(canonicalId, canonicalId)
 
-    if (typeof document.id === 'string' && document.id.length) {
-      targets.set(document.id, canonicalId)
-    }
-
     if (typeof document.ref === 'string' && document.ref.length) {
       targets.set(document.ref, canonicalId)
     }
 
-    const normalizedPath = normalizeReferenceValue(String(document._path || ''))
+    const normalizedPath = normalizeReferenceValue(String(document.path || ''))
     if (normalizedPath) {
       targets.set(normalizedPath, canonicalId)
     }
 
-    if (document._locale && normalizedPath) {
-      targets.set(`${document._locale}/${normalizedPath}`, canonicalId)
+    if (document.locale && normalizedPath) {
+      targets.set(`${document.locale}/${normalizedPath}`, canonicalId)
     }
   }
 

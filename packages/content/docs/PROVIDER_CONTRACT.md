@@ -23,6 +23,26 @@ Use this guide when changing provider capabilities, provider return shapes, cach
 - Provider result wrappers must have the provider result marker and exact data/cache shape.
 - Cache hints are normalized through `src/core/cache-hints.ts`.
 
+## Document Normalization Seam
+
+Third-party providers emit only the canonical envelope's required fields and let
+core derive everything else. The required set is:
+
+- `id`, `collection`, `locale`, `path`, `canonicalKey`, `type`, `body` (plus any
+  frontmatter data)
+- `file` is optional and omitted for providers with no backing file (e.g.
+  CMS-backed documents).
+
+`shapeProviderDocument(document, options)` (from `#content/server`) takes that
+minimal document and returns the canonical `ContentPageResult`, deriving the
+localized route `path`, `variants`, `localePaths` and the `resolved` envelope.
+`normalizeProviderDocument(document)` is the same seam without route shaping —
+it fills the derivable identity fields (`id`, `canonicalKey`, `type`) and returns
+the canonical document. Providers should never hand-build route/locale metadata.
+
+`examples/advanced/cms-cache-contract/server/cms-provider.ts` is the reference
+provider tutorial and emits only this minimal set.
+
 ## Public API Impact
 
 Provider changes affect external provider authors. Treat these as public:
@@ -33,6 +53,10 @@ Provider changes affect external provider authors. Treat these as public:
 - `MaybeContentProviderResult`
 - cache hint types.
 - provider error codes.
+- the wire surface mirrored on `./provider`: `ContentProviderQuery`,
+  `ContentProviderNavigationOptions`, `ContentQueryPlan`,
+  `PROVIDER_QUERY_VERSION`, `toContentProviderQuery`,
+  `toContentProviderNavigationQuery`, `withContentCache`.
 
 If these change, update `meta/public-surface.json`, provider docs, generated `#content/server` declarations if needed, and type fixtures.
 

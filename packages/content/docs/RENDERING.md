@@ -41,7 +41,7 @@ Run:
 
 ```bash
 pnpm vitest run test/contracts/render-components-contracts.test.ts test/contracts/use-content-page-contracts.test.ts test/contracts/app-query-contracts.test.ts
-pnpm vitest run test/unit/docs-drift.test.ts test/contracts/runtime-config-contracts.test.ts
+node scripts/docs-drift.mjs && pnpm vitest run test/contracts/runtime-config-contracts.test.ts
 pnpm typecheck:source
 ```
 

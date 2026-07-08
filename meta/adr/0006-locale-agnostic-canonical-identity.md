@@ -76,3 +76,39 @@ Rules:
   change**, not a reorder. Tooling must treat it as a breaking change
   for that document.
 - Authors never see canonical keys, which is the point.
+
+## Addendum (2026-07-08, Phase 3) — the canonical key is public-but-opaque
+
+The original Decision above called canonical keys **"internal only"** and
+the title still reads "internal only". Phase 3 found that claim was already
+false in the shipped code: the canonical key is emitted in public result
+and navigation payloads, and content providers must supply it. This
+addendum supersedes the "internal only" stance without rewriting the
+original decision.
+
+Corrected rules:
+
+- The canonical key is exposed on the document envelope as `canonicalKey`
+  (the Phase 3 rename of the former `_canonicalKey`; the underscore is
+  dropped, the **value is unchanged**). It is a **public** field, and
+  every content provider must emit it.
+- It is **opaque**: consumers must never parse it or render it as a URL.
+  Under translated-slug mode it is a numeric-prefix identity (e.g. `1/1`),
+  not a path; under shared-slug mode it happens to be path-shaped, but
+  that is a coincidence, not a contract. The type carries the note
+  "opaque; never parse or render as a URL." For links, use `page.path`.
+- Its role is unchanged from the original decision: a stable,
+  locale-agnostic **identity join key** shared by every variant of a
+  document — used for language switching, navigation merging, and
+  variant resolution.
+- What stays internal-only is not the key's *value* but the *authoring*
+  side: authors still do not write canonical keys in frontmatter. The
+  author-facing stable alias is `ref` (the former `id` frontmatter alias
+  was retired in Phase 3 — see the Status Log). Human references (path,
+  `ref`) map to the canonical key at the boundary, exactly as before.
+
+There is **no** `canonicalPath` field on the document envelope. (A
+pre-existing field on result/route/nav shapes — once misnamed
+`canonicalPath`, renamed to `unprefixedPath` in T5.7 — is a *different,
+locale-specific* value: "the resolved variant's route path before locale
+prefixing". It was never the canonical key.)

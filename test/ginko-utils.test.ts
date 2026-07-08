@@ -13,7 +13,7 @@ import { buildLocaleFallbackChain, expandDataLocaleVariants, splitInlineLocaleVa
 import { createRouteMeta, localizeNavigation, localizePageResult } from '../packages/content/src/features/localization/results'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { fields } from '../packages/content/src/types/fields'
-import { getCollectionPath } from '../packages/content/src/runtime/query/routes'
+import { getCollectionPath } from '../packages/content/src/features/query/routes'
 
 vi.stubGlobal('__ginkoTestNitroApp', {
   hooks: {
@@ -33,13 +33,13 @@ describe('Ginko metadata helpers', () => {
 
   test('marks .navigation.yml as folder metadata', () => {
     const transformed = pathMeta.transform!(
-      { _id: 'content:guide:.navigation.yml', body: {} as any },
+      { id: 'content:guide:.navigation.yml', body: {} as any },
       { locales: [], defaultLocale: 'en' }
     )
 
-    expect(transformed._navigation).toBe(true)
-    expect(transformed._partial).toBe(true)
-    expect(transformed._path).toBe('/guide')
+    expect(transformed.navigationFile).toBe(true)
+    expect(transformed.partial).toBe(true)
+    expect(transformed.path).toBe('/guide')
   })
 
   test('resolves collections against locale-aware file paths', () => {
@@ -160,18 +160,18 @@ describe('Ginko metadata helpers', () => {
 
   test('derives canonical keys from numeric prefixes in translated slug mode', () => {
     const transformed = pathMeta.transform!(
-      { _id: 'content:de:1.leitfaden:1.erste-schritte.md', body: {} as any },
+      { id: 'content:de:1.leitfaden:1.erste-schritte.md', body: {} as any },
       { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
     )
 
-    expect(transformed._locale).toBe('de')
-    expect(transformed._path).toBe('/leitfaden/erste-schritte')
-    expect(transformed._canonicalKey).toBe('1/1')
+    expect(transformed.locale).toBe('de')
+    expect(transformed.path).toBe('/leitfaden/erste-schritte')
+    expect(transformed.canonicalKey).toBe('1/1')
   })
 
   test('warns when translated slug entries are missing numeric prefixes', () => {
     const transformed = pathMeta.transform!(
-      { _id: 'content:de:leitfaden:1.erste-schritte.md', body: {} as any },
+      { id: 'content:de:leitfaden:1.erste-schritte.md', body: {} as any },
       { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
     )
 
@@ -188,7 +188,7 @@ describe('Ginko metadata helpers', () => {
 
   test('can escalate translated slug warnings to validation errors', () => {
     const transformed = pathMeta.transform!(
-      { _id: 'content:de:leitfaden:1.erste-schritte.md', body: {} as any, _type: 'markdown' } as any,
+      { id: 'content:de:leitfaden:1.erste-schritte.md', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
     )
 
@@ -210,11 +210,11 @@ describe('Ginko metadata helpers', () => {
 
   test('errors on duplicate sibling numeric prefixes in translated slug mode', () => {
     const first = pathMeta.transform!(
-      { _id: 'content:de:1.leitfaden:1.erste-schritte.md', body: {} as any },
+      { id: 'content:de:1.leitfaden:1.erste-schritte.md', body: {} as any },
       { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
     )
     const second = pathMeta.transform!(
-      { _id: 'content:de:1.leitfaden:1.einleitung.md', body: {} as any },
+      { id: 'content:de:1.leitfaden:1.einleitung.md', body: {} as any },
       { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
     )
 
@@ -229,13 +229,13 @@ describe('Ginko metadata helpers', () => {
     ])
   })
 
-  test('requires explicit ids to stay aligned across locale variants', () => {
+  test('allows a ref declared on only one locale variant of a canonical group', () => {
     const english = pathMeta.transform!(
-      { _id: 'content:en:guide:getting-started.md', id: 'docs/intro', body: {} as any },
+      { id: 'content:en:guide:getting-started.md', ref: 'guide-intro', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
     const german = pathMeta.transform!(
-      { _id: 'content:de:guide:getting-started.md', body: {} as any },
+      { id: 'content:de:guide:getting-started.md', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
 
@@ -244,22 +244,16 @@ describe('Ginko metadata helpers', () => {
       translatedSlugs: false,
       collections: {}
     })
-    expect(outcome).toMatchObject({
-      ok: false,
-      error: {
-        code: 'CONFLICTING_REFS',
-        message: expect.stringMatching(/must be declared consistently across locale variants/)
-      }
-    })
+    expect(outcome).toMatchObject({ ok: true })
   })
 
   test('requires refs to stay aligned across locale variants', () => {
     const english = pathMeta.transform!(
-      { _id: 'content:en:guide:getting-started.md', ref: 'guide-getting-started', body: {} as any, _type: 'markdown' } as any,
+      { id: 'content:en:guide:getting-started.md', ref: 'guide-getting-started', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
     const german = pathMeta.transform!(
-      { _id: 'content:de:guide:getting-started.md', ref: 'leitfaden-erste-schritte', body: {} as any, _type: 'markdown' } as any,
+      { id: 'content:de:guide:getting-started.md', ref: 'leitfaden-erste-schritte', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
 
@@ -279,11 +273,11 @@ describe('Ginko metadata helpers', () => {
 
   test('errors on duplicate refs across unrelated markdown documents', () => {
     const first = pathMeta.transform!(
-      { _id: 'content:en:guide:getting-started.md', ref: 'guide-about', body: {} as any, _type: 'markdown' } as any,
+      { id: 'content:en:guide:getting-started.md', ref: 'guide-about', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
     const second = pathMeta.transform!(
-      { _id: 'content:en:blog:about.md', ref: 'guide-about', body: {} as any, _type: 'markdown' } as any,
+      { id: 'content:en:blog:about.md', ref: 'guide-about', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
 
@@ -301,37 +295,13 @@ describe('Ginko metadata helpers', () => {
     })
   })
 
-  test('errors on duplicate explicit ids across unrelated documents', () => {
+  test('rejects duplicate refs in either order before reference targets can overwrite', () => {
     const first = pathMeta.transform!(
-      { _id: 'content:en:guide:getting-started.md', id: 'shared-id', body: {} as any },
+      { id: 'content:en:guide:getting-started.md', ref: 'shared-ref', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
     const second = pathMeta.transform!(
-      { _id: 'content:de:blog:about.md', id: 'shared-id', body: {} as any },
-      { locales: ['en', 'de'], defaultLocale: 'en' }
-    )
-
-    const outcome = validateContentGraph([first, second], {
-      locales: ['en', 'de'],
-      translatedSlugs: false,
-      collections: {}
-    })
-    expect(outcome).toMatchObject({
-      ok: false,
-      error: {
-        code: 'CONFLICTING_REFS',
-        message: expect.stringMatching(/duplicate explicit id "shared-id"/)
-      }
-    })
-  })
-
-  test('rejects duplicate explicit ids in either order before reference targets can overwrite', () => {
-    const first = pathMeta.transform!(
-      { _id: 'content:en:guide:getting-started.md', id: 'shared-id', body: {} as any },
-      { locales: ['en', 'de'], defaultLocale: 'en' }
-    )
-    const second = pathMeta.transform!(
-      { _id: 'content:de:blog:about.md', id: 'shared-id', body: {} as any },
+      { id: 'content:de:blog:about.md', ref: 'shared-ref', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
 
@@ -345,7 +315,7 @@ describe('Ginko metadata helpers', () => {
         ok: false,
         error: {
           code: 'CONFLICTING_REFS',
-          message: expect.stringMatching(/duplicate explicit id "shared-id"/)
+          message: expect.stringMatching(/duplicate ref "shared-ref"/)
         }
       })
     }
@@ -354,14 +324,14 @@ describe('Ginko metadata helpers', () => {
   test('validates strict collection schemas against user fields only', () => {
     const document = pathMeta.transform!(
       {
-        _id: 'content:en:guide:getting-started.md',
-        _type: 'markdown',
+        id: 'content:en:guide:getting-started.md',
+        type: 'markdown',
         body: {},
         title: 'Getting Started'
       } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    document._collection = 'docs'
+    document.collection = 'docs'
 
     const outcome = validateCollectionDocument(document, {
       docs: {
@@ -375,8 +345,8 @@ describe('Ginko metadata helpers', () => {
     expect(outcome).toMatchObject({
       ok: true,
       value: expect.objectContaining({
-        _id: 'content:en:guide:getting-started.md',
-        _path: '/guide/getting-started',
+        id: 'content:en:guide:getting-started.md',
+        path: '/guide/getting-started',
         title: 'Getting Started'
       })
     })
@@ -385,14 +355,14 @@ describe('Ginko metadata helpers', () => {
   test('still fails strict schema validation for invalid user fields', () => {
     const document = pathMeta.transform!(
       {
-        _id: 'content:en:guide:getting-started.md',
-        _type: 'markdown',
+        id: 'content:en:guide:getting-started.md',
+        type: 'markdown',
         body: {},
         title: 123
       } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    document._collection = 'docs'
+    document.collection = 'docs'
 
     const outcome = validateCollectionDocument(document, {
       docs: {
@@ -415,8 +385,8 @@ describe('Ginko metadata helpers', () => {
   test('fails strict schema validation for missing nested required fields', () => {
     const document = pathMeta.transform!(
       {
-        _id: 'content:en:pricing.yml',
-        _type: 'yaml',
+        id: 'content:en:pricing.yml',
+        type: 'yaml',
         body: null,
         plans: [
           {
@@ -430,7 +400,7 @@ describe('Ginko metadata helpers', () => {
       } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    document._collection = 'pricing'
+    document.collection = 'pricing'
 
     const outcome = validateCollectionDocument(document, {
       pricing: {
@@ -499,16 +469,16 @@ describe('Ginko metadata helpers', () => {
 
   test('scopes schema references to the declared target collection', () => {
     const author = pathMeta.transform!(
-      { _id: 'content:authors:evan.yml', _type: 'yaml', body: null, id: 'evan' } as any,
+      { id: 'content:authors:evan.yml', type: 'yaml', body: null, ref: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    author._collection = 'authors'
+    author.collection = 'authors'
 
     const post = pathMeta.transform!(
-      { _id: 'content:posts:hello.md', _type: 'markdown', body: {}, author: 'evan' } as any,
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    post._collection = 'posts'
+    post.collection = 'posts'
 
     const outcome = validateContentGraph([author, post], {
       locales: ['en'],
@@ -547,16 +517,16 @@ describe('Ginko metadata helpers', () => {
 
   test('rejects schema references that resolve in the wrong collection', () => {
     const relatedPost = pathMeta.transform!(
-      { _id: 'content:posts:related.md', _type: 'markdown', body: {}, id: 'evan' } as any,
+      { id: 'content:posts:related.md', type: 'markdown', body: {}, ref: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    relatedPost._collection = 'posts'
+    relatedPost.collection = 'posts'
 
     const article = pathMeta.transform!(
-      { _id: 'content:posts:hello.md', _type: 'markdown', body: {}, author: 'evan' } as any,
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    article._collection = 'posts'
+    article.collection = 'posts'
 
     const outcome = validateContentGraph([relatedPost, article], {
       locales: ['en'],
@@ -585,16 +555,16 @@ describe('Ginko metadata helpers', () => {
 
   test('validates derived reference metadata without live collection schemas', () => {
     const relatedPost = pathMeta.transform!(
-      { _id: 'content:posts:related.md', _type: 'markdown', body: {}, id: 'evan' } as any,
+      { id: 'content:posts:related.md', type: 'markdown', body: {}, ref: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    relatedPost._collection = 'posts'
+    relatedPost.collection = 'posts'
 
     const article = pathMeta.transform!(
-      { _id: 'content:posts:hello.md', _type: 'markdown', body: {}, author: 'evan' } as any,
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    article._collection = 'posts'
+    article.collection = 'posts'
 
     const outcome = validateContentGraph([relatedPost, article], {
       locales: ['en'],
@@ -623,16 +593,16 @@ describe('Ginko metadata helpers', () => {
 
   test('allows unscoped schema references to resolve across collections', () => {
     const author = pathMeta.transform!(
-      { _id: 'content:authors:evan.yml', _type: 'yaml', body: null, id: 'evan' } as any,
+      { id: 'content:authors:evan.yml', type: 'yaml', body: null, ref: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    author._collection = 'authors'
+    author.collection = 'authors'
 
     const post = pathMeta.transform!(
-      { _id: 'content:posts:hello.md', _type: 'markdown', body: {}, author: 'evan' } as any,
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
       { locales: ['en'], defaultLocale: 'en' }
     )
-    post._collection = 'posts'
+    post.collection = 'posts'
 
     const outcome = validateContentGraph([author, post], {
       locales: ['en'],
@@ -866,7 +836,7 @@ describe('Ginko metadata helpers', () => {
 
   test('indexes explicit refs alongside canonical ids and paths', () => {
     const document = pathMeta.transform!(
-      { _id: 'content:en:guide:getting-started.md', ref: 'guide-getting-started', body: {} as any, _type: 'markdown' } as any,
+      { id: 'content:en:guide:getting-started.md', ref: 'guide-getting-started', body: {} as any, type: 'markdown' } as any,
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
 
@@ -877,13 +847,13 @@ describe('Ginko metadata helpers', () => {
 
   test('expands inline data locale variants with deep object merge and array replacement', () => {
     const variants = expandDataLocaleVariants({
-      _id: 'content:authors:evan.yml',
-      _path: '/authors/evan',
-      _file: 'authors/evan.yml',
-      _collection: 'authors',
-      _type: 'yaml',
-      _locale: 'en',
-      _canonicalKey: 'authors/evan',
+      id: 'content:authors:evan.yml',
+      path: '/authors/evan',
+      file: { path: 'authors/evan.yml' },
+      collection: 'authors',
+      type: 'yaml',
+      locale: 'en',
+      canonicalKey: 'authors/evan',
       body: null,
       name: 'Evan You',
       profile: {
@@ -904,8 +874,8 @@ describe('Ginko metadata helpers', () => {
 
     expect(variants).toHaveLength(2)
     expect(variants[1]).toMatchObject({
-      _id: 'content:authors:evan.yml#__locale=de',
-      _locale: 'de',
+      id: 'content:authors:evan.yml#__locale=de',
+      locale: 'de',
       profile: {
         focus: 'DX',
         labels: ['de']
@@ -915,9 +885,9 @@ describe('Ginko metadata helpers', () => {
 
   test('keeps data documents unchanged when inline i18n is empty or locale override matches source locale', () => {
     expect(expandDataLocaleVariants({
-      _id: 'content:authors:evan.yml',
-      _type: 'yaml',
-      _locale: 'en',
+      id: 'content:authors:evan.yml',
+      type: 'yaml',
+      locale: 'en',
       body: null,
       i18n: {}
     } as any, {
@@ -926,8 +896,8 @@ describe('Ginko metadata helpers', () => {
     })).toHaveLength(1)
 
     expect(expandDataLocaleVariants({
-      _id: 'content:authors:evan.yml',
-      _type: 'json',
+      id: 'content:authors:evan.yml',
+      type: 'json',
       body: null,
       i18n: {
         en: {
@@ -942,8 +912,8 @@ describe('Ginko metadata helpers', () => {
 
   test('expands data variants even when the source document has no explicit locale', () => {
     const variants = expandDataLocaleVariants({
-      _id: 'content:authors:evan.yml',
-      _type: 'json',
+      id: 'content:authors:evan.yml',
+      type: 'json',
       body: null,
       name: 'Evan You',
       i18n: {
@@ -956,15 +926,15 @@ describe('Ginko metadata helpers', () => {
       locales: ['en', 'de']
     })
 
-    expect(variants.map(variant => variant._locale)).toEqual(['en', 'de'])
+    expect(variants.map(variant => variant.locale)).toEqual(['en', 'de'])
   })
 
   test('warns and skips non-object inline locale overrides', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const variants = expandDataLocaleVariants({
-      _id: 'content:authors:evan.yml',
-      _type: 'yaml',
-      _locale: 'en',
+      id: 'content:authors:evan.yml',
+      type: 'yaml',
+      locale: 'en',
       body: null,
       i18n: {
         de: 'not-an-object'
@@ -980,18 +950,18 @@ describe('Ginko metadata helpers', () => {
 
   test('errors when inline and file-based locale variants collide on the same canonical locale', () => {
     const inlineDefault = pathMeta.transform!(
-      { _id: 'content:authors:evan.yml', body: null, _type: 'yaml' as const },
+      { id: 'content:authors:evan.yml', body: null, type: 'yaml' as const },
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
     const fileVariant = pathMeta.transform!(
-      { _id: 'content:de:authors:evan.yml', body: null, _type: 'yaml' as const },
+      { id: 'content:de:authors:evan.yml', body: null, type: 'yaml' as const },
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
 
     const inlineGerman = {
       ...inlineDefault,
-      _id: 'content:authors:evan.yml#__locale=de',
-      _locale: 'de'
+      id: 'content:authors:evan.yml#__locale=de',
+      locale: 'de'
     }
 
     const outcome = validateContentGraph([inlineDefault, inlineGerman, fileVariant], {
@@ -1010,29 +980,30 @@ describe('Ginko metadata helpers', () => {
 
   test('indexes data variants in canonical space but not through localized routes', () => {
     const english = pathMeta.transform!(
-      { _id: 'content:authors:evan.yml', body: null, _type: 'yaml' as const },
+      { id: 'content:authors:evan.yml', body: null, type: 'yaml' as const },
       { locales: ['en', 'de'], defaultLocale: 'en' }
     )
     const german = {
       ...english,
-      _id: 'content:authors:evan.yml#__locale=de',
-      _locale: 'de'
+      id: 'content:authors:evan.yml#__locale=de',
+      locale: 'de'
     }
 
-    expect(english._canonicalKey).toBe('/authors/evan')
-    expect(german._canonicalKey).toBe('/authors/evan')
-    expect(english._path).toBe('/authors/evan')
+    expect(english.canonicalKey).toBe('/authors/evan')
+    expect(german.canonicalKey).toBe('/authors/evan')
+    expect(english.path).toBe('/authors/evan')
   })
 
   test('localizes page links while leaving the page body immutable for render-time localization', () => {
     const page = {
-      _path: '/demarrage',
-      _file: 'fr/1.demarrage.md',
-      _extension: 'md',
-      _resolvedLocale: 'fr',
-      _variantPaths: {
-        en: '/getting-started',
-        fr: '/demarrage'
+      path: '/demarrage',
+      file: { path: 'fr/1.demarrage.md', extension: 'md' },
+      resolved: {
+        locale: 'fr',
+        variantPaths: {
+          en: '/getting-started',
+          fr: '/demarrage'
+        }
       },
       links: [
         { to: '/demarrage/installation' }
@@ -1078,17 +1049,18 @@ describe('Ginko metadata helpers', () => {
 
   test('exposes public resolution metadata for locale fallback results', () => {
     const localized = localizePageResult({
-      _path: '/docs/essentials/fallback-lab',
-      _file: 'en/1.docs/2.essentials/5.fallback-lab.md',
-      _extension: 'md',
-      _locale: 'en',
-      _requestedLocale: 'de',
-      _resolvedLocale: 'en',
-      _fallback: true,
-      _requestedRoute: '/de/dokumentation/essentials/fallback-lab',
-      _availableLocales: ['en'],
-      _variantPaths: {
-        en: '/docs/essentials/fallback-lab'
+      path: '/docs/essentials/fallback-lab',
+      file: { path: 'en/1.docs/2.essentials/5.fallback-lab.md', extension: 'md' },
+      locale: 'en',
+      resolved: {
+        requestedLocale: 'de',
+        locale: 'en',
+        fallback: true,
+        requestedRoute: '/de/dokumentation/essentials/fallback-lab',
+        availableLocales: ['en'],
+        variantPaths: {
+          en: '/docs/essentials/fallback-lab'
+        }
       },
       body: null
     } as any, 'de', 'en', ['en', 'de'])
@@ -1107,29 +1079,31 @@ describe('Ginko metadata helpers', () => {
 
   test('creates route metadata and localized navigation ready for rendering', () => {
     const meta = createRouteMeta({
-      _path: '/demarrage',
-      _resolvedLocale: 'fr',
-      _variantPaths: {
-        en: '/getting-started',
-        fr: '/demarrage'
+      path: '/demarrage',
+      resolved: {
+        locale: 'fr',
+        variantPaths: {
+          en: '/getting-started',
+          fr: '/demarrage'
+        }
       }
     } as any, 'fr', 'en')
 
     expect(meta).toMatchObject({
       path: '/fr/demarrage',
-      canonicalPath: '/demarrage',
+      unprefixedPath: '/demarrage',
       locale: 'fr',
       defaultLocale: 'en',
       variants: [
         {
           locale: 'en',
           path: '/getting-started',
-          canonicalPath: '/getting-started'
+          unprefixedPath: '/getting-started'
         },
         {
           locale: 'fr',
           path: '/fr/demarrage',
-          canonicalPath: '/demarrage'
+          unprefixedPath: '/demarrage'
         }
       ],
       localePaths: {
@@ -1148,13 +1122,12 @@ describe('Ginko metadata helpers', () => {
     expect(localizeNavigation([
       {
         title: 'Demarrage',
-        _path: '/demarrage',
         path: '/demarrage'
       }
     ], 'fr', 'en', ['en', 'fr'])).toEqual([
       expect.objectContaining({
         path: '/fr/demarrage',
-        canonicalPath: '/demarrage'
+        unprefixedPath: '/demarrage'
       })
     ])
   })

@@ -5,7 +5,7 @@ const HEADING = /^h([1-6])$/
 
 const headingLevel = (tag: string) => Number(tag.match(HEADING)?.[1] ?? 0)
 
-type SearchablePage = Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>
+type SearchablePage = Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
 /**
  * Backing option type for search-section generation.
@@ -57,7 +57,7 @@ function splitPageIntoSections (
     maxLevel: number
   }
 ) {
-  const path = page._path || ''
+  const path = page.path || ''
   const extraFieldsData = pick(extraFields, page)
   const body = page.body
 

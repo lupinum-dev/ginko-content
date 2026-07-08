@@ -10,7 +10,7 @@ export const contentModuleDefaults = {
   search: {
     engine: 'minisearch',
     ignoredTags: ['script', 'style', 'pre'],
-    filterQuery: { _draft: false, _partial: false },
+    filterQuery: { draft: false, partial: false },
     extraFields: [],
     minisearch: {
       fields: [...defaultMiniSearchOptions.fields],

@@ -9,7 +9,7 @@ const packageRoot = resolve(repoRoot, 'packages/content')
 
 const nodeImportableSubpaths = [
   '@lupinum/ginko-content/config',
-  '@lupinum/ginko-content/toc',
+  '@lupinum/ginko-content/provider',
   '@lupinum/ginko-content/transformers',
   '@lupinum/ginko-content/cms-contract',
   '@lupinum/ginko-content/cms-import',
@@ -28,6 +28,7 @@ const expectedDeclarations = [
   'dist/public/client.d.ts',
   'dist/public/server.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
+  'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
   'dist/cms-contract/index.d.ts',
   'dist/cms-import/index.d.ts',
@@ -202,6 +203,7 @@ async function main() {
     mkdirSync(resolve(appDir, 'content'), { recursive: true })
     mkdirSync(resolve(appDir, 'pages'), { recursive: true })
     mkdirSync(resolve(appDir, 'server/api'), { recursive: true })
+    mkdirSync(resolve(appDir, 'server/plugins'), { recursive: true })
     mkdirSync(resolve(appDir, 'scripts'), { recursive: true })
 
     writeFile(resolve(appDir, 'nuxt.config.ts'), `
@@ -256,13 +258,24 @@ async function main() {
     `)
 
     writeFile(resolve(appDir, 'content/index.md'), `
-      ---
-      title: Package Consumer Page
-      ---
+---
+title: Package Consumer Page
+---
 
-      # Package Consumer Page
+# Package Consumer Page
 
-      The packed package rendered this page.
+The packed package rendered this page.
+
+::packed-sentinel
+::
+    `)
+
+    writeFile(resolve(appDir, 'server/plugins/register-serializer.ts'), `
+      import { registerAgentMarkdownSerializer } from '@lupinum/ginko-content/agent'
+
+      export default defineNitroPlugin(() => {
+        registerAgentMarkdownSerializer('packed-sentinel', () => 'PACKED_SERIALIZER_SENTINEL')
+      })
     `)
 
     writeFile(resolve(appDir, 'pages/index.vue'), `
@@ -280,8 +293,7 @@ async function main() {
 
     writeFile(resolve(appDir, 'pages/import-smoke.vue'), `
       <script setup lang="ts">
-      import { one, useContentPage, useContentSearchResults } from '@lupinum/ginko-content/client'
-      import { extractContentToc, useContentToc } from '@lupinum/ginko-content/toc'
+      import { one, useContentPage, useContentSearchResults, extractContentToc, useContentToc } from '@lupinum/ginko-content/client'
 
       void [one, useContentPage, useContentSearchResults, extractContentToc, useContentToc]
       </script>
@@ -295,12 +307,12 @@ async function main() {
 
     writeFile(resolve(appDir, 'server/api/import-smoke.get.ts'), `
       import { one, many } from '@lupinum/ginko-content/server'
-      import { extractContentToc } from '@lupinum/ginko-content/toc'
+      import { agentMarkdownPathForRoute } from '@lupinum/ginko-content/agent'
 
       export default defineEventHandler(() => ({
         server: typeof one,
         many: typeof many,
-        toc: extractContentToc('## Import Smoke').links[0]?.text
+        agentPath: agentMarkdownPathForRoute('/import-smoke')
       }))
     `)
 
@@ -351,7 +363,8 @@ async function main() {
 
     const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
     const importSmokeBody = await importSmokeResponse.text()
-    if (!importSmokeResponse.ok || !importSmokeBody.includes('Import Smoke')) {
+    // Asserts the /agent subpath function actually computed (not just imported).
+    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentPath":"/import-smoke/index.md"')) {
       throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
     }
 
@@ -371,7 +384,7 @@ async function main() {
     }
     const llms = readFileSync(llmsPath, 'utf8')
     const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
-    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
+    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page') || !rawMarkdown.includes('PACKED_SERIALIZER_SENTINEL')) {
       throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 

@@ -42,8 +42,10 @@ describe('runtime API provider boundary', () => {
     await expect(handler(event)).resolves.toMatchObject({
       result: {
         title: 'Fallback Lab',
-        _resolvedLocale: 'en',
-        _fallback: true
+        resolved: {
+          locale: 'en',
+          fallback: true
+        }
       }
     })
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
@@ -78,10 +80,11 @@ describe('runtime API provider boundary', () => {
       limit: 10,
       total: 1
     })
-    expect(query).toHaveBeenCalledWith(event, {
+    expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
+      v: 1,
       collection: 'docs',
-      limit: 10
-    })
+      plan: expect.objectContaining({ collection: 'docs', limit: 10 })
+    }))
   })
 
   test('query API rejects malformed provider responses at the handler boundary', async () => {
@@ -123,9 +126,10 @@ describe('runtime API provider boundary', () => {
 
     await expect(handler(event)).resolves.toEqual([])
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
-    expect(navigationQuery).toHaveBeenCalledWith(event, {
-      collection: 'docs',
-      resolveLocale: { locale: 'de' }
-    })
+    expect(navigationQuery).toHaveBeenCalledWith(
+      event,
+      expect.objectContaining({ v: 1, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
+      expect.objectContaining({ resolveLocale: { locale: 'de' } })
+    )
   })
 })

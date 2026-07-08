@@ -1,20 +1,62 @@
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ContentCollectionMap } from '@lupinum/ginko-content'
-import type { ParsedContent } from '../../types/content'
+import type { ContentDocumentResolution, ParsedContent } from '../../types/content'
 import type { ContentQueryCountResponse, ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type {
   CollectionQueryBuilder,
+  ContentCollectionMap,
   ContentQueryBuilderParams,
   ContentQueryRequest,
   ResolveContentReferenceOptions
 } from '../../types/query'
 import { createQuery, wrapQueryBuilder } from '../../core/query/builder'
 import { normalizeContentQueryParams } from '../../core/query/params'
+import { containsStandaloneRegexOptions, findUnsupportedQueryOperator } from '../../core/query/operators'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
+import { sortLocalesCanonically } from '../../core/content/locale'
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { getContentRuntimeConfig } from './runtime-config'
 import { createContentProviderError } from '../../public/provider-errors'
+import { toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
+
+export { toContentProviderNavigationQuery as createProviderNavigationQuery } from '../../public/provider-query'
+
+/**
+ * Build the provider wire query (CS-5) from builder params: reject
+ * globally-invalid operators and malformed `$options` up front (so callers see
+ * a clean typed error rather than a raw lowering `TypeError`), apply the shared
+ * content-query normalization (default sort, locale injection, `fallback: true`
+ * → chain expansion), then lower to a JSON-pure `ContentQueryPlan`.
+ *
+ * This is the single builder-params → plan seam before the provider boundary.
+ * Provider-specific policy (draft hiding, limit clamps, regex rejection) lives
+ * inside each provider, applied to the plan it receives.
+ */
+export const createProviderQuery = (params: ContentQueryBuilderParams): ContentProviderQuery => {
+  const unsupported = findUnsupportedQueryOperator(params.where)
+  if (unsupported) {
+    throw createContentProviderError('unsupported_query_operator', `Unsupported query operator: ${unsupported}`, {
+      operator: unsupported
+    })
+  }
+
+  if (containsStandaloneRegexOptions(params.where)) {
+    throw createContentProviderError('unsupported_query_shape', 'Query operator $options requires $regex.', {
+      operator: '$options'
+    })
+  }
+
+  const config = getContentRuntimeConfig().content || {}
+  const normalized = normalizeContentQueryParams(params, {
+    collectionI18n: params.collection ? config.collections?.[params.collection]?.i18n : undefined,
+    defaultLocale: config.defaultLocale,
+    localeFallback: config.localeFallback,
+    includeDraftFilter: false
+  })
+
+  return toContentProviderQuery(normalized)
+}
+
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -103,7 +145,7 @@ const identityMatchesDocument = (document: ParsedContent, identity: string) => {
     return false
   }
 
-  return [document._canonicalKey, document._path, document.ref]
+  return [document.canonicalKey, document.path, document.ref]
     .filter((value): value is string => typeof value === 'string')
     .some(value => normalizeReferenceValue(value) === normalizedIdentity)
 }
@@ -138,38 +180,37 @@ export const resolveProviderContentVariants = async (
   const provider = await getContentProvider(event)
   const baseQuery = {
     collection: options.collection,
-    only: ['_path', '_canonicalKey', '_locale', 'ref', 'title', 'description', 'body'],
+    only: ['path', 'canonicalKey', 'locale', 'ref', 'title', 'description', 'body'],
   }
   const documents = localesToQuery.length
     ? (
         await Promise.all(
-          localesToQuery.map(async (locale) =>
-            normalizeProviderQueryResult(
-              normalizeProviderQueryResponse<ParsedContent>({
-                ...baseQuery,
-                resolveLocale: { locale, exact: true },
-              }, await provider.query<ParsedContent>(event, {
-                ...baseQuery,
-                resolveLocale: { locale, exact: true },
-              }), provider.name),
-            ),
-          ),
+          localesToQuery.map(async (locale) => {
+            const localeQuery = { ...baseQuery, resolveLocale: { locale, exact: true } }
+            return normalizeProviderQueryResult(
+              normalizeProviderQueryResponse<ParsedContent>(
+                localeQuery,
+                await provider.query<ParsedContent>(event, createProviderQuery(localeQuery)),
+                provider.name,
+              ),
+            )
+          }),
         )
       ).flat()
-    : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, baseQuery), provider.name))
+    : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, createProviderQuery(baseQuery)), provider.name))
   const matched = documents.find(document => identityMatchesDocument(document, normalizedReference))
-  const canonicalKey = matched?._canonicalKey
+  const canonicalKey = matched?.canonicalKey
   if (!canonicalKey) {
     return null
   }
 
-  const variants = documents.filter(document => document._canonicalKey === canonicalKey)
+  const variants = documents.filter(document => document.canonicalKey === canonicalKey)
   if (!variants.length) {
     return null
   }
 
   const selectByLocale = (locale?: string) =>
-    locale ? variants.find(document => document._locale === locale) : undefined
+    locale ? variants.find(document => document.locale === locale) : undefined
   const selected =
     selectByLocale(options.locale) ||
     (!options.exact ? fallbackLocales.map(selectByLocale).find(Boolean) : undefined) ||
@@ -180,11 +221,21 @@ export const resolveProviderContentVariants = async (
     return null
   }
 
-  const availableLocales = Array.from(new Set(variants.map(document => document._locale).filter(Boolean))) as string[]
+  // The provider path collects variants in `localesToQuery` order
+  // (`[requestedLocale, ...fallbacks, ...configLocales]`), which differs per
+  // requested locale. Canonicalize so `availableLocales` is identical on every
+  // path regardless of which locale was requested.
+  const availableLocales = sortLocalesCanonically(
+    Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[],
+    {
+      defaultLocale: collectionI18n?.defaultLocale || runtimeContent.defaultLocale,
+      locales: collectionI18n?.locales
+    }
+  )
   const variantPaths = Object.fromEntries(
     variants
-      .filter(document => document._locale && document._path)
-      .map(document => [document._locale!, document._path!]),
+      .filter(document => document.locale && document.path)
+      .map(document => [document.locale!, document.path!]),
   )
 
   return {
@@ -194,8 +245,8 @@ export const resolveProviderContentVariants = async (
     availableLocales,
     variantPaths,
     requestedLocale: options.locale,
-    resolvedLocale: selected._locale,
-    fallback: Boolean(options.locale && selected._locale && selected._locale !== options.locale)
+    resolvedLocale: selected.locale,
+    fallback: Boolean(options.locale && selected.locale && selected.locale !== options.locale)
   }
 }
 
@@ -203,8 +254,9 @@ export const createServerProviderQueryFetch = <T = ParsedContent>(event: H3Event
   return async (query: ContentQueryRequest) => {
     const { getContentProvider } = await import('./providers')
     const provider = await getContentProvider(event)
-    const response = await provider.query<T>(event, query.params())
-    return normalizeProviderQueryResponse<T>(query.params(), response, provider.name)
+    const params = query.params()
+    const response = await provider.query<T>(event, createProviderQuery(params))
+    return normalizeProviderQueryResponse<T>(params, response, provider.name)
   }
 }
 
@@ -262,13 +314,7 @@ export const resolveContentReference = async <T = ParsedContent>(
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & {
-  _requestedLocale?: string
-  _resolvedLocale?: string
-  _fallback?: boolean
-  _availableLocales?: string[]
-  _variantPaths?: Record<string, string>
-}) | null> => {
+): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
   const resolved = await resolveProviderContentVariants(event, reference, options)
   if (!resolved) {
     return null
@@ -276,10 +322,13 @@ export const resolveContentReference = async <T = ParsedContent>(
 
   return {
     ...(resolved.selected as T),
-    _requestedLocale: resolved.requestedLocale,
-    _resolvedLocale: resolved.resolvedLocale,
-    _fallback: resolved.fallback,
-    _availableLocales: resolved.availableLocales,
-    _variantPaths: resolved.variantPaths,
+    resolved: {
+      ...((resolved.selected as ParsedContent).resolved || {}),
+      requestedLocale: resolved.requestedLocale,
+      locale: resolved.resolvedLocale,
+      fallback: resolved.fallback,
+      availableLocales: resolved.availableLocales,
+      variantPaths: resolved.variantPaths,
+    }
   }
 }

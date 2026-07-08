@@ -15,9 +15,8 @@ export {
   neighbors
 } from '../runtime/app/composables/query-api.js'
 
-export { getCollectionPath } from '../runtime/query/routes.js'
-export type { CollectionPathOptions } from '../runtime/query/routes.js'
-export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../runtime/agent-paths.js'
+export { getCollectionPath } from '../features/query/routes.js'
+export type { CollectionPathOptions } from '../features/query/routes.js'
 export { useContentHead } from '../runtime/app/composables/head.js'
 
 export {

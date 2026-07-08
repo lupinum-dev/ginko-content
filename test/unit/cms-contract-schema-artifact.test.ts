@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z, type ZodType } from 'zod'
 
 import {
@@ -388,5 +388,124 @@ describe('CMS schema artifact guard', () => {
       }),
       'ZodCatch',
     )
+  })
+})
+
+describe('CMS contract structural type resolution', () => {
+  let warn: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+  })
+
+  it('honors an explicit cms.type without warning', () => {
+    const contract = buildCmsContract(
+      {
+        collections: {
+          docs: { type: 'page', source: 'content/docs/**/*.md', cms: { type: 'tree' } },
+        },
+      },
+      options,
+    )
+
+    expect(contract.collections.docs?.type).toBe('tree')
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('defaults to flat and warns when cms.type is absent — no docs/rootSlug heuristic', () => {
+    const contract = buildCmsContract(
+      {
+        collections: {
+          // Previously classified `tree` by the `slug === 'docs'` heuristic.
+          docs: { type: 'page', source: 'content/docs/**/*.md' },
+          // Previously classified `tree` by the sibling `cms.route.rootSlug` check.
+          guide: { type: 'page', source: 'content/guide/**/*.md', cms: { route: { rootSlug: 'intro' } } },
+        },
+      },
+      options,
+    )
+
+    expect(contract.collections.docs?.type).toBe('flat')
+    expect(contract.collections.guide?.type).toBe('flat')
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn.mock.calls[0]?.[0]).toContain('has no explicit `cms.type`')
+    expect(warn.mock.calls[0]?.[0]).toContain('docs')
+  })
+})
+
+describe('CMS contract editor passthrough', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('forwards the field `editor` bag byte-for-byte through buildCmsContract', () => {
+    const editor = {
+      width: 'half',
+      order: 7,
+      hidden: true,
+      condition: { field: 'status', equals: 'published' },
+      // Arbitrary CMS-owned keys ginko-content must not type or interpret.
+      colSpan: 2,
+      group: 'meta',
+      nested: { a: [1, 2, 3], b: { c: 'x' } },
+    }
+
+    const contract = buildCmsContract(
+      {
+        collections: {
+          posts: {
+            type: 'data',
+            source: 'content/posts/*.json',
+            cms: {
+              type: 'flat',
+              fields: {
+                title: { editor },
+              },
+            },
+            schema: z.object({ title: z.string() }),
+          },
+        },
+      },
+      options,
+    )
+
+    const titleField = (contract.collections.posts?.fields ?? []).find(field => field.key === 'title')
+
+    expect(titleField?.editor).toEqual(editor)
+    // Byte-for-byte: identical serialization, no reshaping or key reordering.
+    expect(JSON.stringify(titleField?.editor)).toBe(JSON.stringify(editor))
+  })
+
+  it('omits `editor` on fields whose config supplied none', () => {
+    const contract = buildCmsContract(
+      {
+        collections: {
+          posts: {
+            type: 'data',
+            source: 'content/posts/*.json',
+            cms: { type: 'flat' },
+            schema: z.object({ title: z.string(), body: z.string().optional() }),
+          },
+        },
+      },
+      options,
+    )
+
+    for (const field of contract.collections.posts?.fields ?? []) {
+      expect(field).not.toHaveProperty('editor')
+      // The de-CMS'd layout fields are gone from the contract shape entirely.
+      expect(field).not.toHaveProperty('width')
+      expect(field).not.toHaveProperty('order')
+      expect(field).not.toHaveProperty('hidden')
+      expect(field).not.toHaveProperty('condition')
+    }
   })
 })

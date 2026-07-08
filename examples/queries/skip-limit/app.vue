@@ -21,7 +21,7 @@ const { data } = await useContentMany(posts, {
     <section>
       <h2>Results: </h2>
       <ul>
-        <li v-for="{_path, title} in data" :key="_path">
+        <li v-for="{path, title} in data" :key="path">
           {{ title }}
         </li>
       </ul>

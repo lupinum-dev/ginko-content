@@ -13,6 +13,7 @@ import type {
   NeighborsOptions,
   NeighborsResult,
   OneOptions,
+  OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
@@ -36,7 +37,7 @@ import {
   tree as treeWithContext,
   variants as variantsWithContext,
   type ContentQueryContext
-} from '../../query/unified'
+} from '../../../features/query/unified'
 
 export const createClientContentQueryContext = (): ContentQueryContext => {
   const runtime = getContentRuntime()
@@ -75,8 +76,9 @@ export async function many<
   O extends ManyOptions<H, PopulateSpec | undefined>
 >(
   handle: H,
-  options: O & ManyOptions<H, PopulateSpec | undefined> = {} as O & ManyOptions<H, PopulateSpec | undefined>
+  ...args: OptionsArg<H, O & ManyOptions<H, PopulateSpec | undefined>>
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
+  const options = (args[0] ?? {}) as O & ManyOptions<H, PopulateSpec | undefined>
   return await manyWithContext(createClientContentQueryContext(), handle, options)
 }
 
@@ -113,8 +115,9 @@ export async function tree<
   Fields extends ReadonlyArray<string> | undefined = undefined
 >(
   handle: H,
-  options: Omit<TreeOptions<H>, 'fields'> & { fields?: Fields } = {} as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
+  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
 ): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
+  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
   return await treeWithContext(createClientContentQueryContext(), handle, options)
 }
 

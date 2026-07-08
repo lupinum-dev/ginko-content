@@ -38,18 +38,18 @@ function getTransformers (ext: string, additionalTransformers: ContentTransforme
 export async function transformContent (id: string, content: StorageValue, options: TransformContentOptions = {}): Promise<ParsedContent> {
   const { transformers = [] } = options
   // Call hook before parsing the file
-  const file = { _id: id, body: content }
+  const file = { id: id, body: content }
 
   const ext = extname(id)
   const parser = getParser(ext, transformers)
   if (!parser) {
      
     console.warn(`${ext} files are not supported, "${id}" storing body as null`)
-    return { _id: file._id, body: null }
+    return { id: file.id, body: null, missing: true } as ParsedContent
   }
 
   const parserOptions = options[camelCase(parser.name)] || {}
-  const parsed = await parser.parse!(file._id, file.body, parserOptions)
+  const parsed = await parser.parse!(file.id, file.body, parserOptions)
 
   const matchedTransformers = getTransformers(ext, transformers)
   const result = await matchedTransformers.reduce(async (prev, cur) => {

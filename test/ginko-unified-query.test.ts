@@ -12,7 +12,7 @@ import { normalizeContentQueryParams } from '../packages/content/src/core/query/
 import { buildContentGraph } from '../packages/content/src/core/content/graph'
 import { executeQueryPlan } from '../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../packages/content/src/core/query/lower'
-import { navigationSelectFields } from '../packages/content/src/runtime/query/unified'
+import { navigationSelectFields } from '../packages/content/src/features/query/unified'
 import { defineCollection, defineContentConfig, type ContentCollectionHandle } from '../packages/content/src/types/config'
 import type { QueryWhere } from '../packages/content/src/types/query'
 import { doc } from './contracts/_utils'
@@ -96,9 +96,9 @@ describe('compileWhere', () => {
     })
   })
 
-  test('maps public path filters to internal _path', () => {
+  test('maps public path filters to internal path', () => {
     const where: QueryWhere = { path: '/guide/intro', published: true }
-    expect(compileWhere(where)).toEqual({ _path: '/guide/intro', published: true })
+    expect(compileWhere(where)).toEqual({ path: '/guide/intro', published: true })
   })
 
   test('returns undefined when no field clauses remain', () => {
@@ -106,9 +106,9 @@ describe('compileWhere', () => {
     expect(compileWhere(undefined)).toBeUndefined()
   })
 
-  test('supports path prefix filters without exposing _path', () => {
+  test('supports path prefix filters without exposing path', () => {
     expect(compileWhere({ path: { $prefix: '/blog/2024' } })).toEqual({
-      _path: { $prefix: '/blog/2024' }
+      path: { $prefix: '/blog/2024' }
     })
   })
 
@@ -150,7 +150,7 @@ describe('compileWhere', () => {
       type: 'compare',
       field: 'title',
       operator: 'regex',
-      value: /intro/i
+      value: { __ginkoContentQueryValue: 'RegExp', source: 'intro', flags: 'i' }
     })
   })
 })
@@ -251,7 +251,7 @@ describe('compileQueryParams', () => {
     }) as { resolveVariant?: unknown, where?: Array<Record<string, unknown>> }
 
     expect(params.resolveVariant).toBeUndefined()
-    expect(params.where).toEqual([{ _path: '/blog/hello-world' }])
+    expect(params.where).toEqual([{ path: '/blog/hello-world' }])
   })
 
   test('routes ref selectors through resolveVariant.ref regardless of locale', () => {
@@ -344,12 +344,12 @@ describe('route mount resolution', () => {
   test('resolves requested-locale public routes to fallback-locale content paths', () => {
     const graph = buildContentGraph([
       doc({
-        _collection: 'docs',
-        _id: 'content:en:1.docs:2.essentials:5.fallback-lab.md',
-        _path: '/docs/essentials/fallback-lab',
-        _file: '/en/1.docs/2.essentials/5.fallback-lab.md',
-        _locale: 'en',
-        _canonicalKey: '1/2/5',
+        collection: 'docs',
+        id: 'content:en:1.docs:2.essentials:5.fallback-lab.md',
+        path: '/docs/essentials/fallback-lab',
+        file: { path: '/en/1.docs/2.essentials/5.fallback-lab.md' },
+        locale: 'en',
+        canonicalKey: '1/2/5',
         title: 'Fallback Lab'
       })
     ], {
@@ -378,24 +378,26 @@ describe('route mount resolution', () => {
 
     expect(response.result).toMatchObject({
       title: 'Fallback Lab',
-      _requestedRoute: '/de/dokumentation/essentials/fallback-lab',
-      _resolvedLocale: 'en',
-      _fallback: true
+      resolved: {
+        requestedRoute: '/de/dokumentation/essentials/fallback-lab',
+        locale: 'en',
+        fallback: true
+      }
     })
   })
 
   test('applies filters and projection to variant results', () => {
     const graph = buildContentGraph([
       doc({
-        _collection: 'docs',
-        _id: 'content:en:docs:intro.md',
-        _path: '/docs/intro',
-        _file: '/en/docs/intro.md',
-        _locale: 'en',
-        _canonicalKey: 'docs/intro',
+        collection: 'docs',
+        id: 'content:en:docs:intro.md',
+        path: '/docs/intro',
+        file: { path: '/en/docs/intro.md' },
+        locale: 'en',
+        canonicalKey: 'docs/intro',
         title: 'Intro',
         secret: 'hidden',
-        _draft: true
+        draft: true
       })
     ], {
       defaultLocale: 'en',
@@ -405,7 +407,7 @@ describe('route mount resolution', () => {
     const filtered = executeQueryPlan(graph, lowerQueryPlan({
       collection: 'docs',
       first: true,
-      where: [{ _draft: { $ne: true } }],
+      where: [{ draft: { $ne: true } }],
       resolveVariant: {
         path: '/docs/intro',
         locale: 'en'
@@ -430,12 +432,12 @@ describe('route mount resolution', () => {
   test('applies count mode to variant results', () => {
     const graph = buildContentGraph([
       doc({
-        _collection: 'docs',
-        _id: 'content:en:docs:intro.md',
-        _path: '/docs/intro',
-        _file: '/en/docs/intro.md',
-        _locale: 'en',
-        _canonicalKey: 'docs/intro',
+        collection: 'docs',
+        id: 'content:en:docs:intro.md',
+        path: '/docs/intro',
+        file: { path: '/en/docs/intro.md' },
+        locale: 'en',
+        canonicalKey: 'docs/intro',
         title: 'Intro'
       })
     ], {
@@ -459,71 +461,71 @@ describe('route mount resolution', () => {
 describe('query executor correctness', () => {
   test('does not use path prefiltering for $or clauses with non-path branches', () => {
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:intro.md', _path: '/docs/intro', _canonicalKey: 'docs/intro', title: 'Intro', section: 'guide' }),
-      doc({ _collection: 'docs', _id: 'content:docs:api.md', _path: '/docs/api', _canonicalKey: 'docs/api', title: 'API', section: 'reference' }),
-      doc({ _collection: 'docs', _id: 'content:docs:about.md', _path: '/docs/about', _canonicalKey: 'docs/about', title: 'About', section: 'company' })
+      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', canonicalKey: 'docs/intro', title: 'Intro', section: 'guide' }),
+      doc({ collection: 'docs', id: 'content:docs:api.md', path: '/docs/api', canonicalKey: 'docs/api', title: 'API', section: 'reference' }),
+      doc({ collection: 'docs', id: 'content:docs:about.md', path: '/docs/about', canonicalKey: 'docs/about', title: 'About', section: 'company' })
     ])
 
     const response = executeQueryPlan(graph, lowerQueryPlan({
       collection: 'docs',
       where: [{
         $or: [
-          { _path: '/docs/intro' },
+          { path: '/docs/intro' },
           { section: 'reference' }
         ]
       }],
       sort: [{ title: 1 }],
-      only: ['title', '_path']
+      only: ['title', 'path']
     }))
 
     expect(response.result).toEqual([
-      { title: 'API', _path: '/docs/api' },
-      { title: 'Intro', _path: '/docs/intro' }
+      { title: 'API', path: '/docs/api' },
+      { title: 'Intro', path: '/docs/intro' }
     ])
   })
 
   test('does not use path prefiltering for negated path clauses', () => {
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:intro.md', _path: '/docs/intro', _canonicalKey: 'docs/intro', title: 'Intro' }),
-      doc({ _collection: 'docs', _id: 'content:docs:api.md', _path: '/docs/api', _canonicalKey: 'docs/api', title: 'API' }),
-      doc({ _collection: 'docs', _id: 'content:docs:about.md', _path: '/docs/about', _canonicalKey: 'docs/about', title: 'About' })
+      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', canonicalKey: 'docs/intro', title: 'Intro' }),
+      doc({ collection: 'docs', id: 'content:docs:api.md', path: '/docs/api', canonicalKey: 'docs/api', title: 'API' }),
+      doc({ collection: 'docs', id: 'content:docs:about.md', path: '/docs/about', canonicalKey: 'docs/about', title: 'About' })
     ])
 
     const response = executeQueryPlan(graph, lowerQueryPlan({
       collection: 'docs',
-      where: [{ $not: { _path: '/docs/intro' } }],
+      where: [{ $not: { path: '/docs/intro' } }],
       sort: [{ title: 1 }],
-      only: ['title', '_path']
+      only: ['title', 'path']
     }))
 
     expect(response.result).toEqual([
-      { title: 'About', _path: '/docs/about' },
-      { title: 'API', _path: '/docs/api' }
+      { title: 'About', path: '/docs/about' },
+      { title: 'API', path: '/docs/api' }
     ])
   })
 
   test('keeps simple path equality prefiltering behavior', () => {
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:intro.md', _path: '/docs/intro', _canonicalKey: 'docs/intro', title: 'Intro' }),
-      doc({ _collection: 'docs', _id: 'content:docs:api.md', _path: '/docs/api', _canonicalKey: 'docs/api', title: 'API' })
+      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', canonicalKey: 'docs/intro', title: 'Intro' }),
+      doc({ collection: 'docs', id: 'content:docs:api.md', path: '/docs/api', canonicalKey: 'docs/api', title: 'API' })
     ])
 
     const response = executeQueryPlan(graph, lowerQueryPlan({
       collection: 'docs',
-      where: [{ _path: '/docs/api' }],
-      only: ['title', '_path']
+      where: [{ path: '/docs/api' }],
+      only: ['title', 'path']
     }))
 
     expect(response.result).toEqual([
-      { title: 'API', _path: '/docs/api' }
+      { title: 'API', path: '/docs/api' }
     ])
   })
 
   test('applies multi-key sort with earlier fields as dominant keys', () => {
     const graph = buildContentGraph([
-      doc({ _collection: 'docs', _id: 'content:docs:beta-low.md', _path: '/docs/beta-low', _canonicalKey: 'docs/beta-low', title: 'Beta Low', group: 'beta', order: 1 }),
-      doc({ _collection: 'docs', _id: 'content:docs:alpha-high.md', _path: '/docs/alpha-high', _canonicalKey: 'docs/alpha-high', title: 'Alpha High', group: 'alpha', order: 2 }),
-      doc({ _collection: 'docs', _id: 'content:docs:alpha-low.md', _path: '/docs/alpha-low', _canonicalKey: 'docs/alpha-low', title: 'Alpha Low', group: 'alpha', order: 1 })
+      doc({ collection: 'docs', id: 'content:docs:beta-low.md', path: '/docs/beta-low', canonicalKey: 'docs/beta-low', title: 'Beta Low', group: 'beta', order: 1 }),
+      doc({ collection: 'docs', id: 'content:docs:alpha-high.md', path: '/docs/alpha-high', canonicalKey: 'docs/alpha-high', title: 'Alpha High', group: 'alpha', order: 2 }),
+      doc({ collection: 'docs', id: 'content:docs:alpha-low.md', path: '/docs/alpha-low', canonicalKey: 'docs/alpha-low', title: 'Alpha Low', group: 'alpha', order: 1 })
     ])
 
     const response = executeQueryPlan(graph, lowerQueryPlan({
@@ -543,12 +545,12 @@ describe('query executor correctness', () => {
 describe('navigationSelectFields', () => {
   test('keeps navigation internals when callers request projected fields', () => {
     expect(navigationSelectFields(['description'])).toEqual([
-      '_id',
-      '_path',
-      '_file',
-      '_canonicalKey',
-      '_locale',
-      '_draft',
+      'id',
+      'path',
+      'file',
+      'canonicalKey',
+      'locale',
+      'draft',
       'navigation',
       'title',
       'description'
@@ -556,13 +558,13 @@ describe('navigationSelectFields', () => {
   })
 
   test('dedupes caller fields already required by navigation', () => {
-    expect(navigationSelectFields(['title', '_path', 'description'])).toEqual([
-      '_id',
-      '_path',
-      '_file',
-      '_canonicalKey',
-      '_locale',
-      '_draft',
+    expect(navigationSelectFields(['title', 'path', 'description'])).toEqual([
+      'id',
+      'path',
+      'file',
+      'canonicalKey',
+      'locale',
+      'draft',
       'navigation',
       'title',
       'description'

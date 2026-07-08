@@ -7,18 +7,21 @@ type BuiltinMarkdownPluginSpec = {
   component?: unknown
 }
 
+const importOptionalMarkdownComponent = async (specifier: string) =>
+  await import(/* @vite-ignore */ specifier)
+
 const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
   math: {
     componentName: 'Math',
     component: defineAsyncComponent(async () => {
-      const mod = await import(/* @vite-ignore */ ['@comark/vue', 'plugins/math'].join('/'))
+      const mod = await importOptionalMarkdownComponent('@comark/vue/plugins/math')
       return mod.Math
     })
   },
   mermaid: {
     componentName: 'Mermaid',
     component: defineAsyncComponent(async () => {
-      const mod = await import(/* @vite-ignore */ ['@comark/vue', 'plugins/mermaid'].join('/'))
+      const mod = await importOptionalMarkdownComponent('@comark/vue/plugins/mermaid')
       return mod.Mermaid
     })
   }

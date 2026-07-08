@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createBasicScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -33,50 +34,50 @@ describe('basic content scenario harness', () => {
   })
 
   test('covers query operators, count, windows, projection, and structured content in-process', async () => {
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'posts',
       where: {
         $and: [
           { category: 'journal' },
           { tags: { $contains: 'content' } },
-          { _draft: { $ne: true } }
+          { draft: { $ne: true } }
         ]
       },
       sort: [{ order: 1 }],
-      only: ['title', '_path']
-    })).resolves.toMatchObject({
+      only: ['title', 'path']
+    }))).resolves.toMatchObject({
       result: [
-        { title: 'Hello World', _path: '/blog/hello-world' },
-        { title: 'Second Post', _path: '/blog/second-post' }
+        { title: 'Hello World', path: '/blog/hello-world' },
+        { title: 'Second Post', path: '/blog/second-post' }
       ],
       total: 2
     })
 
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'posts',
-      where: { _draft: { $ne: true } },
+      where: { draft: { $ne: true } },
       count: true
-    })).resolves.toEqual({ result: 2 })
+    }))).resolves.toEqual({ result: 2 })
 
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'posts',
-      where: { _draft: { $ne: true } },
+      where: { draft: { $ne: true } },
       sort: [{ order: 1 }],
       skip: 1,
       limit: 1,
       only: ['title']
-    })).resolves.toMatchObject({
+    }))).resolves.toMatchObject({
       result: [{ title: 'Second Post' }],
       skip: 1,
       limit: 1,
       total: 2
     })
 
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'data',
-      sort: [{ _path: 1 }],
+      sort: [{ path: 1 }],
       only: ['title', 'version', 'owner', 'downloads']
-    })).resolves.toMatchObject({
+    }))).resolves.toMatchObject({
       result: [
         { title: 'App config', version: 2, owner: 'Matthias' },
         { title: 'Metrics', downloads: 42 },

@@ -1,7 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
-import { runtimeAppImportSpecs } from '../../packages/content/src/module/runtime-assets'
 
 vi.mock('../../packages/content/dist/runtime/app/composables/content-i18n.js', () => ({
   useRouteBaseName: () => () => undefined,
@@ -15,6 +14,12 @@ type PublicSurface = {
   clientTypeExports: Record<string, PublicSurfaceEntry>
   serverValueExports: Record<string, PublicSurfaceEntry>
   serverTypeExports: Record<string, PublicSurfaceEntry>
+  providerValueExports: Record<string, PublicSurfaceEntry>
+  providerTypeExports: Record<string, PublicSurfaceEntry>
+  agentValueExports: Record<string, PublicSurfaceEntry>
+  agentTypeExports: Record<string, PublicSurfaceEntry>
+  rootValueExports: Record<string, PublicSurfaceEntry>
+  rootTypeExports: Record<string, PublicSurfaceEntry>
   runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
 }
 
@@ -96,17 +101,30 @@ const extractTypeExports = (source: string) => {
     }
   }
 
+  for (const match of source.matchAll(/export\s+interface\s+([A-Za-z0-9_]+)/g)) {
+    names.add(match[1]!)
+  }
+
+  for (const match of source.matchAll(/export\s+type\s+([A-Za-z0-9_]+)\s*[=<{]/g)) {
+    names.add(match[1]!)
+  }
+
   return [...names].sort()
 }
 
 describe('package export contracts', () => {
-  test('source package export map stays intentionally curated', async () => {
+  test('source agent facade value exports stay intentionally curated', async () => {
     const publicSurface = await readPublicSurface()
-    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
-      exports: Record<string, Record<string, string> | string>
-    }
+    const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
 
-    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(publicSurface.packageExportSubpaths).sort())
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.agentValueExports).sort())
+  })
+
+  test('source agent facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.agentTypeExports).sort())
   })
 
   test('source client facade value exports stay intentionally curated', async () => {
@@ -137,10 +155,58 @@ describe('package export contracts', () => {
     expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
   })
 
-  test('runtime app auto-imports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
+  test('server facade no longer re-exports agent or provider types', async () => {
+    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
 
-    expect(runtimeAppImportSpecs.map(spec => spec.name).sort()).toEqual(Object.keys(publicSurface.runtimeAppAutoImports).sort())
+    // Agent surface has a single home (`./agent`).
+    expect(source).not.toContain('AgentMarkdown')
+    expect(source).not.toContain('agent-markdown.js')
+    // Provider types have a single home (`./provider`).
+    expect(extractTypeExports(source)).not.toContain('ContentProvider')
+    expect(extractTypeExports(source)).not.toContain('ContentProviderQuery')
+  })
+
+  test('source provider facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/provider.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.providerValueExports).sort())
+  })
+
+  test('source provider facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/provider.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.providerTypeExports).sort())
+  })
+
+  test('source root entry value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/module.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.rootValueExports).sort())
+  })
+
+  test('source root entry type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/module.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.rootTypeExports).sort())
+  })
+
+  test('root entry no longer wildcard-exports the internal type graph', async () => {
+    const source = await readFile('packages/content/src/module.ts', 'utf8')
+
+    expect(source).not.toMatch(/export\s+type\s*\*/)
+  })
+
+  test('package export subpaths stay classified in the public surface manifest', async () => {
+    const publicSurface = await readPublicSurface()
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      exports: Record<string, unknown>
+    }
+
+    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(publicSurface.packageExportSubpaths).sort())
   })
 
   test('app-facing runtime imports are documented by name', async () => {
@@ -159,10 +225,9 @@ describe('package export contracts', () => {
       'content-config-author',
       'server-runtime-and-provider-author',
       'app-runtime',
-      'toc-compatibility',
+      'advanced-agent-subpath',
       'advanced-cms-contract',
       'advanced-cms-import',
-      'advanced-cms-exchange',
       'testing-only-provider-fixture',
       'testing-only-provider-contract',
       'markdown-transformer-extension',
@@ -202,6 +267,12 @@ describe('package export contracts', () => {
       ...Object.values(publicSurface.clientTypeExports),
       ...Object.values(publicSurface.serverValueExports),
       ...Object.values(publicSurface.serverTypeExports),
+      ...Object.values(publicSurface.providerValueExports),
+      ...Object.values(publicSurface.providerTypeExports),
+      ...Object.values(publicSurface.agentValueExports),
+      ...Object.values(publicSurface.agentTypeExports),
+      ...Object.values(publicSurface.rootValueExports),
+      ...Object.values(publicSurface.rootTypeExports),
       ...Object.values(publicSurface.runtimeAppAutoImports)
     ]
 
@@ -278,13 +349,24 @@ describe('package export contracts', () => {
     expect(client).not.toHaveProperty('useContentList')
   })
 
+  test('built agent export loads as Node ESM', async () => {
+    const agent = await import('../../packages/content/dist/public/agent.js')
+
+    // LLM markdown output surface now lives on its own subpath.
+    expect(agent.registerAgentMarkdownSerializer).toBeTypeOf('function')
+    expect(agent.createAgentMarkdownRegistry).toBeTypeOf('function')
+    expect(agent.defineAgentMarkdownComponent).toBeTypeOf('function')
+    expect(agent.renderLlmsTxt).toBeTypeOf('function')
+    expect(agent.agentMarkdownPathForRoute).toBeTypeOf('function')
+  })
+
   test('built provider fixture export loads as Node ESM', async () => {
     const fixtureModule = await import('@lupinum/ginko-content/testing/provider-fixture')
 
     expect(fixtureModule.createProviderFixture).toBeTypeOf('function')
     expect(fixtureModule.createFixtureContentProvider).toBeTypeOf('function')
     expect(fixtureModule.createProviderFixtureEvent).toBeTypeOf('function')
-    expect(fixtureModule.createSaasProviderFixture).toBeTypeOf('function')
+    expect(fixtureModule.createDefaultProviderFixture).toBeTypeOf('function')
     expect(fixtureModule.createAuthorDependencyProviderFixture).toBeTypeOf('function')
   })
 
@@ -292,38 +374,28 @@ describe('package export contracts', () => {
     const contractModule = await import('@lupinum/ginko-content/testing/provider-contract')
 
     expect(contractModule.createAuthorDependencyContractProvider).toBeTypeOf('function')
-    expect(contractModule.runSaasProviderFixtureContractSuite).toBeTypeOf('function')
+    expect(contractModule.runProviderContractSuite).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyContractTest).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyFixtureSelfTest).toBeTypeOf('function')
   })
 
-  test('built CMS import and exchange exports load as Node ESM', async () => {
-    const [cmsImport, cmsExchange] = await Promise.all([
-      import('@lupinum/ginko-content/cms-import'),
-      import('@lupinum/ginko-content/cms-exchange'),
-    ])
+  test('built CMS import export loads as Node ESM', async () => {
+    const cmsImport = await import('@lupinum/ginko-content/cms-import')
 
     expect(cmsImport.parseCmsImportFile).toBeTypeOf('function')
     expect(cmsImport.buildCmsImportGraph).toBeTypeOf('function')
-    expect(cmsExchange.parseCmsImportFile).toBe(cmsImport.parseCmsImportFile)
-    expect(cmsExchange.buildCmsImportGraph).toBe(cmsImport.buildCmsImportGraph)
-    expect(cmsExchange.createCmsExchangeImportPlan).toBeTypeOf('function')
-    expect(cmsExchange.createCmsFilesystemImportPlan).toBe(cmsExchange.createCmsExchangeImportPlan)
-    expect(cmsExchange.readCmsExchangeFilesFromDirectory).toBeTypeOf('function')
-    expect(cmsExchange.renderCmsExchangeFile).toBeTypeOf('function')
-    expect(cmsExchange.renderCmsExchangeManifest).toBeTypeOf('function')
-    expect(cmsExchange.resolveCmsExportPath).toBeTypeOf('function')
-    expect(cmsExchange.scanCmsAssetReferences).toBeTypeOf('function')
   })
 
   test('public export files keep Node ESM relative specifiers explicit', async () => {
-    const [client, server] = await Promise.all([
+    const [client, server, agent] = await Promise.all([
       readFile('packages/content/dist/public/client.js', 'utf8'),
-      readFile('packages/content/dist/public/server.js', 'utf8')
+      readFile('packages/content/dist/public/server.js', 'utf8'),
+      readFile('packages/content/dist/public/agent.js', 'utf8')
     ])
 
     expect(client).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
     expect(server).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
+    expect(agent).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
   })
 
   test('package exports are ESM-only and do not advertise require fallbacks', async () => {

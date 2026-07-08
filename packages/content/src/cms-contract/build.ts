@@ -132,7 +132,7 @@ function buildCollectionContract(
   const contract: CmsCollectionContract = {
     slug,
     label: cms.label ?? deriveLabel(slug),
-    type: cms.type ?? deriveCollectionType(slug, collection),
+    type: resolveCollectionType(slug, cms),
     icon: cms.icon ?? null,
     locales,
     defaultLocale,
@@ -220,13 +220,20 @@ function isSingleRouteSource(collection: ContentCollectionConfig): boolean {
   return routeSources.length === 1 && !/[{*?[\]]/.test(routeSources[0] ?? '')
 }
 
-function deriveCollectionType(slug: string, collection: ContentCollectionConfig): 'flat' | 'tree' {
-  if (collection.cms?.type) return collection.cms.type
-  // Heuristic: `docs`-style collections with rootSlug or sitemap=true and a
-  // path prefix are usually trees. Fall back to flat. The host can override
-  // by setting `cms.type` explicitly — the heuristic is a default, not a
-  // claim about correctness.
-  if (slug === 'docs' || collection.cms?.route?.rootSlug) return 'tree'
+/**
+ * Resolve a collection's structural type from explicit config only.
+ *
+ * The CMS no longer infers `tree` vs `flat` from the collection slug or routing
+ * shape (the old `slug === 'docs'` / `rootSlug` heuristic misclassified). The
+ * host must declare `cms.type`; when it is absent we default to `'flat'` and
+ * emit a build-time warning so the omission is visible rather than silent.
+ */
+function resolveCollectionType(slug: string, cms: ContentCmsCollectionConfig): 'flat' | 'tree' {
+  if (cms.type) return cms.type
+  console.warn(
+    `[ginko-content] Collection "${slug}" has no explicit \`cms.type\`; defaulting to 'flat'. ` +
+      `Declare \`cms: { type: 'flat' | 'tree' }\` in the collection config to silence this warning.`,
+  )
   return 'flat'
 }
 
@@ -258,9 +265,11 @@ function buildFields(
     fields.set(key, mergeField(existing, key, override, isLocalized))
   }
 
+  // Field order is the deterministic insertion order (implicit page fields,
+  // then schema fields, then config-only fields). Display ordering is layout
+  // policy the CMS owns via the opaque `editor` passthrough — ginko-content no
+  // longer reads or reindexes a numeric `order`.
   return [...fields.values()]
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .map((field, index) => ({ ...field, order: index }))
 }
 
 function implicitPageFields(
@@ -369,10 +378,7 @@ function getArrayElement(schema: unknown): unknown {
 function fieldsFromObjectSchema(schema: unknown, isLocalized: boolean): CmsFieldContract[] {
   return Object.entries(getObjectShape(unwrapSchema(schema)))
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, child], index) => ({
-      ...fieldFromSchema(key, child, isLocalized),
-      order: index,
-    }))
+    .map(([key, child]) => fieldFromSchema(key, child, isLocalized))
 }
 
 function fieldFromMetadata(
@@ -460,14 +466,11 @@ function mergeField(
     ...(override.description !== undefined ? { description: override.description } : {}),
     ...(override.required !== undefined ? { required: override.required } : {}),
     ...(override.localized !== undefined ? { localized: override.localized } : {}),
-    ...(override.hidden !== undefined ? { hidden: override.hidden } : {}),
     ...(override.searchable !== undefined ? { searchable: override.searchable } : {}),
     ...(override.sortable !== undefined ? { sortable: override.sortable } : {}),
-    ...(override.order !== undefined ? { order: override.order } : {}),
-    ...(override.width !== undefined ? { width: override.width } : {}),
     ...(override.defaultValue !== undefined ? { defaultValue: override.defaultValue } : {}),
     ...(override.validation !== undefined ? { validation: override.validation } : {}),
-    ...(override.condition !== undefined ? { condition: override.condition } : {}),
+    ...(override.editor !== undefined ? { editor: override.editor } : {}),
     ...(override.options !== undefined ? { options: override.options } : {}),
     ...(override.relation !== undefined ? { relation: override.relation } : {}),
     ...(override.min !== undefined ? { min: override.min } : {}),
@@ -489,18 +492,14 @@ function field(
     description: input.description ?? null,
     required: input.required ?? false,
     localized: input.localized ?? false,
-    hidden: input.hidden ?? false,
     searchable: input.searchable ?? false,
     sortable: input.sortable ?? false,
-    order: input.order ?? 0,
-    width: input.width ?? 'full',
     defaultValue: input.defaultValue,
     options: input.options ?? null,
     relation: input.relation ?? null,
     media: input.media ?? null,
     fields: input.fields ?? null,
     validation: input.validation ?? null,
-    condition: input.condition ?? null,
     min: input.min ?? null,
     max: input.max ?? null,
     step: input.step ?? null,

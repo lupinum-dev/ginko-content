@@ -1,7 +1,7 @@
 /**
  * Build the navigation tree from a flat list of content metadata.
  *
- * The input is a flat list of content rows with `title`, `_path`, `_file`, and
+ * The input is a flat list of content rows with `title`, `path`, `file`, and
  * optional extra fields; the output is a `NavItem[]` tree where parent folders
  * are synthesized from path segments and `/.navigation.yml` config entries
  * can override titles and metadata per directory.
@@ -14,7 +14,7 @@
  *  - **`.navigation.yml`** — `configs['/guide']` can set `navigation: false`
  *    on a directory to hide the entire subtree from navigation; or
  *    override `title`/other fields.
- *  - **Natural sort** — siblings sort by `_file` (filename without the
+ *  - **Natural sort** — siblings sort by `file.path` (filename without the
  *    extension) via `Intl.Collator({ numeric: true })`, so `10-foo` comes
  *    after `2-foo`, not between `1-foo` and `20-foo`.
  *  - **Two-pass shaping** — we build a mutable canonical tree, then project it
@@ -44,7 +44,7 @@ const pick = (keys?: string[]) => (obj: any) => {
 const isObject = (value: any) => Object.prototype.toString.call(value) === '[object Object]'
 
 const parentCanonicalKey = (content: ParsedContentMeta, depth: number) => {
-  const canonicalKey = (content as any)._canonicalKey
+  const canonicalKey = (content as any).canonicalKey
   if (typeof canonicalKey !== 'string' || !canonicalKey) {
     return undefined
   }
@@ -56,13 +56,13 @@ const parentCanonicalKey = (content: ParsedContentMeta, depth: number) => {
  * Post-process the mutable tree: sort siblings by basename and recurse.
  * Projection is the only place that strips canonical folder paths.
  */
+const sortBasename = (item: PrivateNavItem) => {
+  const path = item.file?.path
+  return typeof path === 'string' ? path.split('.').slice(0, -1).join('.') : ''
+}
+
 const sortCanonicalTree = (items: PrivateNavItem[]) => {
-  items.forEach((item) => {
-    if (item._file) {
-      item._file = item._file.split('.').slice(0, -1).join('.')
-    }
-  })
-  const sorted = items.sort((left, right) => collator.compare(left._file || '', right._file || ''))
+  const sorted = items.sort((left, right) => collator.compare(sortBasename(left), sortBasename(right)))
 
   for (const item of sorted) {
     if (item.children?.length) {
@@ -89,28 +89,27 @@ export const buildCanonicalNavigation = (
   }
 
   const navigation = contents
-    .sort((left, right) => left._path!.localeCompare(right._path!))
+    .sort((left, right) => left.path!.localeCompare(right.path!))
     .reduce((nav, content) => {
-      const parts = content._path!.substring(1).split('/')
-      const idParts = content._id.split(':').slice(1)
+      const parts = content.path!.substring(1).split('/')
+      const idParts = content.id.split(':').slice(1)
       const isIndex = Boolean(idParts[idParts.length - 1]?.match(/([1-9][0-9]*\.)?index.md/g))
       const navItem: PrivateNavItem = {
         title: content.title,
-        _path: content._path,
-        path: content._path,
-        _file: content._file,
-        _id: content._id,
-        _canonicalKey: (content as any)._canonicalKey,
-        _locale: (content as any)._locale,
-        _navigationKind: 'page',
-        _navigationPath: content._path,
+        path: content.path,
+        file: content.file,
+        id: content.id,
+        canonicalKey: (content as any).canonicalKey,
+        locale: (content as any).locale,
+        navigationKind: 'page',
+        navigationPath: content.path,
         children: [],
         ...pickNavigationFields(content),
-        ...(content._draft ? { _draft: true } : {})
+        ...(content.draft ? { draft: true } : {})
       }
 
       if (isIndex) {
-        const dirConfig = navItem._path ? configs[navItem._path] : undefined
+        const dirConfig = navItem.path ? configs[navItem.path] : undefined
         if (typeof dirConfig?.navigation !== 'undefined' && !dirConfig.navigation) {
           return nav
         }
@@ -137,14 +136,13 @@ export const buildCanonicalNavigation = (
           const canonicalKey = parentCanonicalKey(content, index)
           parent = {
             title: generateTitle(part),
-            _path: currentPathPart,
             path: currentPathPart,
-            _file: content._file,
-            _navigationKind: 'folder',
-            _navigationPath: currentPathPart,
+            file: content.file,
+            navigationKind: 'folder',
+            navigationPath: currentPathPart,
             page: false,
-            ...(canonicalKey ? { _canonicalKey: canonicalKey } : {}),
-            ...((content as any)._locale ? { _locale: (content as any)._locale } : {}),
+            ...(canonicalKey ? { canonicalKey: canonicalKey } : {}),
+            ...((content as any).locale ? { locale: (content as any).locale } : {}),
             children: [],
             ...(config && pickNavigationFields(config))
           }

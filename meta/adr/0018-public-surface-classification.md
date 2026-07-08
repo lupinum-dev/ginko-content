@@ -56,6 +56,11 @@ Agent/cache helpers are classified as advanced surfaces. They should not appear
 in beginner docs. A future pre-1.0 cleanup may move them to explicit agent/cache
 subpaths, but only with an intentional release/migration decision.
 
+2026-07-08 update: the agent markdown surface now has an explicit
+`@lupinum/ginko-content/agent` subpath. `@lupinum/ginko-content/server` no
+longer re-exports agent helpers; `meta/public-surface.json` is the source of
+truth for the current subpath and symbol classification.
+
 ## Alternatives considered
 
 - Move agent and cache helpers immediately to new subpaths. Rejected for now

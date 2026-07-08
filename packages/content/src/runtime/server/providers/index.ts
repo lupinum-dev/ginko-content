@@ -1,8 +1,8 @@
 import { useRuntimeConfig } from 'nitropack/runtime'
 import { loadExternalContentProvider } from '#content/virtual/providers'
 import type { H3Event } from 'h3'
-import type { ContentQueryBuilderParams } from '../../../types/query'
-import type { ContentProvider } from '../../../public/provider'
+import { PROVIDER_QUERY_VERSION, type ContentProvider, type ContentProviderQuery } from '../../../public/provider'
+import type { FilterExpr } from '../../../core/query/plan'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '../provider-result'
 
@@ -33,49 +33,118 @@ const assertProviderMethod = (providerName: string, provider: Record<string, unk
   assertProviderField(providerName, typeof provider[method] === 'function', method)
 }
 
-const findProviderUnsupportedOperator = (value: unknown, supportedOperators: ReadonlySet<string>): string | undefined => {
-  if (!value || typeof value !== 'object') return undefined
+/**
+ * Derive the operator vocabulary a plan actually exercises by walking its
+ * `FilterExpr` tree (CS-5 trap 3). Only `compare` nodes carry operators; we
+ * recurse through `and`/`or`/`not` to reach every one. Operators are reported
+ * in the builder's `$`-prefixed vocabulary so they compare directly against
+ * `capabilities.query.operators`.
+ */
+export const collectPlanFilterOperators = (filter: FilterExpr, operators: Set<string> = new Set()): Set<string> => {
+  switch (filter.type) {
+    case 'true':
+      break
+    case 'compare':
+      operators.add(`$${filter.operator}`)
+      break
+    case 'and':
+    case 'or':
+      for (const clause of filter.clauses) {
+        collectPlanFilterOperators(clause, operators)
+      }
+      break
+    case 'not':
+      collectPlanFilterOperators(filter.clause, operators)
+      break
+    default:
+      throw new TypeError(`Unknown query filter node: ${(filter as { type?: unknown }).type}`)
+  }
+  return operators
+}
 
+/**
+ * Detect a value that would not survive `JSON.parse(JSON.stringify(value))`
+ * unchanged — a live `RegExp`, `Date`, `Map`, `Set`, class instance, function,
+ * `bigint`, or `symbol`. `undefined` is allowed (JSON drops it to an absent
+ * key, which the plan's optional fields rely on). Returns the offending path,
+ * or `undefined` when the value is JSON-pure.
+ */
+const findNonJsonValue = (value: unknown, path: string): string | undefined => {
+  if (value === null || value === undefined) return undefined
+  const kind = typeof value
+  if (kind === 'string' || kind === 'number' || kind === 'boolean') return undefined
+  if (kind === 'function' || kind === 'bigint' || kind === 'symbol') return path
   if (Array.isArray(value)) {
-    for (const child of value) {
-      const unsupported = findProviderUnsupportedOperator(child, supportedOperators)
-      if (unsupported) return unsupported
+    for (let index = 0; index < value.length; index += 1) {
+      const offender = findNonJsonValue(value[index], `${path}[${index}]`)
+      if (offender) return offender
     }
     return undefined
   }
+  if (kind === 'object') {
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) return path
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const offender = findNonJsonValue(child, `${path}.${key}`)
+      if (offender) return offender
+    }
+    return undefined
+  }
+  return path
+}
 
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (key.startsWith('$') && !supportedOperators.has(key)) return key
-    const unsupported = findProviderUnsupportedOperator(child, supportedOperators)
-    if (unsupported) return unsupported
+/**
+ * Dev-mode guard: the provider wire is JSON-pure by contract (CS-5). A stray
+ * `RegExp`/`Date` in `plan.filter` would corrupt any provider that serializes
+ * the query, so we fail fast in dev instead of shipping a silently mangled
+ * wire. No-op in production (the walk is not free).
+ */
+export const assertJsonPureProviderQuery = (provider: ContentProvider, query: ContentProviderQuery): void => {
+  if (!import.meta.dev) return
+  const offender = findNonJsonValue(query, 'query')
+  if (offender) {
+    throw createContentProviderError('provider_query_not_json_pure', `${provider.name} received a non-JSON-pure query at ${offender}. Provider queries must survive JSON.parse(JSON.stringify(query)).`, {
+      provider: provider.name,
+      field: offender
+    })
   }
 }
 
-const assertProviderQuerySupported = (provider: ContentProvider, query: ContentQueryBuilderParams) => {
-  const capabilities = provider.capabilities.query
-  const unsupportedOperator = findProviderUnsupportedOperator(query.where, new Set(capabilities.operators))
-  if (unsupportedOperator) {
-    throw createContentProviderError('unsupported_query_operator', `${provider.name} does not support query operator: ${unsupportedOperator}`, {
+const assertProviderQuerySupported = (provider: ContentProvider, query: ContentProviderQuery) => {
+  if (query.v !== PROVIDER_QUERY_VERSION) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} received unsupported provider query version: ${String(query.v)}.`, {
       provider: provider.name,
-      operator: unsupportedOperator
+      field: 'v'
     })
   }
 
-  if (!capabilities.limit && query.limit !== undefined) {
+  const capabilities = provider.capabilities.query
+  const supported = new Set(capabilities.operators)
+  const usedOperators = collectPlanFilterOperators(query.plan.filter)
+  for (const operator of usedOperators) {
+    if (!supported.has(operator)) {
+      throw createContentProviderError('unsupported_query_operator', `${provider.name} does not support query operator: ${operator}`, {
+        provider: provider.name,
+        operator
+      })
+    }
+  }
+
+  if (!capabilities.limit && query.plan.limit !== undefined) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support query limits.`, {
       provider: provider.name,
       field: 'limit'
     })
   }
 
-  if (!capabilities.skip && query.skip !== undefined) {
+  if (!capabilities.skip && query.plan.skip > 0) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support query offsets.`, {
       provider: provider.name,
       field: 'skip'
     })
   }
 
-  if (!capabilities.count && query.count === true) {
+  if (!capabilities.count && query.plan.mode === 'count') {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support count queries.`, {
       provider: provider.name,
       field: 'count'
@@ -96,16 +165,19 @@ const assertProviderOperationSupported = (
   }
 }
 
-const enforceProviderCapabilities = (provider: ContentProvider): ContentProvider => ({
+export const enforceProviderCapabilities = (provider: ContentProvider): ContentProvider => ({
   ...provider,
   query: async (event, query) => {
+    assertJsonPureProviderQuery(provider, query)
     assertProviderQuerySupported(provider, query)
     return await provider.query(event, query)
   },
   navigationQuery: provider.navigationQuery
-    ? async (...args) => {
+    ? async (event, query, options) => {
         assertProviderOperationSupported(provider, provider.capabilities.navigation, 'navigation')
-        return await provider.navigationQuery!(...args)
+        assertJsonPureProviderQuery(provider, query)
+        assertProviderQuerySupported(provider, query)
+        return await provider.navigationQuery!(event, query, options)
       }
     : undefined,
   navigation: provider.navigation

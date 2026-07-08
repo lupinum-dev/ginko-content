@@ -1,8 +1,8 @@
 import type { ContentNavigationItem } from '../../types/content'
 
-const itemPath = (item: ContentNavigationItem) => item.path || item._path
+const itemPath = (item: ContentNavigationItem) => item.path || item.path
 const searchGroupId = (item: ContentNavigationItem, depth: number, index: number) =>
-  `content-search-group:${String(item._canonicalKey || item.stem || `${depth}:${index}`)}`
+  `content-search-group:${String(item.canonicalKey || item.stem || `${depth}:${index}`)}`
 
 /**
  * Convert normal content navigation into the leaf-oriented shape expected by

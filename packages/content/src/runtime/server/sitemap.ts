@@ -22,11 +22,11 @@ type SitemapRuntimeConfig = {
 }
 
 const sitemapPageFields = [
-  '_path',
-  '_file',
-  '_locale',
-  '_draft',
-  '_canonicalKey',
+  'path',
+  'file',
+  'locale',
+  'draft',
+  'canonicalKey',
   'sitemap',
   'image',
   'seo',
@@ -60,11 +60,11 @@ export async function queryFilesystemCollectionsSitemapEntries (
         : await serverQueryCollection(event, collection).select(...sitemapPageFields).all()
 
       return pages as Array<{
-        _path?: string
-        _collection?: string
-        _canonicalKey?: string
-        _locale?: string
-        _draft?: boolean
+        path?: string
+        collection?: string
+        canonicalKey?: string
+        locale?: string
+        draft?: boolean
         sitemap?: unknown
         body?: unknown
       }>

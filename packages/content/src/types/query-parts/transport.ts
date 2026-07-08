@@ -1,3 +1,22 @@
+/**
+ * Internal query IR — NOT public, NOT the provider wire contract.
+ *
+ * `ContentQueryBuilderParams` / `ContentQueryBuilderWhere` and the fluent
+ * `ContentQueryBuilder` are the intermediate representation the unified query
+ * grammar (`src/types/query-parts/public.ts`, the public API) lowers through on
+ * its way to the `ContentQueryPlan` AST (`src/core/query/plan.ts`). They are a
+ * compiler IR: fine as internal plumbing, but not part of any boundary.
+ *
+ * - The public query vocabulary is the unified API (`one`/`many`/`paginate`/…
+ *   with `QueryWhere`/`QueryOperators`).
+ * - The provider wire contract is `ContentProviderQuery`
+ *   (`src/public/provider-query.ts`).
+ *
+ * Nothing in this file is exported from `#content/server` or `#content/client`.
+ * Do not re-add these to `meta/public-surface.json`. A future full fluent+IR
+ * cutover (retiring the string-operator API and this IR) is deferred post-0.2.0
+ * — see `future-decisions.md`.
+ */
 import type { ContentQueryResponse } from '../api'
 import type { ParsedContentInternalMeta, ParsedContentMeta } from '../content'
 

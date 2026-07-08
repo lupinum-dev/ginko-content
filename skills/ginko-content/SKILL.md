@@ -16,7 +16,7 @@ Use this skill for app-facing work with `@lupinum/ginko-content`. It is for user
    - `app/pages`, `pages`, `content`, `components`, and search/navigation setup
 2. Identify the task type and read only the matching reference:
    - First install or small setup: [references/quickstart.md](references/quickstart.md)
-   - Pages, lists, rendering, `_path`, and route-safe `path`: [references/querying-rendering.md](references/querying-rendering.md)
+   - Pages, lists, rendering, and route-safe `path`: [references/querying-rendering.md](references/querying-rendering.md)
    - Nuxt Content migration: [references/migration.md](references/migration.md)
    - Localized content: [references/i18n.md](references/i18n.md)
    - Search and sitemap: [references/search-sitemap.md](references/search-sitemap.md)
@@ -35,7 +35,7 @@ Use this skill for app-facing work with `@lupinum/ginko-content`. It is for user
 - Use `useContentTree()` for layout navigation.
 - Use `useContentSearchData().searchNavigation` for search navigation.
 - For i18n collections, set `i18n: true` and store files under `content/<locale>/...`.
-- Do not manually prepend locale prefixes to `_path` or `path`.
+- Do not manually prepend locale prefixes to `path` or `unprefixedPath`.
 - For Nuxt Sitemap output, validate and submit the sitemap URL emitted by the configured mode.
 - Do not add route rules, `nitro.prerender.ignore`, or disable `sitemap.autoI18n` only to force a physical sitemap shape.
 - Run `ginko-content doctor`; use `ginko-content doctor --i18n` for localized apps.

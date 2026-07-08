@@ -1,9 +1,10 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve as resolveFilePath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Nuxt } from '@nuxt/schema'
 import type { ContentConfig } from '../types/config'
 import type { ContentContext, ModuleOptions } from '../types/module'
+import { isContentSnapshot } from '../core/content/snapshot'
 import type { createSearchRuntimeConfig } from './options'
 import { normalizeAgentRouteOptions } from './agent-options'
 import {
@@ -13,6 +14,21 @@ import {
 } from './static-output-routes'
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
+
+const assertPrerenderedContentSnapshot = (buildDir: string) => {
+  const snapshotPath = resolveFilePath(buildDir, 'content-cache/snapshot.json')
+  let raw: string
+  try {
+    raw = readFileSync(snapshotPath, 'utf8')
+  } catch {
+    throw new Error('[content] production snapshot missing from prerendered content cache. Ensure the content cache route is prerendered.')
+  }
+
+  const snapshot = JSON.parse(raw)
+  if (!isContentSnapshot(snapshot)) {
+    throw new Error('[content] production snapshot is invalid in prerendered content cache.')
+  }
+}
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -48,6 +64,13 @@ export const registerStaticOutputGeneration = ({
     hooks: { hook: (name: string, callback: (payload: any) => void | Promise<void>) => void }
     options: { output: { publicDir?: string } }
   }) => {
+    const usesFilesystemProvider = !contentContext.provider || contentContext.provider === 'filesystem'
+    if (usesFilesystemProvider) {
+      nitro.hooks.hook('prerender:done', () => {
+        assertPrerenderedContentSnapshot(nuxt.options.buildDir)
+      })
+    }
+
     nitro.hooks.hook('prerender:init', (prerenderer: any) => {
       prerenderer.hooks.hook('compiled', async () => {
         const searchRuntime = getSearchRuntime()
@@ -63,7 +86,7 @@ export const registerStaticOutputGeneration = ({
         if (
           searchRuntime !== false
           && searchRuntime.engine !== 'cms'
-          && (!contentContext.provider || contentContext.provider === 'filesystem')
+          && usesFilesystemProvider
         ) {
           const response = await localFetch(searchRuntime.indexURL)
 

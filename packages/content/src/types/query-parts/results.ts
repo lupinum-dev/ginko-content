@@ -48,7 +48,8 @@ export interface ContentLocaleEntry {
 export interface ContentLocaleRoute {
   locale: string
   path: string
-  canonicalPath: string
+  /** the resolved variant's route path before locale prefixing */
+  unprefixedPath: string
 }
 
 export interface LocalePathEntry {
@@ -67,13 +68,16 @@ export interface ContentResolvedMeta {
   requestedRoute?: string
   requestedRef?: string
   availableLocales: string[]
+  /** Resolved markdown `$ref` links for the current runtime locale. */
+  resolvedRefs?: Record<string, string>
 }
 
 export interface ContentRouteMeta {
   locale: string
   defaultLocale: string
   path: string
-  canonicalPath: string
+  /** the resolved variant's route path before locale prefixing */
+  unprefixedPath: string
   variants: ContentLocaleRoute[]
   localePaths: Record<string, LocalePathEntry>
   resolved: ContentResolvedMeta

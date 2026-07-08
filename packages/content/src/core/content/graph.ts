@@ -30,6 +30,7 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentLocaleEntry } from '../../types/query'
 import type { ContentManifest, ManifestVariant, ResolvedVariant } from '../../types/runtime'
 import { normalizeReferenceValue, buildReferenceTargets } from '../references/resolve'
+import { sortLocalesCanonically } from './locale'
 
 export interface ContentGraphVariant extends ManifestVariant {
   document: ParsedContent
@@ -110,7 +111,7 @@ export const resolveLocaleChain = (
  * `storage/content.ts:createServerQueryFetch` and
  * `memoizeRuntimeValue(event, 'graph', ...)`.
  *
- * INVARIANT: documents without `_path` are still indexed by id (so refs can
+ * INVARIANT: documents without `path` are still indexed by id (so refs can
  * find them) but are excluded from path/route/canonical lookups. Partials
  * and navigation documents are likewise indexed by id only.
  */
@@ -128,31 +129,31 @@ export const buildContentGraph = (
   const defaultLocale = options.defaultLocale || ''
 
   for (const document of documents) {
-    const documentId = document._id || `${document._collection || 'content'}:${document._path || 'document'}`
+    const documentId = document.id || `${document.collection || 'content'}:${document.path || 'document'}`
     byId[documentId] = document as ParsedContent
 
-    if (!document._path) {
+    if (!document.path) {
       continue
     }
 
-    const path = normalizePath(document._path)
+    const path = normalizePath(document.path)
     manifest.paths[path] ||= []
     // Default-locale document lists first under a path — the route resolver
     // reaches for the head of the list when no locale is requested, so this
     // ordering is load-bearing.
-    if (document._locale === defaultLocale) {
+    if (document.locale === defaultLocale) {
       manifest.paths[path]!.unshift(documentId)
     } else {
       manifest.paths[path]!.push(documentId)
     }
 
-    if (document._collection) {
-      manifest.collections[document._collection] ||= []
-      manifest.collections[document._collection]!.push(documentId)
+    if (document.collection) {
+      manifest.collections[document.collection] ||= []
+      manifest.collections[document.collection]!.push(documentId)
     }
 
-    if (document._navigation) {
-      const locale = document._locale || defaultLocale
+    if (document.navigationFile) {
+      const locale = document.locale || defaultLocale
       byNavigationPath[path] ||= {}
       byNavigationPath[path]![locale] = document
     }
@@ -160,25 +161,25 @@ export const buildContentGraph = (
     // Only real variant documents enter the canonical/ref indices.
     // Partials and navigation docs support other documents; they are not
     // themselves resolvable by ref or route.
-    const isVariantDocument = !document._partial && !document._navigation && document._canonicalKey
+    const isVariantDocument = !document.partial && !document.navigationFile && document.canonicalKey
     if (!isVariantDocument) {
       continue
     }
 
-    const locale = document._locale || defaultLocale
+    const locale = document.locale || defaultLocale
     const variant: ContentGraphVariant = {
-      canonicalKey: document._canonicalKey!,
+      canonicalKey: document.canonicalKey!,
       contentId: documentId,
       locale,
       path,
       document
     }
 
-    manifest.byCanonical[document._canonicalKey!] ||= {}
-    manifest.byCanonical[document._canonicalKey!]![locale] = variant
-    manifest.byRoute[`${locale}:${path}`] = document._canonicalKey!
-    if (document._type === 'markdown' && typeof document.ref === 'string' && document.ref.length) {
-      manifest.byRef[document.ref] = document._canonicalKey!
+    manifest.byCanonical[document.canonicalKey!] ||= {}
+    manifest.byCanonical[document.canonicalKey!]![locale] = variant
+    manifest.byRoute[`${locale}:${path}`] = document.canonicalKey!
+    if (document.type === 'markdown' && typeof document.ref === 'string' && document.ref.length) {
+      manifest.byRef[document.ref] = document.canonicalKey!
     }
   }
 
@@ -203,7 +204,7 @@ export const buildContentGraph = (
     byRoute: manifest.byRoute,
     byRef: manifest.byRef,
     byNavigationPath,
-    referenceTargets: buildReferenceTargets(documents.filter(document => !document._partial && !document._navigation), options.locales || []),
+    referenceTargets: buildReferenceTargets(documents.filter(document => !document.partial && !document.navigationFile), options.locales || []),
     manifest
   }
 }
@@ -225,6 +226,7 @@ export const resolveGraphVariant = (
   requestedLocale?: string,
   options: {
     defaultLocale?: string
+    locales?: string[]
     fallback?: string[]
     exact?: boolean
     localeFallback?: Record<string, string[]>
@@ -255,7 +257,7 @@ export const resolveGraphVariant = (
     return null
   }
 
-  const availableLocales = Object.keys(scopedVariants)
+  const availableLocales = sortLocalesCanonically(Object.keys(scopedVariants), options)
   const localeChain = options.exact
     ? (requestedLocale ? [requestedLocale] : [])
     : (options.fallback?.length
@@ -294,6 +296,7 @@ export const resolveGraphRouteVariant = (
   requestedLocale?: string,
   options: {
     defaultLocale?: string
+    locales?: string[]
     fallback?: string[]
     exact?: boolean
     localeFallback?: Record<string, string[]>
@@ -308,7 +311,7 @@ export const resolveGraphRouteVariant = (
         : resolveLocaleChain(requestedLocale, options.defaultLocale, options.localeFallback || {}))
   const localesToSearch = localeChain.length
     ? localeChain
-    : Array.from(new Set(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants))))
+    : sortLocalesCanonically(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants)), options)
 
   for (const locale of localesToSearch) {
     const canonicalKey = graph.byRoute[`${locale}:${normalizedPath}`]

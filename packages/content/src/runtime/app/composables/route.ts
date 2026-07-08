@@ -9,7 +9,8 @@ type ContentRouteValue = ContentRouteMeta | ContentPageResult | null | undefined
 type ActiveContentRoute = {
   token: string
   path?: string
-  canonicalPath?: string
+  /** the resolved variant's route path before locale prefixing */
+  unprefixedPath?: string
   // ADR-0016 changed `localePaths` to a per-locale entry object, but the
   // legacy `useContentRoute` consumers still expect string paths. Normalize
   // to strings here when reading.
@@ -49,7 +50,7 @@ const syncPublishedContentRoute = (meta: Record<string, unknown>, setI18nParams:
   meta[CONTENT_ROUTE_META_KEY] = {
     token: activePublisher.token,
     path: activePublisher.path,
-    canonicalPath: activePublisher.canonicalPath,
+    unprefixedPath: activePublisher.unprefixedPath,
     localePaths: activePublisher.localePaths
   } satisfies ActiveContentRoute
   setI18nParams(activePublisher.localeParams)
@@ -75,7 +76,7 @@ const normalizeContentRoute = (value: ContentRouteValue): Omit<ActiveContentRout
 
   return {
     path: value.path,
-    canonicalPath: value.canonicalPath,
+    unprefixedPath: value.unprefixedPath,
     localePaths: stringPaths
   }
 }
@@ -89,10 +90,10 @@ const normalizeRoutePath = (path: unknown) => {
   return normalized || '/'
 }
 
-const contentRouteMatches = (contentRoute: Pick<ActiveContentRoute, 'path' | 'canonicalPath' | 'localePaths'>, path: string) => {
+const contentRouteMatches = (contentRoute: Pick<ActiveContentRoute, 'path' | 'unprefixedPath' | 'localePaths'>, path: string) => {
   const normalizedPath = normalizeRoutePath(path)
   return normalizeRoutePath(contentRoute.path) === normalizedPath ||
-    normalizeRoutePath(contentRoute.canonicalPath) === normalizedPath ||
+    normalizeRoutePath(contentRoute.unprefixedPath) === normalizedPath ||
     Object.values(contentRoute.localePaths).some(localePath => normalizeRoutePath(localePath) === normalizedPath)
 }
 
@@ -147,7 +148,7 @@ export function useContentRoute(
 ): {
   switchLocalePath: (locale: string) => string
   localePaths: ComputedRef<Record<string, string>>
-  canonicalPath: ComputedRef<string | undefined>
+  unprefixedPath: ComputedRef<string | undefined>
   path: ComputedRef<string | undefined>
 } {
   const route = useRoute()
@@ -216,7 +217,7 @@ export function useContentRoute(
   return {
     switchLocalePath: useContentSwitchLocalePath(),
     localePaths: computed(() => activeContentRoute.value?.localePaths || {}),
-    canonicalPath: computed(() => activeContentRoute.value?.canonicalPath),
+    unprefixedPath: computed(() => activeContentRoute.value?.unprefixedPath),
     path: computed(() => activeContentRoute.value?.path)
   }
 }

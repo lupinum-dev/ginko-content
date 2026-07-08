@@ -1,8 +1,22 @@
 import { describe, expect, test } from 'vitest'
-import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent, createSaasProviderFixture } from '../../packages/content/src/testing/provider-fixture'
-import { runAuthorDependencyFixtureSelfTest, runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { createDefaultProviderFixture, createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '../../packages/content/src/testing/provider-fixture'
+import { runAuthorDependencyFixtureSelfTest, runProviderContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { enforceProviderCapabilities } from '../../packages/content/src/runtime/server/providers'
+import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+
+const allTrueCapabilities: ContentProviderCapabilities = {
+  routeBackedCollections: true,
+  dataCollections: true,
+  localizedRoutes: true,
+  translatedSlugs: true,
+  navigation: true,
+  surroundings: true,
+  searchSections: true,
+  sitemap: true,
+  query: { operators: ['$eq', '$contains'], limit: true, skip: true, count: true }
+}
 
 const expectProviderResultInvalid = (callback: () => unknown) => {
   expect(callback).toThrow(expect.objectContaining({
@@ -11,22 +25,82 @@ const expectProviderResultInvalid = (callback: () => unknown) => {
 }
 
 describe('provider fixture conformance', () => {
-  const fixture = createSaasProviderFixture()
+  const fixture = createDefaultProviderFixture()
   const provider = createFixtureContentProvider(fixture)
-  const collectNavPaths = (items: Array<{ _path?: string, children?: any[] }>): string[] =>
+  const collectNavPaths = (items: Array<{ unprefixedPath?: string, children?: any[] }>): string[] =>
     items.flatMap(item => [
-      item._path,
+      item.unprefixedPath,
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
-  runSaasProviderFixtureContractSuite({
+  runProviderContractSuite({
     name: 'provider fixture',
     expectedProviderName: 'fixture',
     loadProvider: async () => provider,
     createEvent: () => createProviderFixtureEvent({ fixture, provider }),
+    expectedCapabilities: allTrueCapabilities,
     collectNavPaths
   })
   runAuthorDependencyFixtureSelfTest()
+
+  // A minimal provider that declares searchSections:false must still pass the
+  // capability-parameterized suite: every other block runs its positive
+  // assertions, and the searchSections block asserts the typed provider error.
+  describe('minimal provider (searchSections:false)', () => {
+    const minimalFixture = createDefaultProviderFixture()
+    const baseProvider = createFixtureContentProvider(minimalFixture)
+    baseProvider.capabilities.searchSections = false
+    const minimalProvider = Object.assign(
+      enforceProviderCapabilities(baseProvider),
+      { cache: baseProvider.cache }
+    )
+
+    runProviderContractSuite({
+      name: 'minimal provider',
+      expectedProviderName: 'fixture',
+      loadProvider: async () => minimalProvider,
+      createEvent: () => createProviderFixtureEvent({ fixture: minimalFixture, provider: minimalProvider }),
+      expectedCapabilities: { ...allTrueCapabilities, searchSections: false },
+      collectNavPaths
+    })
+  })
+
+  test('shapes a minimal-set provider into the canonical route envelope', async () => {
+    // Documents carry ONLY the minimal fields a third-party provider must emit
+    // (no id, canonicalKey, type or file). Core derives id/canonicalKey/type on
+    // normalization and the route envelope (path, variants, localePaths,
+    // resolved) on shaping — proving a minimal-set provider passes conformance.
+    const minimalFixture = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        blog: { type: 'page', route: '/blog' }
+      },
+      documents: [
+        { collection: 'blog', locale: 'en', path: '/blog/hello', title: 'Hello' },
+        { collection: 'blog', locale: 'en', path: '/blog/world', title: 'World' }
+      ]
+    })
+    const minimalProvider = createFixtureContentProvider(minimalFixture)
+    const event = createProviderFixtureEvent({ fixture: minimalFixture, provider: minimalProvider })
+
+    // Core filled the derivable identity fields from the minimal input.
+    const [first] = minimalFixture.documents
+    expect(first.id).toBe('content:en:blog:hello.md')
+    expect(first.canonicalKey).toBe('blog:blog/hello')
+    expect(first.type).toBe('markdown')
+
+    const page = await minimalProvider.page(event, 'blog', '/blog/hello')
+    expect(page).toMatchObject({
+      path: '/blog/hello',
+      unprefixedPath: '/blog/hello',
+      locale: 'en',
+      resolved: expect.objectContaining({ locale: 'en', fallback: false })
+    })
+
+    const sitemap = await minimalProvider.sitemapEntries!(event)
+    expect(sitemap.map(entry => entry.loc).sort()).toEqual(['/blog/hello', '/blog/world'])
+  })
 
   test('projects localized non-doc collection mounts consistently', async () => {
     const event = createProviderFixtureEvent({ fixture, provider })
@@ -39,6 +113,31 @@ describe('provider fixture conformance', () => {
 
     const results = await provider.search!(event, { term: 'Mehrsprachiges', locale: 'de' })
     expect(results[0]?.path).toBe('/de/magazin/mehrsprachiges-onboarding')
+  })
+
+  test('sitemap entries exclude navigation marker documents', async () => {
+    const navFixture = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        pages: { type: 'page', route: '/pages' }
+      },
+      documents: [
+        { collection: 'pages', path: '/pages/home', title: 'Home' },
+        { collection: 'pages', path: '/pages/about', title: 'About' },
+        // navigationFile alone must exclude this from the sitemap — no `partial`
+        // here, so the test fails if the navigationFile filter regresses.
+        { collection: 'pages', path: '/pages/about', title: 'Nav Marker', navigationFile: true }
+      ]
+    })
+    const navProvider = createFixtureContentProvider(navFixture)
+    const event = createProviderFixtureEvent({ fixture: navFixture, provider: navProvider })
+
+    const sitemap = await navProvider.sitemapEntries!(event)
+    const locs = sitemap.map(entry => entry.loc)
+
+    expect(locs).toContain('/pages/home')
+    expect(locs.filter(loc => loc === '/pages/about')).toHaveLength(1)
   })
 
   test('applies provider search collection filters and section options', async () => {
@@ -64,14 +163,14 @@ describe('provider fixture conformance', () => {
     const sections = await provider.searchSections!(event, 'posts', {
       locale: 'de',
       filterQuery: { title: { $icontains: 'Onboarding' } },
-      extraFields: ['authors', '_locale']
+      extraFields: ['authors', 'locale']
     })
 
     expect(sections).toEqual([
       expect.objectContaining({
         id: '/de/magazin/mehrsprachiges-onboarding',
         authors: ['authors.emily'],
-        _locale: 'de'
+        locale: 'de'
       })
     ])
   })
@@ -182,16 +281,16 @@ describe('provider fixture conformance', () => {
         authors: { type: 'page', route: '/authors' }
       },
       documents: [
-        { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
-        { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
+        { collection: 'authors', path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
+        { collection: 'authors', path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
         ...Array.from({ length: 5 }, (_, index) => ({
-          _collection: 'posts',
-          _path: `/blog/post-${index + 1}`,
+          collection: 'posts',
+          path: `/blog/post-${index + 1}`,
           ref: `posts.post-${index + 1}`,
           title: `Post ${index + 1}`,
           authors: ['authors.alice']
         })),
-        { _collection: 'posts', _path: '/blog/post-6', ref: 'posts.post-6', title: 'Post 6', authors: ['authors.bob'] }
+        { collection: 'posts', path: '/blog/post-6', ref: 'posts.post-6', title: 'Post 6', authors: ['authors.bob'] }
       ]
     })
     const authorProvider = createFixtureContentProvider(authorFixture)
@@ -239,9 +338,9 @@ describe('provider fixture conformance', () => {
         authors: { type: 'page', route: '/authors' }
       },
       documents: [
-        { _collection: 'authors', _path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
-        { _collection: 'authors', _path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
-        { _collection: 'posts', _path: '/blog/post-1', ref: 'posts.post-1', title: 'Post 1', author: 'authors.alice' }
+        { collection: 'authors', path: '/authors/alice', ref: 'authors.alice', title: 'Alice' },
+        { collection: 'authors', path: '/authors/bob', ref: 'authors.bob', title: 'Bob' },
+        { collection: 'posts', path: '/blog/post-1', ref: 'posts.post-1', title: 'Post 1', author: 'authors.alice' }
       ]
     })
     const authorProvider = createFixtureContentProvider(authorFixture)

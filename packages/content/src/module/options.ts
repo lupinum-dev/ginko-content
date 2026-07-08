@@ -144,11 +144,32 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
   return {
     engine: options.search?.engine || 'minisearch',
     ignoredTags: options.search?.ignoredTags || ['script', 'style', 'pre'],
-    filterQuery: options.search?.filterQuery || { _draft: false, _partial: false },
+    filterQuery: options.search?.filterQuery || { draft: false, partial: false },
     collections: options.search?.collections,
     extraFields: options.search?.extraFields || [],
     apiBaseURL: options.search?.apiBaseURL,
     minisearch: normalizeMiniSearchOptions(options.search?.minisearch)
+  }
+}
+
+/**
+ * When the pagefind search engine is selected, verify its optional peer package is
+ * installed at module-setup time and fail with one actionable line if it is not.
+ * `pagefind` is an optional peerDependency (only prod-search deployments that pick the
+ * pagefind engine need it), so a missing import must surface as an install instruction
+ * rather than an opaque runtime "Cannot find module" during static generation.
+ */
+export async function assertPagefindAvailable (
+  search: ReturnType<typeof normalizeSearchOptions>,
+  importPagefind: () => Promise<unknown> = () => import('pagefind')
+): Promise<void> {
+  if (search === false || search.engine !== 'pagefind') {
+    return
+  }
+  try {
+    await importPagefind()
+  } catch {
+    throw new Error('Content search engine "pagefind" is enabled but the optional "pagefind" package is not installed. Install it: pnpm add -D pagefind')
   }
 }
 

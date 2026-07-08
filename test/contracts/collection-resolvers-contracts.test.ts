@@ -32,15 +32,15 @@ describe('collection resolver parity contracts', () => {
     const navigation = [
       {
         title: 'Guide',
-        _path: '/guide',
-        _locale: 'en',
-        _canonicalKey: 'guide',
-        children: [{ title: 'Intro', _path: '/guide/intro', _locale: 'en', _canonicalKey: 'guide/intro' }]
+        path: '/guide',
+        locale: 'en',
+        canonicalKey: 'guide',
+        children: [{ title: 'Intro', path: '/guide/intro', locale: 'en', canonicalKey: 'guide/intro' }]
       }
     ]
     const pages = [
-      { title: 'Guide', _path: '/guide', _file: '/en/guide/index.md' },
-      { title: 'Intro', _path: '/guide/intro', _file: '/en/guide/intro.md' }
+      { title: 'Guide', path: '/guide', file: { path: '/en/guide/index.md' } },
+      { title: 'Intro', path: '/guide/intro', file: { path: '/en/guide/intro.md' } }
     ]
 
     const appResult = await resolveCollectionNavigationData('docs', runtime, {

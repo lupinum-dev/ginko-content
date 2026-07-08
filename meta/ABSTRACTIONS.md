@@ -16,7 +16,7 @@ A server-side adapter that serves the Ginko content contract from a source.
 
 The built-in provider is `filesystem`. External providers can be registered through `content.config.ts` and loaded through `#content/virtual/providers`.
 
-Providers implement `ContentProvider` from `@lupinum/ginko-content/server` / `#content/server`. They expose capabilities and methods for query, page, route metadata, navigation, surroundings, search sections, site data, and sitemap entries.
+Providers implement `ContentProvider` from `@lupinum/ginko-content/provider` / `#content/provider` (the single home for provider types). They expose capabilities and methods for query, page, route metadata, navigation, surroundings, search sections, site data, and sitemap entries.
 
 ## Filesystem Provider
 
@@ -27,7 +27,7 @@ Filesystem-specific concepts include:
 - Markdown and MDC files
 - YAML, JSON, JSON5, and CSV data
 - frontmatter
-- `_navigation.yml`
+- `.navigation.yml`
 - numeric prefixes
 - `.draft` files
 - underscore partials
@@ -145,13 +145,6 @@ Ginko produces content-backed sitemap entries. `@nuxtjs/sitemap` owns XML genera
 
 ## Public Surface
 
-The committed surface includes:
-
-- `@lupinum/ginko-content`
-- `@lupinum/ginko-content/config`
-- `@lupinum/ginko-content/client`
-- `@lupinum/ginko-content/server`
-- `@lupinum/ginko-content/toc`
-- `@lupinum/ginko-content/transformers`
-
-Everything else is internal unless it is explicitly documented as public.
+`meta/public-surface.json` is the single source of truth for committed package
+subpaths and exported symbols; everything else is internal unless that file
+documents it as public.

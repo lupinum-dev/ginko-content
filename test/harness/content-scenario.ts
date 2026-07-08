@@ -39,22 +39,24 @@ const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 export const createScenarioDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
 ): ParsedContent => {
-  const collection = String(input._collection || 'docs')
-  const locale = String(input._locale || 'en')
-  const path = String(input._path || '/')
-  const canonicalKey = String(input._canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
-  const extension = input._extension || (input._type === 'yaml' ? 'yml' : 'md')
+  const collection = String(input.collection || 'docs')
+  const locale = String(input.locale || 'en')
+  const path = String(input.path || '/')
+  const canonicalKey = String(input.canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
+  const extension = input.file?.extension || (input.type === 'yaml' ? 'yml' : 'md')
 
   return {
-    _id: String(input._id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
-    _source: String(input._source || 'content'),
-    _collection: collection,
-    _locale: locale,
-    _canonicalKey: canonicalKey,
-    _path: path,
-    _file: String(input._file || `/${locale}/${trimSlashes(path) || 'index'}.${extension}`),
-    _type: (input._type || 'markdown') as ParsedContent['_type'],
-    _extension: extension as ParsedContent['_extension'],
+    id: String(input.id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
+    collection: collection,
+    locale: locale,
+    canonicalKey: canonicalKey,
+    path: path,
+    type: (input.type || 'markdown') as ParsedContent['type'],
+    file: {
+      source: String(input.file?.source || 'content'),
+      path: String(input.file?.path || `/${locale}/${trimSlashes(path) || 'index'}.${extension}`),
+      extension: extension as NonNullable<ParsedContent['file']>['extension']
+    },
     title: String(input.title || canonicalKey),
     body: {
       type: 'root',

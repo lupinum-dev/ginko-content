@@ -32,6 +32,35 @@ export type CompareOperator =
   | 'prefix'
 
 /**
+ * JSON-pure representation of a regular expression on a compare node's value.
+ *
+ * The plan is the provider wire contract (CS-5) and must survive
+ * `JSON.parse(JSON.stringify(plan))` unchanged — a live `RegExp` instance
+ * serializes to `{}` and corrupts the wire. Lowering therefore stores regex
+ * operands as a tagged object; the executor reconstructs the `RegExp`
+ * immediately before matching (see `reviveRegex` in `./execute.ts`). The tag
+ * keeps user data shaped like `{ source, flags }` from being mistaken for a
+ * regex.
+ */
+export interface PlanRegex {
+  __ginkoContentQueryValue: 'RegExp'
+  source: string
+  flags: string
+}
+
+/** True when `value` is a JSON-pure regex operand. */
+export const isPlanRegex = (value: unknown): value is PlanRegex => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return record.__ginkoContentQueryValue === 'RegExp'
+    && typeof record.source === 'string'
+    && typeof record.flags === 'string'
+    && Object.keys(record).length === 3
+}
+
+/**
  * Normalized where-clause AST. `{ type: 'true' }` is the identity node used
  * when the user did not pass any predicate; this keeps downstream code free
  * of `if (!filter)` branches.

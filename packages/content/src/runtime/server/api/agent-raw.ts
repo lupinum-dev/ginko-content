@@ -1,7 +1,7 @@
 import { createError, defineEventHandler } from 'h3'
 import { localeFromAgentPath, resolveMarkdownForPublicRoute, routePathFromRawSlug } from '../agent-site'
 import { setAgentMarkdownHeaders } from '../agent-http'
-import { isUnsafeAgentRoutePath } from '../../agent-paths'
+import { isUnsafeAgentRoutePath } from '../../../features/agent/agent-paths'
 
 export default defineEventHandler(async (event) => {
   const routePath = routePathFromRawSlug(event.context.params?.slug)

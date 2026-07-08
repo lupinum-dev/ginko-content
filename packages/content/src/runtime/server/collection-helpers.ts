@@ -13,6 +13,7 @@ import type {
 import { resolveCollectionItemSurroundingsData, resolveCollectionNavigationData, resolveCollectionPageData, resolveCollectionRouteMetaData, resolveCollectionSearchSectionsData } from '../../features/collections/resolve'
 import { resolveContentNavigation } from './navigation-query'
 import { executeFilesystemContentQuery } from './query-executor'
+import { createProviderNavigationQuery, createProviderQuery } from './provider-query'
 import { serverQueryCollection } from './storage'
 import { contentConfig } from './storage-access'
 
@@ -21,7 +22,7 @@ const isNotFoundError = (error: unknown) => {
 }
 
 const searchPageFields = (fields: string[] = []): Array<Extract<keyof ParsedContent, string>> => [
-  '_path',
+  'path',
   'title',
   'description',
   'body',
@@ -32,7 +33,7 @@ const mergeFilterQuery = (
   filterQuery?: ContentQueryBuilderWhere,
   locale?: string
 ): ContentQueryBuilderWhere | undefined => {
-  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { _locale: locale } : undefined
+  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { locale: locale } : undefined
   if (filterQuery && localeFilter) {
     return { $and: [filterQuery, localeFilter] }
   }
@@ -49,12 +50,15 @@ export async function queryFilesystemCollectionNavigation (
   const locale = options.locale
   return await resolveCollectionNavigationData(collection, contentConfig(), {
     ...options,
-    loadNavigation: () => resolveContentNavigation(event, {
-      collection,
-      ...(options.fields?.length ? { navigationFields: options.fields } : {}),
-      ...(typeof options.canonical === 'boolean' ? { canonical: options.canonical } : {}),
-      ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
-    })
+    loadNavigation: () => {
+      const { query, options: navigationOptions } = createProviderNavigationQuery({
+        collection,
+        ...(options.fields?.length ? { navigationFields: options.fields } : {}),
+        ...(typeof options.canonical === 'boolean' ? { canonical: options.canonical } : {}),
+        ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
+      })
+      return resolveContentNavigation(event, query, navigationOptions)
+    }
   })
 }
 
@@ -82,10 +86,10 @@ export async function queryFilesystemCollectionSearchSections (
         .select(...searchPageFields(extraFields))
       const filterQuery = mergeFilterQuery(opts.filterQuery, opts.locale)
       if (filterQuery) {
-        return await (query as any).where(filterQuery).all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        return await (query as any).where(filterQuery).all() as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
       }
       return await query
-        .all() as Array<Pick<ParsedContent, '_path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        .all() as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
     }
   })
 }
@@ -100,7 +104,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
     ...options,
     loadVariantPage: async (input) => {
       try {
-        const response = await executeFilesystemContentQuery<T & ParsedContent>(event, {
+        const response = await executeFilesystemContentQuery<T & ParsedContent>(event, createProviderQuery({
           collection,
           first: true,
           resolveVariant: {
@@ -108,7 +112,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
             locale: input.locale,
             fallback: input.fallback
           }
-        })
+        }).plan)
         return (response.result as (T & ParsedContent) | undefined) || null
       }
       catch (error) {
@@ -122,7 +126,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
     loadPathPage: async (path) => {
       try {
         return await serverQueryCollection(event, collection)
-          .where('_path', '=', path)
+          .where('path', '=', path)
           .first() as (T & ParsedContent) | null
       }
       catch (error) {
