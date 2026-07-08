@@ -8,7 +8,7 @@ import { withResolvedRefs, withResolvedRefsList } from '../../storage/references
 import { getContentGraph } from '../../storage/graph'
 import { getContentRuntimeConfig } from './runtime-config'
 import { isPreview } from '../../integrations/nitro/preview'
-import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../query/public-limits'
+import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../../features/query/public-limits'
 
 const notFound = (plan: ContentQueryPlan, description = 'Could not find document for the given query.') => {
   throw createError({

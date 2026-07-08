@@ -4,7 +4,7 @@ import {
   unwrapFindResponse,
   unwrapListResponse,
   unwrapOneResponse
-} from '../../packages/content/src/runtime/query/responses'
+} from '../../packages/content/src/features/query/responses'
 
 describe('query response contracts', () => {
   test('unwrapOneResponse accepts result envelopes and raw documents', () => {

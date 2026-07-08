@@ -1,6 +1,6 @@
 // Unified query API (ADR-0016) — exposed server-side via #content/server.
 export { one, many, paginate, backlinks, resolveOne, variants, tree, neighbors, createServerContentQueryContext } from './query-api'
-export { getCollectionPath } from '../query/routes'
+export { getCollectionPath } from '../../features/query/routes'
 
 export { queryCollectionsSitemapEntries } from './sitemap-provider'
 export {

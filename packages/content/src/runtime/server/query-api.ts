@@ -33,7 +33,7 @@ import {
   tree as treeWithContext,
   variants as variantsWithContext,
   type ContentQueryContext
-} from '../query/unified'
+} from '../../features/query/unified'
 import { getContentProvider } from './providers'
 import { createContentProviderError } from '../../public/provider-errors'
 import { getContentRuntimeConfig } from './runtime-config'

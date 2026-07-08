@@ -46,7 +46,7 @@ const { docs, posts, authors } = contentConfig.collections
 
 describe('public client query flows against an in-memory content scenario', () => {
   test('does not invent locale-prefixed paths for non-i18n runtime results', async () => {
-    const { one } = await import('../../packages/content/src/runtime/query/unified')
+    const { one } = await import('../../packages/content/src/features/query/unified')
     const plainConfig = defineContentConfig({
       collections: {
         plain: defineCollection({
@@ -88,7 +88,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('uses the first visible navigation item as the collection root surround next entry', async () => {
-    const { neighbors } = await import('../../packages/content/src/runtime/query/unified')
+    const { neighbors } = await import('../../packages/content/src/features/query/unified')
 
     const surround = await neighbors({
       runtime: {
@@ -124,7 +124,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('does not treat hidden non-root pages as collection roots', async () => {
-    const { neighbors } = await import('../../packages/content/src/runtime/query/unified')
+    const { neighbors } = await import('../../packages/content/src/features/query/unified')
 
     const surround = await neighbors({
       runtime: {
@@ -157,7 +157,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('resolves one document by localized route with fallback metadata', async () => {
-    const { one } = await import('../../packages/content/src/runtime/query/unified')
+    const { one } = await import('../../packages/content/src/features/query/unified')
 
     const page = await one(context, docs, {
       locale: 'de',
@@ -177,7 +177,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('keeps route and locale metadata when callers select content fields', async () => {
-    const { one } = await import('../../packages/content/src/runtime/query/unified')
+    const { one } = await import('../../packages/content/src/features/query/unified')
 
     const page = await one(context, docs, {
       locale: 'de',
@@ -214,7 +214,7 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('runs consumer-style many, tree, variants, neighbors, resolve, and populate flows', async () => {
-    const { many, neighbors, resolveOne, tree, variants, one } = await import('../../packages/content/src/runtime/query/unified')
+    const { many, neighbors, resolveOne, tree, variants, one } = await import('../../packages/content/src/features/query/unified')
 
     await expect(many(context, posts, {
       locale: 'de',

@@ -13,7 +13,7 @@ import { buildLocaleFallbackChain, expandDataLocaleVariants, splitInlineLocaleVa
 import { createRouteMeta, localizeNavigation, localizePageResult } from '../packages/content/src/features/localization/results'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { fields } from '../packages/content/src/types/fields'
-import { getCollectionPath } from '../packages/content/src/runtime/query/routes'
+import { getCollectionPath } from '../packages/content/src/features/query/routes'
 
 vi.stubGlobal('__ginkoTestNitroApp', {
   hooks: {

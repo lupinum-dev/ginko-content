@@ -12,7 +12,7 @@ import { normalizeContentQueryParams } from '../packages/content/src/core/query/
 import { buildContentGraph } from '../packages/content/src/core/content/graph'
 import { executeQueryPlan } from '../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../packages/content/src/core/query/lower'
-import { navigationSelectFields } from '../packages/content/src/runtime/query/unified'
+import { navigationSelectFields } from '../packages/content/src/features/query/unified'
 import { defineCollection, defineContentConfig, type ContentCollectionHandle } from '../packages/content/src/types/config'
 import type { QueryWhere } from '../packages/content/src/types/query'
 import { doc } from './contracts/_utils'

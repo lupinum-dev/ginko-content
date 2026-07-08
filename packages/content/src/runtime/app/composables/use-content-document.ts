@@ -16,7 +16,7 @@ import { createClientContentQueryContext } from './query-api'
 import {
   one as oneWithContext,
   resolveOne as resolveOneWithContext
-} from '../../query/unified'
+} from '../../../features/query/unified'
 import { contentCollectionName, resolveOptions, stableKey, type Reactive } from './use-content-shared'
 
 type DocFromHandle<H> = DocumentFromHandle<H>

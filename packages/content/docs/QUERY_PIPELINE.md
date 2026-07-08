@@ -11,7 +11,7 @@ The query path is deliberately split:
 - `src/types/query-parts/transport.ts` is an **internal IR** (`ContentQueryBuilderParams`, the fluent `ContentQueryBuilder`) that the public grammar lowers through to the `ContentQueryPlan` AST — it is not public and not the provider wire. Providers speak `ContentProviderQuery` (`src/public/provider-query.ts`).
 - `src/core/query/operators.ts` owns supported operator names.
 - `src/core/query/filter.ts`, `lower.ts`, `plan.ts`, and `execute.ts` own pure query compilation/execution.
-- `src/runtime/query/` owns public operation assembly: `one`, `many`, `paginate`, `tree`, `neighbors`, `variants`, `backlinks`, and response envelopes.
+- `src/features/query/` owns public operation assembly: `one`, `many`, `paginate`, `tree`, `neighbors`, `variants`, `backlinks`, and response envelopes.
 - `src/runtime/server/provider-query.ts` and `src/runtime/server/query-executor.ts` own provider dispatch and provider capability enforcement.
 
 ## Invariants

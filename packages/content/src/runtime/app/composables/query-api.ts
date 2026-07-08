@@ -36,7 +36,7 @@ import {
   tree as treeWithContext,
   variants as variantsWithContext,
   type ContentQueryContext
-} from '../../query/unified'
+} from '../../../features/query/unified'
 
 export const createClientContentQueryContext = (): ContentQueryContext => {
   const runtime = getContentRuntime()

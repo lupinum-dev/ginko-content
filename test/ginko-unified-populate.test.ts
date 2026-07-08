@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
-import { backlinks, one, paginate } from '../packages/content/src/runtime/query/unified'
+import { backlinks, one, paginate } from '../packages/content/src/features/query/unified'
 import { z } from 'zod'
 
 const mocks = vi.hoisted(() => ({

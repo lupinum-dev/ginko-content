@@ -23,7 +23,7 @@ import {
   many as manyWithContext,
   paginate as paginateWithContext,
   variants as variantsWithContext
-} from '../../query/unified'
+} from '../../../features/query/unified'
 import { contentCollectionName, resolveOptions, stableKey, type Reactive, type ReactiveValue } from './use-content-shared'
 
 type DocFromHandle<H> = DocumentFromHandle<H>

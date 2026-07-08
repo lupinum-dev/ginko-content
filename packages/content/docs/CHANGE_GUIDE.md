@@ -18,7 +18,7 @@ Add the parser in `src/parsers/`, expose it through `parsers/index.ts`, update p
 
 ### Change Route-Page Loading
 
-Start in `src/runtime/query/documents.ts` and `src/runtime/app/composables/use-content-page.ts`. Keep `useContentPage(handle)` as the beginner route-page API. Update docs-drift tests and consumer type fixtures.
+Start in `src/features/query/documents.ts` and `src/runtime/app/composables/use-content-page.ts`. Keep `useContentPage(handle)` as the beginner route-page API. Update docs-drift tests and consumer type fixtures.
 
 ### Change I18n Fallback Behavior
 
@@ -26,7 +26,7 @@ Start in `src/features/localization/` and runtime query locale modules. Keep pub
 
 ### Change Navigation Tree Behavior
 
-Start in `src/features/navigation/` and `src/runtime/query/navigation.ts`. Do not special-case frontend navigation in Vue composables. Run navigation contracts and app query contracts.
+Start in `src/features/navigation/` and `src/features/query/navigation.ts`. Do not special-case frontend navigation in Vue composables. Run navigation contracts and app query contracts.
 
 ### Change Search Behavior
 

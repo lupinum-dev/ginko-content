@@ -11,7 +11,7 @@ import type {
 } from '../../../types/query'
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { createClientContentQueryContext } from './query-api'
-import { neighbors as neighborsWithContext, tree as treeWithContext } from '../../query/unified'
+import { neighbors as neighborsWithContext, tree as treeWithContext } from '../../../features/query/unified'
 import { getContentRoute, getContentRuntime } from './runtime'
 import { contentCollectionName, resolveLocaleFromRoutePath, resolveOptions, stableKey, type Reactive } from './use-content-shared'
 

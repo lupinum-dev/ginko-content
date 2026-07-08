@@ -17,8 +17,8 @@ export {
   createServerContentQueryContext
 } from '../runtime/server/query-api.js'
 
-export { getCollectionPath } from '../runtime/query/routes.js'
-export type { CollectionPathOptions } from '../runtime/query/routes.js'
+export { getCollectionPath } from '../features/query/routes.js'
+export type { CollectionPathOptions } from '../features/query/routes.js'
 export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../runtime/agent-paths.js'
 export {
   clearAgentMarkdownSerializers,
