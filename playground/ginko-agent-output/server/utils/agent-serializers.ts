@@ -5,7 +5,7 @@ import {
   registerAgentMarkdownComponents,
   registerAgentMarkdownSerializers,
   type AgentMarkdownSerializer
-} from '@lupinum/ginko-content/server'
+} from '@lupinum/ginko-content/agent'
 
 let registered = false
 

@@ -3,11 +3,10 @@ import {
   shapeProviderDocument,
   withContentCache,
   type ContentPageResult,
-  type ContentProvider,
-  type ContentProviderQuery,
   type ContentSearchSection,
   type ProviderDocumentInput
 } from '#content/server'
+import type { ContentProvider, ContentProviderQuery } from '#content/provider'
 import {
   authors,
   postByPath,

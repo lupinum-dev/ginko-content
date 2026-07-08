@@ -16,7 +16,7 @@ A server-side adapter that serves the Ginko content contract from a source.
 
 The built-in provider is `filesystem`. External providers can be registered through `content.config.ts` and loaded through `#content/virtual/providers`.
 
-Providers implement `ContentProvider` from `@lupinum/ginko-content/server` / `#content/server`. They expose capabilities and methods for query, page, route metadata, navigation, surroundings, search sections, site data, and sitemap entries.
+Providers implement `ContentProvider` from `@lupinum/ginko-content/provider` / `#content/provider` (the single home for provider types). They expose capabilities and methods for query, page, route metadata, navigation, surroundings, search sections, site data, and sitemap entries.
 
 ## Filesystem Provider
 

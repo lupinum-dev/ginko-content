@@ -17,7 +17,6 @@ export {
 
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
-export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../features/agent/agent-paths.js'
 export { useContentHead } from '../runtime/app/composables/head.js'
 
 export {

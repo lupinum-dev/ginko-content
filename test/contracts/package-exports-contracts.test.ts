@@ -15,6 +15,8 @@ type PublicSurface = {
   clientTypeExports: Record<string, PublicSurfaceEntry>
   serverValueExports: Record<string, PublicSurfaceEntry>
   serverTypeExports: Record<string, PublicSurfaceEntry>
+  agentValueExports: Record<string, PublicSurfaceEntry>
+  agentTypeExports: Record<string, PublicSurfaceEntry>
   rootValueExports: Record<string, PublicSurfaceEntry>
   rootTypeExports: Record<string, PublicSurfaceEntry>
   runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
@@ -139,6 +141,31 @@ describe('package export contracts', () => {
     expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
   })
 
+  test('source agent facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.agentValueExports).sort())
+  })
+
+  test('source agent facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.agentTypeExports).sort())
+  })
+
+  test('server facade no longer re-exports agent or provider types', async () => {
+    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
+
+    // Agent surface has a single home (`./agent`).
+    expect(source).not.toContain('AgentMarkdown')
+    expect(source).not.toContain('agent-markdown.js')
+    // Provider types have a single home (`./provider`).
+    expect(extractTypeExports(source)).not.toContain('ContentProvider')
+    expect(extractTypeExports(source)).not.toContain('ContentProviderQuery')
+  })
+
   test('source root entry value exports stay intentionally curated', async () => {
     const publicSurface = await readPublicSurface()
     const source = await readFile('packages/content/src/module.ts', 'utf8')
@@ -181,7 +208,7 @@ describe('package export contracts', () => {
       'content-config-author',
       'server-runtime-and-provider-author',
       'app-runtime',
-      'toc-compatibility',
+      'advanced-agent-subpath',
       'advanced-cms-contract',
       'advanced-cms-import',
       'testing-only-provider-fixture',
@@ -223,6 +250,8 @@ describe('package export contracts', () => {
       ...Object.values(publicSurface.clientTypeExports),
       ...Object.values(publicSurface.serverValueExports),
       ...Object.values(publicSurface.serverTypeExports),
+      ...Object.values(publicSurface.agentValueExports),
+      ...Object.values(publicSurface.agentTypeExports),
       ...Object.values(publicSurface.rootValueExports),
       ...Object.values(publicSurface.rootTypeExports),
       ...Object.values(publicSurface.runtimeAppAutoImports)
@@ -301,6 +330,17 @@ describe('package export contracts', () => {
     expect(client).not.toHaveProperty('useContentList')
   })
 
+  test('built agent export loads as Node ESM', async () => {
+    const agent = await import('../../packages/content/dist/public/agent.js')
+
+    // LLM markdown output surface now lives on its own subpath.
+    expect(agent.registerAgentMarkdownSerializer).toBeTypeOf('function')
+    expect(agent.createAgentMarkdownRegistry).toBeTypeOf('function')
+    expect(agent.defineAgentMarkdownComponent).toBeTypeOf('function')
+    expect(agent.renderLlmsTxt).toBeTypeOf('function')
+    expect(agent.agentMarkdownPathForRoute).toBeTypeOf('function')
+  })
+
   test('built provider fixture export loads as Node ESM', async () => {
     const fixtureModule = await import('@lupinum/ginko-content/testing/provider-fixture')
 
@@ -328,13 +368,15 @@ describe('package export contracts', () => {
   })
 
   test('public export files keep Node ESM relative specifiers explicit', async () => {
-    const [client, server] = await Promise.all([
+    const [client, server, agent] = await Promise.all([
       readFile('packages/content/dist/public/client.js', 'utf8'),
-      readFile('packages/content/dist/public/server.js', 'utf8')
+      readFile('packages/content/dist/public/server.js', 'utf8'),
+      readFile('packages/content/dist/public/agent.js', 'utf8')
     ])
 
     expect(client).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
     expect(server).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
+    expect(agent).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
   })
 
   test('package exports are ESM-only and do not advertise require fallbacks', async () => {

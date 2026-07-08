@@ -102,7 +102,7 @@ Public package exports are the compatibility seam. Current subpaths:
 - `@lupinum/ginko-content/server`
 - `@lupinum/ginko-content/provider`
 - `@lupinum/ginko-content/client`
-- `@lupinum/ginko-content/toc`
+- `@lupinum/ginko-content/agent`
 - `@lupinum/ginko-content/cms-contract`
 - `@lupinum/ginko-content/cms-import`
 - `@lupinum/ginko-content/testing/provider-fixture`

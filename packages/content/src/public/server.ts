@@ -19,56 +19,6 @@ export {
 
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
-export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../features/agent/agent-paths.js'
-export {
-  clearAgentMarkdownSerializers,
-  blockquoteMarkdown,
-  createAgentMarkdownRegistry,
-  defineAgentMarkdownComponent,
-  getMarkdownProp,
-  jsonFenceMarkdown,
-  linkMarkdown,
-  queryMarkdownEnabledContent,
-  registerAgentMarkdownComponent,
-  registerAgentMarkdownComponents,
-  registerAgentMarkdownSerializer,
-  registerAgentMarkdownSerializers,
-  renderMarkdownChildren,
-  resolveAgentMarkdownOptions,
-  resolveContentMarkdown,
-  resolveContentMarkdownByRoute,
-  xmlComponentMarkdown
-} from '../runtime/server/agent-markdown.js'
-export {
-  buildAgentPageIndex,
-  collectAgentMarkdownPrerenderRoutes,
-  getAgentLocales,
-  isSupportedAgentLocale,
-  localeFromAgentPath,
-  renderAgentMarkdownFrontmatter,
-  renderAgentMarkdownPage,
-  renderLlmsFullTxt,
-  renderLlmsTxt,
-  resolveMarkdownForPublicRoute,
-  routePathFromIndexSlug,
-  routePathFromRawSlug
-} from '../runtime/server/agent-site.js'
-export type {
-  AgentMarkdown,
-  AgentMarkdownComponent,
-  AgentMarkdownComponentMap,
-  AgentMarkdownContext,
-  AgentMarkdownMeta,
-  AgentMarkdownPublicSignals,
-  AgentMarkdownRegistry,
-  AgentMarkdownSerializer,
-  AgentMarkdownSerializerMap,
-  ResolvedAgentMarkdownOptions
-} from '../runtime/server/agent-markdown.js'
-export type {
-  AgentPage,
-  AgentPageSource
-} from '../runtime/server/agent-site.js'
 
 export type {
   QueryWhere,
@@ -123,19 +73,6 @@ export {
   collectContentCacheHint,
   getContentCacheHint
 } from '../runtime/server/cache-hints.js'
-export type {
-  ContentCacheAdapter,
-  ContentCacheHint,
-  ContentCacheHintInput,
-  ContentCacheInvalidateInput,
-  ContentProvider,
-  ContentProviderCapabilities,
-  ContentProviderNavigationOptions,
-  ContentProviderQuery,
-  ContentProviderResult,
-  MaybeContentProviderResult
-} from './provider.js'
 export { PROVIDER_QUERY_VERSION, toContentProviderNavigationQuery, toContentProviderQuery, withContentCache } from './provider.js'
-export type { ContentProviderErrorCode } from './provider-errors.js'
 export { normalizeProviderDocument, shapeProviderDocument } from '../runtime/server/provider-document.js'
 export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from '../runtime/server/provider-document.js'

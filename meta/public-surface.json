@@ -25,10 +25,10 @@
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
-    "./toc": {
-      "category": "toc-compatibility",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    "./agent": {
+      "category": "advanced-agent-subpath",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "./cms-contract": {
       "category": "advanced-cms-contract",
@@ -106,21 +106,6 @@
       "category": "stable-route-helper",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "agentMarkdownPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "agentRawPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "normalizeAgentRoutePath": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "useContentHead": {
       "category": "stable-app-composable",
@@ -516,166 +501,6 @@
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
-    "agentMarkdownPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "agentRawPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "normalizeAgentRoutePath": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "clearAgentMarkdownSerializers": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "blockquoteMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "createAgentMarkdownRegistry": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "defineAgentMarkdownComponent": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "getMarkdownProp": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "jsonFenceMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "linkMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "queryMarkdownEnabledContent": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "registerAgentMarkdownComponent": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "registerAgentMarkdownComponents": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "registerAgentMarkdownSerializer": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "registerAgentMarkdownSerializers": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "renderMarkdownChildren": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveAgentMarkdownOptions": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveContentMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveContentMarkdownByRoute": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "xmlComponentMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "buildAgentPageIndex": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "collectAgentMarkdownPrerenderRoutes": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "getAgentLocales": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "isSupportedAgentLocale": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "localeFromAgentPath": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "renderAgentMarkdownFrontmatter": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "renderAgentMarkdownPage": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "renderLlmsFullTxt": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "renderLlmsTxt": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveMarkdownForPublicRoute": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "routePathFromIndexSlug": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "routePathFromRawSlug": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
     "queryCollectionsSitemapEntries": {
       "category": "stable-sitemap-helper",
       "audience": "library-user",
@@ -752,66 +577,6 @@
       "category": "stable-route-helper-type",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "AgentMarkdown": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownComponent": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownComponentMap": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownContext": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownMeta": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownPublicSignals": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownRegistry": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownSerializer": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentMarkdownSerializerMap": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "ResolvedAgentMarkdownOptions": {
-      "category": "advanced-agent-markdown-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentPage": {
-      "category": "advanced-agent-site-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "AgentPageSource": {
-      "category": "advanced-agent-site-type",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "QueryWhere": {
       "category": "stable-query-type",
@@ -978,61 +743,6 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ContentCacheAdapter": {
-      "category": "stable-provider-cache-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentCacheHint": {
-      "category": "stable-provider-cache-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentCacheHintInput": {
-      "category": "stable-provider-cache-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentCacheInvalidateInput": {
-      "category": "stable-provider-cache-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProvider": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProviderCapabilities": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProviderResult": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "MaybeContentProviderResult": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProviderErrorCode": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProviderQuery": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProviderNavigationOptions": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
     "ProviderDocumentInput": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
@@ -1042,6 +752,230 @@
       "category": "stable-provider-author-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    }
+  },
+  "agentValueExports": {
+    "agentMarkdownPathForRoute": {
+      "category": "advanced-agent-path-helper",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "agentRawPathForRoute": {
+      "category": "advanced-agent-path-helper",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "normalizeAgentRoutePath": {
+      "category": "advanced-agent-path-helper",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "clearAgentMarkdownSerializers": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "blockquoteMarkdown": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "createAgentMarkdownRegistry": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "defineAgentMarkdownComponent": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "getMarkdownProp": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "jsonFenceMarkdown": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "linkMarkdown": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "queryMarkdownEnabledContent": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "registerAgentMarkdownComponent": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "registerAgentMarkdownComponents": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "registerAgentMarkdownSerializer": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "registerAgentMarkdownSerializers": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "renderMarkdownChildren": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "resolveAgentMarkdownOptions": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "resolveContentMarkdown": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "resolveContentMarkdownByRoute": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "xmlComponentMarkdown": {
+      "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "buildAgentPageIndex": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "collectAgentMarkdownPrerenderRoutes": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "getAgentLocales": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "isSupportedAgentLocale": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "localeFromAgentPath": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "renderAgentMarkdownFrontmatter": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "renderAgentMarkdownPage": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "renderLlmsFullTxt": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "renderLlmsTxt": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "resolveMarkdownForPublicRoute": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "routePathFromIndexSlug": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "routePathFromRawSlug": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    }
+  },
+  "agentTypeExports": {
+    "AgentMarkdown": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownComponent": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownComponentMap": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownContext": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownMeta": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownPublicSignals": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownRegistry": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownSerializer": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentMarkdownSerializerMap": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "ResolvedAgentMarkdownOptions": {
+      "category": "advanced-agent-markdown-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentPage": {
+      "category": "advanced-agent-site-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "AgentPageSource": {
+      "category": "advanced-agent-site-type",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
     }
   },
   "runtimeAppAutoImports": {

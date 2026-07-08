@@ -167,7 +167,7 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/config`
 - `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/server`
-- `@lupinum/ginko-content/toc`
+- `@lupinum/ginko-content/agent`
 - `@lupinum/ginko-content/transformers`
 
 Public docs must match these exports. Internal runtime, storage, manifest, renderer, and provider loader details should stay private unless deliberately promoted.

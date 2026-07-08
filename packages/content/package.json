@@ -53,10 +53,10 @@
       "import": "./dist/public/client.js",
       "default": "./dist/public/client.js"
     },
-    "./toc": {
-      "types": "./dist/runtime/app/composables/toc.d.ts",
-      "import": "./dist/runtime/app/composables/toc.js",
-      "default": "./dist/runtime/app/composables/toc.js"
+    "./agent": {
+      "types": "./dist/public/agent.d.ts",
+      "import": "./dist/public/agent.js",
+      "default": "./dist/public/agent.js"
     },
     "./cms-contract": {
       "types": "./dist/cms-contract/index.d.ts",
