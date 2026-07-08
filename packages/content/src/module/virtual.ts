@@ -25,7 +25,7 @@ export const createVirtualContentTemplates = (
         // the moment anything actually bundles it (caught when the ingest
         // import became static and rollup parsed this template for the
         // first time).
-        const name = genSafeVariableName(relative(nuxt.options.rootDir, transformer)).replace(/_(45|46|47)/g, '_') + '_' + hash(transformer).replace(/[^a-zA-Z0-9_$]/g, '_')
+        const name = genSafeVariableName(relative(nuxt.options.rootDir, transformer)).replace(/_(45|46|47)/g, '_') + '_' + hash(transformer).replace(/[^a-z0-9_$]/gi, '_')
         return { name, import: genImport(transformer, name) }
       })
 
