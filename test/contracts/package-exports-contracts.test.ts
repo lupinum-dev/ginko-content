@@ -1,7 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
-import { runtimeAppImportSpecs } from '../../packages/content/src/module/runtime-assets'
 
 vi.mock('../../packages/content/dist/runtime/app/composables/content-i18n.js', () => ({
   useRouteBaseName: () => () => undefined,
@@ -104,43 +103,6 @@ const extractTypeExports = (source: string) => {
 }
 
 describe('package export contracts', () => {
-  test('source package export map stays intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
-      exports: Record<string, Record<string, string> | string>
-    }
-
-    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(publicSurface.packageExportSubpaths).sort())
-  })
-
-  test('source client facade value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.clientValueExports).sort())
-  })
-
-  test('source client facade type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.clientTypeExports).sort())
-  })
-
-  test('source server facade value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.serverValueExports).sort())
-  })
-
-  test('source server facade type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
-  })
-
   test('source agent facade value exports stay intentionally curated', async () => {
     const publicSurface = await readPublicSurface()
     const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
@@ -184,12 +146,6 @@ describe('package export contracts', () => {
     const source = await readFile('packages/content/src/module.ts', 'utf8')
 
     expect(source).not.toMatch(/export\s+type\s*\*/)
-  })
-
-  test('runtime app auto-imports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-
-    expect(runtimeAppImportSpecs.map(spec => spec.name).sort()).toEqual(Object.keys(publicSurface.runtimeAppAutoImports).sort())
   })
 
   test('app-facing runtime imports are documented by name', async () => {

@@ -31,6 +31,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm docs-drift
+
       - run: pnpm verify
 
   release-verify:

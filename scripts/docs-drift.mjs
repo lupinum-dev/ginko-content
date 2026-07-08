@@ -1,6 +1,17 @@
+#!/usr/bin/env node
+// Documentation-drift linter.
+//
+// Moved out of test/unit/docs-drift.test.ts (T6.1): the detector logic used to
+// live in a vitest suite that also self-tested its own regexes. The detectors
+// are the load-bearing part — they scan the shipped docs/examples corpus for
+// stale/removed public APIs, private metadata leaks, unsupported query
+// operators, incomplete config snippets and non-public imports. They now run as
+// a standalone script wired into CI (the `verify` job) and `release:verify`.
+//
+// Exit code 0 = clean; 1 = drift found (offenders printed to stderr).
+
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { describe, expect, test } from 'vitest'
 
 const markdownRoots = [
   'README.md',
@@ -103,7 +114,7 @@ const nonQueryDollarNames = new Set([
   '$route'
 ])
 
-const isCheckedTextFile = (file: string) =>
+const isCheckedTextFile = file =>
   ['.json', '.md', '.vue', '.ts', '.js', '.mjs'].some(extension => file.endsWith(extension))
 
 const skippedDirectories = new Set([
@@ -113,7 +124,7 @@ const skippedDirectories = new Set([
   'node_modules'
 ])
 
-const collectCheckedTextFiles = async (path: string): Promise<string[]> => {
+const collectCheckedTextFiles = async (path) => {
   const entries = await readdir(path, { withFileTypes: true })
   const nested = await Promise.all(entries.map(async (entry) => {
     const entryPath = join(path, entry.name)
@@ -126,7 +137,7 @@ const collectCheckedTextFiles = async (path: string): Promise<string[]> => {
   return nested.flat()
 }
 
-const collectTextFiles = async (roots: string[]) => {
+const collectTextFiles = async (roots) => {
   const files = await Promise.all(roots.map(async (root) => {
     if (isCheckedTextFile(root)) return [root]
     return await collectCheckedTextFiles(root)
@@ -136,11 +147,11 @@ const collectTextFiles = async (roots: string[]) => {
     .map(file => relative(process.cwd(), file))
 }
 
-const isMigrationDoc = (file: string) => file.split('\\').join('/').startsWith('docs/content/docs/8.migration/')
+const isMigrationDoc = file => file.split('\\').join('/').startsWith('docs/content/docs/8.migration/')
 
-const normalizePath = (file: string) => file.split('\\').join('/')
+const normalizePath = file => file.split('\\').join('/')
 
-const isAdvancedSurfaceDoc = (file: string) => {
+const isAdvancedSurfaceDoc = (file) => {
   const normalized = normalizePath(file)
   const lower = normalized.toLowerCase()
   return (
@@ -158,7 +169,7 @@ const isAdvancedSurfaceDoc = (file: string) => {
   )
 }
 
-const isHistoricalMigrationLine = (lines: string[], index: number) => {
+const isHistoricalMigrationLine = (lines, index) => {
   const context = lines
     .slice(Math.max(0, index - 4), index + 1)
     .join(' ')
@@ -180,7 +191,7 @@ const isHistoricalMigrationLine = (lines: string[], index: number) => {
   ].some(marker => context.includes(marker))
 }
 
-const findStalePublicApiLines = (file: string, source: string) => {
+const findStalePublicApiLines = (file, source) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
     if (!stalePublicApiPatterns.some(pattern => pattern.test(line))) {
@@ -195,7 +206,7 @@ const findStalePublicApiLines = (file: string, source: string) => {
   })
 }
 
-const findCompatibilityOnlyPublicApiLines = (file: string, source: string) => {
+const findCompatibilityOnlyPublicApiLines = (file, source) => {
   if (isAdvancedSurfaceDoc(file)) return []
   return source.split('\n').flatMap((line, index) => {
     if (!compatibilityOnlyPublicApiPatterns.some(pattern => pattern.test(line))) {
@@ -206,7 +217,7 @@ const findCompatibilityOnlyPublicApiLines = (file: string, source: string) => {
   })
 }
 
-const findAdvancedSurfaceLinesOutsideAdvancedDocs = (file: string, source: string) => {
+const findAdvancedSurfaceLinesOutsideAdvancedDocs = (file, source) => {
   if (isAdvancedSurfaceDoc(file)) return []
   return source.split('\n').flatMap((line, index) => {
     if (!advancedServerSurfacePatterns.some(pattern => pattern.test(line))) {
@@ -217,7 +228,7 @@ const findAdvancedSurfaceLinesOutsideAdvancedDocs = (file: string, source: strin
   })
 }
 
-const findPrivateLocaleMetadataLines = (file: string, source: string) => {
+const findPrivateLocaleMetadataLines = (file, source) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
     if (!privateLocaleMetadataPatterns.some(pattern => pattern.test(line))) {
@@ -232,7 +243,7 @@ const findPrivateLocaleMetadataLines = (file: string, source: string) => {
   })
 }
 
-const isUnsupportedOperatorExample = (lines: string[], index: number) => {
+const isUnsupportedOperatorExample = (lines, index) => {
   const context = lines
     .slice(Math.max(0, index - 4), index + 4)
     .join(' ')
@@ -248,7 +259,7 @@ const isUnsupportedOperatorExample = (lines: string[], index: number) => {
   ].some(marker => context.includes(marker))
 }
 
-const isMarkdownRefLinkExample = (lines: string[], index: number) => {
+const isMarkdownRefLinkExample = (lines, index) => {
   const line = lines[index] || ''
   if (/\]\(\$[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)*(?:#[^)]+)?\)/i.test(line)) {
     return true
@@ -271,7 +282,7 @@ const isMarkdownRefLinkExample = (lines: string[], index: number) => {
     (context.includes('link') || context.includes('links'))
 }
 
-const findUnsupportedPublicOperatorLines = (file: string, source: string) => {
+const findUnsupportedPublicOperatorLines = (file, source) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
     const operators = line.match(/\$[a-z][a-z0-9_]*/gi) ?? []
@@ -286,7 +297,7 @@ const findUnsupportedPublicOperatorLines = (file: string, source: string) => {
   })
 }
 
-const isCompatibilityCollectionDeclarationLine = (lines: string[], index: number) => {
+const isCompatibilityCollectionDeclarationLine = (lines, index) => {
   const context = lines
     .slice(Math.max(0, index - 3), index + 3)
     .join(' ')
@@ -302,7 +313,7 @@ const isCompatibilityCollectionDeclarationLine = (lines: string[], index: number
   ].some(marker => context.includes(marker))
 }
 
-const findNamedDefineCollectionLines = (file: string, source: string) => {
+const findNamedDefineCollectionLines = (file, source) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
     if (!namedDefineCollectionPattern.test(line)) return []
@@ -312,7 +323,7 @@ const findNamedDefineCollectionLines = (file: string, source: string) => {
   })
 }
 
-const findRawStringHandleFirstHelperLines = (file: string, source: string) => {
+const findRawStringHandleFirstHelperLines = (file, source) => {
   const lines = source.split('\n')
   return source
     .split('\n')
@@ -323,7 +334,7 @@ const findRawStringHandleFirstHelperLines = (file: string, source: string) => {
     )
 }
 
-const isFallbackAwareDoc = (file: string) => {
+const isFallbackAwareDoc = (file) => {
   const normalized = normalizePath(file)
   return (
     normalized.includes('/6.i18n/') ||
@@ -334,38 +345,34 @@ const isFallbackAwareDoc = (file: string) => {
   )
 }
 
-const findUnapprovedFallbackLines = (file: string, source: string) => {
+const findUnapprovedFallbackLines = (file, source) => {
   if (isFallbackAwareDoc(file)) return []
   return source
     .split('\n')
     .flatMap((line, index) => line.includes('fallback: true') ? [`${file}:${index + 1}`] : [])
 }
 
-const collectExportedContentConfigHandles = (source: string) => {
-  const handles = new Set<string>()
+const collectExportedContentConfigHandles = (source) => {
+  const handles = new Set()
   const exportPattern = /\bexport\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*defineCollection\s*\(/g
 
   for (const match of source.matchAll(exportPattern)) {
-    handles.add(match[1]!)
+    handles.add(match[1])
   }
 
   return handles
 }
 
-const findMissingContentConfigHandleImports = (
-  file: string,
-  source: string,
-  exportedHandles: Set<string>
-) => {
-  const offenders: string[] = []
+const findMissingContentConfigHandleImports = (file, source, exportedHandles) => {
+  const offenders = []
   const importPattern = /import\s*\{\s*([^}]+?)\s*\}\s*from\s*['"]~\/content\.config['"]/g
   if (exportedHandles.size === 0) return offenders
 
   for (const match of source.matchAll(importPattern)) {
-    const imported = match[1]!
+    const imported = match[1]
       .split(',')
       .map(entry => entry.trim().split(/\s+as\s+/i)[0]?.trim())
-      .filter((entry): entry is string => Boolean(entry))
+      .filter(entry => Boolean(entry))
 
     for (const handle of imported) {
       if (!exportedHandles.has(handle)) {
@@ -378,8 +385,8 @@ const findMissingContentConfigHandleImports = (
   return offenders
 }
 
-const extractMarkdownCodeBlocks = (source: string) => {
-  const blocks: Array<{ info: string, code: string, startLine: number }> = []
+const extractMarkdownCodeBlocks = (source) => {
+  const blocks = []
   const blockPattern = /^```([^\n]*)\n([\s\S]*?)^```/gm
 
   for (const match of source.matchAll(blockPattern)) {
@@ -394,27 +401,21 @@ const extractMarkdownCodeBlocks = (source: string) => {
 }
 
 const collectPublicPackageSubpaths = async () => {
-  const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
-    exports: Record<string, unknown>
-  }
+  const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8'))
 
   return Object.keys(manifest.exports)
     .map(subpath => subpath === '.' ? '@lupinum/ginko-content' : `@lupinum/ginko-content${subpath.slice(1)}`)
 }
 
-const extractImportSpecifiers = (source: string) => {
-  const specifiers = new Set<string>()
+const extractImportSpecifiers = (source) => {
+  const specifiers = new Set()
   for (const match of source.matchAll(/\bimport(?:\s+type)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
     specifiers.add(match[1] ?? match[2] ?? '')
   }
   return [...specifiers].filter(Boolean)
 }
 
-const findNonPublicGinkoImportLines = (
-  file: string,
-  source: string,
-  publicSubpaths: string[]
-) => {
+const findNonPublicGinkoImportLines = (file, source, publicSubpaths) => {
   const allowed = new Set(publicSubpaths)
   const wildcardPrefixes = publicSubpaths
     .filter(subpath => subpath.endsWith('/*'))
@@ -432,13 +433,13 @@ const findNonPublicGinkoImportLines = (
   })
 }
 
-const findNuxtContentImports = (file: string, source: string) =>
+const findNuxtContentImports = (file, source) =>
   source.split('\n').flatMap((line, index) => {
     const specifiers = extractImportSpecifiers(line)
     return specifiers.includes('@nuxt/content') ? [`${file}:${index + 1}`] : []
   })
 
-const peerRequirementLabel = (name: string, range: string) => {
+const peerRequirementLabel = (name, range) => {
   const version = range.match(/\d+(?:\.\d+)*/)?.[0]
   if (!version) return null
   if (name === 'nuxt') return `Nuxt ${version} or later`
@@ -446,10 +447,9 @@ const peerRequirementLabel = (name: string, range: string) => {
   return null
 }
 
-const isContentConfigCodeBlock = (info: string) =>
-  /\bcontent\.config\.ts\b/.test(info)
+const isContentConfigCodeBlock = info => /\bcontent\.config\.ts\b/.test(info)
 
-const findIncompleteContentConfigSnippetLines = (file: string, source: string) => {
+const findIncompleteContentConfigSnippetLines = (file, source) => {
   const collectionExportPattern = /\bexport\s+const\s+[A-Za-z_$][\w$]*\s*=\s*defineCollection\s*\(/
   const contentConfigCallPattern = /\bdefineContentConfig\s*\(/
   const defaultContentConfigPattern = /\bexport\s+default\s+defineContentConfig\s*\(/
@@ -466,185 +466,138 @@ const findIncompleteContentConfigSnippetLines = (file: string, source: string) =
   })
 }
 
-describe('documentation drift', () => {
-  test('stale API detector allows current sitemap helper names', () => {
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('queryCollectionsSitemapEntries'))).toBe(false)
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('queryCollection('))).toBe(true)
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('`useContentPage`'))).toBe(false)
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentList('))).toBe(true)
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('queryCollectionNavigation('))).toBe(true)
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentNavigation('))).toBe(false)
-    expect(stalePublicApiPatterns.some(pattern => pattern.test('useContentSwitchLocalePath('))).toBe(false)
-    expect(compatibilityOnlyPublicApiPatterns.some(pattern => pattern.test('useContentSwitchLocalePath('))).toBe(true)
-  })
-
-  test('content.config import detector is scoped to the same doc', () => {
-    const source = [
-      "export const docs = defineCollection({ type: 'page' })",
-      "import { docs, posts } from '~/content.config'"
-    ].join('\n')
-
-    expect(findMissingContentConfigHandleImports(
-      'example.md',
-      source,
-      collectExportedContentConfigHandles(source)
-    )).toEqual(['example.md:2 (posts)'])
-  })
-
-  test('content.config snippet detector requires full exported config files', () => {
-    expect(findIncompleteContentConfigSnippetLines(
-      'example.md',
-      [
-        '```ts [content.config.ts]',
-        "export const docs = defineCollection({ type: 'page' })",
-        '```'
-      ].join('\n')
-    )).toEqual(['example.md:1'])
-  })
-
-  test('current public docs do not teach removed query APIs', async () => {
-    const offenders: string[] = []
+// Each check returns { name, offenders: string[] }.
+const checks = [
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findStalePublicApiLines(file, source))
+      offenders.push(...findStalePublicApiLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('beginner docs do not teach compatibility-only APIs as preferred APIs', async () => {
-    const offenders: string[] = []
+    return { name: 'current public docs do not teach removed query APIs', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findCompatibilityOnlyPublicApiLines(file, source))
+      offenders.push(...findCompatibilityOnlyPublicApiLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('beginner docs do not teach advanced provider cache or agent surfaces', async () => {
-    const offenders: string[] = []
+    return { name: 'beginner docs do not teach compatibility-only APIs as preferred APIs', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findAdvancedSurfaceLinesOutsideAdvancedDocs(file, source))
+      offenders.push(...findAdvancedSurfaceLinesOutsideAdvancedDocs(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('active docs prefer public localized resolution metadata', async () => {
-    const offenders: string[] = []
+    return { name: 'beginner docs do not teach advanced provider cache or agent surfaces', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findPrivateLocaleMetadataLines(file, source))
+      offenders.push(...findPrivateLocaleMetadataLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('docs and examples do not teach unsupported public query operators', async () => {
-    const offenders: string[] = []
+    return { name: 'active docs prefer public localized resolution metadata', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findUnsupportedPublicOperatorLines(file, source))
+      offenders.push(...findUnsupportedPublicOperatorLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('current docs do not teach authored collection names as the default', async () => {
-    const offenders: string[] = []
+    return { name: 'docs and examples do not teach unsupported public query operators', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findNamedDefineCollectionLines(file, source))
+      offenders.push(...findNamedDefineCollectionLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('current docs and examples prefer collection handles for app-facing content helpers', async () => {
-    const offenders: string[] = []
+    return { name: 'current docs do not teach authored collection names as the default', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findRawStringHandleFirstHelperLines(file, source))
+      offenders.push(...findRawStringHandleFirstHelperLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('fallback examples stay in fallback-aware docs', async () => {
-    const offenders: string[] = []
+    return { name: 'current docs and examples prefer collection handles for app-facing content helpers', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findUnapprovedFallbackLines(file, source))
+      offenders.push(...findUnapprovedFallbackLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('content.config imports reference exported collection handles shown in docs', async () => {
+    return { name: 'fallback examples stay in fallback-aware docs', offenders }
+  },
+  async () => {
     const files = await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])
-    const sources = await Promise.all(files.map(async file => ({
-      file,
-      source: await readFile(file, 'utf8')
-    })))
-
+    const sources = await Promise.all(files.map(async file => ({ file, source: await readFile(file, 'utf8') })))
     const offenders = sources.flatMap(({ file, source }) =>
       findMissingContentConfigHandleImports(file, source, collectExportedContentConfigHandles(source))
     )
-
-    expect(offenders).toEqual([])
-  })
-
-  test('content.config snippets are complete exported configs', async () => {
-    const offenders: string[] = []
+    return { name: 'content.config imports reference exported collection handles shown in docs', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles(markdownRoots)) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findIncompleteContentConfigSnippetLines(file, source))
+      offenders.push(...findIncompleteContentConfigSnippetLines(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('examples import Ginko only through public package subpaths', async () => {
+    return { name: 'content.config snippets are complete exported configs', offenders }
+  },
+  async () => {
     const publicSubpaths = await collectPublicPackageSubpaths()
-    const offenders: string[] = []
-
+    const offenders = []
     for (const file of await collectTextFiles(exampleImportRoots)) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findNonPublicGinkoImportLines(file, source, publicSubpaths))
+      offenders.push(...findNonPublicGinkoImportLines(file, await readFile(file, 'utf8'), publicSubpaths))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('examples do not import Nuxt Content directly', async () => {
-    const offenders: string[] = []
-
+    return { name: 'examples import Ginko only through public package subpaths', offenders }
+  },
+  async () => {
+    const offenders = []
     for (const file of await collectTextFiles(exampleImportRoots)) {
-      const source = await readFile(file, 'utf8')
-      offenders.push(...findNuxtContentImports(file, source))
+      offenders.push(...findNuxtContentImports(file, await readFile(file, 'utf8')))
     }
-
-    expect(offenders).toEqual([])
-  })
-
-  test('README requirements match required package peer dependency floors', async () => {
-    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
-      peerDependencies: Record<string, string>
-      peerDependenciesMeta?: Record<string, { optional?: boolean }>
-    }
+    return { name: 'examples do not import Nuxt Content directly', offenders }
+  },
+  async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8'))
     const readme = await readFile('packages/content/README.md', 'utf8')
     const installDoc = await readFile('docs/content/docs/1.getting-started/2.installation.md', 'utf8')
     const requiredPeerLabels = Object.entries(manifest.peerDependencies)
       .filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional)
       .map(([name, range]) => peerRequirementLabel(name, range))
-      .filter((label): label is string => Boolean(label))
+      .filter(label => Boolean(label))
 
-    expect(requiredPeerLabels).toEqual(['Nuxt 4.4.7 or later', 'Vue 3.5 or later'])
-    for (const label of requiredPeerLabels) {
-      expect(readme, label).toContain(label)
-      expect(installDoc, label).toContain(label)
+    const offenders = []
+    const expected = ['Nuxt 4.4.7 or later', 'Vue 3.5 or later']
+    if (JSON.stringify(requiredPeerLabels) !== JSON.stringify(expected)) {
+      offenders.push(`required peer labels drifted: expected ${JSON.stringify(expected)}, got ${JSON.stringify(requiredPeerLabels)}`)
     }
-  })
+    for (const label of requiredPeerLabels) {
+      if (!readme.includes(label)) offenders.push(`packages/content/README.md missing peer requirement: ${label}`)
+      if (!installDoc.includes(label)) offenders.push(`docs/content/docs/1.getting-started/2.installation.md missing peer requirement: ${label}`)
+    }
+    return { name: 'README requirements match required package peer dependency floors', offenders }
+  }
+]
+
+const main = async () => {
+  const results = await Promise.all(checks.map(check => check()))
+  const failed = results.filter(result => result.offenders.length > 0)
+
+  if (failed.length === 0) {
+    console.log(`docs-drift: OK (${results.length} checks passed)`)
+    return
+  }
+
+  console.error('docs-drift: documentation drift detected\n')
+  for (const { name, offenders } of failed) {
+    console.error(`  ✗ ${name}`)
+    for (const offender of offenders) {
+      console.error(`      ${offender}`)
+    }
+  }
+  console.error('')
+  process.exitCode = 1
+}
+
+main().catch((error) => {
+  console.error('docs-drift: linter crashed')
+  console.error(error)
+  process.exitCode = 1
 })
