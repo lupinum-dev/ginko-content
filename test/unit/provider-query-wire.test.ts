@@ -1,5 +1,10 @@
 import { describe, expect, test, vi } from 'vitest'
 
+import { collectPlanFilterOperators, assertJsonPureProviderQuery } from '../../packages/content/src/runtime/server/providers'
+import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import type { ContentProvider } from '../../packages/content/src/public/provider'
+
 // The provider registry imports Nitro/virtual modules at the top level; stub
 // them so the pure helpers (`collectPlanFilterOperators`,
 // `assertJsonPureProviderQuery`) can be exercised in isolation.
@@ -8,11 +13,6 @@ vi.mock('#content/virtual/providers', () => ({
   externalContentProviderNames: [],
   loadExternalContentProvider: () => undefined
 }))
-
-import { collectPlanFilterOperators, assertJsonPureProviderQuery } from '../../packages/content/src/runtime/server/providers'
-import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
-import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
-import type { ContentProvider } from '../../packages/content/src/public/provider'
 
 describe('provider wire contract (CS-5)', () => {
   describe('collectPlanFilterOperators — capability walker', () => {

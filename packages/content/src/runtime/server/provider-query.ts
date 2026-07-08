@@ -16,7 +16,7 @@ import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../f
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { getContentRuntimeConfig } from './runtime-config'
 import { createContentProviderError } from '../../public/provider-errors'
-import { toContentProviderNavigationQuery, toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
+import { toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
 
 export { toContentProviderNavigationQuery as createProviderNavigationQuery } from '../../public/provider-query'
 
