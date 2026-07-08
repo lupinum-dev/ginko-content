@@ -7,7 +7,7 @@ import {
   resolveMarkdownForPublicRoute
 } from '../agent-site'
 import { acceptsMarkdown, addVaryHeader, setAgentMarkdownHeaders } from '../agent-http'
-import { isUnsafeAgentRoutePath, normalizeAgentRoutePath } from '../../agent-paths'
+import { isUnsafeAgentRoutePath, normalizeAgentRoutePath } from '../../../features/agent/agent-paths'
 
 const shouldSkip = (pathname: string) =>
   pathname.startsWith('/_')

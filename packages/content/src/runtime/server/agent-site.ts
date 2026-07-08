@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { getRequestURL } from 'h3'
 import type { AgentMarkdown, AgentMarkdownMeta } from './agent-markdown'
 import { linkMarkdown, queryMarkdownEnabledContent, resolveContentMarkdownByRoute } from './agent-markdown'
-import { agentMarkdownPathForRoute, agentRawPathForRoute, agentRoutePathFromIndexSlug, agentRoutePathFromRawSlug, normalizeAgentRoutePath } from '../agent-paths'
+import { agentMarkdownPathForRoute, agentRawPathForRoute, agentRoutePathFromIndexSlug, agentRoutePathFromRawSlug, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
 import { contentConfig } from './storage-access'
 import type {
   AgentMetadataField,

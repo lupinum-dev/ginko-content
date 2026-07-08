@@ -33,11 +33,30 @@ export interface AgentMarkdown {
 
 export type AgentMarkdownMeta = Omit<AgentMarkdown, 'markdown'>
 
+/**
+ * The single context the agent-markdown walker is a pure function of.
+ *
+ * It carries (a) the per-app serializer {@link AgentMarkdownRegistry} and
+ * (b) the config-derived data the walker reads (markdown tag aliases, the
+ * configured locales, and the default locale used for link prefixing), in
+ * addition to the document coordinates and the per-node render helpers passed
+ * to serializers. The walker holds no module-global state: everything it reads
+ * arrives on this context, built by the runtime handlers from the resolved
+ * content config.
+ */
 export interface AgentMarkdownContext {
   collection: string
   page: ParsedContent
   path: string
   locale?: string
+  /** Per-app serializer registry the walker resolves component tags against. */
+  registry: AgentMarkdownRegistry
+  /** Component tag alias map (the resolved config's `markdown.tags`). */
+  tagAliases: Record<string, string>
+  /** Default locale used when prefixing localized links. */
+  defaultLocale: string
+  /** Configured locales used when prefixing localized links. */
+  locales: string[]
   prop: (name: string) => string
   props: (node?: MarkdownNode) => Record<string, unknown>
   cleanProps: (node?: MarkdownNode) => Record<string, unknown>
@@ -51,6 +70,16 @@ export interface AgentMarkdownContext {
   xmlComponent: (name: string, props?: Record<string, unknown>, children?: string) => string
 }
 
+/**
+ * The environment slice the runtime handlers supply to the walker entrypoint;
+ * the walker derives the per-node render helpers from it. Equivalent to an
+ * {@link AgentMarkdownContext} without the closure-bound render helpers.
+ */
+export type AgentMarkdownRenderContext = Pick<
+  AgentMarkdownContext,
+  'collection' | 'page' | 'path' | 'locale' | 'registry' | 'tagAliases' | 'defaultLocale' | 'locales'
+>
+
 export type AgentMarkdownSerializer = (node: MarkdownNode, ctx: AgentMarkdownContext) => string | null | undefined
 export type AgentMarkdownSerializerMap = Record<string, AgentMarkdownSerializer>
 export interface AgentMarkdownSerializerRegistrationOptions {
@@ -61,7 +90,34 @@ export interface AgentMarkdownComponent {
 }
 export type AgentMarkdownComponentMap = Record<string, AgentMarkdownComponent>
 
-const serializers = new Map<string, AgentMarkdownSerializer>()
+/**
+ * A per-app serializer registry. Each call to {@link createAgentMarkdownRegistry}
+ * returns an isolated registry with its own backing store — there is no
+ * module-global serializer map, so re-running module setup (dev HMR) yields a
+ * fresh registry instead of accumulating or colliding with prior registrations.
+ */
+export interface AgentMarkdownRegistry {
+  register: (
+    name: string,
+    serializer: AgentMarkdownSerializer,
+    options?: AgentMarkdownSerializerRegistrationOptions
+  ) => void
+  registerMany: (
+    entries: AgentMarkdownSerializerMap,
+    options?: AgentMarkdownSerializerRegistrationOptions
+  ) => void
+  registerComponent: (
+    name: string,
+    component: AgentMarkdownComponent,
+    options?: AgentMarkdownSerializerRegistrationOptions
+  ) => void
+  registerComponents: (
+    entries: AgentMarkdownComponentMap,
+    options?: AgentMarkdownSerializerRegistrationOptions
+  ) => void
+  clear: () => void
+  get: (name: string) => AgentMarkdownSerializer | undefined
+}
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -205,55 +261,54 @@ export const xmlComponentMarkdown = (
   return `<${tagName}${attrText}>\n${bodyParts.join('\n\n')}\n</${tagName}>`
 }
 
-export const registerAgentMarkdownSerializer = (
-  name: string,
-  serializer: AgentMarkdownSerializer,
-  options: AgentMarkdownSerializerRegistrationOptions = {}
-) => {
-  const existing = serializers.get(name)
-  if (existing === serializer && !options.override) return
-  if (existing && !options.override) {
-    throw new Error(
-      `Agent Markdown serializer "${name}" is already registered. ` +
-      'Use { override: true } only when replacing an existing serializer intentionally.'
-    )
-  }
-  serializers.set(name, serializer)
-}
-
-export const registerAgentMarkdownSerializers = (
-  entries: AgentMarkdownSerializerMap,
-  options: AgentMarkdownSerializerRegistrationOptions = {}
-) => {
-  for (const [name, serializer] of Object.entries(entries)) {
-    registerAgentMarkdownSerializer(name, serializer, options)
-  }
-}
-
 export const defineAgentMarkdownComponent = (component: AgentMarkdownComponent) => component
 
-export const registerAgentMarkdownComponent = (
-  name: string,
-  component: AgentMarkdownComponent,
-  options: AgentMarkdownSerializerRegistrationOptions = {}
-) => {
-  registerAgentMarkdownSerializer(name, component.render, options)
-}
+/**
+ * Create an isolated per-app serializer registry. The backing store is local to
+ * the returned registry — two registries never share serializers — which is what
+ * makes agent markdown serialization safe under dev HMR and across concurrent
+ * apps. Registration/precedence semantics match the historical global registry:
+ * re-registering the same serializer under a name is a no-op, a different one
+ * throws unless `{ override: true }`.
+ */
+export const createAgentMarkdownRegistry = (): AgentMarkdownRegistry => {
+  const serializers = new Map<string, AgentMarkdownSerializer>()
 
-export const registerAgentMarkdownComponents = (
-  entries: AgentMarkdownComponentMap,
-  options: AgentMarkdownSerializerRegistrationOptions = {}
-) => {
-  for (const [name, component] of Object.entries(entries)) {
-    registerAgentMarkdownComponent(name, component, options)
+  const register = (
+    name: string,
+    serializer: AgentMarkdownSerializer,
+    options: AgentMarkdownSerializerRegistrationOptions = {}
+  ) => {
+    const existing = serializers.get(name)
+    if (existing === serializer && !options.override) return
+    if (existing && !options.override) {
+      throw new Error(
+        `Agent Markdown serializer "${name}" is already registered. ` +
+        'Use { override: true } only when replacing an existing serializer intentionally.'
+      )
+    }
+    serializers.set(name, serializer)
+  }
+
+  const registerComponent = (
+    name: string,
+    component: AgentMarkdownComponent,
+    options: AgentMarkdownSerializerRegistrationOptions = {}
+  ) => register(name, component.render, options)
+
+  return {
+    register,
+    registerMany: (entries, options) => {
+      for (const [name, serializer] of Object.entries(entries)) register(name, serializer, options)
+    },
+    registerComponent,
+    registerComponents: (entries, options) => {
+      for (const [name, component] of Object.entries(entries)) registerComponent(name, component, options)
+    },
+    clear: () => serializers.clear(),
+    get: name => serializers.get(name)
   }
 }
-
-export const clearAgentMarkdownSerializers = () => {
-  serializers.clear()
-}
-
-export const getAgentMarkdownSerializer = (name: string) => serializers.get(name)
 
 export const resolveAgentMarkdownOptions = (
   collection: ContentCollectionConfig | undefined

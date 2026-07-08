@@ -19,10 +19,11 @@ export {
 
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
-export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../runtime/agent-paths.js'
+export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../features/agent/agent-paths.js'
 export {
   clearAgentMarkdownSerializers,
   blockquoteMarkdown,
+  createAgentMarkdownRegistry,
   defineAgentMarkdownComponent,
   getMarkdownProp,
   jsonFenceMarkdown,
@@ -59,6 +60,7 @@ export type {
   AgentMarkdownContext,
   AgentMarkdownMeta,
   AgentMarkdownPublicSignals,
+  AgentMarkdownRegistry,
   AgentMarkdownSerializer,
   AgentMarkdownSerializerMap,
   ResolvedAgentMarkdownOptions

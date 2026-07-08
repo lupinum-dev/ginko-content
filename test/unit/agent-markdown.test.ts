@@ -1051,7 +1051,7 @@ describe('agent markdown', () => {
   })
 
   test('exports one canonical raw markdown route helper', async () => {
-    const { agentRawPathForRoute, agentMarkdownPathForRoute } = await import('../../packages/content/src/runtime/agent-paths')
+    const { agentRawPathForRoute, agentMarkdownPathForRoute } = await import('../../packages/content/src/features/agent/agent-paths')
 
     expect(agentRawPathForRoute('/')).toBe('/raw/index.md')
     expect(agentRawPathForRoute('/docs/intro/')).toBe('/raw/docs/intro.md')
@@ -1059,7 +1059,7 @@ describe('agent markdown', () => {
   })
 
   test('detects unsafe agent route paths before markdown resolution', async () => {
-    const { isUnsafeAgentRoutePath, normalizeAgentRoutePath } = await import('../../packages/content/src/runtime/agent-paths')
+    const { isUnsafeAgentRoutePath, normalizeAgentRoutePath } = await import('../../packages/content/src/features/agent/agent-paths')
 
     expect(isUnsafeAgentRoutePath('/docs/intro')).toBe(false)
     expect(isUnsafeAgentRoutePath('/docs//intro')).toBe(false)

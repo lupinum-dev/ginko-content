@@ -1,6 +1,6 @@
 import { defineEventHandler, getRequestURL, setHeader } from 'h3'
 import { getAgentLocales, localeFromAgentPath, resolveMarkdownForPublicRoute } from '../agent-site'
-import { agentRawPathForRoute, normalizeAgentRoutePath } from '../../agent-paths'
+import { agentRawPathForRoute, normalizeAgentRoutePath } from '../../../features/agent/agent-paths'
 import { appendResponseHeader } from '../agent-http'
 import { contentConfig } from '../storage-access'
 
