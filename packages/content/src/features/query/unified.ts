@@ -29,6 +29,7 @@ import type {
   NeighborsOptions,
   NeighborsResult,
   OneOptions,
+  OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
@@ -95,8 +96,9 @@ export async function many<
 >(
   context: ContentQueryContext,
   handle: H,
-  options: O = {} as O
+  ...args: OptionsArg<H, O>
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
+  const options = (args[0] ?? {}) as O
   return resolveManyDocuments(context, one, handle, options)
 }
 
@@ -176,8 +178,9 @@ export async function tree<
 >(
   context: ContentQueryContext,
   handle: H,
-  options: Omit<TreeOptions<H>, 'fields'> & { fields?: Fields } = {} as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
+  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
 ): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
+  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
   return resolveTree(context, handle, options)
 }
 

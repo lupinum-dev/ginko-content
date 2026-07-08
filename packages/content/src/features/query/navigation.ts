@@ -42,7 +42,7 @@ type TreeResolver = <
 >(
   context: ContentQueryContext,
   handle: H,
-  options?: Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
+  options: Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
 ) => Promise<unknown[]>
 
 export async function resolveTree<

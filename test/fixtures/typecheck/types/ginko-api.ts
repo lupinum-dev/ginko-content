@@ -513,5 +513,16 @@ await variants(docs, { ref: 'guide.intro' })
 // @ts-expect-error neighbors requires `by`
 await neighbors(docs, { locale: 'de', ref: 'guide.intro' })
 
+/* ── CS-7 (T5.5): i18n zero-arg / empty-options holes ──────────────────── */
+
+// @ts-expect-error — i18n collections require a locale; zero-arg many() must not compile
+await many(docs)
+
+// @ts-expect-error — tree options on i18n collections require `locale`
+await tree(docs, {})
+
+// Control (must compile): zero-arg many on a non-i18n handle
+await many(posts)
+
 void blogResult
 void docsResult

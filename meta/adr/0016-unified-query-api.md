@@ -277,10 +277,33 @@ options object** (e.g. `tree(docs)` on an i18n handle) skips the
 required-`locale` check, because `TreeOptions<H>` does not compose the
 `LocaleOption<H>` requirement onto a defaulted/absent options parameter.
 
-The claim above is therefore **aspirational, not yet true**, and is left
-in place as the design intent. The actual fix is task **T5.5** (applying
-cornerstone CS-7: `TreeOptions` composes `LocaleOption<H>`, and `many` /
-`tree` — any verb with a defaulted options parameter — must not accept a
-missing options object for i18n handles), with negative type tests added
-to `test/fixtures/typecheck/types/ginko-api.ts`. Until T5.5 lands, treat
-"no hole" as the goal, not a guarantee.
+The claim above was therefore **aspirational, not yet true** when this
+addendum was first written, and was left in place as the design intent.
+
+### Resolution (2026-07-08) — T5.5 landed; the claim is now true
+
+Cornerstone CS-7 has been applied:
+
+- **Fix 1** — `TreeOptions<H>` now composes `& LocaleOption<H>` (dropping the
+  bare `locale?: string`), the same mechanism `OneOptions`/`ManyOptions`/
+  `VariantsOptions`/`NeighborsOptions` already use. `tree(docs, {})` on an
+  i18n handle now fails to compile (missing required `locale`).
+- **Fix 2** — the zero-argument hole is closed with a conditional variadic
+  tuple `OptionsArg<H, O>` (`HandleIsI18n<H> extends true ? [options: O] :
+  [options?: O]`) replacing the `options: O = {}` default on `many` and
+  `tree`, mirrored across the shared impl (`features/query/unified.ts`), the
+  server facade (`runtime/server/query-api.ts`), and the client composable
+  (`runtime/app/composables/query-api.ts` — the `/client` binding). `many(docs)`
+  on an i18n handle no longer compiles; `many(posts)` (non-i18n) still does.
+
+Negative type tests were added to `test/fixtures/typecheck/types/ginko-api.ts`
+and proven to fail (`TS2578` unused `@ts-expect-error`) when the fix is
+reverted. The "i18n requires locale has no hole" claim is now accurate.
+
+**Note on `tree()` fallback-by-default (orthogonal, intentional).** The
+`tree()` docstring documents locale fallback as on-by-default (a doc with no
+variant in the requested locale still appears, via the fallback locale's
+path). That is a *fallback* policy and is deliberately kept — it does not
+conflict with requiring the caller to name *which* locale's tree they want.
+Requiring the `locale` option (Fix 1) and filling gaps by fallback are
+independent concerns, so CS-7's `tree` composition stands as specified.

@@ -93,6 +93,18 @@ type LocaleOption<H, OptKey extends string = 'locale'> = HandleIsI18n<H> extends
   ? { [K in OptKey]: string }
   : { [K in OptKey]?: string }
 
+/**
+ * Argument tuple for verbs whose options parameter is defaulted (`many`, `tree`).
+ *
+ * For i18n handles the options object is REQUIRED (its type already requires
+ * `locale` via `LocaleOption`) — a defaulted `options = {}` parameter would
+ * otherwise silently satisfy the locale obligation and reopen the i18n hole.
+ * For non-i18n handles the options object stays optional. (CS-7, T5.5.)
+ */
+export type OptionsArg<H, O> = HandleIsI18n<H> extends true
+  ? [options: O]
+  : [options?: O]
+
 type SourceIsI18n<S> = S extends ReadonlyArray<infer I>
   ? true extends HandleIsI18n<I> ? true : false
   : HandleIsI18n<S>
@@ -249,8 +261,7 @@ export type TreeOptions<
   sort?: SortSpec<HandleSchema<H>>
   fields?: Fields
   fallback?: LocaleFallback
-  locale?: string
-}
+} & LocaleOption<H>
 
 export type ContentTreeItem<
   T = ParsedContentMeta,

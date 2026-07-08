@@ -13,6 +13,7 @@ import type {
   NeighborsOptions,
   NeighborsResult,
   OneOptions,
+  OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
@@ -87,8 +88,9 @@ export async function many<
 >(
   event: H3Event,
   handle: H,
-  options: O = {} as O
+  ...args: OptionsArg<H, O>
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
+  const options = (args[0] ?? {}) as O
   return await manyWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
@@ -129,8 +131,9 @@ export async function tree<
 >(
   event: H3Event,
   handle: H,
-  options: Omit<TreeOptions<H>, 'fields'> & { fields?: Fields } = {} as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
+  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
 ): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
+  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
   return await treeWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
