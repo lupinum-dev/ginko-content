@@ -9,6 +9,7 @@ import { SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeContentPath, normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
 import { createRouteMeta, localizePageResult } from '../features/localization/results'
+import { normalizeProviderDocument } from '../runtime/server/provider-document'
 import { createContentProviderError } from '../public/provider-errors'
 
 export interface ProviderFixtureCollection {
@@ -276,27 +277,32 @@ export const createProviderFixtureDocument = (
   const locale = String(input.locale || 'en')
   const path = String(input.path || '/')
   const canonicalKey = String(input.canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
+  const type = (input.type || 'markdown') as ParsedContent['type']
   const extension = input.file?.extension || (input.type === 'yaml' ? 'yml' : 'md')
 
-  return {
+  // Route the fixture through the shared provider-document seam so the whole
+  // conformance suite exercises the same normalization third-party providers
+  // rely on. Identity fields are defaulted here (test ergonomics) and passed
+  // through unchanged; `file`/`title`/`body` fixture defaults ride along.
+  return normalizeProviderDocument({
+    ...input,
+    collection,
+    locale,
+    path,
+    canonicalKey,
+    type,
     id: String(input.id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
-    collection: collection,
-    locale: locale,
-    canonicalKey: canonicalKey,
-    path: path,
-    type: (input.type || 'markdown') as ParsedContent['type'],
     file: {
       source: String(input.file?.source || 'content'),
       path: String(input.file?.path || `/${locale}/${trimSlashes(path) || 'index'}.${extension}`),
       extension: extension as ContentFileMeta['extension']
     },
     title: String(input.title || canonicalKey),
-    body: {
+    body: input.body ?? {
       type: 'root',
       children: []
-    },
-    ...input
-  } as ParsedContent
+    }
+  })
 }
 
 export const createProviderFixture = (input: ProviderFixtureInput): ProviderFixture => {

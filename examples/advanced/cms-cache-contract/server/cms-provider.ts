@@ -1,11 +1,12 @@
 import {
   createContentProviderError,
+  shapeProviderDocument,
   withContentCache,
   type ContentPageResult,
   type ContentProvider,
   type ContentProviderQuery,
-  type ContentRouteMeta,
-  type ContentSearchSection
+  type ContentSearchSection,
+  type ProviderDocumentInput
 } from '#content/server'
 import {
   authors,
@@ -14,94 +15,74 @@ import {
   providerCacheEvents
 } from './cms-store'
 
-const routeMeta = (path: string): ContentRouteMeta => ({
-  locale: 'en',
-  defaultLocale: 'en',
-  path,
-  canonicalPath: path,
-  variants: [],
-  localePaths: {
-    en: {
-      path,
-      locale: 'en',
-      translated: true
-    }
-  },
-  resolved: {
-    locale: 'en',
-    requestedLocale: 'en',
-    resolvedLocale: 'en',
-    fallback: false,
-    path,
-    availableLocales: ['en']
-  }
-})
+// This provider is single-locale (`en`). Core derives the localized route
+// envelope (`path`, `variants`, `localePaths`, `resolved`) from these options.
+const shapeOptions = { defaultLocale: 'en', locales: ['en'] }
 
-const postPage = (path: string): ContentPageResult<Record<string, unknown>> | null => {
+// A third-party provider emits ONLY the canonical envelope's required fields —
+// `id`, `collection`, `locale`, `path`, `canonicalKey`, `type`, `body` (plus any
+// frontmatter data) — and never hand-builds route/locale metadata. `file` is
+// omitted because CMS-backed documents have no backing file.
+const postDocument = (path: string): ProviderDocumentInput | null => {
   const post = postByPath(path)
   if (!post) return null
 
   const author = authors.get(post.author)
   return {
-    _id: `cms:blog:${post.id}`,
-    _path: post.path,
-    _collection: 'blog',
-    _locale: 'en',
-    _source: 'cms-demo',
-    _type: 'markdown',
-    _extension: 'md',
-    _canonicalKey: `blog:${post.id}`,
+    id: `cms:blog:${post.id}`,
+    collection: 'blog',
+    locale: 'en',
+    path: post.path,
+    canonicalKey: `blog:${post.id}`,
+    type: 'markdown',
+    body: { type: 'root', children: [] },
     ref: post.id,
-    stem: post.id,
     title: post.title,
     author: post.author,
-    authorName: author?.name,
-    body: {
-      type: 'root',
-      children: []
-    },
-    ...routeMeta(post.path)
+    authorName: author?.name
   }
 }
 
-const authorPage = (path: string): ContentPageResult<Record<string, unknown>> | null => {
+const authorDocument = (path: string): ProviderDocumentInput | null => {
   const id = path.replace(/^\/authors\//, '')
   const author = authors.get(id)
   if (!author) return null
 
   return {
-    _id: `cms:authors:${author.id}`,
-    _path: `/authors/${author.id}`,
-    _collection: 'authors',
-    _locale: 'en',
-    _source: 'cms-demo',
-    _type: 'markdown',
-    _extension: 'md',
-    _canonicalKey: `authors:${author.id}`,
+    id: `cms:authors:${author.id}`,
+    collection: 'authors',
+    locale: 'en',
+    path: `/authors/${author.id}`,
+    canonicalKey: `authors:${author.id}`,
+    type: 'markdown',
+    body: { type: 'root', children: [] },
     ref: author.id,
-    stem: author.id,
     title: author.name,
-    name: author.name,
-    body: {
-      type: 'root',
-      children: []
-    },
-    ...routeMeta(`/authors/${author.id}`)
+    name: author.name
   }
 }
 
-const pageFor = (collection: string, routeOrPath = '/') => {
-  if (collection === 'blog') return postPage(routeOrPath)
-  if (collection === 'authors') return authorPage(routeOrPath)
+const documentFor = (collection: string, routeOrPath = '/'): ProviderDocumentInput | null => {
+  if (collection === 'blog') return postDocument(routeOrPath)
+  if (collection === 'authors') return authorDocument(routeOrPath)
   throw createContentProviderError('unknown_collection', `Unknown collection: ${collection}`, { collection })
+}
+
+const pageFor = (collection: string, routeOrPath = '/'): ContentPageResult<Record<string, unknown>> | null => {
+  const document = documentFor(collection, routeOrPath)
+  return document ? shapeProviderDocument(document, shapeOptions) : null
 }
 
 const listFor = (collection?: string) => {
   if (!collection || collection === 'blog') {
-    return Array.from(posts.values()).map(post => postPage(post.path)).filter(Boolean)
+    return Array.from(posts.values())
+      .map(post => pageFor('blog', post.path))
+      .filter(Boolean) as ContentPageResult<Record<string, unknown>>[]
   }
   if (collection === 'authors') {
-    return Array.from(authors.values()).map(author => authorPage(`/authors/${author.id}`)).filter(Boolean)
+    return Array.from(authors.values())
+      .map(author => pageFor('authors', `/authors/${author.id}`))
+      .filter(Boolean) as ContentPageResult<Record<string, unknown>>[]
   }
   throw createContentProviderError('unknown_collection', `Unknown collection: ${collection}`, { collection })
 }
@@ -137,7 +118,7 @@ export default {
     if (!page) return null
 
     const tags = [
-      `entry:${collection}:${page.ref}`,
+      `entry:${collection}:${String(page.ref)}`,
       `collection:${collection}`,
       `route:${page.path}`
     ]
@@ -155,8 +136,7 @@ export default {
     })
   },
   async routeMeta(_event, collection, routeOrPath = '/') {
-    const page = pageFor(collection, routeOrPath)
-    return page ? routeMeta(page.path) : null
+    return pageFor(collection, routeOrPath)
   },
   async navigation(_event, collection) {
     return withContentCache(listFor(collection).map(page => ({

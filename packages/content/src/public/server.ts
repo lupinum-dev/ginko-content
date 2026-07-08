@@ -135,3 +135,5 @@ export type {
 } from './provider.js'
 export { PROVIDER_QUERY_VERSION, toContentProviderNavigationQuery, toContentProviderQuery, withContentCache } from './provider.js'
 export type { ContentProviderErrorCode } from './provider-errors.js'
+export { normalizeProviderDocument, shapeProviderDocument } from '../runtime/server/provider-document.js'
+export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from '../runtime/server/provider-document.js'

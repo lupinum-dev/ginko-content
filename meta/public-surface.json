@@ -730,6 +730,16 @@
       "category": "stable-provider-author-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "normalizeProviderDocument": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "shapeProviderDocument": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
   },
   "serverTypeExports": {
@@ -1009,6 +1019,16 @@
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "ContentProviderNavigationOptions": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ProviderDocumentInput": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ShapeProviderDocumentOptions": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"

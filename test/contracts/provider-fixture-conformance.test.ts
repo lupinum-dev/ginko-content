@@ -28,6 +28,43 @@ describe('provider fixture conformance', () => {
   })
   runAuthorDependencyFixtureSelfTest()
 
+  test('shapes a minimal-set provider into the canonical route envelope', async () => {
+    // Documents carry ONLY the minimal fields a third-party provider must emit
+    // (no id, canonicalKey, type or file). Core derives id/canonicalKey/type on
+    // normalization and the route envelope (path, variants, localePaths,
+    // resolved) on shaping — proving a minimal-set provider passes conformance.
+    const minimalFixture = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        blog: { type: 'page', route: '/blog' }
+      },
+      documents: [
+        { collection: 'blog', locale: 'en', path: '/blog/hello', title: 'Hello' },
+        { collection: 'blog', locale: 'en', path: '/blog/world', title: 'World' }
+      ]
+    })
+    const minimalProvider = createFixtureContentProvider(minimalFixture)
+    const event = createProviderFixtureEvent({ fixture: minimalFixture, provider: minimalProvider })
+
+    // Core filled the derivable identity fields from the minimal input.
+    const [first] = minimalFixture.documents
+    expect(first.id).toBe('content:en:blog:hello.md')
+    expect(first.canonicalKey).toBe('blog:blog/hello')
+    expect(first.type).toBe('markdown')
+
+    const page = await minimalProvider.page(event, 'blog', '/blog/hello')
+    expect(page).toMatchObject({
+      path: '/blog/hello',
+      canonicalPath: '/blog/hello',
+      locale: 'en',
+      resolved: expect.objectContaining({ locale: 'en', fallback: false })
+    })
+
+    const sitemap = await minimalProvider.sitemapEntries!(event)
+    expect(sitemap.map(entry => entry.loc).sort()).toEqual(['/blog/hello', '/blog/world'])
+  })
+
   test('projects localized non-doc collection mounts consistently', async () => {
     const event = createProviderFixtureEvent({ fixture, provider })
     const sitemap = await provider.sitemapEntries(event, { include: ['posts'] })
