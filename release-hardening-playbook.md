@@ -812,6 +812,35 @@ git worktree remove /tmp/gc-017 --force   # cleanup, always
 Format:
 `- **<date> — HP-<id> <done|deviation|blocked>.** <what changed>. Gates: <results>. Proof: <both-directions evidence>. <deviations/notes>.`
 
+- **2026-07-08 — Release-review fix round (workflow, 4 Opus fixers + 3 Opus
+  verifiers, all verdicts PASS / zero blocking).** Fixed: locale ordering
+  completed across provider-wire (`provider-query.ts`), storage
+  (`content.ts`), `canonical:true` branch (`resolve.ts`), and threading in
+  `execute.ts`/`manifest.ts` — rule: default locale first, then collection
+  `locales[]` order (global fallback), then input order; NOT applied to
+  `queryCollectionLocales`/`resolveCollectionLocales` (stay alphabetical,
+  pinned by server-reference-contracts.test.ts:245). String-form `$regex`
+  flags whitelisted to imsu; snapshot symbol-on-array rejection; executor
+  regex comparator throws on untagged object operands (message names the
+  tagged shape; PROVIDER_QUERY_VERSION referenced by identifier — importing
+  the constant violates the core-does-not-import-runtime boundary test);
+  `internalDocumentFields` `_dir`→`dir`; `dir` added to
+  `RESERVED_CONTENT_KEYS` (12 keys — stamped at query time by
+  `withDirConfig` on `resolveVariant` results only, not at parse);
+  underscore-guard test deepened (walks resolved/variants/localePaths/nav
+  items, applied to list + navigation results); providers/index.ts tab
+  indentation; registry comment corrected (per-process singleton;
+  re-registration throws unless `{override:true}`); comark math/mermaid
+  dynamic-import rationale documented in source; docs-drift positive
+  controls extended to all pattern-based checks. CHANGELOG: locale-order
+  disclosure, per-process registry wording, flags whitelist, `beforeParse`
+  `{_id}`→`{id}`, reserved set 7→12, `headersContentCache`, snapshot symbol
+  rejection + `docId:$.path` errors, Date→ISO, `dir` semantics; migration
+  doc `useContentSwitchLocalePath` row; PROVIDER_CONTRACT.md API-impact
+  list. Verifier polish applied post-hoc: "every variant result" →
+  "variant-resolution (`resolveVariant`) results" in reserved.ts +
+  CHANGELOG. Fixer gates: typecheck 0, 542/542 (unit+nuxt+provider+
+  contracts-node), docs-drift OK incl. self-test.
 - **2026-07-08 — Playbook authored.** Verified done/not-done matrix of the
   inherited uncommitted tree recorded in §1; rulings R-1…R-10 issued in §3.
   Sources: three cross-verified adversarial reviews
