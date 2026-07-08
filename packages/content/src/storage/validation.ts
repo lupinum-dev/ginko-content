@@ -126,13 +126,8 @@ const internalDocumentFields = new Set([
   'draft',
   '_dir',
   '_locale',
-  '_navigation',
-  '_resolvedLocale',
-  '_requestedLocale',
-  '_fallback',
-  '_availableLocales',
-  '_variantPaths',
-  '_resolvedRefs',
+  'navigationFile',
+  'resolved',
   'body'
 ])
 
@@ -147,7 +142,7 @@ const toUserContentDocument = (document: ParsedContent) => {
 }
 
 const validateNavigationDocument = (document: ParsedContent): Result<void, ContentError> => {
-  if (!document._navigation) {
+  if (!document.navigationFile) {
     return ok(undefined)
   }
 
@@ -202,7 +197,7 @@ export const getCanonicalContentId = (document: ParsedContent, locales: string[]
  * - Strict collections (default): schema errors produce a `SCHEMA_VALIDATION_FAILED`
  *   failure.
  *
- * Also chains into `validateNavigationDocument` for `_navigation: true` files,
+ * Also chains into `validateNavigationDocument` for `navigationFile: true` files,
  * which can fail with `INVALID_NAVIGATION_YAML`.
  */
 export const validateCollectionDocument = (
@@ -278,7 +273,7 @@ export const validateContentGraph = (
 ): Result<void, ContentError> => {
   const locales = config.locales || []
   const docs = contents.filter(content => content && content.path)
-  const routeEntries = docs.filter(content => !content.partial && !content._navigation)
+  const routeEntries = docs.filter(content => !content.partial && !content.navigationFile)
   const markdownEntries = routeEntries.filter(content => content.type === 'markdown')
   const idsByLocale = new Map<string, ParsedContent>()
   const pathsByLocale = new Map<string, ParsedContent>()

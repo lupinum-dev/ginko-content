@@ -389,7 +389,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
   const docsForNavigation = async (event: H3Event, params: ContentQueryBuilderParams) => {
     const response = await query<ParsedContent>(event, params)
     return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-      .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
+      .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
   }
 
   const provider: ContentProvider = {
@@ -424,7 +424,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         title: doc.title,
         ...navIdentityFromDoc(doc),
         canonicalPath: normalizeContentPath(doc.path || '/'),
-        path: localizePath(fixture, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc._requestedLocale || doc._locale),
+        path: localizePath(fixture, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc._locale),
         _locale: doc._locale
       })) as NavItem[]
     },
@@ -553,7 +553,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       if (!doc) return null
       const page = localizePageResult(
         doc,
-        requestedLocale || doc._resolvedLocale || doc._locale,
+        requestedLocale || doc.resolved?.locale || doc._locale,
         fixture.defaultLocale,
         fixture.locales,
         routeMountsFor(fixture, collection)
@@ -582,7 +582,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
           }
           continue
         }
-        for (const doc of fixture.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc._navigation)) {
+        for (const doc of fixture.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc.navigationFile)) {
           entries.push({
             loc: localizePath(fixture, collection, doc.path || '/', doc._locale)
           })

@@ -235,7 +235,7 @@ export const buildReferenceTargets = (contents: ParsedContent[], locales: string
   const targets = new Map<string, string>()
 
   for (const document of contents) {
-    if (!document || document.partial || document._navigation) {
+    if (!document || document.partial || document.navigationFile) {
       continue
     }
 

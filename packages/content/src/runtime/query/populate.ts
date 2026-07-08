@@ -17,15 +17,7 @@ const LOCALIZED_DOC_INTERNAL_FIELDS = [
   'file',
   'canonicalKey',
   '_locale',
-  '_resolvedLocale',
-  '_requestedLocale',
-  '_fallback',
-  '_availableLocales',
-  '_variantPaths',
-  '_requestedPath',
-  '_requestedRoute',
-  '_requestedRef',
-  'file'
+  'resolved'
 ] as const
 
 const wildcardReferenceTarget = '*'
