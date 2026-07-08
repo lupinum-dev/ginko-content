@@ -41,6 +41,31 @@ describe('provider fixture conformance', () => {
     expect(results[0]?.path).toBe('/de/magazin/mehrsprachiges-onboarding')
   })
 
+  test('sitemap entries exclude navigation marker documents', async () => {
+    const navFixture = createProviderFixture({
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        pages: { type: 'page', route: '/pages' }
+      },
+      documents: [
+        { collection: 'pages', path: '/pages/home', title: 'Home' },
+        { collection: 'pages', path: '/pages/about', title: 'About' },
+        // navigationFile alone must exclude this from the sitemap — no `partial`
+        // here, so the test fails if the navigationFile filter regresses.
+        { collection: 'pages', path: '/pages/about', title: 'Nav Marker', navigationFile: true }
+      ]
+    })
+    const navProvider = createFixtureContentProvider(navFixture)
+    const event = createProviderFixtureEvent({ fixture: navFixture, provider: navProvider })
+
+    const sitemap = await navProvider.sitemapEntries!(event)
+    const locs = sitemap.map(entry => entry.loc)
+
+    expect(locs).toContain('/pages/home')
+    expect(locs.filter(loc => loc === '/pages/about')).toHaveLength(1)
+  })
+
   test('applies provider search collection filters and section options', async () => {
     const event = createProviderFixtureEvent({ fixture, provider })
 

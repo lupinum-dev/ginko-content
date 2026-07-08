@@ -582,7 +582,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
           }
           continue
         }
-        for (const doc of fixture.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc._navigation)) {
+        for (const doc of fixture.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc.navigationFile)) {
           entries.push({
             loc: localizePath(fixture, collection, doc.path || '/', doc._locale)
           })
