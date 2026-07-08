@@ -81,6 +81,23 @@ export const buildLocaleFallbackChain = (
   ]))
 }
 
+/** Canonical locale order: default locale first, then configured locale order. */
+export const sortLocalesCanonically = (
+  locales: string[],
+  config: { defaultLocale?: string, locales?: string[] } = {}
+): string[] => {
+  const order = [
+    ...(config.defaultLocale ? [config.defaultLocale] : []),
+    ...(config.locales || [])
+  ]
+  const rank = new Map(order.map((locale, index) => [locale, index]))
+  const inputOrder = new Map(locales.map((locale, index) => [locale, index]))
+  return Array.from(new Set(locales)).sort((left, right) =>
+    (rank.get(left) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right) ?? Number.MAX_SAFE_INTEGER) ||
+    (inputOrder.get(left) ?? Number.MAX_SAFE_INTEGER) - (inputOrder.get(right) ?? Number.MAX_SAFE_INTEGER)
+  )
+}
+
 /**
  * Split an inline-variant id back into `{ sourceId, locale }`. Returns the
  * input unchanged (with `locale: undefined`) when no separator is found.

@@ -13,22 +13,34 @@ export const RESERVED_CONTENT_KEYS = [
   'path',
   'canonicalKey',
   'type',
-  'file'
+  'file',
+  'resolved',
+  'variants',
+  'localePaths',
+  'unprefixedPath',
+  // Query-time only: `execute.ts`'s `withDirConfig` stamps the directory
+  // `.navigation` config onto variant-resolution (`resolveVariant`) results
+  // as a top-level `dir`, so an authored `dir:` frontmatter key would be
+  // silently clobbered there. It is not stamped at parse time (path-meta
+  // writes the directory name to `file.dir`, not top-level `dir`), so we
+  // reserve it here to strip+warn like the other system keys.
+  'dir'
 ] as const
 
 /**
- * Warn (once per offending key) when raw user frontmatter/data declares a
- * reserved system key. The system value wins regardless; this only surfaces the
- * collision to the author.
+ * Strip reserved system keys from raw user frontmatter/data. Identity keys are
+ * stamped later by path-meta; derived localization keys would otherwise be
+ * trusted as system state.
  */
-export const warnReservedContentKeys = (
+export const stripReservedContentKeys = <T extends Record<string, unknown>>(
   source: Record<string, unknown> | null | undefined,
   fileId: string
-): void => {
+): Partial<T> => {
   if (!source || typeof source !== 'object') {
-    return
+    return {}
   }
 
+  const reserved = new Set<string>(RESERVED_CONTENT_KEYS)
   for (const key of RESERVED_CONTENT_KEYS) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       const hint = key === 'id'
@@ -39,4 +51,6 @@ export const warnReservedContentKeys = (
       )
     }
   }
+  return Object.fromEntries(Object.entries(source)
+    .filter(([key]) => !reserved.has(key))) as Partial<T>
 }

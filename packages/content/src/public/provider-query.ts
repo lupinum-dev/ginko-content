@@ -8,7 +8,7 @@
  *  - **closed** — no index signatures; every field is named.
  *  - **versioned** — `v` lets providers reject a wire they do not understand.
  *  - **JSON-pure** — the plan carries no `RegExp` instances, `Date`s, or
- *    functions (regex operands are lowered to `{ source, flags }`), so the
+ *    functions (regex operands are lowered to a tagged JSON object), so the
  *    whole envelope survives `JSON.parse(JSON.stringify(query))`. The provider
  *    registry asserts this in dev.
  *
@@ -22,6 +22,8 @@
  * here to keep the exported surface stable.
  */
 import type { ContentQueryPlan } from '../core/query/plan'
+
+export type { ContentQueryPlan } from '../core/query/plan'
 
 export {
   PROVIDER_QUERY_VERSION,

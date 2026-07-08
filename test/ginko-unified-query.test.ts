@@ -150,7 +150,7 @@ describe('compileWhere', () => {
       type: 'compare',
       field: 'title',
       operator: 'regex',
-      value: { source: 'intro', flags: 'i' }
+      value: { __ginkoContentQueryValue: 'RegExp', source: 'intro', flags: 'i' }
     })
   })
 })

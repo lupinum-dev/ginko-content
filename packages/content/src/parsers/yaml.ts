@@ -1,7 +1,7 @@
 import { load } from 'js-yaml'
 import type { ParsedContent } from '../types/content'
 import { defineTransformer } from './utils'
-import { warnReservedContentKeys } from './reserved'
+import { stripReservedContentKeys } from './reserved'
 
 export default defineTransformer({
   name: 'Yaml',
@@ -16,7 +16,7 @@ export default defineTransformer({
       parsed = { body: data } as unknown as ParsedContent
     }
 
-    warnReservedContentKeys(parsed as Record<string, unknown>, id)
+    parsed = stripReservedContentKeys(parsed as Record<string, unknown>, id) as ParsedContent
 
     return <ParsedContent> {
       ...parsed,

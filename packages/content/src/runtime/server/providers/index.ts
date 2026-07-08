@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from 'nitropack/runtime'
 import { loadExternalContentProvider } from '#content/virtual/providers'
 import type { H3Event } from 'h3'
-import type { ContentProvider, ContentProviderQuery } from '../../../public/provider'
+import { PROVIDER_QUERY_VERSION, type ContentProvider, type ContentProviderQuery } from '../../../public/provider'
 import type { FilterExpr } from '../../../core/query/plan'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '../provider-result'
@@ -56,6 +56,8 @@ export const collectPlanFilterOperators = (filter: FilterExpr, operators: Set<st
     case 'not':
       collectPlanFilterOperators(filter.clause, operators)
       break
+    default:
+      throw new TypeError(`Unknown query filter node: ${(filter as { type?: unknown }).type}`)
   }
   return operators
 }
@@ -101,7 +103,7 @@ export const assertJsonPureProviderQuery = (provider: ContentProvider, query: Co
   if (!import.meta.dev) return
   const offender = findNonJsonValue(query, 'query')
   if (offender) {
-    throw createContentProviderError('provider_query_not_json_pure', `${provider.name} received a non-JSON-pure query at ${offender}. Provider queries must survive JSON.parse(JSON.stringify(query)) — lower RegExp operands to { source, flags }.`, {
+    throw createContentProviderError('provider_query_not_json_pure', `${provider.name} received a non-JSON-pure query at ${offender}. Provider queries must survive JSON.parse(JSON.stringify(query)).`, {
       provider: provider.name,
       field: offender
     })
@@ -109,6 +111,13 @@ export const assertJsonPureProviderQuery = (provider: ContentProvider, query: Co
 }
 
 const assertProviderQuerySupported = (provider: ContentProvider, query: ContentProviderQuery) => {
+  if (query.v !== PROVIDER_QUERY_VERSION) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} received unsupported provider query version: ${String(query.v)}.`, {
+      provider: provider.name,
+      field: 'v'
+    })
+  }
+
   const capabilities = provider.capabilities.query
   const supported = new Set(capabilities.operators)
   const usedOperators = collectPlanFilterOperators(query.plan.filter)
@@ -167,6 +176,7 @@ export const enforceProviderCapabilities = (provider: ContentProvider): ContentP
     ? async (event, query, options) => {
         assertProviderOperationSupported(provider, provider.capabilities.navigation, 'navigation')
         assertJsonPureProviderQuery(provider, query)
+        assertProviderQuerySupported(provider, query)
         return await provider.navigationQuery!(event, query, options)
       }
     : undefined,

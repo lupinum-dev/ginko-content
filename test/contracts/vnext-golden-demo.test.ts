@@ -9,7 +9,7 @@ import {
   createSitemapAssertionTargetsFromPrerenderedSitemaps,
   normalizeContentSitemapAssertOptions
 } from '../../packages/content/src/module/sitemap-assert'
-import { contentProviderResultMarker } from '../../packages/content/src/public/provider'
+import { contentProviderResultMarker, toContentProviderQuery } from '../../packages/content/src/public/provider'
 
 const unwrap = <T>(value: T): T extends { data: infer Data } ? Data : T =>
   value && typeof value === 'object' && (value as Record<string, unknown>)[contentProviderResultMarker]
@@ -138,12 +138,12 @@ describe('vNext golden demo', () => {
     const surroundings = unwrap(await provider.surroundings?.(event, 'docs', '/docs/start', { locale: 'en' })) || []
     expect(surroundings[0]).toMatchObject({ path: '/docs/install' })
 
-    const posts = unwrap(await provider.query(event, {
+    const posts = unwrap(await provider.query(event, toContentProviderQuery({
       collection: 'blog',
       resolveLocale: { locale: 'de', fallback: false },
       only: ['title', 'authors', 'path', 'locale'],
       sort: [{ order: 1 }]
-    }))
+    })))
     expect(posts.result[0]).toMatchObject({
       title: 'Veroeffentlichung',
       authors: ['authors.ada']

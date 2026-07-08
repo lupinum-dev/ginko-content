@@ -121,12 +121,21 @@ const resolveMarkdownPluginOptions = async (plugin: ResolvedMarkdownPlugin) => {
   }
 }
 
+// Two loading strategies live side by side here on purpose:
+//   - Most builtin comark plugins use a literal `import('comark/plugins/x')`
+//     (via `loadBuiltinModule`). These are statically analyzable, so the
+//     bundler resolves them at build time and they pull in zero optional peers.
+//   - `math` and `mermaid` stay behind the `@vite-ignore` `loadModule` path
+//     because they hard-import optional peers (katex / mermaid) that are not
+//     installed by default; a literal import would make the bundler try to
+//     resolve those absent peers and fail. Deferring to a runtime `loadModule`
+//     keeps them opt-in — they only load when an app actually installs the peer.
 const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
   breaks: {
-    load: () => loadModule('comark/plugins/breaks')
+    load: () => loadBuiltinModule(() => import('comark/plugins/breaks'))
   },
   emoji: {
-    load: () => loadModule('comark/plugins/emoji')
+    load: () => loadBuiltinModule(() => import('comark/plugins/emoji'))
   },
   footnotes: {
     load: async () => footnotesPlugin
@@ -135,7 +144,7 @@ const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
     load: async () => highlightPlugin
   },
   'json-render': {
-    load: () => loadModule('comark/plugins/json-render')
+    load: () => loadBuiltinModule(() => import('comark/plugins/json-render'))
   },
   math: {
     load: () => loadModule('comark/plugins/math')
@@ -144,10 +153,10 @@ const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
     load: () => loadModule('comark/plugins/mermaid')
   },
   punctuation: {
-    load: () => loadModule('comark/plugins/punctuation')
+    load: () => loadBuiltinModule(() => import('comark/plugins/punctuation'))
   },
   security: {
-    load: () => loadModule('comark/plugins/security')
+    load: () => loadBuiltinModule(() => import('comark/plugins/security'))
   },
   summary: {
     load: async () => summaryPlugin
@@ -175,6 +184,11 @@ async function loadMarkdownPluginFactory (name: string) {
 
 async function loadModule (specifier: string) {
   const imported = await import(/* @vite-ignore */ specifier)
+  return resolveModule(imported)
+}
+
+async function loadBuiltinModule (loader: () => Promise<unknown>) {
+  const imported = await loader()
   return resolveModule(imported)
 }
 

@@ -46,6 +46,44 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
   })
 }))
 
+// Assert an envelope carries no module-owned `_`-prefixed key. Underscore keys
+// are reserved for internal metadata and must never survive into the wire
+// envelope. This walks the *module-owned* containers of a result — the item
+// envelope itself, its `resolved` block, and the localization sub-envelopes
+// `variants[]` / `localePaths` entries / `navigation` + `surround` items (and
+// nested navigation `children`) — but deliberately does NOT descend into user
+// content (`body`, frontmatter `data`, or the directory `dir` config), where
+// authored `_`-prefixed fields are legal.
+const assertNoModuleOwnedUnderscoreKeys = (value: unknown, where: string) => {
+  expect(value && typeof value === 'object', `${where} must be an object`).toBe(true)
+  const container = value as Record<string, unknown>
+  for (const key of Object.keys(container)) {
+    expect(key.startsWith('_'), `${where}.${key} is module-owned underscore metadata`).toBe(false)
+  }
+
+  const descend = (child: unknown, childWhere: string) => {
+    if (child && typeof child === 'object' && !Array.isArray(child)) {
+      assertNoModuleOwnedUnderscoreKeys(child, childWhere)
+    }
+  }
+  const descendEach = (list: unknown, childWhere: string) => {
+    if (Array.isArray(list)) {
+      list.forEach((entry, index) => descend(entry, `${childWhere}[${index}]`))
+    }
+  }
+
+  descend(container.resolved, `${where}.resolved`)
+  descendEach(container.variants, `${where}.variants`)
+  descendEach(container.navigation, `${where}.navigation`)
+  descendEach(container.surround, `${where}.surround`)
+  descendEach(container.children, `${where}.children`)
+  if (container.localePaths && typeof container.localePaths === 'object' && !Array.isArray(container.localePaths)) {
+    for (const [locale, entry] of Object.entries(container.localePaths as Record<string, unknown>)) {
+      descend(entry, `${where}.localePaths.${locale}`)
+    }
+  }
+}
+
 describe('query execution contracts', () => {
   beforeEach(() => {
     getContentManifest.mockReset()
@@ -149,6 +187,12 @@ describe('query execution contracts', () => {
       total: 5
     })
 
+    // The list envelope and every item (including the nested `resolved` block)
+    // must be free of module-owned underscore metadata.
+    for (const [index, item] of (list.result as Array<Record<string, unknown>>).entries()) {
+      assertNoModuleOwnedUnderscoreKeys(item, `list.result[${index}]`)
+    }
+
     await expect(executeContentQuery(event, {
       collection: 'docs',
       resolveLocale: { locale: 'de', exact: true },
@@ -215,6 +259,102 @@ describe('query execution contracts', () => {
     })
   })
 
+  test('locale result arrays use default-locale-first order independent of graph insertion', async () => {
+    const documents = [
+      doc({
+        collection: 'docs',
+        title: 'Intro DE',
+        id: 'content:de:guide:intro.md',
+        file: { path: '/de/guide/intro.md' },
+        canonicalKey: 'docs/intro',
+        locale: 'de',
+        path: '/leitfaden/einstieg'
+      }),
+      doc({
+        collection: 'docs',
+        title: 'Intro EN',
+        id: 'content:en:guide:intro.md',
+        file: { path: '/en/guide/intro.md' },
+        canonicalKey: 'docs/intro',
+        locale: 'en',
+        path: '/guide/intro'
+      })
+    ]
+    resolveLocaleChain.mockReturnValue(['de', 'en'])
+
+    const { buildContentGraph } = await import('../../packages/content/src/core/content/graph')
+    const { executeQueryPlan } = await import('../../packages/content/src/core/query/execute')
+    const { localizePageResult } = await import('../../packages/content/src/features/localization/results')
+
+    const plan = createProviderQuery({
+      collection: 'docs',
+      resolveLocale: { locale: 'de', fallback: ['en'] },
+      first: true,
+      only: ['resolved']
+    } as any).plan
+    const list = executeQueryPlan(buildContentGraph(documents), plan, {
+      defaultLocale: 'en',
+      collections: {
+        docs: {
+          i18n: {
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          }
+        }
+      }
+    })
+
+    expect(list.result.resolved.availableLocales).toEqual(['en', 'de'])
+
+    const shaped = localizePageResult({
+      path: '/leitfaden/einstieg',
+      locale: 'de',
+      resolved: {
+        locale: 'de',
+        variantPaths: {
+          de: '/leitfaden/einstieg',
+          en: '/guide/intro'
+        }
+      }
+    } as any, 'de', 'en', ['en', 'de'])
+
+    expect(shaped.variants.map(variant => variant.locale)).toEqual(['en', 'de'])
+    expect(shaped.resolved.availableLocales).toEqual(['en', 'de'])
+
+    // Reverse insertion direction: feed the graph the same variants en-first,
+    // and shape with the variant-path map en-first. Canonical ordering must be
+    // identical (default-locale first), proving the result is independent of
+    // graph-insertion / object-key order — not merely echoing the input.
+    const reversedList = executeQueryPlan(buildContentGraph([...documents].reverse()), plan, {
+      defaultLocale: 'en',
+      collections: {
+        docs: {
+          i18n: {
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          }
+        }
+      }
+    })
+
+    expect(reversedList.result.resolved.availableLocales).toEqual(['en', 'de'])
+
+    const reversedShaped = localizePageResult({
+      path: '/guide/intro',
+      locale: 'en',
+      resolved: {
+        locale: 'en',
+        variantPaths: {
+          en: '/guide/intro',
+          de: '/leitfaden/einstieg'
+        }
+      }
+    } as any, 'en', 'en', ['en', 'de'])
+
+    expect(reversedShaped.variants.map(variant => variant.locale)).toEqual(['en', 'de'])
+    expect(reversedShaped.resolved.availableLocales).toEqual(['en', 'de'])
+  })
+
   test('executeContentQuery resolves route variants and returns variant paths', async () => {
     getContentsList.mockResolvedValue([
       doc({
@@ -238,7 +378,7 @@ describe('query execution contracts', () => {
     // The executor now takes a lowered plan (CS-5); lower builder params here.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
-    await expect(executeContentQuery(createEvent(), {
+    const result = await executeContentQuery(createEvent(), {
       collection: 'docs',
       first: true,
       resolveVariant: {
@@ -246,7 +386,9 @@ describe('query execution contracts', () => {
         locale: 'de',
         fallback: ['en']
       }
-    } as any)).resolves.toMatchObject({
+    } as any)
+
+    expect(result).toMatchObject({
       result: {
         title: 'Intro EN',
         resolved: {
@@ -257,11 +399,13 @@ describe('query execution contracts', () => {
             en: '/guide/intro'
           }
         },
-        _dir: {
+        dir: {
           badge: 'New'
         }
       }
     })
+    assertNoModuleOwnedUnderscoreKeys(result.result, 'result')
+    assertNoModuleOwnedUnderscoreKeys(result.result.resolved, 'result.resolved')
   })
 
   test('canonical query plan applies collection prefilter and projection in the correct order', async () => {
@@ -330,6 +474,45 @@ describe('query execution contracts', () => {
     })
   })
 
+  test('regex comparator rejects untagged {source,flags} operands instead of char-class matching', async () => {
+    const { evaluateQueryPlanFilter } = await import('../../packages/content/src/core/query/execute')
+    const { isPlanRegex } = await import('../../packages/content/src/core/query/plan')
+
+    const untagged = { source: 'ma', flags: '' }
+    // The old-wire shape looks like a regex but is NOT a tagged PlanRegex.
+    expect(isPlanRegex(untagged)).toBe(false)
+
+    // Both directions. Pre-fix the executor stringified the untagged object to
+    // `'[object Object]'`, which `new RegExp` compiled to the char-class
+    // `/[objectObject ]/` — that matches `'match'` (shared c/t/a chars) and
+    // silently returned a wrong `true`. Post-fix it throws instead of guessing.
+    expect(() => evaluateQueryPlanFilter({ title: 'match' }, {
+      type: 'compare', field: 'title', operator: 'regex', value: untagged
+    })).toThrow(TypeError)
+    // The diagnostic names the tagged wire shape and the wire version.
+    expect(() => evaluateQueryPlanFilter({ title: 'match' }, {
+      type: 'compare', field: 'title', operator: 'regex', value: untagged
+    })).toThrow(/__ginkoContentQueryValue.*PROVIDER_QUERY_VERSION/)
+
+    // Plain-string operands keep their exact semantics: string-form regex...
+    expect(evaluateQueryPlanFilter({ title: 'Intro' }, {
+      type: 'compare', field: 'title', operator: 'regex', value: '/^intro$/i'
+    })).toBe(true)
+    // ...and bare-string literal matching.
+    expect(evaluateQueryPlanFilter({ title: 'Introduction' }, {
+      type: 'compare', field: 'title', operator: 'regex', value: 'ntro'
+    })).toBe(true)
+    expect(evaluateQueryPlanFilter({ title: 'Bar' }, {
+      type: 'compare', field: 'title', operator: 'regex', value: 'ntro'
+    })).toBe(false)
+
+    // A properly tagged PlanRegex operand still matches (revive path intact).
+    expect(evaluateQueryPlanFilter({ title: 'match' }, {
+      type: 'compare', field: 'title', operator: 'regex',
+      value: { __ginkoContentQueryValue: 'RegExp', source: 'ma', flags: '' }
+    })).toBe(true)
+  })
+
   test('executeContentQuery accepts public path prefix filters without exposing regex', async () => {
     const dataset = [
       doc({ collection: 'docs', id: 'content:guide:intro.md', file: { path: '/guide/intro.md' }, canonicalKey: 'guide/intro', path: '/guide/intro', title: 'Intro' }),
@@ -388,5 +571,51 @@ describe('query execution contracts', () => {
       limit: 100,
       total: 3
     })
+  })
+
+  test('module-owned envelope walk covers navigation results and rejects nested underscore metadata', async () => {
+    const { localizeNavigation, localizeSurround } = await import('../../packages/content/src/features/localization/results')
+
+    // Real navigation/surround shaping produces the `navigation`/`surround`
+    // sub-envelopes (with nested `children`) attached to a navigation result.
+    const navigation = localizeNavigation([
+      { title: 'Guide', path: '/guide', children: [{ title: 'Intro', path: '/guide/intro' }] } as any
+    ], 'en', 'en', ['en', 'de'])
+    const surround = localizeSurround([
+      { title: 'Prev', path: '/guide/a' },
+      { title: 'Next', path: '/guide/b' }
+    ] as any, 'en', 'en', ['en', 'de'])
+
+    const navigationResult = { result: navigation, navigation, surround }
+    // A single walk descends into navigation[], surround[], and nested children.
+    assertNoModuleOwnedUnderscoreKeys(navigationResult, 'navigationResult')
+
+    // Depth proof (both directions): a `_`-prefixed key nested inside an
+    // envelope sub-container must be rejected. A shallow top-level-only check
+    // would pass these (their top-level keys are `resolved` / `variants` /
+    // `navigation`, none underscore) — only the deepened walk catches the leak.
+    expect(() => assertNoModuleOwnedUnderscoreKeys({
+      path: '/guide',
+      resolved: { locale: 'en', _leak: true }
+    }, 'nestedResolvedLeak')).toThrow()
+    expect(() => assertNoModuleOwnedUnderscoreKeys({
+      path: '/guide',
+      variants: [{ locale: 'en', path: '/guide', _leak: true }]
+    }, 'nestedVariantLeak')).toThrow()
+    expect(() => assertNoModuleOwnedUnderscoreKeys({
+      navigation: [{ title: 'Guide', path: '/guide', children: [{ title: 'Intro', path: '/guide/intro', _leak: true }] }]
+    }, 'nestedNavigationChildLeak')).toThrow()
+    expect(() => assertNoModuleOwnedUnderscoreKeys({
+      localePaths: { en: { path: '/guide', translated: true, _leak: true } }
+    }, 'nestedLocalePathLeak')).toThrow()
+
+    // Control: the same shapes without the nested leak pass, proving the walk
+    // does not spuriously reject clean nested envelopes.
+    expect(() => assertNoModuleOwnedUnderscoreKeys({
+      path: '/guide',
+      resolved: { locale: 'en' },
+      variants: [{ locale: 'en', path: '/guide' }],
+      localePaths: { en: { path: '/guide', translated: true } }
+    }, 'cleanEnvelope')).not.toThrow()
   })
 })

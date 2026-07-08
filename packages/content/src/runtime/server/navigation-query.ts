@@ -17,8 +17,11 @@ import { resolveLocaleChain } from './manifest'
 const reviveFilterValue = (value: unknown): unknown =>
   isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
 
-const mergeWhereConditions = (conditions: ContentQueryBuilderWhere[]): ContentQueryBuilderWhere =>
-  Object.assign({}, ...conditions)
+const conditionsToWhereCondition = (conditions: ContentQueryBuilderWhere[]): ContentQueryBuilderWhere => {
+  if (!conditions.length) return {}
+  if (conditions.length === 1) return conditions[0]!
+  return { $and: conditions }
+}
 
 /**
  * Reconstruct builder `where` conditions from a lowered `FilterExpr` so the
@@ -39,9 +42,11 @@ const filterToWhereConditions = (filter: FilterExpr): ContentQueryBuilderWhere[]
     case 'and':
       return filter.clauses.flatMap(filterToWhereConditions)
     case 'or':
-      return [{ $or: filter.clauses.map(clause => mergeWhereConditions(filterToWhereConditions(clause))) }]
+      return [{ $or: filter.clauses.map(clause => conditionsToWhereCondition(filterToWhereConditions(clause))) }]
     case 'not':
-      return [{ $not: mergeWhereConditions(filterToWhereConditions(filter.clause)) }]
+      return [{ $not: conditionsToWhereCondition(filterToWhereConditions(filter.clause)) }]
+    default:
+      throw new TypeError(`Unknown query filter node: ${(filter as { type?: unknown }).type}`)
   }
 }
 

@@ -19,7 +19,7 @@ import type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hint
 import type { ContentProviderNavigationOptions, ContentProviderQuery } from './provider-query'
 
 export type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
-export type { ContentProviderQuery, ContentProviderNavigationOptions } from './provider-query'
+export type { ContentProviderQuery, ContentProviderNavigationOptions, ContentQueryPlan } from './provider-query'
 export { PROVIDER_QUERY_VERSION, toContentProviderQuery, toContentProviderNavigationQuery } from './provider-query'
 export { createContentProviderError } from './provider-errors'
 export type { ContentProviderErrorCode } from './provider-errors'

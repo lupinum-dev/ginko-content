@@ -54,6 +54,32 @@ describe('transformer contracts', () => {
     })
   })
 
+  test('markdown strips derived localization fields from frontmatter', async () => {
+    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+
+    const parsed = await markdown.parse?.('content:guide/intro.md', [
+      '---',
+      'title: Intro',
+      'resolved:',
+      '  locale: de',
+      'variants:',
+      '  - locale: de',
+      '    path: /fake',
+      'localePaths:',
+      '  de:',
+      '    path: /fake',
+      'unprefixedPath: /fake',
+      '---',
+      '# Intro'
+    ].join('\n'), { plugins: [] } as any)
+
+    expect(parsed).toMatchObject({ title: 'Intro' })
+    expect(parsed).not.toHaveProperty('resolved')
+    expect(parsed).not.toHaveProperty('variants')
+    expect(parsed).not.toHaveProperty('localePaths')
+    expect(parsed).not.toHaveProperty('unprefixedPath')
+  })
+
   test('markdown normalizes relative links, preserves anchors, and leaves external links untouched', async () => {
     const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
 

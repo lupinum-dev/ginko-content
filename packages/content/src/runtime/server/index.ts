@@ -16,7 +16,12 @@ export {
   getContentCacheHint
 } from './cache-hints'
 export { createContentProviderError } from '../../public/provider-errors'
-export { withContentCache } from '../../public/provider'
+export {
+  PROVIDER_QUERY_VERSION,
+  toContentProviderNavigationQuery,
+  toContentProviderQuery,
+  withContentCache
+} from '../../public/provider'
 // Provider-author seam (T3.4): keep the #content/server alias in lockstep with
 // the ./server subpath — providers import these from either specifier.
 export { normalizeProviderDocument, shapeProviderDocument } from './provider-document'
@@ -28,6 +33,8 @@ export type {
   ContentCacheInvalidateInput,
   ContentProvider,
   ContentProviderCapabilities,
+  ContentProviderNavigationOptions,
+  ContentProviderQuery,
   ContentProviderResult,
   MaybeContentProviderResult
 } from '../../public/provider'

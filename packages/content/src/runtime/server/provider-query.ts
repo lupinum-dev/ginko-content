@@ -13,6 +13,7 @@ import { createQuery, wrapQueryBuilder } from '../../core/query/builder'
 import { normalizeContentQueryParams } from '../../core/query/params'
 import { containsStandaloneRegexOptions, findUnsupportedQueryOperator } from '../../core/query/operators'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
+import { sortLocalesCanonically } from '../../core/content/locale'
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { getContentRuntimeConfig } from './runtime-config'
 import { createContentProviderError } from '../../public/provider-errors'
@@ -220,7 +221,17 @@ export const resolveProviderContentVariants = async (
     return null
   }
 
-  const availableLocales = Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[]
+  // The provider path collects variants in `localesToQuery` order
+  // (`[requestedLocale, ...fallbacks, ...configLocales]`), which differs per
+  // requested locale. Canonicalize so `availableLocales` is identical on every
+  // path regardless of which locale was requested.
+  const availableLocales = sortLocalesCanonically(
+    Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[],
+    {
+      defaultLocale: collectionI18n?.defaultLocale || runtimeContent.defaultLocale,
+      locales: collectionI18n?.locales
+    }
+  )
   const variantPaths = Object.fromEntries(
     variants
       .filter(document => document.locale && document.path)

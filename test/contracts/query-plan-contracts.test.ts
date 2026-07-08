@@ -206,4 +206,24 @@ describe('query plan contracts', () => {
       'old-unfeatured'
     ])
   })
+
+  test('executes Date operands consistently after JSON wire lowering', async () => {
+    const { executeQueryPlanOnDocuments } = await import('../../packages/content/src/core/query/execute')
+    const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
+
+    const plan = lowerQueryPlan({
+      where: [{ date: { $gt: new Date('2026-01-01T00:00:00.000Z') } }]
+    } as any)
+
+    const documents = [
+      { title: 'before', date: new Date('2025-12-31T00:00:00.000Z') },
+      { title: 'after', date: new Date('2026-01-02T00:00:00.000Z') }
+    ]
+
+    const inProcess = executeQueryPlanOnDocuments(documents, plan)
+    const roundTripped = executeQueryPlanOnDocuments(documents, JSON.parse(JSON.stringify(plan)))
+
+    expect(inProcess.result.map(item => item.title)).toEqual(['after'])
+    expect(roundTripped.result.map(item => item.title)).toEqual(['after'])
+  })
 })

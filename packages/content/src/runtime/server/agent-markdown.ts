@@ -28,21 +28,18 @@ import { contentConfig } from './storage-access'
 export * from '../../features/agent/agent-markdown'
 export { renderAgentMarkdownBody } from '../../features/agent/walker'
 
-// --- Per-app serializer registry (created during module setup) -------------
+// --- Per-process serializer singleton --------------------------------------
 //
-// The registry is created when this runtime module is first evaluated ("module
-// setup") and re-created on every re-evaluation, so dev HMR yields a fresh
-// registry rather than accumulating stale serializers or throwing "already
-// registered". User code registers into the current app registry through the
-// stable module-level helpers below; the walker reads it via the context.
+// `appRegistry` is a per-process singleton: one instance shared by every
+// request in this server process. Serializers are registered into it via
+// `registerAgentMarkdownSerializer` (and friends) from Nitro plugins during
+// server startup. Re-registering the same name throws unless `{ override: true }`
+// is passed, in which case the last registration wins. The walker reads the
+// current registry through the context. `createAgentMarkdownRegistry` remains
+// the primitive for creating isolated registries (e.g. tests) that do not touch
+// this shared singleton.
 
-let appRegistry: AgentMarkdownRegistry = createAgentMarkdownRegistry()
-
-/** (Re)create the current app's serializer registry. Called on module setup. */
-export const setupAgentMarkdownRegistry = (): AgentMarkdownRegistry => {
-  appRegistry = createAgentMarkdownRegistry()
-  return appRegistry
-}
+const appRegistry: AgentMarkdownRegistry = createAgentMarkdownRegistry()
 
 /** The current app's serializer registry the walker resolves tags against. */
 export const getAgentMarkdownRegistry = (): AgentMarkdownRegistry => appRegistry

@@ -22,6 +22,7 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../content/graph'
 import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
 import { isPlanRegex } from './plan'
+import { sortLocalesCanonically } from '../content/locale'
 import { resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
 import { ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
 import { normalizeRouteMounts, routeToContentPathCandidates } from '../content/path'
@@ -37,32 +38,35 @@ type Haystack = string | readonly unknown[]
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// Reconstruct a live `RegExp` from the JSON-pure `{ source, flags }` wire
-// operand produced by lowering (see `PlanRegex`). Non-regex operands pass
+// Reconstruct a live `RegExp` from the JSON-pure tagged wire operand produced
+// by lowering (see `PlanRegex`). Non-regex operands pass
 // through so equality/comparison semantics are unchanged.
 const reviveRegex = (value: unknown): unknown =>
   isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
 
+const comparableValue = (value: unknown): unknown =>
+  value instanceof Date ? value.toISOString() : value
+
 const includesEntry = (haystack: Haystack, entry: unknown): boolean =>
   typeof haystack === 'string'
-    ? haystack.includes(String(entry))
-    : haystack.includes(entry)
+    ? isPlanRegex(entry) ? (reviveRegex(entry) as RegExp).test(haystack) : haystack.includes(String(entry))
+    : haystack.some(value => compareOperators.eq(value, entry))
 
 const compareOperators: Record<CompareOperator, (item: unknown, value: unknown) => boolean> = {
   eq: (item, value) => {
     const operand = reviveRegex(value)
-    return operand instanceof RegExp ? operand.test(String(item)) : item === operand
+    return operand instanceof RegExp ? operand.test(String(item)) : comparableValue(item) === comparableValue(operand)
   },
   ne: (item, value) => {
     const operand = reviveRegex(value)
-    return operand instanceof RegExp ? !operand.test(String(item)) : item !== operand
+    return operand instanceof RegExp ? !operand.test(String(item)) : comparableValue(item) !== comparableValue(operand)
   },
-  gt: (item, value) => (item as Comparable) > (value as Comparable),
-  gte: (item, value) => (item as Comparable) >= (value as Comparable),
-  lt: (item, value) => (item as Comparable) < (value as Comparable),
-  lte: (item, value) => (item as Comparable) <= (value as Comparable),
+  gt: (item, value) => (comparableValue(item) as Comparable) > (comparableValue(value) as Comparable),
+  gte: (item, value) => (comparableValue(item) as Comparable) >= (comparableValue(value) as Comparable),
+  lt: (item, value) => (comparableValue(item) as Comparable) < (comparableValue(value) as Comparable),
+  lte: (item, value) => (comparableValue(item) as Comparable) <= (comparableValue(value) as Comparable),
   in: (item, value) => ensureArray(value).some(entry => Array.isArray(item)
-    ? item.includes(entry)
+    ? item.some(itemEntry => compareOperators.eq(itemEntry, entry))
     : compareOperators.eq(item, entry)),
   contains: (item, value) => {
     const haystack: Haystack = Array.isArray(item) ? item : String(item)
@@ -88,6 +92,18 @@ const compareOperators: Record<CompareOperator, (item: unknown, value: unknown) 
       return operand.test(String(item || ''))
     }
 
+    // An object operand that survived `reviveRegex` untagged is NOT a
+    // `PlanRegex` (`isPlanRegex` rejected it). Stringifying it would yield
+    // `'[object Object]'`, which `new RegExp` reads as the char-class
+    // `[objectObject ]` that matches almost any string — an old-wire untagged
+    // `{ source, flags }` regex would silently return wrong matches. Reject it
+    // instead of guessing.
+    if (typeof operand === 'object' && operand !== null) {
+      throw new TypeError(
+        '$regex operand must be a plain string or a tagged { __ginkoContentQueryValue: \'RegExp\', source, flags } wire value produced by the current PROVIDER_QUERY_VERSION lowering; received an untagged object (likely an old-wire { source, flags } regex predating PROVIDER_QUERY_VERSION)'
+      )
+    }
+
     const matched = String(operand).match(/\/(.*)\/([dgimsuy]*)$/)
     const regex = matched?.[1] ? new RegExp(matched[1], matched[2] || '') : new RegExp(String(operand))
     return regex.test(String(item || ''))
@@ -106,6 +122,8 @@ export const evaluateQueryPlanFilter = (item: Record<string, unknown>, filter: F
       return filter.clauses.some(clause => evaluateQueryPlanFilter(item, clause))
     case 'not':
       return !evaluateQueryPlanFilter(item, filter.clause)
+    default:
+      throw new TypeError(`Unknown query filter node: ${(filter as { type?: unknown }).type}`)
   }
 }
 
@@ -144,6 +162,8 @@ const collectFieldComparisons = (filter: FilterExpr, field: string): Array<strin
     case 'or':
     case 'not':
       return []
+    default:
+      throw new TypeError(`Unknown query filter node: ${(filter as { type?: unknown }).type}`)
   }
 }
 
@@ -221,7 +241,7 @@ const withDirConfig = <T extends ParsedContent>(content: T | undefined, dirConfi
 
   return {
     ...content,
-    _dir: {
+    dir: {
       ...dirConfig,
       ...dirConfig.body
     }
@@ -274,8 +294,13 @@ const executeStandardPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan): Co
 const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: {
   defaultLocale?: string
   localeFallback?: Record<string, string[]>
+  collections?: Record<string, { route?: string | Record<string, string>, i18n?: boolean | { locales?: string[], defaultLocale?: string } }>
 }): ContentQueryResponse<T> => {
   const requestedLocale = plan.resolveLocale?.locale
+  const collectionConfig = plan.collection ? options.collections?.[plan.collection] : undefined
+  const collectionI18n = collectionConfig?.i18n && typeof collectionConfig.i18n === 'object' ? collectionConfig.i18n : undefined
+  const defaultLocale = collectionI18n?.defaultLocale || options.defaultLocale
+  const locales = collectionI18n?.locales?.length ? collectionI18n.locales : []
   const candidates = selectGraphDocuments(graph, {
     collection: plan.collection,
     paths: collectFieldComparisons(plan.filter, 'path')
@@ -300,7 +325,7 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
     const key = item.canonicalKey || item.id || item.id || item.path
     const rank = localeRank.get(item.locale || '') ?? Number.MAX_SAFE_INTEGER
     const availableLocales = item.canonicalKey
-      ? Object.keys(graph.byCanonical[item.canonicalKey] || {})
+      ? sortLocalesCanonically(Object.keys(graph.byCanonical[item.canonicalKey] || {}), { defaultLocale, locales })
       : [item.locale].filter(Boolean) as string[]
     const enriched = {
       ...item,
@@ -362,6 +387,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
         if (!canonicalKey) return null
         return resolveGraphVariant(graph, canonicalKey, plan.resolveVariant!.locale, {
           defaultLocale,
+          locales: collectionI18n?.locales,
           fallback: plan.resolveVariant!.fallback,
           exact: plan.resolveVariant!.exact,
           localeFallback,
@@ -377,7 +403,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
                 : resolveLocaleChain(plan.resolveVariant!.locale, defaultLocale, localeFallback || {}))
           const candidateLocales = localeChain.length
             ? localeChain
-            : Array.from(new Set(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants))))
+            : sortLocalesCanonically(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants)), { defaultLocale, locales: collectionI18n?.locales })
           if (!candidateLocales.length) {
             candidateLocales.push('')
           }
@@ -395,6 +421,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
             }
             const resolved = resolveGraphVariant(graph, canonicalKey, plan.resolveVariant!.locale, {
               defaultLocale,
+              locales: collectionI18n?.locales,
               fallback: plan.resolveVariant!.fallback,
               exact: plan.resolveVariant!.exact,
               localeFallback,
@@ -410,6 +437,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
           plan.resolveVariant.locale,
           {
             defaultLocale,
+            locales: collectionI18n?.locales,
             fallback: plan.resolveVariant.fallback,
             exact: plan.resolveVariant.exact,
             localeFallback,
@@ -484,8 +512,11 @@ export const resolveQueryPlanVariant = (
   } = {}
 ) => {
   if (plan.resolveVariant) {
+    const collectionConfig = plan.collection ? options.collections?.[plan.collection] : undefined
+    const collectionI18n = collectionConfig?.i18n && typeof collectionConfig.i18n === 'object' ? collectionConfig.i18n : undefined
     return resolveGraphRouteVariant(graph, plan.resolveVariant.path || plan.resolveVariant.route || '', plan.resolveVariant.locale, {
-      defaultLocale: options.defaultLocale,
+      defaultLocale: collectionI18n?.defaultLocale || options.defaultLocale,
+      locales: collectionI18n?.locales,
       fallback: plan.resolveVariant.fallback,
       exact: plan.resolveVariant.exact,
       localeFallback: options.localeFallback

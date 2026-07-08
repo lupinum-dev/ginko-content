@@ -202,7 +202,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
     routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
       const page = await provider.page(event, collection, routeOrPath, options)
       return page
-        ? createRouteMeta(page, options.locale || page.locale, scenario.defaultLocale, routeMountsFor(scenario, collection))
+        ? createRouteMeta(page, options.locale || page.locale, scenario.defaultLocale, scenario.locales, routeMountsFor(scenario, collection))
         : null
     },
     sitemapEntries: async (_event, options = {}) => {

@@ -139,7 +139,8 @@ export interface ParsedContentInternalMeta {
   collection?: string
   /**
    * Internal marker: this parsed record is a folder-scoped `.navigation.yml`
-   * configuration document, not a routable page. Never a public field.
+   * configuration document, not a routable page. Providers may expose it so
+   * generic filtering can consistently exclude navigation config records.
    */
   navigationFile?: boolean
   /**

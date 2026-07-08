@@ -124,7 +124,7 @@ const internalDocumentFields = new Set([
   'canonicalKey',
   'partial',
   'draft',
-  '_dir',
+  'dir',
   'locale',
   'navigationFile',
   'resolved',

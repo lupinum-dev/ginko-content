@@ -19,7 +19,7 @@ The query path is deliberately split:
 - Public query operators must be explicit and provider-advertised.
 - Provider capability checks are runtime truth; do not add frontend-only behavior the provider cannot enforce.
 - Public result shapes must use `ContentQueryResponse` envelopes consistently.
-- Localized result metadata must use the public `resolved.*` model, not private `_locale` internals.
+- Localized result metadata must use the public `resolved.*` model, not legacy locale internals.
 - Invalid public input should fail at the API/runtime boundary with actionable errors.
 
 ## Public API Impact

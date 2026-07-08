@@ -53,6 +53,10 @@ Provider changes affect external provider authors. Treat these as public:
 - `MaybeContentProviderResult`
 - cache hint types.
 - provider error codes.
+- the wire surface mirrored on `./provider`: `ContentProviderQuery`,
+  `ContentProviderNavigationOptions`, `ContentQueryPlan`,
+  `PROVIDER_QUERY_VERSION`, `toContentProviderQuery`,
+  `toContentProviderNavigationQuery`, `withContentCache`.
 
 If these change, update `meta/public-surface.json`, provider docs, generated `#content/server` declarations if needed, and type fixtures.
 

@@ -14,6 +14,8 @@ type PublicSurface = {
   clientTypeExports: Record<string, PublicSurfaceEntry>
   serverValueExports: Record<string, PublicSurfaceEntry>
   serverTypeExports: Record<string, PublicSurfaceEntry>
+  providerValueExports: Record<string, PublicSurfaceEntry>
+  providerTypeExports: Record<string, PublicSurfaceEntry>
   agentValueExports: Record<string, PublicSurfaceEntry>
   agentTypeExports: Record<string, PublicSurfaceEntry>
   rootValueExports: Record<string, PublicSurfaceEntry>
@@ -99,6 +101,14 @@ const extractTypeExports = (source: string) => {
     }
   }
 
+  for (const match of source.matchAll(/export\s+interface\s+([A-Za-z0-9_]+)/g)) {
+    names.add(match[1]!)
+  }
+
+  for (const match of source.matchAll(/export\s+type\s+([A-Za-z0-9_]+)\s*[=<{]/g)) {
+    names.add(match[1]!)
+  }
+
   return [...names].sort()
 }
 
@@ -117,6 +127,34 @@ describe('package export contracts', () => {
     expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.agentTypeExports).sort())
   })
 
+  test('source client facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.clientValueExports).sort())
+  })
+
+  test('source client facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.clientTypeExports).sort())
+  })
+
+  test('source server facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.serverValueExports).sort())
+  })
+
+  test('source server facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
+  })
+
   test('server facade no longer re-exports agent or provider types', async () => {
     const source = await readFile('packages/content/src/public/server.ts', 'utf8')
 
@@ -126,6 +164,20 @@ describe('package export contracts', () => {
     // Provider types have a single home (`./provider`).
     expect(extractTypeExports(source)).not.toContain('ContentProvider')
     expect(extractTypeExports(source)).not.toContain('ContentProviderQuery')
+  })
+
+  test('source provider facade value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/provider.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.providerValueExports).sort())
+  })
+
+  test('source provider facade type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/public/provider.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.providerTypeExports).sort())
   })
 
   test('source root entry value exports stay intentionally curated', async () => {
@@ -146,6 +198,15 @@ describe('package export contracts', () => {
     const source = await readFile('packages/content/src/module.ts', 'utf8')
 
     expect(source).not.toMatch(/export\s+type\s*\*/)
+  })
+
+  test('package export subpaths stay classified in the public surface manifest', async () => {
+    const publicSurface = await readPublicSurface()
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      exports: Record<string, unknown>
+    }
+
+    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(publicSurface.packageExportSubpaths).sort())
   })
 
   test('app-facing runtime imports are documented by name', async () => {
@@ -206,6 +267,8 @@ describe('package export contracts', () => {
       ...Object.values(publicSurface.clientTypeExports),
       ...Object.values(publicSurface.serverValueExports),
       ...Object.values(publicSurface.serverTypeExports),
+      ...Object.values(publicSurface.providerValueExports),
+      ...Object.values(publicSurface.providerTypeExports),
       ...Object.values(publicSurface.agentValueExports),
       ...Object.values(publicSurface.agentTypeExports),
       ...Object.values(publicSurface.rootValueExports),

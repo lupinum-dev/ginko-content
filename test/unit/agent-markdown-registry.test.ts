@@ -121,27 +121,32 @@ describe('agent markdown module setup (dev HMR)', () => {
     }))
   })
 
-  test('re-running module setup yields a fresh registry instead of accumulating', async () => {
+  test('re-running module evaluation yields a fresh registry instead of accumulating', async () => {
     const {
       getAgentMarkdownRegistry,
-      registerAgentMarkdownSerializer,
-      setupAgentMarkdownRegistry
+      registerAgentMarkdownSerializer
     } = await import('../../packages/content/src/runtime/server/agent-markdown')
 
-    setupAgentMarkdownRegistry()
     const v1 = () => 'v1'
     registerAgentMarkdownSerializer('card', v1)
     expect(getAgentMarkdownRegistry().get('card')).toBe(v1)
 
-    // Simulate an HMR reload: module setup runs again -> a brand new registry.
-    const fresh = setupAgentMarkdownRegistry()
-    expect(fresh.get('card')).toBeUndefined()
+    vi.resetModules()
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({ collections: {} })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({})
+    }))
+
+    const freshModule = await import('../../packages/content/src/runtime/server/agent-markdown')
+    expect(freshModule.getAgentMarkdownRegistry().get('card')).toBeUndefined()
 
     // The user plugin re-runs and re-registers the same tag. Against the old
     // module-global map this threw "already registered"; against a per-app
     // registry it targets the fresh instance and succeeds.
     const v2 = () => 'v2'
-    expect(() => registerAgentMarkdownSerializer('card', v2)).not.toThrow()
-    expect(getAgentMarkdownRegistry().get('card')).toBe(v2)
+    expect(() => freshModule.registerAgentMarkdownSerializer('card', v2)).not.toThrow()
+    expect(freshModule.getAgentMarkdownRegistry().get('card')).toBe(v2)
   })
 })

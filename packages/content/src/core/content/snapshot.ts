@@ -35,10 +35,13 @@ const isPlainObject = (value: object) => {
   return prototype === Object.prototype || prototype === null
 }
 
+const describeSymbolKey = (symbol: symbol) =>
+  `[${String(symbol)}] (symbol-keyed property)`
+
 // `ancestors` holds only the objects on the current traversal path, not every
 // visited object: a shared (non-circular) reference is valid JSON — stringify
 // duplicates it — so only true cycles may be flagged.
-const findNonJsonValue = (value: unknown, path: string, ancestors: WeakSet<object>): string | undefined => {
+const collectNonJsonValues = (value: unknown, path: string, ancestors: WeakSet<object>, offenders: string[]): void => {
   if (
     value === null
     || value === undefined
@@ -50,15 +53,17 @@ const findNonJsonValue = (value: unknown, path: string, ancestors: WeakSet<objec
     // arrays), which is exactly what the pre-snapshot production pipeline
     // served. Disabled-feature decorations (e.g. search: false) legitimately
     // set undefined fields on every document.
-    return undefined
+    return
   }
 
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? undefined : path
+    if (!Number.isFinite(value)) offenders.push(path)
+    return
   }
 
   if (typeof value !== 'object') {
-    return path
+    offenders.push(path)
+    return
   }
 
   // Dates are admitted: JSON.stringify serializes them deterministically to
@@ -68,31 +73,44 @@ const findNonJsonValue = (value: unknown, path: string, ancestors: WeakSet<objec
   // `date: 2026-01-01` parses to a Date and must not fail the build.
   // Invalid dates have no faithful serialization and stay rejected.
   if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? path : undefined
+    if (Number.isNaN(value.getTime())) offenders.push(path)
+    return
   }
 
   if (ancestors.has(value)) {
-    return path
+    offenders.push(path)
+    return
   }
   ancestors.add(value)
 
   try {
+    // Enumerable symbol-keyed properties are silently dropped by JSON.stringify
+    // on both arrays and plain objects, so the rejection must run before either
+    // container branch returns.
+    for (const symbol of Object.getOwnPropertySymbols(value)) {
+      if (Object.prototype.propertyIsEnumerable.call(value, symbol)) {
+        offenders.push(`${path}${describeSymbolKey(symbol)}`)
+      }
+    }
+
     if (Array.isArray(value)) {
       for (let index = 0; index < value.length; index += 1) {
-        if (!(index in value)) return `${path}[${index}]`
-        const invalid = findNonJsonValue(value[index], `${path}[${index}]`, ancestors)
-        if (invalid) return invalid
+        if (!(index in value)) {
+          offenders.push(`${path}[${index}]`)
+          continue
+        }
+        collectNonJsonValues(value[index], `${path}[${index}]`, ancestors, offenders)
       }
-      return undefined
+      return
     }
 
     if (!isPlainObject(value)) {
-      return path
+      offenders.push(path)
+      return
     }
 
     for (const [key, child] of Object.entries(value)) {
-      const invalid = findNonJsonValue(child, `${path}.${key}`, ancestors)
-      if (invalid) return invalid
+      collectNonJsonValues(child, `${path}.${key}`, ancestors, offenders)
     }
   } finally {
     ancestors.delete(value)
@@ -106,8 +124,10 @@ export const buildContentSnapshot = (args: BuildContentSnapshotArgs): ContentSna
     // Skip the round-trip for flagged documents: JSON.stringify on a circular
     // structure throws a raw TypeError, which would preempt the aggregated
     // ContentSnapshotError below.
-    if (findNonJsonValue(document, '$', new WeakSet())) {
-      lossy.push(documentIdOf(document))
+    const offenders: string[] = []
+    collectNonJsonValues(document, '$', new WeakSet(), offenders)
+    if (offenders.length) {
+      lossy.push(...offenders.map(path => `${documentIdOf(document)}:${path}`))
       continue
     }
     documents.push(JSON.parse(JSON.stringify(document)) as ParsedContent)
@@ -115,7 +135,7 @@ export const buildContentSnapshot = (args: BuildContentSnapshotArgs): ContentSna
 
   if (lossy.length > 0) {
     throw new ContentSnapshotError(
-      `[content] snapshot: ${lossy.length} document(s) contain non-JSON values (Date, undefined, Map, ...): ${lossy.slice(0, 10).join(', ')}`
+      `[content] snapshot: ${lossy.length} non-JSON value(s) found (invalid Date, Map, circular reference, symbol key, ...): ${lossy.slice(0, 10).join(', ')}`
     )
   }
 

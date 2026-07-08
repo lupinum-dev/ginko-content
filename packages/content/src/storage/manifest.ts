@@ -56,6 +56,7 @@ export async function resolveVariant (
   const config = getContentRuntimeConfig().content
   return resolveGraphVariant(await getContentGraph(event), canonicalKey, requestedLocale, {
     defaultLocale: config.defaultLocale,
+    locales: config.locales,
     fallback: options.fallback,
     exact: options.exact,
     localeFallback: config.localeFallback
@@ -74,6 +75,7 @@ export async function resolveRouteVariant (
   const config = getContentRuntimeConfig().content
   return resolveGraphRouteVariant(await getContentGraph(event), routePath, requestedLocale, {
     defaultLocale: config.defaultLocale,
+    locales: config.locales,
     fallback: options.fallback,
     exact: options.exact,
     localeFallback: config.localeFallback

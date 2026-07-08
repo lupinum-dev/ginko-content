@@ -1,6 +1,7 @@
 import type { ContentNavigationItem, ParsedContent } from '../../types/content'
 import type { ContentLocaleEntry, ContentPageResult, ContentRouteMeta, LocalePathEntry } from '../../types/query'
 import type { SearchSection } from '../search/sections'
+import { sortLocalesCanonically } from '../../core/content/locale'
 import { localizeLinkProps } from './links'
 import { getContentStem, localizePath, normalizeContentPath, projectContentPathToLocale, type RouteMounts } from './path'
 
@@ -10,6 +11,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const createLocaleVariants = (
   variants: Record<string, string> | ContentLocaleEntry[] | undefined,
   defaultLocale?: string,
+  locales: string[] = [],
   routeMounts?: RouteMounts
 ) => {
   if (!variants) {
@@ -24,8 +26,12 @@ export const createLocaleVariants = (
         path
       }))
 
+  const localeOrder = sortLocalesCanonically(entries.map(entry => entry.locale), { defaultLocale, locales })
+  const rank = new Map(localeOrder.map((locale, index) => [locale, index]))
+
   return entries
     .filter(entry => entry.path)
+    .sort((left, right) => (rank.get(left.locale) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.locale) ?? Number.MAX_SAFE_INTEGER))
     .map(entry => ({
       locale: entry.locale,
       unprefixedPath: normalizeContentPath(entry.path || '/'),
@@ -95,7 +101,7 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
 ): ContentPageResult<T> => {
   const resolution = page.resolved
   const unprefixedPath = normalizeContentPath(page.path || '/')
-  const variants = createLocaleVariants(resolution?.variantPaths, defaultLocale, routeMounts)
+  const variants = createLocaleVariants(resolution?.variantPaths, defaultLocale, locales, routeMounts)
   const path = projectContentPathToLocale(unprefixedPath, locale || resolution?.locale || page.locale, defaultLocale, routeMounts)
   const resolvedLocale = resolution?.locale || page.locale || locale || defaultLocale || ''
   const requestedLocale = resolution?.requestedLocale || locale
@@ -117,7 +123,7 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
       ...(resolution?.requestedPath ? { requestedPath: resolution.requestedPath } : {}),
       ...(resolution?.requestedRoute ? { requestedRoute: resolution.requestedRoute } : {}),
       ...(resolution?.requestedRef ? { requestedRef: resolution.requestedRef } : {}),
-      availableLocales: resolution?.availableLocales || Object.keys(resolution?.variantPaths || {}),
+      availableLocales: resolution?.availableLocales || sortLocalesCanonically(Object.keys(resolution?.variantPaths || {}), { defaultLocale, locales }),
       ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
     },
     stem: getContentStem(unprefixedPath, page.file?.path),
@@ -213,6 +219,7 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
   page: T,
   locale?: string,
   defaultLocale?: string,
+  locales: string[] = [],
   routeMounts?: RouteMounts
 ): ContentRouteMeta => {
   const resolution = page.resolved
@@ -225,7 +232,7 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
   // `resolved` envelope and is no longer present; fall back to the variants the
   // first shaping already produced.
   const variants = resolution?.variantPaths
-    ? createLocaleVariants(resolution.variantPaths, defaultLocale, routeMounts)
+    ? createLocaleVariants(resolution.variantPaths, defaultLocale, locales, routeMounts)
     : (Array.isArray((page as { variants?: unknown }).variants)
         ? ((page as unknown as { variants: ReturnType<typeof createLocaleVariants> }).variants)
         : [])
@@ -247,7 +254,7 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
       ...(resolution?.requestedPath ? { requestedPath: resolution.requestedPath } : {}),
       ...(resolution?.requestedRoute ? { requestedRoute: resolution.requestedRoute } : {}),
       ...(resolution?.requestedRef ? { requestedRef: resolution.requestedRef } : {}),
-      availableLocales: resolution?.availableLocales || Object.keys(resolution?.variantPaths || {}),
+      availableLocales: resolution?.availableLocales || sortLocalesCanonically(Object.keys(resolution?.variantPaths || {}), { defaultLocale, locales }),
       ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
     }
   }

@@ -376,6 +376,41 @@ describe('navigation contracts', () => {
     expect(nav[0]!.children).toHaveLength(2)
   })
 
+  test('provider navigation wire keeps same-field bounds inside $not clauses', async () => {
+    createServerContentQuery.mockImplementation((_event, _query = {}) => ({
+      where() {
+        return this
+      },
+      all: async () => [],
+      find() {
+        return this.all()
+      }
+    }))
+    resolveLocaleChain.mockReturnValue(['en'])
+
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({
+      collection: 'docs',
+      where: [{ $not: { views: { $gt: 5, $lt: 10 } } }]
+    } as any)
+
+    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+
+    expect(createServerContentQuery.mock.calls[0]?.[1]).toMatchObject({
+      collection: 'docs',
+      where: [
+        {
+          $not: {
+            $and: [
+              { views: { $gt: 5 } },
+              { views: { $lt: 10 } }
+            ]
+          }
+        }
+      ]
+    })
+  })
+
   test('resolveContentNavigation merges synthetic translated folder roots before collection unwrapping', async () => {
     ;(runtimeConfig.content as any).collections = {
       docs: {

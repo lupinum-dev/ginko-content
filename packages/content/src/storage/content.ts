@@ -17,6 +17,7 @@ import type { ContentCollectionI18nConfig } from '../types/config'
 import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
 import { resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
+import { sortLocalesCanonically } from '../core/content/locale'
 import { normalizeReferenceValue } from '../core/references/resolve'
 import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
@@ -88,7 +89,16 @@ export const resolveContentReference = async <T = ParsedContent> (
     return null
   }
 
-  const availableLocales = Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[]
+  // `variants` is drawn from `byCanonical` in graph-insertion order; canonicalize
+  // so `availableLocales` matches every other producer regardless of requested locale.
+  const collectionI18n = getServerCollectionI18n(options.collection)
+  const availableLocales = sortLocalesCanonically(
+    Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[],
+    {
+      defaultLocale: collectionI18n?.defaultLocale || config.defaultLocale,
+      locales: collectionI18n?.locales
+    }
+  )
   const variantPaths = Object.fromEntries(
     variants
       .filter(document => document.locale && document.path)

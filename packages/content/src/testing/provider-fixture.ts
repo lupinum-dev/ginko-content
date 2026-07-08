@@ -572,8 +572,12 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     },
     routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
       const page = await provider.page!(event, collection, routeOrPath, options)
-      return page
-        ? createRouteMeta(page as any, options.locale || (page as any).locale, fixture.defaultLocale, routeMountsFor(fixture, collection))
+      const routePage = page as (ContentPageResult<Record<string, unknown>> & { unprefixedPath?: string }) | null
+      return routePage
+        ? createRouteMeta({
+            ...routePage,
+            path: routePage.unprefixedPath || routePage.path
+          } as any, options.locale || routePage.locale, fixture.defaultLocale, fixture.locales, routeMountsFor(fixture, collection))
         : null
     },
     sitemapEntries: async (event, options = {}) => {

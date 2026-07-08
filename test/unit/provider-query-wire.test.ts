@@ -50,7 +50,7 @@ describe('provider wire contract (CS-5)', () => {
   })
 
   describe('JSON purity — regex operands survive the wire', () => {
-    test('$regex operands lower to { source, flags }, never a RegExp instance', () => {
+    test('$regex operands lower to tagged JSON, never a RegExp instance', () => {
       const query = toContentProviderQuery({
         collection: 'docs',
         where: [{ title: { $regex: 'intro', $options: 'i' } }]
@@ -67,6 +67,73 @@ describe('provider wire contract (CS-5)', () => {
         where: [{ title: /intro/i }]
       })
       expect(JSON.parse(JSON.stringify(query))).toEqual(query)
+    })
+
+    test('array operands lower nested RegExp and Date values to JSON-pure values', () => {
+      const query = toContentProviderQuery({
+        collection: 'docs',
+        where: [{ title: { $in: [/^intro/i, new Date('2026-01-02T03:04:05.000Z')] } }]
+      })
+
+      expect(JSON.parse(JSON.stringify(query))).toEqual(query)
+      expect(query.plan.filter).toMatchObject({
+        type: 'compare',
+        field: 'title',
+        operator: 'in',
+        value: [
+          { __ginkoContentQueryValue: 'RegExp', source: '^intro', flags: 'i' },
+          '2026-01-02T03:04:05.000Z'
+        ]
+      })
+    })
+
+    test('plain data shaped like the old regex envelope remains ordinary data', () => {
+      const query = toContentProviderQuery({
+        collection: 'docs',
+        where: [{ matcher: { $eq: { source: 'a+', flags: '' } } }]
+      })
+
+      expect(query.plan.filter).toMatchObject({
+        type: 'compare',
+        field: 'matcher',
+        operator: 'eq',
+        value: { source: 'a+', flags: '' }
+      })
+      expect(JSON.parse(JSON.stringify(query))).toEqual(query)
+    })
+
+    test('stateful regex flags are rejected at lowering time', () => {
+      expect(() => toContentProviderQuery({
+        collection: 'docs',
+        where: [{ title: /intro/g }]
+      })).toThrow('Unsupported RegExp flags "g"')
+    })
+
+    test('slash-delimited string $regex flags honor the same [imsu] whitelist', () => {
+      // Without the string-form guard this lowers cleanly and the executor
+      // parses the trailing `g` into a stateful RegExp — the same bypass the
+      // RegExp-literal path already rejects.
+      expect(() => toContentProviderQuery({
+        collection: 'docs',
+        where: [{ title: { $regex: '/x/g' } }]
+      })).toThrow('Unsupported RegExp flags "g"')
+
+      // Supported flags (i, m, s, u) in the string form still lower fine.
+      const query = toContentProviderQuery({
+        collection: 'docs',
+        where: [{ title: { $regex: '/x/imsu' } }]
+      })
+      expect(query.plan.filter).toMatchObject({
+        type: 'compare',
+        field: 'title',
+        operator: 'regex',
+        value: '/x/imsu'
+      })
+      // A plain (non-delimited) pattern carries no flags and is untouched.
+      expect(() => toContentProviderQuery({
+        collection: 'docs',
+        where: [{ title: { $regex: 'intro' } }]
+      })).not.toThrow()
     })
   })
 

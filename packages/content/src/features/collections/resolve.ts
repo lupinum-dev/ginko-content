@@ -5,6 +5,7 @@ import { createSearchSections, type GenerateSearchSectionsOptions } from '../sea
 import type { RuntimeContentI18nInput } from '../localization/config'
 import { normalizeContentPath, resolveCollectionI18n, resolveRouteContent } from '../localization/path'
 import { createRouteMeta, localizePageResult, localizeSearchSections } from '../localization/results'
+import { sortLocalesCanonically } from '../../core/content/locale'
 
 export interface CollectionResolveRuntime extends RuntimeContentI18nInput {
   localeFallback?: Record<string, string[]>
@@ -116,7 +117,7 @@ export const resolveCollectionPageData = async <T = ParsedContent> (
         ...(resolution?.requestedPath ? { requestedPath: resolution.requestedPath } : {}),
         ...(resolution?.requestedRoute ? { requestedRoute: resolution.requestedRoute } : {}),
         ...(resolution?.requestedRef ? { requestedRef: resolution.requestedRef } : {}),
-        availableLocales: resolution?.availableLocales || Object.keys(resolution?.variantPaths || {}),
+        availableLocales: resolution?.availableLocales || sortLocalesCanonically(Object.keys(resolution?.variantPaths || {}), { defaultLocale, locales }),
         ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
       },
       stem: unprefixedPath.replace(/^\/+/, '') || 'index',
@@ -142,6 +143,6 @@ export const resolveCollectionRouteMetaData = async (
     return null
   }
 
-  const { defaultLocale } = resolveCollectionI18n(collection, runtime)
-  return createRouteMeta(page, page.locale, defaultLocale)
+  const { defaultLocale, locales } = resolveCollectionI18n(collection, runtime)
+  return createRouteMeta(page, page.locale, defaultLocale, locales)
 }

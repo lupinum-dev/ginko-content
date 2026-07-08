@@ -59,7 +59,7 @@ export const registerContentComponentsTemplate = (
           const pathLiteral = JSON.stringify(path)
           const exportLiteral = JSON.stringify(exp)
           const nameLiteral = JSON.stringify(pascalName)
-          return `  ${pascalName}: () => import(${pathLiteral}).then(mod => pickExport(mod, ${exportLiteral}, ${nameLiteral}, ${pathLiteral})),`
+          return `  ${nameLiteral}: () => import(${pathLiteral}).then(mod => pickExport(mod, ${exportLiteral}, ${nameLiteral}, ${pathLiteral})),`
         }),
         '}',
         `export const globalComponents = ${JSON.stringify(globalComponents)}`,

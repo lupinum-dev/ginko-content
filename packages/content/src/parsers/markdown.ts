@@ -4,7 +4,7 @@ import type { MarkdownNode, MarkdownOptions, MarkdownParsedContent, MarkdownRoot
 import { defineTransformer } from './utils'
 import { generatePath } from './path-meta'
 import { resolveMarkdownPlugins } from './markdown-plugins'
-import { warnReservedContentKeys } from './reserved'
+import { stripReservedContentKeys } from './reserved'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree'
 
 export default defineTransformer({
@@ -17,7 +17,7 @@ export default defineTransformer({
       plugins
     })
 
-    warnReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
+    const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 
     const body = normalizeMarkdownBody({
       ...toMarkdownRoot(tree.nodes as any[]),
@@ -30,8 +30,8 @@ export default defineTransformer({
       : undefined
 
     return <MarkdownParsedContent>{
-      ...tree.frontmatter,
-      description: typeof tree.frontmatter.description === 'string' ? tree.frontmatter.description : '',
+      ...frontmatter,
+      description: typeof frontmatter.description === 'string' ? frontmatter.description : '',
       excerpt,
       body,
       type: 'markdown',

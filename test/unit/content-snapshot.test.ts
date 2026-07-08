@@ -92,6 +92,55 @@ describe('content snapshots', () => {
     })).toThrow(ContentSnapshotError)
   })
 
+  test('rejects enumerable symbol-keyed properties and names the offending path', () => {
+    const symbol = Symbol('secret')
+    const document = doc({
+      meta: {
+        [symbol]: 'hidden'
+      }
+    } as unknown as Partial<ParsedContent>)
+
+    expect(() => buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md'],
+      documents: [document]
+    })).toThrow(/content:docs:intro\.md:\$\.meta\[Symbol\(secret\)\] \(symbol-keyed property\)/)
+  })
+
+  test('rejects enumerable symbol-keyed properties carried on an array', () => {
+    const symbol = Symbol('secret')
+    const tags = ['a', 'b'] as string[] & Record<symbol, unknown>
+    // JSON.stringify silently drops symbol-keyed properties on arrays too, so
+    // the walker must flag them the same way it does for plain objects. Before
+    // the array branch checked symbols, this array passed and the property was
+    // lost on the snapshot round-trip.
+    tags[symbol] = 'hidden'
+    const document = doc({ tags } as unknown as Partial<ParsedContent>)
+
+    expect(() => buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md'],
+      documents: [document]
+    })).toThrow(/content:docs:intro\.md:\$\.tags\[Symbol\(secret\)\] \(symbol-keyed property\)/)
+  })
+
+  test('reports path-level offenders across multiple documents', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+
+    expect(() => buildContentSnapshot({
+      integrity: 'integrity',
+      now: 123,
+      sourceIds: ['content:docs:intro.md', 'content:docs:advanced.md'],
+      documents: [
+        doc({ id: 'content:docs:intro.md', meta: new Map([['a', 1]]) } as unknown as Partial<ParsedContent>),
+        doc({ id: 'content:docs:advanced.md', meta: circular } as Partial<ParsedContent>)
+      ]
+    })).toThrow(/content:docs:intro\.md:\$\.meta.*content:docs:advanced\.md:\$\.meta\.self/)
+  })
+
   test('reports every missing source id in the completeness assertion', () => {
     const snapshot = buildContentSnapshot({
       integrity: 'integrity',

@@ -51,7 +51,7 @@ const badQuery = (message: string) => {
 /**
  * Detect a regex operand anywhere in a lowered filter tree. After lowering, a
  * `$regex` clause becomes a `regex` compare node and a bare `/.../` operand
- * becomes an `eq` node whose value is a `PlanRegex` (`{ source, flags }`) — the
+ * becomes an `eq` node whose value is a tagged `PlanRegex` — the
  * public HTTP query surface rejects both, so untrusted callers cannot run
  * arbitrary regular expressions against the corpus.
  */
@@ -66,6 +66,8 @@ const planFilterContainsRegex = (filter: FilterExpr): boolean => {
       return filter.clauses.some(planFilterContainsRegex)
     case 'not':
       return planFilterContainsRegex(filter.clause)
+    default:
+      throw new TypeError(`Unknown query filter node: ${(filter as { type?: unknown }).type}`)
   }
 }
 

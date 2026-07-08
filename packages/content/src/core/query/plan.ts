@@ -37,23 +37,27 @@ export type CompareOperator =
  * The plan is the provider wire contract (CS-5) and must survive
  * `JSON.parse(JSON.stringify(plan))` unchanged — a live `RegExp` instance
  * serializes to `{}` and corrupts the wire. Lowering therefore stores regex
- * operands as `{ source, flags }`; the executor reconstructs the `RegExp`
- * immediately before matching (see `reviveRegex` in `./execute.ts`).
+ * operands as a tagged object; the executor reconstructs the `RegExp`
+ * immediately before matching (see `reviveRegex` in `./execute.ts`). The tag
+ * keeps user data shaped like `{ source, flags }` from being mistaken for a
+ * regex.
  */
 export interface PlanRegex {
+  __ginkoContentQueryValue: 'RegExp'
   source: string
   flags: string
 }
 
-/** True when `value` is a JSON-pure regex operand (`{ source, flags }`). */
+/** True when `value` is a JSON-pure regex operand. */
 export const isPlanRegex = (value: unknown): value is PlanRegex => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false
   }
   const record = value as Record<string, unknown>
-  return typeof record.source === 'string'
+  return record.__ginkoContentQueryValue === 'RegExp'
+    && typeof record.source === 'string'
     && typeof record.flags === 'string'
-    && Object.keys(record).length === 2
+    && Object.keys(record).length === 3
 }
 
 /**

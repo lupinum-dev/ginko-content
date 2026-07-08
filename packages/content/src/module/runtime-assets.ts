@@ -46,6 +46,9 @@ export const generatedContentServerValueNames = [
   'collectContentCacheHint',
   'getContentCacheHint',
   'withContentCache',
+  'PROVIDER_QUERY_VERSION',
+  'toContentProviderQuery',
+  'toContentProviderNavigationQuery',
   'createContentProviderError'
 ] as const
 
@@ -56,6 +59,8 @@ export const generatedContentServerTypeSpecs = [
   { local: 'ContentCacheInvalidateInput', exported: 'ContentCacheInvalidateInput' },
   { local: 'ContentProvider', exported: 'ContentProvider' },
   { local: 'ContentProviderCapabilities', exported: 'ContentProviderCapabilities' },
+  { local: 'ContentProviderQuery', exported: 'ContentProviderQuery' },
+  { local: 'ContentProviderNavigationOptions', exported: 'ContentProviderNavigationOptions' },
   { local: 'ContentProviderResult<T>', exported: 'ContentProviderResult<T>' },
   { local: 'MaybeContentProviderResult<T>', exported: 'MaybeContentProviderResult<T>' },
   { local: 'ContentProviderErrorCode', exported: 'ContentProviderErrorCode' },
@@ -198,11 +203,12 @@ export const registerGeneratedTypes = (
     const key = JSON.stringify(name)
     return `    ${key}: StrictParsedContent & __GeneratedCollectionSchema<__ContentCollectionExport<${key}>>`
   })
+  const serverModuleLiteral = JSON.stringify(resolveRuntimeModuleRoot('./server'))
   const contentServerValueDeclarations = generatedContentServerValueNames.map(name =>
-    `  const ${name}: typeof import('${resolveRuntimeModuleRoot('./server')}').${name}`
+    `  const ${name}: typeof import(${serverModuleLiteral}).${name}`
   )
   const contentServerTypeDeclarations = generatedContentServerTypeSpecs.map(spec =>
-    `  type ${spec.local} = import('${resolveRuntimeModuleRoot('./server')}').${spec.exported}`
+    `  type ${spec.local} = import(${serverModuleLiteral}).${spec.exported}`
   )
 
   return addTypeTemplate({

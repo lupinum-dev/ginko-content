@@ -30,6 +30,7 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentLocaleEntry } from '../../types/query'
 import type { ContentManifest, ManifestVariant, ResolvedVariant } from '../../types/runtime'
 import { normalizeReferenceValue, buildReferenceTargets } from '../references/resolve'
+import { sortLocalesCanonically } from './locale'
 
 export interface ContentGraphVariant extends ManifestVariant {
   document: ParsedContent
@@ -225,6 +226,7 @@ export const resolveGraphVariant = (
   requestedLocale?: string,
   options: {
     defaultLocale?: string
+    locales?: string[]
     fallback?: string[]
     exact?: boolean
     localeFallback?: Record<string, string[]>
@@ -255,7 +257,7 @@ export const resolveGraphVariant = (
     return null
   }
 
-  const availableLocales = Object.keys(scopedVariants)
+  const availableLocales = sortLocalesCanonically(Object.keys(scopedVariants), options)
   const localeChain = options.exact
     ? (requestedLocale ? [requestedLocale] : [])
     : (options.fallback?.length
@@ -294,6 +296,7 @@ export const resolveGraphRouteVariant = (
   requestedLocale?: string,
   options: {
     defaultLocale?: string
+    locales?: string[]
     fallback?: string[]
     exact?: boolean
     localeFallback?: Record<string, string[]>
@@ -308,7 +311,7 @@ export const resolveGraphRouteVariant = (
         : resolveLocaleChain(requestedLocale, options.defaultLocale, options.localeFallback || {}))
   const localesToSearch = localeChain.length
     ? localeChain
-    : Array.from(new Set(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants))))
+    : sortLocalesCanonically(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants)), options)
 
   for (const locale of localesToSearch) {
     const canonicalKey = graph.byRoute[`${locale}:${normalizedPath}`]

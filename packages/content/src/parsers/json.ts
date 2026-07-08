@@ -1,7 +1,7 @@
 import { destr } from 'destr'
 import type { ParsedContent } from '../types/content'
 import { defineTransformer } from './utils'
-import { warnReservedContentKeys } from './reserved'
+import { stripReservedContentKeys } from './reserved'
 
 export default defineTransformer({
   name: 'Json',
@@ -29,7 +29,7 @@ export default defineTransformer({
       }
     }
 
-    warnReservedContentKeys(parsed as Record<string, unknown>, id)
+    parsed = stripReservedContentKeys(parsed as Record<string, unknown>, id)
 
     return <ParsedContent> {
       ...parsed,

@@ -231,7 +231,7 @@ async function inspectRepeatedLocalePrefixes(rootDir: string, locales: string[])
           severity: 'error',
           file: relativeFile,
           message: `Repeated locale prefix "${repeatedPath}" found in generated output.`,
-          suggestion: 'Use locale-neutral raw _path values in content links and let Nuxt I18n add the route prefix once.'
+          suggestion: 'Bind route-ready item.path values from useContentMany(), navigation, or search results instead of manually prefixing locale paths.'
         })
         break
       }

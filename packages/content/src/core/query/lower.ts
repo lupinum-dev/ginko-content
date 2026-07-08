@@ -14,15 +14,62 @@ import type { CompareOperator, ContentQueryPlan, FilterExpr, PlanRegex, SortClau
 import { assertSupportedQueryOperators, SUPPORTED_QUERY_OPERATORS } from './operators'
 
 /**
- * Convert a `RegExp` operand into the JSON-pure `{ source, flags }` wire shape
- * (see `PlanRegex` in `./plan.ts`); pass every other value through untouched.
- * Applied to every compare-node value so a lowered plan survives
- * `JSON.parse(JSON.stringify(plan))` across the provider boundary (CS-5).
+ * Convert comparison operands into the JSON-pure wire shape. RegExp values are
+ * tagged so user data shaped like `{ source, flags }` stays ordinary data; Date
+ * values become ISO strings so providers see the same operand after a JSON
+ * round trip. Arrays and plain objects are walked because `$in` and object
+ * equality can carry nested operands.
  */
-const serializeRegexValue = (value: unknown): unknown =>
-  value instanceof RegExp
-    ? ({ source: value.source, flags: value.flags } satisfies PlanRegex)
-    : value
+const serializeQueryValue = (value: unknown): unknown => {
+  if (value instanceof RegExp) {
+    assertSupportedRegexFlags(value.flags)
+    return { __ginkoContentQueryValue: 'RegExp', source: value.source, flags: value.flags } satisfies PlanRegex
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(serializeQueryValue)
+  }
+
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .map(([key, child]) => [key, serializeQueryValue(child)]))
+  }
+
+  return value
+}
+
+const SUPPORTED_REGEX_FLAGS = /^[imsu]*$/
+
+const assertSupportedRegexFlags = (flags: string): void => {
+  if (!SUPPORTED_REGEX_FLAGS.test(flags)) {
+    throw new TypeError(`Unsupported RegExp flags "${flags}". Content queries support only i, m, s, and u.`)
+  }
+  try {
+    new RegExp('', flags)
+  }
+  catch {
+    throw new TypeError(`Invalid RegExp flags "${flags}".`)
+  }
+}
+
+// A `$regex` operand supplied as a slash-delimited string (`/foo/i`) carries its
+// flags in the trailing group, and those flags are only interpreted downstream
+// (execute/json revive them). Validate them here so the string form honors the
+// same [imsu] whitelist as RegExp literals instead of silently accepting g/y/d.
+// The pattern mirrors the downstream parse so we gate exactly the flags that
+// would otherwise take effect.
+const STRING_REGEX_WITH_FLAGS = /\/(.*)\/([dgimsuy]+)$/
+
+const assertSupportedRegexStringFlags = (value: string): void => {
+  const matched = value.match(STRING_REGEX_WITH_FLAGS)
+  if (matched) {
+    assertSupportedRegexFlags(matched[2]!)
+  }
+}
 
 const ensureQueryWhereArray = (where?: ContentQueryBuilderParams['where']) => {
   return Array.isArray(where) ? [...where] : where ? [where] : []
@@ -103,7 +150,7 @@ const collapse = (type: 'and' | 'or', clauses: FilterExpr[]): FilterExpr => {
  *     becomes `meta.published = true`)
  */
 const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
-  if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof RegExp)) {
+  if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof RegExp) && !(value instanceof Date)) {
     const objectValue = value as Record<string, unknown>
     if ('$options' in objectValue && !('$regex' in objectValue)) {
       throw new TypeError('Query operator $options requires $regex.')
@@ -124,6 +171,13 @@ const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
           continue
         }
 
+        // Without explicit `$options`, a string `$regex` passes through to the
+        // executor which parses trailing `/…/flags`; enforce the flag whitelist
+        // here so the string form matches the RegExp-literal restriction.
+        if (key === '$regex' && typeof nestedValue === 'string' && typeof objectValue.$options !== 'string') {
+          assertSupportedRegexStringFlags(nestedValue)
+        }
+
         clauses.push({
           type: 'compare',
           field,
@@ -131,8 +185,8 @@ const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
           // stripping the leading `$` it maps 1:1 to a `CompareOperator`.
           operator: key.slice(1) as CompareOperator,
           value: key === '$regex' && typeof objectValue.$options === 'string' && !(nestedValue instanceof RegExp)
-            ? ({ source: String(nestedValue), flags: objectValue.$options } satisfies PlanRegex)
-            : serializeRegexValue(nestedValue)
+            ? serializeQueryValue(regexValue(String(nestedValue), objectValue.$options))
+            : serializeQueryValue(nestedValue)
         })
         continue
       }
@@ -147,8 +201,13 @@ const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
     type: 'compare',
     field,
     operator: 'eq',
-    value: serializeRegexValue(value)
+    value: serializeQueryValue(value)
   }
+}
+
+const regexValue = (source: string, flags: string): PlanRegex => {
+  assertSupportedRegexFlags(flags)
+  return { __ginkoContentQueryValue: 'RegExp', source, flags }
 }
 
 const lowerWhereCondition = (condition: ContentQueryBuilderWhere): FilterExpr => {
