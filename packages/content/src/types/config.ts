@@ -69,14 +69,10 @@ export interface ContentCmsFieldConfig {
   description?: string | null
   required?: boolean
   localized?: boolean
-  hidden?: boolean
   searchable?: boolean
   sortable?: boolean
-  order?: number
-  width?: 'full' | 'half'
   defaultValue?: unknown
   validation?: Record<string, unknown> | null
-  condition?: Record<string, unknown> | null
   options?: string[] | null
   relation?: ContentCmsRelationConfig | null
   fields?: Record<string, ContentCmsFieldConfig> | ContentCmsFieldConfig[] | null
@@ -85,6 +81,14 @@ export interface ContentCmsFieldConfig {
   step?: number | null
   slugFrom?: string | null
   language?: string | null
+  /**
+   * Opaque editor-layout passthrough. ginko-content does not type or interpret
+   * this bag; it stores and forwards it byte-for-byte through `buildCmsContract`
+   * to the CMS field contract. Pure layout policy (field width, display order,
+   * hidden state, conditional visibility, etc.) belongs here — its schema is
+   * owned entirely by the consuming CMS (e.g. `@lupinum/ginko-cms`).
+   */
+  editor?: Record<string, unknown>
 }
 
 export interface ContentCmsCollectionConfig {

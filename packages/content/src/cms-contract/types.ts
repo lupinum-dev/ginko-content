@@ -87,23 +87,27 @@ export interface CmsFieldContract {
   description?: string | null
   required: boolean
   localized: boolean
-  hidden: boolean
   searchable: boolean
   sortable: boolean
-  order: number
-  width: 'full' | 'half'
   defaultValue?: unknown
   options?: string[] | null
   relation?: ContentCmsRelationConfig | null
   media?: { accept?: string[]; aspectRatio?: string | null } | null
   fields?: CmsFieldContract[] | null
   validation?: Record<string, unknown> | null
-  condition?: Record<string, unknown> | null
   min?: number | null
   max?: number | null
   step?: number | null
   slugFrom?: string | null
   language?: string | null
+  /**
+   * Opaque editor-layout passthrough forwarded byte-for-byte from
+   * `ContentCmsFieldConfig.editor`. ginko-content neither types nor interprets
+   * its contents — pure layout policy (width, display order, hidden state,
+   * conditional visibility, ...) lives here and its schema is owned by the
+   * consuming CMS. Absent when the collection config supplied no `editor`.
+   */
+  editor?: Record<string, unknown>
 }
 
 /**
