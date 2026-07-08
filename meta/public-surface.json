@@ -813,11 +813,6 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ContentQueryBuilderParams": {
-      "category": "transport-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "ContentRouteMeta": {
       "category": "stable-query-type",
       "audience": "library-user",

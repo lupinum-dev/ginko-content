@@ -7,7 +7,8 @@ Use this guide when changing public query options, query operators, result envel
 The query path is deliberately split:
 
 - `src/types/query.ts` is the stable type barrel.
-- `src/types/query-parts/` owns public, transport, collection, and result type groups.
+- `src/types/query-parts/public.ts` owns the public query grammar (the unified `one`/`many`/`paginate`/… API, `QueryWhere`, `QueryOperators`), and `results.ts` the public result envelopes.
+- `src/types/query-parts/transport.ts` is an **internal IR** (`ContentQueryBuilderParams`, the fluent `ContentQueryBuilder`) that the public grammar lowers through to the `ContentQueryPlan` AST — it is not public and not the provider wire. Providers speak `ContentProviderQuery` (`src/public/provider-query.ts`).
 - `src/core/query/operators.ts` owns supported operator names.
 - `src/core/query/filter.ts`, `lower.ts`, `plan.ts`, and `execute.ts` own pure query compilation/execution.
 - `src/runtime/query/` owns public operation assembly: `one`, `many`, `paginate`, `tree`, `neighbors`, `variants`, `backlinks`, and response envelopes.

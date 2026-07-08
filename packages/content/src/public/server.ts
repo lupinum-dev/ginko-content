@@ -73,7 +73,6 @@ export type {
   QueryOperators,
   ContentSelector,
   ContentPageResult,
-  ContentQueryBuilderParams,
   ContentRouteMeta,
   ContentSearchSection,
   ContentResolvedMeta,
