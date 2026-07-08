@@ -83,6 +83,16 @@ const privateLocaleMetadataPatterns = [
   /\b_variantPaths\b/
 ]
 
+const currentEnvelopeMetadataPatterns = [
+  /\b_path\b/,
+  /\b_id\b/,
+  /\b_file\b/,
+  /\b_locale\b/,
+  /\b_stem\b/,
+  /\b_dir\b/,
+  /\b_extension\b/
+]
+
 const namedDefineCollectionPattern = /\bdefineCollection\s*\(\s*['"][^'"]+['"]/
 
 const rawStringHandleFirstHelperPattern = /\b(?:useContentPage|useContentNavigation|useContentSearchData)\s*\(\s*['"][^'"]+['"]/
@@ -178,6 +188,7 @@ const isHistoricalMigrationLine = (lines, index) => {
   return [
     'old api',
     'old ginko api',
+    'older shape',
     'before',
     'replace',
     'removed',
@@ -232,6 +243,21 @@ const findPrivateLocaleMetadataLines = (file, source) => {
   const lines = source.split('\n')
   return lines.flatMap((line, index) => {
     if (!privateLocaleMetadataPatterns.some(pattern => pattern.test(line))) {
+      return []
+    }
+
+    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) {
+      return []
+    }
+
+    return [`${file}:${index + 1}`]
+  })
+}
+
+const findCurrentEnvelopeMetadataLines = (file, source) => {
+  const lines = source.split('\n')
+  return lines.flatMap((line, index) => {
+    if (!currentEnvelopeMetadataPatterns.some(pattern => pattern.test(line))) {
       return []
     }
 
@@ -466,6 +492,47 @@ const findIncompleteContentConfigSnippetLines = (file, source) => {
   })
 }
 
+// Every regex-backed detector is self-tested against `positive-controls.md`:
+// each pattern must still match a known-bad fixture line, so a regex regression
+// (e.g. a broken escape) fails loudly instead of silently passing every doc.
+// This includes the single-pattern detectors, which used to lack coverage. The
+// remaining checks are heuristic (context windows, relational import/export
+// matching, code-block completeness, peer-version labels) rather than a fixed
+// pattern.test over one line, so they cannot be fixture-tested this way.
+const patternGroups = [
+  { name: 'stale-public-api', patterns: stalePublicApiPatterns },
+  { name: 'compatibility-only-public-api', patterns: compatibilityOnlyPublicApiPatterns },
+  { name: 'advanced-server-surface', patterns: advancedServerSurfacePatterns },
+  { name: 'private-locale-metadata', patterns: privateLocaleMetadataPatterns },
+  { name: 'current-envelope-metadata', patterns: currentEnvelopeMetadataPatterns },
+  { name: 'named-define-collection', patterns: [namedDefineCollectionPattern] },
+  { name: 'raw-string-handle-first-helper', patterns: [rawStringHandleFirstHelperPattern] }
+]
+
+const selfTest = async () => {
+  const fixture = await readFile(new URL('./docs-drift-fixtures/positive-controls.md', import.meta.url), 'utf8')
+  const lines = fixture.split('\n')
+  const dead = []
+
+  for (const group of patternGroups) {
+    for (const pattern of group.patterns) {
+      pattern.lastIndex = 0
+      if (!lines.some((line) => {
+        pattern.lastIndex = 0
+        return pattern.test(line)
+      })) {
+        dead.push(`${group.name}: ${pattern}`)
+      }
+    }
+  }
+
+  if (dead.length > 0) {
+    console.error('docs-drift self-test: dead detector pattern(s):')
+    for (const item of dead) console.error(`  ${item}`)
+    process.exit(1)
+  }
+}
+
 // Each check returns { name, offenders: string[] }.
 const checks = [
   async () => {
@@ -495,6 +562,13 @@ const checks = [
       offenders.push(...findPrivateLocaleMetadataLines(file, await readFile(file, 'utf8')))
     }
     return { name: 'active docs prefer public localized resolution metadata', offenders }
+  },
+  async () => {
+    const offenders = []
+    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
+      offenders.push(...findCurrentEnvelopeMetadataLines(file, await readFile(file, 'utf8')))
+    }
+    return { name: 'active docs and examples do not teach underscore envelope fields as current API', offenders }
   },
   async () => {
     const offenders = []
@@ -577,6 +651,12 @@ const checks = [
 ]
 
 const main = async () => {
+  await selfTest()
+  if (process.argv.includes('--self-test')) {
+    console.log('docs-drift self-test: OK')
+    return
+  }
+
   const results = await Promise.all(checks.map(check => check()))
   const failed = results.filter(result => result.offenders.length > 0)
 

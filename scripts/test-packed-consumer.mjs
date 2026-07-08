@@ -203,6 +203,7 @@ async function main() {
     mkdirSync(resolve(appDir, 'content'), { recursive: true })
     mkdirSync(resolve(appDir, 'pages'), { recursive: true })
     mkdirSync(resolve(appDir, 'server/api'), { recursive: true })
+    mkdirSync(resolve(appDir, 'server/plugins'), { recursive: true })
     mkdirSync(resolve(appDir, 'scripts'), { recursive: true })
 
     writeFile(resolve(appDir, 'nuxt.config.ts'), `
@@ -257,13 +258,24 @@ async function main() {
     `)
 
     writeFile(resolve(appDir, 'content/index.md'), `
-      ---
-      title: Package Consumer Page
-      ---
+---
+title: Package Consumer Page
+---
 
-      # Package Consumer Page
+# Package Consumer Page
 
-      The packed package rendered this page.
+The packed package rendered this page.
+
+::packed-sentinel
+::
+    `)
+
+    writeFile(resolve(appDir, 'server/plugins/register-serializer.ts'), `
+      import { registerAgentMarkdownSerializer } from '@lupinum/ginko-content/agent'
+
+      export default defineNitroPlugin(() => {
+        registerAgentMarkdownSerializer('packed-sentinel', () => 'PACKED_SERIALIZER_SENTINEL')
+      })
     `)
 
     writeFile(resolve(appDir, 'pages/index.vue'), `
@@ -372,7 +384,7 @@ async function main() {
     }
     const llms = readFileSync(llmsPath, 'utf8')
     const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
-    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
+    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page') || !rawMarkdown.includes('PACKED_SERIALIZER_SENTINEL')) {
       throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 

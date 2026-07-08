@@ -20,7 +20,7 @@
     "@nuxt/fonts": "^0.14.0",
     "@nuxt/image": "^2.0.0",
     "@nuxt/scripts": "^1.1.0",
-    "@nuxt/ui": "^4.7.1",
+    "@nuxt/ui": "^4.9.0",
     "@nuxtjs/mdc": "^0.22.0",
     "@tsparticles/engine": "^3.9.1",
     "@tsparticles/slim": "^3.9.1",
