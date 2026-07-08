@@ -83,7 +83,26 @@
       "import": "./dist/runtime/transformers/define.js",
       "default": "./dist/runtime/transformers/define.js"
     },
-    "./transformers/*": "./dist/runtime/transformers/*.js"
+    "./transformers/markdown": {
+      "types": "./dist/runtime/transformers/markdown.d.ts",
+      "import": "./dist/runtime/transformers/markdown.js",
+      "default": "./dist/runtime/transformers/markdown.js"
+    },
+    "./transformers/yaml": {
+      "types": "./dist/runtime/transformers/yaml.d.ts",
+      "import": "./dist/runtime/transformers/yaml.js",
+      "default": "./dist/runtime/transformers/yaml.js"
+    },
+    "./transformers/json": {
+      "types": "./dist/runtime/transformers/json.d.ts",
+      "import": "./dist/runtime/transformers/json.js",
+      "default": "./dist/runtime/transformers/json.js"
+    },
+    "./transformers/csv": {
+      "types": "./dist/runtime/transformers/csv/index.d.ts",
+      "import": "./dist/runtime/transformers/csv/index.js",
+      "default": "./dist/runtime/transformers/csv/index.js"
+    }
   },
   "web-types": "./dist/web-types.json",
   "files": [

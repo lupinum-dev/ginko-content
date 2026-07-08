@@ -55,7 +55,22 @@
       "audience": "library-user",
       "docs": "packages/content/docs/RENDERING.md"
     },
-    "./transformers/*": {
+    "./transformers/markdown": {
+      "category": "markdown-transformer-extension",
+      "audience": "library-user",
+      "docs": "packages/content/docs/RENDERING.md"
+    },
+    "./transformers/yaml": {
+      "category": "markdown-transformer-extension",
+      "audience": "library-user",
+      "docs": "packages/content/docs/RENDERING.md"
+    },
+    "./transformers/json": {
+      "category": "markdown-transformer-extension",
+      "audience": "library-user",
+      "docs": "packages/content/docs/RENDERING.md"
+    },
+    "./transformers/csv": {
       "category": "markdown-transformer-extension",
       "audience": "library-user",
       "docs": "packages/content/docs/RENDERING.md"
