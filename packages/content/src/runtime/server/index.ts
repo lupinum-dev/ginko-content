@@ -17,6 +17,10 @@ export {
 } from './cache-hints'
 export { createContentProviderError } from '../../public/provider-errors'
 export { withContentCache } from '../../public/provider'
+// Provider-author seam (T3.4): keep the #content/server alias in lockstep with
+// the ./server subpath — providers import these from either specifier.
+export { normalizeProviderDocument, shapeProviderDocument } from './provider-document'
+export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from './provider-document'
 export type {
   ContentCacheAdapter,
   ContentCacheHint,
