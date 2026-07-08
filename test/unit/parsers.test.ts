@@ -6,12 +6,15 @@ describe('transformContent', () => {
     vi.restoreAllMocks()
   })
 
-  test('stores unsupported content bodies as null', async () => {
+  test('stores unsupported content as a missing-document stub', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await expect(transformContent('content:notes/file.unsupported', 'raw text')).resolves.toEqual({
       id: 'content:notes/file.unsupported',
-      body: null
+      body: null,
+      // The missing discriminant keeps unsupported-extension stubs out of the
+      // snapshot corpus without excluding body-less real documents.
+      missing: true
     })
     expect(warn).toHaveBeenCalledWith('.unsupported files are not supported, "content:notes/file.unsupported" storing body as null')
   })
