@@ -90,5 +90,5 @@ only to force a physical sitemap shape.
 When a static search payload exists, verify every locale has records:
 
 ```bash
-node -e "const data=require('./.output/public/api/_content/search/index.json'); const rows=Array.isArray(data)?data:data.records||[]; console.log(rows.reduce((a,r)=>({...a,[r.locale||r._locale]:(a[r.locale||r._locale]||0)+1}),{}))"
+node -e "const data=require('./.output/public/api/_content/search/index.json'); const rows=Array.isArray(data)?data:data.records||[]; console.log(rows.reduce((a,r)=>({...a,[r.locale]:(a[r.locale]||0)+1}),{}))"
 ```

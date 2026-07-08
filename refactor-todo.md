@@ -513,6 +513,15 @@ Self-review checklist before marking any task done:
 10. **Contract-shape adoption** (from the original list, still valid): `content-contract.ts` must pass explicit `cms.type` for tree collections (T5.4 removes the `docs` heuristic) and adopt the `editor` passthrough for layout fields.
 11. **Confirmed non-issues** (verified): no ginko-cms source imports `ContentQueryBuilderParams` (the wire cutover in item 1 is the whole break); `describeId`'s new shape arrives via item 4's resync.
 
+**2026-07-08 hardening addendum:** the 0.2.0 release review found additional ginko-cms cutover facts that must ride the same hard-cut provider update, not a compatibility layer.
+
+- Two more ginko-cms tests speak the old wire/envelope and must be updated as part of the cutover: `test/shared/nuxt-provider.test.ts` and `test/shared/nuxt-provider-package-conformance.test.ts`.
+- The legacy provider read surface is broader than `where`/`only`/`sort`: audit `limit`, `skip`, `first`, `count`, `cursor`, `without`, and `resolveVariant` at the same time.
+- Also search `nuxt-provider.mjs` for remaining `canonicalPath` emission/derivation sites and apply the `unprefixedPath` rename consistently.
+- Silent failure mode to guard against: old provider + new wire means `input.where` is `undefined`; the old `normalizeWhereClauses()` path normalizes that to `[]`, every filter passes, and a full unfiltered collection can be served with HTTP 200. The npm peer range `^0.1.6` contains normal installs, but workspace and vitest-alias setups can still pair the old provider with this branch.
+- Mandatory cutover gate: run ginko-content's provider conformance suite (`runProviderContractSuite`) against the real ginko-cms provider before landing the CMS cutover.
+- Follow-up after 0.2.0: consider a provider registration-time wire-version handshake. The 0.2.0 receive-side `ContentProviderQuery.v` enforcement is necessary but does not protect code that calls an old provider directly.
+
 ---
 
 ## 10. Phase 6 — Test rebalance

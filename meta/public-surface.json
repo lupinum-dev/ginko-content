@@ -774,6 +774,110 @@
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
   },
+  "providerValueExports": {
+    "PROVIDER_QUERY_VERSION": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "contentProviderResultMarker": {
+      "category": "stable-provider-cache-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "createContentProviderError": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "toContentProviderNavigationQuery": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "toContentProviderQuery": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "withContentCache": {
+      "category": "stable-provider-cache-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    }
+  },
+  "providerTypeExports": {
+    "ContentCacheAdapter": {
+      "category": "stable-provider-cache-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentCacheHint": {
+      "category": "stable-provider-cache-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentCacheHintInput": {
+      "category": "stable-provider-cache-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentCacheInvalidateInput": {
+      "category": "stable-provider-cache-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProvider": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderCapabilities": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderErrorCode": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderNavigationOptions": {
+      "category": "transport-query-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderQuery": {
+      "category": "transport-query-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderResult": {
+      "category": "stable-provider-cache-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderSiteDataRequest": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderSiteDataResponse": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentQueryPlan": {
+      "category": "transport-query-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "MaybeContentProviderResult": {
+      "category": "stable-provider-cache-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    }
+  },
   "agentValueExports": {
     "agentMarkdownPathForRoute": {
       "category": "advanced-agent-path-helper",
@@ -1144,6 +1248,11 @@
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
     "ModuleOptions": {
+      "category": "nuxt-module-entry",
+      "audience": "library-user",
+      "docs": "docs/content/docs/9.api-reference/3.module-options.md"
+    },
+    "ModuleHooks": {
       "category": "nuxt-module-entry",
       "audience": "library-user",
       "docs": "docs/content/docs/9.api-reference/3.module-options.md"

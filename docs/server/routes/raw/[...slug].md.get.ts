@@ -11,12 +11,12 @@ export default eventHandler(async (event) => {
 
   const path = withLeadingSlash(slug.replace('.md', ''))
 
-  const page = await one(event, 'docs' as any, { by: { path } } as any) as { _file?: string } | null
-  if (!page) {
+  const page = await one(event, 'docs' as any, { by: { path } } as any) as { file?: { path?: string } } | null
+  if (!page?.file?.path) {
     throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
   }
 
-  const source = await readFile(join(process.cwd(), 'content', page._file!), 'utf8')
+  const source = await readFile(join(process.cwd(), 'content', page.file.path), 'utf8')
 
   setHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')
   return source

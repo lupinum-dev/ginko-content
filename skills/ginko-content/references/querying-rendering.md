@@ -63,13 +63,13 @@ const { data: posts } = await useContentMany(postsCollection, {
 
 The item type comes from the collection schema. Do not create page-local list item interfaces unless the app is intentionally adapting an external payload.
 
-## `_path` vs `path`
+## `path` vs `unprefixedPath`
 
-`_path` is the canonical content path from the source document. Use it for exact raw filters and low-level query logic.
+`path` is the route-ready path on shaped payloads such as `useContentMany()`, `useContentOne()`, navigation, search, or surround data. Use it for UI links and exact raw filters.
 
-`path` is the route-ready path on shaped payloads such as `useContentMany()`, `useContentOne()`, navigation, search, or surround data. Use it for UI links.
+`unprefixedPath` is the locale-specific route path before a locale prefix is applied. Use it only when you need to compare the route without the Nuxt i18n prefix.
 
-Do not add locale prefixes to `_path` or `path`.
+Do not add locale prefixes to `path` or `unprefixedPath`.
 
 ## Rendering
 
@@ -87,7 +87,7 @@ Do not pass only the body:
 
 ## Exact path query
 
-Prefer `useContentOne()` for route pages. Use raw `_path` filters only for custom lookup logic:
+Prefer `useContentOne()` for route pages. Use raw `path` filters only for custom lookup logic:
 
 ```ts
 const page = await one(docs, {

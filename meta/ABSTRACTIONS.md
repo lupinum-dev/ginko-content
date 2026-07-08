@@ -27,7 +27,7 @@ Filesystem-specific concepts include:
 - Markdown and MDC files
 - YAML, JSON, JSON5, and CSV data
 - frontmatter
-- `_navigation.yml`
+- `.navigation.yml`
 - numeric prefixes
 - `.draft` files
 - underscore partials

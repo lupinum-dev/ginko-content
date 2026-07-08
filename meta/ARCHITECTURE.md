@@ -79,7 +79,7 @@ The filesystem provider maps content files into the normalized content contract.
 It owns filesystem-specific behavior:
 
 - file and folder routing
-- `_navigation.yml`
+- `.navigation.yml`
 - `index.md` folder metadata
 - numeric ordering prefixes
 - draft and partial conventions

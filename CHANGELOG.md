@@ -53,8 +53,8 @@ parsed-cache reads are gone from the prod path.
 ### Document envelope field map (Phase 3)
 
 The legacy underscore metadata is **deleted**. `ParsedContent` is the canonical
-document envelope (`ContentDocument`). No aliases ship. This is a mechanical but
-total rename — every place you read `_x` off a document changes. **User
+document envelope. No aliases ship. This is a mechanical but total rename —
+every place you read `_x` off a document changes. **User
 frontmatter is unaffected**: these renames apply only to the system meta fields
 declared by ginko-content's types, never to arbitrary frontmatter keys a user
 file may contain.
@@ -71,6 +71,7 @@ file may contain.
 | `_type` | `type` | Document kind (`markdown`/`yaml`/…). |
 | `_draft` | `draft` | |
 | `_partial` | `partial` | |
+| `_dir` on resolved variant results | `dir` | Directory `.navigation.yml` config merged onto route-variant query results. |
 
 **File provenance → one nested, optional `file` object** (optional because
 non-filesystem/CMS providers have no file):
@@ -101,10 +102,14 @@ this):
 | `_fallback` | `resolved.fallback` |
 | `_empty` | removed (no readers) |
 
+**Navigation item differences:** `NavItem._path` maps to `unprefixedPath`, not
+`path`, because navigation `path` is the route-ready value. `NavItem._fallback`
+maps to top-level `fallback`, not `resolved.fallback`.
+
 **Removed from the public envelope entirely** (now `features/navigation` build
-internals, typed module-privately): `_navigation` (the `.navigation.yml`-file
-marker, now the internal `navigationFile`), `_navigationPath`, `_navigationKind`,
-`_key`, `_output`.
+internals, typed module-privately): `_navigationPath`, `_navigationKind`, `_key`,
+`_output`. The former `_navigation` marker is now the internal `navigationFile`
+flag and remains present on provider/search filtering paths.
 
 **`canonicalKey` is public but opaque.** It is a locale-agnostic identity join
 key. Under `translatedSlugs` it is a numeric key (e.g. `1/1`), path-shaped only
@@ -112,24 +117,41 @@ by coincidence otherwise. **Never parse it or render it as a URL** — use `path
 for links. Providers must emit it (or let the normalization seam derive it).
 There is **no `canonicalPath` field on the document envelope**.
 
-**Missing-document stub.** Loaders now return `ContentDocument | MissingDocument`
-where `MissingDocument = { id, body: null, missing: true }`. Use the shared
-`isRealDocument()` type guard to narrow.
+**Missing-document stub.** Internal loaders now use a missing-document stub
+shape `{ id, body: null, missing: true }`. Public app and provider code should
+treat `body: null` / `missing: true` as the not-found marker; no
+`MissingDocument` type or `isRealDocument()` guard is exported.
+
+### `content:file:beforeParse` hook payload renamed (Phase 3)
+
+The `content:file:beforeParse` hook payload (`module/augmentations.ts`) was
+renamed from `{ _id, body }` to `{ id, body }`, following the envelope
+de-underscoring above. Hooks that read `file._id` must migrate to `file.id`.
 
 ### Reserved frontmatter keys (Phase 3)
 
-The system-computed identity keys `id`, `collection`, `locale`, `path`,
-`canonicalKey`, `type`, and `file` are now **reserved**. If a user frontmatter
-block defines one of them, the system value wins and a dev/build warning names
-the file and key. (For `id`, the warning points you at `ref`.)
+The system-computed keys `id`, `collection`, `locale`, `path`, `canonicalKey`,
+`type`, `file`, `resolved`, `variants`, `localePaths`, `unprefixedPath`, and
+`dir` are now **reserved**. If a user frontmatter block defines one of them, the
+key is stripped from user data at parse time and a dev/build warning names the
+file and key. (For `id`, the warning points you at `ref`.)
+
+`dir` was added to the reserved set: the query executor's `withDirConfig` stamps
+the resolved directory `.navigation` config object onto variant-resolution
+(`resolveVariant`) results as a top-level `dir` at query time, so an authored
+`dir:` frontmatter key would otherwise be **silently clobbered** there. (`dir` is not stamped at parse time —
+`path-meta` writes the directory name only to the nested `file.dir`.) Reserving
+it applies the same strip+warn policy as the other system keys.
 
 ### Frontmatter `id` alias removed — use `ref` (Phase 3)
 
 The user-facing "explicit id" frontmatter alias is **retired**. `ref` is now the
 single user-facing stable-alias field for internal content links. The reference
-match order is `ref` → path → canonical source path. A document's identity comes
+match order is canonical key → `ref` → path/source-path candidates. A document's identity comes
 from the system, never from a user alias. **Migration:** replace any
 `id:` frontmatter used as a cross-reference/cross-locale alias with `ref:`.
+SSR-only deployments can leave old `$id` markdown links as broken URLs unless
+you exercise those routes; prerendered builds fail through crawler 404s.
 
 ---
 
@@ -142,7 +164,7 @@ receive:
 
 - `ContentProviderQuery` — `{ v: 1, collection, plan }`, where `plan` is a
   closed, JSON-serializable `ContentQueryPlan` (filter/sort/projection/limit/
-  skip/mode). Every `RegExp` operand is serialized to `{ source, flags }` — the
+  skip/mode). Every `RegExp` operand is serialized to a tagged JSON object — the
   wire carries **no live `RegExp` instances or other non-JSON values** (a
   dev-mode purity assertion enforces this).
 - `ContentProviderNavigationOptions` — `{ fields?, canonical?, resolveLocale? }`
@@ -168,6 +190,24 @@ hand-building** underscore metadata and derived localization state
 A provider's `page`/`routeMeta` return values come from `shapeProviderDocument`,
 not from hand-built shapes.
 
+### Query RegExp operand hardening
+
+**Breaking — RegExp flags are now whitelisted to `i`, `m`, `s`, `u`.** This
+applies to both `RegExp` literal operands (`{ field: /foo/i }`) and the
+slash-delimited string form (`{ field: { $regex: '/foo/i' } }`). Any other flag
+— `g`, `y`, `d` — now **throws at lowering time** (`TypeError: Unsupported
+RegExp flags "…". Content queries support only i, m, s, and u.`). Previously the
+string form silently accepted `g`/`y`/`d` because its trailing flags were only
+interpreted downstream at execute time, producing a stateful `RegExp` that
+bypassed the literal restriction.
+
+**Untagged regex operands are now rejected.** The `$regex` comparator only
+accepts a tagged wire `RegExp` (`{ __ginkoContentQueryValue: 'RegExp', source,
+flags }`, produced by the current `PROVIDER_QUERY_VERSION` lowering) or a plain
+string. An old-wire untagged `{ source, flags }` object operand now throws a
+typed error instead of being stringified into a `'[object Object]'` character-
+class regex that silently matched most inputs.
+
 ### `ContentQueryBuilderParams` privatized (Phase 3)
 
 `ContentQueryBuilderParams` is **removed from `@lupinum/ginko-content/server`**.
@@ -183,10 +223,17 @@ retirement of the fluent string-operator builder is deferred post-0.2.0.)
 Internal homes moved (no behavior change): the query composition layer to
 `features/query/`, the LLM-markdown-output serializers to `features/agent/`.
 **Only deep/internal imports are affected** — public subpaths are unchanged by
-the move. The agent markdown registry is now **per-app**
-(`createAgentMarkdownRegistry()` / `AgentMarkdownRegistry`); the user-facing
-registration call signatures (`registerAgentMarkdownSerializer(name, fn, opts?)`
-etc.) are **unchanged**.
+the move. The runtime agent markdown registry is now a **per-process singleton**
+(`appRegistry`): one instance shared by every request in the server process,
+registered into via `registerAgentMarkdownSerializer(name, fn, opts?)` (and
+friends) from Nitro plugins at startup. `createAgentMarkdownRegistry()` /
+`AgentMarkdownRegistry` remains the primitive for building isolated registries
+(e.g. tests) that do not touch the shared singleton; the unused
+`setupAgentMarkdownRegistry` helper (never wired) was **removed**. The
+user-facing registration call signatures are **unchanged**, but serializer
+callbacks receive the renamed document envelope, so reads such as
+`ctx.page._path` must move to `ctx.page.path` or `ctx.page.unprefixedPath` as
+appropriate.
 
 ---
 
@@ -223,7 +270,9 @@ etc.) are **unchanged**.
 `toContentProviderNavigationQuery`, `withContentCache`,
 `createContentProviderError`, `normalizeProviderDocument`,
 `shapeProviderDocument`) plus their input types (`ProviderDocumentInput`,
-`ShapeProviderDocumentOptions`).
+`ShapeProviderDocumentOptions`). **Added:** `headersContentCache` — a new
+`./server` export, the active-`apply` cache adapter (from `cache-adapters.ts`)
+that writes `Cache-Control`/`ETag` response headers.
 
 **`./client` changes:** the three agent path helpers moved to `./agent`.
 
@@ -245,6 +294,32 @@ across `ContentPageResult`, `ContentRouteMeta`, `ContentLocaleRoute`,
 resolved variant's route path before locale prefixing", e.g. fr `/demarrage` vs
 en `/getting-started`), never canonical — the old name was a misnomer. Update
 every read of `canonicalPath` on a query result to `unprefixedPath`.
+
+Navigation `stem` values now use the full normalized stem for dotted numeric
+filenames instead of the truncated legacy value. This fixes matching, but code
+that compared the old truncated value must update.
+
+### Deterministic locale ordering (Phase 5)
+
+`variants[]`, `resolved.availableLocales`, and `localePaths` are now emitted in a
+**canonical, request-independent order** on every resolution path (the
+CMS/provider path, the storage-reference path, and the query-plan/route paths).
+Previously the order was insertion- or request-dependent — the same document
+queried under a different requested locale could return its locales in a
+different order (e.g. the i18n playground flipped `de,en` to `en,de` depending on
+which locale you asked for).
+
+The order is: the collection's **default locale first**, then the remaining
+locales in the collection's configured `locales[]` order (falling back to the
+global `content.locales[]` order where no collection config is threaded), then
+any leftover locales in input/insertion order. This is uniform across **all**
+`variants[]` / `availableLocales` / `localePaths` producers, independent of the
+requested locale.
+
+This canonical rule is **not** shared by the standalone locale-listing APIs
+`queryCollectionLocales` (`./server`) and `resolveCollectionLocales`: those
+intentionally remain **alphabetically** sorted and are a deliberately distinct
+ordering from the `variants[]` / `availableLocales` contract above.
 
 ### i18n queries require an explicit locale (Phase 5)
 
@@ -285,6 +360,28 @@ The suite is now capability-parameterized: pass
 false-value typed-error behavior is asserted) independently, so a provider that
 does not implement, say, `searchSections` can still run the suite.
 
+### Search option rename notes
+
+`content.search.filterQuery` now uses the de-underscored document fields. The
+default changed from `{ _draft: false, _partial: false }` to
+`{ draft: false, partial: false }`; custom overrides must make the same rename.
+Pagefind is now an optional peer dependency: projects using
+`search.engine: 'pagefind'` must install `pagefind` in the app.
+
+### Runtime JSON value invariant
+
+Provider queries and production snapshots are JSON-valued. YAML timestamps are
+served as ISO strings after snapshot serialization, `undefined` object keys are
+dropped in production snapshots, and non-finite values such as `Infinity`/`NaN`
+fail the build instead of serializing to `null`. Query `Date` operands now lower
+to ISO-8601 strings on the provider wire (`serializeQueryValue`).
+
+Snapshot builds now **reject enumerable symbol-keyed properties** (previously
+silently dropped by `JSON.stringify`, including symbol keys carried on arrays)
+instead of admitting a lossy round-trip. Aggregated snapshot errors now carry
+per-document `docId:$.path` detail (e.g. `docs/en/guide:$.data.when`) so the
+offending value is locatable.
+
 ---
 
 ### ginko-cms cutover checklist
@@ -307,7 +404,8 @@ ginko-cms hard-cuts to 0.2 (no dual-contract layer). In one gated commit:
 5. Update migration/import readers (`_canonicalKey`/`_locale`/`_id`/`_file` →
    `canonicalKey`/`locale`/`id`/`file.*`) and assert migration output never emits
    reserved frontmatter keys (`id`, `collection`, `locale`, `path`,
-   `canonicalKey`, `type`, `file`); anything that emitted `id` uses `ref`.
+   `canonicalKey`, `type`, `file`, `resolved`, `variants`, `localePaths`,
+   `unprefixedPath`, `dir`); anything that emitted `id` uses `ref`.
 6. Move the studio `slugifyUrlSegment` import from `/config` to `/cms-contract`.
 7. Update docs/skills that list `_draft`/`_partial`/`_locale`/`_path`/`_stem` as
    provider query fields to the new names (or drop them — `ContentProviderQuery`
