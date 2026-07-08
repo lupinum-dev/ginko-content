@@ -9,5 +9,5 @@ const { data: nav } = await useAsyncData('docs-nav', () => $fetch('/api/_content
 </script>
 
 <template>
-  <pre>{{ JSON.stringify((nav || []).map(item => ({ title: item.title, path: item.path, fallback: item._fallback, children: item.children?.map(child => ({ title: child.title, path: child.path, fallback: child._fallback })) })), null, 2) }}</pre>
+  <pre>{{ JSON.stringify((nav || []).map(item => ({ title: item.title, path: item.path, fallback: item.fallback, children: item.children?.map(child => ({ title: child.title, path: child.path, fallback: child.fallback })) })), null, 2) }}</pre>
 </template>

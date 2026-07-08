@@ -14,7 +14,7 @@ const { data: items } = await useContentMany(authors, {
   <main>
     <h1>Authors</h1>
     <ul>
-      <li v-for="author in items" :key="(author as { _id?: string })._id">
+      <li v-for="author in items" :key="(author as { id?: string }).id">
         {{ (author as any).name }} - {{ (author as any).role }} - {{ (author as any).profile?.focus }} - {{ (author as any).profile?.localeLabel }}
       </li>
     </ul>

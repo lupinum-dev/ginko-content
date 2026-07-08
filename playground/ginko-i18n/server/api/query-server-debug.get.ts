@@ -3,18 +3,18 @@ import { many } from '#content/server'
 
 export default defineEventHandler(async () => {
   const implicit = await many('docs' as any, {
-    where: { _navigation: { $ne: true }, _partial: { $ne: true } }
+    where: { navigationFile: { $ne: true }, partial: { $ne: true } }
   })
 
   const strictGerman = await many('docs' as any, {
     locale: 'de',
-    where: { _navigation: { $ne: true }, _partial: { $ne: true } }
+    where: { navigationFile: { $ne: true }, partial: { $ne: true } }
   })
 
   const fallbackGerman = await many('docs' as any, {
     locale: 'de',
     fallback: true,
-    where: { _navigation: { $ne: true }, _partial: { $ne: true } }
+    where: { navigationFile: { $ne: true }, partial: { $ne: true } }
   })
 
   return {

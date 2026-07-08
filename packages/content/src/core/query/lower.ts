@@ -28,6 +28,51 @@ const ensureQueryWhereArray = (where?: ContentQueryBuilderParams['where']) => {
   return Array.isArray(where) ? [...where] : where ? [where] : []
 }
 
+/**
+ * Envelope fields removed by the Phase-3 cutover, mapped to their replacement.
+ * A `where`/`sort`/`select` still naming an old underscore field silently
+ * matches nothing (the field no longer exists), so in dev we point the author
+ * at the new name instead of leaving them to debug a mysterious empty result.
+ */
+const REMOVED_ENVELOPE_FIELDS: Record<string, string> = {
+  _id: 'id',
+  _path: 'path',
+  _locale: 'locale',
+  _collection: 'collection',
+  _canonicalKey: 'canonicalKey',
+  _type: 'type',
+  _extension: 'file.extension',
+  _navigation: 'navigationFile',
+  _partial: 'partial',
+  _draft: 'draft'
+}
+
+const collectWhereFields = (condition: ContentQueryBuilderWhere, out: Set<string>): void => {
+  for (const [key, value] of Object.entries(condition)) {
+    if ((key === '$and' || key === '$or') && value) {
+      for (const clause of ensureQueryWhereArray(value as ContentQueryBuilderParams['where'])) collectWhereFields(clause, out)
+    }
+    else if (key === '$not' && value && typeof value === 'object' && !Array.isArray(value)) {
+      collectWhereFields(value as ContentQueryBuilderWhere, out)
+    }
+    else if (!key.startsWith('$')) {
+      out.add(key)
+    }
+  }
+}
+
+const warnOnRemovedEnvelopeFields = (params: ContentQueryBuilderParams): void => {
+  if (!import.meta.dev) return
+  const fields = new Set<string>()
+  for (const condition of ensureQueryWhereArray(params.where)) collectWhereFields(condition, fields)
+  for (const option of params.sort || []) for (const key of Object.keys(option)) if (!key.startsWith('$')) fields.add(key)
+  for (const field of [...(params.only || []), ...(params.without || [])]) fields.add(field)
+  for (const field of fields) {
+    const replacement = REMOVED_ENVELOPE_FIELDS[field.split('.')[0]!]
+    if (replacement) console.warn(`[ginko-content] Query references removed envelope field "${field.split('.')[0]}" — use "${replacement}" instead; the old field no longer exists, so this clause has no effect.`)
+  }
+}
+
 const COMPARISON_OPERATORS = new Set<string>(SUPPORTED_QUERY_OPERATORS)
 
 /**
@@ -161,6 +206,7 @@ const lowerSort = (sort: ContentQuerySortOptions[] = []): SortClause[] => {
 
 export const lowerQueryPlan = (params: ContentQueryBuilderParams): ContentQueryPlan => {
   assertSupportedQueryOperators(params.where)
+  warnOnRemovedEnvelopeFields(params)
 
   const resolveVariant = (params as ContentQueryBuilderParams & {
     resolveVariant?: { path?: string, route?: string, ref?: string, locale?: string, fallback?: string[] | boolean, exact?: boolean }

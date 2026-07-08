@@ -17,11 +17,11 @@ export default defineEventHandler(async (event) => {
   const doc = resolved as Record<string, unknown>
   return {
     title: doc.title,
-    path: doc._path,
-    requestedLocale: doc._requestedLocale,
-    resolvedLocale: doc._resolvedLocale,
-    fallback: doc._fallback,
-    availableLocales: doc._availableLocales,
-    variantPaths: doc._variantPaths
+    path: doc.path,
+    requestedLocale: (doc.resolved as Record<string, unknown> | undefined)?.requestedLocale,
+    resolvedLocale: (doc.resolved as Record<string, unknown> | undefined)?.locale,
+    fallback: (doc.resolved as Record<string, unknown> | undefined)?.fallback,
+    availableLocales: (doc.resolved as Record<string, unknown> | undefined)?.availableLocales,
+    variantPaths: doc.localePaths
   }
 })

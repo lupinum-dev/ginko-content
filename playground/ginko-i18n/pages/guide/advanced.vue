@@ -21,11 +21,11 @@ const asTitle = (item: unknown) => (item && typeof item === 'object' && 'title' 
 const page = computed(() => data.value
   ? {
       title: (data.value as any).title,
-      requestedPath: (data.value as any)._requestedPath,
+      requestedPath: (data.value as any).resolved?.requestedPath,
       requestedLocale: locale.value,
-      resolvedLocale: (data.value as any)._resolvedLocale,
-      fallback: locale.value !== ((data.value as any)._resolvedLocale || (data.value as any)._locale),
-      availableLocales: (data.value as any)._availableLocales,
+      resolvedLocale: (data.value as any).resolved?.locale,
+      fallback: locale.value !== ((data.value as any).resolved?.locale || (data.value as any).locale),
+      availableLocales: (data.value as any).resolved?.availableLocales,
       defaultSurround: [asTitle(surround.value?.prev), asTitle(surround.value?.next)],
       crossLocaleSurround: [asTitle(surround.value?.prev), asTitle(surround.value?.next)]
     }
