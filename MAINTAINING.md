@@ -60,7 +60,7 @@ An `E404` is expected for a new version. If npm returns a version, bump
 3. Update release metadata intentionally:
 
 - `packages/content/package.json`
-- `packages/content/compatibility.json`
+- `packages/content/compatibility.json` — GENERATED: run `node scripts/generate-compatibility.mjs` (never hand-edit; `release:verify` runs it with `--check`)
 - `CHANGELOG.md`
 - `README.md`
 - public docs and examples when public behavior changed

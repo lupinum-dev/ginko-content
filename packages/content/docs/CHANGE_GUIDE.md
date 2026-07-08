@@ -18,7 +18,7 @@ Add the parser in `src/parsers/`, expose it through `parsers/index.ts`, update p
 
 ### Change Route-Page Loading
 
-Start in `src/features/query/documents.ts` and `src/runtime/app/composables/use-content-page.ts`. Keep `useContentPage(handle)` as the beginner route-page API. Update docs-drift tests and consumer type fixtures.
+Start in `src/features/query/documents.ts` and `src/runtime/app/composables/use-content-page.ts`. Keep `useContentPage(handle)` as the beginner route-page API. Run `node scripts/docs-drift.mjs` and update consumer type fixtures.
 
 ### Change I18n Fallback Behavior
 
