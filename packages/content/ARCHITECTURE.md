@@ -108,7 +108,10 @@ Public package exports are the compatibility seam. Current subpaths:
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
-- `@lupinum/ginko-content/transformers/*`
+- `@lupinum/ginko-content/transformers/markdown`
+- `@lupinum/ginko-content/transformers/yaml`
+- `@lupinum/ginko-content/transformers/json`
+- `@lupinum/ginko-content/transformers/csv`
 
 Internal source layout should optimize for clarity, not mirror the export map.
 `meta/public-surface.json` classifies every committed package subpath,
