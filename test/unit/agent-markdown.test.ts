@@ -803,7 +803,9 @@ describe('agent markdown', () => {
     })
     expect(serializer).not.toHaveBeenCalled()
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      only: expect.not.arrayContaining(['body'])
+      plan: expect.objectContaining({
+        projection: expect.objectContaining({ only: expect.not.arrayContaining(['body']) })
+      })
     }))
   })
 
@@ -859,9 +861,13 @@ describe('agent markdown', () => {
 
   test('uses the source-locale public route for localized fallback agent pages', async () => {
     const query = vi.fn(async (_event, params) => {
+      // Providers now receive the lowered wire query (CS-5), not builder params.
       expect(params).toEqual(expect.objectContaining({
-        resolveLocale: { locale: 'de', fallback: true },
-        only: expect.arrayContaining(['path', 'locale', 'localePaths'])
+        v: 1,
+        plan: expect.objectContaining({
+          resolveLocale: expect.objectContaining({ locale: 'de' }),
+          projection: expect.objectContaining({ only: expect.arrayContaining(['path', 'locale', 'localePaths']) })
+        })
       }))
 
       return {

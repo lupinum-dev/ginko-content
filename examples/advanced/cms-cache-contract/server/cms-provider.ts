@@ -3,7 +3,7 @@ import {
   withContentCache,
   type ContentPageResult,
   type ContentProvider,
-  type ContentQueryBuilderParams,
+  type ContentProviderQuery,
   type ContentRouteMeta,
   type ContentSearchSection
 } from '#content/server'
@@ -124,9 +124,10 @@ export default {
       count: true
     }
   },
-  async query(_event, query: ContentQueryBuilderParams) {
-    return withContentCache(listFor(query.collection), {
-      tags: query.collection ? [`collection:${query.collection}`] : ['collection:blog', 'collection:authors'],
+  async query(_event, query: ContentProviderQuery) {
+    const collection = query.collection ?? undefined
+    return withContentCache(listFor(collection), {
+      tags: collection ? [`collection:${collection}`] : ['collection:blog', 'collection:authors'],
       maxAge: 300,
       swr: 60
     })

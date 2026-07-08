@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent, createStorage, doc, navDoc } from './_utils'
+import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
 
 const runtimeConfig = {
   public: { content: { navigation: { fields: ['icon', 'badge'] } } },
@@ -336,7 +337,12 @@ describe('navigation contracts', () => {
     })
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    const resolveContentNavigation = (event: any, params: any = {}) => {
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return rawResolveContentNavigation(event, query, options)
+    }
     const nav = await resolveContentNavigation(createEvent(), {
       resolveLocale: { locale: 'de', fallback: true }
     })
@@ -410,7 +416,12 @@ describe('navigation contracts', () => {
     })
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    const resolveContentNavigation = (event: any, params: any = {}) => {
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return rawResolveContentNavigation(event, query, options)
+    }
     const nav = await resolveContentNavigation(createEvent(), {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: true }
@@ -454,7 +465,12 @@ describe('navigation contracts', () => {
       }
     })
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    const resolveContentNavigation = (event: any, params: any = {}) => {
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return rawResolveContentNavigation(event, query, options)
+    }
     const nav = await resolveContentNavigation(createEvent(), {
       where: [{ $and: [{ locale: 'de' }, { featured: true }] }]
     } as any)
@@ -485,7 +501,12 @@ describe('navigation contracts', () => {
     createServerContentQuery.mockImplementation(() => createBuilder())
     resolveLocaleChain.mockReturnValue(['de'])
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    const resolveContentNavigation = (event: any, params: any = {}) => {
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return rawResolveContentNavigation(event, query, options)
+    }
     await resolveContentNavigation(createEvent(), {
       resolveLocale: { locale: 'de', exact: true }
     })
@@ -509,7 +530,12 @@ describe('navigation contracts', () => {
       }
     }))
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    const resolveContentNavigation = (event: any, params: any = {}) => {
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return rawResolveContentNavigation(event, query, options)
+    }
 
     await expect(resolveContentNavigation(createEvent())).resolves.toEqual([{ title: 'Cached', path: '/cached' }])
     expect(createServerContentQuery).not.toHaveBeenCalled()
@@ -541,7 +567,12 @@ describe('navigation contracts', () => {
       }
     })
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    const resolveContentNavigation = (event: any, params: any = {}) => {
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return rawResolveContentNavigation(event, query, options)
+    }
     const nav = await resolveContentNavigation(createEvent(), { collection: 'docs' })
 
     expect(nav).toEqual([
@@ -581,7 +612,11 @@ describe('navigation contracts', () => {
         path: '/guide'
       })
     ])
-    expect(resolveContentNavigation).toHaveBeenCalledWith(event, { collection: 'docs' })
+    expect(resolveContentNavigation).toHaveBeenCalledWith(
+      event,
+      expect.objectContaining({ v: 1, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
+      expect.any(Object)
+    )
   })
 
   test('server queryCollectionItemSurroundings forwards locale and canonical options to navigation loading', async () => {

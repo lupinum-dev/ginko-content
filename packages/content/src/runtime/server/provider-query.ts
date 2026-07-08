@@ -11,10 +11,51 @@ import type {
 } from '../../types/query'
 import { createQuery, wrapQueryBuilder } from '../../core/query/builder'
 import { normalizeContentQueryParams } from '../../core/query/params'
+import { containsStandaloneRegexOptions, findUnsupportedQueryOperator } from '../../core/query/operators'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { getContentRuntimeConfig } from './runtime-config'
 import { createContentProviderError } from '../../public/provider-errors'
+import { toContentProviderNavigationQuery, toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
+
+export { toContentProviderNavigationQuery as createProviderNavigationQuery } from '../../public/provider-query'
+
+/**
+ * Build the provider wire query (CS-5) from builder params: reject
+ * globally-invalid operators and malformed `$options` up front (so callers see
+ * a clean typed error rather than a raw lowering `TypeError`), apply the shared
+ * content-query normalization (default sort, locale injection, `fallback: true`
+ * → chain expansion), then lower to a JSON-pure `ContentQueryPlan`.
+ *
+ * This is the single builder-params → plan seam before the provider boundary.
+ * Provider-specific policy (draft hiding, limit clamps, regex rejection) lives
+ * inside each provider, applied to the plan it receives.
+ */
+export const createProviderQuery = (params: ContentQueryBuilderParams): ContentProviderQuery => {
+  const unsupported = findUnsupportedQueryOperator(params.where)
+  if (unsupported) {
+    throw createContentProviderError('unsupported_query_operator', `Unsupported query operator: ${unsupported}`, {
+      operator: unsupported
+    })
+  }
+
+  if (containsStandaloneRegexOptions(params.where)) {
+    throw createContentProviderError('unsupported_query_shape', 'Query operator $options requires $regex.', {
+      operator: '$options'
+    })
+  }
+
+  const config = getContentRuntimeConfig().content || {}
+  const normalized = normalizeContentQueryParams(params, {
+    collectionI18n: params.collection ? config.collections?.[params.collection]?.i18n : undefined,
+    defaultLocale: config.defaultLocale,
+    localeFallback: config.localeFallback,
+    includeDraftFilter: false
+  })
+
+  return toContentProviderQuery(normalized)
+}
+
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -143,20 +184,19 @@ export const resolveProviderContentVariants = async (
   const documents = localesToQuery.length
     ? (
         await Promise.all(
-          localesToQuery.map(async (locale) =>
-            normalizeProviderQueryResult(
-              normalizeProviderQueryResponse<ParsedContent>({
-                ...baseQuery,
-                resolveLocale: { locale, exact: true },
-              }, await provider.query<ParsedContent>(event, {
-                ...baseQuery,
-                resolveLocale: { locale, exact: true },
-              }), provider.name),
-            ),
-          ),
+          localesToQuery.map(async (locale) => {
+            const localeQuery = { ...baseQuery, resolveLocale: { locale, exact: true } }
+            return normalizeProviderQueryResult(
+              normalizeProviderQueryResponse<ParsedContent>(
+                localeQuery,
+                await provider.query<ParsedContent>(event, createProviderQuery(localeQuery)),
+                provider.name,
+              ),
+            )
+          }),
         )
       ).flat()
-    : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, baseQuery), provider.name))
+    : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, createProviderQuery(baseQuery)), provider.name))
   const matched = documents.find(document => identityMatchesDocument(document, normalizedReference))
   const canonicalKey = matched?.canonicalKey
   if (!canonicalKey) {
@@ -203,8 +243,9 @@ export const createServerProviderQueryFetch = <T = ParsedContent>(event: H3Event
   return async (query: ContentQueryRequest) => {
     const { getContentProvider } = await import('./providers')
     const provider = await getContentProvider(event)
-    const response = await provider.query<T>(event, query.params())
-    return normalizeProviderQueryResponse<T>(query.params(), response, provider.name)
+    const params = query.params()
+    const response = await provider.query<T>(event, createProviderQuery(params))
+    return normalizeProviderQueryResponse<T>(params, response, provider.name)
   }
 }
 

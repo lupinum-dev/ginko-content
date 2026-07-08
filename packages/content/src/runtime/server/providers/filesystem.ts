@@ -9,7 +9,7 @@ import type {
 } from '../../../types/query'
 import type { QueryCollectionsSitemapEntriesOptions } from '../../../features/sitemap/query'
 import type { ContentProvider } from '../../../public/provider'
-import { containsStandaloneRegexOptions, SUPPORTED_QUERY_OPERATORS } from '../../../core/query/operators'
+import { SUPPORTED_QUERY_OPERATORS } from '../../../core/query/operators'
 import { executeFilesystemContentQuery } from '../query-executor'
 import { resolveContentNavigation } from '../navigation-query'
 import {
@@ -20,7 +20,6 @@ import {
   queryFilesystemCollectionSearchSections
 } from '../collection-helpers'
 import { queryFilesystemCollectionsSitemapEntries } from '../sitemap'
-import { createContentProviderError } from '../../../public/provider-errors'
 
 export const filesystemProvider: ContentProvider = {
   name: 'filesystem',
@@ -44,15 +43,9 @@ export const filesystemProvider: ContentProvider = {
       count: true
     }
   },
-  query: <T = ParsedContent>(event: H3Event, query: import('../../../types/query').ContentQueryBuilderParams) => {
-    if (containsStandaloneRegexOptions(query.where)) {
-      throw createContentProviderError('unsupported_query_shape', 'Query operator $options requires $regex.', {
-        operator: '$options'
-      })
-    }
-    return executeFilesystemContentQuery<T>(event, query)
-  },
-  navigationQuery: (event: H3Event, query) => resolveContentNavigation(event, query),
+  query: <T = ParsedContent>(event: H3Event, query: import('../../../public/provider').ContentProviderQuery) =>
+    executeFilesystemContentQuery<T>(event, query.plan),
+  navigationQuery: (event: H3Event, query, options) => resolveContentNavigation(event, query, options),
   navigation: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) =>
     queryFilesystemCollectionNavigation(event, collection, options),
   surroundings: (event: H3Event, collection: string, path: string, options?: ContentCollectionItemSurroundingsOptions) =>

@@ -21,6 +21,7 @@ import type { ContentQueryFindResponse, ContentQueryResponse } from '../../types
 import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../content/graph'
 import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
+import { isPlanRegex } from './plan'
 import { resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
 import { ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
 import { normalizeRouteMounts, routeToContentPathCandidates } from '../content/path'
@@ -36,14 +37,26 @@ type Haystack = string | readonly unknown[]
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+// Reconstruct a live `RegExp` from the JSON-pure `{ source, flags }` wire
+// operand produced by lowering (see `PlanRegex`). Non-regex operands pass
+// through so equality/comparison semantics are unchanged.
+const reviveRegex = (value: unknown): unknown =>
+  isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
+
 const includesEntry = (haystack: Haystack, entry: unknown): boolean =>
   typeof haystack === 'string'
     ? haystack.includes(String(entry))
     : haystack.includes(entry)
 
 const compareOperators: Record<CompareOperator, (item: unknown, value: unknown) => boolean> = {
-  eq: (item, value) => value instanceof RegExp ? value.test(String(item)) : item === value,
-  ne: (item, value) => value instanceof RegExp ? !value.test(String(item)) : item !== value,
+  eq: (item, value) => {
+    const operand = reviveRegex(value)
+    return operand instanceof RegExp ? operand.test(String(item)) : item === operand
+  },
+  ne: (item, value) => {
+    const operand = reviveRegex(value)
+    return operand instanceof RegExp ? !operand.test(String(item)) : item !== operand
+  },
   gt: (item, value) => (item as Comparable) > (value as Comparable),
   gte: (item, value) => (item as Comparable) >= (value as Comparable),
   lt: (item, value) => (item as Comparable) < (value as Comparable),
@@ -70,12 +83,13 @@ const compareOperators: Record<CompareOperator, (item: unknown, value: unknown) 
   type: (item, value) => typeof item === String(value),
   prefix: (item, value) => String(item || '').startsWith(String(value)),
   regex: (item, value) => {
-    if (value instanceof RegExp) {
-      return value.test(String(item || ''))
+    const operand = reviveRegex(value)
+    if (operand instanceof RegExp) {
+      return operand.test(String(item || ''))
     }
 
-    const matched = String(value).match(/\/(.*)\/([dgimsuy]*)$/)
-    const regex = matched?.[1] ? new RegExp(matched[1], matched[2] || '') : new RegExp(String(value))
+    const matched = String(operand).match(/\/(.*)\/([dgimsuy]*)$/)
+    const regex = matched?.[1] ? new RegExp(matched[1], matched[2] || '') : new RegExp(String(operand))
     return regex.test(String(item || ''))
   }
 }
@@ -106,6 +120,10 @@ const collectFieldComparisons = (filter: FilterExpr, field: string): Array<strin
 
       if (filter.operator === 'eq' && typeof filter.value === 'string') {
         return [filter.value]
+      }
+
+      if (filter.operator === 'regex' && isPlanRegex(filter.value)) {
+        return [new RegExp(filter.value.source, filter.value.flags)]
       }
 
       if (filter.operator === 'regex' && filter.value instanceof RegExp) {

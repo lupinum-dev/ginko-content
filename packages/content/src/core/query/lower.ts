@@ -10,8 +10,19 @@
  * once per `.all()`/`.first()`/`.count()` call.
  */
 import type { ContentQueryBuilderParams, ContentQueryBuilderWhere, ContentQuerySortOptions } from '../../types/query'
-import type { CompareOperator, ContentQueryPlan, FilterExpr, SortClause } from './plan'
+import type { CompareOperator, ContentQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
 import { assertSupportedQueryOperators, SUPPORTED_QUERY_OPERATORS } from './operators'
+
+/**
+ * Convert a `RegExp` operand into the JSON-pure `{ source, flags }` wire shape
+ * (see `PlanRegex` in `./plan.ts`); pass every other value through untouched.
+ * Applied to every compare-node value so a lowered plan survives
+ * `JSON.parse(JSON.stringify(plan))` across the provider boundary (CS-5).
+ */
+const serializeRegexValue = (value: unknown): unknown =>
+  value instanceof RegExp
+    ? ({ source: value.source, flags: value.flags } satisfies PlanRegex)
+    : value
 
 const ensureQueryWhereArray = (where?: ContentQueryBuilderParams['where']) => {
   return Array.isArray(where) ? [...where] : where ? [where] : []
@@ -75,8 +86,8 @@ const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
           // stripping the leading `$` it maps 1:1 to a `CompareOperator`.
           operator: key.slice(1) as CompareOperator,
           value: key === '$regex' && typeof objectValue.$options === 'string' && !(nestedValue instanceof RegExp)
-            ? new RegExp(String(nestedValue), objectValue.$options)
-            : nestedValue
+            ? ({ source: String(nestedValue), flags: objectValue.$options } satisfies PlanRegex)
+            : serializeRegexValue(nestedValue)
         })
         continue
       }
@@ -91,7 +102,7 @@ const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
     type: 'compare',
     field,
     operator: 'eq',
-    value
+    value: serializeRegexValue(value)
   }
 }
 

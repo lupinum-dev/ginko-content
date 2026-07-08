@@ -1,6 +1,9 @@
 import type { H3Event } from 'h3'
 import type { NavItem, ParsedContentMeta } from '../../types/content'
-import type { ContentQueryBuilderParams } from '../../types/query'
+import type { ContentQueryBuilderParams, ContentQueryBuilderWhere, ContentQuerySortOptions } from '../../types/query'
+import type { ContentProviderNavigationOptions, ContentProviderQuery } from '../../public/provider-query'
+import type { FilterExpr, SortClause } from '../../core/query/plan'
+import { isPlanRegex } from '../../core/query/plan'
 import { resolveContentNavigationData } from '../../features/navigation/query'
 import { buildCanonicalNavigation } from '../../features/navigation/build'
 import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
@@ -11,7 +14,73 @@ import { cacheStorage } from './storage-access'
 import { createServerContentQuery } from './storage'
 import { resolveLocaleChain } from './manifest'
 
-export async function resolveContentNavigation (event: H3Event, inputQuery: ContentQueryBuilderParams = {}) {
+const reviveFilterValue = (value: unknown): unknown =>
+  isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
+
+const mergeWhereConditions = (conditions: ContentQueryBuilderWhere[]): ContentQueryBuilderWhere =>
+  Object.assign({}, ...conditions)
+
+/**
+ * Reconstruct builder `where` conditions from a lowered `FilterExpr` so the
+ * navigation pipeline — which still composes queries through the builder — can
+ * consume the wire plan. `and` flattens to sibling conditions (AND); `or`/`not`
+ * map back to their `$or`/`$not` builder forms.
+ */
+const filterToWhereConditions = (filter: FilterExpr): ContentQueryBuilderWhere[] => {
+  switch (filter.type) {
+    case 'true':
+      return []
+    case 'compare':
+      return [
+        filter.operator === 'eq'
+          ? { [filter.field]: reviveFilterValue(filter.value) } as ContentQueryBuilderWhere
+          : { [filter.field]: { [`$${filter.operator}`]: reviveFilterValue(filter.value) } } as ContentQueryBuilderWhere
+      ]
+    case 'and':
+      return filter.clauses.flatMap(filterToWhereConditions)
+    case 'or':
+      return [{ $or: filter.clauses.map(clause => mergeWhereConditions(filterToWhereConditions(clause))) }]
+    case 'not':
+      return [{ $not: mergeWhereConditions(filterToWhereConditions(filter.clause)) }]
+  }
+}
+
+const sortClausesToBuilder = (sort: SortClause[]): ContentQuerySortOptions[] =>
+  sort.map(clause => ({
+    [clause.field]: clause.direction,
+    ...(clause.locale ? { $locale: clause.locale } : {}),
+    ...(typeof clause.numeric === 'boolean' ? { $numeric: clause.numeric } : {}),
+    ...(clause.caseFirst ? { $caseFirst: clause.caseFirst } : {}),
+    ...(clause.sensitivity ? { $sensitivity: clause.sensitivity } : {})
+  } as ContentQuerySortOptions))
+
+/**
+ * Rebuild the builder params the navigation pipeline expects from the wire
+ * pair (CS-5): collection + user filter/sort come from the plan; `fields`,
+ * `canonical`, and the raw `resolveLocale` come from the navigation options.
+ */
+const providerQueryToNavigationParams = (
+  query: ContentProviderQuery,
+  options: ContentProviderNavigationOptions
+): ContentQueryBuilderParams => {
+  const where = filterToWhereConditions(query.plan.filter)
+  const sort = sortClausesToBuilder(query.plan.sort)
+  return {
+    ...(query.collection ? { collection: query.collection } : {}),
+    ...(where.length ? { where } : {}),
+    ...(sort.length ? { sort } : {}),
+    ...(options.resolveLocale ? { resolveLocale: options.resolveLocale } : {}),
+    ...(options.fields?.length ? { only: options.fields } : {}),
+    ...(options.canonical ? { canonical: true } : {})
+  }
+}
+
+export async function resolveContentNavigation (
+  event: H3Event,
+  query: ContentProviderQuery,
+  navigationOptions: ContentProviderNavigationOptions = {}
+) {
+  const inputQuery = providerQueryToNavigationParams(query, navigationOptions)
   const runtimeConfig = getContentRuntimeConfig()
   const requestedFields = [
     ...(Array.isArray(inputQuery.only) ? inputQuery.only.map(String) : []),

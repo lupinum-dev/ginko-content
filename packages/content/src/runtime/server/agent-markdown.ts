@@ -6,6 +6,7 @@ import type { AgentMetadataField, ContentCollectionConfig, ContentCollectionHand
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../agent-paths'
 import { getCollectionPath } from '../query/routes'
 import { getContentProvider } from './providers'
+import { createProviderQuery } from './provider-query'
 import { contentConfig } from './storage-access'
 
 export interface AgentMarkdownPublicSignals {
@@ -665,12 +666,12 @@ export async function queryMarkdownEnabledContent (
   for (const [collection, config] of markdownEnabledCollectionEntries(options.collections)) {
     const agentOptions = resolveAgentMarkdownOptions(config as any)
     if (!agentOptions) continue
-    const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
+    const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, createProviderQuery({
       collection,
       only: ['path', 'locale', 'localePaths', 'resolved', 'file', 'draft', 'partial', 'navigationFile', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
-    }))
+    })))
     for (const row of rows) {
       if (!isPublicPage(row, config as any)) continue
       const locale = options.locale || row.resolved?.locale || row.locale

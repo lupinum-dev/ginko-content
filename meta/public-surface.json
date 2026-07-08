@@ -715,6 +715,21 @@
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "toContentProviderQuery": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "toContentProviderNavigationQuery": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "PROVIDER_QUERY_VERSION": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
   },
   "serverTypeExports": {
@@ -989,6 +1004,16 @@
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "ContentProviderErrorCode": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderQuery": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderNavigationOptions": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"

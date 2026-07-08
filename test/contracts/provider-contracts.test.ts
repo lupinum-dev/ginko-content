@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent } from './_utils'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 
 const externalProviderModules = vi.hoisted(() => new Map<string, unknown>())
 
@@ -297,10 +298,10 @@ describe('content provider contract', () => {
     runtime.content.provider = 'limited-query'
     const provider = await getContentProvider(createProviderEvent())
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       where: { title: { $contains: 'hello' } }
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_operator',
       data: expect.objectContaining({
         provider: 'limited-query',
@@ -308,10 +309,10 @@ describe('content provider contract', () => {
       })
     })
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       skip: 10
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'limited-query',
@@ -319,10 +320,10 @@ describe('content provider contract', () => {
       })
     })
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       count: true
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'limited-query',
@@ -332,22 +333,25 @@ describe('content provider contract', () => {
 
     expect(query).not.toHaveBeenCalled()
 
-    await expect(provider.query(createProviderEvent(), {
+    await expect(provider.query(createProviderEvent(), toContentProviderQuery({
       collection: 'posts',
       where: { title: { $eq: 'hello' } },
       sort: [{ date: -1 }],
       only: ['title', 'date'],
       without: ['body'],
       limit: 1
-    })).resolves.toEqual([])
+    }))).resolves.toEqual([])
     expect(query).toHaveBeenCalledTimes(1)
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      v: 1,
       collection: 'posts',
-      where: { title: { $eq: 'hello' } },
-      sort: [{ date: -1 }],
-      only: ['title', 'date'],
-      without: ['body'],
-      limit: 1
+      plan: expect.objectContaining({
+        collection: 'posts',
+        filter: { type: 'compare', field: 'title', operator: 'eq', value: 'hello' },
+        sort: [{ field: 'date', direction: -1 }],
+        projection: { only: ['title', 'date'], without: ['body'] },
+        limit: 1
+      })
     }))
   })
 
@@ -497,15 +501,16 @@ describe('content provider contract', () => {
     await expect(provider.page?.(event, 'docs', '/docs')).resolves.toMatchObject({
       title: 'CMS page'
     })
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'docs',
       where: { path: { $eq: '/docs' } },
       limit: 1
-    })).resolves.toMatchObject({
+    }))).resolves.toMatchObject({
       result: [{ title: 'CMS page' }]
     })
     await expect(provider.navigation?.(event, 'docs')).resolves.toEqual(cmsNavigation)
-    await expect(provider.navigationQuery?.(event, { collection: 'docs' })).resolves.toEqual([
+    const cmsNavWire = toContentProviderNavigationQuery({ collection: 'docs' })
+    await expect(provider.navigationQuery?.(event, cmsNavWire.query, cmsNavWire.options)).resolves.toEqual([
       ...cmsNavigation
     ])
     await expect(provider.surroundings?.(event, 'docs', '/docs')).resolves.toEqual([
@@ -533,10 +538,10 @@ describe('content provider contract', () => {
         operation: 'search sections'
       })
     })
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'docs',
       skip: 1
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'cms-like',

@@ -13,6 +13,7 @@ import type {
 import { resolveCollectionItemSurroundingsData, resolveCollectionNavigationData, resolveCollectionPageData, resolveCollectionRouteMetaData, resolveCollectionSearchSectionsData } from '../../features/collections/resolve'
 import { resolveContentNavigation } from './navigation-query'
 import { executeFilesystemContentQuery } from './query-executor'
+import { createProviderNavigationQuery, createProviderQuery } from './provider-query'
 import { serverQueryCollection } from './storage'
 import { contentConfig } from './storage-access'
 
@@ -49,12 +50,15 @@ export async function queryFilesystemCollectionNavigation (
   const locale = options.locale
   return await resolveCollectionNavigationData(collection, contentConfig(), {
     ...options,
-    loadNavigation: () => resolveContentNavigation(event, {
-      collection,
-      ...(options.fields?.length ? { navigationFields: options.fields } : {}),
-      ...(typeof options.canonical === 'boolean' ? { canonical: options.canonical } : {}),
-      ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
-    })
+    loadNavigation: () => {
+      const { query, options: navigationOptions } = createProviderNavigationQuery({
+        collection,
+        ...(options.fields?.length ? { navigationFields: options.fields } : {}),
+        ...(typeof options.canonical === 'boolean' ? { canonical: options.canonical } : {}),
+        ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
+      })
+      return resolveContentNavigation(event, query, navigationOptions)
+    }
   })
 }
 
@@ -100,7 +104,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
     ...options,
     loadVariantPage: async (input) => {
       try {
-        const response = await executeFilesystemContentQuery<T & ParsedContent>(event, {
+        const response = await executeFilesystemContentQuery<T & ParsedContent>(event, createProviderQuery({
           collection,
           first: true,
           resolveVariant: {
@@ -108,7 +112,7 @@ export async function queryFilesystemCollectionPage<T = ParsedContent> (
             locale: input.locale,
             fallback: input.fallback
           }
-        })
+        }).plan)
         return (response.result as (T & ParsedContent) | undefined) || null
       }
       catch (error) {

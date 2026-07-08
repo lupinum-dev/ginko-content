@@ -4,6 +4,7 @@ export type ContentProviderErrorCode =
   | 'unsupported_provider_operation'
   | 'unsupported_query_operator'
   | 'unsupported_query_shape'
+  | 'provider_query_not_json_pure'
   | 'data_collection_route_access'
   | 'data_collection_search_access'
   | 'data_collection_sitemap_access'
@@ -23,6 +24,7 @@ export const statusForProviderError: Record<ContentProviderErrorCode, number> = 
   unsupported_provider_operation: 400,
   unsupported_query_operator: 400,
   unsupported_query_shape: 400,
+  provider_query_not_json_pure: 500,
   data_collection_route_access: 400,
   data_collection_search_access: 400,
   data_collection_sitemap_access: 400,

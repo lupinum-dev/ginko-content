@@ -1,26 +1,22 @@
 import { createError, type H3Event } from 'h3'
 import type { ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
-import type { ContentQueryBuilderParams } from '../../types/query'
-import { lowerQueryPlan } from '../../core/query/lower'
+import type { ContentQueryPlan, FilterExpr } from '../../core/query/plan'
+import { isPlanRegex } from '../../core/query/plan'
 import { executeQueryPlan } from '../../core/query/execute'
 import { ContentError, type ContentErrorCode } from '../../core/errors'
-import { normalizeContentQueryParams } from '../../core/query/params'
-import { compileWhere } from '../../core/query/filter'
-import { containsStandaloneRegexOptions, findUnsupportedQueryOperator } from '../../core/query/operators'
 import { withResolvedRefs, withResolvedRefsList } from '../../storage/references'
 import { getContentGraph } from '../../storage/graph'
 import { getContentRuntimeConfig } from './runtime-config'
 import { isPreview } from '../../integrations/nitro/preview'
-import { createContentProviderError } from '../../public/provider-errors'
 import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../query/public-limits'
 
-const notFound = (query: ContentQueryBuilderParams, description = 'Could not find document for the given query.') => {
+const notFound = (plan: ContentQueryPlan, description = 'Could not find document for the given query.') => {
   throw createError({
     statusMessage: 'Document not found!',
     statusCode: 404,
     data: {
       description,
-      query
+      query: plan
     }
   })
 }
@@ -37,11 +33,11 @@ const statusForContentError: Partial<Record<ContentErrorCode, number>> = {
   INVALID_REF_VALUE: 422
 }
 
-const toHttpError = (error: ContentError, query: ContentQueryBuilderParams) => createError({
+const toHttpError = (error: ContentError, plan: ContentQueryPlan) => createError({
   statusCode: statusForContentError[error.code] ?? 500,
   statusMessage: error.code,
   message: error.message,
-  data: { code: error.code, context: error.context, query }
+  data: { code: error.code, context: error.context, query: plan }
 })
 
 const badQuery = (message: string) => {
@@ -52,97 +48,84 @@ const badQuery = (message: string) => {
   })
 }
 
-const containsPublicRegex = (value: unknown): boolean => {
-  if (value instanceof RegExp) {
-    return true
+/**
+ * Detect a regex operand anywhere in a lowered filter tree. After lowering, a
+ * `$regex` clause becomes a `regex` compare node and a bare `/.../` operand
+ * becomes an `eq` node whose value is a `PlanRegex` (`{ source, flags }`) — the
+ * public HTTP query surface rejects both, so untrusted callers cannot run
+ * arbitrary regular expressions against the corpus.
+ */
+const planFilterContainsRegex = (filter: FilterExpr): boolean => {
+  switch (filter.type) {
+    case 'true':
+      return false
+    case 'compare':
+      return filter.operator === 'regex' || isPlanRegex(filter.value)
+    case 'and':
+    case 'or':
+      return filter.clauses.some(planFilterContainsRegex)
+    case 'not':
+      return planFilterContainsRegex(filter.clause)
   }
-
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  if (Array.isArray(value)) {
-    return value.some(containsPublicRegex)
-  }
-
-  const record = value as Record<string, unknown>
-  return Object.entries(record).some(([key, child]) => key === '$regex' || containsPublicRegex(child))
 }
 
-const normalizePublicQuery = (
-  event: H3Event,
-  query: ContentQueryBuilderParams,
-  config: ReturnType<typeof getContentRuntimeConfig>['content']
-) => {
-  if (!query.collection) {
+/**
+ * Combine a base filter with additional AND clauses, keeping the plan minimal
+ * (identity `true` nodes drop out; a single surviving clause is not wrapped).
+ */
+const andPlanFilters = (base: FilterExpr, ...extra: FilterExpr[]): FilterExpr => {
+  const clauses = [base, ...extra].filter(clause => clause.type !== 'true')
+  if (!clauses.length) return { type: 'true' }
+  if (clauses.length === 1) return clauses[0]!
+  return { type: 'and', clauses }
+}
+
+/**
+ * The filesystem provider's public-query policy, applied to the wire plan it
+ * receives: require a collection target, reject untrusted regex, clamp
+ * limit/skip to the public ceilings, and (outside dev/preview) hide draft and
+ * partial documents. These are filesystem-specific guards — a third-party
+ * provider owns its own visibility rules — so they live here rather than in the
+ * generic plan-lowering boundary.
+ */
+const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): ContentQueryPlan => {
+  if (!plan.collection) {
     badQuery('Public content queries must target a collection.')
   }
 
-  if (containsPublicRegex(query.where)) {
+  if (planFilterContainsRegex(plan.filter)) {
     badQuery('Public content queries do not accept RegExp filters.')
   }
 
-  if (containsStandaloneRegexOptions(query.where)) {
-    badQuery('Query operator $options requires $regex.')
-  }
-
   const enforceProductionVisibility = !import.meta.dev && !isPreview(event)
-  const normalized = normalizeContentQueryParams({
-    ...query,
-    limit: typeof query.limit === 'number' ? Math.max(0, Math.min(query.limit, MAX_PUBLIC_QUERY_LIMIT)) : query.limit,
-    skip: typeof query.skip === 'number' ? Math.max(0, Math.min(query.skip, MAX_PUBLIC_QUERY_SKIP)) : query.skip
-  }, {
-    collectionI18n: query.collection ? config.collections?.[query.collection]?.i18n : undefined,
-    defaultLocale: config.defaultLocale,
-    localeFallback: config.localeFallback,
-    includeDraftFilter: false
-  })
+  const filter = enforceProductionVisibility
+    ? andPlanFilters(
+        plan.filter,
+        { type: 'compare', field: 'draft', operator: 'ne', value: true },
+        { type: 'compare', field: 'partial', operator: 'ne', value: true }
+      )
+    : plan.filter
 
-  if (enforceProductionVisibility) {
-    const where = Array.isArray(normalized.where)
-      ? normalized.where
-      : normalized.where
-        ? [normalized.where]
-        : []
-    normalized.where = [
-      ...where,
-      { draft: { $ne: true } },
-      { partial: { $ne: true } }
-    ]
+  return {
+    ...plan,
+    filter,
+    limit: typeof plan.limit === 'number' ? Math.max(0, Math.min(plan.limit, MAX_PUBLIC_QUERY_LIMIT)) : plan.limit,
+    skip: Math.max(0, Math.min(plan.skip, MAX_PUBLIC_QUERY_SKIP))
   }
-
-  const normalizedWhere = Array.isArray(normalized.where)
-    ? normalized.where
-    : normalized.where
-      ? [normalized.where]
-      : []
-  normalized.where = normalizedWhere
-    .map(condition => compileWhere(condition as never))
-    .filter((condition): condition is NonNullable<ReturnType<typeof compileWhere>> => Boolean(condition))
-
-  const unsupported = findUnsupportedQueryOperator(normalized.where)
-  if (unsupported) {
-    throw createContentProviderError('unsupported_query_operator', `Unsupported query operator: ${unsupported}`, {
-      operator: unsupported
-    })
-  }
-
-  return normalized
 }
 
-export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputQuery: ContentQueryBuilderParams): Promise<ContentQueryResponse<T>> => {
+export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputPlan: ContentQueryPlan): Promise<ContentQueryResponse<T>> => {
   const config = getContentRuntimeConfig().content || {}
-  const query = normalizePublicQuery(event, inputQuery, config)
+  const plan = applyFilesystemQueryPolicy(event, inputPlan)
   let graph
   try {
     graph = await getContentGraph(event)
   } catch (cause) {
     if (cause instanceof ContentError) {
-      throw toHttpError(cause, query)
+      throw toHttpError(cause, plan)
     }
     throw cause
   }
-  const plan = lowerQueryPlan(query)
   const response = executeQueryPlan(graph, plan, {
     defaultLocale: config.defaultLocale,
     localeFallback: config.localeFallback,
@@ -158,7 +141,7 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
   if (plan.mode === 'first') {
     const content = response.result
     if (!content) {
-      notFound(query, plan.resolveVariant ? 'Could not find document for the given route variant.' : undefined)
+      notFound(plan, plan.resolveVariant ? 'Could not find document for the given route variant.' : undefined)
     }
 
     return {

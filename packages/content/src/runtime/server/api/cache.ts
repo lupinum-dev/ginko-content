@@ -4,6 +4,7 @@ import { isRealDocument } from '../../../core/content/document'
 import { assertSnapshotComplete, buildContentSnapshot } from '../../../core/content/snapshot'
 import { chunksFromArray, loadContentVariants } from '../../../storage/contents'
 import { getContentProvider } from '../providers'
+import { createProviderNavigationQuery } from '../provider-query'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { cacheStorage, contentConfig, getSourceContentIds } from '../storage-access'
 
@@ -65,7 +66,8 @@ export default defineEventHandler(async (event) => {
       provider: provider.name
     })
   }
-  const navigation: NavItem[] = await provider.navigationQuery(event, {})
+  const { query: navQuery, options: navOptions } = createProviderNavigationQuery({})
+  const navigation: NavItem[] = await provider.navigationQuery(event, navQuery, navOptions)
   await cacheStorage(event).setItem('_nav.json', navigation)
 
   const meta = {

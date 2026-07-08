@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { contentProviderResultMarker, type ContentProvider } from '../public/provider'
+import { contentProviderResultMarker, toContentProviderNavigationQuery, toContentProviderQuery, type ContentProvider } from '../public/provider'
 import { createAuthorDependencyProviderFixture, createFixtureContentProvider, createProviderFixtureEvent, getProviderFixtureCacheHint } from './provider-fixture'
 
 export interface SaasProviderFixtureContractSuiteOptions {
@@ -97,13 +97,13 @@ export const runSaasProviderFixtureContractSuite = ({
 
   test(`${name} supports list queries with locale, ordering, limit, count, and projection`, async () => {
     const provider = await loadProvider()
-    const response = unwrapProviderResult(await provider.query(createEvent(), {
+    const response = unwrapProviderResult(await provider.query(createEvent(), toContentProviderQuery({
       collection: 'posts',
       resolveLocale: { locale: 'de', fallback: false },
       sort: [{ date: -1 }],
       limit: 1,
       only: ['title', 'path', 'locale']
-    })) as { result: Array<{ title?: string, path?: string, locale?: string }>, total?: number }
+    }))) as { result: Array<{ title?: string, path?: string, locale?: string }>, total?: number }
 
     expect(response.result).toEqual([
       {
@@ -114,11 +114,11 @@ export const runSaasProviderFixtureContractSuite = ({
     ])
     expect(typeof response.total).toBe('number')
 
-    const countResponse = unwrapProviderResult(await provider.query(createEvent(), {
+    const countResponse = unwrapProviderResult(await provider.query(createEvent(), toContentProviderQuery({
       collection: 'posts',
       resolveLocale: { locale: 'de', fallback: false },
       count: true
-    }))
+    })))
     expect(countResponse).toEqual({ result: 1 })
   })
 
@@ -146,15 +146,17 @@ export const runSaasProviderFixtureContractSuite = ({
       description: expect.any(String)
     }))
 
-    const globalNav = unwrapProviderResult(await provider.navigationQuery?.(event, { where: { locale: 'de' } }))
+    const globalNavWire = toContentProviderNavigationQuery({ where: { locale: 'de' } })
+    const globalNav = unwrapProviderResult(await provider.navigationQuery?.(event, globalNavWire.query, globalNavWire.options))
     const globalNavPaths = collectNavPaths(globalNav || [])
     expect(globalNavPaths).toContain('/dokumentation/einstieg')
     expect(globalNavPaths.length).toBeGreaterThan(0)
 
-    const resolvedLocaleNav = unwrapProviderResult(await provider.navigationQuery?.(event, {
+    const resolvedLocaleNavWire = toContentProviderNavigationQuery({
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: false, exact: true }
-    }))
+    })
+    const resolvedLocaleNav = unwrapProviderResult(await provider.navigationQuery?.(event, resolvedLocaleNavWire.query, resolvedLocaleNavWire.options))
     expect(collectNavPaths(resolvedLocaleNav || [])).toContain('/dokumentation/einstieg')
 
     const surround = unwrapProviderResult(await provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }))
@@ -198,11 +200,11 @@ export const runSaasProviderFixtureContractSuite = ({
 
   test(`${name} supports data-only collection reads and rejects data-only sitemap access`, async () => {
     const provider = await loadProvider()
-    const response = unwrapProviderResult(await provider.query(createEvent(), {
+    const response = unwrapProviderResult(await provider.query(createEvent(), toContentProviderQuery({
       collection: 'versions',
       resolveLocale: { locale: 'en', fallback: false },
       sort: [{ date: -1 }]
-    })) as { result: Array<{ title?: string }> }
+    }))) as { result: Array<{ title?: string }> }
 
     expect(response.result[0]?.title).toBe('Launch readiness')
     await expect(provider.sitemapEntries?.(createEvent(), { include: ['versions'] })).rejects.toMatchObject({
@@ -218,21 +220,16 @@ export const runSaasProviderFixtureContractSuite = ({
   test(`${name} fails loudly for unsupported query operators and unknown collections`, async () => {
     const provider = await loadProvider()
 
-    await expect(provider.query(createEvent(), {
+    // Globally-invalid operators are rejected while lowering to the wire plan,
+    // before the query ever reaches the provider (CS-5).
+    expect(() => toContentProviderQuery({
       collection: 'posts',
       where: { title: { $near: 'launch' } } as never
-    })).rejects.toMatchObject({
-      statusCode: 400,
-      statusMessage: 'unsupported_query_operator',
-      data: {
-        code: 'unsupported_query_operator',
-        operator: '$near'
-      }
-    })
+    })).toThrow(/Unsupported content query operator: \$near/)
 
-    await expect(provider.query(createEvent(), {
+    await expect(provider.query(createEvent(), toContentProviderQuery({
       collection: 'missing'
-    })).rejects.toMatchObject({
+    }))).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unknown_collection',
       data: {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent, doc } from './_utils'
+import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({
@@ -82,7 +83,9 @@ describe('query execution contracts', () => {
     })
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
     const event = createEvent()
 
     const list = await executeContentQuery(event, {
@@ -197,7 +200,9 @@ describe('query execution contracts', () => {
     })
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
     const event = createEvent()
 
     await expect(executeContentQuery(event, {
@@ -229,7 +234,9 @@ describe('query execution contracts', () => {
       })
     ])
 
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
       collection: 'docs',
@@ -289,7 +296,9 @@ describe('query execution contracts', () => {
   })
 
   test('executeContentQuery rejects empty public graph queries', async () => {
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
       where: [{ path: '/guide/intro' }]
@@ -300,7 +309,9 @@ describe('query execution contracts', () => {
   })
 
   test('executeContentQuery rejects public regex filters before graph execution', async () => {
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
       collection: 'docs',
@@ -328,7 +339,9 @@ describe('query execution contracts', () => {
     getContentsList.mockResolvedValue(dataset)
     getContentManifest.mockResolvedValue({ byCanonical: {} })
 
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
       collection: 'docs',
@@ -356,7 +369,9 @@ describe('query execution contracts', () => {
     getContentsList.mockResolvedValue(dataset)
     getContentManifest.mockResolvedValue({ byCanonical: {} })
 
-    const { executeContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
       collection: 'docs',

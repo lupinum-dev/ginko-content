@@ -150,7 +150,7 @@ describe('compileWhere', () => {
       type: 'compare',
       field: 'title',
       operator: 'regex',
-      value: /intro/i
+      value: { source: 'intro', flags: 'i' }
     })
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createEvent } from './_utils'
 import { runSaasProviderFixtureContractSuite } from '../../packages/content/src/testing/provider-contract'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 
 const providerError = (code: string, details: Record<string, unknown> = {}) => Object.assign(new Error(code), {
   statusCode: code === 'missing_locale_route' ? 404 : 400,
@@ -9,17 +10,15 @@ const providerError = (code: string, details: Record<string, unknown> = {}) => O
 })
 
 vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
-  executeFilesystemContentQuery: vi.fn(async (_event, query) => {
-    if (query.collection === 'missing') {
+  // Receives a lowered ContentQueryPlan (CS-5), not builder params.
+  executeFilesystemContentQuery: vi.fn(async (_event, plan) => {
+    if (plan.collection === 'missing') {
       throw providerError('unknown_collection', { collection: 'missing' })
     }
-    if (query.where?.title?.$near) {
-      throw providerError('unsupported_query_operator', { operator: '$near' })
-    }
-    if (query.collection === 'versions') {
+    if (plan.collection === 'versions') {
       return { result: [{ title: 'Launch readiness' }], total: 1 }
     }
-    if (query.count) {
+    if (plan.mode === 'count') {
       return { result: 1 }
     }
     return {
@@ -136,10 +135,10 @@ describe('filesystem provider conformance', () => {
   test('accepts public prefix filters advertised by the query contract', async () => {
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    await expect(filesystemProvider.query(createEvent(), {
+    await expect(filesystemProvider.query(createEvent(), toContentProviderQuery({
       collection: 'posts',
       where: { path: { $prefix: '/magazin' } }
-    })).resolves.toMatchObject({
+    }))).resolves.toMatchObject({
       result: expect.any(Array)
     })
   })
@@ -148,7 +147,9 @@ describe('filesystem provider conformance', () => {
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
     expect(filesystemProvider.capabilities.query.operators).not.toContain('$options')
-    expect(() => filesystemProvider.query(createEvent(), {
+    // Standalone `$options` is rejected while lowering to the wire plan (CS-5),
+    // before the provider is reached.
+    expect(() => toContentProviderQuery({
       collection: 'posts',
       where: { title: { $options: 'i' } }
     })).toThrow('$options requires $regex')

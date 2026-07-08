@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -36,12 +37,12 @@ describe('in-memory provider scenario harness', () => {
   })
 
   test('supports list queries, projection, count, and navigation from the same scenario', async () => {
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] },
       sort: [{ order: 1 }],
       only: ['title', 'resolved']
-    })).resolves.toMatchObject({
+    }))).resolves.toMatchObject({
       result: [
         { title: 'Erste Schritte', resolved: { locale: 'de', fallback: false } },
         { title: 'Markdown Syntax DE', resolved: { locale: 'de', fallback: false } },
@@ -50,11 +51,11 @@ describe('in-memory provider scenario harness', () => {
       total: 3
     })
 
-    await expect(provider.query(event, {
+    await expect(provider.query(event, toContentProviderQuery({
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] },
       count: true
-    })).resolves.toEqual({ result: 3 })
+    }))).resolves.toEqual({ result: 3 })
 
     const navigation = await provider.navigation(event, 'docs', { locale: 'de' })
     expect(navigation.map(item => item.path)).toContain('/de/dokumentation/erste-schritte')
@@ -62,14 +63,15 @@ describe('in-memory provider scenario harness', () => {
   })
 
   test('fails loudly for unsupported operators, unknown collections, and data-only sitemap access', async () => {
-    await expectProviderError(provider.query(event, {
+    // Globally-invalid operators are rejected while lowering to the wire plan.
+    expect(() => toContentProviderQuery({
       collection: 'docs',
       where: { title: { $near: 'launch' } } as never
-    }), 'unsupported_query_operator', { operator: '$near' })
+    })).toThrow(/Unsupported content query operator: \$near/)
 
-    await expectProviderError(provider.query(event, {
+    await expectProviderError(provider.query(event, toContentProviderQuery({
       collection: 'missing'
-    }), 'unknown_collection', { collection: 'missing' })
+    })), 'unknown_collection', { collection: 'missing' })
 
     await expectProviderError(provider.sitemapEntries(event, {
       include: ['versions']

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { defineCollection, defineContentConfig } from '../../packages/content/src/types/config'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -11,9 +12,10 @@ const context = {
   runtime: scenario.runtime,
   transport: (endpoint: 'query' | 'navigation', params: any) => {
     if (endpoint === 'navigation') {
-      return provider.navigationQuery(event, params)
+      const { query, options } = toContentProviderNavigationQuery(params)
+      return provider.navigationQuery!(event, query, options)
     }
-    return provider.query(event, params)
+    return provider.query(event, toContentProviderQuery(params))
   }
 }
 

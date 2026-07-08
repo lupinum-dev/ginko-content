@@ -129,8 +129,10 @@ export type {
   ContentCacheInvalidateInput,
   ContentProvider,
   ContentProviderCapabilities,
+  ContentProviderNavigationOptions,
+  ContentProviderQuery,
   ContentProviderResult,
   MaybeContentProviderResult
 } from './provider.js'
-export { withContentCache } from './provider.js'
+export { PROVIDER_QUERY_VERSION, toContentProviderNavigationQuery, toContentProviderQuery, withContentCache } from './provider.js'
 export type { ContentProviderErrorCode } from './provider-errors.js'

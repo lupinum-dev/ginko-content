@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { getContentQuery } from '../../utils/query'
 import { getContentProvider } from '../providers'
+import { createProviderNavigationQuery } from '../provider-query'
 import { createContentProviderError } from '../../../public/provider-errors'
 
 export default defineEventHandler(async (event) => {
@@ -18,5 +19,6 @@ export default defineEventHandler(async (event) => {
       provider: provider.name
     })
   }
-  return await provider.navigationQuery(event, query)
+  const { query: providerQuery, options } = createProviderNavigationQuery(query)
+  return await provider.navigationQuery(event, providerQuery, options)
 })

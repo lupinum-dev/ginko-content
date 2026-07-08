@@ -1,10 +1,10 @@
-import type { ContentProvider } from '../../packages/content/src/public/provider'
+import type { ContentProvider, ContentProviderQuery } from '../../packages/content/src/public/provider'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider'
 import type { ContentQueryResponse } from '../../packages/content/src/types/api'
 import type { NavItem, ParsedContent } from '../../packages/content/src/types/content'
 import type { ContentQueryBuilderParams } from '../../packages/content/src/types/query'
 import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
-import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
-import { findUnsupportedQueryOperator, SUPPORTED_QUERY_OPERATORS } from '../../packages/content/src/core/query/operators'
+import { SUPPORTED_QUERY_OPERATORS } from '../../packages/content/src/core/query/operators'
 import { normalizeRouteMounts, projectContentPathToLocale } from '../../packages/content/src/features/localization/path'
 import { createRouteMeta, localizePageResult } from '../../packages/content/src/features/localization/results'
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
@@ -46,24 +46,21 @@ export const createInMemoryProvider = (scenario: ContentScenario, name = 'in-mem
     }
   }
 
-  const query: ContentProvider['query'] = async (_event, params) => {
-    assertCollection(params.collection)
-    const unsupported = findUnsupportedQueryOperator(params.where)
-    if (unsupported) {
-      throw createContentProviderError('unsupported_query_operator', `Unsupported query operator: ${unsupported}`, {
-        operator: unsupported
-      })
-    }
+  const query: ContentProvider['query'] = async (_event, providerQuery: ContentProviderQuery) => {
+    assertCollection(providerQuery.plan.collection)
 
     return executeQueryPlan(
       scenario.graph,
-      lowerQueryPlan(params),
+      providerQuery.plan,
       scenario.runtime
     )
   }
 
+  const queryWithParams = <T = ParsedContent>(event: any, params: ContentQueryBuilderParams) =>
+    query<T>(event, toContentProviderQuery(params))
+
 const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) => {
-    const response = await query<ParsedContent>(event, params)
+    const response = await queryWithParams<ParsedContent>(event, params)
     return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
       .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
   }
@@ -87,12 +84,15 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       }
     },
     query,
-    navigationQuery: async (event, params) => {
-      const docs = await docsForNavigation(event, params)
-      const queryLocale = params.resolveLocale?.locale
+    navigationQuery: async (event, providerQuery, navigationOptions = {}) => {
+      const response = await query<ParsedContent>(event, providerQuery)
+      const docs = normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
+        .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
+      const collection = providerQuery.collection ?? undefined
+      const queryLocale = navigationOptions.resolveLocale?.locale
       return docs.map(doc => ({
         title: doc.title,
-        path: localizePath(scenario, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
+        path: localizePath(scenario, doc.collection || collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
         locale: doc.locale
       })) as NavItem[]
     },
@@ -179,7 +179,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       if (scenario.collections[collection]?.type === 'data') {
         throw createContentProviderError('data_collection_route_access', `${collection} is a data collection.`, { collection })
       }
-      const response = await query<ParsedContent>(event, {
+      const response = await queryWithParams<ParsedContent>(event, {
         collection,
         first: true,
         resolveVariant: {

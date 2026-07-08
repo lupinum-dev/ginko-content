@@ -1,10 +1,10 @@
 import { defineEventHandler } from 'h3'
 import { getContentQuery } from '../../utils/query'
 import { getContentProvider } from '../providers'
-import { normalizeProviderQueryResponse } from '../provider-query'
+import { createProviderQuery, normalizeProviderQueryResponse } from '../provider-query'
 
 export default defineEventHandler(async (event) => {
   const query = getContentQuery(event)
   const provider = await getContentProvider(event)
-  return normalizeProviderQueryResponse(query, await provider.query(event, query), provider.name)
+  return normalizeProviderQueryResponse(query, await provider.query(event, createProviderQuery(query)), provider.name)
 })

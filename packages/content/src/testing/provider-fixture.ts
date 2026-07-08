@@ -1,12 +1,11 @@
-import { contentProviderResultMarker, type ContentCacheHint, type ContentCacheInvalidateInput, type ContentProvider } from '../public/provider'
+import { contentProviderResultMarker, toContentProviderQuery, type ContentCacheHint, type ContentCacheInvalidateInput, type ContentProvider, type ContentProviderQuery } from '../public/provider'
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, NavItem, ParsedContent } from '../types/content'
 import type { ContentCollectionPageOptions, ContentPageResult, ContentQueryBuilderParams } from '../types/query'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
-import { lowerQueryPlan } from '../core/query/lower'
-import { findUnsupportedQueryOperator, SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
+import { SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeContentPath, normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
 import { createRouteMeta, localizePageResult } from '../features/localization/results'
@@ -366,28 +365,27 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     }
   }
 
-  const query: ContentProvider['query'] = async (event, params) => {
-    assertCollection(params.collection)
-    const unsupported = findUnsupportedQueryOperator(params.where)
-    if (unsupported) {
-      throw createContentProviderError('unsupported_query_operator', `Unsupported query operator: ${unsupported}`, {
-        operator: unsupported
-      })
-    }
+  const query: ContentProvider['query'] = async (event, providerQuery: ContentProviderQuery) => {
+    assertCollection(providerQuery.plan.collection)
 
     collectProviderFixtureCacheHint(event, {
-      tags: params.collection ? [collectionTag(params.collection)] : []
+      tags: providerQuery.collection ? [collectionTag(providerQuery.collection)] : []
     })
 
     return executeQueryPlan(
       fixture.graph,
-      lowerQueryPlan(params),
+      providerQuery.plan,
       fixture.runtime
     )
   }
 
+  // Internal helper: lower builder params to the wire query so the fixture's
+  // navigation/page/surroundings helpers can reuse the single `query` path.
+  const queryWithParams = <T = ParsedContent>(event: H3Event, params: ContentQueryBuilderParams) =>
+    query<T>(event, toContentProviderQuery(params))
+
   const docsForNavigation = async (event: H3Event, params: ContentQueryBuilderParams) => {
-    const response = await query<ParsedContent>(event, params)
+    const response = await queryWithParams<ParsedContent>(event, params)
     return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
       .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
   }
@@ -411,20 +409,23 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       }
     },
     query,
-    navigationQuery: async (event, params) => {
-      const docs = await docsForNavigation(event, params)
+    navigationQuery: async (event, providerQuery, navigationOptions = {}) => {
+      const response = await query<ParsedContent>(event, providerQuery)
+      const docs = normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
+        .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
+      const collection = providerQuery.collection ?? undefined
+      const queryLocale = navigationOptions.resolveLocale?.locale
       collectProviderFixtureCacheHint(event, {
         tags: [
-          ...(params.collection ? [collectionTag(params.collection)] : []),
-          ...(params.resolveLocale?.locale ? [`nav:${params.collection || 'all'}:${params.resolveLocale.locale}`] : [])
+          ...(collection ? [collectionTag(collection)] : []),
+          ...(queryLocale ? [`nav:${collection || 'all'}:${queryLocale}`] : [])
         ]
       })
-      const queryLocale = params.resolveLocale?.locale
       return docs.map(doc => ({
         title: doc.title,
         ...navIdentityFromDoc(doc),
         canonicalPath: normalizeContentPath(doc.path || '/'),
-        path: localizePath(fixture, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
+        path: localizePath(fixture, doc.collection || collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
         locale: doc.locale
       })) as NavItem[]
     },
@@ -539,7 +540,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       const routeLocale = segments[0] && fixture.locales.includes(segments[0]) ? segments[0] : undefined
       const providerRoute = routeLocale ? `/${segments.slice(1).join('/')}` : routeOrPath
       const requestedLocale = options.locale || routeLocale
-      const response = await query<ParsedContent>(event, {
+      const response = await queryWithParams<ParsedContent>(event, {
         collection,
         first: true,
         resolveVariant: {
