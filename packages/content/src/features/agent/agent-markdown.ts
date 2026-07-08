@@ -1,0 +1,278 @@
+import type { MarkdownNode, ParsedContent } from '../../types/content'
+import type { AgentMetadataField, ContentCollectionConfig } from '../../types/config'
+
+export interface AgentMarkdownPublicSignals {
+  search?: 'yes' | 'no'
+  aiInput?: 'yes' | 'no'
+  aiTrain?: 'yes' | 'no'
+}
+
+export interface ResolvedAgentMarkdownOptions {
+  includeInIndex: boolean
+  includeInFull: boolean
+  metadata: AgentMetadataField[]
+}
+
+export interface AgentMarkdown {
+  path: string
+  markdownPath: string
+  rawPath: string
+  locale?: string
+  collection: string
+  title: string
+  description: string
+  markdown: string
+  sourceFile?: string
+  canonicalUrl: string
+  lastModified?: string
+  publicSignals?: AgentMarkdownPublicSignals
+  metadataFields: string[]
+  includeInIndex: boolean
+  includeInFull: boolean
+}
+
+export type AgentMarkdownMeta = Omit<AgentMarkdown, 'markdown'>
+
+export interface AgentMarkdownContext {
+  collection: string
+  page: ParsedContent
+  path: string
+  locale?: string
+  prop: (name: string) => string
+  props: (node?: MarkdownNode) => Record<string, unknown>
+  cleanProps: (node?: MarkdownNode) => Record<string, unknown>
+  children: (node?: MarkdownNode) => string
+  renderChildren: (node: MarkdownNode) => string
+  renderNode: (node: MarkdownNode) => string
+  blockquote: (value: string) => string
+  jsonFence: (value: unknown) => string
+  link: (label: string, href: string) => string
+  omitted: (name: string, reason?: string) => string
+  xmlComponent: (name: string, props?: Record<string, unknown>, children?: string) => string
+}
+
+export type AgentMarkdownSerializer = (node: MarkdownNode, ctx: AgentMarkdownContext) => string | null | undefined
+export type AgentMarkdownSerializerMap = Record<string, AgentMarkdownSerializer>
+export interface AgentMarkdownSerializerRegistrationOptions {
+  override?: boolean
+}
+export interface AgentMarkdownComponent {
+  render: AgentMarkdownSerializer
+}
+export type AgentMarkdownComponentMap = Record<string, AgentMarkdownComponent>
+
+const serializers = new Map<string, AgentMarkdownSerializer>()
+
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+export const getMarkdownProp = (node: MarkdownNode, name: string) => {
+  const props = isRecord(node.props) ? node.props : {}
+  const value = props[name]
+  return typeof value === 'string' ? value : ''
+}
+
+export const renderMarkdownChildren = (node: MarkdownNode, ctx: AgentMarkdownContext) =>
+  ctx.renderChildren(node)
+
+export const blockquoteMarkdown = (value: string) =>
+  value.trim().split('\n').map(line => line ? `> ${line}` : '>').join('\n')
+
+export const escapeMarkdownLinkLabel = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]')
+
+const escapeMarkdownLinkHref = (value: string) =>
+  value.replace(/\)/g, '%29').replace(/\s/g, '%20')
+
+const isSafeMarkdownHref = (href: string) => {
+  if (!href) return false
+  if (href.startsWith('//')) return false
+  if (href.startsWith('/') || href.startsWith('#') || href.startsWith('./') || href.startsWith('../')) return true
+  return /^(https?:|mailto:|tel:)/i.test(href)
+}
+
+export const linkMarkdown = (label: string, href: string) => {
+  const resolvedLabel = label || href
+  if (!href || !isSafeMarkdownHref(href)) return escapeMarkdownLinkLabel(resolvedLabel)
+  return `[${escapeMarkdownLinkLabel(resolvedLabel)}](${escapeMarkdownLinkHref(href)})`
+}
+
+export const imageMarkdown = (alt: string, src: string) => {
+  if (!src || !isSafeMarkdownHref(src)) return escapeMarkdownLinkLabel(alt || src)
+  return `![${escapeMarkdownLinkLabel(alt)}](${escapeMarkdownLinkHref(src)})`
+}
+
+export const jsonFenceMarkdown = (value: unknown) =>
+  `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``
+
+const xmlNamePattern = /^[a-z][\w.:-]*$/i
+
+const safeXmlName = (name: string) =>
+  xmlNamePattern.test(name) ? name : 'component'
+
+const escapeXmlAttribute = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+const isScalarXmlAttributeValue = (value: unknown) =>
+  typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+
+const shouldDropAgentProp = (name: string) => {
+  const normalized = name.trim()
+  const sensitive = normalized.toLowerCase()
+  return !normalized
+    || normalized === 'class'
+    || normalized === 'style'
+    || normalized === 'key'
+    || normalized === 'ref'
+    || normalized.startsWith('v-')
+    || normalized.startsWith('@')
+    || normalized.startsWith('on')
+    || normalized.startsWith('data-')
+    || normalized.startsWith('aria-')
+    || /token|secret|password|passwd|credential|authorization|apikey|api-key|clientsecret|client-secret|privatekey|private-key|accesskey|access-key/i.test(sensitive)
+}
+
+const normalizeAgentPropName = (name: string) => {
+  const normalized = name.trim()
+  if (normalized.startsWith(':')) return normalized.slice(1)
+  if (normalized.startsWith('v-bind:')) return normalized.slice('v-bind:'.length)
+  return normalized
+}
+
+const cleanAgentPropValue = (value: unknown): unknown => {
+  if (value === undefined || value === null || value === '') return undefined
+  if (Array.isArray(value)) {
+    const clean = value
+      .map(entry => cleanAgentPropValue(entry))
+      .filter(entry => entry !== undefined)
+    return clean.length ? clean : undefined
+  }
+  if (isRecord(value)) {
+    const clean = cleanPropsObject(value)
+    return Object.keys(clean).length ? clean : undefined
+  }
+  return value
+}
+
+export const cleanPropsObject = (props: unknown) => {
+  if (!isRecord(props)) return {}
+  const clean: Record<string, unknown> = {}
+  for (const [name, value] of Object.entries(props)) {
+    const normalizedName = normalizeAgentPropName(name)
+    const cleanedValue = cleanAgentPropValue(value)
+    if (shouldDropAgentProp(normalizedName) || cleanedValue === undefined) continue
+    if (!(normalizedName in clean) || normalizedName === name.trim()) {
+      clean[normalizedName] = cleanedValue
+    }
+  }
+  return clean
+}
+
+export const xmlComponentMarkdown = (
+  name: string,
+  props: Record<string, unknown> = {},
+  children = ''
+) => {
+  const tagName = safeXmlName(name)
+  const cleanProps = cleanPropsObject(props)
+  const attrs: string[] = []
+  const complexProps: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(cleanProps)) {
+    if (!xmlNamePattern.test(key)) {
+      complexProps[key] = value
+      continue
+    }
+    if (isScalarXmlAttributeValue(value)) {
+      attrs.push(`${key}="${escapeXmlAttribute(String(value))}"`)
+      continue
+    }
+    complexProps[key] = value
+  }
+
+  const attrText = attrs.length ? ` ${attrs.join(' ')}` : ''
+  const bodyParts = [
+    Object.keys(complexProps).length ? jsonFenceMarkdown(complexProps) : '',
+    children.trim()
+  ].filter(Boolean)
+
+  if (!bodyParts.length) return `<${tagName}${attrText} />`
+
+  return `<${tagName}${attrText}>\n${bodyParts.join('\n\n')}\n</${tagName}>`
+}
+
+export const registerAgentMarkdownSerializer = (
+  name: string,
+  serializer: AgentMarkdownSerializer,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
+  const existing = serializers.get(name)
+  if (existing === serializer && !options.override) return
+  if (existing && !options.override) {
+    throw new Error(
+      `Agent Markdown serializer "${name}" is already registered. ` +
+      'Use { override: true } only when replacing an existing serializer intentionally.'
+    )
+  }
+  serializers.set(name, serializer)
+}
+
+export const registerAgentMarkdownSerializers = (
+  entries: AgentMarkdownSerializerMap,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
+  for (const [name, serializer] of Object.entries(entries)) {
+    registerAgentMarkdownSerializer(name, serializer, options)
+  }
+}
+
+export const defineAgentMarkdownComponent = (component: AgentMarkdownComponent) => component
+
+export const registerAgentMarkdownComponent = (
+  name: string,
+  component: AgentMarkdownComponent,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
+  registerAgentMarkdownSerializer(name, component.render, options)
+}
+
+export const registerAgentMarkdownComponents = (
+  entries: AgentMarkdownComponentMap,
+  options: AgentMarkdownSerializerRegistrationOptions = {}
+) => {
+  for (const [name, component] of Object.entries(entries)) {
+    registerAgentMarkdownComponent(name, component, options)
+  }
+}
+
+export const clearAgentMarkdownSerializers = () => {
+  serializers.clear()
+}
+
+export const getAgentMarkdownSerializer = (name: string) => serializers.get(name)
+
+export const resolveAgentMarkdownOptions = (
+  collection: ContentCollectionConfig | undefined
+): ResolvedAgentMarkdownOptions | null => {
+  if (!collection || collection.type === 'data') return null
+  const value = collection.agent?.markdown
+  if (value === true) {
+    return {
+      includeInIndex: true,
+      includeInFull: true,
+      metadata: []
+    }
+  }
+  if (!value || !isRecord(value)) return null
+  return {
+    includeInIndex: value.includeInIndex !== false,
+    includeInFull: value.includeInFull !== false,
+    metadata: Array.isArray(value.metadata)
+      ? value.metadata.filter((field): field is AgentMetadataField => typeof field === 'string' && field.length > 0)
+      : []
+  }
+}
