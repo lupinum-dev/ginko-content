@@ -55,7 +55,7 @@ describe('cms-import', () => {
     expect(markdown.body).toBe('# Intro\n\nWelcome to the docs.')
     expect(markdown.document).toMatchObject({
       collection: 'docs',
-      _locale: 'en',
+      locale: 'en',
       path: '/docs/intro',
       type: 'markdown',
       title: 'Intro',
@@ -82,7 +82,7 @@ describe('cms-import', () => {
     expect(mdc.body).toContain('::callout')
     expect(mdc.document).toMatchObject({
       collection: 'docs',
-      _locale: 'de',
+      locale: 'de',
       path: '/docs/einstieg',
       type: 'markdown',
       title: 'Einstieg'

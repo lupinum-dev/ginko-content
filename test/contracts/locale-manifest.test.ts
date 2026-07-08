@@ -123,7 +123,7 @@ describe('locale and manifest contracts', () => {
         id: 'content:de:leitfaden:erste-schritte.md',
         file: { path: '/de/leitfaden/erste-schritte.md' },
         path: '/leitfaden/erste-schritte',
-        _locale: 'de',
+        locale: 'de',
         title: 'Einstieg'
       }),
       doc({
@@ -137,7 +137,7 @@ describe('locale and manifest contracts', () => {
         id: 'content:fr:guide:advanced.md',
         file: { path: '/fr/guide/advanced.md' },
         path: '/guide/advanced',
-        _locale: 'fr',
+        locale: 'fr',
         canonicalKey: 'guide/advanced',
         title: 'Avance'
       }),
@@ -146,7 +146,7 @@ describe('locale and manifest contracts', () => {
         file: { path: '/authors.yml' },
         path: '/authors/evan',
         type: 'yaml',
-        _locale: 'de',
+        locale: 'de',
         canonicalKey: 'authors/evan',
         title: 'Evan DE'
       })

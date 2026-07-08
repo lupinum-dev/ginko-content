@@ -125,7 +125,7 @@ const internalDocumentFields = new Set([
   'partial',
   'draft',
   '_dir',
-  '_locale',
+  'locale',
   'navigationFile',
   'resolved',
   'body'
@@ -333,25 +333,25 @@ export const validateContentGraph = (
 
   for (const document of routeEntries) {
     const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
-    const localeKey = `${canonicalId}:${document._locale || ''}`
+    const localeKey = `${canonicalId}:${document.locale || ''}`
     if (idsByLocale.has(localeKey)) {
       const previous = idsByLocale.get(localeKey)!
       return fail(createContentError(
         'DUPLICATE_CANONICAL_ID',
         document.file?.path || document.id,
-        `duplicate canonical id "${canonicalId}" for locale "${document._locale || 'default'}"`,
+        `duplicate canonical id "${canonicalId}" for locale "${document.locale || 'default'}"`,
         `conflicts with ${previous.file?.path || previous.id}`
       ))
     }
     idsByLocale.set(localeKey, document)
 
-    const pathKey = `${document._locale || ''}:${document.path || ''}`
+    const pathKey = `${document.locale || ''}:${document.path || ''}`
     if (pathsByLocale.has(pathKey)) {
       const previous = pathsByLocale.get(pathKey)!
       return fail(createContentError(
         'DUPLICATE_LOCALIZED_PATH',
         document.file?.path || document.id,
-        `duplicate localized path "${document.path}" for locale "${document._locale || 'default'}"`,
+        `duplicate localized path "${document.path}" for locale "${document.locale || 'default'}"`,
         `conflicts with ${previous.file?.path || previous.id}`
       ))
     }

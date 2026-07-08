@@ -48,7 +48,7 @@ describe('server reference contracts', () => {
       id: 'content:de:index.yml',
       file: { path: '/de/index.yml' },
       path: '/',
-      _locale: 'de',
+      locale: 'de',
       type: 'yaml',
       collection: 'landing',
       canonicalKey: 'index',
@@ -70,7 +70,7 @@ describe('server reference contracts', () => {
       id: 'content:de:guide:advanced.md',
       file: { path: '/de/guide/advanced.md' },
       path: '/leitfaden/fortgeschritten',
-      _locale: 'de',
+      locale: 'de',
       canonicalKey: 'guide/advanced',
       collection: 'docs',
       ref: 'guide/advanced',
@@ -204,7 +204,7 @@ describe('server reference contracts', () => {
       exact: true,
       collection: 'docs'
     })).resolves.toMatchObject({
-      _locale: 'de',
+      locale: 'de',
       resolved: {
         locale: 'de',
         fallback: false
@@ -216,7 +216,7 @@ describe('server reference contracts', () => {
       fallback: ['de', 'en'],
       collection: 'docs'
     })).resolves.toMatchObject({
-      _locale: 'de',
+      locale: 'de',
       resolved: {
         locale: 'de',
         fallback: true,
@@ -257,7 +257,7 @@ describe('server reference contracts', () => {
       where: [
         { path: '/guide/advanced' },
         { draft: { $ne: true } },
-        { _locale: 'en' }
+        { locale: 'en' }
       ],
       collection: 'docs',
       sort: [{ 'file.stem': 1, $numeric: true }]

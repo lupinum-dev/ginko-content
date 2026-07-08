@@ -96,7 +96,7 @@ export const resolveCollectionPageData = async <T = ParsedContent> (
   if (options.canonical) {
     const resolution = page.resolved
     const canonicalPath = normalizeContentPath(page.path || '/')
-    const resolvedLocale = resolution?.locale || page._locale || resolved.locale || defaultLocale || ''
+    const resolvedLocale = resolution?.locale || page.locale || resolved.locale || defaultLocale || ''
     const requestedLocale = resolution?.requestedLocale || resolved.locale
     const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
     return {

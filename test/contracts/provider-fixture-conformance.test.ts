@@ -89,14 +89,14 @@ describe('provider fixture conformance', () => {
     const sections = await provider.searchSections!(event, 'posts', {
       locale: 'de',
       filterQuery: { title: { $icontains: 'Onboarding' } },
-      extraFields: ['authors', '_locale']
+      extraFields: ['authors', 'locale']
     })
 
     expect(sections).toEqual([
       expect.objectContaining({
         id: '/de/magazin/mehrsprachiges-onboarding',
         authors: ['authors.emily'],
-        _locale: 'de'
+        locale: 'de'
       })
     ])
   })

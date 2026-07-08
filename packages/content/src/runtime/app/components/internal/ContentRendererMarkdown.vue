@@ -46,7 +46,7 @@ const runtimeContent = useRuntimeConfig().public?.content || {}
 const attrs = useAttrs()
 const { unwrap: unwrapRoot } = useUnwrap()
 const localePath = useLocalePath()
-const locale = computed(() => props.value.locale || props.value.resolved?.locale || props.value._locale)
+const locale = computed(() => props.value.locale || props.value.resolved?.locale || props.value.locale)
 const linkLocale = computed(() => props.value.resolved?.requestedLocale || locale.value)
 const defaultLocale = computed(() => props.value.defaultLocale || runtimeContent.defaultLocale)
 const locales = computed(() => {

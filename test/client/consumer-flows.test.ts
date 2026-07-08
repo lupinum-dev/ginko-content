@@ -65,7 +65,7 @@ describe('public client query flows against an in-memory content scenario', () =
       transport: async () => ({
         path: '/plain/about',
         file: { path: 'plain/about.md' },
-        _locale: 'en',
+        locale: 'en',
         resolved: {
           variantPaths: {
             en: '/plain/about'

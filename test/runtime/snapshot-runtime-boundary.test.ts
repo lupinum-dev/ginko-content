@@ -21,7 +21,7 @@ const document = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
   path: '/docs/intro',
   file: { source: 'content', path: '/docs/intro.md' },
   type: 'markdown',
-  _locale: 'en',
+  locale: 'en',
   canonicalKey: 'docs/intro',
   title: 'Intro',
   body: { type: 'root', children: [] },

@@ -32,7 +32,7 @@ const mergeFilterQuery = (
   filterQuery?: ContentQueryBuilderWhere,
   locale?: string
 ): ContentQueryBuilderWhere | undefined => {
-  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { _locale: locale } : undefined
+  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { locale: locale } : undefined
   if (filterQuery && localeFilter) {
     return { $and: [filterQuery, localeFilter] }
   }

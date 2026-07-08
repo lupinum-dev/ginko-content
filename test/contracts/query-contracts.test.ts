@@ -61,13 +61,13 @@ describe('query execution contracts', () => {
 
   test('executeContentQuery resolves locale variants and composes count/skip/limit/projection', async () => {
     const dataset = [
-      doc({ collection: 'docs', title: 'Intro EN', canonicalKey: 'docs/intro', _locale: 'en', path: '/guide/intro', order: 2 }),
-      doc({ collection: 'docs', title: 'Intro DE', id: 'content:de:guide:intro.md', file: { path: '/de/guide/intro.md' }, canonicalKey: 'docs/intro', _locale: 'de', path: '/leitfaden/einstieg', order: 1 }),
-      doc({ collection: 'docs', title: 'Advanced EN', id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, canonicalKey: 'docs/advanced', _locale: 'en', path: '/guide/advanced', order: 4 }),
-      doc({ collection: 'docs', title: 'Guide EN', id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, canonicalKey: 'docs/guide', _locale: 'en', path: '/guide', order: 3 }),
-      doc({ collection: 'docs', title: 'Middle DE', id: 'content:de:guide:middle.md', file: { path: '/de/guide/middle.md' }, canonicalKey: 'docs/middle', _locale: 'de', path: '/leitfaden/mitte', order: 3.5 }),
-      doc({ collection: 'docs', title: 'Zed EN', id: 'content:en:guide:zed.md', file: { path: '/en/guide/zed.md' }, canonicalKey: 'docs/zed', _locale: 'en', path: '/guide/zed', order: 0 }),
-      doc({ collection: 'docs', title: 'Zed DE', id: 'content:de:guide:zed.md', file: { path: '/de/guide/zed.md' }, canonicalKey: 'docs/zed', _locale: 'de', path: '/leitfaden/zed', order: 5 })
+      doc({ collection: 'docs', title: 'Intro EN', canonicalKey: 'docs/intro', locale: 'en', path: '/guide/intro', order: 2 }),
+      doc({ collection: 'docs', title: 'Intro DE', id: 'content:de:guide:intro.md', file: { path: '/de/guide/intro.md' }, canonicalKey: 'docs/intro', locale: 'de', path: '/leitfaden/einstieg', order: 1 }),
+      doc({ collection: 'docs', title: 'Advanced EN', id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, canonicalKey: 'docs/advanced', locale: 'en', path: '/guide/advanced', order: 4 }),
+      doc({ collection: 'docs', title: 'Guide EN', id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, canonicalKey: 'docs/guide', locale: 'en', path: '/guide', order: 3 }),
+      doc({ collection: 'docs', title: 'Middle DE', id: 'content:de:guide:middle.md', file: { path: '/de/guide/middle.md' }, canonicalKey: 'docs/middle', locale: 'de', path: '/leitfaden/mitte', order: 3.5 }),
+      doc({ collection: 'docs', title: 'Zed EN', id: 'content:en:guide:zed.md', file: { path: '/en/guide/zed.md' }, canonicalKey: 'docs/zed', locale: 'en', path: '/guide/zed', order: 0 }),
+      doc({ collection: 'docs', title: 'Zed DE', id: 'content:de:guide:zed.md', file: { path: '/de/guide/zed.md' }, canonicalKey: 'docs/zed', locale: 'de', path: '/leitfaden/zed', order: 5 })
     ]
 
     getContentsList.mockResolvedValue(dataset)
@@ -182,9 +182,9 @@ describe('query execution contracts', () => {
 
   test('executeContentQuery reports not-found errors for missing locale-resolved results', async () => {
     const dataset = [
-      doc({ collection: 'docs', title: 'Intro DE', id: 'content:de:guide:intro.md', file: { path: '/de/guide/intro.md' }, canonicalKey: 'docs/intro', _locale: 'de', path: '/leitfaden/einstieg', order: 1 }),
-      doc({ collection: 'docs', title: 'Guide EN', id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, canonicalKey: 'docs/guide', _locale: 'en', path: '/guide', order: 2 }),
-      doc({ collection: 'docs', title: 'Advanced EN', id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, canonicalKey: 'docs/advanced', _locale: 'en', path: '/guide/advanced', order: 3 })
+      doc({ collection: 'docs', title: 'Intro DE', id: 'content:de:guide:intro.md', file: { path: '/de/guide/intro.md' }, canonicalKey: 'docs/intro', locale: 'de', path: '/leitfaden/einstieg', order: 1 }),
+      doc({ collection: 'docs', title: 'Guide EN', id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, canonicalKey: 'docs/guide', locale: 'en', path: '/guide', order: 2 }),
+      doc({ collection: 'docs', title: 'Advanced EN', id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, canonicalKey: 'docs/advanced', locale: 'en', path: '/guide/advanced', order: 3 })
     ]
 
     getContentsList.mockResolvedValue(dataset)

@@ -165,7 +165,7 @@ describe('query plan contracts', () => {
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const graph = buildContentGraph([
-      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', _locale: undefined, canonicalKey: 'docs/intro', title: 'Intro' })
+      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', locale: undefined, canonicalKey: 'docs/intro', title: 'Intro' })
     ])
     const plan = lowerQueryPlan({
       collection: 'docs',

@@ -50,7 +50,7 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
         .where('navigation', '!=', false)
 
       if (locale) {
-        contentsQuery = contentsQuery.where('_locale', '=', locale)
+        contentsQuery = contentsQuery.where('locale', '=', locale)
       }
 
       let dirConfigsQuery = createServerContentQuery(event)
@@ -58,7 +58,7 @@ export async function resolveContentNavigation (event: H3Event, inputQuery: Cont
         .where('partial', '=', true)
 
       if (locale) {
-        dirConfigsQuery = dirConfigsQuery.where('_locale', '=', locale)
+        dirConfigsQuery = dirConfigsQuery.where('locale', '=', locale)
       }
 
       const contents = await contentsQuery.all()

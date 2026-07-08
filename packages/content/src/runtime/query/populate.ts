@@ -16,7 +16,7 @@ const LOCALIZED_DOC_INTERNAL_FIELDS = [
   'path',
   'file',
   'canonicalKey',
-  '_locale',
+  'locale',
   'resolved'
 ] as const
 

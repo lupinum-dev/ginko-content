@@ -138,7 +138,7 @@ export const resolveProviderContentVariants = async (
   const provider = await getContentProvider(event)
   const baseQuery = {
     collection: options.collection,
-    only: ['path', 'canonicalKey', '_locale', 'ref', 'title', 'description', 'body'],
+    only: ['path', 'canonicalKey', 'locale', 'ref', 'title', 'description', 'body'],
   }
   const documents = localesToQuery.length
     ? (
@@ -169,7 +169,7 @@ export const resolveProviderContentVariants = async (
   }
 
   const selectByLocale = (locale?: string) =>
-    locale ? variants.find(document => document._locale === locale) : undefined
+    locale ? variants.find(document => document.locale === locale) : undefined
   const selected =
     selectByLocale(options.locale) ||
     (!options.exact ? fallbackLocales.map(selectByLocale).find(Boolean) : undefined) ||
@@ -180,11 +180,11 @@ export const resolveProviderContentVariants = async (
     return null
   }
 
-  const availableLocales = Array.from(new Set(variants.map(document => document._locale).filter(Boolean))) as string[]
+  const availableLocales = Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[]
   const variantPaths = Object.fromEntries(
     variants
-      .filter(document => document._locale && document.path)
-      .map(document => [document._locale!, document.path!]),
+      .filter(document => document.locale && document.path)
+      .map(document => [document.locale!, document.path!]),
   )
 
   return {
@@ -194,8 +194,8 @@ export const resolveProviderContentVariants = async (
     availableLocales,
     variantPaths,
     requestedLocale: options.locale,
-    resolvedLocale: selected._locale,
-    fallback: Boolean(options.locale && selected._locale && selected._locale !== options.locale)
+    resolvedLocale: selected.locale,
+    fallback: Boolean(options.locale && selected.locale && selected.locale !== options.locale)
   }
 }
 

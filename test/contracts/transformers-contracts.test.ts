@@ -21,7 +21,7 @@ describe('transformer contracts', () => {
       draft: false,
       path: '/frontmatter-path',
       partial: true,
-      _locale: 'de',
+      locale: 'de',
       canonicalKey: 'frontmatter-key',
       collection: 'frontmatter-collection',
       file: {
@@ -42,7 +42,7 @@ describe('transformer contracts', () => {
       path: '/guide/intro',
       draft: false,
       partial: false,
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: '/guide/intro',
       collection: 'docs',
       file: {

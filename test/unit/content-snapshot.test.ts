@@ -22,7 +22,7 @@ describe('content snapshots', () => {
         doc(),
         doc({
           id: 'content:docs:intro.md#__locale=de',
-          _locale: 'de',
+          locale: 'de',
           path: '/de/docs/intro'
         })
       ]

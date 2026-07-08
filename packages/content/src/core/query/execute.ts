@@ -275,22 +275,22 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
   const indexByCanonical = new Map<string, number>()
 
   for (const item of candidates.filter(item => evaluateQueryPlanFilter(item, plan.filter))) {
-    if (plan.resolveLocale?.exact && item._locale !== requestedLocale) {
+    if (plan.resolveLocale?.exact && item.locale !== requestedLocale) {
       continue
     }
 
     const key = item.canonicalKey || item.id || item.id || item.path
-    const rank = localeRank.get(item._locale || '') ?? Number.MAX_SAFE_INTEGER
+    const rank = localeRank.get(item.locale || '') ?? Number.MAX_SAFE_INTEGER
     const availableLocales = item.canonicalKey
       ? Object.keys(graph.byCanonical[item.canonicalKey] || {})
-      : [item._locale].filter(Boolean) as string[]
+      : [item.locale].filter(Boolean) as string[]
     const enriched = {
       ...item,
       resolved: {
         ...(item.resolved || {}),
         requestedLocale,
-        locale: item._locale,
-        fallback: item._locale !== requestedLocale,
+        locale: item.locale,
+        fallback: item.locale !== requestedLocale,
         availableLocales
       }
     } as T

@@ -102,14 +102,14 @@ export const runSaasProviderFixtureContractSuite = ({
       resolveLocale: { locale: 'de', fallback: false },
       sort: [{ date: -1 }],
       limit: 1,
-      only: ['title', 'path', '_locale']
-    })) as { result: Array<{ title?: string, path?: string, _locale?: string }>, total?: number }
+      only: ['title', 'path', 'locale']
+    })) as { result: Array<{ title?: string, path?: string, locale?: string }>, total?: number }
 
     expect(response.result).toEqual([
       {
         title: 'Mehrsprachiges Onboarding',
         path: '/magazin/mehrsprachiges-onboarding',
-        _locale: 'de'
+        locale: 'de'
       }
     ])
     expect(typeof response.total).toBe('number')
@@ -129,7 +129,7 @@ export const runSaasProviderFixtureContractSuite = ({
     const nav = unwrapProviderResult(await provider.navigation?.(event, 'docs', { locale: 'de' }))
     expect(collectNavPaths(nav || [])).toContain('/dokumentation/einstieg')
     expect(nav?.[0]).toEqual(expect.objectContaining({
-      _locale: 'de',
+      locale: 'de',
       ref: expect.any(String),
       stableId: expect.any(String)
     }))
@@ -146,7 +146,7 @@ export const runSaasProviderFixtureContractSuite = ({
       description: expect.any(String)
     }))
 
-    const globalNav = unwrapProviderResult(await provider.navigationQuery?.(event, { where: { _locale: 'de' } }))
+    const globalNav = unwrapProviderResult(await provider.navigationQuery?.(event, { where: { locale: 'de' } }))
     const globalNavPaths = collectNavPaths(globalNav || [])
     expect(globalNavPaths).toContain('/dokumentation/einstieg')
     expect(globalNavPaths.length).toBeGreaterThan(0)

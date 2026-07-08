@@ -259,8 +259,8 @@ export const buildReferenceTargets = (contents: ParsedContent[], locales: string
       targets.set(normalizedPath, canonicalId)
     }
 
-    if (document._locale && normalizedPath) {
-      targets.set(`${document._locale}/${normalizedPath}`, canonicalId)
+    if (document.locale && normalizedPath) {
+      targets.set(`${document.locale}/${normalizedPath}`, canonicalId)
     }
   }
 

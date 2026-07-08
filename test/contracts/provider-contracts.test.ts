@@ -419,7 +419,7 @@ describe('content provider contract', () => {
         title: 'Einfuehrung',
         path: '/de/dokumentation/einstieg',
         canonicalKey: 'docs/getting-started',
-        _locale: 'de',
+        locale: 'de',
         stableId: 'docs-getting-started',
         ref: 'docs-getting-started',
         children: [
@@ -427,7 +427,7 @@ describe('content provider contract', () => {
             title: 'Installation',
             path: '/de/dokumentation/einstieg/installation',
             canonicalKey: 'docs/getting-started/installation',
-            _locale: 'de',
+            locale: 'de',
             stableId: 'docs-installation',
             ref: 'docs-installation'
           }
@@ -436,13 +436,13 @@ describe('content provider contract', () => {
       {
         title: 'Grundlagen',
         canonicalKey: 'docs/essentials',
-        _locale: 'de',
+        locale: 'de',
         children: [
           {
             title: 'Fallback Lab',
             path: '/de/docs/essentials/fallback-lab',
             canonicalKey: 'docs/essentials/fallback-lab',
-            _locale: 'en',
+            locale: 'en',
             _fallback: true,
             stableId: 'docs-fallback-lab',
             ref: 'docs-fallback-lab'

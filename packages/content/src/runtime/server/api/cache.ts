@@ -1,21 +1,21 @@
 import { defineEventHandler } from 'h3'
-import type { NavItem, ParsedContent } from '../../../types/content'
+import type { MissingDocument, NavItem, ParsedContent } from '../../../types/content'
+import { isRealDocument } from '../../../core/content/document'
 import { assertSnapshotComplete, buildContentSnapshot } from '../../../core/content/snapshot'
 import { chunksFromArray, loadContentVariants } from '../../../storage/contents'
 import { getContentProvider } from '../providers'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { cacheStorage, contentConfig, getSourceContentIds } from '../storage-access'
 
-const isRealDocument = (document: ParsedContent) => {
-  return document.body !== null && typeof document.path === 'string' && document.path.length > 0
-}
+const hasRoutePath = (document: ParsedContent) =>
+  typeof document.path === 'string' && document.path.length > 0
 
 /**
  * A source id that produced no snapshot document failed one of two ways;
  * naming which one turns a confusing build failure into an actionable one.
  */
-const describeExcludedSource = (variants: ParsedContent[]) => {
-  if (variants.length === 0 || variants.every(variant => variant.body === null)) {
+const describeExcludedSource = (variants: Array<ParsedContent | MissingDocument>) => {
+  if (variants.every(variant => !isRealDocument(variant))) {
     return 'unreadable (source missing or failed to parse)'
   }
   return 'no route path (parsed, but every variant lacks a path)'
@@ -31,11 +31,11 @@ export default defineEventHandler(async (event) => {
   for (const chunk of chunksFromArray(sourceIds, 10)) {
     const results = await Promise.all(chunk.map(async (id) => [id, await loadContentVariants(event, id)] as const))
     for (const [id, variants] of results) {
-      const real = variants.filter(isRealDocument)
-      if (real.length === 0) {
+      const routable = variants.filter(isRealDocument).filter(hasRoutePath)
+      if (routable.length === 0) {
         excluded.set(id, describeExcludedSource(variants))
       }
-      documents.push(...real)
+      documents.push(...routable)
     }
   }
 

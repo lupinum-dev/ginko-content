@@ -20,7 +20,7 @@ const NAVIGATION_INTERNAL_FIELDS = [
   'path',
   'file',
   'canonicalKey',
-  '_locale',
+  'locale',
   'draft',
   'navigation',
   'title'

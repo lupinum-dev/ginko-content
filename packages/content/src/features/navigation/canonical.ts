@@ -10,7 +10,7 @@ export interface CanonicalNavigationItem {
   page?: false
   id?: string
   canonicalKey?: string
-  _locale?: string
+  locale?: string
   fallback?: boolean
   draft?: boolean
   file?: ContentFileMeta
@@ -226,7 +226,7 @@ const projectNavigationItem = (
     ...base,
     path: options.canonical
       ? canonicalPath
-      : projectContentPathToLocale(canonicalPath, options.locale || item._locale, options.defaultLocale, options.routeMounts),
+      : projectContentPathToLocale(canonicalPath, options.locale || item.locale, options.defaultLocale, options.routeMounts),
     canonicalPath,
     stem: item.stem || getContentStem(canonicalPath, item.file?.path),
     ...(hasChildren ? { children } : {})

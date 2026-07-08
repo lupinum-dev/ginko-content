@@ -115,7 +115,7 @@ describe('unified query populate', () => {
     expect(mocks.transport.mock.calls[0]?.[1]).toMatchObject({
       collection: 'posts',
       first: true,
-      only: expect.arrayContaining(['title', 'authors', 'path', 'file', 'canonicalKey', '_locale'])
+      only: expect.arrayContaining(['title', 'authors', 'path', 'file', 'canonicalKey', 'locale'])
     })
     expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
       collection: 'authors',
@@ -171,7 +171,7 @@ describe('unified query populate', () => {
     expect(mocks.transport.mock.calls[0]?.[1]).toMatchObject({
       collection: 'docs',
       first: true,
-      only: expect.arrayContaining(['title', 'relatedAuthor', 'path', 'file', 'canonicalKey', '_locale'])
+      only: expect.arrayContaining(['title', 'relatedAuthor', 'path', 'file', 'canonicalKey', 'locale'])
     })
     expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
       collection: 'authors',
@@ -275,7 +275,7 @@ describe('unified query populate', () => {
             id: 'content:localized-posts:krypto.md',
             path: '/blog/krypto',
             collection: 'localizedPosts',
-            _locale: 'de',
+            locale: 'de',
             resolved: {
               variantPaths: {
                 en: '/blog/crypto',
@@ -296,7 +296,7 @@ describe('unified query populate', () => {
             id: 'content:localized-authors:emily.md',
             path: '/autoren/emily',
             collection: 'localizedAuthors',
-            _locale: 'de',
+            locale: 'de',
             resolved: {
               variantPaths: {
                 en: '/authors/emily',

@@ -5,7 +5,7 @@ type ContentLikePage = {
   path?: string
   collection?: string
   canonicalKey?: string
-  _locale?: string
+  locale?: string
   draft?: boolean
   sitemap?: unknown
   body?: unknown
@@ -256,7 +256,7 @@ export async function queryCollectionsSitemapEntriesData (
       return []
     }
 
-    const meta = await loaders.loadRouteMeta(page.collection, page.path, page._locale)
+    const meta = await loaders.loadRouteMeta(page.collection, page.path, page.locale)
     if (!meta) {
       return []
     }

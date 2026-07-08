@@ -1,7 +1,8 @@
 import { hash as ohash } from 'ohash'
 import type { H3Event } from 'h3'
-import type { ParsedContent } from '../types/content'
+import type { MissingDocument, ParsedContent } from '../types/content'
 import type { ContentCacheArtifact } from '../types/runtime'
+import { isRealDocument } from '../core/content/document'
 import { splitInlineLocaleVariantId } from '../core/content/locale'
 import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { parseContentVariants } from '../integrations/nitro/ingest'
@@ -33,12 +34,12 @@ export function* chunksFromArray<T> (arr: T[], n: number): Generator<T[], void> 
  *  1. Dev/prerender validate source metadata before reusing an artifact.
  *  2. Concurrent misses for the same `(storageId, hash)` share one parse.
  */
-export const loadContentVariants = async (event: H3Event, id: string): Promise<ParsedContent[]> => {
+export const loadContentVariants = async (event: H3Event, id: string): Promise<Array<ParsedContent | MissingDocument>> => {
   const runtime = getContentStorageRuntime(event)
   const config = contentConfig()
   const { sourceId: contentId } = splitInlineLocaleVariantId(id)
   if (!contentIgnorePredicate(contentId)) {
-    return [{ id: contentId, body: null } as ParsedContent]
+    return [{ id: contentId, body: null, missing: true }]
   }
 
   const storageId = await resolveStorageId(event, contentId)
@@ -46,7 +47,7 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
   const cached = isContentCacheArtifact(cachedValue) ? cachedValue : null
   const body = await runtime.source.getItem(storageId)
   if (body === null) {
-    return [{ id: contentId, body: null } as ParsedContent]
+    return [{ id: contentId, body: null, missing: true }]
   }
 
   const hash = ohash({
@@ -81,14 +82,14 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<P
 
 const loadContents = async (event: H3Event, prefix?: string) => {
   const keys = await getContentsIds(event, prefix)
-  const contents: ParsedContent[] = []
+  const contents: Array<ParsedContent | MissingDocument> = []
 
   for (const chunk of [...chunksFromArray(keys, 10)]) {
     const result = await Promise.all(chunk.map(key => loadContentVariants(event, key)))
     contents.push(...result.flat())
   }
 
-  const filtered = contents.filter(document => document && document.path)
+  const filtered = contents.filter(isRealDocument).filter(document => document.path)
   if (shouldValidateAtRuntime) {
     const outcome = validateContentGraph(filtered, contentConfig())
     if (!outcome.ok) {
@@ -145,12 +146,12 @@ export const getContent = async (event: H3Event, id: string): Promise<ParsedCont
   const { sourceId, locale } = splitInlineLocaleVariantId(id)
   const parsed = usesProcessSnapshot
     ? (await getProcessDocuments(event)).filter(document => splitInlineLocaleVariantId(document.id).sourceId === sourceId)
-    : await loadContentVariants(event, sourceId)
+    : (await loadContentVariants(event, sourceId)).filter(isRealDocument)
   if (!locale) {
     return parsed[0] as ParsedContent
   }
 
-  const match = parsed.find(document => document._locale === locale)
+  const match = parsed.find(document => document.locale === locale)
   if (!match) {
     console.warn(`[content] Locale variant "${locale}" not found for "${sourceId}", falling back to default`)
   }

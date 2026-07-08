@@ -100,7 +100,7 @@ export const buildCanonicalNavigation = (
         file: content.file,
         id: content.id,
         canonicalKey: (content as any).canonicalKey,
-        _locale: (content as any)._locale,
+        locale: (content as any).locale,
         navigationKind: 'page',
         navigationPath: content.path,
         children: [],
@@ -142,7 +142,7 @@ export const buildCanonicalNavigation = (
             navigationPath: currentPathPart,
             page: false,
             ...(canonicalKey ? { canonicalKey: canonicalKey } : {}),
-            ...((content as any)._locale ? { _locale: (content as any)._locale } : {}),
+            ...((content as any).locale ? { locale: (content as any).locale } : {}),
             children: [],
             ...(config && pickNavigationFields(config))
           }

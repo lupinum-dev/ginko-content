@@ -33,9 +33,9 @@ describe('collection resolver parity contracts', () => {
       {
         title: 'Guide',
         path: '/guide',
-        _locale: 'en',
+        locale: 'en',
         canonicalKey: 'guide',
-        children: [{ title: 'Intro', path: '/guide/intro', _locale: 'en', canonicalKey: 'guide/intro' }]
+        children: [{ title: 'Intro', path: '/guide/intro', locale: 'en', canonicalKey: 'guide/intro' }]
       }
     ]
     const pages = [

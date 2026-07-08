@@ -146,7 +146,7 @@ export const createSaasI18nScenario = () => createContentScenario({
   documents: [
     {
       collection: 'docs',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'docs:getting-started',
       path: '/docs/getting-started',
       ref: 'docs.getting-started',
@@ -156,7 +156,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'docs',
-      _locale: 'de',
+      locale: 'de',
       canonicalKey: 'docs:getting-started',
       path: '/dokumentation/erste-schritte',
       ref: 'docs.getting-started',
@@ -166,7 +166,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'docs',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'docs:markdown-syntax',
       path: '/docs/essentials/markdown-syntax',
       ref: 'docs.markdown-syntax',
@@ -176,7 +176,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'docs',
-      _locale: 'de',
+      locale: 'de',
       canonicalKey: 'docs:markdown-syntax',
       path: '/dokumentation/grundlagen/markdown-syntax',
       ref: 'docs.markdown-syntax',
@@ -186,7 +186,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'docs',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'docs:fallback-lab',
       path: '/docs/essentials/fallback-lab',
       ref: 'docs.fallback-lab',
@@ -196,7 +196,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'posts',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'posts:cryptocurrencies',
       path: '/blog/cryptocurrencies',
       ref: 'posts.cryptocurrencies',
@@ -207,7 +207,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'posts',
-      _locale: 'de',
+      locale: 'de',
       canonicalKey: 'posts:cryptocurrencies',
       path: '/blog/kryptowaehrungen',
       ref: 'posts.cryptocurrencies',
@@ -218,7 +218,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'authors',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'authors:emily',
       path: '/authors/emily',
       ref: 'authors.emily',
@@ -228,7 +228,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'authors',
-      _locale: 'de',
+      locale: 'de',
       canonicalKey: 'authors:emily',
       path: '/autoren/emily',
       ref: 'authors.emily',
@@ -238,7 +238,7 @@ export const createSaasI18nScenario = () => createContentScenario({
     },
     {
       collection: 'versions',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'versions:launch-readiness',
       path: '/changelog/launch-readiness',
       ref: 'versions.launch-readiness',

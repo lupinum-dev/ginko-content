@@ -54,7 +54,7 @@ describe('storage contracts', () => {
         file: { path: '/guide/intro.md' },
         path: '/guide/einstieg',
         canonicalKey: 'guide/intro',
-        _locale: 'de',
+        locale: 'de',
         title: 'Einstieg'
       })
     ])
@@ -184,12 +184,12 @@ describe('storage contracts', () => {
     const { getContent } = await import('../../packages/content/src/runtime/server/storage')
 
     await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=de')).resolves.toMatchObject({
-      _locale: 'de',
+      locale: 'de',
       title: 'Einstieg'
     })
 
     await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=fr')).resolves.toMatchObject({
-      _locale: 'en',
+      locale: 'en',
       title: 'Getting Started'
     })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('Locale variant "fr" not found'))
@@ -350,7 +350,7 @@ describe('storage contracts', () => {
         id: 'content:de:guide:intro.md',
         file: { path: '/de/guide/intro.md' },
         path: '/leitfaden/einstieg',
-        _locale: 'de',
+        locale: 'de',
         collection: 'docs',
         canonicalKey: 'guide/intro',
         ref: 'intro'
@@ -378,7 +378,7 @@ describe('storage contracts', () => {
         id: 'content:de:guide:intro-duplicate.md',
         file: { path: '/de/guide/intro-duplicate.md' },
         path: '/leitfaden/einstieg',
-        _locale: 'de',
+        locale: 'de',
         canonicalKey: 'guide/other'
       })
     ], {

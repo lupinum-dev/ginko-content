@@ -44,7 +44,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'docs',
           canonicalKey: 'docs:start',
-          _locale: 'en',
+          locale: 'en',
           path: '/docs/start',
           ref: 'docs.start',
           title: 'Start',
@@ -54,7 +54,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'docs',
           canonicalKey: 'docs:start',
-          _locale: 'de',
+          locale: 'de',
           path: '/dokumentation/start',
           ref: 'docs.start',
           title: 'Startseite',
@@ -64,7 +64,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'docs',
           canonicalKey: 'docs:install',
-          _locale: 'en',
+          locale: 'en',
           path: '/docs/install',
           ref: 'docs.install',
           title: 'Install',
@@ -73,7 +73,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'blog',
           canonicalKey: 'blog:release',
-          _locale: 'en',
+          locale: 'en',
           path: '/blog/release',
           ref: 'blog.release',
           title: 'Release',
@@ -84,7 +84,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'blog',
           canonicalKey: 'blog:release',
-          _locale: 'de',
+          locale: 'de',
           path: '/blog/veroeffentlichung',
           ref: 'blog.release',
           title: 'Veroeffentlichung',
@@ -95,7 +95,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'authors',
           canonicalKey: 'authors:ada',
-          _locale: 'en',
+          locale: 'en',
           path: '/authors/ada',
           ref: 'authors.ada',
           title: 'Ada',
@@ -104,7 +104,7 @@ describe('vNext golden demo', () => {
         {
           collection: 'authors',
           canonicalKey: 'authors:ada',
-          _locale: 'de',
+          locale: 'de',
           path: '/autoren/ada',
           ref: 'authors.ada',
           title: 'Ada',
@@ -141,7 +141,7 @@ describe('vNext golden demo', () => {
     const posts = unwrap(await provider.query(event, {
       collection: 'blog',
       resolveLocale: { locale: 'de', fallback: false },
-      only: ['title', 'authors', 'path', '_locale'],
+      only: ['title', 'authors', 'path', 'locale'],
       sort: [{ order: 1 }]
     }))
     expect(posts.result[0]).toMatchObject({

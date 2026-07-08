@@ -96,15 +96,15 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
   const resolution = page.resolved
   const canonicalPath = normalizeContentPath(page.path || '/')
   const variants = createLocaleVariants(resolution?.variantPaths, defaultLocale, routeMounts)
-  const path = projectContentPathToLocale(canonicalPath, locale || resolution?.locale || page._locale, defaultLocale, routeMounts)
-  const resolvedLocale = resolution?.locale || page._locale || locale || defaultLocale || ''
+  const path = projectContentPathToLocale(canonicalPath, locale || resolution?.locale || page.locale, defaultLocale, routeMounts)
+  const resolvedLocale = resolution?.locale || page.locale || locale || defaultLocale || ''
   const requestedLocale = resolution?.requestedLocale || locale
   const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
   const result = {
     ...page,
     path,
     canonicalPath,
-    locale: locale || resolution?.locale || page._locale || defaultLocale || '',
+    locale: locale || resolution?.locale || page.locale || defaultLocale || '',
     defaultLocale: defaultLocale || '',
     variants,
     localePaths: createLocalePaths(variants),
@@ -217,7 +217,7 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
 ): ContentRouteMeta => {
   const resolution = page.resolved
   const canonicalPath = normalizeContentPath(page.path || '/')
-  const resolvedLocale = resolution?.locale || page._locale || locale || defaultLocale || ''
+  const resolvedLocale = resolution?.locale || page.locale || locale || defaultLocale || ''
   const requestedLocale = resolution?.requestedLocale || locale
   const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
   // When re-shaping an already-localized page (e.g. route-meta over a page

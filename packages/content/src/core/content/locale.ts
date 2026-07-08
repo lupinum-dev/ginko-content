@@ -128,8 +128,8 @@ export const expandDataLocaleVariants = (
   }
 
   const { i18n: _removed, ...baseDocument } = document as ParsedContent & { i18n?: Record<string, unknown> }
-  const sourceLocale = document._locale || i18nConfig.defaultLocale
-  const variants: ParsedContent[] = [{ ...baseDocument, _locale: sourceLocale }]
+  const sourceLocale = document.locale || i18nConfig.defaultLocale
+  const variants: ParsedContent[] = [{ ...baseDocument, locale: sourceLocale }]
 
   for (const locale of i18nConfig.locales) {
     if (locale === sourceLocale) {
@@ -150,7 +150,7 @@ export const expandDataLocaleVariants = (
     variants.push({
       ...merged,
       id: `${document.id}${INLINE_LOCALE_ID_SEPARATOR}${locale}`,
-      _locale: locale
+      locale
     })
   }
 

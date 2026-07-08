@@ -38,7 +38,7 @@ describe('sitemap query contracts', () => {
       loadCollectionPages: async () => [{
         canonicalKey: 'guide/intro',
         path: '/guide/intro',
-        _locale: 'en'
+        locale: 'en'
       }],
       loadRouteMeta: async () => ({
         locale: 'en',
@@ -68,7 +68,7 @@ describe('sitemap query contracts', () => {
         collection: 'docs',
         canonicalKey: 'guide/intro',
         path: '/guide/intro',
-        _locale: 'en',
+        locale: 'en',
         image: {
           src: '/images/intro.png'
         }

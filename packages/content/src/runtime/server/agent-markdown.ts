@@ -535,7 +535,7 @@ const toAgentMarkdown = (
   options: ResolvedAgentMarkdownOptions
 ): AgentMarkdown => {
   const path = normalizeAgentRoutePath((page as { path?: string }).path || page.resolved?.requestedRoute)
-  const locale = (page as { locale?: string }).locale || page.resolved?.locale || page._locale
+  const locale = (page as { locale?: string }).locale || page.resolved?.locale || page.locale
   const title = typeof page.title === 'string' && page.title.trim()
     ? page.title.trim()
     : path.split('/').filter(Boolean).pop() || 'Index'
@@ -611,7 +611,7 @@ const publicPathForQueryRow = (
 
   const defaultLocale = collectionDefaultLocale(config)
   const rowPath = normalizeAgentRoutePath(row.path || '/')
-  const resolvedLocale = row.resolved?.locale || row._locale
+  const resolvedLocale = row.resolved?.locale || row.locale
   if (locale && resolvedLocale && locale !== resolvedLocale) {
     const sourceLocalePath = publicPathForLocale(collection, config, rowPath, resolvedLocale, defaultLocale)
     return prefixRequestedLocale(sourceLocalePath, locale, defaultLocale)
@@ -667,13 +667,13 @@ export async function queryMarkdownEnabledContent (
     if (!agentOptions) continue
     const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, {
       collection,
-      only: ['path', 'locale', 'localePaths', '_locale', 'resolved', 'file', 'draft', 'partial', 'navigationFile', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
+      only: ['path', 'locale', 'localePaths', 'resolved', 'file', 'draft', 'partial', 'navigationFile', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     }))
     for (const row of rows) {
       if (!isPublicPage(row, config as any)) continue
-      const locale = options.locale || row.resolved?.locale || row._locale
+      const locale = options.locale || row.resolved?.locale || row.locale
       const path = publicPathForQueryRow(collection, config as any, row, locale)
       const title = typeof row.title === 'string' && row.title.trim()
         ? row.title.trim()

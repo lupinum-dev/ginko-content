@@ -27,7 +27,7 @@ const getTranslatedSlugEntries = (document: ParsedContent, locales: string[] = [
     return []
   }
 
-  const locale = document._locale || ''
+  const locale = document.locale || ''
   const directories = localizedParts.slice(0, -1)
   const basename = localizedParts[localizedParts.length - 1] || ''
   const entries: TranslatedSlugEntry[] = []

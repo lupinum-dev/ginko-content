@@ -16,7 +16,7 @@ describe('graph contracts', () => {
         id: 'content:de:guide:intro.md',
         file: { path: '/de/guide/intro.md' },
         path: '/leitfaden/einstieg',
-        _locale: 'de',
+        locale: 'de',
         collection: 'docs',
         canonicalKey: 'guide/intro',
         ref: 'intro'

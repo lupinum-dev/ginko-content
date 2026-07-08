@@ -10,7 +10,7 @@ export default defineTransformer({
     const { source, file, path, extension, basename } = describeId(content.id)
     const parts = path.split('/')
     // Check first part for locale name
-    const _locale = locales.includes(parts[0]) ? parts.shift() : defaultLocale
+    const locale = locales.includes(parts[0]) ? parts.shift() : defaultLocale
     const isNavigation = basename === '.navigation'
     const rawPath = isNavigation ? parts.slice(0, -1).join('/') : parts.join('/')
     const filePath = generatePath(rawPath, { respectPathCase })
@@ -26,7 +26,7 @@ export default defineTransformer({
       path: filePath,
       draft: content.draft || isDraftPath(path),
       partial: isNavigation || isPartialPath(path),
-      _locale,
+      locale,
       canonicalKey,
       collection,
       navigationFile: isNavigation,

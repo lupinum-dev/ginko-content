@@ -119,7 +119,7 @@ export interface ParsedContentInternalMeta {
   /**
    * Locale code for the concrete variant.
    */
-  _locale?: string
+  locale?: string
   /**
    * Opaque, locale-agnostic content identity join key used to resolve variants.
    * Never parse or render this as a URL — under translated slugs it is a numeric
@@ -239,6 +239,20 @@ export interface ParsedContentMeta extends ParsedContentInternalMeta {
 }
 
 /**
+ * Sentinel returned by content loaders for a source id that produced no
+ * servable document — an ignored file, a missing source body, or an
+ * unsupported extension. It carries only the id and a `null` body; the
+ * `missing` flag is the discriminant separating it from a real
+ * {@link ParsedContent}. Use the shared `isRealDocument` guard
+ * (`core/content/document`) to filter these out.
+ */
+export interface MissingDocument {
+  id: string
+  body: null
+  missing: true
+}
+
+/**
  * Strict parsed content shape with no open-ended index signature.
  */
 export interface StrictParsedContentMeta extends ParsedContentInternalMeta {
@@ -341,7 +355,7 @@ export interface NavItem {
   page?: false
   id?: string
   canonicalKey?: string
-  _locale?: string
+  locale?: string
   fallback?: boolean
   draft?: boolean
   children?: NavItem[]

@@ -348,7 +348,7 @@ describe('route mount resolution', () => {
         id: 'content:en:1.docs:2.essentials:5.fallback-lab.md',
         path: '/docs/essentials/fallback-lab',
         file: { path: '/en/1.docs/2.essentials/5.fallback-lab.md' },
-        _locale: 'en',
+        locale: 'en',
         canonicalKey: '1/2/5',
         title: 'Fallback Lab'
       })
@@ -393,7 +393,7 @@ describe('route mount resolution', () => {
         id: 'content:en:docs:intro.md',
         path: '/docs/intro',
         file: { path: '/en/docs/intro.md' },
-        _locale: 'en',
+        locale: 'en',
         canonicalKey: 'docs/intro',
         title: 'Intro',
         secret: 'hidden',
@@ -436,7 +436,7 @@ describe('route mount resolution', () => {
         id: 'content:en:docs:intro.md',
         path: '/docs/intro',
         file: { path: '/en/docs/intro.md' },
-        _locale: 'en',
+        locale: 'en',
         canonicalKey: 'docs/intro',
         title: 'Intro'
       })
@@ -549,7 +549,7 @@ describe('navigationSelectFields', () => {
       'path',
       'file',
       'canonicalKey',
-      '_locale',
+      'locale',
       'draft',
       'navigation',
       'title',
@@ -563,7 +563,7 @@ describe('navigationSelectFields', () => {
       'path',
       'file',
       'canonicalKey',
-      '_locale',
+      'locale',
       'draft',
       'navigation',
       'title',

@@ -365,7 +365,7 @@ describe('app query/composable contracts', () => {
     ])
     expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
       collection: 'docs',
-      only: expect.arrayContaining(['title', 'path', '_locale']),
+      only: expect.arrayContaining(['title', 'path', 'locale']),
       resolveLocale: expect.objectContaining({
         locale: 'de'
       })

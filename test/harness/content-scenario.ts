@@ -40,7 +40,7 @@ export const createScenarioDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
 ): ParsedContent => {
   const collection = String(input.collection || 'docs')
-  const locale = String(input._locale || 'en')
+  const locale = String(input.locale || 'en')
   const path = String(input.path || '/')
   const canonicalKey = String(input.canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
   const extension = input.file?.extension || (input.type === 'yaml' ? 'yml' : 'md')
@@ -48,7 +48,7 @@ export const createScenarioDocument = (
   return {
     id: String(input.id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
     collection: collection,
-    _locale: locale,
+    locale: locale,
     canonicalKey: canonicalKey,
     path: path,
     type: (input.type || 'markdown') as ParsedContent['type'],

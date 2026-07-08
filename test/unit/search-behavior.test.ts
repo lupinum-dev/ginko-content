@@ -114,7 +114,7 @@ describe('search behavior', () => {
     const sections = createSearchSections([
       {
         path: '/docs/search',
-        _locale: 'de',
+        locale: 'de',
         title: 'Search',
         description: 'Find content quickly',
         body: {
@@ -160,7 +160,7 @@ describe('search behavior', () => {
         }
       }
     ], {
-      extraFields: ['_locale'],
+      extraFields: ['locale'],
       minHeading: 'h2',
       maxHeading: 'h3'
     })
@@ -170,21 +170,21 @@ describe('search behavior', () => {
         id: '/docs/search',
         title: 'Search',
         content: 'Find content quickly Intro copy',
-        _locale: 'de'
+        locale: 'de'
       }),
       expect.objectContaining({
         id: '/docs/search#setup',
         title: 'Setup',
         titles: ['Search'],
         content: 'Install the search index',
-        _locale: 'de'
+        locale: 'de'
       }),
       expect.objectContaining({
         id: '/docs/search#cms',
         title: 'CMS',
         titles: ['Search', 'Setup'],
         content: 'Provider-backed search',
-        _locale: 'de'
+        locale: 'de'
       })
     ])
     expect(sections.map(section => section.content).join(' ')).not.toContain('ignored code block')

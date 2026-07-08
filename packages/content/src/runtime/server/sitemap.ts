@@ -24,7 +24,7 @@ type SitemapRuntimeConfig = {
 const sitemapPageFields = [
   'path',
   'file',
-  '_locale',
+  'locale',
   'draft',
   'canonicalKey',
   'sitemap',
@@ -63,7 +63,7 @@ export async function queryFilesystemCollectionsSitemapEntries (
         path?: string
         collection?: string
         canonicalKey?: string
-        _locale?: string
+        locale?: string
         draft?: boolean
         sitemap?: unknown
         body?: unknown

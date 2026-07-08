@@ -20,11 +20,11 @@ export default defineEventHandler(async (event) => {
   })
   const locales = resolved
     ? resolved.variants
-        .filter((doc) => doc.canonicalKey === resolved.canonicalKey && typeof doc._locale === 'string')
-        .sort((left, right) => String(left._locale).localeCompare(String(right._locale)))
+        .filter((doc) => doc.canonicalKey === resolved.canonicalKey && typeof doc.locale === 'string')
+        .sort((left, right) => String(left.locale).localeCompare(String(right.locale)))
         .map((doc) => ({
           canonicalKey: resolved.canonicalKey,
-          locale: String(doc._locale),
+          locale: String(doc.locale),
           ...(typeof doc.path === 'string' ? { path: doc.path } : {}),
         }))
     : []

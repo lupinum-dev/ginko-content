@@ -88,11 +88,11 @@ export const resolveContentReference = async <T = ParsedContent> (
     return null
   }
 
-  const availableLocales = Array.from(new Set(variants.map(document => document._locale).filter(Boolean))) as string[]
+  const availableLocales = Array.from(new Set(variants.map(document => document.locale).filter(Boolean))) as string[]
   const variantPaths = Object.fromEntries(
     variants
-      .filter(document => document._locale && document.path)
-      .map(document => [document._locale!, document.path!])
+      .filter(document => document.locale && document.path)
+      .map(document => [document.locale!, document.path!])
   )
 
   return {

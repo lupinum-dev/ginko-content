@@ -323,7 +323,7 @@ async function inspectI18nSearchIndex(rootDir: string, locales: string[]): Promi
         }
 
         const item = record as Record<string, unknown>
-        return item.locale === locale || item._locale === locale || (typeof item.path === 'string' && item.path.startsWith(`/${locale}/`))
+        return item.locale === locale || (typeof item.path === 'string' && item.path.startsWith(`/${locale}/`))
       })
 
       if (!hasLocaleRecords) {

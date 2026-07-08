@@ -140,7 +140,7 @@ export const buildContentGraph = (
     // Default-locale document lists first under a path — the route resolver
     // reaches for the head of the list when no locale is requested, so this
     // ordering is load-bearing.
-    if (document._locale === defaultLocale) {
+    if (document.locale === defaultLocale) {
       manifest.paths[path]!.unshift(documentId)
     } else {
       manifest.paths[path]!.push(documentId)
@@ -152,7 +152,7 @@ export const buildContentGraph = (
     }
 
     if (document.navigationFile) {
-      const locale = document._locale || defaultLocale
+      const locale = document.locale || defaultLocale
       byNavigationPath[path] ||= {}
       byNavigationPath[path]![locale] = document
     }
@@ -165,7 +165,7 @@ export const buildContentGraph = (
       continue
     }
 
-    const locale = document._locale || defaultLocale
+    const locale = document.locale || defaultLocale
     const variant: ContentGraphVariant = {
       canonicalKey: document.canonicalKey!,
       contentId: documentId,

@@ -164,7 +164,7 @@ describe('Ginko metadata helpers', () => {
       { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
     )
 
-    expect(transformed._locale).toBe('de')
+    expect(transformed.locale).toBe('de')
     expect(transformed.path).toBe('/leitfaden/erste-schritte')
     expect(transformed.canonicalKey).toBe('1/1')
   })
@@ -852,7 +852,7 @@ describe('Ginko metadata helpers', () => {
       file: { path: 'authors/evan.yml' },
       collection: 'authors',
       type: 'yaml',
-      _locale: 'en',
+      locale: 'en',
       canonicalKey: 'authors/evan',
       body: null,
       name: 'Evan You',
@@ -875,7 +875,7 @@ describe('Ginko metadata helpers', () => {
     expect(variants).toHaveLength(2)
     expect(variants[1]).toMatchObject({
       id: 'content:authors:evan.yml#__locale=de',
-      _locale: 'de',
+      locale: 'de',
       profile: {
         focus: 'DX',
         labels: ['de']
@@ -887,7 +887,7 @@ describe('Ginko metadata helpers', () => {
     expect(expandDataLocaleVariants({
       id: 'content:authors:evan.yml',
       type: 'yaml',
-      _locale: 'en',
+      locale: 'en',
       body: null,
       i18n: {}
     } as any, {
@@ -926,7 +926,7 @@ describe('Ginko metadata helpers', () => {
       locales: ['en', 'de']
     })
 
-    expect(variants.map(variant => variant._locale)).toEqual(['en', 'de'])
+    expect(variants.map(variant => variant.locale)).toEqual(['en', 'de'])
   })
 
   test('warns and skips non-object inline locale overrides', () => {
@@ -934,7 +934,7 @@ describe('Ginko metadata helpers', () => {
     const variants = expandDataLocaleVariants({
       id: 'content:authors:evan.yml',
       type: 'yaml',
-      _locale: 'en',
+      locale: 'en',
       body: null,
       i18n: {
         de: 'not-an-object'
@@ -961,7 +961,7 @@ describe('Ginko metadata helpers', () => {
     const inlineGerman = {
       ...inlineDefault,
       id: 'content:authors:evan.yml#__locale=de',
-      _locale: 'de'
+      locale: 'de'
     }
 
     const outcome = validateContentGraph([inlineDefault, inlineGerman, fileVariant], {
@@ -986,7 +986,7 @@ describe('Ginko metadata helpers', () => {
     const german = {
       ...english,
       id: 'content:authors:evan.yml#__locale=de',
-      _locale: 'de'
+      locale: 'de'
     }
 
     expect(english.canonicalKey).toBe('/authors/evan')
@@ -1051,7 +1051,7 @@ describe('Ginko metadata helpers', () => {
     const localized = localizePageResult({
       path: '/docs/essentials/fallback-lab',
       file: { path: 'en/1.docs/2.essentials/5.fallback-lab.md', extension: 'md' },
-      _locale: 'en',
+      locale: 'en',
       resolved: {
         requestedLocale: 'de',
         locale: 'en',

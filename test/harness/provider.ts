@@ -92,8 +92,8 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       const queryLocale = params.resolveLocale?.locale
       return docs.map(doc => ({
         title: doc.title,
-        path: localizePath(scenario, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc._locale),
-        _locale: doc._locale
+        path: localizePath(scenario, doc.collection || params.collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
+        locale: doc.locale
       })) as NavItem[]
     },
     navigation: async (event, collection, options = {}) => {
@@ -111,8 +111,8 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       })
       return docs.map(doc => ({
         title: doc.title,
-        path: localizePath(scenario, collection, doc.path || '/', locale || doc._locale),
-        _locale: doc._locale
+        path: localizePath(scenario, collection, doc.path || '/', locale || doc.locale),
+        locale: doc.locale
       })) as NavItem[]
     },
     surroundings: async (event, collection, path, options = {}) => {
@@ -128,12 +128,12 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
           : undefined,
         sort: [{ path: 1 }]
       })
-      const index = docs.findIndex(doc => doc.path === path || localizePath(scenario, collection, doc.path || '/', locale || doc._locale) === path)
+      const index = docs.findIndex(doc => doc.path === path || localizePath(scenario, collection, doc.path || '/', locale || doc.locale) === path)
       if (index === -1) return [null, null]
       return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
         ? {
             title: doc.title,
-            path: localizePath(scenario, collection, doc.path || '/', locale || doc._locale)
+            path: localizePath(scenario, collection, doc.path || '/', locale || doc.locale)
           }
         : null) as Array<NavItem | null>
     },
@@ -149,7 +149,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
           : undefined
       })
       return docs.map(doc => ({
-        id: localizePath(scenario, collection, doc.path || '/', options.locale || doc._locale),
+        id: localizePath(scenario, collection, doc.path || '/', options.locale || doc.locale),
         title: doc.title || '',
         titles: [doc.title || ''],
         content: String(doc.description || doc.title || '')
@@ -158,7 +158,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
     search: async (_event, request) => {
       const term = request.term.toLocaleLowerCase()
       return scenario.documents
-        .filter(doc => !request.locale || doc._locale === request.locale)
+        .filter(doc => !request.locale || doc.locale === request.locale)
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
         .map(doc => ({
           score: 1,
@@ -166,7 +166,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
           title: doc.title || '',
           excerpt: String(doc.description || ''),
           path: doc.path || '/',
-          locale: doc._locale
+          locale: doc.locale
         }))
     },
     siteData: async (_event, request) => ({
@@ -193,7 +193,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       if (!doc) return null
       return localizePageResult(
         doc,
-        options.locale || doc.resolved?.locale || doc._locale,
+        options.locale || doc.resolved?.locale || doc.locale,
         scenario.defaultLocale,
         scenario.locales,
         routeMountsFor(scenario, collection)
@@ -215,7 +215,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
         }
         for (const doc of scenario.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc._navigation)) {
           entries.push({
-            loc: localizePath(scenario, collection, doc.path || '/', doc._locale)
+            loc: localizePath(scenario, collection, doc.path || '/', doc.locale)
           })
         }
       }

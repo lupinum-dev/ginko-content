@@ -12,7 +12,7 @@ describe('navigation tree contracts', () => {
         file: { path: '/de/1.dokumentation/1.erste-schritte/installation.md' },
         path: '/dokumentation/erste-schritte/installation',
         canonicalKey: 'docs/getting-started/installation',
-        _locale: 'de'
+        locale: 'de'
       } as any
     ], {}, [])
 
@@ -20,13 +20,13 @@ describe('navigation tree contracts', () => {
       title: 'Dokumentation',
       navigationKind: 'folder',
       canonicalKey: 'docs',
-      _locale: 'de'
+      locale: 'de'
     })
     expect(navigation[0]?.children?.[0]).toMatchObject({
       title: 'Erste Schritte',
       navigationKind: 'folder',
       canonicalKey: 'docs/getting-started',
-      _locale: 'de'
+      locale: 'de'
     })
   })
 

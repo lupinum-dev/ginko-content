@@ -45,7 +45,7 @@ export const decorateLocalizedDocument = <T extends ParsedContent & Record<strin
     ? doc
     : {
         ...doc,
-        _locale: '',
+        locale: '',
         resolved: { availableLocales: [] }
       }
   const result = localizePageResult(page, hasLocaleConfig ? requestedLocale : undefined, defaultLocale, locales, routeMounts)

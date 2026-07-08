@@ -110,10 +110,10 @@ export const normalizeContentQueryParams = (
   }
 
   if (options.collectionI18n?.locales.length && !normalized.resolveLocale && !normalized.resolveVariant) {
-    const queryLocale = findQueryWhere(where, item => typeof item._locale !== 'undefined')?._locale
+    const queryLocale = findQueryWhere(where, item => typeof item.locale !== 'undefined')?.locale
     const defaultLocale = options.activeLocale || options.collectionI18n.defaultLocale
     if (!queryLocale && defaultLocale) {
-      where.push({ _locale: defaultLocale })
+      where.push({ locale: defaultLocale })
     }
   }
 

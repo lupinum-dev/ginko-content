@@ -27,7 +27,7 @@ vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
         {
           title: 'Mehrsprachiges Onboarding',
           path: '/magazin/mehrsprachiges-onboarding',
-          _locale: 'de'
+          locale: 'de'
         }
       ],
       total: 1
@@ -43,8 +43,8 @@ vi.mock('../../packages/content/src/runtime/server/navigation-query', () => ({
 
 vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
   queryFilesystemCollectionNavigation: vi.fn(async () => [
-    { title: 'Einstieg', description: 'Start here', path: '/dokumentation/einstieg', _locale: 'de', ref: 'docs.getting-started', stableId: 'docs.getting-started' },
-    { title: 'Installation', path: '/dokumentation/einstieg/installation', _locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
+    { title: 'Einstieg', description: 'Start here', path: '/dokumentation/einstieg', locale: 'de', ref: 'docs.getting-started', stableId: 'docs.getting-started' },
+    { title: 'Installation', path: '/dokumentation/einstieg/installation', locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
   ]),
   queryFilesystemCollectionItemSurroundings: vi.fn(async () => [
     { title: 'Alltag', canonicalPath: '/dokumentation/einstieg/alltag', path: '/de/dokumentation/einstieg/alltag' },

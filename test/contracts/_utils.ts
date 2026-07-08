@@ -36,7 +36,7 @@ export const doc = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
     extension: 'md'
   },
   type: 'markdown',
-  _locale: 'en',
+  locale: 'en',
   canonicalKey: 'guide/getting-started',
   title: 'Getting Started',
   body: { type: 'root', children: [] },
