@@ -266,3 +266,21 @@ const { doc, explain } = await resolveOne(docs, {
 
 Acceptable because the package is pre-release; playground, docs app,
 type tests, and integration coverage were updated in the same change.
+
+## Addendum (2026-07-08) — the "i18n requires locale" rule still has a hole (under repair in T5.5)
+
+This ADR twice claims the type-required-locale rule "has no hole" (see
+the Decision's "Type-required locale" section and the "Hard-cut query
+shape" note on `variants()`/`neighbors()`). At the Phase 3 checkpoint the
+rule was found to still have two holes: a verb called with a **missing
+options object** (e.g. `tree(docs)` on an i18n handle) skips the
+required-`locale` check, because `TreeOptions<H>` does not compose the
+`LocaleOption<H>` requirement onto a defaulted/absent options parameter.
+
+The claim above is therefore **aspirational, not yet true**, and is left
+in place as the design intent. The actual fix is task **T5.5** (applying
+cornerstone CS-7: `TreeOptions` composes `LocaleOption<H>`, and `many` /
+`tree` — any verb with a defaulted options parameter — must not accept a
+missing options object for i18n handles), with negative type tests added
+to `test/fixtures/typecheck/types/ginko-api.ts`. Until T5.5 lands, treat
+"no hole" as the goal, not a guarantee.

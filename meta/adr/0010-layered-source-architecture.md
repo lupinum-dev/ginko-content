@@ -79,3 +79,67 @@ Disallowed:
 - New contributors have a reliable question to ask: "what layer does
   this belong in?" The answer is usually obvious once you know the
   rules.
+
+## Addendum (2026-07-08, Phase 4) — the real top-level tree
+
+The original Decision named nine directories. The tree the refactor
+actually landed (Phases 1–4) has **fifteen** top-level homes. This
+addendum records the current map without rewriting the original
+decision. The enforced invariants are unchanged; the coverage of
+directories is wider. The enforcement is
+`test/unit/architecture-boundaries.test.ts`, and
+`packages/content/ARCHITECTURE.md` carries the contributor-facing
+version of this table.
+
+All fifteen `packages/content/src/` homes, with allowed dependency
+edges (top-level directory → top-level directory):
+
+```
+types/         shared type defs        → (nothing)
+utils/         cross-cutting helpers   → types                       (no domain logic)
+core/          pure domain logic       → types
+parsers/       format entrypoints      → core, types
+features/      domain capabilities     → core, types, features       (feature→feature legal)
+storage/       filesystem-provider io  → core, features, integrations, types
+integrations/  framework bindings      → core, features, types (+ storage ingest, + public type-only)
+module/        Nuxt build-time setup   → types, core, features, parsers, utils (+ thin runtime helper)
+runtime/       thin Nuxt/Nitro/Vue     → all internal layers + public
+public/        export facades          → runtime, features, core, types
+config.ts      /config subpath entry   → core, types
+cms-contract/  CMS contract builder    → core, types
+cms-import/    CMS import surface      → core, parsers, types
+cli/           doctor CLI              → core, parsers, types
+testing/       provider conformance    → core, features, public, runtime, types
+```
+
+Notes on the deltas from the original decision:
+
+- **`features/` gained internal edges.** Phase 4 (T4.1) moved the query
+  *composition* layer from `runtime/query/` into `features/query/`, and
+  (T4.2) extracted the LLM markdown output feature into `features/agent/`.
+  `features/query` composes `core/query` with `features/localization`;
+  `features/navigation` composes `features/localization` too. The
+  boundary test permits feature→feature and forbids feature→runtime, so
+  these edges are legal by design.
+- **`integrations/` is coupled to `storage/` and (type-only) `public/`.**
+  The ingest hook (`integrations/nitro/ingest.ts`) calls
+  `storage/validation`, and `integrations/nitro/context.ts` imports the
+  `ContentCacheHint` *type* from `public/provider`. Neither is
+  machine-forbidden; both reflect that the filesystem provider's
+  storage and its Nitro binding are a closely-coupled pair.
+- **`module/` touches `runtime/` once** (`module/options.ts` imports the
+  sitemap-source helper from `runtime/utils/`). Build-time setup code is
+  not covered by the runtime-import bans (which target `core`,
+  `features`, and `storage`).
+- **The enforced bans are exactly:** `core ↛ runtime`, `core ↛ features`,
+  `features ↛ runtime`, `storage ↛ runtime`, and `core ↛` Nitro/Vue/Nuxt.
+  The other edges above are conventions, not tests.
+
+## Addendum (2026-07-08) — `agent` is the code name for LLM markdown output
+
+The `features/agent` and `runtime/server/agent-markdown.ts` homes serve
+the **LLM markdown output** feature (`/raw/*.md`, `/llms.txt`,
+`/llms-full.txt`, component→markdown serializers). "LLM markdown output"
+is the prose term; the code identifiers stay `agent` (the shipped module
+option is `agent: {...}`). This is unrelated to ginko-cms "agent
+operations" (a different subsystem in a different repo).
