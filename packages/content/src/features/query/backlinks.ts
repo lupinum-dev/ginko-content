@@ -71,14 +71,14 @@ const inferBacklinkFields = (
 const targetReferenceCandidates = (doc: LocalizedDoc<ParsedContent>) => {
   // Only documents with a real content identity (`canonicalKey`) are valid
   // reference targets. The shaped result always carries a default `path` of
-  // '/', so path/canonicalPath candidates are gated on `canonicalKey` to avoid
+  // '/', so path/unprefixedPath candidates are gated on `canonicalKey` to avoid
   // treating an identity-less document as referenceable. `ref` is the sole
   // user-facing alias (the explicit-id alias has been retired).
   const values = [
     (doc as { ref?: unknown }).ref,
     doc.canonicalKey,
     doc.canonicalKey ? doc.path : undefined,
-    doc.canonicalKey ? doc.canonicalPath : undefined
+    doc.canonicalKey ? doc.unprefixedPath : undefined
   ]
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
     .flatMap(value => [value, normalizeReferenceValue(value)])

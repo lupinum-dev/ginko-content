@@ -1091,19 +1091,19 @@ describe('Ginko metadata helpers', () => {
 
     expect(meta).toMatchObject({
       path: '/fr/demarrage',
-      canonicalPath: '/demarrage',
+      unprefixedPath: '/demarrage',
       locale: 'fr',
       defaultLocale: 'en',
       variants: [
         {
           locale: 'en',
           path: '/getting-started',
-          canonicalPath: '/getting-started'
+          unprefixedPath: '/getting-started'
         },
         {
           locale: 'fr',
           path: '/fr/demarrage',
-          canonicalPath: '/demarrage'
+          unprefixedPath: '/demarrage'
         }
       ],
       localePaths: {
@@ -1127,7 +1127,7 @@ describe('Ginko metadata helpers', () => {
     ], 'fr', 'en', ['en', 'fr'])).toEqual([
       expect.objectContaining({
         path: '/fr/demarrage',
-        canonicalPath: '/demarrage'
+        unprefixedPath: '/demarrage'
       })
     ])
   })

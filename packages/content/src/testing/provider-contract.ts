@@ -17,7 +17,7 @@ export interface ProviderContractSuiteOptions {
    * `localizedRoutes`, `translatedSlugs`) only gate their positive block.
    */
   expectedCapabilities: ContentProviderCapabilities
-  collectNavPaths?: (items: Array<{ canonicalPath?: string, children?: any[] }>) => string[]
+  collectNavPaths?: (items: Array<{ unprefixedPath?: string, children?: any[] }>) => string[]
 }
 
 export interface AuthorDependencyContractOptions {
@@ -27,9 +27,9 @@ export interface AuthorDependencyContractOptions {
   getCacheEvents: (provider: ContentProvider) => Array<{ type: string, key: string }>
 }
 
-const defaultCollectNavPaths = (items: Array<{ canonicalPath?: string, children?: any[] }>): string[] =>
+const defaultCollectNavPaths = (items: Array<{ unprefixedPath?: string, children?: any[] }>): string[] =>
   items.flatMap(item => [
-    item.canonicalPath,
+    item.unprefixedPath,
     ...defaultCollectNavPaths(item.children || [])
   ].filter(Boolean) as string[])
 
@@ -227,7 +227,7 @@ export const runProviderContractSuite = ({
 
     const surround = unwrapProviderResult(await provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }))
     expect(surround).toHaveLength(2)
-    expect(surround?.map(item => item?.canonicalPath)).toContain('/dokumentation/einstieg/alltag')
+    expect(surround?.map(item => item?.unprefixedPath)).toContain('/dokumentation/einstieg/alltag')
   })
 
   test(`${name} produces search sections`, async () => {

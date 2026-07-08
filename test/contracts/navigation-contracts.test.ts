@@ -222,7 +222,7 @@ describe('navigation contracts', () => {
       {
         title: 'API',
         path: '/docs/api',
-        canonicalPath: '/api',
+        unprefixedPath: '/api',
         stem: 'docs/api',
         children: [
           { title: 'Composables', path: '/docs/api/composables', stem: 'docs/api/composables' }
@@ -352,7 +352,7 @@ describe('navigation contracts', () => {
     expect(nav).toEqual([
       expect.objectContaining({
         title: 'Leitfaden',
-        canonicalPath: '/leitfaden',
+        unprefixedPath: '/leitfaden',
         id: 'content:de:guide:index.md',
         canonicalKey: 'guide',
         locale: 'de',
@@ -360,7 +360,7 @@ describe('navigation contracts', () => {
         children: [
           expect.objectContaining({
             title: 'Einstieg',
-            canonicalPath: '/leitfaden/einstieg',
+            unprefixedPath: '/leitfaden/einstieg',
             locale: 'de',
             fallback: false
           }),

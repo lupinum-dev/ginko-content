@@ -75,7 +75,7 @@ describe('content route metadata contracts', () => {
     const { useContentRoute, useContentSwitchLocalePath } = await import('../../packages/content/src/runtime/app/composables/route')
     const page = ref({
       path: '/docs/start',
-      canonicalPath: '/docs/start',
+      unprefixedPath: '/docs/start',
       localePaths: {
         en: { path: '/docs/start', translated: true },
         de: { path: '/de/docs/startseite', translated: true }
@@ -108,7 +108,7 @@ describe('content route metadata contracts', () => {
     route.path = '/docs/start/'
     const page = ref({
       path: '/docs/start',
-      canonicalPath: '/docs/start',
+      unprefixedPath: '/docs/start',
       localePaths: {
         en: { path: '/docs/start', translated: true },
         de: { path: '/de/docs/startseite', translated: true }

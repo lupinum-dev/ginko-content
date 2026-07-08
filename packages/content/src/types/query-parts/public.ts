@@ -120,7 +120,8 @@ export type LocaleFallback = false | true | 'default' | string | string[]
 export type LocalizedContentDocument<T = ParsedContentMeta> = T & ContentRouteMeta & {
   locale: string
   path: string
-  canonicalPath: string
+  /** the resolved variant's route path before locale prefixing */
+  unprefixedPath: string
   localePaths: Record<string, LocalePathEntry>
   stem?: string
   extension?: string
@@ -142,7 +143,8 @@ export interface ResolutionEnvelope {
     found: boolean
     collection: string
     path?: string
-    canonicalPath?: string
+    /** the resolved variant's route path before locale prefixing */
+    unprefixedPath?: string
     ref?: string
     locale?: string
   }

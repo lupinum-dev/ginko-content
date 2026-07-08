@@ -27,7 +27,7 @@ const collectionLocaleConfig = (
 /**
  * Decorate a raw parsed document with route metadata and locale paths.
  *
- * `localizePageResult` already attaches `path`, `canonicalPath`, `locale`,
+ * `localizePageResult` already attaches `path`, `unprefixedPath`, `locale`,
  * `defaultLocale`, `variants`, and `localePaths`. This helper additionally
  * fills non-translated locales with fallback paths so app switchers can render
  * all configured languages without another query.

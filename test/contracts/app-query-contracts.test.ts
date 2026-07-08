@@ -359,7 +359,7 @@ describe('app query/composable contracts', () => {
 
     expect(data.value).toEqual([
       expect.objectContaining({
-        canonicalPath: '/guide/advanced',
+        unprefixedPath: '/guide/advanced',
         title: 'Advanced'
       })
     ])

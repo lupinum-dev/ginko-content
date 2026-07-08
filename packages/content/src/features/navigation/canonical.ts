@@ -221,14 +221,14 @@ const projectNavigationItem = (
     } as ContentNavigationItem
   }
 
-  const canonicalPath = normalizeContentPath(rawPath)
+  const unprefixedPath = normalizeContentPath(rawPath)
   return {
     ...base,
     path: options.canonical
-      ? canonicalPath
-      : projectContentPathToLocale(canonicalPath, options.locale || item.locale, options.defaultLocale, options.routeMounts),
-    canonicalPath,
-    stem: item.stem || getContentStem(canonicalPath, item.file?.path),
+      ? unprefixedPath
+      : projectContentPathToLocale(unprefixedPath, options.locale || item.locale, options.defaultLocale, options.routeMounts),
+    unprefixedPath,
+    stem: item.stem || getContentStem(unprefixedPath, item.file?.path),
     ...(hasChildren ? { children } : {})
   } as ContentNavigationItem
 }

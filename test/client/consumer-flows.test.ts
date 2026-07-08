@@ -81,7 +81,7 @@ describe('public client query flows against an in-memory content scenario', () =
 
     expect(page).toMatchObject({
       path: '/plain/about',
-      canonicalPath: '/plain/about',
+      unprefixedPath: '/plain/about',
       localePaths: {},
       variants: []
     })
@@ -189,7 +189,7 @@ describe('public client query flows against an in-memory content scenario', () =
     expect(page).toMatchObject({
       title: 'Fallback Lab',
       path: '/de/dokumentation/essentials/fallback-lab',
-      canonicalPath: '/docs/essentials/fallback-lab',
+      unprefixedPath: '/docs/essentials/fallback-lab',
       locale: 'de',
       defaultLocale: 'en',
       localePaths: {

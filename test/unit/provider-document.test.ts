@@ -74,7 +74,7 @@ describe('provider-document normalization seam', () => {
     })
 
     expect(page.path).toBe('/blog/hello-world')
-    expect(page.canonicalPath).toBe('/blog/hello-world')
+    expect(page.unprefixedPath).toBe('/blog/hello-world')
     expect(page.locale).toBe('en')
     expect(page.localePaths).toEqual({})
     expect(page.variants).toEqual([])

@@ -112,7 +112,7 @@ const routeMetaMatchesPath = (value: ContentRouteMeta | null | undefined, path: 
   ) return true
   const requestedRoute = resolved?.requestedRoute
   return normalizeRoutePath(value.path) === normalizedPath ||
-    normalizeRoutePath(value.canonicalPath) === normalizedPath ||
+    normalizeRoutePath(value.unprefixedPath) === normalizedPath ||
     normalizeRoutePath(requestedRoute) === normalizedPath ||
     Object.values(value.localePaths || {}).some(entry => localePathMatches(entry, path))
 }

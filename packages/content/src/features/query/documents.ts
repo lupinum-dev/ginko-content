@@ -47,7 +47,7 @@ const explainResolution = (
       found: Boolean(doc),
       collection,
       ...(doc?.path ? { path: doc.path } : {}),
-      ...(doc?.canonicalPath ? { canonicalPath: doc.canonicalPath } : {}),
+      ...(doc?.unprefixedPath ? { unprefixedPath: doc.unprefixedPath } : {}),
       ...((doc as unknown as { ref?: string } | null)?.ref ? { ref: (doc as unknown as { ref: string }).ref } : {}),
       ...(resolvedLocale ? { locale: resolvedLocale } : {})
     },

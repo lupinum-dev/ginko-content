@@ -430,7 +430,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       return docs.map(doc => ({
         title: doc.title,
         ...navIdentityFromDoc(doc),
-        canonicalPath: normalizeContentPath(doc.path || '/'),
+        unprefixedPath: normalizeContentPath(doc.path || '/'),
         path: localizePath(fixture, doc.collection || collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
         locale: doc.locale
       })) as NavItem[]
@@ -456,7 +456,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         title: doc.title,
         ...navFieldsFromDoc(doc, fields),
         ...navIdentityFromDoc(doc),
-        canonicalPath: normalizeContentPath(doc.path || '/'),
+        unprefixedPath: normalizeContentPath(doc.path || '/'),
         path: localizePath(fixture, collection, doc.path || '/', locale || doc.locale),
         locale: doc.locale
       })) as NavItem[]
@@ -479,7 +479,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
         ? {
             title: doc.title,
-            canonicalPath: normalizeContentPath(doc.path || '/'),
+            unprefixedPath: normalizeContentPath(doc.path || '/'),
             path: localizePath(fixture, collection, doc.path || '/', locale || doc.locale)
           }
         : null) as Array<NavItem | null>

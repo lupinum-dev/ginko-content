@@ -283,7 +283,7 @@ describe('server reference contracts', () => {
 
     await expect(queryCollectionPage(createEvent(), 'docs' as any, '/de/leitfaden/fortgeschritten')).resolves.toMatchObject({
       path: '/de/leitfaden/fortgeschritten',
-      canonicalPath: '/leitfaden/fortgeschritten',
+      unprefixedPath: '/leitfaden/fortgeschritten',
       locale: 'de',
       localePaths: {
         // ADR-0016 changes the localePaths value shape from `string` to
@@ -300,7 +300,7 @@ describe('server reference contracts', () => {
     await expect(queryCollectionPage(createEvent(), 'landing' as any, '/')).resolves.toMatchObject({
       path: '/',
       type: 'yaml',
-      canonicalPath: '/',
+      unprefixedPath: '/',
       locale: 'en',
       path: '/'
     })
@@ -308,7 +308,7 @@ describe('server reference contracts', () => {
     await expect(queryCollectionPage(createEvent(), 'landing' as any, '/de')).resolves.toMatchObject({
       path: '/',
       type: 'yaml',
-      canonicalPath: '/',
+      unprefixedPath: '/',
       locale: 'de',
       path: '/de'
     })

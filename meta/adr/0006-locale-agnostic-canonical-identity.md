@@ -108,6 +108,7 @@ Corrected rules:
   `ref`) map to the canonical key at the boundary, exactly as before.
 
 There is **no** `canonicalPath` field on the document envelope. (A
-pre-existing `canonicalPath` on result/route/nav shapes is a *different,
-locale-specific* value — "the resolved variant's route path before locale
-prefixing" — and is renamed in T5.7; it was never the canonical key.)
+pre-existing field on result/route/nav shapes — once misnamed
+`canonicalPath`, renamed to `unprefixedPath` in T5.7 — is a *different,
+locale-specific* value: "the resolved variant's route path before locale
+prefixing". It was never the canonical key.)

@@ -27,9 +27,9 @@ const expectProviderResultInvalid = (callback: () => unknown) => {
 describe('provider fixture conformance', () => {
   const fixture = createDefaultProviderFixture()
   const provider = createFixtureContentProvider(fixture)
-  const collectNavPaths = (items: Array<{ canonicalPath?: string, children?: any[] }>): string[] =>
+  const collectNavPaths = (items: Array<{ unprefixedPath?: string, children?: any[] }>): string[] =>
     items.flatMap(item => [
-      item.canonicalPath,
+      item.unprefixedPath,
       ...collectNavPaths(item.children || [])
     ].filter(Boolean) as string[])
 
@@ -93,7 +93,7 @@ describe('provider fixture conformance', () => {
     const page = await minimalProvider.page(event, 'blog', '/blog/hello')
     expect(page).toMatchObject({
       path: '/blog/hello',
-      canonicalPath: '/blog/hello',
+      unprefixedPath: '/blog/hello',
       locale: 'en',
       resolved: expect.objectContaining({ locale: 'en', fallback: false })
     })

@@ -47,7 +47,7 @@ vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
     { title: 'Installation', path: '/dokumentation/einstieg/installation', locale: 'de', ref: 'docs.installation', stableId: 'docs.installation' }
   ]),
   queryFilesystemCollectionItemSurroundings: vi.fn(async () => [
-    { title: 'Alltag', canonicalPath: '/dokumentation/einstieg/alltag', path: '/de/dokumentation/einstieg/alltag' },
+    { title: 'Alltag', unprefixedPath: '/dokumentation/einstieg/alltag', path: '/de/dokumentation/einstieg/alltag' },
     null
   ]),
   queryFilesystemCollectionSearchSections: vi.fn(async () => [

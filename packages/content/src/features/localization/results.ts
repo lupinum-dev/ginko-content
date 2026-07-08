@@ -28,7 +28,7 @@ export const createLocaleVariants = (
     .filter(entry => entry.path)
     .map(entry => ({
       locale: entry.locale,
-      canonicalPath: normalizeContentPath(entry.path || '/'),
+      unprefixedPath: normalizeContentPath(entry.path || '/'),
       path: projectContentPathToLocale(entry.path || '/', entry.locale, defaultLocale, routeMounts)
     }))
 }
@@ -94,16 +94,16 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
   routeMounts?: RouteMounts
 ): ContentPageResult<T> => {
   const resolution = page.resolved
-  const canonicalPath = normalizeContentPath(page.path || '/')
+  const unprefixedPath = normalizeContentPath(page.path || '/')
   const variants = createLocaleVariants(resolution?.variantPaths, defaultLocale, routeMounts)
-  const path = projectContentPathToLocale(canonicalPath, locale || resolution?.locale || page.locale, defaultLocale, routeMounts)
+  const path = projectContentPathToLocale(unprefixedPath, locale || resolution?.locale || page.locale, defaultLocale, routeMounts)
   const resolvedLocale = resolution?.locale || page.locale || locale || defaultLocale || ''
   const requestedLocale = resolution?.requestedLocale || locale
   const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
   const result = {
     ...page,
     path,
-    canonicalPath,
+    unprefixedPath,
     locale: locale || resolution?.locale || page.locale || defaultLocale || '',
     defaultLocale: defaultLocale || '',
     variants,
@@ -120,7 +120,7 @@ export const localizePageResult = <T extends ParsedContent & Record<string, unkn
       availableLocales: resolution?.availableLocales || Object.keys(resolution?.variantPaths || {}),
       ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
     },
-    stem: getContentStem(canonicalPath, page.file?.path),
+    stem: getContentStem(unprefixedPath, page.file?.path),
     extension: page.file?.extension
   } as ContentPageResult<T>
 
@@ -147,8 +147,8 @@ const localizeNavigationItem = (
   locales: string[] = [],
   routeMounts?: RouteMounts
 ): ContentNavigationItem => {
-  const rawPath = typeof item.canonicalPath === 'string'
-    ? item.canonicalPath
+  const rawPath = typeof item.unprefixedPath === 'string'
+    ? item.unprefixedPath
     : typeof item.path === 'string'
       ? item.path
       : undefined
@@ -159,14 +159,14 @@ const localizeNavigationItem = (
     }
   }
 
-  const canonicalPath = normalizeContentPath(rawPath)
-  const localizedPath = projectContentPathToLocale(canonicalPath, locale, defaultLocale, routeMounts)
+  const unprefixedPath = normalizeContentPath(rawPath)
+  const localizedPath = projectContentPathToLocale(unprefixedPath, locale, defaultLocale, routeMounts)
   const file = (item.file as { path?: string } | undefined)?.path
   return {
     ...item,
     path: localizedPath,
-    canonicalPath,
-    stem: item.stem || getContentStem(canonicalPath, file),
+    unprefixedPath,
+    stem: item.stem || getContentStem(unprefixedPath, file),
     children: item.children?.map(child => localizeNavigationItem(child, locale, defaultLocale, locales, routeMounts))
   }
 }
@@ -190,12 +190,12 @@ export const localizeSurround = <T extends Record<string, unknown>>(
     return item
   }
 
-  const canonicalPath = normalizeContentPath(String(item.canonicalPath || item.path || '/'))
+  const unprefixedPath = normalizeContentPath(String(item.unprefixedPath || item.path || '/'))
   return {
     ...item,
-    path: projectContentPathToLocale(canonicalPath, locale, defaultLocale, routeMounts),
-    canonicalPath,
-    stem: item.stem || getContentStem(canonicalPath, (item.file as { path?: string } | undefined)?.path)
+    path: projectContentPathToLocale(unprefixedPath, locale, defaultLocale, routeMounts),
+    unprefixedPath,
+    stem: item.stem || getContentStem(unprefixedPath, (item.file as { path?: string } | undefined)?.path)
   }
 }) as Array<T | null>
 
@@ -216,7 +216,7 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
   routeMounts?: RouteMounts
 ): ContentRouteMeta => {
   const resolution = page.resolved
-  const canonicalPath = normalizeContentPath(page.path || '/')
+  const unprefixedPath = normalizeContentPath(page.path || '/')
   const resolvedLocale = resolution?.locale || page.locale || locale || defaultLocale || ''
   const requestedLocale = resolution?.requestedLocale || locale
   const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
@@ -229,13 +229,13 @@ export const createRouteMeta = <T extends ParsedContent & Record<string, unknown
     : (Array.isArray((page as { variants?: unknown }).variants)
         ? ((page as unknown as { variants: ReturnType<typeof createLocaleVariants> }).variants)
         : [])
-  const path = projectContentPathToLocale(canonicalPath, locale || resolvedLocale, defaultLocale, routeMounts)
+  const path = projectContentPathToLocale(unprefixedPath, locale || resolvedLocale, defaultLocale, routeMounts)
 
   return {
     locale: locale || resolvedLocale,
     defaultLocale: defaultLocale || '',
     path,
-    canonicalPath,
+    unprefixedPath,
     variants,
     localePaths: createLocalePaths(variants),
     resolved: {
