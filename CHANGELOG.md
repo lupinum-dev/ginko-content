@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.1
 
 - Add Nitro-free provider document helper exports from
   `@lupinum/ginko-content/provider`: `normalizeProviderDocument`,
