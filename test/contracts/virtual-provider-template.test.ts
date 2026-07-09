@@ -5,6 +5,8 @@ import { describe, expect, test } from 'vitest'
 import { createVirtualContentTemplates } from '../../packages/content/src/module/virtual'
 import { loadContentConfig, resolveContentConfigPath } from '../../packages/content/src/utils/content-config'
 
+const toNuxtPath = (path: string) => path.replaceAll('\\', '/')
+
 const createNuxt = () => ({
   options: {
     rootDir: '/workspace/app'
@@ -38,7 +40,7 @@ describe('virtual provider template contract', () => {
         }
       } as any
 
-      expect(resolveContentConfigPath(nuxt)).toBe(join(tmpDir, 'content.config.ts'))
+      expect(resolveContentConfigPath(nuxt)).toBe(toNuxtPath(join(tmpDir, 'content.config.ts')))
       const config = await loadContentConfig(nuxt)
 
       expect(config.collections?.docs?.source).toBe('**/*.md')

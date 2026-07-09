@@ -29,11 +29,23 @@ const latestSupported = {
   'vitest': '^4.1.6',
   'vue': '^3.5.0'
 }
+async function resolveFutureNuxtVersion () {
+  const packages = ['nuxt', '@nuxt/kit', '@nuxt/schema']
+  const tags = await Promise.all(packages.map(async (name) => {
+    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`)
+    if (!response.ok) throw new Error(`Unable to resolve npm dist-tags for ${name}: ${response.status}`)
+    return (await response.json())['dist-tags']
+  }))
+  return tags.every(packageTags => packageTags?.next) ? 'next' : 'latest'
+}
+const futureNuxtVersion = mode === 'future'
+  ? process.env.GINKO_CANARY_NUXT_VERSION || await resolveFutureNuxtVersion()
+  : undefined
 const future = {
   ...latestSupported,
-  '@nuxt/kit': 'next',
-  '@nuxt/schema': 'next',
-  'nuxt': 'next'
+  '@nuxt/kit': futureNuxtVersion,
+  '@nuxt/schema': futureNuxtVersion,
+  'nuxt': futureNuxtVersion
 }
 const versions = mode === 'minimum-supported' ? {} : mode === 'latest-supported' ? latestSupported : future
 
@@ -65,4 +77,4 @@ for (const file of packageJsonFiles(repoRoot)) {
   if (changed) writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`)
 }
 
-console.log(JSON.stringify({ mode, changes }, null, 2))
+console.log(JSON.stringify({ mode, futureNuxtVersion, changes }, null, 2))

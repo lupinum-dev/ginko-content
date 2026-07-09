@@ -40,6 +40,8 @@ const createNuxt = (layers: string[]) => {
   }
 }
 
+const toNuxtPath = (path: string) => path.replaceAll('\\', '/')
+
 describe('runtime asset contracts', () => {
   const tempDirs: string[] = []
 
@@ -195,13 +197,13 @@ describe('runtime asset contracts', () => {
 
     expect(dirs).toEqual([
       {
-        path: join(appLayer, 'components/content'),
+        path: toNuxtPath(join(appLayer, 'components/content')),
         global: false,
         pathPrefix: false,
         prefix: ''
       },
       {
-        path: join(baseLayer, 'components/content'),
+        path: toNuxtPath(join(baseLayer, 'components/content')),
         global: false,
         pathPrefix: false,
         prefix: ''
@@ -227,7 +229,7 @@ describe('runtime asset contracts', () => {
 
     expect(dirs).toEqual([
       {
-        path: join(appLayer, 'components/content'),
+        path: toNuxtPath(join(appLayer, 'components/content')),
         global: false,
         pathPrefix: false,
         prefix: ''

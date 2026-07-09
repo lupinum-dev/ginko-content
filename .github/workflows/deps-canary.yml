@@ -107,7 +107,10 @@ jobs:
       - run: corepack enable
 
       - name: Prepare future dependency manifests
-        run: node scripts/prepare-deps-canary.mjs future > canary-manifest-diff.json
+        id: prepare-future
+        run: |
+          node scripts/prepare-deps-canary.mjs future > canary-manifest-diff.json
+          node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('canary-manifest-diff.json')); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'nuxt-version='+report.futureNuxtVersion+'\n')"
 
       - run: node -e "require('node:fs').rmSync('pnpm-lock.yaml')"
 
@@ -117,7 +120,7 @@ jobs:
         continue-on-error: true
         run: pnpm test:compatibility-slice
         env:
-          GINKO_CONSUMER_NUXT_VERSION: next
+          GINKO_CONSUMER_NUXT_VERSION: ${{ steps.prepare-future.outputs.nuxt-version }}
           GINKO_CONSUMER_SITEMAP_VERSION: '>=8.0.15 <9'
           GINKO_CONSUMER_VUE_VERSION: ^3.5.0
           GINKO_CONSUMER_VITEST_VERSION: ^4.1.6
