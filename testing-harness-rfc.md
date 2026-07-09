@@ -1,6 +1,6 @@
 # RFC: Release-Confidence Harness for `@lupinum/ginko-content`
 
-> **Status:** Adopted direction; implementation in progress.
+> **Status:** Implemented and locally verified; authoritative GitHub checkpoint pending.
 > **Owner:** Ginko Content maintainers.
 > **Last revised:** 2026-07-09.
 > **Scope:** The CMS-neutral content engine in this repository. Studio, CMS
@@ -719,6 +719,30 @@ Acceptance:
 
 **Checkpoint B:** Run the final release workflow on the exact intended SHA.
 Only a green Checkpoint B may authorize the tag.
+
+### 12.1 Local implementation evidence
+
+On 2026-07-09, the completed implementation passed the canonical local
+`pnpm release:verify` pre-check on macOS arm64 with Node 24.18.0, npm 11.16.0,
+and pnpm 10.33.0. There were no retries. Recorded step evidence:
+
+| Step | Result | Duration |
+|---|---:|---:|
+| compatibility policy | pass | 0.6s |
+| docs drift | pass | 0.6s |
+| `verify` | pass | 20m 48s |
+| browser e2e | pass | 48.2s |
+| real static generation | pass | 43.5s |
+| production audit | pass; no known vulnerabilities | 1.4s |
+| exact pnpm consumer | pass | 33.9s |
+| exact npm consumer | pass | 67.6s |
+
+The implementation was then committed as `9d25acd`; a clean-SHA artifact
+recheck recorded `worktreeDirty: false`, `releaseEligible: true`, and tarball
+SHA-256 `4a6991c8aaef0aaf56543da5b464cd7a3fb632d4b96d719df6fe14f0f69b5284`.
+Both pnpm and npm consumers passed against those exact bytes. This is durable
+local pre-check evidence, not Checkpoint B: Node 22/24, Windows, supported
+canaries, and the exact-SHA release workflow still require a real GitHub run.
 
 ---
 
