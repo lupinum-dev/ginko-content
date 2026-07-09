@@ -23,6 +23,8 @@ export type { ContentProviderQuery, ContentProviderNavigationOptions, ContentQue
 export { PROVIDER_QUERY_VERSION, toContentProviderQuery, toContentProviderNavigationQuery } from './provider-query'
 export { createContentProviderError } from './provider-errors'
 export type { ContentProviderErrorCode } from './provider-errors'
+export { normalizeProviderDocument, shapeProviderDocument } from '../runtime/server/provider-document.js'
+export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from '../runtime/server/provider-document.js'
 
 export const contentProviderResultMarker = '__ginkoContentProviderResult'
 

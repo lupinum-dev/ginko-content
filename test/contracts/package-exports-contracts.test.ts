@@ -360,6 +360,15 @@ describe('package export contracts', () => {
     expect(agent.agentMarkdownPathForRoute).toBeTypeOf('function')
   })
 
+  test('built provider export loads as Node ESM', async () => {
+    const provider = await import('../../packages/content/dist/public/provider.js')
+
+    expect(provider.toContentProviderQuery).toBeTypeOf('function')
+    expect(provider.withContentCache).toBeTypeOf('function')
+    expect(provider.normalizeProviderDocument).toBeTypeOf('function')
+    expect(provider.shapeProviderDocument).toBeTypeOf('function')
+  })
+
   test('built provider fixture export loads as Node ESM', async () => {
     const fixtureModule = await import('@lupinum/ginko-content/testing/provider-fixture')
 
@@ -387,14 +396,16 @@ describe('package export contracts', () => {
   })
 
   test('public export files keep Node ESM relative specifiers explicit', async () => {
-    const [client, server, agent] = await Promise.all([
+    const [client, server, provider, agent] = await Promise.all([
       readFile('packages/content/dist/public/client.js', 'utf8'),
       readFile('packages/content/dist/public/server.js', 'utf8'),
+      readFile('packages/content/dist/public/provider.js', 'utf8'),
       readFile('packages/content/dist/public/agent.js', 'utf8')
     ])
 
     expect(client).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
     expect(server).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
+    expect(provider).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
     expect(agent).not.toMatch(/from ['"]\.\.\/runtime\/[^'"]*(?<!\.js)['"]/)
   })
 

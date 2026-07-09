@@ -49,7 +49,9 @@ export const generatedContentServerValueNames = [
   'PROVIDER_QUERY_VERSION',
   'toContentProviderQuery',
   'toContentProviderNavigationQuery',
-  'createContentProviderError'
+  'createContentProviderError',
+  'normalizeProviderDocument',
+  'shapeProviderDocument'
 ] as const
 
 export const generatedContentServerTypeSpecs = [
@@ -64,6 +66,8 @@ export const generatedContentServerTypeSpecs = [
   { local: 'ContentProviderResult<T>', exported: 'ContentProviderResult<T>' },
   { local: 'MaybeContentProviderResult<T>', exported: 'MaybeContentProviderResult<T>' },
   { local: 'ContentProviderErrorCode', exported: 'ContentProviderErrorCode' },
+  { local: 'ProviderDocumentInput', exported: 'ProviderDocumentInput' },
+  { local: 'ShapeProviderDocumentOptions', exported: 'ShapeProviderDocumentOptions' },
   { local: 'VercelContentCacheOptions', exported: 'VercelContentCacheOptions' }
 ] as const
 
