@@ -36,6 +36,29 @@ Run focused tests while working, then run the broader gate before handoff when
 the change touches public query APIs, provider behavior, package metadata,
 release scripts, docs examples, or Nuxt module output.
 
+### Test escalation ladder
+
+Do not start with the full release gate. Iterate at the narrowest layer, then
+escalate once:
+
+| Change | First check | Escalation |
+|---|---|---|
+| Helper or pure domain logic | Targeted Vitest file in its project | `pnpm test` |
+| Query/provider/public contract | Targeted unit and contract files | `pnpm test` |
+| Nuxt module, hook, or runtime | Targeted contract and affected e2e file | `pnpm test:e2e` |
+| Static fixture/output | Affected e2e file or `pnpm test:generate:static` | owning e2e project |
+| Browser behavior | Targeted browser file | `pnpm test:e2e:browser` |
+| Docs | `pnpm docs:build && pnpm docs:smoke && pnpm docs-drift` | `pnpm verify` |
+| Package/export metadata | Package contract and `pnpm release:pack` | exact packed consumer |
+
+Run `pnpm verify` once before handoff for code or public-behavior changes. The
+authoritative `release:verify` belongs in CI on the exact final SHA; do not run
+it repeatedly while editing. CI blocking jobs always run their complete lane
+without changed-path shortcuts.
+
+Long-running local commands must stay attached or be polled through a durable
+status file. Never end an agent task while a gate is still running.
+
 ## Release Safety
 
 Never run live publish commands from an agent session. `release:publish` is
