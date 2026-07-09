@@ -26,9 +26,20 @@ pnpm run release:verify
 builds packages, builds docs and examples, runs unit/provider/runtime/client/Nuxt
 tests, runs e2e, and typechecks.
 
-`release:verify` runs `verify`, the packed fresh Nuxt consumer test, production
-browser e2e, search matrix, static sitemap output checks, production audit, and
-release packing.
+`release:verify` runs `verify` once, production browser e2e, real static
+generation, production audit, release packing, and pnpm/npm consumers against
+the exact tarball left in `.pack/`. Search and sitemap checks already belong to
+the e2e project inside `verify`; they are not run a second time.
+
+## Release gate
+
+A tag may only be cut from the exact commit SHA whose CI release workflow,
+including `release-verify` and the minimum-runtime job, is green. Release
+metadata must be committed before that workflow runs. A local
+`pnpm run release:verify` is a useful pre-check, but it does not authorize a tag
+unless it ran from a clean tree at the exact tagged SHA and its environment and
+artifact evidence were retained durably. See `testing-harness-rfc.md` for the
+release-confidence model and acceptance gates.
 
 ## Release Runbook
 
@@ -76,19 +87,33 @@ git diff -- CHANGELOG.md
 reachable release tag yet, it can generate an unusable `## ...main` heading;
 delete that output and keep the curated version section.
 
-4. Run the release gate and build the npm tarball:
+4. Commit the release metadata, push `main`, and record the commit SHA:
 
 ```bash
-pnpm run release:verify
+git add packages/content/package.json packages/content/compatibility.json CHANGELOG.md README.md MAINTAINING.md docs/release-checklist.md
+git commit -m "chore: release ginko-content v$VERSION"
+git push origin main
+RELEASE_SHA=$(git rev-parse HEAD)
 ```
 
-This runs the full workspace verification, packed consumer install/build/start
-smoke, production browser e2e, search matrix, static sitemap output checks,
-production audit, and `release:pack`. It should leave one tarball in `.pack/`.
-The release pack step also inspects the tarball metadata, export files,
-declarations, forbidden local/build artifacts, and `workspace:*` ranges.
+Do not tag yet. The authoritative gate must run against `$RELEASE_SHA`.
 
-5. Inspect the tarball before publishing:
+5. Wait for the `release-verify` job for `$RELEASE_SHA`, then download its exact
+release artifact:
+
+```bash
+RUN_ID=$(gh run list --workflow CI --commit "$RELEASE_SHA" --json databaseId,conclusion --jq 'map(select(.conclusion == "success"))[0].databaseId')
+test -n "$RUN_ID"
+gh run view "$RUN_ID" --exit-status
+rm -rf .pack
+gh run download "$RUN_ID" --name ginko-content-release --dir .pack
+```
+
+The downloaded artifact must contain exactly one `.tgz` and
+`release-artifact.json`. The metadata commit must equal `$RELEASE_SHA`,
+`worktreeDirty` must be `false`, and `releaseEligible` must be `true`.
+
+6. Inspect the exact CI-tested tarball before tagging or publishing:
 
 ```bash
 ls -lh .pack/
@@ -96,17 +121,16 @@ tar -tzf .pack/lupinum-ginko-content-$VERSION.tgz | less
 tar -xOf .pack/lupinum-ginko-content-$VERSION.tgz package/package.json
 tar -xOf .pack/lupinum-ginko-content-$VERSION.tgz package/package.json | rg 'workspace:' && exit 1
 shasum -a 256 .pack/lupinum-ginko-content-$VERSION.tgz
+cat .pack/release-artifact.json
 ```
 
 Do not commit `.pack/`, `dist/`, `.nuxt/`, `.output/`, or tarballs.
 
-6. Commit the release prep, then create and push an annotated tag:
+7. Create and push an annotated tag at the exact green SHA:
 
 ```bash
-git add packages/content/package.json packages/content/compatibility.json CHANGELOG.md README.md MAINTAINING.md docs/release-checklist.md
-git commit -m "chore: release ginko-content v$VERSION"
-git tag -a v$VERSION -m "v$VERSION"
-git push origin main
+test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+git tag -a v$VERSION "$RELEASE_SHA" -m "v$VERSION"
 git push origin v$VERSION
 ```
 
@@ -114,7 +138,7 @@ Use `git push origin v$VERSION` explicitly. `git push --follow-tags` only pushes
 annotated tags that are reachable from the pushed commits, and lightweight local
 tags are easy to miss.
 
-7. Log in to npm and confirm package access:
+8. Log in to npm and confirm package access:
 
 ```bash
 npm login --registry=https://registry.npmjs.org/
@@ -125,7 +149,7 @@ npm access list packages lupinum --registry=https://registry.npmjs.org/
 The npm CLI may open browser authentication during login or publish. Do not add
 `--otp` unless npm explicitly asks for a one-time password.
 
-8. Publish manually from the inspected tarball:
+9. Publish manually from the inspected tarball:
 
 ```bash
 npm publish .pack/lupinum-ginko-content-$VERSION.tgz --access public --registry=https://registry.npmjs.org/
@@ -134,7 +158,7 @@ npm publish .pack/lupinum-ginko-content-$VERSION.tgz --access public --registry=
 If npm opens an authentication URL, complete it in the browser and return to the
 terminal.
 
-9. Confirm npm package state:
+10. Confirm npm package state:
 
 ```bash
 npm access get status @lupinum/ginko-content --registry=https://registry.npmjs.org/
@@ -145,7 +169,7 @@ For a first public publish, `npm view` can briefly return `E404` while registry
 metadata propagates. If access lists the package and status is `public`, wait a
 minute and retry before assuming the publish failed.
 
-10. Create the GitHub release with the same tarball:
+11. Create the GitHub release with the same tarball:
 
 ```bash
 gh release create v$VERSION \
@@ -160,7 +184,7 @@ If the release already exists, update it instead:
 gh release upload v$VERSION .pack/lupinum-ginko-content-$VERSION.tgz --clobber
 ```
 
-11. Run a clean install smoke test outside the repository:
+12. Run a clean install smoke test outside the repository:
 
 ```bash
 tmpdir=$(mktemp -d)
@@ -171,7 +195,7 @@ pnpm add @lupinum/ginko-content@$VERSION
 node -e "import('@lupinum/ginko-content').then(() => console.log('ok'))"
 ```
 
-12. Clean local release artifacts when finished:
+13. Clean local release artifacts when finished:
 
 ```bash
 rm -rf .pack

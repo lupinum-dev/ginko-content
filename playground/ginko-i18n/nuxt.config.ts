@@ -19,8 +19,13 @@ export default defineNuxtConfig({
     },
     sitemap: {
       assert: {
-        routes: ['/guide/getting-started', '/de/leitfaden/erste-schritte'],
-        forbidden: ['/authors/evan', '/guide/draft-roadmap', '/de/leitfaden/entwurf']
+        // NB: previously used non-existent `routes`/`forbidden` keys, which were silently
+        // ignored (and `enabled` defaulted to false) -- the sitemap-assert hook never actually
+        // ran for this fixture. Fixed as part of TH-T1-3 so the real `mode: 'generate'` hook
+        // path (shouldRunSitemapAssertionOnPrerenderedSitemaps, C-6) is exercised by a real run.
+        enabled: true,
+        requiredPaths: ['/guide/getting-started', '/de/leitfaden/erste-schritte'],
+        forbiddenPathPrefixes: ['/authors/evan', '/guide/draft-roadmap', '/de/leitfaden/entwurf']
       }
     },
     links: {

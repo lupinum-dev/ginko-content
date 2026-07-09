@@ -19,13 +19,14 @@ jobs:
     name: Fast PR verification
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - run: corepack enable
 
@@ -39,22 +40,22 @@ jobs:
     name: PR e2e smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - run: corepack enable
 
       - run: pnpm install --frozen-lockfile
 
-      # Slim canary: builds playground/ginko-basic, boots the prod server, and
+      # Slim early signal: builds playground/ginko-basic, boots the prod server, and
       # asserts `/`, one nested route, and the search index respond 200 with
-      # expected content. The heavy browser-e2e/search/sitemap suites stay gated
-      # on the main-only release-verify job below. Target wall time <3 min; the
+      # expected content while the full PR gate runs independently. Target wall time <3 min; the
       # 15 min ceiling is a safety net for cold CI caches.
       - run: node scripts/pr-e2e-smoke.mjs
 
@@ -69,7 +70,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - uses: browser-actions/setup-chrome@v1
         id: chrome
@@ -78,6 +79,54 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Initialize release summary
+        run: |
+          echo "## Release verification" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+
       - run: pnpm run release:verify
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+
+      - name: Assert clean exact-SHA artifact provenance
+        run: >-
+          node -e "const m=require('./.pack/release-artifact.json');
+          if (m.commit !== process.env.GITHUB_SHA || m.worktreeDirty || !m.releaseEligible)
+          throw new Error('Release artifact is not eligible for '+process.env.GITHUB_SHA)"
+
+      - name: Record exact release artifact
+        run: |
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat .pack/release-artifact.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ginko-content-release
+          path: |
+            .pack/*.tgz
+            .pack/release-artifact.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  minimum-runtime:
+    name: Minimum runtime (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test:minimum-runtime

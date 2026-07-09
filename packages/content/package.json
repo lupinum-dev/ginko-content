@@ -19,6 +19,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "license": "MIT",
   "type": "module",
   "main": "./dist/module.mjs",
@@ -151,9 +154,9 @@
     "vue-docgen-web-types": "^0.1.8"
   },
   "peerDependencies": {
-    "nuxt": ">=4.4.7",
+    "nuxt": ">=4.4.7 <5",
     "pagefind": "^1.5.2",
-    "vitest": ">=4.1.6",
+    "vitest": ">=4.1.6 <5",
     "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
