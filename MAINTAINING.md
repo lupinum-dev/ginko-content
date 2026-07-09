@@ -30,6 +30,16 @@ tests, runs e2e, and typechecks.
 browser e2e, search matrix, static sitemap output checks, production audit, and
 release packing.
 
+## Release gate
+
+A tag may only be cut from a commit whose `release-verify` CI job (defined in
+`.github/workflows/ci.yml`, triggered on pushes to `main`, `workflow_dispatch`,
+and required before every tag) is green, or — for a local-only pre-check —
+whose `pnpm run release:verify` run was recorded green locally. Record local
+green runs (result, wall time, per-step timings) in `testing-harness-rfc.md`
+§9 (Status Log). See `testing-harness-rfc.md` for the full tiered-confidence
+strategy (`T-fast` / `T-pr` / `T-release` / `T-canary`) behind this gate.
+
 ## Release Runbook
 
 Publishing is intentionally manual. The `release:publish` script exits with a

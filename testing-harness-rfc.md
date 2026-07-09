@@ -591,6 +591,13 @@ agent's change to them), check the listed failure mode explicitly.
   new check). Deviations: none — adopted the in-flight run per the resume
   instructions rather than starting a second one (machine constraint: never
   run two test suites concurrently).
+- 2026-07-09 — [TH-T0-2] Added "Release gate" section to `MAINTAINING.md`
+  (between "Daily Maintenance" and "Release Runbook"): states a tag may only
+  be cut from a green `release-verify` CI job or a recorded-green local
+  `pnpm run release:verify` run, points at this RFC §9 for the record and at
+  the four-tier strategy in §2. Gate: `pnpm docs-drift` green (see command
+  output in task log). Proof: N/A (doc-only addition, not a new automated
+  check — nothing to break/fix).
 
 ---
 
