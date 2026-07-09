@@ -26,19 +26,34 @@ Use this guide when changing provider capabilities, provider return shapes, cach
 ## Document Normalization Seam
 
 Third-party providers emit only the canonical envelope's required fields and let
-core derive everything else. The required set is:
+core derive everything else. The minimal input set is:
 
-- `id`, `collection`, `locale`, `path`, `canonicalKey`, `type`, `body` (plus any
-  frontmatter data)
+- `collection`, `locale`, `path`, `body` (plus any frontmatter data)
+- `id`, `canonicalKey`, and `type` are optional and derived when omitted
 - `file` is optional and omitted for providers with no backing file (e.g.
   CMS-backed documents).
 
-`shapeProviderDocument(document, options)` (from `#content/server`) takes that
-minimal document and returns the canonical `ContentPageResult`, deriving the
-localized route `path`, `variants`, `localePaths` and the `resolved` envelope.
+`shapeProviderDocument(document, options)` takes that minimal document and
+returns the canonical `ContentPageResult`, deriving the localized route `path`,
+`variants`, `localePaths` and the `resolved` envelope.
 `normalizeProviderDocument(document)` is the same seam without route shaping —
 it fills the derivable identity fields (`id`, `canonicalKey`, `type`) and returns
 the canonical document. Providers should never hand-build route/locale metadata.
+
+Provider packages should import these helpers from the Nitro-free provider
+subpath:
+
+```ts
+import {
+  normalizeProviderDocument,
+  shapeProviderDocument,
+  type ProviderDocumentInput,
+  type ShapeProviderDocumentOptions
+} from '@lupinum/ginko-content/provider'
+```
+
+Inside Nuxt server runtime files, `#content/server` also exposes them for
+convenience.
 
 `examples/advanced/cms-cache-contract/server/cms-provider.ts` is the reference
 provider tutorial and emits only this minimal set.
@@ -56,7 +71,9 @@ Provider changes affect external provider authors. Treat these as public:
 - the wire surface mirrored on `./provider`: `ContentProviderQuery`,
   `ContentProviderNavigationOptions`, `ContentQueryPlan`,
   `PROVIDER_QUERY_VERSION`, `toContentProviderQuery`,
-  `toContentProviderNavigationQuery`, `withContentCache`.
+  `toContentProviderNavigationQuery`, `withContentCache`,
+  `normalizeProviderDocument`, `shapeProviderDocument`,
+  `ProviderDocumentInput`, and `ShapeProviderDocumentOptions`.
 
 If these change, update `meta/public-surface.json`, provider docs, generated `#content/server` declarations if needed, and type fixtures.
 

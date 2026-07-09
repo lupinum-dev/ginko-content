@@ -119,13 +119,17 @@ The public server facade and generated `#content/server` types expose:
 - `getCollectionPath`
 - `queryCollectionsSitemapEntries`
 - `createContentProviderError`
-- `ContentProvider`
-- `ContentProviderCapabilities`
-- `ContentProviderErrorCode`
+- provider cache helpers and provider document helpers for Nitro server runtime
+  convenience.
 
-Use `#content/server` inside Nuxt server runtime when appropriate. Use `@lupinum/ginko-content/server` for package-level or provider code that imports the public server contract.
+Use `#content/server` inside Nuxt server runtime when appropriate. Package-level
+provider code should use `@lupinum/ginko-content/provider`, which is the
+Nitro-free provider-author surface for `ContentProvider`, provider query
+helpers, cache helpers, provider errors, and provider document shaping helpers.
 
-The current `/server` facade also exports cache and agent helpers. Treat those as advanced surfaces until Phase 2 classifies whether they stay under `/server` or move to agent/cache-focused subpaths.
+The current `/server` facade also exports cache helpers. Treat those as
+advanced surfaces unless a doc is specifically aimed at Nitro server runtime
+authors.
 
 ## Rendering Components
 

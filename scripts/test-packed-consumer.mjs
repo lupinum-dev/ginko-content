@@ -27,6 +27,7 @@ const expectedDeclarations = [
   'dist/config.d.mts',
   'dist/public/client.d.ts',
   'dist/public/server.d.ts',
+  'dist/public/provider.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
   'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',

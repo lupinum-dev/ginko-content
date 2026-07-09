@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add Nitro-free provider document helper exports from
+  `@lupinum/ginko-content/provider`: `normalizeProviderDocument`,
+  `shapeProviderDocument`, `ProviderDocumentInput`, and
+  `ShapeProviderDocumentOptions`. Provider packages no longer need to import the
+  broad server facade just to shape provider documents.
+
 ## v0.2.0
 
 > **This is the foundational-refactor release and a hard cutover — there are no
