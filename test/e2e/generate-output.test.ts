@@ -5,19 +5,25 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import {
+  assertFixtureSourceSentinels,
   assertNoLocalOrigins,
   assertNoPrivateContentLeaks,
   assertNoRepeatedLocalePrefixes,
   listGeneratedTextArtifacts,
   readGeneratedArtifact,
-  readSearchIndex
+  readSearchIndex,
+  fixtureLeakSentinels
 } from '../helpers/generated-artifacts'
 import { generateStaticFixture } from '../helpers/production-fixture'
+import { assertRouteManifestMatchesGolden } from '../helpers/route-manifest'
+import { assertGeneratedLinkIntegrity } from '../../scripts/lib/generated-link-integrity.mjs'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const basicFixtureDir = resolve(rootDir, 'playground/ginko-basic')
 const i18nFixtureDir = resolve(rootDir, 'playground/ginko-i18n')
 const siteUrl = 'https://ginko-content.example.test'
+const basicGolden = resolve(rootDir, 'test/golden/routes/ginko-basic.txt')
+const i18nGolden = resolve(rootDir, 'test/golden/routes/ginko-i18n.txt')
 
 // R-1: real `nuxi generate` runs for exactly these two fixtures. Reuses the same
 // generated-artifacts.ts assertions and leak sweeps as the `nuxi build` lane
@@ -25,6 +31,7 @@ const siteUrl = 'https://ginko-content.example.test'
 // run instead of only by `nuxi build` + nitro.prerender (RFC gap #1).
 describe('generate lane output (nuxi generate)', () => {
   test('ginko-basic: static generate emits stable HTML + search artifacts, free of local-origin and private-content leaks', async () => {
+    await assertFixtureSourceSentinels(basicFixtureDir, fixtureLeakSentinels.basic)
     const fixture = await generateStaticFixture(basicFixtureDir)
     const outputPublicDir = fixture.publicDir
     const textArtifacts = await listGeneratedTextArtifacts(outputPublicDir)
@@ -36,16 +43,19 @@ describe('generate lane output (nuxi generate)', () => {
     expect(searchIndex).toEqual(expect.arrayContaining([
       expect.objectContaining({ title: 'Getting Started', path: '/guide/getting-started' })
     ]))
-    expect(JSON.stringify(searchIndex)).not.toContain('Draft Post')
+    expect(JSON.stringify(searchIndex)).not.toContain(fixtureLeakSentinels.basic[0])
 
     // ginko-basic has no i18n locales, so the repeated-locale-prefix sweep does not apply here
     // (see C-4: keep the locale list passed to that sweep matching the fixture's actual
     // locales -- an empty/non-i18n fixture has none to double).
     assertNoLocalOrigins(textArtifacts)
-    assertNoPrivateContentLeaks(textArtifacts, ['Draft Post'])
+    assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.basic)
+    await assertRouteManifestMatchesGolden(outputPublicDir, basicGolden, 'generate')
+    await assertGeneratedLinkIntegrity(outputPublicDir)
   }, 300000)
 
-  test('ginko-i18n: static generate emits localized HTML/sitemap/search/agent artifacts, robots.txt referencing the sitemap (R-9), and fires the mode:"generate" sitemap-assert hook for real (T1-3, C-6)', async () => {
+  test('ginko-i18n: static generate emits localized HTML/sitemap/search/agent artifacts and fires the generate sitemap-assert hook', async () => {
+    await assertFixtureSourceSentinels(i18nFixtureDir, fixtureLeakSentinels.i18n)
     const fixture = await generateStaticFixture(i18nFixtureDir)
     const outputPublicDir = fixture.publicDir
     const textArtifacts = await listGeneratedTextArtifacts(outputPublicDir)
@@ -61,8 +71,9 @@ describe('generate lane output (nuxi generate)', () => {
       expect.objectContaining({ title: 'Einstieg', path: '/de/leitfaden/erste-schritte', locale: 'de' })
     ]))
     expect(JSON.stringify(searchIndex)).not.toContain('/authors/evan')
-    expect(JSON.stringify(searchIndex)).not.toContain('Draft Roadmap')
-    expect(JSON.stringify(searchIndex)).not.toContain('Internal Note')
+    for (const sentinel of fixtureLeakSentinels.i18n) {
+      expect(JSON.stringify(searchIndex)).not.toContain(sentinel)
+    }
 
     const sitemapText = [
       await readGeneratedArtifact(outputPublicDir, '__sitemap__/en-US.xml'),
@@ -94,18 +105,16 @@ describe('generate lane output (nuxi generate)', () => {
     expect(deLlms).toContain('/raw/de/leitfaden/erste-schritte.md')
     expect(llmsFull).toContain('# Getting Started')
     expect(llmsFull).toContain('# Contact')
-    expect(llmsFull).not.toContain('Draft Roadmap')
-    expect(llmsFull).not.toContain('Internal Note')
+    for (const sentinel of fixtureLeakSentinels.i18n) {
+      expect(llmsFull).not.toContain(sentinel)
+    }
     expect(llmsFull).not.toContain('/index.md')
-
-    // R-9: robots.txt is a static asset copied verbatim from the fixture's public/ dir; assert
-    // both that it is emitted at all by `nuxi generate` and that it references the sitemap.
-    const robots = await readGeneratedArtifact(outputPublicDir, 'robots.txt')
-    expect(robots).toContain(`Sitemap: ${siteUrl}/sitemap_index.xml`)
 
     assertNoLocalOrigins(textArtifacts)
     assertNoRepeatedLocalePrefixes(textArtifacts, ['de', 'en'])
-    assertNoPrivateContentLeaks(textArtifacts, ['Draft Roadmap', 'Internal Note'])
+    assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.i18n)
+    await assertRouteManifestMatchesGolden(outputPublicDir, i18nGolden, 'generate')
+    await assertGeneratedLinkIntegrity(outputPublicDir)
 
     // T1-3 / C-6: corroborate the mode:'generate' sitemap-assert hook
     // (shouldRunSitemapAssertionOnPrerenderedSitemaps, not the `build`/`compiled` path) actually

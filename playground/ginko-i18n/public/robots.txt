@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://ginko-content.example.test/sitemap_index.xml

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from 'playwright-core'
 import { startFixtureServer } from '../helpers/fixture-server'
+import { buildRouteManifest, navigableRoutesFromManifest } from '../helpers/route-manifest'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureDir = resolve(rootDir, 'playground/ginko-i18n')
@@ -22,10 +23,9 @@ function resolveChromiumExecutable () {
   const executablePath = candidates.find(candidate => existsSync(candidate))
   if (!executablePath) {
     throw new Error(
-      'No Chromium executable found for browser e2e. Set PLAYWRIGHT_CHROMIUM_EXECUTABLE or run `pnpm exec playwright install chromium`.'
+      'No Chromium executable found for browser e2e. Set PLAYWRIGHT_CHROMIUM_EXECUTABLE or install Chromium.'
     )
   }
-
   return executablePath
 }
 
@@ -37,53 +37,56 @@ async function assertHeading (page: Page, name: string) {
   await expect(page.getByRole('heading', { name }).textContent()).resolves.toBe(name)
 }
 
-function captureBrowserFailures (page: Page) {
-  const consoleErrors: string[] = []
-  const failedRequests: string[] = []
+async function waitForRenderedNuxtApp (page: Page) {
+  await page.locator('#__nuxt').waitFor({ state: 'attached' })
+  await page.waitForFunction(() => {
+    const root = document.querySelector('#__nuxt')
+    return Boolean(root?.textContent?.trim()) && !document.documentElement.innerHTML.includes('__NUXT_LOADING__')
+  })
+}
 
+function captureBrowserFailures (page: Page, baseURL: string) {
+  let failures: string[] = []
+  const isSameOrigin = (url: string) => new URL(url).origin === new URL(baseURL).origin
+
+  page.on('pageerror', error => failures.push(`pageerror: ${error.message}`))
   page.on('console', (message) => {
-    if (message.type() === 'error' || /hydration|ginko/i.test(message.text())) {
-      consoleErrors.push(message.text())
+    if (message.type() === 'error' || /hydration/i.test(message.text())) {
+      failures.push(`console ${message.type()}: ${message.text()}`)
     }
   })
   page.on('requestfailed', (request) => {
-    const url = request.url()
-    if (url.includes('/api/_content')) {
-      failedRequests.push(`${request.failure()?.errorText || 'failed'} ${url}`)
+    if (isSameOrigin(request.url())) {
+      failures.push(`request failed: ${request.failure()?.errorText || 'unknown'} ${request.url()}`)
     }
   })
   page.on('response', (response) => {
-    const url = response.url()
-    if (response.status() >= 400) {
-      consoleErrors.push(`${response.status()} ${url}`)
-    }
-    if (url.includes('/api/_content') && response.status() >= 400) {
-      failedRequests.push(`${response.status()} ${url}`)
+    if (isSameOrigin(response.url()) && response.status() >= 400) {
+      failures.push(`response ${response.status()}: ${response.url()}`)
     }
   })
 
   return {
-    assertClean () {
-      expect(consoleErrors).toEqual([])
-      expect(failedRequests).toEqual([])
+    assertClean (context: string) {
+      const captured = failures
+      failures = []
+      expect(captured, `browser failures while visiting ${context}`).toEqual([])
     }
   }
 }
 
-describe('browser locale switching and search', () => {
-  test('clicks translated locale links and localized search results in a production fixture', async () => {
+describe('browser production confidence', () => {
+  test('clicks translated locale links and localized search results', async () => {
     const server = await startFixtureServer(fixtureDir)
     let browser: Browser | undefined
 
     try {
-      browser = await chromium.launch({
-        executablePath: resolveChromiumExecutable(),
-        headless: true
-      })
+      browser = await chromium.launch({ executablePath: resolveChromiumExecutable(), headless: true })
       const page = await browser.newPage()
-      const browserFailures = captureBrowserFailures(page)
+      const browserFailures = captureBrowserFailures(page, server.baseURL)
 
-      await page.goto(`${server.baseURL}/de/leitfaden/erste-schritte`, { waitUntil: 'networkidle' })
+      await page.goto(`${server.baseURL}/de/leitfaden/erste-schritte`, { waitUntil: 'domcontentloaded' })
+      await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
 
       await page.getByRole('link', { name: 'English' }).click()
@@ -93,10 +96,10 @@ describe('browser locale switching and search', () => {
 
       await page.getByRole('link', { name: 'Deutsch' }).click()
       await page.waitForURL('**/de/leitfaden/erste-schritte')
-      expect(contentPath(page.url())).toBe('/de/leitfaden/erste-schritte')
       await assertHeading(page, 'Einstieg')
 
-      await page.goto(`${server.baseURL}/de/search`, { waitUntil: 'networkidle' })
+      await page.goto(`${server.baseURL}/de/search`, { waitUntil: 'domcontentloaded' })
+      await waitForRenderedNuxtApp(page)
       await page.getByLabel('Search term').fill('Einstieg')
       const result = page.getByRole('link', { name: 'Einstieg' }).first()
       await result.waitFor()
@@ -105,17 +108,47 @@ describe('browser locale switching and search', () => {
       await page.waitForURL('**/de/leitfaden/erste-schritte')
       await assertHeading(page, 'Einstieg')
 
-      await page.goBack({ waitUntil: 'networkidle' })
+      await page.goBack({ waitUntil: 'domcontentloaded' })
       expect(contentPath(page.url())).toBe('/de/search')
-
-      await page.goForward({ waitUntil: 'networkidle' })
+      await page.goForward({ waitUntil: 'domcontentloaded' })
       expect(contentPath(page.url())).toBe('/de/leitfaden/erste-schritte')
       await assertHeading(page, 'Einstieg')
 
-      browserFailures.assertClean()
+      browserFailures.assertClean('locale/search interaction')
     } finally {
       await browser?.close()
       await server.stop()
     }
   }, 240000)
+
+  test('hydrates every emitted i18n HTML route without browser or same-origin failures', async () => {
+    const server = await startFixtureServer(fixtureDir)
+    let browser: Browser | undefined
+
+    try {
+      const routes = navigableRoutesFromManifest(await buildRouteManifest(server.publicDir))
+      expect(routes.length, 'explicitly define deterministic sampling before the browser fixture exceeds 40 routes').toBeLessThanOrEqual(40)
+      expect(routes).toEqual(expect.arrayContaining([
+        '/guide/getting-started',
+        '/de/leitfaden/erste-schritte'
+      ]))
+
+      browser = await chromium.launch({ executablePath: resolveChromiumExecutable(), headless: true })
+      const page = await browser.newPage()
+      const browserFailures = captureBrowserFailures(page, server.baseURL)
+
+      for (const route of routes) {
+        const response = await page.goto(`${server.baseURL}${route}`, { waitUntil: 'domcontentloaded' })
+        expect(response?.status(), `${route} should return a successful document`).toBeLessThan(400)
+        await waitForRenderedNuxtApp(page)
+        // Do not advance while Nuxt is still fetching build metadata or payloads. Treating
+        // navigation-induced ERR_ABORTED as harmless would also hide genuine app failures.
+        await page.waitForLoadState('networkidle')
+        browserFailures.assertClean(route)
+      }
+    } finally {
+      await browser?.close()
+      await server.stop()
+    }
+  }, 300000)
 })

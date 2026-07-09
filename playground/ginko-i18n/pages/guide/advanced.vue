@@ -33,5 +33,6 @@ const page = computed(() => data.value
 </script>
 
 <template>
+  <ContentRenderer v-if="data" :value="data" />
   <pre>{{ JSON.stringify(page, null, 2) }}</pre>
 </template>

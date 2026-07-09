@@ -32,6 +32,7 @@ const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 let buildPackagesPromise: Promise<void> | undefined
 const buildPromises = new Map<string, Promise<ProductionFixtureBuild>>()
 const currentBuildKeyByFixture = new Map<string, string>()
+const activeBuildKeyByFixture = new Map<string, string>()
 
 async function ensureWorkspacePackagesBuilt () {
   if (!buildPackagesPromise) {
@@ -120,42 +121,59 @@ async function runFixtureBuildCommand (
   const normalizedEnv = normalizeFixtureEnv(env)
   const key = fixtureBuildKey(resolvedRoot, normalizedEnv, mode)
   const currentKey = currentBuildKeyByFixture.get(resolvedRoot)
+  const activeKey = activeBuildKeyByFixture.get(resolvedRoot)
 
   if (currentKey === key && buildPromises.has(key)) {
     return await buildPromises.get(key)!
+  }
+  if (activeKey) {
+    if (activeKey === key && buildPromises.has(key)) {
+      return await buildPromises.get(key)!
+    }
+    throw new Error(
+      `Refusing concurrent production fixture builds for ${resolvedRoot}: ${activeKey} is still active while ${key} was requested. ` +
+      'Each variant writes the same .output directory and must run serially.'
+    )
   }
 
   const command = mode === 'generate' ? 'pnpm exec nuxi generate' : 'pnpm exec nuxi build'
 
   const buildPromise = Promise.resolve().then(async () => {
-    await ensureWorkspacePackagesBuilt()
-
-    let stdout = ''
     try {
-      stdout = execSync(command, {
-        cwd: resolvedRoot,
-        env: buildFixtureChildEnv(normalizedEnv),
-        stdio: 'pipe'
-      }).toString()
-    } catch (error) {
-      const commandError = error as Error & { stdout?: Buffer | string, stderr?: Buffer | string }
-      const errStdout = commandError.stdout?.toString() || ''
-      const stderr = commandError.stderr?.toString() || ''
-      throw new Error(`Failed to run "${command}" for fixture ${resolvedRoot}\n${errStdout}${stderr}`)
-    }
+      await ensureWorkspacePackagesBuilt()
 
-    currentBuildKeyByFixture.set(resolvedRoot, key)
+      let stdout = ''
+      try {
+        stdout = execSync(command, {
+          cwd: resolvedRoot,
+          env: buildFixtureChildEnv(normalizedEnv),
+          stdio: 'pipe'
+        }).toString()
+      } catch (error) {
+        const commandError = error as Error & { stdout?: Buffer | string, stderr?: Buffer | string }
+        const errStdout = commandError.stdout?.toString() || ''
+        const stderr = commandError.stderr?.toString() || ''
+        throw new Error(`Failed to run "${command}" for fixture ${resolvedRoot}\n${errStdout}${stderr}`)
+      }
 
-    return {
-      rootDir: resolvedRoot,
-      publicDir: resolve(resolvedRoot, '.output/public'),
-      serverDir: resolve(resolvedRoot, '.output/server'),
-      env: normalizedEnv,
-      stdout
+      currentBuildKeyByFixture.set(resolvedRoot, key)
+
+      return {
+        rootDir: resolvedRoot,
+        publicDir: resolve(resolvedRoot, '.output/public'),
+        serverDir: resolve(resolvedRoot, '.output/server'),
+        env: normalizedEnv,
+        stdout
+      }
+    } finally {
+      if (activeBuildKeyByFixture.get(resolvedRoot) === key) {
+        activeBuildKeyByFixture.delete(resolvedRoot)
+      }
     }
   })
 
   buildPromises.set(key, buildPromise)
+  activeBuildKeyByFixture.set(resolvedRoot, key)
   return await buildPromise
 }
 

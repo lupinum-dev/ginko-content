@@ -1,0 +1,10 @@
+generate-only 200.html
+generate-only 404.html
+generate-only 404/index.html
+build+generate api/_content/search/index.json
+build+generate guide/getting-started/index.html
+build+generate guide/hidden/index.html
+build+generate guide/index.html
+build+generate index.html
+build+generate manual/index.html
+generate-only query/index.html
