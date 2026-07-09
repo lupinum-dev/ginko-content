@@ -96,7 +96,7 @@ belong in Ginko collection routes and content files; XML output belongs to
 `@nuxtjs/sitemap`.
 
 Ginko registers the content sitemap source and contributes content prerender
-routes. Use `@nuxtjs/sitemap >= 8.0.15` when Nuxt I18n translated static page
+routes. Use `@nuxtjs/sitemap >= 8.0.15 < 9` when Nuxt I18n translated static page
 slugs need correct sitemap alternates.
 
 ## Integration Dependencies

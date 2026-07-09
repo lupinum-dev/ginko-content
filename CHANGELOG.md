@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Raise the supported Node.js runtime from the now end-of-life Node 20 line to
+  Node 22 or newer, and verify the full release on Node 24 LTS.
+- Bound Nuxt and optional Vitest peer support to their current major lines so
+  dependency compatibility claims remain finite and testable.
+- Add real static-generation manifests, generated-link integrity, broader
+  hydration checks, exact-tarball pnpm/npm consumers, and scheduled dependency
+  compatibility canaries.
+
 ## v0.2.1
 
 - Add Nitro-free provider document helper exports from

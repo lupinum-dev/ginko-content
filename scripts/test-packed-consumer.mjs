@@ -1,11 +1,41 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const packageRoot = resolve(repoRoot, 'packages/content')
+const cliArgs = process.argv.slice(2)
+
+function optionValue(name, fallback) {
+  const index = cliArgs.indexOf(name)
+  return index === -1 ? fallback : cliArgs[index + 1]
+}
+
+const packageManager = optionValue('--package-manager', 'pnpm')
+if (!['pnpm', 'npm'].includes(packageManager)) {
+  throw new Error(`Unsupported package manager ${packageManager}; expected pnpm or npm.`)
+}
+const buildOnly = cliArgs.includes('--build-only')
+
+function resolveReleaseTarball() {
+  const explicit = optionValue('--tarball')
+  if (explicit) {
+    const tarball = resolve(repoRoot, explicit)
+    if (!existsSync(tarball)) throw new Error(`Release tarball does not exist: ${tarball}`)
+    return tarball
+  }
+
+  const directory = resolve(repoRoot, optionValue('--tarball-dir', '.pack'))
+  const tarballs = existsSync(directory)
+    ? readdirSync(directory).filter(file => file.endsWith('.tgz'))
+    : []
+  if (tarballs.length !== 1) {
+    throw new Error(`Expected exactly one prebuilt release tarball in ${directory}, found ${tarballs.length}. Run pnpm release:pack first.`)
+  }
+  return resolve(directory, tarballs[0])
+}
 
 const nodeImportableSubpaths = [
   '@lupinum/ginko-content/config',
@@ -76,6 +106,20 @@ function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
       throw new Error(`Command emitted forbidden output in ${cwd}: ${[command, ...args].join(' ')}\n${output}`)
     }
   }
+}
+
+function packageExec(command, args, cwd, options = {}) {
+  const commandArgs = packageManager === 'pnpm'
+    ? ['exec', command, ...args]
+    : ['exec', '--', command, ...args]
+  run(packageManager, commandArgs, cwd, options)
+}
+
+function packageExecAndRejectOutput(command, args, cwd, forbiddenPatterns) {
+  const commandArgs = packageManager === 'pnpm'
+    ? ['exec', command, ...args]
+    : ['exec', '--', command, ...args]
+  runAndRejectOutput(packageManager, commandArgs, cwd, forbiddenPatterns)
 }
 
 function writeFile(path, content) {
@@ -165,39 +209,29 @@ async function main() {
   let server
 
   try {
-    const packDir = resolve(tempRoot, 'pack')
     const appDir = resolve(tempRoot, 'app')
-    mkdirSync(packDir, { recursive: true })
     mkdirSync(appDir, { recursive: true })
-
-    run('pnpm', ['run', 'build:packages'], repoRoot)
-    run('pnpm', ['pack', '--pack-destination', packDir], packageRoot)
-
-    const tarballs = readdirSync(packDir).filter(file => file.endsWith('.tgz'))
-    if (tarballs.length !== 1) {
-      throw new Error(`Expected exactly one packed tarball, found ${tarballs.length}`)
-    }
-
-    const tarball = resolve(packDir, tarballs[0])
+    const tarball = resolveReleaseTarball()
+    const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
+    console.log(`Testing exact release tarball with ${packageManager}: ${tarball} (sha256 ${tarballSha256})`)
     assertNoWorkspaceRanges(tarball, tempRoot)
 
     writeFile(resolve(appDir, 'package.json'), JSON.stringify({
       type: 'module',
       private: true,
       scripts: {
-        prepare: 'nuxi prepare',
         typecheck: 'nuxi typecheck',
         build: 'nuxt build'
       },
       dependencies: {
         '@lupinum/ginko-content': `file:${tarball}`,
-        '@nuxtjs/sitemap': '8.0.15',
-        '@types/node': '25.8.0',
-        nuxt: '4.4.7',
+        '@nuxtjs/sitemap': process.env.GINKO_CONSUMER_SITEMAP_VERSION || '8.0.15',
+        '@types/node': process.env.GINKO_CONSUMER_NODE_TYPES_VERSION || '^24.0.0',
+        nuxt: process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7',
         typescript: '6.0.3',
-        vue: '3.5.35',
+        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '3.5.35',
         'vue-tsc': '3.2.9',
-        vitest: '4.1.6'
+        vitest: process.env.GINKO_CONSUMER_VITEST_VERSION || '4.1.6'
       }
     }, null, 2))
 
@@ -326,14 +360,23 @@ The packed package rendered this page.
       }
     `)
 
-    run('pnpm', ['install', '--frozen-lockfile=false', '--config.dangerously-allow-all-builds=true'], appDir)
+    if (packageManager === 'pnpm') {
+      run('pnpm', ['install', '--frozen-lockfile=false', '--config.dangerously-allow-all-builds=true'], appDir)
+    } else {
+      run('npm', ['install', '--no-audit', '--no-fund'], appDir)
+    }
     assertDeclarations(appDir)
-    run('pnpm', ['exec', 'node', 'scripts/import-public-subpaths.mjs'], appDir)
-    run('pnpm', ['exec', 'nuxi', 'prepare'], appDir)
-    run('pnpm', ['exec', 'nuxi', 'typecheck'], appDir)
-    runAndRejectOutput('pnpm', ['exec', 'nuxt', 'build'], appDir, [
+    run('node', ['scripts/import-public-subpaths.mjs'], appDir)
+    packageExec('nuxi', ['prepare'], appDir)
+    packageExec('nuxi', ['typecheck'], appDir)
+    packageExecAndRejectOutput('nuxt', ['build'], appDir, [
       /could not be resolved[\s\S]*treating it as an external dependency/i
     ])
+
+    if (buildOnly) {
+      console.log(`Packed consumer ${packageManager} prepare/typecheck/build passed.`)
+      return
+    }
 
     const port = 4599
     const baseURL = `http://127.0.0.1:${port}`
@@ -389,7 +432,7 @@ The packed package rendered this page.
       throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 
-    console.log('Packed consumer test passed.')
+    console.log(`Packed consumer ${packageManager} test passed.`)
   } finally {
     if (server && server.exitCode === null) {
       await stopServer(server)

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -127,6 +128,9 @@ function assertReleaseTarball(tarball) {
     if (!manifest.version || typeof manifest.version !== 'string') {
       throw new Error('Release manifest is missing version.')
     }
+    if (manifest.engines?.node !== '>=22.0.0') {
+      throw new Error(`Release manifest must declare engines.node >=22.0.0, got ${manifest.engines?.node}.`)
+    }
     if (manifest.repository?.url !== 'git+https://github.com/lupinum-dev/ginko-content.git') {
       throw new Error('Release manifest repository URL is missing or unexpected.')
     }
@@ -163,10 +167,33 @@ function assertReleaseTarball(tarball) {
 rmSync(packDir, { recursive: true, force: true })
 mkdirSync(packDir, { recursive: true })
 
-run('pnpm', ['run', 'build:packages'])
+// `pnpm pack` runs the package's prepack hook, which is the canonical package build.
+// Do not build once here and then build the same package again during pack.
 run('pnpm', ['pack', '--pack-destination', packDir], packageRoot)
-assertNoWorkspaceRanges()
-for (const tarball of readdirSync(packDir).filter((file) => file.endsWith('.tgz'))) {
-  assertReleaseTarball(resolve(packDir, tarball))
+const tarballs = readdirSync(packDir).filter(file => file.endsWith('.tgz'))
+if (tarballs.length !== 1) {
+  throw new Error(`Release pack expected exactly one tarball, found ${tarballs.length}.`)
 }
-console.log(`Release pack wrote ${readdirSync(packDir).filter((file) => file.endsWith('.tgz')).length} tarball(s) to ${packDir}.`)
+assertNoWorkspaceRanges()
+const tarballPath = resolve(packDir, tarballs[0])
+assertReleaseTarball(tarballPath)
+
+const sha256 = createHash('sha256').update(readFileSync(tarballPath)).digest('hex')
+const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+const worktreeDirty = execFileSync(
+  'git',
+  ['status', '--porcelain', '--untracked-files=normal'],
+  { cwd: repoRoot, encoding: 'utf8' }
+).trim().length > 0
+const metadata = {
+  commit,
+  worktreeDirty,
+  releaseEligible: !worktreeDirty,
+  node: process.version,
+  npm: execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim(),
+  pnpm: execFileSync('pnpm', ['--version'], { encoding: 'utf8' }).trim(),
+  tarball: tarballs[0],
+  sha256
+}
+writeFileSync(resolve(packDir, 'release-artifact.json'), `${JSON.stringify(metadata, null, 2)}\n`)
+console.log(`Release pack wrote ${tarballs[0]} (sha256 ${sha256}) to ${packDir}.`)
