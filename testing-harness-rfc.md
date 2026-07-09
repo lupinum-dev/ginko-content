@@ -614,13 +614,103 @@ agent's change to them), check the listed failure mode explicitly.
   `—` (Phase T4 not implemented yet; no runnable job exists to time). Gates:
   G-fast + G-lint green (no code changed, doc-only table fill). Proof: N/A
   (baseline recording, not a new check).
+- 2026-07-09 — [TH-T1-1] Extended `test/helpers/production-fixture.ts` with
+  `generateStaticFixture(rootDir, env)`: runs `pnpm exec nuxi generate`,
+  reuses the same env-keyed `buildPromises`/`currentBuildKeyByFixture` maps as
+  `buildProductionFixture` (C-1) via a shared internal `runFixtureBuildCommand`,
+  but the cache key now carries an explicit `mode` component — exported
+  `fixtureBuildKey(rootDir, env, mode = 'build')` appends `::generate` only
+  for the generate mode, so `generate` and `build` requests for the same
+  rootDir+env never collide. Also captures raw command stdout on the build
+  result (`stdout` field) to support T1-3's log-line corroboration. New
+  `test/unit/production-fixture-cache-key.test.ts` (5 cases) covers: build
+  vs. generate keys differ; default mode is `build`; generate key changes
+  with env; no cross-fixture collision; env key ordering is normalized.
+  Gates: G-fast green (`pnpm typecheck && pnpm test`: 81 files / 630 tests
+  passed), G-lint green (`pnpm lint`: repo-policies + compatibility-matrix +
+  eslint all passed). G-e2e deferred to run once, together with T1-2's new
+  e2e file, per the "generate runs are expensive, run once per fixture"
+  instruction. Proof: both-directions is implicit in the unit test itself
+  (assertions would fail red if the `::generate` component were removed —
+  verified manually by temporarily reverting the mode component and
+  observing `production fixture cache key (C-1) > build and generate keys
+  differ for identical rootDir + env` fail, then restoring it and observing
+  green); the fixture-level both-directions proof for T1-2 covers the
+  higher-value end-to-end case. Deviations: none.
+- 2026-07-09 — [TH-T1-2][TH-T1-3] Added `test/e2e/generate-output.test.ts`:
+  runs `generateStaticFixture` (real `nuxi generate`) for `playground/ginko-basic`
+  and `playground/ginko-i18n` (R-1), reusing `generated-artifacts.ts`
+  assertions (HTML presence/content, sitemap hreflang, `llms*.txt`, raw
+  markdown, search index) and the leak sweeps (`assertNoLocalOrigins`,
+  `assertNoRepeatedLocalePrefixes` for i18n only — ginko-basic has no
+  locales to double, see C-4 — `assertNoPrivateContentLeaks`). Added
+  `playground/ginko-i18n/public/robots.txt` (static asset, copied verbatim
+  by both `nuxi build`/`nuxi generate`) and asserted it references
+  `sitemap_index.xml` (R-9; no dedicated fixture/test file). Discovered and
+  fixed a real bug while wiring T1-3's corroboration: `playground/ginko-i18n/nuxt.config.ts`'s
+  `content.sitemap.assert` block used non-existent `routes`/`forbidden` keys
+  with `enabled` left at its `false` default, so the sitemap-assert hook had
+  **never** actually run for this fixture despite looking configured —
+  exactly the RFC gap #1 blind spot. Renamed to the real
+  `requiredPaths`/`forbiddenPathPrefixes` keys and set `enabled: true`.
+  generate-output.test.ts now asserts the captured `nuxi generate` stdout
+  contains the sitemap-assert pass log line
+  (`Content sitemap assertion passed for 2 sitemaps.`), corroborating that
+  `shouldRunSitemapAssertionOnPrerenderedSitemaps` (the `generate` path, C-6)
+  fired for real, not `shouldRunSitemapAssertionOnCompiled` (the `build`
+  path) — converting `sitemap-assert-contracts.test.ts` from synthetic-only
+  into corroborated-by-a-real-run. Getting that corroboration working
+  surfaced a second bug: Vitest sets `TEST`/`VITEST`/`VITEST_WORKER_ID` on its
+  own process env; `production-fixture.ts` was forwarding that whole env to
+  the spawned `nuxi build`/`nuxi generate` child, so std-env's `isTest`
+  became true *inside the child*, silencing its logger's info-level output
+  (the very log line being asserted on) even though the build itself
+  completed and wrote correct output to disk. Fixed by stripping those
+  markers before spawning (`buildFixtureChildEnv`). Gates: G-fast green
+  (`pnpm typecheck && pnpm test`: 81 files / 630 tests), G-lint green
+  (fixed one `@typescript-eslint/no-dynamic-delete` finding along the way),
+  G-e2e green (`pnpm test:e2e`: 7 files / 16 tests, 365.75s, includes the new
+  file plus every existing e2e file that touches `playground/ginko-i18n` or
+  `test/helpers/production-fixture.ts`). Proof (both directions, T1-2): with
+  `sitemap.assert.enabled` temporarily left at the fixed `true`, renamed
+  `content/en/1.guide/3.draft-roadmap.draft.md` → `.md` **and**
+  `content/de/1.leitfaden/3.entwurf.draft.md` → `.md` (both locales
+  together — renaming only one broke the build earlier via a translated-slug
+  pairing error, an unrelated failure mode, not the leak sweep) → watched
+  the run go red via the sitemap-assert build-time check itself
+  (`Content sitemap assertion failed: - Forbidden sitemap paths found:
+  /guide/draft-roadmap, /de/leitfaden/entwurf`). To isolate proof of the
+  `test/e2e/generate-output.test.ts`-level leak sweep specifically (as
+  distinct from the sitemap-assert hook), additionally set
+  `sitemap.assert.enabled: false` with the same public content and reran:
+  watched `expect(JSON.stringify(searchIndex)).not.toContain('Draft Roadmap')`
+  fail with the leaked title inline in the received search-index JSON.
+  Reverted both files (`git mv` back to `.draft.md`) and `enabled: true`;
+  reran `test:generate:static` for both fixtures — green
+  (`/tmp/th-logs/t1-2-final-green.log`, 42.73s, 2/2 passed). Deviations:
+  none beyond the two bugfixes described above, which were necessary to make
+  the corroboration meaningful rather than a workaround.
+- 2026-07-09 — [TH-T1-4] Added `test:generate:static` script
+  (`pnpm vitest run --config vitest.config.ts --project e2e test/e2e/generate-output.test.ts`)
+  and chained it into `release:verify` immediately after `test:sitemap:static`.
+  Per the checkpoint-agent deviation (recorded above), did not run the full
+  `release:verify`; ran `pnpm test:generate:static` standalone instead —
+  green, exit=0, 2/2 tests passed, 45.54s wall time
+  (`/tmp/th-logs/t1-4-test-generate-static.log`). That addition is well
+  inside the 90 min T-release ceiling (§8) even added on top of the 25m3s
+  T0-1 baseline; full-run budget confirmation deferred to the next
+  checkpoint agent's `release:verify` run. Gates: G-fast, G-lint green
+  (script-only change; `pnpm run check:repo-policies` — which validates
+  `package.json` script wiring — passed as part of `pnpm lint`). Proof: N/A
+  (wiring an already-proven-green script into an aggregate command is not
+  itself a new check).
 
 ---
 
 ## 10. Definition of Done
 
 - [x] T0: green `release:verify` recorded; MAINTAINING.md gate documented; budgets baselined
-- [ ] T1: generate lane green for ginko-basic + ginko-i18n; `mode: 'generate'` sitemap hook proven live; robots.txt asserted
+- [x] T1: generate lane green for ginko-basic + ginko-i18n; `mode: 'generate'` sitemap hook proven live; robots.txt asserted
 - [ ] T2: golden route manifests committed + both-directions proven; link integrity in fixtures + docs; leak-sweep positive controls in place
 - [ ] T3: hydration crawl over sitemap routes green for basic + i18n
 - [ ] T4: canary attribution matrix (per-dep, all-latest, min-peers) dispatched green; failure path files per-dep issues with version diff + release-notes link; compatibility matrix fed from canary results; high-risk Renovate PRs ungrouped; Windows leg green
