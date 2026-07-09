@@ -566,6 +566,31 @@ agent's change to them), check the listed failure mode explicitly.
 > Format: `- YYYY-MM-DD — [TH-task] summary; gates: …; proofs: …; deviations: …`
 
 - 2026-07-09 — RFC drafted from verified repo state (see §1). No tasks executed yet.
+- 2026-07-09 — [TH-process] Approved deviation recorded: full `release:verify`
+  (G-release) is not run at the end of every phase T1–T6 as §6 literally
+  states; it runs at consolidated checkpoints handled by dedicated checkpoint
+  agents, to protect limited local compute on this machine. G-fast/G-lint/
+  G-e2e still run per task. This deviation was pre-approved by the maintainer
+  for the whole phased rollout, not just T0.
+- 2026-07-09 — [TH-T0-1] Ran `pnpm run release:verify` end-to-end locally,
+  detached with per-line-timestamped log at `/tmp/th-logs/release-verify-t0-1.log`
+  (start 2026-07-09T17:49:04Z, end 2026-07-09T18:14:07Z, exit=0). **Total wall
+  time: 25m 3s (1503s).** Per-step timings derived from log timestamps (script
+  has no built-in per-step timer; T6-2 will add one):
+  `compatibility:check` 0s, `docs-drift` 1s, `verify` total 20m1s (1201s) of
+  which: `dev:prepare` 29s, `lint`(+`check:repo-policies`+
+  `check:compatibility-matrix`) 8s, `build:packages` 22s, `docs:build` 117s,
+  `docs:smoke` 0s, `examples:build` 584s (largest single step — 12 example
+  apps built serially), `typecheck:examples` 7s, `test` 37s, `test:e2e` 329s,
+  `typecheck` 30s, `test:quickstart` 38s; then (outside `verify`)
+  `test:package-consumer` 76s, `test:e2e:browser` 48s, `test:search:matrix`
+  80s, `test:sitemap:static` 54s, `audit:prod` 1s, `release:pack` 41s. Gates:
+  the run itself *is* the gate (G-release), exit=0, all steps green, no
+  retries. Proof: this is a positive (green) run; no both-directions proof
+  applicable to T0-1 (it records an existing gate's baseline, does not add a
+  new check). Deviations: none — adopted the in-flight run per the resume
+  instructions rather than starting a second one (machine constraint: never
+  run two test suites concurrently).
 
 ---
 

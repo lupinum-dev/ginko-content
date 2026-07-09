@@ -812,6 +812,25 @@ git worktree remove /tmp/gc-017 --force   # cleanup, always
 Format:
 `- **<date> — HP-<id> <done|deviation|blocked>.** <what changed>. Gates: <results>. Proof: <both-directions evidence>. <deviations/notes>.`
 
+- **2026-07-09 — TH-T0-1 done (from `testing-harness-rfc.md`).** Ran
+  `pnpm run release:verify` end-to-end locally, detached with a timestamped
+  log (`/tmp/th-logs/release-verify-t0-1.log`), start 17:49:04Z, end
+  18:14:07Z, exit=0. **Total wall time: 25m 3s.** Per-step timings (derived
+  from log timestamps, script has no built-in timer yet): `compatibility:check`
+  0s, `docs-drift` 1s, `verify` 20m1s (`dev:prepare` 29s, `lint`+checks 8s,
+  `build:packages` 22s, `docs:build` 117s, `docs:smoke` 0s, `examples:build`
+  584s — the largest single step, 12 example apps built serially,
+  `typecheck:examples` 7s, `test` 37s, `test:e2e` 329s, `typecheck` 30s,
+  `test:quickstart` 38s), `test:package-consumer` 76s, `test:e2e:browser`
+  48s, `test:search:matrix` 80s, `test:sitemap:static` 54s, `audit:prod` 1s,
+  `release:pack` 41s. This is the first recorded green end-to-end
+  `release:verify` for v0.2.x (closes gap #8 in `testing-harness-rfc.md` §1.2).
+  Gates: the run itself is G-release; exit=0, zero retries. Proof: N/A (records
+  an existing gate's baseline; adds no new check). Full detail and the
+  companion `pr-e2e-smoke`/`verify` baseline split live in
+  `testing-harness-rfc.md` §8/§9 (TH-T0-1..T0-3) — this entry cross-references
+  rather than duplicates.
+
 - **2026-07-08 — Release-review fix round (workflow, 4 Opus fixers + 3 Opus
   verifiers, all verdicts PASS / zero blocking).** Fixed: locale ordering
   completed across provider-wire (`provider-query.ts`), storage
