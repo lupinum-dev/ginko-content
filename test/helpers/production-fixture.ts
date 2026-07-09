@@ -58,6 +58,25 @@ function normalizeFixtureEnv (env: Record<string, string>) {
   )
 }
 
+// std-env's `isTest` (used by consola/nitro to switch to a minimal, low-verbosity reporter)
+// treats `process.env.TEST`/`VITEST` as truthy. Vitest sets both on its own worker process; if we
+// blindly forward that env to the spawned `nuxi build`/`nuxi generate` child, the child believes
+// *it* is running under a test runner and silences info-level logger output (e.g. the sitemap
+// assertion pass/fail line consumed by the T1-3 corroboration check) even though the build itself
+// completes normally. Strip the markers so the child logs the way a real CI/production build would.
+const testEnvMarkersToStrip = ['TEST', 'VITEST', 'VITEST_WORKER_ID', 'VITEST_POOL_ID']
+
+function buildFixtureChildEnv (extra: Record<string, string>) {
+  const childEnv = Object.fromEntries(
+    Object.entries(globalThis.process.env).filter(([key]) => !testEnvMarkersToStrip.includes(key))
+  )
+  return {
+    ...childEnv,
+    NODE_ENV: 'production',
+    ...extra
+  }
+}
+
 export function fixtureBuildKey (
   rootDir: string,
   env: Record<string, string>,
@@ -115,11 +134,7 @@ async function runFixtureBuildCommand (
     try {
       stdout = execSync(command, {
         cwd: resolvedRoot,
-        env: {
-          ...globalThis.process.env,
-          NODE_ENV: 'production',
-          ...normalizedEnv
-        },
+        env: buildFixtureChildEnv(normalizedEnv),
         stdio: 'pipe'
       }).toString()
     } catch (error) {
