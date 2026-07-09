@@ -554,10 +554,10 @@ agent's change to them), check the listed failure mode explicitly.
 
 | Tier / job | Baseline (T0-3) | Ceiling | Action on breach |
 |---|---|---|---|
-| pr-e2e-smoke | _record_ | 3 min | trim or fix cache |
-| verify (T-pr) | _record_ | 45 min | R-5: newest addition out first |
-| release-verify (T-release) | _record_ | 90 min | move newest check to T-canary |
-| deps-canary | — | 90 min | reduce dep allowlist |
+| pr-e2e-smoke | 34s (2026-07-09, standalone timed run, see §9 TH-T0-3) | 3 min | trim or fix cache |
+| verify (T-pr) | 20m1s (2026-07-09, sub-segment of T0-1 release:verify run, see §9 TH-T0-1) | 45 min | R-5: newest addition out first |
+| release-verify (T-release) | 25m3s (2026-07-09, T0-1 full run, see §9 TH-T0-1) | 90 min | move newest check to T-canary |
+| deps-canary | — (Phase T4 not implemented yet) | 90 min | reduce dep allowlist |
 
 ---
 
@@ -598,12 +598,28 @@ agent's change to them), check the listed failure mode explicitly.
   the four-tier strategy in §2. Gate: `pnpm docs-drift` green (see command
   output in task log). Proof: N/A (doc-only addition, not a new automated
   check — nothing to break/fix).
+- 2026-07-09 — [TH-T0-3] Filled §8 baseline wall-time table from the T0-1
+  run. `release-verify` baseline 25m3s taken directly from the T0-1 log
+  (well under the 90 min ceiling). `verify (T-pr)` baseline 20m1s taken from
+  the `verify` sub-segment inside the same T0-1 run (release:verify's script
+  body is `compatibility:check && docs-drift && verify && ...`, so the
+  `verify` step is byte-identical to what CI's `verify` job runs — no
+  redundant rerun needed). `pr-e2e-smoke` is a separate, deliberately slim
+  script (`scripts/pr-e2e-smoke.mjs`) not invoked anywhere inside
+  `release:verify`, so it was run standalone (cheap, targeted, matches its
+  own <3 min design budget) with a timestamped log at
+  `/tmp/th-logs/pr-e2e-smoke-t0-3.log`: start 18:14:56Z, end 18:15:30Z,
+  **34.2s wall time** (`real 0m34.229s` per the script's own `time` wrapper),
+  exit=0, all three route assertions passed. `deps-canary` baseline left as
+  `—` (Phase T4 not implemented yet; no runnable job exists to time). Gates:
+  G-fast + G-lint green (no code changed, doc-only table fill). Proof: N/A
+  (baseline recording, not a new check).
 
 ---
 
 ## 10. Definition of Done
 
-- [ ] T0: green `release:verify` recorded; MAINTAINING.md gate documented; budgets baselined
+- [x] T0: green `release:verify` recorded; MAINTAINING.md gate documented; budgets baselined
 - [ ] T1: generate lane green for ginko-basic + ginko-i18n; `mode: 'generate'` sitemap hook proven live; robots.txt asserted
 - [ ] T2: golden route manifests committed + both-directions proven; link integrity in fixtures + docs; leak-sweep positive controls in place
 - [ ] T3: hydration crawl over sitemap routes green for basic + i18n
