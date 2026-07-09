@@ -33,7 +33,77 @@ const defaultCollectNavPaths = (items: Array<{ unprefixedPath?: string, children
     ...defaultCollectNavPaths(item.children || [])
   ].filter(Boolean) as string[])
 
-const unwrapProviderResult = <T>(value: T): T extends { data: infer Data } ? Data : T =>
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+export const LEGACY_PROVIDER_ENVELOPE_FIELDS = [
+  '_id',
+  '_collection',
+  '_locale',
+  '_path',
+  '_canonicalKey',
+  '_type',
+  '_draft',
+  '_partial',
+  '_source',
+  '_file',
+  '_stem',
+  '_dir',
+  '_basename',
+  '_extension',
+  '_requestedLocale',
+  '_resolvedLocale',
+  '_availableLocales',
+  '_variantPaths',
+  '_requestedPath',
+  '_requestedRef',
+  '_requestedRoute',
+  '_resolvedRefs',
+  '_fallback',
+  '_empty',
+  '_navigation',
+  '_navigationPath',
+  '_navigationKind',
+  '_key',
+  '_output'
+] as const
+
+const legacyProviderEnvelopeFieldSet = new Set<string>(LEGACY_PROVIDER_ENVELOPE_FIELDS)
+
+const collectLegacyProviderEnvelopeFields = (
+  value: unknown,
+  path = '$',
+  seen = new WeakSet<object>(),
+  matches: string[] = []
+): string[] => {
+  if (!value || typeof value !== 'object') {
+    return matches
+  }
+
+  if (seen.has(value)) {
+    return matches
+  }
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      collectLegacyProviderEnvelopeFields(item, `${path}[${index}]`, seen, matches)
+    })
+    return matches
+  }
+
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    const itemPath = `${path}.${key}`
+    if (legacyProviderEnvelopeFieldSet.has(key)) {
+      matches.push(itemPath)
+    }
+    collectLegacyProviderEnvelopeFields(item, itemPath, seen, matches)
+  }
+
+  return matches
+}
+
+export const unwrapProviderContractResult = <T>(value: T): T extends { data: infer Data } ? Data : T =>
   value && typeof value === 'object' && (value as Record<string, unknown>)[contentProviderResultMarker]
     ? (value as unknown as { data: any }).data
     : value as any
@@ -43,19 +113,87 @@ const unwrapProviderResult = <T>(value: T): T extends { data: infer Data } ? Dat
  * `unsupported_provider_operation` error when its capability is declared false.
  * The `run` callback may return a promise or throw synchronously.
  */
-const expectUnsupportedOperation = (run: () => Promise<unknown> | undefined, operation: string) =>
+export const expectUnsupportedProviderOperation = (run: () => Promise<unknown> | undefined, operation: string) =>
   expect(Promise.resolve().then(run)).rejects.toMatchObject({
     statusCode: 400,
     statusMessage: 'unsupported_provider_operation',
     data: { code: 'unsupported_provider_operation', operation }
   })
 
-const expectUnsupportedQueryShape = (run: () => Promise<unknown> | undefined, field: string) =>
+export const expectUnsupportedProviderQueryShape = (run: () => Promise<unknown> | undefined, field: string) =>
   expect(Promise.resolve().then(run)).rejects.toMatchObject({
     statusCode: 400,
     statusMessage: 'unsupported_query_shape',
     data: { code: 'unsupported_query_shape', field }
   })
+
+export const expectNoLegacyProviderEnvelopeFields = (value: unknown) => {
+  expect(collectLegacyProviderEnvelopeFields(value)).toEqual([])
+}
+
+export const expectProviderDocumentEnvelope = (
+  document: unknown,
+  options: { locale?: string, defaultLocale?: string } = {}
+) => {
+  expectNoLegacyProviderEnvelopeFields(document)
+  expect(isRecord(document)).toBe(true)
+
+  const record = document as Record<string, unknown>
+  expect(record).toEqual(expect.objectContaining({
+    id: expect.any(String),
+    collection: expect.any(String),
+    type: expect.any(String),
+    path: expect.any(String),
+    locale: expect.any(String),
+    canonicalKey: expect.any(String),
+    unprefixedPath: expect.any(String),
+    variants: expect.any(Array),
+    localePaths: expect.any(Object),
+    stem: expect.any(String)
+  }))
+  expect(Object.prototype.hasOwnProperty.call(record, 'body')).toBe(true)
+  expect(record.resolved).toEqual(expect.objectContaining({
+    locale: expect.any(String),
+    fallback: expect.any(Boolean),
+    path: expect.any(String)
+  }))
+
+  if (options.locale !== undefined) {
+    expect(record.locale).toBe(options.locale)
+  }
+  if (options.defaultLocale !== undefined) {
+    expect(record.defaultLocale).toBe(options.defaultLocale)
+  }
+  if (record.file !== undefined) {
+    expect(record.file).toEqual(expect.objectContaining({
+      path: expect.any(String),
+      extension: expect.any(String)
+    }))
+  }
+  if (record.extension !== undefined) {
+    expect(record.extension).toEqual(expect.any(String))
+  }
+  if (record.title !== undefined) {
+    expect(record.title).toEqual(expect.any(String))
+  }
+  if (record.description !== undefined) {
+    expect(record.description).toEqual(expect.any(String))
+  }
+}
+
+export const expectProviderCapabilities = (provider: ContentProvider, expected: ContentProviderCapabilities) => {
+  expect(provider.capabilities).toMatchObject({
+    ...expected,
+    query: {
+      limit: expected.query.limit,
+      skip: expected.query.skip,
+      count: expected.query.count
+    }
+  })
+  expect(provider.capabilities.query.operators).toEqual(
+    expect.arrayContaining(expected.query.operators)
+  )
+}
 
 export const runProviderContractSuite = ({
   name,
@@ -71,17 +209,7 @@ export const runProviderContractSuite = ({
     const provider = await loadProvider()
 
     expect(provider.name).toBe(expectedProviderName)
-    expect(provider.capabilities).toMatchObject({
-      ...caps,
-      query: {
-        limit: caps.query.limit,
-        skip: caps.query.skip,
-        count: caps.query.count
-      }
-    })
-    expect(provider.capabilities.query.operators).toEqual(
-      expect.arrayContaining(caps.query.operators)
-    )
+    expectProviderCapabilities(provider, caps)
   })
 
   test(`${name} returns complete localized page and route metadata`, async () => {
@@ -89,13 +217,14 @@ export const runProviderContractSuite = ({
     const event = createEvent()
 
     if (!caps.routeBackedCollections) {
-      await expectUnsupportedOperation(() => provider.page?.(event, 'docs', '/de/dokumentation/einstieg'), 'route-backed pages')
-      await expectUnsupportedOperation(() => provider.routeMeta?.(event, 'docs', '/de/dokumentation/einstieg', { locale: 'de' }), 'route metadata')
+      await expectUnsupportedProviderOperation(() => provider.page?.(event, 'docs', '/de/dokumentation/einstieg'), 'route-backed pages')
+      await expectUnsupportedProviderOperation(() => provider.routeMeta?.(event, 'docs', '/de/dokumentation/einstieg', { locale: 'de' }), 'route metadata')
       return
     }
 
-    const page = unwrapProviderResult(await provider.page?.(event, 'docs', '/de/dokumentation/einstieg'))
+    const page = unwrapProviderContractResult(await provider.page?.(event, 'docs', '/de/dokumentation/einstieg'))
 
+    expectNoLegacyProviderEnvelopeFields(page)
     expect(page).toMatchObject({
       title: 'Einstieg',
       locale: 'de',
@@ -110,7 +239,7 @@ export const runProviderContractSuite = ({
     expect(page?.variants).toEqual(expect.any(Array))
     expect(page?.localePaths).toEqual(expect.any(Object))
 
-    const routeMeta = unwrapProviderResult(await provider.routeMeta?.(event, 'docs', '/de/dokumentation/einstieg', { locale: 'de' }))
+    const routeMeta = unwrapProviderContractResult(await provider.routeMeta?.(event, 'docs', '/de/dokumentation/einstieg', { locale: 'de' }))
     expect(routeMeta).toMatchObject({
       locale: 'de',
       path: expect.stringMatching(/\/dokumentation\/einstieg$/),
@@ -121,7 +250,7 @@ export const runProviderContractSuite = ({
       })
     })
 
-    const miss = unwrapProviderResult(await provider.page?.(createEvent(), 'docs', '/de/dokumentation/not-found'))
+    const miss = unwrapProviderContractResult(await provider.page?.(createEvent(), 'docs', '/de/dokumentation/not-found'))
     expect(miss).toBeNull()
   })
 
@@ -129,13 +258,13 @@ export const runProviderContractSuite = ({
     const provider = await loadProvider()
 
     if (!caps.query.limit) {
-      await expectUnsupportedQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
+      await expectUnsupportedProviderQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
         collection: 'posts',
         resolveLocale: { locale: 'de', fallback: false },
         limit: 1
       })), 'limit')
     } else {
-      const response = unwrapProviderResult(await provider.query(createEvent(), toContentProviderQuery({
+      const response = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
         collection: 'posts',
         resolveLocale: { locale: 'de', fallback: false },
         sort: [{ date: -1 }],
@@ -154,13 +283,13 @@ export const runProviderContractSuite = ({
     }
 
     if (!caps.query.count) {
-      await expectUnsupportedQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
+      await expectUnsupportedProviderQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
         collection: 'posts',
         resolveLocale: { locale: 'de', fallback: false },
         count: true
       })), 'count')
     } else {
-      const countResponse = unwrapProviderResult(await provider.query(createEvent(), toContentProviderQuery({
+      const countResponse = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
         collection: 'posts',
         resolveLocale: { locale: 'de', fallback: false },
         count: true
@@ -174,13 +303,13 @@ export const runProviderContractSuite = ({
     const event = createEvent()
 
     if (!caps.navigation) {
-      await expectUnsupportedOperation(() => provider.navigation?.(event, 'docs', { locale: 'de' }), 'navigation')
+      await expectUnsupportedProviderOperation(() => provider.navigation?.(event, 'docs', { locale: 'de' }), 'navigation')
       const wire = toContentProviderNavigationQuery({ where: { locale: 'de' } })
-      await expectUnsupportedOperation(() => provider.navigationQuery?.(event, wire.query, wire.options), 'navigation')
+      await expectUnsupportedProviderOperation(() => provider.navigationQuery?.(event, wire.query, wire.options), 'navigation')
       return
     }
 
-    const nav = unwrapProviderResult(await provider.navigation?.(event, 'docs', { locale: 'de' }))
+    const nav = unwrapProviderContractResult(await provider.navigation?.(event, 'docs', { locale: 'de' }))
     expect(collectNavPaths(nav || [])).toContain('/dokumentation/einstieg')
     expect(nav?.[0]).toEqual(expect.objectContaining({
       locale: 'de',
@@ -194,14 +323,14 @@ export const runProviderContractSuite = ({
       navPaths.indexOf('/dokumentation/einstieg/installation')
     )
 
-    const fieldNav = unwrapProviderResult(await provider.navigation?.(event, 'docs', ['description']))
+    const fieldNav = unwrapProviderContractResult(await provider.navigation?.(event, 'docs', ['description']))
     expect(fieldNav?.[0]).toEqual(expect.objectContaining({
       title: expect.any(String),
       description: expect.any(String)
     }))
 
     const globalNavWire = toContentProviderNavigationQuery({ where: { locale: 'de' } })
-    const globalNav = unwrapProviderResult(await provider.navigationQuery?.(event, globalNavWire.query, globalNavWire.options))
+    const globalNav = unwrapProviderContractResult(await provider.navigationQuery?.(event, globalNavWire.query, globalNavWire.options))
     const globalNavPaths = collectNavPaths(globalNav || [])
     expect(globalNavPaths).toContain('/dokumentation/einstieg')
     expect(globalNavPaths.length).toBeGreaterThan(0)
@@ -210,7 +339,7 @@ export const runProviderContractSuite = ({
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: false, exact: true }
     })
-    const resolvedLocaleNav = unwrapProviderResult(await provider.navigationQuery?.(event, resolvedLocaleNavWire.query, resolvedLocaleNavWire.options))
+    const resolvedLocaleNav = unwrapProviderContractResult(await provider.navigationQuery?.(event, resolvedLocaleNavWire.query, resolvedLocaleNavWire.options))
     expect(collectNavPaths(resolvedLocaleNav || [])).toContain('/dokumentation/einstieg')
 
     expect(JSON.stringify(nav)).not.toContain('Draft Roadmap')
@@ -221,11 +350,11 @@ export const runProviderContractSuite = ({
     const event = createEvent()
 
     if (!caps.surroundings) {
-      await expectUnsupportedOperation(() => provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }), 'surroundings')
+      await expectUnsupportedProviderOperation(() => provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }), 'surroundings')
       return
     }
 
-    const surround = unwrapProviderResult(await provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }))
+    const surround = unwrapProviderContractResult(await provider.surroundings?.(event, 'docs', '/de/dokumentation/einstieg/installation', { locale: 'de' }))
     expect(surround).toHaveLength(2)
     expect(surround?.map(item => item?.unprefixedPath)).toContain('/dokumentation/einstieg/alltag')
   })
@@ -235,11 +364,11 @@ export const runProviderContractSuite = ({
     const event = createEvent()
 
     if (!caps.searchSections) {
-      await expectUnsupportedOperation(() => provider.searchSections?.(event, 'docs', { locale: 'de' }), 'search sections')
+      await expectUnsupportedProviderOperation(() => provider.searchSections?.(event, 'docs', { locale: 'de' }), 'search sections')
       return
     }
 
-    const sections = unwrapProviderResult(await provider.searchSections?.(event, 'docs', { locale: 'de' }))
+    const sections = unwrapProviderContractResult(await provider.searchSections?.(event, 'docs', { locale: 'de' }))
     expect(sections?.some(section => section.id.startsWith('/de/dokumentation/einstieg') || section.id.startsWith('/dokumentation/einstieg'))).toBe(true)
     expect(JSON.stringify(sections)).not.toContain('Draft Roadmap')
   })
@@ -249,11 +378,11 @@ export const runProviderContractSuite = ({
     const event = createEvent()
 
     if (!caps.sitemap) {
-      await expectUnsupportedOperation(() => provider.sitemapEntries?.(event, { include: ['docs'] }), 'sitemap entries')
+      await expectUnsupportedProviderOperation(() => provider.sitemapEntries?.(event, { include: ['docs'] }), 'sitemap entries')
       return
     }
 
-    const sitemap = unwrapProviderResult(await provider.sitemapEntries?.(event, { include: ['docs'] }))
+    const sitemap = unwrapProviderContractResult(await provider.sitemapEntries?.(event, { include: ['docs'] }))
     expect(sitemap?.some(entry => entry.loc.endsWith('/de/dokumentation/einstieg'))).toBe(true)
     expect(JSON.stringify(sitemap)).not.toContain('/docs/draft-roadmap')
   })
@@ -289,7 +418,7 @@ export const runProviderContractSuite = ({
     if (!caps.dataCollections) return
 
     const provider = await loadProvider()
-    const response = unwrapProviderResult(await provider.query(createEvent(), toContentProviderQuery({
+    const response = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
       collection: 'versions',
       resolveLocale: { locale: 'en', fallback: false },
       sort: [{ date: -1 }]
