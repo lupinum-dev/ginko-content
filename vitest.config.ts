@@ -26,6 +26,14 @@ const productionFixtureTests = [
   'test/e2e/**/*.test.ts'
 ]
 
+// T-release-only: runs solely via the dedicated `test:generate:static` step in
+// release:verify, which targets this file directly. Kept out of the default e2e
+// project (and thus out of test:e2e / T-pr verify) per S2 -- the generate lane must
+// not duplicate a full `nuxi generate` run on every PR (see RFC review finding on T1).
+const generateLaneTests = [
+  'test/e2e/generate-output.test.ts'
+]
+
 const nodeAlias = {
   ...alias,
   'nitropack/runtime': resolve('./test/mock/nitropack-runtime.ts')
@@ -131,6 +139,24 @@ export default defineConfig({
           fileParallelism: false,
           maxWorkers: 1,
           include: productionFixtureTests,
+          exclude: [...commonExclude, ...generateLaneTests]
+        }
+      },
+      {
+        resolve: { alias },
+        test: {
+          // T-release-only lane, run via `pnpm test:generate:static` (see generateLaneTests
+          // comment above). Deliberately a separate project rather than an e2e include/exclude
+          // toggle: vitest's CLI file-path filter still honors project `exclude`, so pointing
+          // `--project e2e test/e2e/generate-output.test.ts` at the e2e project after excluding
+          // it there would silently match zero tests.
+          name: 'generate',
+          environment: 'node',
+          testTimeout: 300000,
+          hookTimeout: 240000,
+          fileParallelism: false,
+          maxWorkers: 1,
+          include: generateLaneTests,
           exclude: commonExclude
         }
       },

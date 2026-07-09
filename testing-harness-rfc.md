@@ -704,6 +704,37 @@ agent's change to them), check the listed failure mode explicitly.
   `package.json` script wiring — passed as part of `pnpm lint`). Proof: N/A
   (wiring an already-proven-green script into an aggregate command is not
   itself a new check).
+- 2026-07-09 — [TH-review] Fixed a reviewer-flagged S2/R-5/C-17 violation:
+  `test/e2e/generate-output.test.ts` was matched by the `test/e2e/**` glob in
+  the `e2e` vitest project, so it ran twice on every PR verify -- once inside
+  `test:e2e` (T-pr tier, via `verify`) and again standalone as
+  `test:generate:static` in `release:verify` (T-release tier) -- duplicating
+  a full `nuxi generate` for ginko-basic + ginko-i18n on every PR. Fix: added
+  a `generateLaneTests` exclude list to the `e2e` project in
+  `vitest.config.ts` and gave the generate lane its own `generate` vitest
+  project (rather than only excluding it from `e2e`, since vitest's CLI
+  file-path filter still honors project `exclude` -- pointing
+  `--project e2e test/e2e/generate-output.test.ts` at the now-excluding `e2e`
+  project would have silently matched zero tests). Updated
+  `test:generate:static` in `package.json` to
+  `pnpm vitest run --config vitest.config.ts --project generate`.
+  Both-directions proof: (1) broken -- `pnpm vitest list --config
+  vitest.config.ts --project e2e` no longer lists `generate-output.test.ts`
+  (0 matches, confirming it is out of the T-pr tier), and a naive
+  `--project e2e test/e2e/generate-output.test.ts` invocation matches 0
+  tests (silent false-green), which is exactly the failure mode being fixed;
+  (2) green -- `pnpm vitest list --config vitest.config.ts --project
+  generate` lists both `generate-output.test.ts` tests, and
+  `pnpm test:generate:static` actually runs the real `nuxi generate` lane
+  standalone: 1 file / 2 tests passed, 43.54s wall time
+  (`/tmp/th-logs/generate-static.log`). Gates: G-fast green (typecheck
+  exit=0 via `/tmp/th-logs/typecheck.log`; `pnpm test` 81 files / 630 tests
+  passed via `/tmp/th-logs/test.log`), G-lint green
+  (`/tmp/th-logs/lint.log`). Targeted e2e re-check: `pnpm test:generate:static`
+  run standalone as above (full `pnpm test:e2e` not re-run here since only
+  `vitest.config.ts`/`package.json` test-tiering changed, not e2e test logic
+  or helpers; scope confirmed via the `vitest list` diff above). Deviations:
+  none beyond the already-recorded release:verify-at-checkpoints deviation.
 
 ---
 
