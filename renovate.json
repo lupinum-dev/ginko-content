@@ -5,6 +5,26 @@
   },
   "packageRules": [
     {
+      "description": "Keep the coupled Nuxt runtime stack attributable as one installable state",
+      "matchPackageNames": ["nuxt", "@nuxt/kit", "@nuxt/schema"],
+      "groupName": "nuxt runtime stack"
+    },
+    {
+      "description": "Keep Comark core and Vue integration on one compatible release line",
+      "matchPackageNames": ["comark", "@comark/vue"],
+      "groupName": "comark stack"
+    },
+    {
+      "description": "Keep Nuxt Sitemap and site-config integration compatible",
+      "matchPackageNames": ["@nuxtjs/sitemap", "nuxt-site-config"],
+      "groupName": "nuxt sitemap stack"
+    },
+    {
+      "description": "Do not mix independently attributable high-risk integrations",
+      "matchPackageNames": ["@nuxtjs/i18n", "pagefind", "vitest", "@nuxt/test-utils", "@nuxt/module-builder"],
+      "groupName": null
+    },
+    {
       "matchPackageNames": ["remark-emoji"],
       "allowedVersions": "!/3\\.1\\.0$/"
     }

@@ -1,0 +1,207 @@
+name: Dependency compatibility canary
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+    - cron: '0 5 1 * *'
+  workflow_dispatch:
+    inputs:
+      include-future:
+        description: Also run the advisory future-ecosystem lane
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: deps-canary-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  supported:
+    name: Supported dependencies (${{ matrix.mode }}, Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: minimum-supported
+            node: 22
+            frozen: true
+            nuxt: 4.4.7
+            sitemap: 8.0.15
+            vue: 3.5.0
+            vitest: 4.1.6
+          - mode: latest-supported
+            node: 24
+            frozen: false
+            nuxt: ^4.4.7
+            sitemap: '>=8.0.15 <9'
+            vue: ^3.5.0
+            vitest: ^4.1.6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: corepack enable
+
+      - name: Prepare dependency manifests
+        run: node scripts/prepare-deps-canary.mjs ${{ matrix.mode }} > canary-manifest-diff.json
+
+      - name: Remove committed resolution for fresh-range lane
+        if: ${{ ! matrix.frozen }}
+        run: node -e "require('node:fs').rmSync('pnpm-lock.yaml')"
+
+      - name: Install minimum resolution
+        if: ${{ matrix.frozen }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Install fresh supported resolution
+        if: ${{ ! matrix.frozen }}
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Record resolved versions
+        run: pnpm list --recursive --depth 0 --json > dependency-versions.json
+
+      - name: Run supported compatibility slice
+        run: pnpm test:compatibility-slice
+        env:
+          GINKO_CONSUMER_NUXT_VERSION: ${{ matrix.nuxt }}
+          GINKO_CONSUMER_NODE_TYPES_VERSION: ${{ matrix.node == 22 && '^22.0.0' || '^24.0.0' }}
+          GINKO_CONSUMER_SITEMAP_VERSION: ${{ matrix.sitemap }}
+          GINKO_CONSUMER_VUE_VERSION: ${{ matrix.vue }}
+          GINKO_CONSUMER_VITEST_VERSION: ${{ matrix.vitest }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deps-canary-${{ matrix.mode }}
+          path: |
+            canary-manifest-diff.json
+            dependency-versions.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  future:
+    name: Future ecosystem (Node 26, advisory)
+    if: github.event.schedule == '0 5 1 * *' || inputs.include-future
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - run: corepack enable
+
+      - name: Prepare future dependency manifests
+        run: node scripts/prepare-deps-canary.mjs future > canary-manifest-diff.json
+
+      - run: node -e "require('node:fs').rmSync('pnpm-lock.yaml')"
+
+      - run: pnpm install --no-frozen-lockfile
+
+      - name: Run future compatibility slice
+        continue-on-error: true
+        run: pnpm test:compatibility-slice
+        env:
+          GINKO_CONSUMER_NUXT_VERSION: next
+          GINKO_CONSUMER_SITEMAP_VERSION: '>=8.0.15 <9'
+          GINKO_CONSUMER_VUE_VERSION: ^3.5.0
+          GINKO_CONSUMER_VITEST_VERSION: ^4.1.6
+
+  windows:
+    name: Windows filesystem confidence
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test:minimum-runtime
+
+  report:
+    name: Report dependency compatibility
+    if: always()
+    needs: [supported, future, windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              per_page: 100
+            })
+            const relevant = data.jobs.filter(job =>
+              job.name.startsWith('Supported dependencies') ||
+              job.name.startsWith('Future ecosystem') ||
+              job.name.startsWith('Windows filesystem')
+            )
+            const supportedFailures = relevant.filter(job =>
+              !job.name.startsWith('Future ecosystem') && job.conclusion === 'failure'
+            )
+            const futureFailures = relevant.filter(job =>
+              job.name.startsWith('Future ecosystem') &&
+              (job.conclusion === 'failure' || job.steps?.some(step => step.conclusion === 'failure'))
+            )
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            const body = [
+              'Dependency compatibility canary status.',
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '### Supported failures',
+              supportedFailures.length ? supportedFailures.map(job => `- ${job.name}`).join('\n') : '- None',
+              '',
+              '### Future/advisory failures',
+              futureFailures.length ? futureFailures.map(job => `- ${job.name}`).join('\n') : '- None',
+              '',
+              'Resolved manifests and version reports are attached to the workflow run.'
+            ].join('\n')
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'deps-canary',
+              state: 'open'
+            })
+            const issue = issues.find(item => item.title === 'Dependency compatibility canary')
+            if (supportedFailures.length || futureFailures.length) {
+              if (issue) {
+                await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, body })
+              } else {
+                try {
+                  await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'deps-canary' })
+                } catch (error) {
+                  if (error.status !== 404) throw error
+                  await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'deps-canary', color: 'd93f0b', description: 'Automated dependency compatibility signal' })
+                }
+                await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Dependency compatibility canary', body, labels: ['deps-canary'] })
+              }
+            } else if (issue) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, body: `Recovered in ${runUrl}.` })
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, state: 'closed' })
+            }

@@ -468,7 +468,9 @@ const findNuxtContentImports = (file, source) =>
 const peerRequirementLabel = (name, range) => {
   const version = range.match(/\d+(?:\.\d+)*/)?.[0]
   if (!version) return null
-  if (name === 'nuxt') return `Nuxt ${version} or later`
+  if (name === 'nuxt') return range.includes('<5')
+    ? `Nuxt ${version} through Nuxt 4.x`
+    : `Nuxt ${version} or later`
   if (name === 'vue') return `Vue ${version.replace(/\.0$/, '')} or later`
   return null
 }
@@ -638,7 +640,13 @@ const checks = [
       .filter(label => Boolean(label))
 
     const offenders = []
-    const expected = ['Nuxt 4.4.7 or later', 'Vue 3.5 or later']
+    const nodeRequirement = 'Node.js 22 or later'
+    if (manifest.engines?.node !== '>=22.0.0') {
+      offenders.push(`package engines.node drifted: expected >=22.0.0, got ${manifest.engines?.node}`)
+    }
+    if (!readme.includes(nodeRequirement)) offenders.push(`packages/content/README.md missing runtime requirement: ${nodeRequirement}`)
+    if (!installDoc.includes(nodeRequirement)) offenders.push(`installation docs missing runtime requirement: ${nodeRequirement}`)
+    const expected = ['Nuxt 4.4.7 through Nuxt 4.x', 'Vue 3.5 or later']
     if (JSON.stringify(requiredPeerLabels) !== JSON.stringify(expected)) {
       offenders.push(`required peer labels drifted: expected ${JSON.stringify(expected)}, got ${JSON.stringify(requiredPeerLabels)}`)
     }

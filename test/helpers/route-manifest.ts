@@ -1,41 +1,39 @@
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { expect } from 'vitest'
 import { listGeneratedFiles } from './generated-artifacts'
 
 export interface RouteManifestOptions {
-  /**
-   * Root-relative directory names whose entire contents collapse into a single presence marker
-   * instead of being enumerated file-by-file (R-3) -- e.g. Pagefind's static asset bundle, whose
-   * filenames are content-hash-derived and would churn the golden file on every content edit
-   * while carrying no route information.
-   */
   presenceOnlyDirs?: string[]
 }
 
-const defaultPresenceOnlyDirs = ['pagefind']
+export type RouteManifestLane = 'build' | 'generate'
+type RouteManifestScope = 'build+generate' | 'generate-only'
 
-// R-3: manifests capture *routes and named artifacts* -- HTML pages, sitemaps, `llms*.txt`,
-// `raw/**.md`, the search index, `robots.txt` -- not bundler output. Rather than trying to
-// pattern-match every hash-named path Nuxt/Nitro might emit (`_nuxt/<hash>.js`,
-// `_i18n/<hash>/**`, `api/_content/query/<hash>/**`, `api/_content/navigation/<hash>/**`,
-// `api/_content/cache.<timestamp>.json`, per-route `_payload.json`), this normalizes by
-// *inclusion*: only paths matching a known named-artifact shape survive. Anything else is bundler
-// output and is silently dropped. This is deliberately the opposite of an exclude-list -- an
-// exclude-list has to be updated every time Nitro adds a new hash-named output kind (and misses
-// go straight into golden-file churn, C-14); an include-list only needs updating when a genuinely
-// new *named* artifact kind ships (which already requires touching `generated-artifacts.ts`'s
-// `textArtifactPattern`, C-5, in the same PR).
-const namedArtifactExtensionPattern = /\.(?:html|xml|txt|md)$/
+const defaultPresenceOnlyDirs = ['pagefind']
+const stableArtifactPattern = /\.(?:html|xml|txt|md)$/
 const searchIndexPath = 'api/_content/search/index.json'
 const sitemapDirPrefix = '__sitemap__/'
+const volatileArtifactPatterns = [
+  /^_nuxt\//,
+  /^_i18n\//,
+  /(?:^|\/)_payload\.json$/,
+  /^api\/_content\/cache\.\d+\.json$/,
+  /^api\/_content\/(?:navigation|query)\//
+]
 
 function normalizeSlashes (path: string) {
   return path.replace(/\\/g, '/').replace(/^\.?\/+/, '')
 }
 
+function isKnownVolatileArtifact (path: string) {
+  return volatileArtifactPatterns.some(pattern => pattern.test(path))
+}
+
 /**
- * Pure normalization function (T2-1): given a flat list of relative paths under a `.output/public`
- * directory, returns the sorted, deduplicated set of manifest-worthy entries per R-3.
+ * Classifies every emitted file. Stable public output is included, known volatile framework
+ * output is excluded, and unknown output fails closed so new artifact types cannot disappear
+ * silently from release review.
  */
 export function normalizeRouteManifest (
   files: string[],
@@ -43,6 +41,7 @@ export function normalizeRouteManifest (
 ): string[] {
   const presenceOnlyDirs = options.presenceOnlyDirs ?? defaultPresenceOnlyDirs
   const entries = new Set<string>()
+  const unknown: string[] = []
 
   for (const rawPath of files) {
     const path = normalizeSlashes(rawPath)
@@ -54,57 +53,102 @@ export function normalizeRouteManifest (
       continue
     }
 
-    if (path === searchIndexPath) {
+    if (
+      path === searchIndexPath ||
+      path.startsWith(sitemapDirPrefix) ||
+      stableArtifactPattern.test(path)
+    ) {
       entries.add(path)
       continue
     }
 
-    if (path.startsWith(sitemapDirPrefix)) {
-      entries.add(path)
-      continue
-    }
-
-    if (namedArtifactExtensionPattern.test(path)) {
-      entries.add(path)
-    }
-
-    // else: hash-named bundler output (_nuxt/*, per-route _payload.json,
-    // api/_content/{query,navigation}/**, api/_content/cache.*.json, _i18n/<hash>/**, etc.) --
-    // excluded per R-3, not a route or named artifact.
+    if (isKnownVolatileArtifact(path)) continue
+    unknown.push(path)
   }
 
-  return [...entries].sort((a, b) => a.localeCompare(b))
+  if (unknown.length > 0) {
+    throw new Error(
+      'Route manifest found unclassified generated output. Classify each path as stable or explicitly volatile:\n' +
+      unknown.sort().map(path => `  - ${path}`).join('\n')
+    )
+  }
+
+  return [...entries].sort()
 }
 
-/** R-2: golden format is sorted, newline-delimited text, one path per line, trailing newline. */
 export function formatRouteManifest (entries: string[]): string {
   return entries.length > 0 ? `${entries.join('\n')}\n` : ''
+}
+
+export function parseSemanticRouteGolden (text: string): Map<string, RouteManifestScope> {
+  const entries = new Map<string, RouteManifestScope>()
+  for (const line of text.split('\n').filter(Boolean)) {
+    const match = /^(build\+generate|generate-only) (.+)$/.exec(line)
+    if (!match) throw new Error(`Invalid semantic route golden line: ${line}`)
+    const [, scope, path] = match as [string, RouteManifestScope, string]
+    if (entries.has(path)) throw new Error(`Duplicate semantic route golden path: ${path}`)
+    entries.set(path, scope)
+  }
+  return entries
+}
+
+function formatSemanticRouteGolden (entries: Map<string, RouteManifestScope>): string {
+  return [...entries]
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .map(([path, scope]) => `${scope} ${path}`)
+    .join('\n') + '\n'
 }
 
 export async function buildRouteManifest (
   publicDir: string,
   options: RouteManifestOptions = {}
 ): Promise<string[]> {
-  const files = await listGeneratedFiles(publicDir)
-  return normalizeRouteManifest(files, options)
+  return normalizeRouteManifest(await listGeneratedFiles(publicDir), options)
 }
 
-/**
- * R-2: compared with plain string equality (never `toMatchSnapshot`) so a route regression shows
- * up as a small, readable text diff instead of a rubber-stamped blob.
- */
+export function navigableRoutesFromManifest (entries: string[]): string[] {
+  return entries
+    .filter(entry => entry.endsWith('.html'))
+    .filter(entry => !['200.html', '404.html', '404/index.html'].includes(entry))
+    .filter(entry => !entry.startsWith('sitemap'))
+    .map((entry) => {
+      if (entry === 'index.html') return '/'
+      if (entry.endsWith('/index.html')) return `/${entry.slice(0, -'/index.html'.length)}`
+      return `/${entry.slice(0, -'.html'.length)}`
+    })
+    .sort()
+}
+
 export async function assertRouteManifestMatchesGolden (
   publicDir: string,
   goldenPath: string,
+  lane: RouteManifestLane,
   options: RouteManifestOptions = {}
 ) {
-  const entries = await buildRouteManifest(publicDir, options)
-  const actualText = formatRouteManifest(entries)
-  const goldenText = await readFile(goldenPath, 'utf8')
+  const actualEntries = await buildRouteManifest(publicDir, options)
 
+  if (process.env.UPDATE_ROUTE_GOLDENS === '1') {
+    if (lane !== 'generate') throw new Error('Route goldens may only be regenerated from the complete generate lane')
+    let existing = new Map<string, RouteManifestScope>()
+    try {
+      existing = parseSemanticRouteGolden(await readFile(goldenPath, 'utf8'))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    const updated = new Map(actualEntries.map(path => [path, existing.get(path) ?? 'generate-only']))
+    await mkdir(dirname(goldenPath), { recursive: true })
+    await writeFile(goldenPath, formatSemanticRouteGolden(updated))
+    return
+  }
+
+  const semanticGolden = parseSemanticRouteGolden(await readFile(goldenPath, 'utf8'))
+  const expectedEntries = [...semanticGolden]
+    .filter(([, scope]) => lane === 'generate' || scope === 'build+generate')
+    .map(([path]) => path)
+    .sort()
   expect(
-    actualText,
-    `route manifest for ${publicDir} does not match golden ${goldenPath}.\n` +
-    'If this diff is an intentional route-shape change, regenerate with "pnpm golden:update" and review the diff before committing.'
-  ).toBe(goldenText)
+    actualEntries,
+    `${lane} route manifest for ${publicDir} does not match semantic golden ${goldenPath}.\n` +
+    'If this is intentional, run "pnpm golden:update" and review the diff.'
+  ).toEqual(expectedEntries)
 }

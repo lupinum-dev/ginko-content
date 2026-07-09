@@ -2,6 +2,7 @@ import { startProductionFixtureServer } from './production-fixture'
 
 export interface FixtureServer {
   baseURL: string
+  publicDir: string
   stop: () => Promise<void>
 }
 

@@ -40,9 +40,10 @@
     "compatibility:check": "node scripts/generate-compatibility.mjs --check",
     "check:repo-policies": "node scripts/check-repo-policies.mjs",
     "docs-drift": "node scripts/docs-drift.mjs",
-    "lint": "pnpm run check:repo-policies && pnpm run check:compatibility-matrix && eslint .",
+    "check:test-selection": "node scripts/check-test-selection.mjs",
+    "lint": "pnpm run check:repo-policies && pnpm run check:compatibility-matrix && pnpm run check:test-selection && eslint .",
     "pack:check": "pnpm build:packages && (cd packages/content && npm pack --dry-run --json) && tmpdir=$(mktemp -d) && pnpm --dir packages/content pack --pack-destination \"$tmpdir\" && tar -tzf \"$tmpdir\"/lupinum-ginko-content-*.tgz >/dev/null && rm -rf \"$tmpdir\"",
-    "release:verify": "pnpm compatibility:check && pnpm docs-drift && pnpm verify && pnpm test:package-consumer && pnpm test:e2e:browser && pnpm test:search:matrix && pnpm test:sitemap:static && pnpm test:generate:static && pnpm run audit:prod && pnpm run release:pack",
+    "release:verify": "node scripts/timed-command.mjs compatibility:check pnpm compatibility:check && node scripts/timed-command.mjs docs-drift pnpm docs-drift && node scripts/timed-command.mjs verify pnpm verify && node scripts/timed-command.mjs browser-e2e pnpm test:e2e:browser && node scripts/timed-command.mjs generate pnpm test:generate:static && node scripts/timed-command.mjs audit:prod pnpm audit:prod && node scripts/timed-command.mjs release:pack pnpm release:pack && node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer && node scripts/timed-command.mjs consumer:npm pnpm test:package-consumer:npm",
     "release:pack": "node scripts/release-pack.mjs",
     "release:notes": "changelogen --output CHANGELOG.md",
     "release:publish": "node -e \"console.error('Direct publish scripts are disabled. Run release:verify and release:pack, inspect .pack, then follow MAINTAINING.md.'); process.exit(1)\"",
@@ -53,7 +54,10 @@
     "test:e2e:browser": "vitest run --config vitest.config.ts --project browser-e2e",
     "test:generate:static": "pnpm vitest run --config vitest.config.ts --project generate",
     "test:golden": "pnpm build:packages && vitest run --config vitest.config.ts --project contracts-node test/contracts/vnext-golden-demo.test.ts",
-    "test:package-consumer": "node scripts/test-packed-consumer.mjs",
+    "test:package-consumer": "node scripts/test-packed-consumer.mjs --package-manager pnpm --tarball-dir .pack",
+    "test:package-consumer:npm": "node scripts/test-packed-consumer.mjs --package-manager npm --build-only --tarball-dir .pack",
+    "test:compatibility-slice": "pnpm release:pack && pnpm test:package-consumer && pnpm test:generate:static && pnpm test:search:matrix",
+    "test:minimum-runtime": "pnpm test && pnpm test:quickstart && node scripts/pr-e2e-smoke.mjs",
     "test:quickstart": "pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-quickstart dev:prepare && pnpm --filter @lupinum/ginko-content-test-quickstart typecheck && pnpm --filter @lupinum/ginko-content-test-quickstart build",
     "test:search:matrix": "pnpm vitest run --config vitest.config.ts --project e2e test/e2e/search-matrix.test.ts",
     "test:sitemap:static": "pnpm vitest run --config vitest.config.ts --project e2e test/e2e/sitemap-static.test.ts",
@@ -62,6 +66,7 @@
     "typecheck": "pnpm typecheck:source && pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-typecheck typecheck",
     "test": "pnpm build:packages && vitest run --config vitest.config.ts --project unit --project provider --project contracts-node --project runtime --project client --project nuxt",
     "test:watch": "vitest watch --config vitest.config.ts --project unit --project provider --project contracts-node --project runtime --project client --project nuxt",
+    "golden:update": "node scripts/update-route-goldens.mjs",
     "verify": "pnpm dev:prepare && pnpm lint && pnpm build:packages && pnpm docs:build && pnpm docs:smoke && pnpm examples:build && pnpm typecheck:examples && pnpm test && pnpm test:e2e && pnpm typecheck && pnpm test:quickstart"
   },
   "devDependencies": {
@@ -93,7 +98,7 @@
     "zod": "4.4.3"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "packageManager": "pnpm@10.33.0"
 }

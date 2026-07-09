@@ -7,6 +7,11 @@ export interface GeneratedTextArtifact {
   text: string
 }
 
+export const fixtureLeakSentinels = {
+  basic: ['Draft Post'],
+  i18n: ['Draft Roadmap', 'Internal Note']
+} as const
+
 const textArtifactPattern = /\.(?:html|xml|json|txt|md)$/
 const localOriginPattern = /http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])|https?:\/\/[^/\s"'<>]*localhost/i
 
@@ -40,6 +45,22 @@ export async function listGeneratedTextArtifacts (publicDir: string) {
   })))
 }
 
+export async function assertFixtureSourceSentinels (
+  fixtureDir: string,
+  sentinels: readonly string[]
+) {
+  const contentDir = resolve(fixtureDir, 'content')
+  const sourceFiles = (await listGeneratedFiles(contentDir))
+    .filter(path => /\.(?:md|mdc|json|ya?ml|csv)$/.test(path))
+  const sourceText = (await Promise.all(
+    sourceFiles.map(path => readGeneratedArtifact(contentDir, path))
+  )).join('\n')
+
+  for (const sentinel of sentinels) {
+    expect(sourceText, `fixture source under ${contentDir} must retain leak sentinel "${sentinel}"`).toContain(sentinel)
+  }
+}
+
 export function assertNoLocalOrigins (artifacts: GeneratedTextArtifact[]) {
   for (const artifact of artifacts) {
     expect(artifact.text, `${artifact.path} should not leak local origins`).not.toMatch(localOriginPattern)
@@ -60,7 +81,7 @@ export function assertNoRepeatedLocalePrefixes (
 
 export function assertNoPrivateContentLeaks (
   artifacts: GeneratedTextArtifact[],
-  forbiddenTerms: string[]
+  forbiddenTerms: readonly string[]
 ) {
   for (const artifact of artifacts) {
     for (const term of forbiddenTerms) {

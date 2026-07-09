@@ -5,13 +5,15 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { ofetch } from 'ofetch'
 import { startFixtureServer } from '../helpers/fixture-server'
+import type { FixtureServer } from '../helpers/fixture-server'
+import { assertRouteManifestMatchesGolden } from '../helpers/route-manifest'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-const withFixtureServer = async (fixture: string, run: (baseURL: string) => Promise<void>) => {
+const withFixtureServer = async (fixture: string, run: (server: FixtureServer) => Promise<void>) => {
   const server = await startFixtureServer(resolve(rootDir, fixture))
   try {
-    await run(server.baseURL)
+    await run(server)
   } finally {
     await server.stop()
   }
@@ -19,7 +21,8 @@ const withFixtureServer = async (fixture: string, run: (baseURL: string) => Prom
 
 describe('production fixture smoke', () => {
   test('basic fixture builds and serves representative content/API routes', async () => {
-    await withFixtureServer('playground/ginko-basic', async (baseURL) => {
+    await withFixtureServer('playground/ginko-basic', async ({ baseURL, publicDir }) => {
+      await assertRouteManifestMatchesGolden(publicDir, resolve(rootDir, 'test/golden/routes/ginko-basic.txt'), 'build')
       const $fetch = ofetch.create({ baseURL })
 
       await expect($fetch('/guide/getting-started')).resolves.toContain('Getting Started')
@@ -42,7 +45,7 @@ describe('production fixture smoke', () => {
   }, 240000)
 
   test('i18n fixture builds and serves localized fallback routes', async () => {
-    await withFixtureServer('playground/ginko-i18n', async (baseURL) => {
+    await withFixtureServer('playground/ginko-i18n', async ({ baseURL }) => {
       const $fetch = ofetch.create({ baseURL })
 
       await expect($fetch('/de/leitfaden/erste-schritte')).resolves.toContain('Einstieg')

@@ -168,8 +168,10 @@ These are correction work, not future enhancements:
 4. The packed-consumer script creates and tests its own tarball, while
    `release:pack` later creates the tarball a human inspects. The exact release
    artifact is therefore not the artifact the consumer test installed.
-5. The package currently declares Node `>=20`, although Node 20 is end-of-life.
-6. Nuxt and optional Vitest peer ranges are open-ended across future majors.
+5. Before this implementation, the package declared Node `>=20`, although Node
+   20 is end-of-life.
+6. Before this implementation, Nuxt and optional Vitest peer ranges were
+   open-ended across future majors.
 7. CI comments describe search and sitemap suites as release-only even though
    they already run in PR verification.
 
@@ -235,8 +237,10 @@ Commit two semantic goldens:
 - `test/golden/routes/ginko-i18n.txt`
 
 Both build and generate output for a fixture compare against the same semantic
-golden. A difference between build and generate is allowed only through an
-explicit, reviewed exception; separate goldens are not the default.
+golden. Each line is explicitly scoped `build+generate` or `generate-only`
+because `nuxi build` emits the configured prerender subset while `nuxi generate`
+emits the complete static site. Separate per-mode goldens are forbidden: the
+scope annotation is the reviewed exception and keeps one topology source of truth.
 
 The manifest contains:
 
@@ -636,7 +640,10 @@ Acceptance:
 - **H4-1:** Add the i18n emitted-route hydration crawl using one server/browser.
 - **H4-2:** Capture page errors, console errors, hydration warnings, failed
   requests, and >=400 same-origin responses.
-- **H4-3:** Replace generic crawl `networkidle` waits with rendered-app readiness.
+- **H4-3:** Use rendered-app readiness for hydration, then wait for network
+  quiescence before advancing so navigation does not abort and misattribute
+  Nuxt payload/build-metadata requests. Do not use network idle as the render
+  assertion itself.
 
 Acceptance:
 
@@ -779,19 +786,19 @@ boundaries grow; do not wait for a CVE to justify a cheap security invariant.
 
 - [x] Real `nuxi generate` for basic and i18n is isolated and green.
 - [x] Generate-mode sitemap assertion path is exercised in a real run.
-- [ ] Duplicate e2e and main-branch CI execution is removed.
-- [ ] Release authorization is tied to the exact green commit SHA.
-- [ ] Two reviewed semantic output goldens cover build and generate.
-- [ ] Static output and docs have emitted-file/fragment link integrity.
-- [ ] Negative leak checks have detector and fixture controls.
-- [ ] I18n hydration crawl is green with zero browser/runtime failures.
-- [ ] One exact tarball passes hygiene, pnpm consumer, and npm consumer.
+- [x] Duplicate e2e and main-branch CI execution is removed.
+- [x] Release authorization is tied to the exact green commit SHA.
+- [x] Two reviewed semantic output goldens cover build and generate.
+- [x] Static output and docs have emitted-file/fragment link integrity.
+- [x] Negative leak checks have detector and fixture controls.
+- [x] I18n hydration crawl is green with zero browser/runtime failures.
+- [x] One exact tarball passes hygiene, pnpm consumer, and npm consumer.
 - [ ] Node support is maintained and tested on Node 22/24.
-- [ ] Peer/integration ranges are finite and documented.
-- [ ] Renovate updates are attributable by compatibility stack.
+- [x] Peer/integration ranges are finite and documented.
+- [x] Renovate updates are attributable by compatibility stack.
 - [ ] Minimum/latest-supported canaries and focused Windows CI are observed
       green in GitHub.
-- [ ] Agent guidance uses focused iteration and no second harness framework.
+- [x] Agent guidance uses focused iteration and no second harness framework.
 - [ ] Final exact-SHA release workflow is green, durable, and linked from the
       release record.
 

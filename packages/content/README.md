@@ -12,8 +12,8 @@ and server-side reads.
 
 ## Requirements
 
-- Node.js 20 or later
-- Nuxt 4.4.7 or later
+- Node.js 22 or later
+- Nuxt 4.4.7 through Nuxt 4.x
 - Vue 3.5 or later
 
 ## Install
@@ -113,7 +113,7 @@ For localized Nuxt apps, keep one source of truth per route type:
 
 Do not duplicate docs, blog, pricing, privacy, or translated locale paths in
 `sitemap.urls` or app-owned `nitro.prerender.routes` arrays. Use
-`@nuxtjs/sitemap >= 8.0.15` when translated static app slugs such as `/preise`
+`@nuxtjs/sitemap >= 8.0.15 < 9` when translated static app slugs such as `/preise`
 and `/en/pricing` need cross-locale sitemap alternates.
 
 See the public guide: [Sitemap and prerender](../../docs/content/docs/6.i18n/4.sitemap-prerender.md).
@@ -126,7 +126,7 @@ See the public guide: [Sitemap and prerender](../../docs/content/docs/6.i18n/4.s
 | MiniSearch backend | Included as a runtime dependency and used by the default search backend. |
 | Pagefind backend | Included as a runtime dependency and used when `content.search.engine` is `'pagefind'`. |
 | Provider-owned search | No extra package. The active content provider must advertise and implement `search`. |
-| Content i18n | Install and configure `@nuxtjs/i18n` when the app uses Nuxt locale routes. |
+| Content i18n | Install and configure `@nuxtjs/i18n` 10.x when the app uses Nuxt locale routes. |
 | Sitemap XML output | Install and configure `@nuxtjs/sitemap`; Ginko contributes the content sitemap source. |
 
 ## Scope

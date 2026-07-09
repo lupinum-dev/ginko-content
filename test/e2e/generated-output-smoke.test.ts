@@ -5,20 +5,25 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import {
+  assertFixtureSourceSentinels,
   assertNoLocalOrigins,
   assertNoPrivateContentLeaks,
   assertNoRepeatedLocalePrefixes,
   listGeneratedTextArtifacts,
   readGeneratedArtifact,
-  readSearchIndex
+  readSearchIndex,
+  fixtureLeakSentinels
 } from '../helpers/generated-artifacts'
 import { buildProductionFixture } from '../helpers/production-fixture'
+import { assertRouteManifestMatchesGolden } from '../helpers/route-manifest'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureDir = resolve(rootDir, 'playground/ginko-i18n')
+const goldenPath = resolve(rootDir, 'test/golden/routes/ginko-i18n.txt')
 
 describe('generated output smoke', () => {
   test('i18n fixture emits stable localized HTML, sitemap, search, and agent markdown artifacts', async () => {
+    await assertFixtureSourceSentinels(fixtureDir, fixtureLeakSentinels.i18n)
     const fixture = await buildProductionFixture(fixtureDir)
     const outputPublicDir = fixture.publicDir
     const textArtifacts = await listGeneratedTextArtifacts(outputPublicDir)
@@ -34,8 +39,9 @@ describe('generated output smoke', () => {
       expect.objectContaining({ title: 'Einstieg', path: '/de/leitfaden/erste-schritte', locale: 'de' })
     ]))
     expect(JSON.stringify(searchIndex)).not.toContain('/authors/evan')
-    expect(JSON.stringify(searchIndex)).not.toContain('Draft Roadmap')
-    expect(JSON.stringify(searchIndex)).not.toContain('Internal Note')
+    for (const sentinel of fixtureLeakSentinels.i18n) {
+      expect(JSON.stringify(searchIndex)).not.toContain(sentinel)
+    }
 
     const sitemapText = [
       await readGeneratedArtifact(outputPublicDir, '__sitemap__/en-US.xml'),
@@ -69,12 +75,14 @@ describe('generated output smoke', () => {
     expect(deLlms).toContain('/raw/de/leitfaden/erste-schritte.md')
     expect(llmsFull).toContain('# Getting Started')
     expect(llmsFull).toContain('# Contact')
-    expect(llmsFull).not.toContain('Draft Roadmap')
-    expect(llmsFull).not.toContain('Internal Note')
+    for (const sentinel of fixtureLeakSentinels.i18n) {
+      expect(llmsFull).not.toContain(sentinel)
+    }
     expect(llmsFull).not.toContain('/index.md')
 
     assertNoLocalOrigins(textArtifacts)
     assertNoRepeatedLocalePrefixes(textArtifacts, ['de', 'en'])
-    assertNoPrivateContentLeaks(textArtifacts, ['Draft Roadmap', 'Internal Note'])
+    assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.i18n)
+    await assertRouteManifestMatchesGolden(outputPublicDir, goldenPath, 'build')
   }, 240000)
 })

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import { assertGeneratedLinkIntegrity } from './lib/generated-link-integrity.mjs'
 
 const root = 'docs/.output/public'
 const offenders = []
@@ -33,5 +34,7 @@ if (offenders.length > 0) {
   for (const offender of offenders) console.error(`  ${offender}`)
   process.exit(1)
 }
+
+await assertGeneratedLinkIntegrity(root)
 
 console.log('docs-build-smoke: OK')

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { formatRouteManifest, normalizeRouteManifest } from '../helpers/route-manifest'
+import { formatRouteManifest, normalizeRouteManifest, parseSemanticRouteGolden } from '../helpers/route-manifest'
 
-describe('route manifest normalization (T2-1, R-3)', () => {
+describe('route manifest normalization', () => {
   test('keeps HTML pages including root-level special pages', () => {
     const files = [
       'index.html',
@@ -20,7 +20,7 @@ describe('route manifest normalization (T2-1, R-3)', () => {
     ])
   })
 
-  test('drops per-route _payload.json content-hash churn', () => {
+  test('drops explicitly classified per-route _payload.json churn', () => {
     const files = [
       'guide/getting-started/index.html',
       'guide/getting-started/_payload.json',
@@ -77,7 +77,7 @@ describe('route manifest normalization (T2-1, R-3)', () => {
     ])
   })
 
-  test('keeps sitemap index, hreflang child sitemaps, llms*.txt, raw/**.md, and robots.txt', () => {
+  test('keeps sitemap index, child sitemaps, llms*.txt, and raw Markdown', () => {
     const files = [
       'sitemap_index.xml',
       '__sitemap__/en-US.xml',
@@ -87,8 +87,7 @@ describe('route manifest normalization (T2-1, R-3)', () => {
       'de/llms.txt',
       'llms-full.txt',
       'raw/guide/getting-started.md',
-      'raw/de/leitfaden/erste-schritte.md',
-      'robots.txt'
+      'raw/de/leitfaden/erste-schritte.md'
     ]
 
     expect(normalizeRouteManifest(files)).toEqual([
@@ -100,7 +99,6 @@ describe('route manifest normalization (T2-1, R-3)', () => {
       'llms.txt',
       'raw/de/leitfaden/erste-schritte.md',
       'raw/guide/getting-started.md',
-      'robots.txt',
       'sitemap_index.xml'
     ])
   })
@@ -122,6 +120,13 @@ describe('route manifest normalization (T2-1, R-3)', () => {
     expect(normalizeRouteManifest(files)).toEqual(['a/index.html', 'b/index.html'])
   })
 
+  test('fails closed for unclassified output', () => {
+    expect(() => normalizeRouteManifest([
+      'index.html',
+      'assets/new-public-contract.webmanifest'
+    ])).toThrow(/unclassified generated output[\s\S]*assets\/new-public-contract\.webmanifest/)
+  })
+
   test('normalizes backslashes and leading ./ so Windows-style listings match POSIX golden files', () => {
     const files = ['.\\guide\\index.html', './guide/index.html']
     expect(normalizeRouteManifest(files)).toEqual(['guide/index.html'])
@@ -136,12 +141,30 @@ describe('route manifest normalization (T2-1, R-3)', () => {
   })
 })
 
-describe('route manifest text formatting (R-2: sorted newline text, not toMatchSnapshot)', () => {
+describe('route manifest text formatting', () => {
   test('joins entries with a trailing newline', () => {
     expect(formatRouteManifest(['a.html', 'b.html'])).toBe('a.html\nb.html\n')
   })
 
   test('formats an empty manifest as an empty string', () => {
     expect(formatRouteManifest([])).toBe('')
+  })
+})
+
+describe('semantic route goldens', () => {
+  test('parses explicit deployment scopes', () => {
+    expect([...parseSemanticRouteGolden(
+      'build+generate index.html\ngenerate-only 404.html\n'
+    )]).toEqual([
+      ['index.html', 'build+generate'],
+      ['404.html', 'generate-only']
+    ])
+  })
+
+  test('rejects unscoped and duplicate entries', () => {
+    expect(() => parseSemanticRouteGolden('index.html\n')).toThrow(/Invalid semantic route golden line/)
+    expect(() => parseSemanticRouteGolden(
+      'build+generate index.html\ngenerate-only index.html\n'
+    )).toThrow(/Duplicate semantic route golden path/)
   })
 })
