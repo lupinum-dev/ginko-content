@@ -9,12 +9,24 @@ export interface ProductionFixtureBuild {
   publicDir: string
   serverDir: string
   env: Record<string, string>
+  /** Raw stdout captured from the build command (used to corroborate build-time hook execution, e.g. C-6). */
+  stdout?: string
 }
 
 export interface ProductionFixtureServer extends ProductionFixtureBuild {
   baseURL: string
   stop: () => Promise<void>
 }
+
+export interface GenerateStaticFixture {
+  rootDir: string
+  publicDir: string
+  env: Record<string, string>
+  /** Raw stdout captured from `nuxi generate` (used to corroborate build-time hook execution, e.g. C-6). */
+  stdout: string
+}
+
+export type FixtureBuildMode = 'build' | 'generate'
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 let buildPackagesPromise: Promise<void> | undefined
@@ -46,8 +58,16 @@ function normalizeFixtureEnv (env: Record<string, string>) {
   )
 }
 
-function fixtureBuildKey (rootDir: string, env: Record<string, string>) {
-  return `${resolve(rootDir)}::${JSON.stringify(normalizeFixtureEnv(env))}`
+export function fixtureBuildKey (
+  rootDir: string,
+  env: Record<string, string>,
+  mode: FixtureBuildMode = 'build'
+) {
+  // C-1: the `::generate` component is load-bearing — without it, a `generate` result would be
+  // served for a `build` request (or vice versa) whenever rootDir+env match, silently mixing a
+  // fully static output with a node-server output.
+  const modeComponent = mode === 'generate' ? '::generate' : ''
+  return `${resolve(rootDir)}${modeComponent}::${JSON.stringify(normalizeFixtureEnv(env))}`
 }
 
 async function allocatePort () {
@@ -72,24 +92,28 @@ async function allocatePort () {
   return port
 }
 
-export async function buildProductionFixture (
+async function runFixtureBuildCommand (
   rootDir: string,
-  env: Record<string, string> = {}
+  env: Record<string, string>,
+  mode: FixtureBuildMode
 ): Promise<ProductionFixtureBuild> {
   const resolvedRoot = resolve(rootDir)
   const normalizedEnv = normalizeFixtureEnv(env)
-  const key = fixtureBuildKey(resolvedRoot, normalizedEnv)
+  const key = fixtureBuildKey(resolvedRoot, normalizedEnv, mode)
   const currentKey = currentBuildKeyByFixture.get(resolvedRoot)
 
   if (currentKey === key && buildPromises.has(key)) {
     return await buildPromises.get(key)!
   }
 
+  const command = mode === 'generate' ? 'pnpm exec nuxi generate' : 'pnpm exec nuxi build'
+
   const buildPromise = Promise.resolve().then(async () => {
     await ensureWorkspacePackagesBuilt()
 
+    let stdout = ''
     try {
-      execSync('pnpm exec nuxi build', {
+      stdout = execSync(command, {
         cwd: resolvedRoot,
         env: {
           ...globalThis.process.env,
@@ -97,12 +121,12 @@ export async function buildProductionFixture (
           ...normalizedEnv
         },
         stdio: 'pipe'
-      })
+      }).toString()
     } catch (error) {
       const commandError = error as Error & { stdout?: Buffer | string, stderr?: Buffer | string }
-      const stdout = commandError.stdout?.toString() || ''
+      const errStdout = commandError.stdout?.toString() || ''
       const stderr = commandError.stderr?.toString() || ''
-      throw new Error(`Failed to build production fixture ${resolvedRoot}\n${stdout}${stderr}`)
+      throw new Error(`Failed to run "${command}" for fixture ${resolvedRoot}\n${errStdout}${stderr}`)
     }
 
     currentBuildKeyByFixture.set(resolvedRoot, key)
@@ -111,12 +135,39 @@ export async function buildProductionFixture (
       rootDir: resolvedRoot,
       publicDir: resolve(resolvedRoot, '.output/public'),
       serverDir: resolve(resolvedRoot, '.output/server'),
-      env: normalizedEnv
+      env: normalizedEnv,
+      stdout
     }
   })
 
   buildPromises.set(key, buildPromise)
   return await buildPromise
+}
+
+export async function buildProductionFixture (
+  rootDir: string,
+  env: Record<string, string> = {}
+): Promise<ProductionFixtureBuild> {
+  return await runFixtureBuildCommand(rootDir, env, 'build')
+}
+
+/**
+ * Runs `nuxi generate` (full static output) for a fixture instead of `nuxi build`.
+ * Reuses the same env-keyed cache map as `buildProductionFixture` (C-1), but the key carries a
+ * distinct `::generate` component so a `generate` result is never served for a `build` request,
+ * or vice versa, even when rootDir+env are otherwise identical.
+ */
+export async function generateStaticFixture (
+  rootDir: string,
+  env: Record<string, string> = {}
+): Promise<GenerateStaticFixture> {
+  const build = await runFixtureBuildCommand(rootDir, env, 'generate')
+  return {
+    rootDir: build.rootDir,
+    publicDir: build.publicDir,
+    env: build.env,
+    stdout: build.stdout || ''
+  }
 }
 
 export async function startProductionFixtureServer (
