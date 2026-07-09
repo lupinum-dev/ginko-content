@@ -43,6 +43,7 @@ async function waitForRenderedNuxtApp (page: Page) {
     const root = document.querySelector('#__nuxt')
     return Boolean(root?.textContent?.trim()) && !document.documentElement.innerHTML.includes('__NUXT_LOADING__')
   })
+  await page.waitForLoadState('networkidle')
 }
 
 function captureBrowserFailures (page: Page, baseURL: string) {
@@ -91,11 +92,13 @@ describe('browser production confidence', () => {
 
       await page.getByRole('link', { name: 'English' }).click()
       await page.waitForURL('**/guide/getting-started')
+      await waitForRenderedNuxtApp(page)
       expect(contentPath(page.url())).toBe('/guide/getting-started')
       await assertHeading(page, 'Getting Started')
 
       await page.getByRole('link', { name: 'Deutsch' }).click()
       await page.waitForURL('**/de/leitfaden/erste-schritte')
+      await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
 
       await page.goto(`${server.baseURL}/de/search`, { waitUntil: 'domcontentloaded' })
@@ -106,11 +109,14 @@ describe('browser production confidence', () => {
       await expect(result.getAttribute('href')).resolves.toBe('/de/leitfaden/erste-schritte')
       await result.click()
       await page.waitForURL('**/de/leitfaden/erste-schritte')
+      await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
 
       await page.goBack({ waitUntil: 'domcontentloaded' })
+      await waitForRenderedNuxtApp(page)
       expect(contentPath(page.url())).toBe('/de/search')
       await page.goForward({ waitUntil: 'domcontentloaded' })
+      await waitForRenderedNuxtApp(page)
       expect(contentPath(page.url())).toBe('/de/leitfaden/erste-schritte')
       await assertHeading(page, 'Einstieg')
 
@@ -141,9 +147,6 @@ describe('browser production confidence', () => {
         const response = await page.goto(`${server.baseURL}${route}`, { waitUntil: 'domcontentloaded' })
         expect(response?.status(), `${route} should return a successful document`).toBeLessThan(400)
         await waitForRenderedNuxtApp(page)
-        // Do not advance while Nuxt is still fetching build metadata or payloads. Treating
-        // navigation-induced ERR_ABORTED as harmless would also hide genuine app failures.
-        await page.waitForLoadState('networkidle')
         browserFailures.assertClean(route)
       }
     } finally {
