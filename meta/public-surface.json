@@ -898,6 +898,75 @@
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
   },
+  "providerContractValueExports": {
+    "LEGACY_PROVIDER_ENVELOPE_FIELDS": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "createAuthorDependencyContractProvider": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "expectNoLegacyProviderEnvelopeFields": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "expectProviderCapabilities": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "expectProviderDocumentEnvelope": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "expectUnsupportedProviderOperation": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "expectUnsupportedProviderQueryShape": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "runAuthorDependencyContractTest": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "runAuthorDependencyFixtureSelfTest": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "runProviderContractSuite": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "unwrapProviderContractResult": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    }
+  },
+  "providerContractTypeExports": {
+    "AuthorDependencyContractOptions": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ProviderContractSuiteOptions": {
+      "category": "testing-only-provider-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    }
+  },
   "agentValueExports": {
     "agentMarkdownPathForRoute": {
       "category": "advanced-agent-path-helper",

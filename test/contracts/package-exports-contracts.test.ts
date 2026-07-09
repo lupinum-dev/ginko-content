@@ -16,6 +16,8 @@ type PublicSurface = {
   serverTypeExports: Record<string, PublicSurfaceEntry>
   providerValueExports: Record<string, PublicSurfaceEntry>
   providerTypeExports: Record<string, PublicSurfaceEntry>
+  providerContractValueExports: Record<string, PublicSurfaceEntry>
+  providerContractTypeExports: Record<string, PublicSurfaceEntry>
   agentValueExports: Record<string, PublicSurfaceEntry>
   agentTypeExports: Record<string, PublicSurfaceEntry>
   rootValueExports: Record<string, PublicSurfaceEntry>
@@ -180,6 +182,20 @@ describe('package export contracts', () => {
     expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.providerTypeExports).sort())
   })
 
+  test('source provider contract value exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/testing/provider-contract.ts', 'utf8')
+
+    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.providerContractValueExports).sort())
+  })
+
+  test('source provider contract type exports stay intentionally curated', async () => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile('packages/content/src/testing/provider-contract.ts', 'utf8')
+
+    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.providerContractTypeExports).sort())
+  })
+
   test('source root entry value exports stay intentionally curated', async () => {
     const publicSurface = await readPublicSurface()
     const source = await readFile('packages/content/src/module.ts', 'utf8')
@@ -269,6 +285,8 @@ describe('package export contracts', () => {
       ...Object.values(publicSurface.serverTypeExports),
       ...Object.values(publicSurface.providerValueExports),
       ...Object.values(publicSurface.providerTypeExports),
+      ...Object.values(publicSurface.providerContractValueExports),
+      ...Object.values(publicSurface.providerContractTypeExports),
       ...Object.values(publicSurface.agentValueExports),
       ...Object.values(publicSurface.agentTypeExports),
       ...Object.values(publicSurface.rootValueExports),
@@ -383,9 +401,26 @@ describe('package export contracts', () => {
     const contractModule = await import('@lupinum/ginko-content/testing/provider-contract')
 
     expect(contractModule.createAuthorDependencyContractProvider).toBeTypeOf('function')
+    expect(contractModule.expectNoLegacyProviderEnvelopeFields).toBeTypeOf('function')
+    expect(contractModule.expectProviderCapabilities).toBeTypeOf('function')
+    expect(contractModule.expectProviderDocumentEnvelope).toBeTypeOf('function')
+    expect(contractModule.expectUnsupportedProviderOperation).toBeTypeOf('function')
+    expect(contractModule.expectUnsupportedProviderQueryShape).toBeTypeOf('function')
+    expect(contractModule.LEGACY_PROVIDER_ENVELOPE_FIELDS).toEqual(expect.arrayContaining(['_id', '_path']))
     expect(contractModule.runProviderContractSuite).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyContractTest).toBeTypeOf('function')
     expect(contractModule.runAuthorDependencyFixtureSelfTest).toBeTypeOf('function')
+    expect(contractModule.unwrapProviderContractResult).toBeTypeOf('function')
+  })
+
+  test('testing provider contract keeps vitest optional for package consumers', async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      peerDependencies?: Record<string, string>
+      peerDependenciesMeta?: Record<string, { optional?: boolean }>
+    }
+
+    expect(manifest.peerDependencies?.vitest).toBeTypeOf('string')
+    expect(manifest.peerDependenciesMeta?.vitest?.optional).toBe(true)
   })
 
   test('built CMS import export loads as Node ESM', async () => {

@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## v0.2.1
 
 - Add Nitro-free provider document helper exports from
   `@lupinum/ginko-content/provider`: `normalizeProviderDocument`,
   `shapeProviderDocument`, `ProviderDocumentInput`, and
   `ShapeProviderDocumentOptions`. Provider packages no longer need to import the
   broad server facade just to shape provider documents.
+- Add reusable provider contract assertion helpers from
+  `@lupinum/ginko-content/testing/provider-contract` so third-party providers
+  can verify 0.2 envelope, capability, and unsupported-query invariants against
+  their own fixtures.
 
 ## v0.2.0
 

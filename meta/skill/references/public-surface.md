@@ -131,6 +131,24 @@ The current `/server` facade also exports cache helpers. Treat those as
 advanced surfaces unless a doc is specifically aimed at Nitro server runtime
 authors.
 
+## Provider Contract Test Exports
+
+`@lupinum/ginko-content/testing/provider-contract` is a testing-only public
+surface for provider authors. It exports the fixture-bound
+`runProviderContractSuite()` and reusable assertions:
+
+- `unwrapProviderContractResult`
+- `expectUnsupportedProviderOperation`
+- `expectUnsupportedProviderQueryShape`
+- `LEGACY_PROVIDER_ENVELOPE_FIELDS`
+- `expectNoLegacyProviderEnvelopeFields`
+- `expectProviderDocumentEnvelope`
+- `expectProviderCapabilities`
+
+Keep this surface small. Do not add speculative query-response, projection,
+generic provider-error, or route-envelope helpers unless an external provider
+contract need proves the assertion belongs here.
+
 ## Rendering Components
 
 Runtime components include content rendering primitives such as `ContentRenderer`, `ContentRendererInline`, and prose components. User content components live under `components/content`.
