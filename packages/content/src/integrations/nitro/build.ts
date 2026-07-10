@@ -33,6 +33,7 @@ import { buildContentSnapshot, assertSnapshotComplete, isContentSnapshot, type C
 import { validateContentGraph } from '../../storage/validation'
 import { usesProcessSnapshot } from '../../storage/snapshot-runtime'
 import { resolveIncludeDrafts } from '../../core/visibility'
+import { isNavigationFile } from '../../core/content/structural'
 import { resolveCollectionI18n } from '../../features/localization/path'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
 import {
@@ -117,7 +118,7 @@ const collectRouteFacts = (graph: ContentGraph, collection: string): ContentProv
 
   for (const contentId of graph.byCollection[collection] || []) {
     const document = graph.byId[contentId]
-    if (!document || !document.canonicalKey || document.partial || document.navigationFile) {
+    if (!document || !document.canonicalKey || document.partial || isNavigationFile(document)) {
       continue
     }
     if (seenCanonicalKeys.has(document.canonicalKey)) {
@@ -200,7 +201,7 @@ const deriveNavigation = (
         && document.navigation !== false
         && (!locale || document.locale === locale))
       const dirConfigs = documents
-        .filter(document => document.navigationFile && document.partial && (!locale || document.locale === locale))
+        .filter(document => isNavigationFile(document) && document.partial && (!locale || document.locale === locale))
         .reduce((accumulator, config) => {
           accumulator[config.path || '/'] = { ...config, ...(config.body as unknown as Record<string, unknown> | undefined) }
           return accumulator

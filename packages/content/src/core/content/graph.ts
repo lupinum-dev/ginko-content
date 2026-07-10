@@ -28,6 +28,7 @@
 
 import type { ParsedContent } from '../../types/content'
 import type { ContentLocaleEntry } from '../../types/query'
+import { isNavigationFile } from './structural'
 import type { ContentManifest, ManifestVariant, ResolvedVariant } from '../../types/runtime'
 import { normalizeReferenceValue, buildReferenceTargets } from '../references/resolve'
 import { sortLocalesCanonically } from './locale'
@@ -152,7 +153,7 @@ export const buildContentGraph = (
       manifest.collections[document.collection]!.push(documentId)
     }
 
-    if (document.navigationFile) {
+    if (isNavigationFile(document)) {
       const locale = document.locale || defaultLocale
       byNavigationPath[path] ||= {}
       byNavigationPath[path]![locale] = document
@@ -161,7 +162,7 @@ export const buildContentGraph = (
     // Only real variant documents enter the canonical/ref indices.
     // Partials and navigation docs support other documents; they are not
     // themselves resolvable by ref or route.
-    const isVariantDocument = !document.partial && !document.navigationFile && document.canonicalKey
+    const isVariantDocument = !document.partial && !isNavigationFile(document) && document.canonicalKey
     if (!isVariantDocument) {
       continue
     }
@@ -204,7 +205,7 @@ export const buildContentGraph = (
     byRoute: manifest.byRoute,
     byRef: manifest.byRef,
     byNavigationPath,
-    referenceTargets: buildReferenceTargets(documents.filter(document => !document.partial && !document.navigationFile), options.locales || []),
+    referenceTargets: buildReferenceTargets(documents.filter(document => !document.partial && !isNavigationFile(document)), options.locales || []),
     manifest
   }
 }

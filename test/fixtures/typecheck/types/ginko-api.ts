@@ -29,11 +29,18 @@ import {
 } from '@lupinum/ginko-content/client'
 import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
+import type { StrictParsedContent } from '@lupinum/ginko-content'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { useContentPage as autoUseContentPage, useContentSearch as autoUseContentSearch } from '#imports'
 import { z } from 'zod'
 
 declare const clientSurface: typeof import('@lupinum/ginko-content/client')
+declare const publicDocument: StrictParsedContent
+
+// Structural source classification is module-private and never part of the
+// public/root document contract (VNEXT.md 18.4, deletion register §30).
+// @ts-expect-error navigation control files are consumed before public shaping.
+void publicDocument.navigationFile
 
 /* ── Deleted query verbs are absent from the public surface (VNEXT.md 26.2) ── */
 // `tree`/`neighbors`/`variants` were hard-cut: `tree` folded into `navigation()`,

@@ -6,6 +6,7 @@ import { collectTranslatedSlugValidationIssues } from '../features/localization/
 import { ContentError, type ContentErrorCode } from '../core/errors'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { fail, ok, type Result } from '../core/result'
+import { isNavigationFile } from '../core/content/structural'
 
 /**
  * Graph- and document-level validators.
@@ -143,7 +144,7 @@ const toUserContentDocument = (document: ParsedContent) => {
 }
 
 const validateNavigationDocument = (document: ParsedContent): Result<void, ContentError> => {
-  if (!document.navigationFile) {
+  if (!isNavigationFile(document)) {
     return ok(undefined)
   }
 
@@ -310,7 +311,7 @@ export const validateContentGraph = (
 ): Result<void, ContentError> => {
   const locales = config.locales || []
   const docs = contents.filter(content => content && content.path)
-  const routeEntries = docs.filter(content => !content.partial && !content.navigationFile)
+  const routeEntries = docs.filter(content => !content.partial && !isNavigationFile(content))
   const markdownEntries = routeEntries.filter(content => content.type === 'markdown')
   const idsByLocale = new Map<string, ParsedContent>()
   const pathsByLocale = new Map<string, ParsedContent>()
