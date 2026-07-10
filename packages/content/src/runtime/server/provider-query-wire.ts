@@ -13,12 +13,12 @@ import type { ContentQueryBuilderParams } from '../../types/query'
 import type { ContentProviderNavigationOptions, ContentProviderQuery } from '../../public/provider-query'
 import { lowerQueryPlan } from '../../core/query/lower'
 
-export const PROVIDER_QUERY_VERSION = 1 as const
+export const PROVIDER_QUERY_VERSION = 2 as const
 
 /**
  * Lower builder params into the wire envelope. This is the single place the
  * builder → plan translation happens before the provider boundary; providers
- * receive only the closed, JSON-pure plan.
+ * receive only the closed, JSON-pure plan. v2 only — no v1 dispatch remains.
  */
 export const toContentProviderQuery = (params: ContentQueryBuilderParams): ContentProviderQuery => ({
   v: PROVIDER_QUERY_VERSION,

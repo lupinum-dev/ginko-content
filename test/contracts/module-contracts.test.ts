@@ -4,6 +4,7 @@ import { fields } from '../../packages/content/src/types/fields'
 
 const applyContentRuntimeConfig = vi.fn()
 const registerContentServerHandlers = vi.fn()
+const sitemapLoggerWarn = vi.fn()
 
 function createNuxt() {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
@@ -65,7 +66,6 @@ function createOptions(overrides: Record<string, any> = {}) {
     yaml: {},
     csv: { delimiter: ',', json: true },
     navigation: { fields: [] },
-    contentHead: true,
     respectPathCase: false,
     experimental: { stripQueryParameters: false },
     ...overrides
@@ -77,6 +77,7 @@ describe('module contracts', () => {
     vi.resetModules()
     applyContentRuntimeConfig.mockReset()
     registerContentServerHandlers.mockReset()
+    sitemapLoggerWarn.mockReset()
 
     vi.doMock('@nuxt/kit', () => ({
       createResolver: () => ({
@@ -86,7 +87,8 @@ describe('module contracts', () => {
       defineNuxtModule: (definition: any) => definition,
       addTemplate: vi.fn(),
       useLogger: vi.fn(() => ({
-        info: vi.fn()
+        info: vi.fn(),
+        warn: sitemapLoggerWarn
       }))
     }))
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
@@ -386,6 +388,35 @@ describe('module contracts', () => {
     expect(nitroConfig.bundledStorage).not.toContain('/cache/content')
   })
 
+  test('warns when content.sitemap is enabled but @nuxtjs/sitemap is not registered', async () => {
+    const { nuxt } = createNuxt()
+    nuxt.options.modules = ['@nuxtjs/i18n']
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+
+    expect(sitemapLoggerWarn).toHaveBeenCalledWith(expect.stringContaining('@nuxtjs/sitemap'))
+  })
+
+  test('does not warn about @nuxtjs/sitemap when it is registered', async () => {
+    const { nuxt } = createNuxt()
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+
+    expect(sitemapLoggerWarn).not.toHaveBeenCalled()
+  })
+
+  test('does not warn about @nuxtjs/sitemap when content.sitemap is disabled', async () => {
+    const { nuxt } = createNuxt()
+    nuxt.options.modules = ['@nuxtjs/i18n']
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions({ sitemap: false }), nuxt as any)
+
+    expect(sitemapLoggerWarn).not.toHaveBeenCalled()
+  })
+
   test('does not register a sitemap Nitro plugin when content.sitemap is disabled', async () => {
     const { nuxt, hooks } = createNuxt()
 
@@ -562,5 +593,97 @@ describe('module contracts', () => {
     ]))
     expect(nuxt.options.build.transpile).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
     expect((nuxt.options.vite as any).ssr.noExternal).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
+  })
+
+  // VNEXT.md §12.1/§22: Nuxt I18n is the sole locale/default-locale authority
+  // when installed. Ginko must fail setup rather than union or ignore
+  // duplicate declarations. Paired with the resolver unit tests in
+  // test/unit/locale-policy.test.ts.
+  test('fails setup when Nuxt I18n is installed and content.i18n also declares locales', async () => {
+    const { nuxt } = createNuxt()
+
+    const mod = await import('../../packages/content/src/module')
+    await expect(mod.default.setup(createOptions({
+      i18n: { locales: ['en', 'de'] }
+    }), nuxt as any)).rejects.toThrow(/sole locale\/default-locale authority/)
+  })
+
+  test('fails setup when Nuxt I18n is installed and content.i18n also declares a default locale', async () => {
+    const { nuxt } = createNuxt()
+
+    const mod = await import('../../packages/content/src/module')
+    await expect(mod.default.setup(createOptions({
+      i18n: { defaultLocale: 'de' }
+    }), nuxt as any)).rejects.toThrow(/sole locale\/default-locale authority/)
+  })
+
+  // VNEXT.md §17.4: `content:providers` remains the mutable setup registry
+  // (fires before provider validation); `content:context` becomes a
+  // read-only notification that only fires after the content context is
+  // fully resolved, carrying finalized default locale, fallback,
+  // translated-slug mode, and route mounts.
+  test('content:providers fires before provider selection is validated, and content:context observes the finalized context', async () => {
+    const { nuxt, hooks } = createNuxt()
+    const observedContext: any[] = []
+    let providersRegisteredBeforeContext = false
+
+    nuxt.hook('content:providers', (providers: Record<string, string>) => {
+      providers.cms = '@lupinum/ginko-cms/nuxt-provider'
+      providersRegisteredBeforeContext = true
+    })
+    nuxt.hook('content:context', (ctx: any) => {
+      observedContext.push(ctx)
+    })
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        provider: 'cms',
+        collections: {
+          docs: { source: '**/*.md', i18n: true }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions({
+      i18n: true
+    }), nuxt as any)
+    await hooks.get('modules:done')?.()
+
+    expect(providersRegisteredBeforeContext).toBe(true)
+    expect(observedContext).toHaveLength(1)
+    const finalized = observedContext[0]
+    expect(finalized.defaultLocale).toBe('en')
+    expect(finalized.locales).toEqual(['en', 'de'])
+    expect(finalized.localeFallback).toEqual({})
+    expect(finalized.translatedSlugs).toBe(false)
+    expect(finalized.localePolicy.collections.docs).toMatchObject({
+      localized: true,
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      // Localized collections carry a per-locale route mount map
+      // (VNEXT.md §22.2 step 7 / §23), not a single `default` mount.
+      routeMounts: { en: '/docs', de: '/docs' }
+    })
+  })
+
+  test('freezes the resolved content context in dev so content:context observers cannot mutate it', async () => {
+    const { nuxt, hooks } = createNuxt()
+    nuxt.options.dev = true
+    let observed: any
+
+    nuxt.hook('content:context', (ctx: any) => {
+      observed = ctx
+    })
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions({ i18n: true }), nuxt as any)
+    await hooks.get('modules:done')?.()
+
+    expect(Object.isFrozen(observed)).toBe(true)
+    expect(() => {
+      observed.defaultLocale = 'de'
+    }).toThrow()
   })
 })

@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { useContentMany } from '#imports'
+import { useAsyncData } from '#imports'
 import { useI18n } from 'vue-i18n'
+import { many } from '@lupinum/ginko-content/client'
 import { authors } from '../content.config'
 
 const { locale } = useI18n()
-const { data: items } = await useContentMany(authors, {
-  locale: () => locale.value,
-  sort: { name: 'asc' }
-})
+const { data: items } = await useAsyncData(
+  () => `authors:${locale.value}`,
+  () => many(authors, {
+    locale: locale.value,
+    sort: { name: 'asc' }
+  }),
+  { watch: [locale] }
+)
 </script>
 
 <template>

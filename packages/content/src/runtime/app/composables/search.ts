@@ -4,17 +4,17 @@ import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRuntimeC
 import { withBase } from 'ufo'
 import type { ContentCollectionHandle } from '../../../types/config'
 import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
-import type { ContentCollectionMap, ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
+import type { ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
 import { searchRecords } from '../../shared/search'
 import { createContentSearchNavigation } from '../../../features/search/navigation'
 import { resolveCollectionSearchSectionsData } from '../../../features/collections/resolve'
 import { resolveCollectionI18n } from '../../../features/localization/path'
-import { many, tree } from './query-api'
+import { many, navigation as fetchNavigation } from './query-api'
 import { resolveActiveLocale } from './locale'
 import { getContentRuntime } from './runtime'
 
-export interface UseContentSearchResultsOptions {
+interface UseContentSearchResultsOptions {
   locale?: MaybeRefOrGetter<string | undefined>
 }
 
@@ -27,9 +27,17 @@ export interface UseContentSearchOptions extends UseContentSearchResultsOptions 
    * Maximum number of results exposed by the headless controller.
    */
   limit?: MaybeRefOrGetter<number | undefined>
+  /**
+   * Optional collection to additionally load that collection's search
+   * sections and search-shaped navigation tree from — absorbs the deleted
+   * `useContentSearchData` (VNEXT.md 27.2). Omit to use only the
+   * query-driven `results` (minisearch/pagefind/cms backend); `files` and
+   * `searchNavigation` stay empty and no extra request is issued.
+   */
+  collection?: ContentCollectionHandle | ContentCollectionStringName
 }
 
-export interface UseContentSearchResultsResult {
+interface UseContentSearchResultsResult {
   results: ComputedRef<ContentSearchResult[]>
   pending: ComputedRef<boolean>
   error: ComputedRef<unknown>
@@ -48,23 +56,14 @@ export interface UseContentSearchResult extends UseContentSearchResultsResult {
   previous: () => void
   reset: () => void
   select: (index?: number) => ContentSearchResult | null
-}
-
-export interface UseContentSearchDataOptions {
-  locale?: MaybeRefOrGetter<string | undefined>
-}
-
-export interface UseContentSearchDataResult {
+  /** This collection's search sections (empty unless `options.collection` is set). */
   files: ComputedRef<ContentSearchSection[]>
-  searchNavigation: ComputedRef<ContentNavigationItem[]>
   /**
-   * Compatibility alias for `searchNavigation`.
-   *
-   * Prefer `searchNavigation` so layout navigation and search navigation are
-   * not confused.
+   * This collection's navigation tree, shaped for search UI (Nuxt UI
+   * `UContentSearch`) — the sole name for this data (VNEXT.md 27.2). Empty
+   * unless `options.collection` is set.
    */
-  navigation: ComputedRef<ContentNavigationItem[]>
-  searchTerm: ReturnType<typeof ref<string>>
+  searchNavigation: ComputedRef<ContentNavigationItem[]>
 }
 
 interface PagefindSearchResultData {
@@ -194,7 +193,7 @@ const resolveAppConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>): A
 
 const loadSearchSections = async (
   collection: string,
-  options: UseContentSearchDataOptions
+  options: UseContentSearchResultsOptions
 ) => {
   const runtime = getContentRuntime()
   const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)
@@ -204,10 +203,19 @@ const loadSearchSections = async (
     locale,
     activeLocale: locale || resolveActiveLocale(locales, defaultLocale),
     loadPages: async (extraFields) => {
-      return await many(collection, {
+      const items = await many(collection, {
         ...(locale ? { locale } : {}),
-        select: ['path', 'title', 'description', 'body', ...extraFields]
-      }) as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        select: ['title', 'description', 'body', ...extraFields]
+      })
+      // `createSearchSections` (shared with the legacy provider `page()`
+      // pathway) reads the raw, pre-decoration `path` field. The unified
+      // query envelope (VNEXT.md 10.4) drops that internal field in favor of
+      // `route.resolvedPath` — re-attach it under the name this shared
+      // helper still expects rather than forking it.
+      return items.map(item => ({
+        ...item,
+        path: item.route.resolvedPath
+      })) as unknown as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
     }
   })
 }
@@ -215,25 +223,21 @@ const loadSearchSections = async (
 const collectionName = (collection: ContentCollectionHandle | string) =>
   typeof collection === 'string' ? collection : collection.name
 
-export async function useContentSearchData<K extends keyof ContentCollectionMap & string> (
-  collection: ContentCollectionHandle<K> | K,
-  options?: UseContentSearchDataOptions
-): Promise<UseContentSearchDataResult>;
-export async function useContentSearchData (
+/**
+ * Load one collection's search sections and search-shaped navigation tree —
+ * the index/navigation loading absorbed from the deleted
+ * `useContentSearchData` (VNEXT.md 27.2). Internal to `useContentSearch`.
+ */
+const useContentSearchCollectionData = async (
   collection: ContentCollectionStringName | ContentCollectionHandle,
-  options?: UseContentSearchDataOptions
-): Promise<UseContentSearchDataResult>;
-export async function useContentSearchData (
-  collection: ContentCollectionStringName | ContentCollectionHandle,
-  options: UseContentSearchDataOptions = {}
-) {
+  options: UseContentSearchResultsOptions
+) => {
   const name = collectionName(collection)
-  const searchTerm = ref('')
   const locale = computed(() => toValue(options.locale))
   const payloadPromise = useAsyncData(computed(() => `content-search-data:${name}:${locale.value || 'default'}`), async () => {
     const locale = toValue(options.locale)
     const [navigation, files] = await Promise.all([
-      tree(name, locale ? { locale } : {}),
+      fetchNavigation(name, locale ? { locale } : {}),
       loadSearchSections(name, options)
     ])
 
@@ -246,18 +250,13 @@ export async function useContentSearchData (
   })
   const payload = await payloadPromise
 
-  const files = computed(() => payload.data.value?.files || [])
-  const searchNavigation = computed(() => payload.data.value?.navigation || [])
-
   return {
-    files,
-    searchNavigation,
-    navigation: searchNavigation,
-    searchTerm
+    files: computed(() => payload.data.value?.files || []),
+    searchNavigation: computed(() => payload.data.value?.navigation || [])
   }
 }
 
-export const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options: UseContentSearchResultsOptions = {}): Promise<UseContentSearchResultsResult> => {
+const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options: UseContentSearchResultsOptions = {}): Promise<UseContentSearchResultsResult> => {
   const runtimeConfig = useRuntimeConfig()
   const config = resolveSearchConfig(runtimeConfig)
   const appConfig = resolveAppConfig(runtimeConfig)
@@ -281,10 +280,21 @@ export const useContentSearchResults = async (search: MaybeRefOrGetter<string>, 
   return await useMiniSearch(search, config.indexURL, config.minisearch, options)
 }
 
+/**
+ * The sole public search composable (VNEXT.md 10.5, 27.2). Consolidates the
+ * reactive, backend-normalized query-driven search (minisearch/pagefind/cms)
+ * with the opt-in per-collection search-section/navigation loading
+ * previously split across the deleted `useContentSearchData` and
+ * `useContentSearchResults`. `searchNavigation` is the sole name for the
+ * navigation data; there is no `navigation` compatibility alias.
+ */
 export const useContentSearch = async (options: UseContentSearchOptions = {}): Promise<UseContentSearchResult> => {
   const query = ref(String(toValue(options.initialQuery) || ''))
   const activeIndex = ref(-1)
   const search = await useContentSearchResults(query, options)
+  const collectionData = options.collection
+    ? await useContentSearchCollectionData(options.collection, options)
+    : { files: computed(() => [] as ContentSearchSection[]), searchNavigation: computed(() => [] as ContentNavigationItem[]) }
   const limit = computed(() => {
     const value = toValue(options.limit)
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined
@@ -354,7 +364,9 @@ export const useContentSearch = async (options: UseContentSearchOptions = {}): P
     next,
     previous,
     reset,
-    select
+    select,
+    files: collectionData.files,
+    searchNavigation: collectionData.searchNavigation
   }
 }
 

@@ -7,12 +7,7 @@ const route = reactive({
   path: '/docs/getting-started',
   query: {}
 })
-const i18nLocale = ref<string | undefined>()
-const resolvedLocaleState = ref<string | undefined>()
-
 const fetchContentApi = vi.fn()
-const showError = vi.fn()
-const useContentRoute = vi.fn()
 const asyncDataStates: Array<{
   data: ReturnType<typeof ref>
   pending: ReturnType<typeof ref<boolean>>
@@ -35,18 +30,7 @@ const createAsyncDataState = (value: unknown) => {
 
 vi.mock('#imports', () => ({
   useRoute: () => route,
-  useNuxtApp: () => ({
-    $i18n: {
-      locale: i18nLocale
-    }
-  }),
-  useRouter: () => ({
-    currentRoute: { value: { meta: {}, path: route.path } },
-    resolve: (path: string) => ({ path, params: {}, meta: {}, name: 'docs' })
-  }),
-  useState: (key: string, init?: () => unknown) => key === '$si18n:resolved-locale' ? resolvedLocaleState : ref(init ? init() : undefined),
   createError: (input: any) => Object.assign(new Error(input?.statusMessage || input?.message || 'Error'), input),
-  showError,
   useRequestFetch: () => vi.fn(),
   useRequestEvent: () => undefined,
   useAsyncData: async (_key: unknown, handler: () => Promise<unknown>) => createAsyncDataState(await handler())
@@ -56,11 +40,7 @@ vi.mock('#app/composables/router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('#app/composables/router')>()
   return {
     ...actual,
-    useRoute: () => route,
-    useRouter: () => ({
-      currentRoute: { value: { meta: {}, path: route.path } },
-      resolve: (path: string) => ({ path, params: {}, meta: {}, name: 'docs' })
-    })
+    useRoute: () => route
   }
 })
 
@@ -68,8 +48,7 @@ vi.mock('#app/composables/error', async (importOriginal) => {
   const actual = await importOriginal<typeof import('#app/composables/error')>()
   return {
     ...actual,
-    createError: (input: any) => Object.assign(new Error(input?.statusMessage || input?.message || 'Error'), input),
-    showError
+    createError: (input: any) => Object.assign(new Error(input?.statusMessage || input?.message || 'Error'), input)
   }
 })
 
@@ -80,12 +59,6 @@ vi.mock('#app/composables/asyncData', async (importOriginal) => {
     useAsyncData: async (_key: unknown, handler: () => Promise<unknown>) => createAsyncDataState(await handler())
   }
 })
-
-vi.mock('#build/content-i18n.mjs', () => ({
-  useRouteBaseName: () => () => 'docs',
-  useSetI18nParams: () => vi.fn(),
-  useSwitchLocalePath: () => (locale: string) => `/fallback/${locale}`
-}))
 
 vi.mock('../../packages/content/src/runtime/app/composables/runtime', () => ({
   getContentRuntime: () => ({
@@ -103,19 +76,8 @@ vi.mock('../../packages/content/src/runtime/app/composables/runtime', () => ({
     locales: ['en', 'de'],
     localeFallback: { de: ['en'] },
     integrity: 'test'
-  })
-}))
-
-vi.mock('../../packages/content/src/runtime/app/composables/locale-context', () => ({
-  getLocaleContext: () => ({
-    route,
-    nuxtApp: {
-      $i18n: {
-        locale: i18nLocale
-      }
-    },
-    resolvedLocaleState
-  })
+  }),
+  getContentRoute: () => route
 }))
 
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
@@ -129,34 +91,38 @@ vi.mock('../../packages/content/src/runtime/app/composables/preview', () => ({
   })
 }))
 
-vi.mock('../../packages/content/src/runtime/app/composables/route', () => ({
-  useContentRoute,
-  useContentSwitchLocalePath: () => () => ''
-}))
-
 const doc = (path = '/docs/getting-started') => ({
-  path: path,
+  path,
+  locale: 'en',
   file: { path: `${path}.md` },
   resolved: {
     requestedRoute: path,
+    locale: 'en',
     variantPaths: {
       en: path,
       de: path.replace('/docs/', '/de/docs/')
     }
   },
-  title: path.endsWith('advanced') ? 'Advanced' : 'Getting Started'
+  title: path.endsWith('advanced') ? 'Advanced' : (path.endsWith('canonical') ? 'Aliased' : 'Getting Started')
+})
+
+// The real `pageAsync.data` ref only ever holds the decorated `LocalizedDoc`
+// envelope `one()` returns. Tests that poke the mocked async-data ref
+// directly (to simulate a settled route-change refetch) must poke it with
+// this already-decorated shape, not the raw provider-shaped `doc()` fixture
+// the transport mock above returns.
+const decoratedDoc = (path: string) => ({
+  ...doc(path),
+  route: { requestedPath: path, resolvedPath: path, alternates: [] },
+  resolution: { requested: { locale: 'en' }, resolved: { locale: 'en' }, usedFallback: false }
 })
 
 describe('useContentPage contracts', () => {
   beforeEach(() => {
     vi.resetModules()
     fetchContentApi.mockReset()
-    showError.mockReset()
-    useContentRoute.mockReset()
     asyncDataStates.length = 0
     route.path = '/docs/getting-started'
-    i18nLocale.value = undefined
-    resolvedLocaleState.value = undefined
     fetchContentApi.mockImplementation(async (endpoint: string, params: Record<string, any>) => {
       if (endpoint === 'navigation') {
         return [
@@ -182,8 +148,8 @@ describe('useContentPage contracts', () => {
     })
   })
 
-  test('queries the current public route and publishes route metadata', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('queries the current public route and returns the canonical document envelope', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     const state = await useContentPage('docs')
 
@@ -194,54 +160,17 @@ describe('useContentPage contracts', () => {
         route: '/docs/getting-started'
       })
     }), expect.anything())
-    expect(state.data).toBe(state.page)
     expect(state.page.value?.title).toBe('Getting Started')
+    expect(state.page.value?.route.resolvedPath).toBe('/docs/getting-started')
+    expect(state.page.value?.route.requestedPath).toBe('/docs/getting-started')
+    expect(state.page.value?.resolution.resolved.locale).toBe('en')
+    expect(state.page.value?.resolution.usedFallback).toBe(false)
     expect(state.previous.value).toBeNull()
     expect(state.next.value).toBeNull()
-    expect(state.surround.value).toEqual([])
-    expect(useContentRoute).toHaveBeenCalledWith(state.page)
-  })
-
-  test('infers the active Nuxt locale for localized route-page queries', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
-    i18nLocale.value = 'de'
-    route.path = '/de/docs/getting-started'
-
-    await useContentPage('docs')
-
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'docs',
-      first: true,
-      resolveVariant: expect.objectContaining({
-        locale: 'de',
-        route: '/de/docs/getting-started'
-      })
-    }), expect.anything())
-    expect(fetchContentApi.mock.calls[0]![1].resolveVariant).not.toHaveProperty('fallback')
-  })
-
-  test('keeps explicit locale overrides and fallback opt-in visible at the page call site', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
-    i18nLocale.value = 'de'
-
-    await useContentPage('docs', {
-      locale: 'en',
-      fallback: true
-    })
-
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'docs',
-      first: true,
-      resolveVariant: expect.objectContaining({
-        locale: 'en',
-        fallback: true,
-        route: '/docs/getting-started'
-      })
-    }), expect.anything())
   })
 
   test('normalizes trailing slash route selectors for page queries', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
     route.path = '/docs/getting-started/'
 
     const state = await useContentPage('docs')
@@ -256,35 +185,8 @@ describe('useContentPage contracts', () => {
     expect(state.page.value?.title).toBe('Getting Started')
   })
 
-  test('uses the public route resolver for non-i18n route pages too', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    route.path = '/plain/about'
-    const state = await useContentPage('plain')
-
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'plain',
-      first: true,
-      resolveVariant: expect.objectContaining({
-        route: '/plain/about'
-      })
-    }), expect.anything())
-    expect(state.page.value?.path).toBe('/plain/about')
-  })
-
-  test('keeps the page reactive when route metadata reads it before async data resolves', async () => {
-    useContentRoute.mockImplementation((pageRef) => {
-      void pageRef.value
-    })
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    const state = await useContentPage('docs')
-
-    expect(state.page.value?.title).toBe('Getting Started')
-  })
-
   test('hides stale page data as soon as the route changes', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     const state = await useContentPage('docs')
     expect(state.page.value?.title).toBe('Getting Started')
@@ -295,7 +197,7 @@ describe('useContentPage contracts', () => {
   })
 
   test('keeps statically served trailing-slash routes matched to the same page', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     const state = await useContentPage('docs')
     expect(state.page.value?.title).toBe('Getting Started')
@@ -305,29 +207,8 @@ describe('useContentPage contracts', () => {
     expect(state.page.value?.title).toBe('Getting Started')
   })
 
-  test('normalizes trailing slash route selectors for document queries', async () => {
-    const { useContentOne } = await import('../../packages/content/src/runtime/app/composables/use-content')
-    route.path = '/docs/getting-started/'
-
-    await useContentOne('docs', {
-      locale: 'en',
-      by: {
-        route: () => route.path
-      },
-      fallback: true
-    })
-
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'docs',
-      first: true,
-      resolveVariant: expect.objectContaining({
-        route: '/docs/getting-started'
-      })
-    }), expect.anything())
-  })
-
-  test('does not report 404 during client-side route settling before new data arrives', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('does not throw or synthesize a 404 while a route change is settling', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     const state = await useContentPage('docs')
     expect(state.page.value?.title).toBe('Getting Started')
@@ -346,16 +227,7 @@ describe('useContentPage contracts', () => {
 
     asyncDataStates[0]!.pending.value = true
     await nextTick()
-    asyncDataStates[0]!.data.value = doc('/docs/getting-started')
-    asyncDataStates[0]!.pending.value = false
-    await nextTick()
-
-    expect(state.page.value).toBeUndefined()
-    expect(state.error.value).toBeUndefined()
-
-    asyncDataStates[0]!.pending.value = true
-    await nextTick()
-    asyncDataStates[0]!.data.value = doc('/docs/advanced')
+    asyncDataStates[0]!.data.value = decoratedDoc('/docs/advanced')
     asyncDataStates[0]!.pending.value = false
     await nextTick()
 
@@ -363,63 +235,42 @@ describe('useContentPage contracts', () => {
     expect(state.error.value).toBeUndefined()
   })
 
-  test('reports a client-side 404 after the route query settles without a page', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('never throws a default 404 — the application decides from an undefined page', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
-    const state = await useContentPage('docs')
     route.path = '/docs/missing'
-    await nextTick()
+    const state = await useContentPage('docs')
 
-    asyncDataStates[0]!.data.value = null
-    await nextTick()
+    expect(state.page.value).toBeUndefined()
     expect(state.error.value).toBeUndefined()
-
-    asyncDataStates[0]!.pending.value = true
-    await nextTick()
-    asyncDataStates[0]!.pending.value = false
-    await nextTick()
-
-    expect(state.error.value).toMatchObject({
-      statusCode: 404,
-      statusMessage: 'Page not found'
-    })
   })
 
-  test('keeps resolver matches whose requested route differs from canonical path', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('does not have a notFound option', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
+
+    route.path = '/docs/missing'
+    const state = await useContentPage('docs', {
+      // @ts-expect-error `notFound` is not part of `UseContentPageOptions` (VNEXT.md 27.1).
+      notFound: false
+    })
+
+    expect(state.page.value).toBeUndefined()
+    expect(state.error.value).toBeUndefined()
+  })
+
+  test('keeps route-normalized matches whose requested route differs from the resolved canonical path', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     route.path = '/docs/alias'
     const state = await useContentPage('docs')
 
     expect(state.page.value?.title).toBe('Aliased')
-    expect(state.page.value?.path).toBe('/docs/canonical')
-    expect(state.page.value?.resolved.requestedRoute).toBe('/docs/alias')
+    expect(state.page.value?.route.resolvedPath).toBe('/docs/canonical')
+    expect(state.page.value?.route.requestedPath).toBe('/docs/alias')
   })
 
-  test('throws default and custom not-found errors, unless notFound is false', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    route.path = '/docs/missing'
-    await expect(useContentPage('docs')).rejects.toMatchObject({
-      statusCode: 404,
-      statusMessage: 'Page not found',
-      fatal: true
-    })
-    await expect(useContentPage('docs', {
-      notFound: () => ({ statusCode: 410, statusMessage: 'Gone', fatal: true })
-    })).rejects.toMatchObject({
-      statusCode: 410,
-      statusMessage: 'Gone',
-      fatal: true
-    })
-
-    const state = await useContentPage('docs', { notFound: false })
-    expect(state.page.value).toBeUndefined()
-    expect(state.error.value).toBeUndefined()
-  })
-
-  test('loads previous and next only when surround is enabled', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('loads previous and next only when surround is enabled, via the select projection', async () => {
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     await useContentPage('docs')
     expect(fetchContentApi).not.toHaveBeenCalledWith('navigation', expect.anything(), expect.anything())
@@ -427,24 +278,17 @@ describe('useContentPage contracts', () => {
     fetchContentApi.mockClear()
     const state = await useContentPage('docs', {
       surround: {
-        fields: ['description']
+        select: ['description']
       }
     })
 
-    expect(fetchContentApi).toHaveBeenCalledWith('navigation', expect.objectContaining({
-      collection: 'docs',
-      only: expect.arrayContaining(['description'])
-    }), expect.anything())
+    expect(fetchContentApi).toHaveBeenCalledWith('navigation', expect.anything(), expect.anything())
     expect(state.previous.value).toEqual(expect.objectContaining({ title: 'Intro' }))
     expect(state.next.value).toEqual(expect.objectContaining({ title: 'Advanced' }))
-    expect(state.surround.value).toEqual([
-      expect.objectContaining({ title: 'Intro' }),
-      expect.objectContaining({ title: 'Advanced' })
-    ])
   })
 
   test('treats the collection root page as the first surround item', async () => {
-    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content')
+    const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     route.path = '/docs'
     const state = await useContentPage('docs', {

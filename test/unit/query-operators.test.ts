@@ -98,6 +98,16 @@ describe('query operator matrix (executeQueryPlan)', () => {
     expect(match({ tags: { $in: ['melon'] } })).toEqual([9])
   })
 
+  test('nin — first-class negated membership (VNEXT.md 10.2/26.3), exact inverse of $in', () => {
+    const inMatches = new Set(match({ order: { $in: [1, 2, 999] } }))
+    const ninMatches = new Set(match({ order: { $nin: [1, 2, 999] } }))
+    expect([...inMatches].some(n => ninMatches.has(n))).toBe(false)
+    expect(inMatches.size + ninMatches.size).toBe(ROWS.length)
+    // Edge: array-field membership negation.
+    expect(match({ tags: { $nin: ['melon'] } })).not.toContain(9)
+    expect(match({ tags: { $nin: ['melon'] } })).toContain(1)
+  })
+
   test('contains — every entry present; array and case-sensitive string haystacks', () => {
     expect(match({ tags: { $contains: ['fruit', 'dessert'] } })).toEqual([1])
     // String haystack is case-sensitive: only lowercase 'apple' matches.

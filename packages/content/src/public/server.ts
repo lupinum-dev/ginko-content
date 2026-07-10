@@ -11,9 +11,8 @@ export {
   paginate,
   backlinks,
   resolveOne,
-  variants,
-  tree,
-  neighbors,
+  surround,
+  navigation,
   createServerContentQueryContext
 } from '../runtime/server/query-api.js'
 
@@ -46,12 +45,14 @@ export type {
   LocalizedDoc,
   LocalizedContentDocument,
   LocalePathEntry,
-  NeighborsOptions,
-  NeighborsResult,
   SortSpec,
-  TreeOptions,
-  VariantsOptions,
-  ContentVariant
+  SurroundOptions,
+  SurroundResult,
+  NavigationOptions,
+  ContentNavigationTreeItem,
+  PaginationMode,
+  OffsetPaginationResult,
+  CursorPaginationResult
 } from '../types/query.js'
 
 export type { ContentQueryResponse } from '../types/api.js'

@@ -8,7 +8,6 @@ const createOptions = () => ({
   api: { baseURL: '/api/_content' },
   links: {},
   experimental: { stripQueryParameters: false },
-  contentHead: true,
   respectPathCase: false
 })
 

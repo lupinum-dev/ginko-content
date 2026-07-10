@@ -1,5 +1,7 @@
 import type { ContentFileMeta, ParsedContent } from '../../types/content'
 import type { ContentPageResult } from '../../types/query'
+import { ContentError } from '../../core/errors'
+import { collectJsonPurityViolations, formatJsonPurityViolations } from '../../core/json-value'
 import { normalizeRouteMounts, type RouteMounts } from '../../features/localization/path'
 import { localizePageResult } from '../../features/localization/results'
 
@@ -87,7 +89,7 @@ export const normalizeProviderDocument = (input: ProviderDocumentInput): ParsedC
   const extension = input.file?.extension ?? extensionForType(type)
   const id = input.id ?? `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`
 
-  return {
+  const document = {
     ...input,
     id,
     collection,
@@ -98,6 +100,21 @@ export const normalizeProviderDocument = (input: ProviderDocumentInput): ParsedC
     ...(input.file ? { file: input.file } : {}),
     body: input.body
   } as ParsedContent
+
+  // Same canonical JSON-purity gate as the filesystem ingest path (VNEXT
+  // §11, §21): a provider document must be JSON-pure before it can reach
+  // graph insertion, in dev and in build alike.
+  const violations = collectJsonPurityViolations(document)
+  if (violations.length) {
+    const file = document.file?.path || document.id
+    throw new ContentError(
+      'NON_JSON_VALUE',
+      `Invalid content in ${file} (collection "${collection}"): document contains non-JSON value(s) — ${formatJsonPurityViolations(violations)}`,
+      { file, collection, violations }
+    )
+  }
+
+  return document
 }
 
 /**

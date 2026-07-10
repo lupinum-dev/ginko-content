@@ -207,17 +207,21 @@ describe('query plan contracts', () => {
     ])
   })
 
-  test('executes Date operands consistently after JSON wire lowering', async () => {
+  // VNEXT §11.2/§21.3: the canonical document value model has no Date union —
+  // query comparison operates on canonical strings (UTC ISO 8601 for
+  // `fields.datetime()`). This test pins the JSON-wire round-trip contract
+  // using that canonical string shape instead of a raw `Date` operand.
+  test('executes UTC ISO string operands consistently after JSON wire lowering', async () => {
     const { executeQueryPlanOnDocuments } = await import('../../packages/content/src/core/query/execute')
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const plan = lowerQueryPlan({
-      where: [{ date: { $gt: new Date('2026-01-01T00:00:00.000Z') } }]
+      where: [{ date: { $gt: '2026-01-01T00:00:00.000Z' } }]
     } as any)
 
     const documents = [
-      { title: 'before', date: new Date('2025-12-31T00:00:00.000Z') },
-      { title: 'after', date: new Date('2026-01-02T00:00:00.000Z') }
+      { title: 'before', date: '2025-12-31T00:00:00.000Z' },
+      { title: 'after', date: '2026-01-02T00:00:00.000Z' }
     ]
 
     const inProcess = executeQueryPlanOnDocuments(documents, plan)

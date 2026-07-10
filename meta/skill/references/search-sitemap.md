@@ -29,10 +29,9 @@ Provider-owned search should not force non-filesystem data into local static ind
 
 ## Search APIs
 
-Client APIs:
+Client API:
 
-- `useContentSearchData(collection, options?)`: useful for Nuxt UI content search data.
-- `useContentSearchResults(query, options?)`: search result composable for MiniSearch, Pagefind, or provider-owned search.
+- `useContentSearch(options?)`: the sole search composable (VNEXT.md 10.4/10.7). One consolidated composable owns the query, results (MiniSearch, Pagefind, or provider-owned search), and — when an `options.collection` is passed — the `files`/`searchNavigation` payload previously split across the deleted `useContentSearchData`/`useContentSearchResults`. `searchNavigation` is the sole search-navigation name.
 
 Provider APIs:
 
@@ -89,7 +88,6 @@ When modifying i18n sitemap behavior, read `internal/nuxt-integration-sitemap-i1
 - `test/contracts/module-contracts.test.ts`
 - `test/contracts/provider-contracts.test.ts`
 - `test/contracts/use-content-page-contracts.test.ts`
-- `test/contracts/content-route-contracts.test.ts`
 - `internal/nuxt-integration-sitemap-i18n.md`
 - `docs/content/docs/search/`
 - `docs/content/docs/sitemap/`

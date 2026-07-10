@@ -51,7 +51,7 @@ describe('navigation contracts', () => {
         translatedSlugs: false
       })
     }))
-    vi.doMock('../../packages/content/src/runtime/server/manifest', () => ({
+    vi.doMock('../../packages/content/src/storage/graph', () => ({
       resolveLocaleChain,
       resolveVariant
     }))
@@ -263,10 +263,10 @@ describe('navigation contracts', () => {
     expect(resolveNavigationFirstChildren([])).toEqual([])
   })
 
-  test('createNav builds deterministic trees from index pages and folder metadata', async () => {
-    const { createNav } = await import('../../packages/content/src/runtime/server/navigation')
+  test('buildNavigation builds deterministic trees from index pages and folder metadata', async () => {
+    const { buildNavigation } = await import('../../packages/content/src/features/navigation/build')
 
-    const nav = createNav([
+    const nav = buildNavigation([
       navDoc({ file: { path: '/en/2.guide/index.md' }, path: '/guide', title: 'Guide' }),
       doc({ id: 'content:en:2.guide:1.intro.md', file: { path: '/en/2.guide/1.intro.md' }, path: '/guide/intro', canonicalKey: 'guide/intro', title: 'Intro', locale: 'en' }),
       doc({ id: 'content:en:2.guide:2.advanced.md', file: { path: '/en/2.guide/2.advanced.md' }, path: '/guide/advanced', canonicalKey: 'guide/advanced', title: 'Advanced', locale: 'en' }),
@@ -276,7 +276,7 @@ describe('navigation contracts', () => {
     ] as any, {
       '/guide': { title: 'Guides', icon: 'i-guide', badge: 'Hot' } as any,
       '/hidden': { navigation: false } as any
-    })
+    }, ['icon', 'badge'])
 
     expect(nav).toHaveLength(2)
     expect(nav).toEqual(expect.arrayContaining([
@@ -551,7 +551,11 @@ describe('navigation contracts', () => {
     expect(allWheres[1]).toEqual(expect.arrayContaining([{ locale: 'de' }]))
   })
 
-  test('resolveContentNavigation reads cached nav only for the empty non-preview path', async () => {
+  test('resolveContentNavigation always derives fresh — no persisted _nav.json cache is consulted', async () => {
+    // VNEXT.md 15.4, 15.7, 25.4: the single-entry `_nav.json` cache is
+    // deleted. A stale entry sitting in cache storage must never leak into a
+    // navigation response — `resolveContentNavigation` has to query fresh
+    // every time regardless of what (if anything) cache storage holds.
     cache._state.set('_nav.json', [{ title: 'Cached', path: '/cached' }] as any)
     createServerContentQuery.mockImplementation(() => ({
       where() {
@@ -572,9 +576,10 @@ describe('navigation contracts', () => {
       return rawResolveContentNavigation(event, query, options)
     }
 
-    await expect(resolveContentNavigation(createEvent())).resolves.toEqual([{ title: 'Cached', path: '/cached' }])
-    expect(createServerContentQuery).not.toHaveBeenCalled()
+    await expect(resolveContentNavigation(createEvent())).resolves.toEqual([])
+    expect(createServerContentQuery).toHaveBeenCalled()
 
+    createServerContentQuery.mockClear()
     await resolveContentNavigation(createEvent(), { where: [{ locale: 'de' }] })
     expect(createServerContentQuery).toHaveBeenCalled()
   })
@@ -649,7 +654,7 @@ describe('navigation contracts', () => {
     ])
     expect(resolveContentNavigation).toHaveBeenCalledWith(
       event,
-      expect.objectContaining({ v: 1, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
+      expect.objectContaining({ v: 2, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
       expect.any(Object)
     )
   })

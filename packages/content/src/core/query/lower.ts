@@ -10,7 +10,7 @@
  * once per `.all()`/`.first()`/`.count()` call.
  */
 import type { ContentQueryBuilderParams, ContentQueryBuilderWhere, ContentQuerySortOptions } from '../../types/query'
-import type { CompareOperator, ContentQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
+import type { CompareOperator, ContentProviderPaging, ContentQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
 import { assertSupportedQueryOperators, SUPPORTED_QUERY_OPERATORS } from './operators'
 
 /**
@@ -270,6 +270,7 @@ export const lowerQueryPlan = (params: ContentQueryBuilderParams): ContentQueryP
   const resolveVariant = (params as ContentQueryBuilderParams & {
     resolveVariant?: { path?: string, route?: string, ref?: string, locale?: string, fallback?: string[] | boolean, exact?: boolean }
   }).resolveVariant
+  const paging = (params as ContentQueryBuilderParams & { paging?: ContentProviderPaging }).paging
 
   return {
     collection: params.collection,
@@ -282,6 +283,7 @@ export const lowerQueryPlan = (params: ContentQueryBuilderParams): ContentQueryP
     skip: params.skip || 0,
     limit: params.limit,
     mode: params.count ? 'count' : params.first ? 'first' : 'all',
+    ...(paging ? { paging } : {}),
     resolveLocale: params.resolveLocale
       ? {
           locale: params.resolveLocale.locale,

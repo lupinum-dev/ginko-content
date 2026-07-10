@@ -226,8 +226,7 @@ export const applyContentRuntimeConfig = async (
         }
       : false,
     search: searchRuntime,
-    navigation: contentContext.navigation as any,
-    contentHead: options.contentHead ?? true
+    navigation: contentContext.navigation as any
   })
 
   const runtimeAgent = await sanitizeAgentConfig(appContentConfig.agent, contentContext, siteUrl)

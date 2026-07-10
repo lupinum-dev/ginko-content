@@ -82,6 +82,14 @@ export interface BuildCmsContractOptions {
   defaultLocale: string
   /** All locale codes the site can serve. */
   locales: string[]
+  /**
+   * Global resolved translated-slug policy (VNEXT.md §22.2 step 11). This is
+   * a site-wide, resolved-once input — collections do not carry their own
+   * `translatedSlugs` flag.
+   *
+   * @default false
+   */
+  translatedSlugs?: boolean
   /** Optional include filter — when set, only listed collections are emitted. */
   include?: string[]
 }
@@ -180,7 +188,7 @@ function buildRouting(
   const routing: CmsCollectionRouting = {
     mode,
     pathPrefix: mode === 'none' ? '' : pathPrefix,
-    slugMode: cms.route?.slugMode ?? (collection.translatedSlugs ? 'localized' : 'shared'),
+    slugMode: cms.route?.slugMode ?? (options.translatedSlugs ? 'localized' : 'shared'),
     rootSlug: cms.route?.rootSlug ?? null,
     singleton,
   }
@@ -602,6 +610,13 @@ function schemaNode(schema: unknown): CmsSchemaValidationNode {
         .sort((left, right) => left.localeCompare(right)),
     }
   }
+  // See the matching comment in `walkSchema`: `fields.date()`/`fields.datetime()`
+  // are a `z.preprocess` pipe over a refined string, not a raw `ZodDate` —
+  // their metadata says the semantic type is still date/datetime.
+  const metadata = getContentFieldMetadata(schema)
+  if (metadata?.type === 'date' || metadata?.type === 'datetime') {
+    return { kind: 'date' }
+  }
   throw new Error(`Unsupported schema node ${typeName ?? '<unknown>'}.`)
 }
 
@@ -649,6 +664,18 @@ function walkSchema(
   const typeName = getSchemaTypeName(schema)
   if (!typeName) return
   if (!SUPPORTED_TYPENAMES.has(typeName)) {
+    // `fields.date()`/`fields.datetime()` normalize through a `z.preprocess`
+    // pipe + a `.refine()`-checked string (VNEXT §11.2) — raw Zod constructs
+    // this walker otherwise rejects (`ZodEffects`, custom refinements). The
+    // Ginko field helper's own metadata is the source of truth for these two
+    // fields: their semantic CMS type stays `date`/`datetime` even though the
+    // runtime value is now a string, so trust the metadata instead of the
+    // raw internals.
+    const metadata = getContentFieldMetadata(schema)
+    if (metadata?.type === 'date' || metadata?.type === 'datetime') {
+      supports.add('date')
+      return
+    }
     unsupported.push({
       feature: typeName,
       path: path || '<root>',

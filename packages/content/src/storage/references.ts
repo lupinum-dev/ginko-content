@@ -5,7 +5,7 @@ import type { ParsedContent } from '../types/content'
 import { collectMarkdownRefLinks, parseRefLink } from '../core/references/resolve'
 import { projectContentPathToLocale } from '../features/localization/path'
 import { contentConfig } from './driver'
-import { resolveCanonicalKey, resolveVariant } from './manifest'
+import { resolveCanonicalKey, resolveVariant } from './graph'
 
 const isConfiguredQuickLink = (href: string) => {
   const parsed = parseRefLink(href)

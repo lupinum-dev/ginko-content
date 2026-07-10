@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { CONTENT_SNAPSHOT_VERSION } from '../../packages/content/src/core/content/snapshot'
 
 const schemaSafeParse = vi.hoisted(() => vi.fn(() => ({ success: true, data: {} })))
 
@@ -164,7 +165,7 @@ describe('storage access contracts', () => {
       hash: 'bundled-hash'
     })
     storageState.set('cache:content:snapshot.json', {
-      version: 1,
+      version: CONTENT_SNAPSHOT_VERSION,
       integrity: 'integrity',
       generatedAt: 1,
       documentIds: ['content:intro.md'],
@@ -195,7 +196,7 @@ describe('storage access contracts', () => {
   test('getContentsIds serves production ids from the snapshot', async () => {
     process.env.NODE_ENV = 'production'
     storageState.set('cache:content:snapshot.json', {
-      version: 1,
+      version: CONTENT_SNAPSHOT_VERSION,
       integrity: 'integrity',
       generatedAt: 1,
       documentIds: [

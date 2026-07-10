@@ -5,6 +5,9 @@ import { enforceProviderCapabilities } from '../../packages/content/src/runtime/
 import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import { isPublicationVisible, resolveIncludeDrafts } from '../../packages/content/src/core/visibility'
+import type { ParsedContent } from '../../packages/content/src/types/content'
 
 const allTrueCapabilities: ContentProviderCapabilities = {
   routeBackedCollections: true,
@@ -15,7 +18,7 @@ const allTrueCapabilities: ContentProviderCapabilities = {
   surroundings: true,
   searchSections: true,
   sitemap: true,
-  query: { operators: ['$eq', '$contains'], limit: true, skip: true, count: true }
+  query: { operators: ['$eq', '$contains'], pagination: ['offset', 'cursor'] }
 }
 
 const expectProviderResultInvalid = (callback: () => unknown) => {
@@ -43,6 +46,45 @@ describe('provider fixture conformance', () => {
   })
   runAuthorDependencyFixtureSelfTest()
 
+  // VNEXT.md 13.6/13.7/24.4: providers return content and facts; core owns
+  // the one publication-visibility decision. Prove it two ways: (1) the
+  // provider's raw `query()` result carries the draft document unfiltered —
+  // the provider never decides Ginko's visibility policy — and (2) the same
+  // core predicate, given those same raw facts, produces the environment-
+  // correct visible set (dev/preview show it, production without preview
+  // hides it), independent of which provider produced the facts.
+  test('provider query returns draft facts unfiltered; core visibility decides per environment', async () => {
+    const event = createProviderFixtureEvent({ fixture, provider })
+    const response = await provider.query<ParsedContent>(event, toContentProviderQuery({ collection: 'docs' }))
+    const docs = (response as { result: ParsedContent[] }).result
+
+    const draftDoc = docs.find(doc => doc.canonicalKey === 'docs:draft-roadmap')
+    expect(draftDoc).toBeTruthy()
+    expect(draftDoc?.draft).toBe(true)
+
+    const published = docs.filter(doc => !doc.draft)
+    expect(published.length).toBeGreaterThan(0)
+
+    const isVisible = (doc: ParsedContent, context: Parameters<typeof isPublicationVisible>[1]) =>
+      isPublicationVisible({ draft: doc.draft }, context)
+
+    // Development: drafts visible (unless the caller explicitly overrides).
+    expect(docs.filter(doc => isVisible(doc, { environment: 'development' }))).toHaveLength(docs.length)
+
+    // Production, no preview: drafts hidden.
+    const prodVisible = docs.filter(doc => isVisible(doc, { environment: 'production' }))
+    expect(prodVisible).toHaveLength(published.length)
+    expect(prodVisible.some(doc => doc.canonicalKey === 'docs:draft-roadmap')).toBe(false)
+
+    // Production, authenticated preview: drafts visible again.
+    expect(docs.filter(doc => isVisible(doc, { environment: 'production', previewAuthorized: true }))).toHaveLength(docs.length)
+
+    // An explicit caller override always wins over environment/preview.
+    expect(resolveIncludeDrafts({ environment: 'development', includeDrafts: false })).toBe(false)
+    expect(resolveIncludeDrafts({ environment: 'production', previewAuthorized: true, includeDrafts: false })).toBe(false)
+    expect(resolveIncludeDrafts({ environment: 'production', includeDrafts: true })).toBe(true)
+  })
+
   // A minimal provider that declares searchSections:false must still pass the
   // capability-parameterized suite: every other block runs its positive
   // assertions, and the searchSections block asserts the typed provider error.
@@ -62,6 +104,58 @@ describe('provider fixture conformance', () => {
       createEvent: () => createProviderFixtureEvent({ fixture: minimalFixture, provider: minimalProvider }),
       expectedCapabilities: { ...allTrueCapabilities, searchSections: false },
       collectNavPaths
+    })
+  })
+
+  // VNEXT.md 10.2/13.1/20.8: a cursor-only provider proves offset is not a
+  // neutral pagination contract — it advertises `cursor` only, so `skip`/
+  // `count` (both `offset`-only) must reject BEFORE dispatch, and its list
+  // responses must never carry a synthetic `total`.
+  describe('cursor-only provider (pagination: [cursor])', () => {
+    const cursorFixture = createDefaultProviderFixture()
+    const cursorBaseProvider = createFixtureContentProvider(cursorFixture)
+    cursorBaseProvider.capabilities.query = {
+      ...cursorBaseProvider.capabilities.query,
+      pagination: ['cursor']
+    }
+    const cursorOnlyProvider = Object.assign(
+      enforceProviderCapabilities(cursorBaseProvider),
+      { cache: cursorBaseProvider.cache }
+    )
+
+    runProviderContractSuite({
+      name: 'cursor-only provider',
+      expectedProviderName: 'fixture',
+      loadProvider: async () => cursorOnlyProvider,
+      createEvent: () => createProviderFixtureEvent({ fixture: cursorFixture, provider: cursorOnlyProvider }),
+      expectedCapabilities: { ...allTrueCapabilities, query: { ...allTrueCapabilities.query, pagination: ['cursor'] } },
+      collectNavPaths
+    })
+
+    test('rejects many({ skip }) (offset semantics) before provider dispatch', async () => {
+      const event = createProviderFixtureEvent({ fixture: cursorFixture, provider: cursorOnlyProvider })
+
+      await expect(cursorOnlyProvider.query(event, toContentProviderQuery({
+        collection: 'docs',
+        skip: 10
+      }))).rejects.toMatchObject({
+        statusMessage: 'unsupported_query_shape',
+        data: expect.objectContaining({ field: 'skip' })
+      })
+    })
+
+    test('cursor pages never carry a synthetic total', async () => {
+      const event = createProviderFixtureEvent({ fixture: cursorFixture, provider: cursorOnlyProvider })
+
+      const response = await cursorOnlyProvider.query(event, toContentProviderQuery({
+        collection: 'docs',
+        paging: { mode: 'cursor', after: null, limit: 1 }
+      })) as { mode: string, total?: unknown, skip?: unknown, pageInfo: { hasNext: boolean, endCursor: string | null } }
+
+      expect(response.mode).toBe('cursor')
+      expect('total' in response).toBe(false)
+      expect('skip' in response).toBe(false)
+      expect(typeof response.pageInfo.hasNext).toBe('boolean')
     })
   })
 

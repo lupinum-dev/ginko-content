@@ -14,13 +14,13 @@ import { registerContentI18nTemplate, registerGeneratedTypes, registerRuntimeCom
 import { registerContentServerHandlers } from './module/server-handlers'
 import { registerContentComponentsTemplate } from './module/content-components-template'
 import { resolveCollectionI18nConfig } from './features/localization/config'
-import { collectSitemapCollectionRouteCounts } from './module/integration-hooks'
 import {
   createSitemapAssertionTargetsFromPrerenderedSitemaps,
+  readPersistedSitemapCollectionCounts,
   shouldRunSitemapAssertionOnPrerenderedSitemaps,
   assertGeneratedSitemaps
 } from './module/sitemap-assert'
-import { assertPagefindAvailable, configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, normalizeSearchOptions, normalizeSitemapOptions, resolveModuleI18nOptions } from './module/options'
+import { assertPagefindAvailable, configureNuxtSitemapSource, createSearchRuntimeConfig, hasNuxtI18nModule, hasNuxtSitemapModule, normalizeSearchOptions, normalizeSitemapOptions, resolveContentLocalePolicy, toResolvedContentI18nOptions } from './module/options'
 import { validateContentPageRouteMetadata } from './module/route-meta-validation'
 import { hasAgentSurface, validateAgentConfig } from './module/agent-config'
 import { registerStaticOutputGeneration } from './module/static-output'
@@ -69,7 +69,11 @@ export default defineNuxtModule<ModuleOptions>({
     version,
     configKey: 'content',
     compatibility: {
-      nuxt: '>=4.0.0'
+      // Matches the peerDependencies range in packages/content/package.json and the
+      // versions actually exercised by .github/workflows/deps-canary.yml
+      // (minimum-supported: nuxt 4.4.7, latest-supported: ^4.4.7). Do not widen this
+      // without adding a canary lane that proves it.
+      nuxt: '>=4.4.7 <5'
     }
   },
   moduleDependencies: {
@@ -108,7 +112,16 @@ export default defineNuxtModule<ModuleOptions>({
     if (!contentConfigPath || !appContentConfig.collections || !Object.keys(appContentConfig.collections).length) {
       throw new Error('@lupinum/ginko-content requires a content.config.ts with at least one collection. Define collections with defineContentConfig({ collections: { ... } }).')
     }
-    const resolvedI18n = resolveModuleI18nOptions(options, nuxt)
+    const localePolicy = resolveContentLocalePolicy(
+      options,
+      nuxt,
+      Object.entries(appContentConfig.collections).map(([name, collection]) => ({
+        name,
+        localized: Boolean(collection.i18n),
+        route: typeof collection.route === 'string' ? collection.route : undefined
+      }))
+    )
+    const resolvedI18n = toResolvedContentI18nOptions(localePolicy, options)
     const resolvedSitemap = normalizeSitemapOptions(options)
     const resolvedSearch = normalizeSearchOptions(options)
     await assertPagefindAvailable(resolvedSearch)
@@ -143,12 +156,13 @@ export default defineNuxtModule<ModuleOptions>({
 
     const contentContext: ContentContext = {
       ...options,
-      transformers: [],
+      transformers: options.transformers || [],
       locales: resolvedI18n.locales,
       defaultLocale: resolvedI18n.defaultLocale,
       localeFallback: resolvedI18n.fallback,
       translatedSlugs: resolvedI18n.translatedSlugs,
       strictTranslatedSlugs: resolvedI18n.strictTranslatedSlugs,
+      localePolicy,
       sitemap: resolvedSitemap,
       search: resolvedSearch
     }
@@ -161,6 +175,9 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (resolvedSitemap !== false) {
+      if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+        logger.warn('content.sitemap is enabled, but the "@nuxtjs/sitemap" module is not registered in nuxt.config modules. No sitemap will be generated until "@nuxtjs/sitemap" is installed and added to modules (see ADR-0009).')
+      }
       configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
     }
     nuxt.hook('pages:extend', (pages) => {
@@ -184,7 +201,7 @@ export default defineNuxtModule<ModuleOptions>({
         await assertGeneratedSitemaps({
           options: assertOptions,
           targets: createSitemapAssertionTargetsFromPrerenderedSitemaps(sitemaps),
-          collectionRouteCounts: await collectSitemapCollectionRouteCounts(nuxt.options.rootDir, getResolvedContentContext()),
+          collectionRouteCounts: await readPersistedSitemapCollectionCounts(nuxt.options.buildDir, getResolvedContentContext()),
           logger
         })
       })
@@ -217,7 +234,8 @@ export default defineNuxtModule<ModuleOptions>({
       resolveRuntimeModule,
       resolveModuleFile: resolve,
       getResolvedContentContext,
-      getSearchRuntime
+      getSearchRuntime,
+      logger
     })
     registerStaticOutputGeneration({
       nuxt,
@@ -249,6 +267,16 @@ export default defineNuxtModule<ModuleOptions>({
 })
 
 export interface ModuleHooks {
+  /**
+   * Mutable setup registry, called before provider selection is validated.
+   * Integrations (e.g. Ginko CMS) use it to register an implementation name.
+   */
   'content:providers'(providers: Record<string, string>): void | Promise<void>
-  'content:context'(ctx: ContentContext): void | Promise<void>
+  /**
+   * Read-only notification called only after the content context is fully
+   * resolved (VNEXT.md §17.4). Observers may validate or derive their own
+   * artifacts from it; they may not mutate collections, locales, provider
+   * selection, or routing policy.
+   */
+  'content:context'(ctx: Readonly<ResolvedContentContext>): void | Promise<void>
 }

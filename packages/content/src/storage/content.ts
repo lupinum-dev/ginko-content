@@ -12,7 +12,7 @@
  */
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ContentDocumentResolution, ParsedContent } from '../types/content'
+import type { ContentResolutionCarrier, ParsedContent } from '../types/content'
 import type { ContentCollectionI18nConfig } from '../types/config'
 import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
@@ -23,6 +23,8 @@ import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
 import { normalizeContentQueryParams } from '../core/query/params'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../features/localization/config'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../core/visibility'
+import { isPreview } from '../integrations/nitro/preview'
 import { contentConfig } from './driver'
 import { withResolvedRefsQueryResponse } from './references'
 import { getContentGraph } from './graph'
@@ -58,7 +60,7 @@ export const resolveContentReference = async <T = ParsedContent> (
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
+): Promise<(T & { resolved?: ContentResolutionCarrier }) | null> => {
   const config = contentConfig()
   const graph = await getContentGraph(event)
   const normalizedReference = normalizeReferenceValue(reference)
@@ -144,7 +146,10 @@ export const createServerContentQuery = <T = ParsedContent>(event: H3Event, quer
       defaultLocale: config.defaultLocale,
       localeFallback: config.localeFallback,
       activeLocale: collectionI18n?.defaultLocale,
-      includeDraftFilter: !import.meta.dev
+      includeDraftFilter: !resolveIncludeDrafts({
+        environment: resolveRuntimeEnvironment(),
+        previewAuthorized: isPreview(event)
+      })
     })
   })
 }

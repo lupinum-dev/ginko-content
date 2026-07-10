@@ -1,7 +1,7 @@
 import type { StorageValue } from 'unstorage'
 import type { ParsedContent, MarkdownOptions } from '../types/content'
 import type { ContentCollectionConfig, ContentCollectionI18nConfig } from '../types/config'
-import type { ContentContext, ContentRevalidateOptions, ModuleOptions } from '../types/module'
+import type { ContentContext, ContentRevalidateOptions, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { createSearchRuntimeConfig } from './options'
 
 interface ModulePublicRuntimeConfig {
@@ -53,8 +53,6 @@ interface ModulePublicRuntimeConfig {
   navigation: ModuleOptions['navigation']
 
   search: ReturnType<typeof createSearchRuntimeConfig> | false
-
-  contentHead: ModuleOptions['contentHead']
 }
 
 interface ModulePrivateRuntimeConfig {
@@ -69,7 +67,13 @@ interface ModulePrivateRuntimeConfig {
 
 declare module '@nuxt/schema' {
   interface NuxtHooks {
-    'content:context': (ctx: ContentContext) => void | Promise<void>
+    /**
+     * Mutable provider-registration seam, called before provider selection is
+     * validated: integrations (e.g. Ginko CMS) register their implementation
+     * name here. Distinct from the read-only `content:context` notification.
+     */
+    'content:providers': (providers: Record<string, string>) => void | Promise<void>
+    'content:context': (ctx: Readonly<ResolvedContentContext>) => void | Promise<void>
   }
   interface PublicRuntimeConfig {
     content: ModulePublicRuntimeConfig;

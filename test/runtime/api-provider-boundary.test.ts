@@ -81,7 +81,7 @@ describe('runtime API provider boundary', () => {
       total: 1
     })
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
-      v: 1,
+      v: 2,
       collection: 'docs',
       plan: expect.objectContaining({ collection: 'docs', limit: 10 })
     }))
@@ -128,7 +128,7 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
     expect(navigationQuery).toHaveBeenCalledWith(
       event,
-      expect.objectContaining({ v: 1, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
+      expect.objectContaining({ v: 2, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
       expect.objectContaining({ resolveLocale: { locale: 'de' } })
     )
   })

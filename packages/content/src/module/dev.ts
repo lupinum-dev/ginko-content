@@ -41,9 +41,10 @@ export const registerContentDevRuntime = (
       }
       key = key.substring(MOUNT_PREFIX.length)
 
-      await nitro.storage.removeItem('cache:content:_manifest.json')
-      await nitro.storage.removeItem('cache:content:_nav.json')
-      await nitro.storage.removeItem('cache:content:_meta.json')
+      // `_manifest.json`/`_nav.json`/`_meta.json` are deleted derivatives
+      // (VNEXT.md §15.7, §25.4) — dev never persists them, so there is
+      // nothing to invalidate here anymore. The per-source parsed-content
+      // cache entry is the only dev artifact this watcher still owns.
       await nitro.storage.removeItem(`cache:content:parsed:${key}`)
 
       const payload = { event, key } satisfies ContentHotUpdate
@@ -57,9 +58,5 @@ export const registerContentDevRuntime = (
     nitro.hooks.hook('close', async () => {
       await unwatch()
     })
-
-    await nitro.storage.removeItem('cache:content:_manifest.json')
-    await nitro.storage.removeItem('cache:content:_nav.json')
-    await nitro.storage.removeItem('cache:content:_meta.json')
   })
 }

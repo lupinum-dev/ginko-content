@@ -2,6 +2,7 @@ import type { MarkdownOptions, MarkdownPluginDescriptor } from './content'
 import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentQueryBuilderWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
+import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
 
 export type MountOptions = {
   driver: 'fs' | 'http' | string
@@ -11,14 +12,6 @@ export type MountOptions = {
 }
 
 export interface ContentI18nOptions {
-  /**
-   * Enable locale-aware content behavior.
-   *
-   * `true` means "detect from Nuxt I18n and/or content.config".
-   *
-   * @default true
-   */
-  enabled?: boolean
   /**
    * List of locale codes used by content.
    *
@@ -210,7 +203,7 @@ export interface ContentSearchOptions {
    */
   apiBaseURL?: string
   /**
-   * Search engine used by `useContentSearchResults`.
+   * Search engine used by `useContentSearch`.
    *
    * @default 'minisearch'
    */
@@ -224,7 +217,11 @@ export interface ContentSearchOptions {
   /**
    * Query predicate applied before records are indexed.
    *
-   * @default { draft: false, partial: false }
+   * Draft visibility is NOT part of this predicate: it follows the one core
+   * environment/preview-aware decision applied at the query layer, the same
+   * as navigation, sitemap, and the public query API.
+   *
+   * @default { partial: false }
    */
   filterQuery?: ContentQueryBuilderWhere
   /**
@@ -321,9 +318,7 @@ export interface ModuleOptions {
    * Built-in full-text search configuration.
    *
    * When enabled, Ginko exposes JSON/Pagefind search endpoints under
-   * the content api base route. `useContentSearchData()` and
-   * `useContentSearchResults()` are auto-imported; import the headless
-   * `useContentSearch()` helper from `@lupinum/ginko-content/client`.
+   * the content api base route. `useContentSearch()` is auto-imported.
    */
   search: false | ContentSearchOptions
   /**
@@ -471,11 +466,16 @@ export interface ModuleOptions {
    */
   providers?: Record<string, string>
   /**
-   * Enable automatic usage of `useContentHead`
+   * Custom transformer modules, each resolved as an import specifier and
+   * default-exporting a `ContentTransformer` (see `defineTransformer` from
+   * `@lupinum/ginko-content/transformers`). Transformers run inside the real
+   * ingest pipeline alongside the built-in markdown/yaml/csv/json
+   * transformers, so their effects reach query results, navigation, search,
+   * and generated routes identically (VNEXT.md §14.4, §20.1).
    *
-   * @default true
+   * @default []
    */
-  contentHead?: boolean
+  transformers?: Array<string>
   /**
    * Enable to keep uppercase characters in the generated routes.
    *
@@ -504,6 +504,13 @@ export interface ContentContext extends ModuleOptions {
   localeFallback: Record<string, string[]>
   translatedSlugs: boolean
   strictTranslatedSlugs: boolean
+  /**
+   * The single immutable, per-collection locale policy resolved once at
+   * setup (VNEXT.md §12.1, §22). Downstream route/navigation/search/sitemap/
+   * prerender/agent code consumes this rather than reconstructing locale
+   * facts from loose fields.
+   */
+  localePolicy: ResolvedLocalePolicy
 }
 
 export type ResolvedContentContext = Omit<ContentContext, 'markdown'> & {

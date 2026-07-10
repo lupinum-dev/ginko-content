@@ -1,6 +1,6 @@
 import type { ParsedContent } from '../../types/content'
 import type { LocalizedDoc } from '../../types/query'
-import { decorateLocalePathsWithFallbacks, localizePageResult } from '../../features/localization/results'
+import { decorateLocalizedDocumentEnvelope } from '../../features/localization/results'
 import { normalizeContentPath, normalizeRouteMounts } from '../../features/localization/path'
 import type { RuntimeContentConfig } from './context'
 
@@ -25,12 +25,8 @@ const collectionLocaleConfig = (
 }
 
 /**
- * Decorate a raw parsed document with route metadata and locale paths.
- *
- * `localizePageResult` already attaches `path`, `unprefixedPath`, `locale`,
- * `defaultLocale`, `variants`, and `localePaths`. This helper additionally
- * fills non-translated locales with fallback paths so app switchers can render
- * all configured languages without another query.
+ * Decorate a raw parsed document with the canonical `route`/`resolution`
+ * envelope (VNEXT.md 10.4) the unified query API and `useContentPage` return.
  */
 export const decorateLocalizedDocument = <T extends ParsedContent & Record<string, unknown>>(
   doc: T | null,
@@ -41,17 +37,11 @@ export const decorateLocalizedDocument = <T extends ParsedContent & Record<strin
   if (!doc) return null
 
   const { locales, defaultLocale, routeMounts, hasLocaleConfig } = collectionLocaleConfig(collection, runtime)
-  const page = hasLocaleConfig
-    ? doc
-    : {
-        ...doc,
-        locale: '',
-        resolved: { availableLocales: [] }
-      }
-  const result = localizePageResult(page, hasLocaleConfig ? requestedLocale : undefined, defaultLocale, locales, routeMounts)
-  const fallbackLocale = (doc.resolved?.locale || requestedLocale || defaultLocale) as string | undefined
-  result.localePaths = decorateLocalePathsWithFallbacks(result.localePaths, locales, fallbackLocale, defaultLocale, routeMounts)
-  return result as LocalizedDoc<T>
+  return decorateLocalizedDocumentEnvelope(
+    doc,
+    { locales, defaultLocale, routeMounts, hasLocaleConfig },
+    requestedLocale
+  ) as LocalizedDoc<T>
 }
 
 const collectionRouteRoots = (

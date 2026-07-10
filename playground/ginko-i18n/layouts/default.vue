@@ -1,24 +1,35 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useContentSwitchLocalePath, useLocalePath, useSwitchLocalePath } from '#imports'
+import { useI18n, useLocalePath, useSwitchLocalePath } from '#imports'
 
-const { locale } = useI18n()
-const switchLocalePath = useSwitchLocalePath()
-const switchContentLocalePath = useContentSwitchLocalePath()
 const localePath = useLocalePath()
 
-const localeLinks = computed(() => {
-  return [
-    { code: 'en', name: 'English' },
-    { code: 'de', name: 'Deutsch' }
-  ].map(entry => ({
-    ...entry,
-    // Prefer the content's translated path. Fall back to Nuxt i18n's
-    // route-only switch for pages that aren't backed by content.
-    to: switchContentLocalePath(entry.code) || switchLocalePath(entry.code)
-  }))
-})
+// The shell layout renders around every page, including ones with no
+// content behind them, so it can only offer a route-only locale switch
+// (Nuxt I18n's own `useSwitchLocalePath()` — a plain URL-prefix swap, no
+// content query). Content-aware switching over `page.route.alternates`
+// (VNEXT.md 10.4, 27.4), which needs the resolved document, lives on the
+// route page itself (`pages/[...slug].vue`) instead: a parent layout
+// unavoidably renders before a child page's async setup publishes anything
+// during SSR, so a layout-owned cross-component registry (the old
+// `useContentRoute`/`useContentSwitchLocalePath` mechanism, VNEXT.md 10.6
+// hard-cut) could only ever show stale/guessed links here. Both switchers
+// coexist: this one guarantees every page (including ones that bypass
+// `[...slug].vue`, like the debug pages under `pages/guide/`) always has a
+// locale link; the page-level one additionally offers the precise
+// canonical/fallback-labeled link once real document data is available.
+// Distinct short labels ("EN"/"DE"), not the page-level switcher's full
+// "English"/"Deutsch" names: browser tests target the content-aware link by
+// its accessible name, and Playwright's default name matching is a substring
+// match, so a name here that merely appended text (e.g. "English (route)")
+// would still collide with it.
+const { locales } = useI18n()
+const switchLocalePath = useSwitchLocalePath()
+const localeCodes: Record<string, string> = { en: 'EN', de: 'DE' }
+const routeLocaleLinks = computed(() => locales.value.map((entry) => {
+  const code = typeof entry === 'string' ? entry : entry.code
+  return { code, name: localeCodes[code] || code.toUpperCase(), to: switchLocalePath(code) }
+}))
 
 const demoLinks = computed(() => [
   { label: 'Authors', to: localePath('/authors') },
@@ -42,13 +53,12 @@ const demoLinks = computed(() => [
 
       <div class="shell__actions">
         <div class="toolbar">
-          <span class="toolbar__label">Locale</span>
+          <span class="toolbar__label">Locale (route)</span>
           <NuxtLink
-            v-for="entry in localeLinks"
+            v-for="entry in routeLocaleLinks"
             :key="entry.code"
             :to="entry.to"
             class="toolbar__link"
-            :class="{ 'toolbar__link--active': locale === entry.code }"
           >
             {{ entry.name }}
           </NuxtLink>

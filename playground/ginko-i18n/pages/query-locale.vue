@@ -1,28 +1,39 @@
 <script setup lang="ts">
+import { useAsyncData } from '#imports'
 import { useI18n } from 'vue-i18n'
-import { useContentMany } from '#imports'
+import { many } from '@lupinum/ginko-content/client'
 import { docs } from '../content.config'
 
 const { locale } = useI18n()
 
-const { data: implicit } = await useContentMany(docs, {
-  locale: () => locale.value,
-  where: { navigationFile: { $ne: true }, partial: { $ne: true } },
-  sort: { path: 'asc' }
-})
+const { data: implicit } = await useAsyncData(
+  () => `query-locale:implicit:${locale.value}`,
+  () => many(docs, {
+    locale: locale.value,
+    where: { navigationFile: { $ne: true }, partial: { $ne: true } },
+    sort: { path: 'asc' }
+  }),
+  { watch: [locale] }
+)
 
-const { data: strictGerman } = await useContentMany(docs, {
-  locale: 'de',
-  where: { navigationFile: { $ne: true }, partial: { $ne: true } },
-  sort: { path: 'asc' }
-})
+const { data: strictGerman } = await useAsyncData(
+  'query-locale:strict-german',
+  () => many(docs, {
+    locale: 'de',
+    where: { navigationFile: { $ne: true }, partial: { $ne: true } },
+    sort: { path: 'asc' }
+  })
+)
 
-const { data: fallbackGerman } = await useContentMany(docs, {
-  locale: 'de',
-  fallback: true,
-  where: { navigationFile: { $ne: true }, partial: { $ne: true } },
-  sort: { path: 'asc' }
-})
+const { data: fallbackGerman } = await useAsyncData(
+  'query-locale:fallback-german',
+  () => many(docs, {
+    locale: 'de',
+    fallback: true,
+    where: { navigationFile: { $ne: true }, partial: { $ne: true } },
+    sort: { path: 'asc' }
+  })
+)
 </script>
 
 <template>

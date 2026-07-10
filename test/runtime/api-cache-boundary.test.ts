@@ -1,27 +1,48 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createTestEvent } from '../harness/event'
+import { doc } from '../contracts/_utils'
+import { ContentError } from '../../packages/content/src/core/errors'
+import { fail, ok } from '../../packages/content/src/core/result'
+
+// VNEXT.md §14.3, §20.2, §25.1: `runtime/server/api/cache.ts` is the ONE
+// producer of the canonical content build result and the ONE place
+// `snapshot.json` is written. `buildContentResult` (integrations/nitro/build.ts)
+// validates documents, the graph, routes, and alternates entirely in memory
+// BEFORE the handler ever calls `publishContentSnapshot` — these tests force
+// a failure at each of parsing, graph validation, and route derivation, and
+// assert `snapshot.json` is never written for any of them, then prove a
+// successful build performs exactly one final write.
 
 const mocks = vi.hoisted(() => ({
-  getContentManifest: vi.fn(),
-  getContentProvider: vi.fn(),
   getSourceContentIds: vi.fn(),
   loadContentVariants: vi.fn(),
-  setItem: vi.fn()
+  setItem: vi.fn(),
+  validateContentGraph: vi.fn()
 }))
 
-vi.mock('../../packages/content/src/runtime/server/manifest', () => ({
-  getContentManifest: mocks.getContentManifest
-}))
+const runtimeContent = {
+  collections: {
+    docs: { type: 'page' }
+  },
+  locales: ['en'],
+  defaultLocale: 'en',
+  translatedSlugs: false,
+  sitemap: false,
+  cacheIntegrity: 'integrity'
+}
 
-vi.mock('../../packages/content/src/runtime/server/providers', () => ({
-  getContentProvider: mocks.getContentProvider
-}))
-
-vi.mock('../../packages/content/src/runtime/server/storage-access', () => ({
-  contentConfig: () => ({ cacheIntegrity: 'integrity' }),
+vi.mock('../../packages/content/src/integrations/nitro/storage', () => ({
   getSourceContentIds: mocks.getSourceContentIds,
+  contentConfig: () => runtimeContent,
   cacheStorage: () => ({
     setItem: mocks.setItem
+  })
+}))
+
+vi.mock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
+  getContentRuntimeConfig: () => ({
+    public: { content: { navigation: { fields: [] } } },
+    content: runtimeContent
   })
 }))
 
@@ -34,79 +55,115 @@ vi.mock('../../packages/content/src/storage/contents', () => ({
   loadContentVariants: mocks.loadContentVariants
 }))
 
-describe('runtime cache API boundary', () => {
+vi.mock('../../packages/content/src/storage/validation', async () => {
+  const actual = await vi.importActual<any>('../../packages/content/src/storage/validation')
+  return {
+    ...actual,
+    validateContentGraph: mocks.validateContentGraph
+  }
+})
+
+describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => {
   beforeEach(() => {
-    mocks.getContentManifest.mockReset()
-    mocks.getContentProvider.mockReset()
     mocks.getSourceContentIds.mockReset()
     mocks.loadContentVariants.mockReset()
     mocks.setItem.mockReset()
+    mocks.validateContentGraph.mockReset()
+    mocks.validateContentGraph.mockReturnValue(ok(undefined))
   })
 
-  test('cache API persists a snapshot and provider navigation without preloading the filesystem manifest', async () => {
-    const navigation = [
-      { title: 'Docs', path: '/docs' }
-    ]
-    const document = {
+  test('a successful build performs exactly one final snapshot.json write', async () => {
+    const document = doc({
       id: 'content:docs:intro.md',
+      collection: 'docs',
       path: '/docs/intro',
-      body: { type: 'root', children: [] }
-    }
+      canonicalKey: 'docs/intro'
+    })
     mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md'])
     mocks.loadContentVariants.mockResolvedValue([document])
-    mocks.getContentProvider.mockResolvedValue({
-      navigationQuery: vi.fn(async () => navigation)
-    })
+
     const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
     const event = createTestEvent()
 
     const result = await handler(event)
 
-    expect(mocks.getContentManifest).not.toHaveBeenCalled()
     expect(mocks.getSourceContentIds).toHaveBeenCalledWith(event)
     expect(mocks.loadContentVariants).toHaveBeenCalledWith(event, 'content:docs:intro.md')
-    expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
-    expect(mocks.setItem).toHaveBeenCalledWith('snapshot.json', expect.objectContaining({
+    const snapshotWrites = mocks.setItem.mock.calls.filter(call => call[0] === 'snapshot.json')
+    expect(snapshotWrites).toHaveLength(1)
+    expect(snapshotWrites[0]![1]).toEqual(expect.objectContaining({
       integrity: 'integrity',
       documentIds: ['content:docs:intro.md'],
       documentSourceIds: ['content:docs:intro.md'],
       documents: [document]
     }))
-    expect(mocks.setItem).toHaveBeenCalledWith('_nav.json', navigation)
-    expect(mocks.setItem).toHaveBeenCalledWith('_meta.json', expect.objectContaining({
-      documentCount: 1,
-      generatedAt: expect.any(Number),
-      generateTime: expect.any(Number)
-    }))
+    // No `_nav.json`/`_meta.json` derivative writes (VNEXT §15.4, §15.7, §25.4).
+    expect(mocks.setItem).toHaveBeenCalledTimes(1)
     expect(result).toEqual(expect.objectContaining({
-      documentCount: 1,
       generatedAt: expect.any(Number),
+      documentCount: 1,
       generateTime: expect.any(Number),
-      navigation
+      routesByCollection: { docs: 1 }
     }))
   })
 
-  test('cache API fails before persisting when the snapshot is missing a source document', async () => {
-    const document = {
-      id: 'content:docs:intro.md',
-      path: '/docs/intro',
-      body: { type: 'root', children: [] }
-    }
-    mocks.getSourceContentIds.mockResolvedValue([
-      'content:docs:intro.md',
-      'content:docs/missing.md'
-    ])
-    mocks.loadContentVariants.mockImplementation(async (_event, id: string) =>
-      id === 'content:docs:intro.md' ? [document] : []
+  test('forced failure after parsing (an unreadable source): snapshot.json is never written', async () => {
+    mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md', 'content:docs:missing.md'])
+    mocks.loadContentVariants.mockImplementation(async (_event: unknown, id: string) =>
+      id === 'content:docs:intro.md'
+        ? [doc({ id: 'content:docs:intro.md', collection: 'docs', path: '/docs/intro', canonicalKey: 'docs/intro' })]
+        : [{ id: 'content:docs:missing.md', body: null, missing: true }]
     )
+
     const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
-    const event = createTestEvent()
+    await expect(handler(createTestEvent())).rejects.toThrow('content:docs:missing.md')
 
-    await expect(handler(event)).rejects.toThrow('content:docs/missing.md')
+    expect(mocks.setItem).not.toHaveBeenCalled()
+  })
 
-    expect(mocks.getContentProvider).not.toHaveBeenCalled()
-    expect(mocks.setItem).not.toHaveBeenCalledWith('snapshot.json', expect.anything())
-    expect(mocks.setItem).not.toHaveBeenCalledWith('_nav.json', expect.anything())
-    expect(mocks.setItem).not.toHaveBeenCalledWith('_meta.json', expect.anything())
+  test('forced failure during ingest (a schema/parse rejection): snapshot.json is never written', async () => {
+    mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md', 'content:docs:broken.md'])
+    mocks.loadContentVariants.mockImplementation(async (_event: unknown, id: string) => {
+      if (id === 'content:docs:broken.md') {
+        throw new ContentError('VALIDATION_FAILED', 'Failed to validate parsed content', { files: [id] })
+      }
+      return [doc({ id: 'content:docs:intro.md', collection: 'docs', path: '/docs/intro', canonicalKey: 'docs/intro' })]
+    })
+
+    const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
+    await expect(handler(createTestEvent())).rejects.toThrow('Failed to validate parsed content')
+
+    expect(mocks.setItem).not.toHaveBeenCalled()
+  })
+
+  test('forced failure after graph validation: snapshot.json is never written', async () => {
+    mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md'])
+    mocks.loadContentVariants.mockResolvedValue([
+      doc({ id: 'content:docs:intro.md', collection: 'docs', path: '/docs/intro', canonicalKey: 'docs/intro' })
+    ])
+    const graphError = new ContentError('SCHEMA_VALIDATION_FAILED', 'graph validation failed', {})
+    mocks.validateContentGraph.mockReturnValue(fail(graphError))
+
+    const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
+    await expect(handler(createTestEvent())).rejects.toBe(graphError)
+
+    expect(mocks.setItem).not.toHaveBeenCalled()
+  })
+
+  test('forced failure during route derivation (a route collision): snapshot.json is never written', async () => {
+    // Two different canonical documents that project to the same
+    // `{locale, path}` public route -- `buildRouteRecords` must fail loudly
+    // rather than let one document silently shadow the other.
+    mocks.getSourceContentIds.mockResolvedValue(['content:docs:a.md', 'content:docs:b.md'])
+    mocks.loadContentVariants.mockImplementation(async (_event: unknown, id: string) =>
+      id === 'content:docs:a.md'
+        ? [doc({ id: 'content:docs:a.md', collection: 'docs', path: '/docs/collide', canonicalKey: 'docs/a' })]
+        : [doc({ id: 'content:docs:b.md', collection: 'docs', path: '/docs/collide', canonicalKey: 'docs/b' })]
+    )
+
+    const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
+    await expect(handler(createTestEvent())).rejects.toThrow(/route collision/)
+
+    expect(mocks.setItem).not.toHaveBeenCalled()
   })
 })

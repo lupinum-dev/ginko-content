@@ -2,9 +2,8 @@
 import { useContentPage } from '#imports'
 import { docs } from '../content.config'
 
-const { data: page } = await useContentPage(docs, {
-  fallback: true,
-  notFound: false
+const { page } = await useContentPage(docs, {
+  fallback: true
 })
 </script>
 

@@ -1,12 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { describe, expect, test, vi } from 'vitest'
-
-vi.mock('../../packages/content/dist/runtime/app/composables/content-i18n.js', () => ({
-  useRouteBaseName: () => () => undefined,
-  useSetI18nParams: () => () => {},
-  useSwitchLocalePath: () => () => ''
-}))
+import { describe, expect, test } from 'vitest'
 
 type PublicSurface = {
   packageExportSubpaths: Record<string, PublicSurfaceEntry>
@@ -302,16 +296,20 @@ describe('package export contracts', () => {
     }
   })
 
-  test('premature locale-switch helper is not part of the public surface', async () => {
+  test('premature locale-switch helpers are not part of the public surface', async () => {
     const publicSurface = await readPublicSurface()
     const runtimeAssets = await readFile('packages/content/src/module/runtime-assets.ts', 'utf8')
     const clientSource = await readFile('packages/content/src/public/client.ts', 'utf8')
 
-    expect(publicSurface.clientValueExports).not.toHaveProperty('useContentLocaleSwitch')
-    expect(publicSurface.runtimeAppAutoImports).not.toHaveProperty('useContentLocaleSwitch')
-    expect(runtimeAssets).not.toContain('useContentLocaleSwitch')
-    expect(clientSource).not.toContain('useContentLocaleSwitch')
-    expect(publicSurface.runtimeAppAutoImports.useContentSwitchLocalePath.category).toBe('compatibility-app-composable')
+    // `useContentLocaleSwitch` never shipped; `useContentSwitchLocalePath` is
+    // a hard-cut deletion (VNEXT.md 10.4, 10.6) — locale switching now reads
+    // `page.route.alternates` directly (VNEXT.md 27.4).
+    for (const removed of ['useContentLocaleSwitch', 'useContentSwitchLocalePath']) {
+      expect(publicSurface.clientValueExports).not.toHaveProperty(removed)
+      expect(publicSurface.runtimeAppAutoImports).not.toHaveProperty(removed)
+      expect(runtimeAssets).not.toContain(removed)
+      expect(clientSource).not.toContain(removed)
+    }
   })
 
   test('built root export loads as Node ESM', async () => {
@@ -330,9 +328,8 @@ describe('package export contracts', () => {
     expect(server.paginate).toBeTypeOf('function')
     expect(server.backlinks).toBeTypeOf('function')
     expect(server.resolveOne).toBeTypeOf('function')
-    expect(server.variants).toBeTypeOf('function')
-    expect(server.tree).toBeTypeOf('function')
-    expect(server.neighbors).toBeTypeOf('function')
+    expect(server.surround).toBeTypeOf('function')
+    expect(server.navigation).toBeTypeOf('function')
     expect(server.getCollectionPath).toBeTypeOf('function')
     // Auxiliary / sitemap helpers preserved across the redesign.
     expect(server.queryCollectionsSitemapEntries).toBeTypeOf('function')
@@ -350,21 +347,31 @@ describe('package export contracts', () => {
     expect(client.paginate).toBeTypeOf('function')
     expect(client.backlinks).toBeTypeOf('function')
     expect(client.resolveOne).toBeTypeOf('function')
-    expect(client.variants).toBeTypeOf('function')
-    expect(client.tree).toBeTypeOf('function')
-    expect(client.neighbors).toBeTypeOf('function')
+    expect(client.surround).toBeTypeOf('function')
+    expect(client.navigation).toBeTypeOf('function')
     expect(client.getCollectionPath).toBeTypeOf('function')
-    expect(client.useContentHead).toBeTypeOf('function')
+    // The public composable surface is exactly `useContentPage` and
+    // `useContentSearch` (VNEXT.md 10.5, 10.8) — every other wrapper is a
+    // hard-cut deletion, replaced by these pure operations + useAsyncData.
     expect(client.useContentPage).toBeTypeOf('function')
-    expect(client.useContentOne).toBeTypeOf('function')
-    expect(client.useContentMany).toBeTypeOf('function')
-    expect(client.useContentPagination).toBeTypeOf('function')
-    expect(client.useContentBacklinks).toBeTypeOf('function')
     expect(client.useContentSearch).toBeTypeOf('function')
-    expect(client.useContentTree).toBeTypeOf('function')
-    expect(client.useContentNavigation).toBeTypeOf('function')
     expect(client).not.toHaveProperty('queryCollection')
     expect(client).not.toHaveProperty('useContentList')
+    expect(client).not.toHaveProperty('useContentHead')
+    expect(client).not.toHaveProperty('useContentOne')
+    expect(client).not.toHaveProperty('useContentMany')
+    expect(client).not.toHaveProperty('useContentPagination')
+    expect(client).not.toHaveProperty('useContentBacklinks')
+    expect(client).not.toHaveProperty('useContentResolveOne')
+    expect(client).not.toHaveProperty('useContentVariants')
+    expect(client).not.toHaveProperty('useContentTree')
+    expect(client).not.toHaveProperty('useContentNavigation')
+    expect(client).not.toHaveProperty('useContentNeighbors')
+    expect(client).not.toHaveProperty('useContentToc')
+    expect(client).not.toHaveProperty('useContentSwitchLocalePath')
+    expect(client).not.toHaveProperty('useContentSearchData')
+    expect(client).not.toHaveProperty('useContentSearchResults')
+    expect(client).not.toHaveProperty('useContentPreview')
   })
 
   test('built agent export loads as Node ESM', async () => {

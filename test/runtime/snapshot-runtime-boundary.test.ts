@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createTestEvent } from '../harness/event'
-import type { ContentSnapshot } from '../../packages/content/src/core/content/snapshot'
+import { CONTENT_SNAPSHOT_VERSION, type ContentSnapshot } from '../../packages/content/src/core/content/snapshot'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
 const runtimeContent = {
@@ -29,7 +29,7 @@ const document = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
 }) as ParsedContent
 
 const snapshot = (overrides: Partial<ContentSnapshot> = {}): ContentSnapshot => ({
-  version: 1,
+  version: CONTENT_SNAPSHOT_VERSION,
   integrity: 'integrity',
   generatedAt: 1,
   documentIds: ['content:docs:intro.md'],
@@ -96,5 +96,100 @@ describe('production snapshot runtime', () => {
     const { getContentGraph } = await import('../../packages/content/src/storage/graph')
 
     await expect(getContentGraph(createTestEvent())).rejects.toThrow('snapshot integrity mismatch')
+  })
+
+  // VNEXT.md 15.8/24.3: filesystem production preview is unsupported and
+  // must fail before the sealed snapshot is even read — not silently expose
+  // it, and not silently ignore the preview token either.
+  describe('production preview against the filesystem provider', () => {
+    const previewEvent = () => createTestEvent({
+      query: { previewToken: 'secret' },
+      context: {}
+    })
+
+    const stubPreviewRuntime = (getItem: ReturnType<typeof vi.fn>) => {
+      vi.stubEnv('NODE_ENV', 'production')
+      vi.stubGlobal('__ginkoTestRuntimeConfig', {
+        content: { ...runtimeContent, preview: { token: 'secret' } }
+      })
+      vi.stubGlobal('__ginkoTestStorage', {
+        getItem,
+        setItem: vi.fn(),
+        getKeys: vi.fn(async () => []),
+        removeItem: vi.fn()
+      })
+    }
+
+    test('getContentGraph rejects an authenticated preview request before reading the snapshot', async () => {
+      const getItem = vi.fn(async () => snapshot())
+      stubPreviewRuntime(getItem)
+      const { getContentGraph } = await import('../../packages/content/src/storage/graph')
+
+      await expect(getContentGraph(previewEvent())).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'unsupported_filesystem_preview',
+        data: expect.objectContaining({ code: 'unsupported_filesystem_preview', provider: 'filesystem' })
+      })
+      // Query dispatch never touched the sealed snapshot storage.
+      expect(getItem).not.toHaveBeenCalled()
+    })
+
+    test('an invalid preview token does not trip the guard and still serves the sealed snapshot', async () => {
+      const getItem = vi.fn(async () => snapshot())
+      stubPreviewRuntime(getItem)
+      const { getContentGraph } = await import('../../packages/content/src/storage/graph')
+
+      const wrongTokenEvent = createTestEvent({ query: { previewToken: 'not-it' } })
+      await expect(getContentGraph(wrongTokenEvent)).resolves.toBeTruthy()
+      expect(getItem).toHaveBeenCalledTimes(1)
+    })
+
+    test('a valid preview token in development is unaffected by the guard', async () => {
+      const getItem = vi.fn(async () => snapshot())
+      vi.stubEnv('NODE_ENV', 'development')
+      vi.stubGlobal('__ginkoTestRuntimeConfig', {
+        content: { ...runtimeContent, preview: { token: 'secret' } }
+      })
+      vi.stubGlobal('__ginkoTestStorage', {
+        getItem,
+        setItem: vi.fn(),
+        getKeys: vi.fn(async () => []),
+        removeItem: vi.fn()
+      })
+      const { getContentGraph } = await import('../../packages/content/src/storage/graph')
+
+      // Development never uses the process snapshot at all (usesProcessSnapshot
+      // is production-only), so this must not throw and must not read
+      // `snapshot.json` — it takes the dev content-list path instead.
+      await expect(getContentGraph(previewEvent())).resolves.toBeTruthy()
+      expect(getItem).not.toHaveBeenCalled()
+    })
+  })
+
+  // The same guard also protects the untrusted public HTTP query boundary
+  // directly (VNEXT.md 24.3: "before query dispatch"), independent of the
+  // `getContentGraph` guard exercised above.
+  test('the public query executor rejects an authenticated production preview request before query dispatch', async () => {
+    const getItem = vi.fn(async () => snapshot())
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubGlobal('__ginkoTestRuntimeConfig', {
+      content: { ...runtimeContent, preview: { token: 'secret' } }
+    })
+    vi.stubGlobal('__ginkoTestStorage', {
+      getItem,
+      setItem: vi.fn(),
+      getKeys: vi.fn(async () => []),
+      removeItem: vi.fn()
+    })
+    const { executeFilesystemContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { toContentProviderQuery } = await import('../../packages/content/src/public/provider-query')
+
+    const plan = toContentProviderQuery({ collection: 'docs' }).plan
+    const previewEvent = createTestEvent({ query: { previewToken: 'secret' } })
+    await expect(executeFilesystemContentQuery(previewEvent, plan)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'unsupported_filesystem_preview'
+    })
+    expect(getItem).not.toHaveBeenCalled()
   })
 })

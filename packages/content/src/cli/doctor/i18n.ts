@@ -150,7 +150,7 @@ async function inspectI18nSourceSmells(rootDir: string, locales: string[]): Prom
         severity: 'error',
         file: relativeFile,
         message: 'Hardcoded locale route branch found.',
-        suggestion: 'Use @nuxtjs/i18n route helpers, useContentNavigation(\'docs\'), or useContentMany(\'docs\', options) item paths instead of branching on locale codes.'
+        suggestion: 'Use @nuxtjs/i18n route helpers, navigation(\'docs\', options), or many(\'docs\', options) item route paths instead of branching on locale codes.'
       })
     }
 
@@ -159,7 +159,7 @@ async function inspectI18nSourceSmells(rootDir: string, locales: string[]): Prom
         severity: 'error',
         file: relativeFile,
         message: 'UI link is bound to raw content _path.',
-        suggestion: 'Use useContentMany(\'docs\', options) for localized list pages and bind item.path.'
+        suggestion: 'Use many(\'docs\', options) from @lupinum/ginko-content/client for localized list pages and bind item.route.resolvedPath.'
       })
     }
   }
@@ -231,7 +231,7 @@ async function inspectRepeatedLocalePrefixes(rootDir: string, locales: string[])
           severity: 'error',
           file: relativeFile,
           message: `Repeated locale prefix "${repeatedPath}" found in generated output.`,
-          suggestion: 'Bind route-ready item.path values from useContentMany(), navigation, or search results instead of manually prefixing locale paths.'
+          suggestion: 'Bind route-ready item.route.resolvedPath values from many(), navigation(), or search results instead of manually prefixing locale paths.'
         })
         break
       }
@@ -331,7 +331,7 @@ async function inspectI18nSearchIndex(rootDir: string, locales: string[]): Promi
           severity: 'error',
           file: '.output/public/api/_content/search/index.json',
           message: `Search index has no records for locale "${locale}".`,
-          suggestion: 'Use useContentSearchData() with i18n collections and verify the prerendered search payload includes every locale.'
+          suggestion: 'Use useContentSearch() with i18n collections and verify the prerendered search payload includes every locale.'
         })
       }
     }

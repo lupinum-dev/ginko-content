@@ -26,16 +26,14 @@ Use this skill for app-facing work with `@lupinum/ginko-content`. It is for user
 ## Hard Rules
 
 - Import config helpers from `@lupinum/ginko-content/config`.
-- Use `useContentOne(handle, { by: { route }, locale })` for route-backed content pages.
-- Use `useContentMany(handle, options)` for list pages and UI links.
-- Use `one(handle, options)` and `many(handle, options)` for custom queries and exact raw lookups.
-- Use `item.path` from `useContentMany()` for links.
-- Use `path` only when the payload is already route-shaped, such as page, navigation, search, or surround data.
+- Use `useContentPage(handle, options)` for route-backed content pages. It resolves against the current route, keeps SSR/hydration stable, and never throws a default 404 — decide 404/redirect policy in the page from `route.requestedPath`/`route.resolvedPath`.
+- Use `one(handle, options)`, `many(handle, options)`, `paginate(handle, options)`, `navigation(handle, options)`, `backlinks(handle, options)`, `resolveOne(handle, options)`, and `surround(handle, options)` for everything else — pair them with `useAsyncData` and an explicit, stable key when calling from a component.
+- Use `item.route.resolvedPath` from query results for links.
 - Pass the full document to `<ContentRenderer>`, not `document.body`.
-- Use `useContentTree()` for layout navigation.
-- Use `useContentSearchData().searchNavigation` for search navigation.
+- Use `navigation(handle, options)` (with `useAsyncData`) for layout navigation trees.
+- Use `useContentSearch(options)` for search UI; it exposes `searchNavigation` as the sole search-navigation surface.
 - For i18n collections, set `i18n: true` and store files under `content/<locale>/...`.
-- Do not manually prepend locale prefixes to `path` or `unprefixedPath`.
+- Do not manually prepend locale prefixes to a path. Use `route.alternates` (from `useContentPage`'s or a query result's `route`) to build locale-switcher links.
 - For Nuxt Sitemap output, validate and submit the sitemap URL emitted by the configured mode.
 - Do not add route rules, `nitro.prerender.ignore`, or disable `sitemap.autoI18n` only to force a physical sitemap shape.
 - Run `ginko-content doctor`; use `ginko-content doctor --i18n` for localized apps.

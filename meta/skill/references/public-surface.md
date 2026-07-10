@@ -39,7 +39,7 @@ The machine-readable public-surface classification lives in `meta/public-surface
 Use the narrowest category that describes the intended audience:
 
 - `stable-query-*`: core content reads used by app and server authors.
-- `stable-app-*`: Vue/Nuxt composables for route pages, lists, navigation, head data, and locale-aware app behavior.
+- `stable-app-*`: the `useContentPage`/`useContentSearch` Vue/Nuxt composables and the pure query functions app code pairs with `useAsyncData` for lists, navigation, and locale-aware behavior.
 - `stable-server-*`: Nitro/H3 server helpers that require an event.
 - `stable-provider-*`: provider author APIs, provider error helpers, cache hints, and cache adapters.
 - `stable-search-*`, `stable-site-data-*`, `stable-sitemap-*`, `stable-toc-*`: feature-specific public helpers and types.
@@ -64,45 +64,30 @@ Use these in `content.config.ts`.
 
 ## Client Facade Exports
 
-The public client facade exports:
+The public client facade (`@lupinum/ginko-content/client`) exports:
 
 - `one`
 - `many`
 - `paginate`
 - `backlinks`
 - `resolveOne`
-- `variants`
-- `tree`
-- `neighbors`
+- `surround`
+- `navigation`
 - `getCollectionPath`
-- `agentMarkdownPathForRoute`
-- `agentRawPathForRoute`
-- `normalizeAgentRoutePath`
-- `useContentHead`
 - `useContentPage`
-- `useContentOne`
-- `useContentMany`
-- `useContentPagination`
-- `useContentBacklinks`
-- `useContentResolveOne`
-- `useContentVariants`
-- `useContentTree`
-- `useContentNavigation`
-- `useContentNeighbors`
 - `useContentSearch`
-- `useContentSearchData`
-- `useContentSearchResults`
 - `querySiteData`
 - `extractContentToc`
-- `useContentToc`
+
+This is the final hard-cut composable surface (VNEXT.md 10.4–10.8): exactly `useContentPage` and `useContentSearch` as composables, everything else a pure query function paired with `useAsyncData` by app code. There is no `useContentOne`, `useContentMany`, `useContentHead`, `useContentPagination`, `useContentBacklinks`, `useContentResolveOne`, `useContentVariants`, `useContentTree`, `useContentNavigation`, `useContentNeighbors`, `useContentSwitchLocalePath`, `useContentSearchData`, `useContentSearchResults`, `useContentToc`, or `useContentPreview` — these are hard-cut deletions, not deprecated aliases.
 
 Docs can import from `@lupinum/ginko-content/client`, but app code usually relies on Nuxt auto-imports after the module is installed.
 
 ## Generated App Auto-Imports
 
-Nuxt app auto-import wiring exposes the route/page composables, search data helpers, `querySiteData`, `getCollectionPath`, and the compatibility fallback `useContentSwitchLocalePath`. It deliberately does not auto-import low-level query primitives such as `one`, `many`, `resolveOne`, `variants`, `tree`, or `neighbors`.
+Nuxt app auto-import wiring exposes exactly two functions: `useContentPage` and `useContentSearch`. It deliberately does not auto-import the low-level query primitives (`one`, `many`, `paginate`, `resolveOne`, `surround`, `backlinks`, `navigation`), `getCollectionPath`, or `querySiteData` — app code imports those explicitly from `@lupinum/ginko-content/client` and pairs them with `useAsyncData` and an explicit, stable key.
 
-Current app-facing route pages should use `useContentPage(collectionHandle)` as the ergonomic wrapper. Explicit one-document reads should use `useContentOne(collectionHandle, { by })`. Raw string collection names remain supported for dynamic/plugin code, but docs and examples should prefer handles from `~/content.config`.
+Current app-facing route pages should use `useContentPage(collectionHandle, options)` — it owns SSR payload integration, route watching, stable keying, and stale-page flash suppression, and exposes an opt-in `surround` option for previous/next. It does not throw a default 404, does not mutate `<head>`, and does not execute redirects; the app reads `route.requestedPath`/`route.resolvedPath` and decides that policy itself. Raw string collection names remain supported for dynamic/plugin code, but docs and examples should prefer handles from `~/content.config`.
 
 ## Server Exports And Auto-Imports
 
@@ -113,9 +98,8 @@ The public server facade and generated `#content/server` types expose:
 - `paginate`
 - `backlinks`
 - `resolveOne`
-- `variants`
-- `tree`
-- `neighbors`
+- `surround`
+- `navigation`
 - `getCollectionPath`
 - `queryCollectionsSitemapEntries`
 - `createContentProviderError`

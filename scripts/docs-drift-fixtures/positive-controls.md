@@ -9,8 +9,6 @@ useContentList positive control.
 useContentRoute positive control.
 useContentLocaleSwitch positive control.
 
-useContentSwitchLocalePath positive control.
-
 withContentCache positive control.
 contentCacheHeaders positive control.
 vercelContentCache positive control.

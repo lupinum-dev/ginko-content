@@ -40,6 +40,12 @@ const nodeAlias = {
 }
 
 const nodeContractTests = [
+  // Dynamically imports real temp-file ESM modules by absolute path (the
+  // `module/integration-hooks.ts` sitemap-assert `compiled` hook calling a
+  // just-compiled Nitro server bundle) — the `nuxt` project's
+  // vitest-environment-nuxt sandbox cannot resolve those paths, so this runs
+  // under a plain Node environment instead.
+  'test/contracts/integration-hooks-contracts.test.ts',
   'test/contracts/module-contracts.test.ts',
   'test/contracts/runtime-assets-contracts.test.ts',
   'test/contracts/server-handlers-contracts.test.ts',

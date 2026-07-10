@@ -36,24 +36,22 @@ describe('content snapshots', () => {
     expect(snapshot.documentSourceIds).toEqual(['content:docs:intro.md'])
   })
 
-  test('admits undefined-valued fields — JSON drops them, matching old prod output', () => {
-    const snapshot = buildContentSnapshot({
+  test('rejects undefined-valued fields — the canonical JSON model has no undefined', () => {
+    expect(() => buildContentSnapshot({
       integrity: 'integrity',
       now: 123,
       sourceIds: ['content:docs:intro.md'],
       documents: [doc({ searchSection: undefined } as unknown as Partial<ParsedContent>)]
-    })
-    expect('searchSection' in (snapshot.documents[0] as Record<string, unknown>)).toBe(false)
+    })).toThrow(ContentSnapshotError)
   })
 
-  test('admits frontmatter dates and serializes them to ISO strings (prod parity)', () => {
-    const snapshot = buildContentSnapshot({
+  test('rejects Date values — dates must already be normalized strings before the snapshot', () => {
+    expect(() => buildContentSnapshot({
       integrity: 'integrity',
       now: 123,
       sourceIds: ['content:docs:intro.md'],
       documents: [doc({ publishedAt: new Date('2026-01-01T00:00:00.000Z') } as Partial<ParsedContent>)]
-    })
-    expect((snapshot.documents[0] as Record<string, unknown>).publishedAt).toBe('2026-01-01T00:00:00.000Z')
+    })).toThrow(ContentSnapshotError)
   })
 
   test('rejects invalid dates and genuinely lossy values (Map, undefined)', () => {

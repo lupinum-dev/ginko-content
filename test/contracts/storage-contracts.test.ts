@@ -21,9 +21,6 @@ describe('storage contracts', () => {
   const sourceMeta = new Map<string, any>()
   const validationSpy = vi.fn()
   const parseVariants = vi.fn()
-  const getCachedContents = vi.fn()
-  const setCachedContents = vi.fn()
-  const cleanCachedContents = vi.fn()
 
   const event = createEvent()
 
@@ -36,9 +33,6 @@ describe('storage contracts', () => {
     // validateContentGraph returns Result<void, ContentError>; default to ok().
     validationSpy.mockReturnValue({ ok: true, value: undefined })
     parseVariants.mockReset()
-    getCachedContents.mockReset()
-    setCachedContents.mockReset()
-    cleanCachedContents.mockReset()
 
     sourceItems.set('content:guide:intro.md', '# Intro')
     sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 10 })
@@ -58,7 +52,6 @@ describe('storage contracts', () => {
         title: 'Einstieg'
       })
     ])
-    getCachedContents.mockReturnValue(undefined)
 
     vi.doMock('#imports', () => ({
       useRuntimeConfig: () => ({ content: runtimeContent })
@@ -89,15 +82,6 @@ describe('storage contracts', () => {
         }
       })
     }))
-    vi.doMock('../../packages/content/src/storage/cache', async () => {
-      const actual = await vi.importActual<any>('../../packages/content/src/storage/cache')
-      return {
-        ...actual,
-        cleanCachedContents,
-        getCachedContents,
-        setCachedContents
-      }
-    })
     vi.doMock('../../packages/content/src/integrations/nitro/ingest', () => ({
       parseContentVariants: parseVariants,
       parseContent: vi.fn()
@@ -129,7 +113,6 @@ describe('storage contracts', () => {
     expect(first).toHaveLength(2)
     expect(second).toBe(first)
     expect(parseVariants).toHaveBeenCalledTimes(1)
-    expect(setCachedContents).toHaveBeenCalledTimes(1)
   })
 
   test('getContentsList single-flight deduplicates concurrent reads within one request', async () => {
@@ -313,15 +296,6 @@ describe('storage contracts', () => {
         setItem: vi.fn()
       })
     }))
-    vi.doMock('../../packages/content/src/storage/cache', async () => {
-      const actual = await vi.importActual<any>('../../packages/content/src/storage/cache')
-      return {
-        ...actual,
-        cleanCachedContents,
-        getCachedContents: () => undefined,
-        setCachedContents
-      }
-    })
     vi.doMock('../../packages/content/src/integrations/nitro/ingest', () => ({
       parseContentVariants: parseVariants,
       parseContent: vi.fn()

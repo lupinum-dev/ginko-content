@@ -16,10 +16,18 @@ import type {
 import type { QueryCollectionsSitemapEntriesOptions } from '../features/sitemap/query'
 import type { ContentProviderSearchRequest, ContentSearchResult } from '../types/search'
 import type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
-import type { ContentProviderNavigationOptions, ContentProviderQuery } from './provider-query'
+import type { ContentProviderNavigationOptions, ContentProviderPaginationMode, ContentProviderQuery } from './provider-query'
 
 export type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
-export type { ContentProviderQuery, ContentProviderNavigationOptions, ContentQueryPlan } from './provider-query'
+export type {
+  ContentProviderQuery,
+  ContentProviderNavigationOptions,
+  ContentQueryPlan,
+  ContentProviderPaginationMode,
+  ContentProviderPaging,
+  ContentProviderVariantSelector,
+  ContentProviderListResponse
+} from './provider-query'
 export { PROVIDER_QUERY_VERSION, toContentProviderQuery, toContentProviderNavigationQuery } from './provider-query'
 export { createContentProviderError } from './provider-errors'
 export type { ContentProviderErrorCode } from './provider-errors'
@@ -76,9 +84,15 @@ export interface ContentProviderCapabilities {
   sitemap: boolean
   query: {
     operators: string[]
-    limit: boolean
-    skip: boolean
-    count: boolean
+    /**
+     * Advertised pagination modes (VNEXT.md 13.1). `offset` guarantees skip
+     * plus an exact total; `cursor` guarantees an opaque forward cursor with
+     * no synthetic total. Replaces the old `limit`/`skip`/`count` booleans —
+     * `limit` alone needs no capability (every provider can bound its
+     * natural order), and the `count` terminal is available only when
+     * `offset` is advertised.
+     */
+    pagination: readonly ContentProviderPaginationMode[]
   }
 }
 

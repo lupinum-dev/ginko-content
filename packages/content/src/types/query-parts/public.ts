@@ -1,6 +1,7 @@
 import type { ContentNavigationItem, ParsedContent, ParsedContentMeta, StrictParsedContent, StrictParsedContentMeta } from '../content'
+import type { __ginkoI18nBrand, __ginkoSchemaBrand } from '../config'
 import type { ContentCollectionI18nMap, ContentCollectionMap, ContentCollectionName, ContentCollectionTarget } from './collections'
-import type { ContentRouteMeta, LocalePathEntry } from './results'
+import type { ContentDocumentResolution, ContentDocumentRoute } from './results'
 
 export interface QueryOperators<TValue = unknown> {
   $eq?: TValue
@@ -42,7 +43,7 @@ export type SortSpec<T = ParsedContentMeta> = string extends keyof T
   ? { [key: string]: SortDirection | undefined }
   : { [K in keyof T]?: SortDirection }
 
-type HandleSchema<H> = H extends { __schema: infer S }
+type HandleSchema<H> = H extends { [__ginkoSchemaBrand]: infer S }
   ? S extends { _output: infer O }
     ? O & StrictParsedContentMeta
     : StrictParsedContentMeta
@@ -54,7 +55,7 @@ type SelectFields<H> = string extends H
   ? ReadonlyArray<string>
   : ReadonlyArray<Extract<keyof HandleSchema<H>, string>>
 
-export type DocumentFromHandle<H> = H extends { __schema: { _output: infer O } }
+export type DocumentFromHandle<H> = H extends { [__ginkoSchemaBrand]: { _output: infer O } }
   ? O & StrictParsedContent
   : H extends ContentCollectionName
     ? ContentCollectionMap[H]
@@ -83,7 +84,7 @@ type PopulateOption<P extends PopulateSpec | undefined = undefined> = {
   populate?: P
 }
 
-type HandleIsI18n<H> = H extends { __i18n: infer I }
+type HandleIsI18n<H> = H extends { [__ginkoI18nBrand]: infer I }
   ? I extends true ? true : false
   : H extends keyof ContentCollectionI18nMap
     ? true
@@ -117,17 +118,72 @@ type BacklinksLocaleOption<Target, Source> = HandleIsI18n<Target> extends true
 
 export type LocaleFallback = false | true | 'default' | string | string[]
 
-export type LocalizedContentDocument<T = ParsedContentMeta> = T & ContentRouteMeta & {
+/**
+ * The canonical document envelope (VNEXT.md 10.4) attached to every document
+ * returned by the unified query API (`one`/`many`/`resolveOne().doc`/
+ * `surround`/`backlinks`) and by `useContentPage`. `locale` is a convenience
+ * top-level copy of `resolution.resolved.locale`; the route/resolution facts
+ * themselves live only under `route`/`resolution` — there is no top-level
+ * `path`, `variants`, `localePaths`, or `resolved` shape (that legacy shape
+ * is `ContentRouteMeta`, used only by the pre-4C provider `page()`/
+ * `routeMeta()` methods until Phase 4C deletes them).
+ */
+export type LocalizedContentDocument<T = ParsedContentMeta> = Omit<T, 'path' | 'resolved'> & {
   locale: string
-  path: string
-  /** the resolved variant's route path before locale prefixing */
-  unprefixedPath: string
-  localePaths: Record<string, LocalePathEntry>
+  route: ContentDocumentRoute
+  resolution: ContentDocumentResolution
   stem?: string
   extension?: string
+  /** Resolved markdown `$ref` links for the current runtime locale (consumed by `ContentRendererMarkdown`). */
+  resolvedRefs?: Record<string, string>
 }
 
 export type LocalizedDoc<T = ParsedContentMeta> = LocalizedContentDocument<T>
+
+/**
+ * Keys the runtime selection projector always preserves regardless of `select`
+ * (VNEXT.md 10.3, decision 24): identity, plus the `route`/`resolution`
+ * envelope. Identity fields survive because `selectWithPopulate` force-keeps
+ * them; `route`/`resolution` (and the `stem`/`extension`/`resolvedRefs`
+ * bookkeeping fields) survive because `decorateLocalizedDocument` re-attaches
+ * them after projection. The type promises exactly the runtime survivors —
+ * no more, no less.
+ */
+type IdentityGuaranteedKeys = 'id' | 'collection' | 'canonicalKey' | 'file'
+export type GuaranteedDocumentKeys = IdentityGuaranteedKeys | 'route' | 'resolution' | 'stem' | 'extension' | 'resolvedRefs'
+
+/** Selected key union pulled from the caller's own options object, else `never`. */
+type SelectedKeys<O> = O extends { select: ReadonlyArray<infer K> } ? Extract<K, string> : never
+
+/** Populated field names pulled from the caller's own options object, else `never`. */
+type PopulatedKeys<O> = O extends { populate: infer P }
+  ? P extends PopulateSpec
+    ? string extends keyof P ? never : Extract<keyof P, string>
+    : never
+  : never
+
+/**
+ * The one reusable selected-document helper (VNEXT.md 26.1). It projects the
+ * raw pre-localized document so `LocalizedDoc` can re-attach the guaranteed
+ * route/resolution envelope afterwards — mirroring the runtime order
+ * (project → decorate). Without `select` the full document passes through; with
+ * a const `select` only selected + populated + guaranteed identity keys survive,
+ * exactly as the runtime projector keeps them.
+ */
+export type SelectedInnerDocument<Inner, O> =
+  [SelectedKeys<O>] extends [never]
+    ? Inner
+    : string extends SelectedKeys<O>
+      ? Inner
+      : Pick<Inner, Extract<SelectedKeys<O> | PopulatedKeys<O> | IdentityGuaranteedKeys, keyof Inner>>
+
+/**
+ * Final selection-aware document returned by `one`/`many`/`resolveOne().doc`.
+ * `LocalizedDoc` re-adds the guaranteed route/resolution envelope on top of the
+ * projected inner document.
+ */
+export type QueryResultDocument<H, O> =
+  LocalizedDoc<SelectedInnerDocument<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>, O>>
 
 export interface ResolutionEnvelope {
   requested: {
@@ -143,8 +199,6 @@ export interface ResolutionEnvelope {
     found: boolean
     collection: string
     path?: string
-    /** the resolved variant's route path before locale prefixing */
-    unprefixedPath?: string
     ref?: string
     locale?: string
   }
@@ -185,25 +239,59 @@ export type ManyOptions<
   select?: SelectFields<H>
 } & LocaleOption<H> & PopulateOption<P>
 
+/**
+ * Two honest pagination modes (VNEXT.md 10.2): `offset` returns an exact
+ * total/page count; `cursor` returns an opaque forward cursor with no
+ * synthetic total. Omitting `mode` while supplying `page` means
+ * `mode: 'offset'` (source compatibility) — new code should write the mode
+ * explicitly.
+ */
+export type PaginationMode = 'offset' | 'cursor'
+
 export type PaginationOptions<
   H = unknown,
   P extends PopulateSpec | undefined = undefined
 > = Omit<ManyOptions<H, P>, 'skip' | 'limit'> & {
+  mode?: PaginationMode
+  /** Offset-mode page number. Ignored in `cursor` mode. */
   page?: number
+  /** Opaque cursor from a previous `CursorPaginationResult.endCursor`. `cursor` mode only. */
+  after?: string | null
   limit?: number
 }
 
-export interface PaginationResult<T = ParsedContentMeta> {
+export interface OffsetPaginationResult<T = ParsedContentMeta> {
+  mode: 'offset'
   data: Array<LocalizedDoc<T>>
   page: number
   limit: number
   total: number
   pageCount: number
   hasNext: boolean
-  hasPrev: boolean
+  hasPrevious: boolean
   nextPage: number | null
-  prevPage: number | null
+  previousPage: number | null
 }
+
+export interface CursorPaginationResult<T = ParsedContentMeta> {
+  mode: 'cursor'
+  data: Array<LocalizedDoc<T>>
+  limit: number
+  endCursor: string | null
+  hasNext: boolean
+}
+
+export type PaginationResult<T = ParsedContentMeta> = OffsetPaginationResult<T> | CursorPaginationResult<T>
+
+/**
+ * Narrow `paginate()`'s return type to the exact discriminant when the
+ * caller's own options object literally names `mode: 'cursor'` — otherwise
+ * (mode omitted, or explicitly `'offset'`) resolve to the offset shape,
+ * matching the runtime source-compatibility default (VNEXT.md 10.2/26.1).
+ */
+export type PaginationResultFor<O, Inner> = O extends { mode: 'cursor' }
+  ? CursorPaginationResult<SelectedInnerDocument<Inner, O>>
+  : OffsetPaginationResult<SelectedInnerDocument<Inner, O>>
 
 export type BacklinkSource = ContentCollectionTarget
 
@@ -228,7 +316,8 @@ export type BacklinksOptions<
 > = {
   by: ContentSelector
   from: Source
-  fields?: BacklinkFields<Source>
+  /** Relation field(s) used to traverse back to the target (per-source map or a shared field list). */
+  via?: BacklinkFields<Source>
   sort?: SortSpec<DocumentFromSource<Source>>
   limit?: number
   skip?: number
@@ -243,48 +332,40 @@ export type BacklinksResult<
   P extends PopulateSpec | undefined = undefined
 > = Array<LocalizedDoc<PopulatedDocument<DocumentFromSource<Source>, P>>>
 
-export type VariantsOptions<H = unknown> = {
-  by: ContentSelector
-  locales?: string[]
-} & LocaleOption<H>
+export type { ContentNavigationItem }
 
-export interface ContentVariant<_T = ParsedContentMeta> {
-  locale: string
-  path: string
-  translated: boolean
-  fallback?: string
-}
-
-export type TreeOptions<
+/** Options for the public `navigation()` verb (VNEXT.md 10.2), absorbing `tree()`. */
+export type NavigationOptions<
   H = unknown,
-  Fields extends ReadonlyArray<keyof HandleSchema<H> | string> | undefined = undefined
+  Select extends ReadonlyArray<keyof HandleSchema<H> | string> | undefined = undefined
 > = {
   where?: QueryWhere<HandleSchema<H>>
   sort?: SortSpec<HandleSchema<H>>
-  fields?: Fields
+  select?: Select
   fallback?: LocaleFallback
 } & LocaleOption<H>
 
-export type ContentTreeItem<
+/** Navigation tree node returned by `navigation()`. Group/control nodes may omit a route; linkable nodes carry one. */
+export type ContentNavigationTreeItem<
   T = ParsedContentMeta,
-  Fields extends ReadonlyArray<keyof T | string> | undefined = undefined
+  Select extends ReadonlyArray<keyof T | string> | undefined = undefined
 > = {
   title: string
   path: string
-  children?: Array<ContentTreeItem<T, Fields>>
-} & (Fields extends ReadonlyArray<infer K>
+  children?: Array<ContentNavigationTreeItem<T, Select>>
+} & (Select extends ReadonlyArray<infer K>
   ? Pick<T, Extract<K, keyof T>>
   : Record<never, never>)
 
-export type { ContentNavigationItem }
-
-export type NeighborsOptions<H = unknown> = {
+/** Options for the public `surround()` verb (VNEXT.md 10.2), replacing `neighbors()`. */
+export type SurroundOptions<H = unknown> = {
   by: ContentSelector
   fallback?: LocaleFallback
-  fields?: SelectFields<H>
+  select?: SelectFields<H>
 } & LocaleOption<H>
 
-export interface NeighborsResult<T = ParsedContentMeta> {
-  prev: ContentTreeItem<T> | null
-  next: ContentTreeItem<T> | null
+/** Result of the public `surround()` verb — `previous`, never `prev` (VNEXT.md 10.2). */
+export interface SurroundResult<T = ParsedContentMeta> {
+  previous: ContentNavigationTreeItem<T> | null
+  next: ContentNavigationTreeItem<T> | null
 }

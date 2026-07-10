@@ -21,9 +21,18 @@ import {
 import { renderAgentMarkdownBody } from '../../features/agent/walker'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
 import { getCollectionPath } from '../../features/query/routes'
+import { pathHasLocalePrefix } from '../../core/content/path'
+import { projectContentRoute } from '../../features/localization/route-projector'
+import { isPublicationVisible, resolveRuntimeEnvironment, type ContentVisibilityContext } from '../../core/visibility'
+import { isPreview } from '../../integrations/nitro/preview'
 import { getContentProvider } from './providers'
 import { createProviderQuery } from './provider-query'
 import { contentConfig } from './storage-access'
+
+const visibilityContextForEvent = (event: H3Event): ContentVisibilityContext => ({
+  environment: resolveRuntimeEnvironment(),
+  previewAuthorized: isPreview(event)
+})
 
 export * from '../../features/agent/agent-markdown'
 export { renderAgentMarkdownBody } from '../../features/agent/walker'
@@ -102,13 +111,25 @@ const markdownEnabledCollectionEntries = (collections?: string[]) =>
   Object.entries(contentConfig().collections || {})
     .filter(([name, config]) => (!collections?.length || collections.includes(name)) && resolveAgentMarkdownOptions(config as any))
 
-const isPublicPage = (page: ParsedContent, config: ContentCollectionConfig | undefined) =>
+// Publication visibility (draft) is applied here through the one core
+// predicate (`isPublicationVisible`, VNEXT.md 13.6/24.2) rather than a
+// hardcoded `!page.draft` — a provider's raw query result can legitimately
+// carry drafts as facts (providers never decide Ginko's own visibility
+// policy), so agent output follows the same environment/preview-aware
+// visibility as every other surface instead of always hiding drafts.
+//
+// What remains structural (never a route: data collections, partials,
+// navigation-control files) plus agent output's own consumer-specific
+// "public index" policy: it deliberately mirrors navigation/sitemap/robots
+// opt-outs so agent-facing markdown/llms output doesn't advertise a page the
+// site itself hid from indexing.
+const isPublicPage = (page: ParsedContent, config: ContentCollectionConfig | undefined, visibility: ContentVisibilityContext) =>
   Boolean(
     page
     && config
     && config.type !== 'data'
     && config.sitemap !== false
-    && !page.draft
+    && isPublicationVisible({ draft: page.draft }, visibility)
     && !page.partial
     && !page.navigationFile
     && (page as { navigation?: unknown }).navigation !== false
@@ -191,12 +212,20 @@ const collectionDefaultLocale = (config: ContentCollectionConfig) => {
   return collectionI18n?.defaultLocale || contentConfig().defaultLocale || contentConfig().agent?.site?.defaultLocale
 }
 
+/**
+ * Empty-`routeMounts` policy pattern (VNEXT.md §12.2, matching
+ * `features/query/routes.ts#getCollectionPath`): only a locale prefix is
+ * needed here, so `projectContentRoute` gets a policy with an empty
+ * `routeMounts` and owns the prefix decision instead of a hand-assembled one.
+ */
 const prefixRequestedLocale = (path: string, locale: string | undefined, defaultLocale: string | undefined) => {
   const normalized = normalizeAgentRoutePath(path)
-  if (!locale || locale === defaultLocale) return normalized
-  if (normalized === `/${locale}` || normalized.startsWith(`/${locale}/`)) return normalized
-  if (normalized === '/') return `/${locale}`
-  return `/${locale}${normalized}`
+  if (!locale) return normalized
+  if (pathHasLocalePrefix(normalized, [locale])) return normalized
+  return projectContentRoute(
+    { contentPath: normalized, locale },
+    { localized: true, locales: [locale], defaultLocale, fallback: {}, translatedSlugs: false, routeMounts: {} }
+  )
 }
 
 const publicPathForLocale = (
@@ -252,7 +281,7 @@ export async function resolveContentMarkdown (
   const page = await provider.page<ParsedContent>(event, collection, routeOrPath, {
     ...(options.locale ? { locale: options.locale } : {})
   })
-  if (!page || !isPublicPage(page, config)) return null
+  if (!page || !isPublicPage(page, config, visibilityContextForEvent(event))) return null
   return toAgentMarkdown(collection, page, agentOptions)
 }
 
@@ -279,6 +308,7 @@ export async function queryMarkdownEnabledContent (
 ): Promise<AgentMarkdownMeta[]> {
   const provider = await getContentProvider(event)
   const result: AgentMarkdownMeta[] = []
+  const visibility = visibilityContextForEvent(event)
 
   for (const [collection, config] of markdownEnabledCollectionEntries(options.collections)) {
     const agentOptions = resolveAgentMarkdownOptions(config as any)
@@ -290,7 +320,7 @@ export async function queryMarkdownEnabledContent (
       ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
     })))
     for (const row of rows) {
-      if (!isPublicPage(row, config as any)) continue
+      if (!isPublicPage(row, config as any, visibility)) continue
       const locale = options.locale || row.resolved?.locale || row.locale
       const path = publicPathForQueryRow(collection, config as any, row, locale)
       const title = typeof row.title === 'string' && row.title.trim()

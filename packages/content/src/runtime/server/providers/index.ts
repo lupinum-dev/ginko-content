@@ -130,21 +130,37 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
     }
   }
 
-  if (!capabilities.limit && query.plan.limit !== undefined) {
-    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support query limits.`, {
-      provider: provider.name,
-      field: 'limit'
-    })
-  }
+  // Pagination-mode capability preflight (VNEXT.md 10.2/13.1) — this runs
+  // BEFORE `provider.query()` is ever invoked (see `enforceProviderCapabilities`
+  // below), so an unsupported paging request never reaches provider dispatch.
+  // `limit` alone needs no capability: bounding a provider's natural result
+  // order is always safe. `skip > 0` and an explicit cursor request each
+  // require the matching advertised mode; the `count` terminal requires
+  // `offset` (an exact count implies an exact total is meaningful).
+  const pagination = new Set(capabilities.pagination)
 
-  if (!capabilities.skip && query.plan.skip > 0) {
-    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support query offsets.`, {
+  if (query.plan.skip > 0 && !pagination.has('offset')) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support offset pagination (skip).`, {
       provider: provider.name,
       field: 'skip'
     })
   }
 
-  if (!capabilities.count && query.plan.mode === 'count') {
+  if (query.plan.paging?.mode === 'cursor' && !pagination.has('cursor')) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support cursor pagination.`, {
+      provider: provider.name,
+      field: 'paging'
+    })
+  }
+
+  if (query.plan.paging?.mode === 'offset' && !pagination.has('offset')) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support offset pagination.`, {
+      provider: provider.name,
+      field: 'paging'
+    })
+  }
+
+  if (query.plan.mode === 'count' && !pagination.has('offset')) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support count queries.`, {
       provider: provider.name,
       field: 'count'
@@ -249,9 +265,12 @@ const validateContentProvider = (providerName: string, provider: unknown): Conte
     Array.isArray(queryCapabilities.operators) && queryCapabilities.operators.every(operator => typeof operator === 'string'),
     'capabilities.query.operators'
   )
-  assertProviderField(providerName, typeof queryCapabilities.limit === 'boolean', 'capabilities.query.limit')
-  assertProviderField(providerName, typeof queryCapabilities.skip === 'boolean', 'capabilities.query.skip')
-  assertProviderField(providerName, typeof queryCapabilities.count === 'boolean', 'capabilities.query.count')
+  assertProviderField(
+    providerName,
+    Array.isArray(queryCapabilities.pagination)
+    && queryCapabilities.pagination.every((mode: unknown) => mode === 'offset' || mode === 'cursor'),
+    'capabilities.query.pagination'
+  )
 
   assertProviderMethod(providerName, provider, 'query')
 

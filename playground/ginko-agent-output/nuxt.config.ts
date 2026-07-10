@@ -11,9 +11,10 @@ export default defineNuxtConfig({
       linkHeaders: true,
       markdownNegotiation: true
     },
+    // Nuxt I18n (configured below) is the sole locale/default-locale
+    // authority (VNEXT.md §12.1). Ginko content still owns translated-slug
+    // policy.
     i18n: {
-      defaultLocale: 'en',
-      locales: ['en', 'de'],
       translatedSlugs: true
     }
   },

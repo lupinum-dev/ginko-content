@@ -4,33 +4,38 @@ Use this when wiring search UI, generated search data, or public sitemap output.
 
 ## Search data
 
-Use `useContentSearchData()` for UI search payloads:
+Use `useContentSearch()` for search UI, its query, and its result payloads:
 
 ```vue
 <script setup lang="ts">
-import { useContentSearchData } from '@lupinum/ginko-content/client'
+import { useContentSearch } from '@lupinum/ginko-content/client'
 import { docs } from '~/content.config'
 
 const {
+  query,
+  results,
   files,
   searchNavigation,
-  searchTerm
-} = await useContentSearchData(docs)
+  setQuery
+} = await useContentSearch({ collection: docs })
 </script>
 ```
 
-`searchNavigation` is projected for search UI. Do not pass it to layout/sidebar navigation.
+`searchNavigation` (from `useContentSearch`) is the sole search-navigation surface — it is projected for search UI. Do not pass it to layout/sidebar navigation.
 
 ## Layout navigation
 
-Use `useContentTree()` for layout navigation:
+Use the `navigation()` verb with `useAsyncData` for layout navigation:
 
 ```ts
+import { useAsyncData } from '#imports'
+import { navigation } from '@lupinum/ginko-content/client'
 import { docs } from '~/content.config'
 
-const { navigation } = await useContentTree(docs, {
-  locale: 'en'
-})
+const { data: tree } = await useAsyncData(
+  'layout-navigation:en',
+  () => navigation(docs, { locale: 'en' })
+)
 ```
 
 ## Sitemap setup

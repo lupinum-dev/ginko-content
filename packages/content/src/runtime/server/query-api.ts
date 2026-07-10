@@ -1,38 +1,36 @@
 import type { H3Event } from 'h3'
 import type { ParsedContent } from '../../types/content'
-import type { ContentCollectionHandle } from '../../types/config'
+import type { ContentCollectionHandle, __ginkoSchemaBrand  } from '../../types/config'
 import type {
   BacklinksOptions,
   BacklinksResult,
   BacklinkSource,
-  ContentVariant,
-  ContentTreeItem,
+  ContentNavigationTreeItem,
   DocumentFromHandle,
   ManyOptions,
-  LocalizedDoc,
-  NeighborsOptions,
-  NeighborsResult,
+  NavigationOptions,
   OneOptions,
   OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
   PaginationOptions,
-  PaginationResult,
+  PaginationResultFor,
+  QueryResultDocument,
   ResolveOneOptions,
   ResolveOneResult,
-  TreeOptions,
-  VariantsOptions
+  SelectedInnerDocument,
+  SurroundOptions,
+  SurroundResult
 } from '../../types/query'
 import {
   backlinks as backlinksWithContext,
   many as manyWithContext,
-  neighbors as neighborsWithContext,
+  navigation as navigationWithContext,
   one as oneWithContext,
   paginate as paginateWithContext,
   resolveOne as resolveOneWithContext,
-  tree as treeWithContext,
-  variants as variantsWithContext,
+  surround as surroundWithContext,
   type ContentQueryContext
 } from '../../features/query/unified'
 import { getContentProvider } from './providers'
@@ -67,7 +65,7 @@ export async function resolveOne<
   event: H3Event,
   handle: H,
   options: O
-): Promise<ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
+): Promise<ResolveOneResult<SelectedInnerDocument<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>, O>>> {
   return await resolveOneWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
@@ -78,7 +76,7 @@ export async function one<
   event: H3Event,
   handle: H,
   options: O
-): Promise<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>> | null> {
+): Promise<QueryResultDocument<H, O> | null> {
   return await oneWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
@@ -89,7 +87,7 @@ export async function many<
   event: H3Event,
   handle: H,
   ...args: OptionsArg<H, O>
-): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
+): Promise<Array<QueryResultDocument<H, O>>> {
   const options = (args[0] ?? {}) as O
   return await manyWithContext(await createServerContentQueryContext(event), handle, options)
 }
@@ -101,8 +99,8 @@ export async function paginate<
   event: H3Event,
   handle: H,
   options: O
-): Promise<PaginationResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
-  return await paginateWithContext(await createServerContentQueryContext(event), handle, options)
+): Promise<PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
+  return await paginateWithContext(await createServerContentQueryContext(event), handle, options) as unknown as PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
 }
 
 export async function backlinks<
@@ -117,30 +115,22 @@ export async function backlinks<
   return await backlinksWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
-export async function variants<H extends ContentCollectionHandle | string>(
-  event: H3Event,
-  handle: H,
-  options: VariantsOptions<H>
-): Promise<Array<ContentVariant<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>>> {
-  return await variantsWithContext(await createServerContentQueryContext(event), handle, options)
-}
-
-export async function tree<
+export async function navigation<
   H extends ContentCollectionHandle | string,
-  Fields extends ReadonlyArray<string> | undefined = undefined
+  Select extends ReadonlyArray<string> | undefined = undefined
 >(
   event: H3Event,
   handle: H,
-  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
-): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
-  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
-  return await treeWithContext(await createServerContentQueryContext(event), handle, options)
+  ...args: OptionsArg<H, Omit<NavigationOptions<H>, 'select'> & { select?: Select }>
+): Promise<ContentNavigationTreeItem<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent, Select>[]> {
+  const options = (args[0] ?? {}) as Omit<NavigationOptions<H>, 'select'> & { select?: Select }
+  return await navigationWithContext(await createServerContentQueryContext(event), handle, options)
 }
 
-export async function neighbors<H extends ContentCollectionHandle | string>(
+export async function surround<H extends ContentCollectionHandle | string>(
   event: H3Event,
   handle: H,
-  options: NeighborsOptions<H>
-): Promise<NeighborsResult<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
-  return await neighborsWithContext(await createServerContentQueryContext(event), handle, options)
+  options: SurroundOptions<H>
+): Promise<SurroundResult<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
+  return await surroundWithContext(await createServerContentQueryContext(event), handle, options)
 }

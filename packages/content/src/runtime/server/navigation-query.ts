@@ -9,10 +9,8 @@ import { buildCanonicalNavigation } from '../../features/navigation/build'
 import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
 import { normalizeRouteMounts } from '../../features/localization/path'
 import { getContentRuntimeConfig } from './runtime-config'
-import { isPreview } from './preview'
-import { cacheStorage } from './storage-access'
 import { createServerContentQuery } from './storage'
-import { resolveLocaleChain } from './manifest'
+import { resolveLocaleChain } from '../../storage/graph'
 
 const reviveFilterValue = (value: unknown): unknown =>
   isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
@@ -108,15 +106,9 @@ export async function resolveContentNavigation (
   return await resolveContentNavigationData({
     defaultLocale: runtimeConfig.content.defaultLocale,
     localeFallback: runtimeConfig.content.localeFallback,
-    navigation: runtimeConfig.public.content.navigation,
-    cacheEnabled: true,
-    isPreview: isPreview(event)
+    navigation: runtimeConfig.public.content.navigation
   }, {
     query: inputQuery,
-    readCache: async () => {
-      const cached = await cacheStorage(event).getItem('_nav.json')
-      return cached as NavItem[] | null
-    },
     loadLocaleNavigation: async (locale?: string) => {
       let contentsQuery = createServerContentQuery(event, sourceQuery)
         .where('partial', '=', false)

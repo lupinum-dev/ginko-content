@@ -30,9 +30,11 @@ export const registerContentContextFinalization = ({
   onResolved
 }: ContentContextFinalizationOptions) => {
   nuxt.hook('modules:done', async () => {
+    // `content:providers` remains the mutable setup registry: it runs before
+    // provider selection is validated so integrations (e.g. Ginko CMS) can
+    // register an implementation name before the check below runs.
     await nuxt.callHook('content:providers', contentContext.providers ||= {})
     assertConfiguredProviderAvailable(contentContext)
-    await nuxt.callHook('content:context', contentContext)
 
     if (contentContext.search !== false) {
       registerContentSearchServerHandlers(options.api.baseURL, contentContext.search, resolveRuntimeModule)
@@ -43,7 +45,24 @@ export const registerContentContextFinalization = ({
       ...contentContext,
       markdown: processMarkdownOptions(contentContext.markdown)
     }
+    // `resolvedContentContext` is embedded by reference into Nuxt/Nitro
+    // runtime config below (module/runtime-config.ts spreads it into the
+    // object Nitro normalizes) — Nitro's own runtime-config fallback-value
+    // provider recursively assigns onto every object it walks, which throws
+    // on a frozen object. Freezing must therefore never reach that shared
+    // reference. Give `content:context` observers a distinct shallow-frozen
+    // top-level clone instead (VNEXT.md §17.4): dev-mode exposes accidental
+    // top-level mutation from observers without touching the object Nitro
+    // still needs to write into.
     onResolved(resolvedContentContext)
+    const contextForObservers = nuxt.options.dev
+      ? Object.freeze({ ...resolvedContentContext })
+      : resolvedContentContext
+    // `content:context` is a read-only notification called only after the
+    // content context is fully resolved (VNEXT.md §17.4). Observers may
+    // validate or derive their own artifacts from it; they may not mutate
+    // collections, locales, provider selection, or routing policy.
+    await nuxt.callHook('content:context', contextForObservers)
     await validateBuiltinMarkdownPlugins(resolvedContentContext.markdown.plugins, resolvePath)
 
     const collectionEntries = Object.entries(options.collections || {}).map(([name, collection]) => {
@@ -54,7 +73,6 @@ export const registerContentContextFinalization = ({
         ...(collection.type ? { type: collection.type } : {}),
         strict: collection.strict ?? true,
         ...(collection.route ? { route: collection.route } : {}),
-        ...(typeof collection.translatedSlugs === 'boolean' ? { translatedSlugs: collection.translatedSlugs } : {}),
         ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
         ...(collection.i18n && collection.i18n !== true ? { i18n: collection.i18n } : {}),
         ...(collection.cms ? { cms: collection.cms } : {}),

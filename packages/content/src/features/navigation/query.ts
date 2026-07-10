@@ -3,17 +3,22 @@ import type { ContentQueryBuilderParams } from '../../types/query'
 import { buildLocaleFallbackChain } from '../../core/content/locale'
 import { mergeCanonicalNavigation, projectNavigationTree, type CanonicalNavigationItem } from './canonical'
 
+/**
+ * Navigation always derives fresh from `loadLocaleNavigation` (VNEXT.md 15.4,
+ * 15.7, 25.4): there is no persisted "single-entry" navigation cache here
+ * (the deleted `_nav.json` artifact). `loadLocaleNavigation` itself reads
+ * through `storage/graph.ts#getContentGraph`, which is already the one
+ * process-cached graph in production and a per-request memo in dev, so
+ * this layer does not need its own cache with no revision source.
+ */
 export interface ResolveNavigationRuntime {
   defaultLocale?: string
   localeFallback?: Record<string, string[]>
   navigation: false | { fields: string[] }
-  cacheEnabled: boolean
-  isPreview: boolean
 }
 
 export interface ResolveNavigationOptions {
   query?: ContentQueryBuilderParams
-  readCache?: () => Promise<NavItem[] | null>
   loadLocaleNavigation: (locale?: string) => Promise<NavItem[]>
   resolveLocaleChain: (
     requestedLocale?: string,
@@ -27,7 +32,6 @@ export const resolveContentNavigationData = async (
   runtime: ResolveNavigationRuntime,
   {
     query: inputQuery = {},
-    readCache,
     loadLocaleNavigation,
     resolveLocaleChain,
     localizeNavigation
@@ -48,13 +52,6 @@ export const resolveContentNavigationData = async (
 
   if (runtime.navigation === false) {
     return []
-  }
-
-  if (runtime.cacheEnabled && !runtime.isPreview && !resolveLocale && Object.keys(query).length === 0 && readCache) {
-    const cache = await readCache()
-    if (cache) {
-      return cache
-    }
   }
 
   const requestedLocale = resolveLocale?.locale

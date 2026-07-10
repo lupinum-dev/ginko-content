@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import type { DoctorFinding } from '../types'
+import type { DoctorFinding, FindingSeverity } from '../types'
 import { collectFiles, toRelativePath } from '../files'
 import { lockfileNames } from './constants'
 
@@ -7,6 +7,8 @@ export interface SourceCheck {
   pattern: RegExp
   message: string
   suggestion: string
+  /** @default 'error' */
+  severity?: FindingSeverity
 }
 
 export async function inspectSourceChecks(rootDir: string, checks: SourceCheck[]): Promise<DoctorFinding[]> {
@@ -22,7 +24,7 @@ export async function inspectSourceChecks(rootDir: string, checks: SourceCheck[]
     for (const check of checks) {
       if (check.pattern.test(text)) {
         findings.push({
-          severity: 'error',
+          severity: check.severity ?? 'error',
           file: toRelativePath(rootDir, file),
           message: check.message,
           suggestion: check.suggestion

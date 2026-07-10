@@ -14,7 +14,7 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
   })
 }))
 
-vi.mock('../../packages/content/src/storage/manifest', () => ({
+vi.mock('../../packages/content/src/storage/graph', () => ({
   resolveCanonicalKey,
   resolveVariant
 }))

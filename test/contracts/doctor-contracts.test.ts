@@ -71,6 +71,47 @@ describe('ginko-content doctor contracts', () => {
     ]))
   })
 
+  test('reports removed v3 runtime config keys but treats content.preview as an informational reminder, not a v3 leftover', async () => {
+    const root = createFixture()
+    await writeFixtureFile(root, 'package.json', JSON.stringify({
+      dependencies: {
+        '@lupinum/ginko-content': '^2.13.4'
+      }
+    }))
+    await writeFixtureFile(root, 'nuxt.config.ts', `
+      export default defineNuxtConfig({
+        modules: ['@lupinum/ginko-content']
+      })
+    `)
+    await writeFixtureFile(root, 'server/utils/leftover-v3-config.ts', `
+      import { useRuntimeConfig } from '#imports'
+
+      const config = useRuntimeConfig()
+      // Leftover v3 assumptions: config.content.database, config.content.build
+      // Ginko's own option, still valid: config.content.preview
+      export const usesLegacyDatabase = Boolean(config.content.database)
+      export const usesLegacyBuild = Boolean(config.content.build)
+      export const usesPreview = Boolean(config.content.preview)
+    `)
+
+    const result = await runDoctor({ rootDir: root })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'error',
+        message: 'Nuxt Content v3 runtime config key found.'
+      }),
+      expect.objectContaining({
+        severity: 'info',
+        message: 'content.preview configuration found.'
+      })
+    ]))
+    expect(result.findings).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: 'content.preview configuration found.', severity: 'error' })
+    ]))
+  })
+
   test('accepts route-safe navigation and list path links', async () => {
     const root = createFixture()
     await writeFixtureFile(root, 'package.json', JSON.stringify({

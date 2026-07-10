@@ -339,14 +339,14 @@ Because Ginko owns the content route model, sitemap generation, navigation trees
   <script setup lang="ts">
   import { docs } from '~/content.config'
 
-  const { page, surround } = await useContentPage(docs, {
+  const { page, previous, next } = await useContentPage(docs, {
     surround: true
   })
   </script>
 
   <template>
     <ContentRenderer v-if="page" :value="page" />
-    <UContentSurround :surround="surround" />
+    <UContentSurround :surround="[previous, next]" />
   </template>
   ```
   :::

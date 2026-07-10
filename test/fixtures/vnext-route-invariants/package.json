@@ -1,0 +1,17 @@
+{
+  "name": "@lupinum/ginko-content-test-vnext-route-invariants",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck"
+  },
+  "devDependencies": {
+    "@lupinum/ginko-content": "workspace:*",
+    "nuxt": "4.4.7"
+  }
+}

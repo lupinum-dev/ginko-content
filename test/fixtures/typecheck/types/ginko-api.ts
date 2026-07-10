@@ -1,16 +1,83 @@
 /**
- * Type-level tests for the unified query API (ADR-0016).
+ * Type-level tests for the unified query API (ADR-0016) and the composable
+ * hard cut (VNEXT.md 10.4-10.7, 27).
  *
  * Compiled by `pnpm typecheck`. Negative tests (`@ts-expect-error`) assert
  * that obvious misuses fail at the type level.
  */
 import type {} from '../.nuxt/types/content'
-import type { ContentCollectionName, ContentVariant, DocumentFromHandle, LocalizedContentDocument, LocalizedDoc, LocalePathEntry, QueryWhere, OneOptions } from '@lupinum/ginko-content/client'
-import { getCollectionPath, one, many, paginate, backlinks, neighbors, tree, variants, useContentBacklinks, useContentHead, useContentMany, useContentNavigation, useContentOne, useContentPage, useContentPagination, useContentResolveOne, useContentSearch, useContentSearchData, useContentSearchResults } from '@lupinum/ginko-content/client'
+import {
+  backlinks,
+  getCollectionPath,
+  many,
+  navigation,
+  one,
+  paginate,
+  resolveOne,
+  surround,
+  useContentPage,
+  useContentSearch,
+  type ContentAlternate,
+  type ContentCollectionName,
+  type ContentDocumentResolution,
+  type ContentDocumentRoute,
+  type ContentNavigationTreeItem,
+  type DocumentFromHandle,
+  type LocalizedContentDocument,
+  type OneOptions,
+  type QueryWhere
+} from '@lupinum/ginko-content/client'
+import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
-import { useContentPagination as autoUseContentPagination, useContentBacklinks as autoUseContentBacklinks } from '#imports'
+import { useContentPage as autoUseContentPage, useContentSearch as autoUseContentSearch } from '#imports'
 import { z } from 'zod'
+
+declare const clientSurface: typeof import('@lupinum/ginko-content/client')
+
+/* ── Deleted query verbs are absent from the public surface (VNEXT.md 26.2) ── */
+// `tree`/`neighbors`/`variants` were hard-cut: `tree` folded into `navigation()`,
+// `neighbors` became `surround()`, and `variants` was deleted (alternates come
+// from `resolveOne()`). None may be imported as a public query verb.
+// @ts-expect-error the `tree` query verb was absorbed into navigation() and is not exported.
+void clientSurface.tree
+// @ts-expect-error the `neighbors` query verb became surround() and is not exported.
+void clientSurface.neighbors
+// @ts-expect-error the `variants` query verb was deleted; alternates come from resolveOne().
+void clientSurface.variants
+
+/* ── Deleted wrapper composables are absent from the public surface (VNEXT.md 10.6) ── */
+// Every wrapper composable except `useContentPage`/`useContentSearch` is a
+// hard-cut deletion (VNEXT.md 10.4-10.6). Applications compose pure `/client`
+// operations with `useAsyncData` instead (VNEXT.md 10.6 recipe).
+// @ts-expect-error useContentOne was deleted; compose one() with useAsyncData instead.
+void clientSurface.useContentOne
+// @ts-expect-error useContentMany was deleted; compose many() with useAsyncData instead.
+void clientSurface.useContentMany
+// @ts-expect-error useContentPagination was deleted; compose paginate() with useAsyncData instead.
+void clientSurface.useContentPagination
+// @ts-expect-error useContentBacklinks was deleted; compose backlinks() with useAsyncData instead.
+void clientSurface.useContentBacklinks
+// @ts-expect-error useContentResolveOne was deleted; compose resolveOne() with useAsyncData instead.
+void clientSurface.useContentResolveOne
+// @ts-expect-error useContentVariants was deleted; alternates live on resolved documents.
+void clientSurface.useContentVariants
+// @ts-expect-error useContentTree was deleted; navigation() absorbs tree().
+void clientSurface.useContentTree
+// @ts-expect-error useContentNavigation was deleted; compose navigation() with useAsyncData instead.
+void clientSurface.useContentNavigation
+// @ts-expect-error useContentNeighbors was deleted; surround() replaces neighbors().
+void clientSurface.useContentNeighbors
+// @ts-expect-error useContentToc was deleted; wrap the pure extractContentToc in computed() instead.
+void clientSurface.useContentToc
+// @ts-expect-error useContentHead was deleted; use Nuxt useHead / Nuxt I18n head composition instead.
+void clientSurface.useContentHead
+// @ts-expect-error useContentSwitchLocalePath was deleted; read page.route.alternates instead.
+void clientSurface.useContentSwitchLocalePath
+// @ts-expect-error useContentSearchData was absorbed into useContentSearch({ collection }).
+void clientSurface.useContentSearchData
+// @ts-expect-error useContentSearchResults was absorbed into useContentSearch().
+void clientSurface.useContentSearchResults
 
 // @ts-expect-error named collection declarations were removed; use the collections map key.
 const _removedNamedCollection = defineCollection('legacy', {
@@ -48,7 +115,7 @@ const rawPosts = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),
-    date: z.union([z.string(), z.date()]),
+    date: z.string(),
     authors: z.array(reference('authors')),
     image: z.object({ src: z.string() }).optional()
   })
@@ -69,9 +136,15 @@ type Expect<T extends true> = T
 
 /* ── Type-level shape probes ────────────────────────────────────────────── */
 
-// Handles carry the i18n discriminator at the type level.
-type _ProbeDocsI18n = Expect<Equal<typeof docs.__i18n, true>>
-type _ProbePostsI18n = Expect<Equal<typeof posts.__i18n, false>>
+// Handles carry the i18n discriminator at the type level, behind a private
+// symbol carrier (VNext 18.1) rather than a readable `__i18n` property.
+type _ProbeDocsI18n = Expect<Equal<typeof docs[typeof __ginkoI18nBrand], true>>
+type _ProbePostsI18n = Expect<Equal<typeof posts[typeof __ginkoI18nBrand], false>>
+// The old readable properties must be gone at the type level.
+// @ts-expect-error __i18n is no longer a readable property on collection handles.
+void (docs.__i18n)
+// @ts-expect-error __schema is no longer a readable property on collection handles.
+void (docs.__schema)
 type _ProbeConfigKeyName = Expect<Equal<typeof _contentConfig.collections.docs.name, 'docs'>>
 
 // OneOptions imports correctly (regression: dist/types must be emitted —
@@ -103,22 +176,45 @@ const blogResult = await one(posts, { by: { path: '/hello' } })
 type BlogDoc = NonNullable<typeof blogResult>
 type _BlogHasTitle = Expect<Equal<BlogDoc['title'], string>>
 type _BlogSeoTitle = Expect<Equal<BlogDoc['seo'], { title?: string, description?: string, image?: string | { src: string, alt?: string, width?: number, height?: number } } | undefined>>
-type _BlogHasLocalePaths = Expect<Equal<BlogDoc['localePaths'], LocalizedDoc['localePaths']>>
-type _BlogMatchesExplicitLocalizedAlias = Expect<Equal<BlogDoc['localePaths'], LocalizedContentDocument['localePaths']>>
-type _BlogLocalePathEntries = Expect<Equal<BlogDoc['localePaths'][string], LocalePathEntry>>
-type _BlogHasResolvedLocale = Expect<Equal<BlogDoc['resolved']['locale'], string>>
-type _BlogHasResolvedFallback = Expect<Equal<BlogDoc['resolved']['fallback'], boolean>>
-type _BlogResolvedAvailableLocales = Expect<Equal<BlogDoc['resolved']['availableLocales'], string[]>>
+
+/* ── 10.4 canonical document facts envelope ─────────────────────────────── */
+
+// The envelope is exactly `route`/`resolution` — no top-level `path`,
+// `variants`, `localePaths`, or `resolved` shape (VNEXT.md 10.4).
+type _BlogHasRoute = Expect<Equal<BlogDoc['route'], ContentDocumentRoute>>
+type _BlogHasResolution = Expect<Equal<BlogDoc['resolution'], ContentDocumentResolution>>
+type _BlogMatchesExplicitLocalizedAlias = Expect<Equal<BlogDoc['route'], LocalizedContentDocument['route']>>
+type _BlogRouteResolvedPathIsString = Expect<Equal<BlogDoc['route']['resolvedPath'], string>>
+type _BlogRouteRequestedPathIsOptional = Expect<Equal<BlogDoc['route']['requestedPath'], string | undefined>>
+type _BlogAlternatesAreTyped = Expect<Equal<BlogDoc['route']['alternates'], ContentAlternate[]>>
+type _BlogResolvedLocaleIsString = Expect<Equal<BlogDoc['resolution']['resolved']['locale'], string>>
+type _BlogRequestedLocaleIsOptional = Expect<Equal<BlogDoc['resolution']['requested']['locale'], string | undefined>>
+type _BlogUsedFallbackIsBoolean = Expect<Equal<BlogDoc['resolution']['usedFallback'], boolean>>
+
+if (blogResult) {
+  // @ts-expect-error the old flat `path` field was deleted; use route.resolvedPath.
+  void blogResult.path
+  // @ts-expect-error the old `variants` field was deleted; use route.alternates.
+  void blogResult.variants
+  // @ts-expect-error the old `localePaths` field was deleted; use route.alternates.
+  void blogResult.localePaths
+  // @ts-expect-error the old `resolved` field was deleted; use `resolution`.
+  void blogResult.resolved
+  // @ts-expect-error canonicalPath does not exist — canonicalKey is opaque identity, not a URL.
+  void blogResult.route.canonicalPath
+}
 
 // String collection names keep generated document inference.
 const stringBlogResult = await one('posts', { by: { path: '/hello' } })
 if (stringBlogResult) {
   const stringBlogTitle: string = stringBlogResult.title
-  const stringBlogDate: string | Date = stringBlogResult.date
+  const stringBlogDate: string = stringBlogResult.date
   const stringBlogAuthors: string[] = stringBlogResult.authors
+  const stringBlogResolvedPath: string = stringBlogResult.route.resolvedPath
   void stringBlogTitle
   void stringBlogDate
   void stringBlogAuthors
+  void stringBlogResolvedPath
 }
 
 const stringDocsResult = await one('docs', {
@@ -135,19 +231,26 @@ if (stringDocsResult) {
   void stringDocsTitle
 }
 
-const stringManyPosts = await useContentMany('posts', {
-  where: { title: { $exists: true } },
-  sort: { date: 'desc' },
-  select: ['title', 'date', 'authors']
-})
-const firstStringPost = stringManyPosts.data.value[0]
-if (firstStringPost) {
-  const title: string = firstStringPost.title
-  const date: string | Date = firstStringPost.date
-  const authors: string[] = firstStringPost.authors
+// The documented replacement for the deleted `useContentMany`: a pure
+// operation composed with `useAsyncData` (VNEXT.md 10.6).
+const manyPostsAsync = await useAsyncDataTypecheckOnly(
+  'typecheck-many-posts',
+  () => many(posts, {
+    where: { title: { $exists: true } },
+    sort: { date: 'desc' },
+    select: ['title', 'date', 'authors']
+  })
+)
+const firstManyPost = manyPostsAsync.data.value?.[0]
+if (firstManyPost) {
+  const title: string = firstManyPost.title
+  const date: string = firstManyPost.date
+  const authors: string[] = firstManyPost.authors
+  const usedFallback: boolean = firstManyPost.resolution.usedFallback
   void title
   void date
   void authors
+  void usedFallback
 }
 
 const stringPopulatedPost = await one('posts', {
@@ -181,9 +284,8 @@ const docsResult = await one(docs, {
 })
 type DocsDoc = NonNullable<typeof docsResult>
 type _DocsHasTitle = Expect<Equal<DocsDoc['title'], string>>
-type _DocsResolvedRequestedLocale = Expect<Equal<DocsDoc['resolved']['requestedLocale'], string | undefined>>
-type _DocsResolvedFallbackLocale = Expect<Equal<DocsDoc['resolved']['fallbackLocale'], string | undefined>>
-type _DocsLocalePathEntryTranslated = Expect<Equal<DocsDoc['localePaths'][string]['translated'], boolean>>
+type _DocsRequestedLocaleIsOptionalString = Expect<Equal<DocsDoc['resolution']['requested']['locale'], string | undefined>>
+type _DocsAlternateCarriesResolvedLocale = Expect<Equal<Extract<DocsDoc['route']['alternates'][number], { source: 'fallback' }>['resolvedLocale'], string>>
 
 // Public-safe MongoDB-style filter operators are accepted.
 const filtered = await many(posts, {
@@ -204,7 +306,7 @@ const pagedPosts = await paginate(posts, {
 const pagedPost = pagedPosts.data[0]
 if (pagedPost) {
   const pagedTitle: string = pagedPost.title
-  const pagedDate: string | Date = pagedPost.date
+  const pagedDate: string = pagedPost.date
   void pagedTitle
   void pagedDate
 }
@@ -212,6 +314,25 @@ const pageTotal: number = pagedPosts.total
 const pageNext: number | null = pagedPosts.nextPage
 void pageTotal
 void pageNext
+
+/* ── paginate() discriminates offset vs cursor by the caller's own `mode` ── */
+
+// Omitting `mode` narrows to the offset shape — `total`/`page`/`nextPage` exist.
+type _OffsetPageHasTotal = Expect<Equal<typeof pagedPosts.mode, 'offset'>>
+
+const cursorPosts = await paginate(posts, {
+  where: { title: { $exists: true } },
+  mode: 'cursor',
+  after: null,
+  limit: 5
+})
+type _CursorPageModeIsTyped = Expect<Equal<typeof cursorPosts.mode, 'cursor'>>
+const cursorEndCursor: string | null = cursorPosts.endCursor
+void cursorEndCursor
+// @ts-expect-error a cursor page has no `total` — no synthetic total is invented
+void cursorPosts.total
+// @ts-expect-error a cursor page has no `page` number
+void cursorPosts.page
 
 const authorBacklinks = await backlinks(authors, {
   locale: 'de',
@@ -244,7 +365,7 @@ const mixedBacklinks = await backlinks(authors, {
   locale: 'de',
   by: { ref: 'authors.evan' },
   from: [posts, docs],
-  fields: {
+  via: {
     posts: ['authors'],
     docs: ['author']
   }
@@ -255,44 +376,11 @@ if (mixedBacklink) {
   void title
 }
 
-// Composables mirror the same option shape.
-const manyDocs = await useContentMany(posts, { where: { title: { $exists: true } } })
-const firstManyPost = manyDocs.data.value[0]
-if (firstManyPost) {
-  const typedTitle: string = firstManyPost.title
-  const typedDate: string | Date = firstManyPost.date
-  const typedAuthors: string[] = firstManyPost.authors
-  const resolvedFallback: boolean = firstManyPost.resolved.fallback
-  void typedTitle
-  void typedDate
-  void typedAuthors
-  void resolvedFallback
-}
-const manyPopulatedDocs = await useContentMany(docs, {
-  locale: 'de',
-  populate: { author: authors }
-})
-if (manyPopulatedDocs.data.value[0]?.author) {
-  const authorName: string = manyPopulatedDocs.data.value[0].author.name
-  void authorName
-}
-if (manyPopulatedDocs.data.value[0]) {
-  const populatedDocTitle: string = manyPopulatedDocs.data.value[0].title
-  void populatedDocTitle
-}
-const oneDoc = await useContentOne(docs, { locale: 'de', by: { path: '/leitfaden' } })
-if (oneDoc.data.value) {
-  const resolvedLocale: string = oneDoc.data.value.resolved.locale
-  const related: string | undefined = oneDoc.data.value.related
-  void resolvedLocale
-  void related
-}
-const explained = await useContentResolveOne(docs, { locale: 'de', by: { ref: 'guide.intro' } })
-void explained
+/* ── useContentPage: the sole route-aware app composable (VNEXT.md 10.5, 27.1) ── */
 
 // Route pages may omit locale even for typed i18n handles because the route is
 // the selector. Surround entries return navigation items, not full documents.
-const routePage = await useContentPage(docs, { surround: true, notFound: false })
+const routePage = await useContentPage(docs, { surround: { select: ['title'] } })
 const routePageTitle: string | undefined = routePage.page.value?.title
 const routePreviousItem = routePage.previous.value
 if (routePreviousItem) {
@@ -308,47 +396,34 @@ if (routeNextItem) {
   void routeNextTitle
 }
 void routePageTitle
+const routePageStatus: string = routePage.status.value
+const routePageError: unknown = routePage.error.value
+void routePageStatus
+void routePageError
+await routePage.refresh()
 
-const stringRoutePage = await useContentPage('docs', { surround: true, notFound: false })
-const stringRouteDataTitle: string | undefined = stringRoutePage.data.value?.title
+// @ts-expect-error useContentPage has no `notFound` option (VNEXT.md 27.1) — the app decides.
+await useContentPage(docs, { notFound: false })
+
+// @ts-expect-error useContentPage has no `data` alias — `page` is the sole name.
+void routePage.data
+
+// @ts-expect-error useContentPage has no `surround` array field — use `previous`/`next`.
+void routePage.surround
+
+const stringRoutePage = await useContentPage('docs')
 const stringRoutePageTitle: string | undefined = stringRoutePage.page.value?.title
-const stringRoutePreviousTitle: string | undefined = stringRoutePage.surround.value[0]?.title
-const stringRouteNextTitle: string | undefined = stringRoutePage.surround.value[1]?.title
-const stringRouteSurroundLength: number = stringRoutePage.surround.value.length
-useContentHead(stringRoutePage.page)
-void stringRouteDataTitle
+// Omitting `surround` still types `previous`/`next` (always `null` at runtime).
+const stringRoutePrevious: null | { title: string } = stringRoutePage.previous.value
 void stringRoutePageTitle
-void stringRoutePreviousTitle
-void stringRouteNextTitle
-void stringRouteSurroundLength
-
-const paginated = await useContentPagination(posts, { page: 1, limit: 10 })
-const firstPaginatedPost = paginated.data.value[0]
-if (firstPaginatedPost) {
-  const title: string = firstPaginatedPost.title
-  void title
-}
-const hasNextPage: boolean = paginated.hasNext.value
-void hasNextPage
-
-const backlinkData = await useContentBacklinks(authors, {
-  locale: 'de',
-  by: { ref: 'authors.evan' },
-  from: posts
-})
-const firstBacklink = backlinkData.data.value[0]
-if (firstBacklink) {
-  const title: string = firstBacklink.title
-  void title
-}
+void stringRoutePrevious
 
 const authorPath = getCollectionPath(authors, { slug: 'evan', locale: 'de', defaultLocale: 'en', locales: ['en', 'de'] })
 const typedAuthorPath: string = authorPath
 void typedAuthorPath
 
-// Search composables (out of scope for ADR-0016 but kept).
-void useContentSearchData(docs)
-void useContentSearchResults('guide')
+/* ── useContentSearch: the sole public search composable (VNEXT.md 10.5, 27.2) ── */
+
 const headlessSearch = await useContentSearch({ initialQuery: 'guide', limit: 5 })
 headlessSearch.setQuery('intro')
 headlessSearch.next()
@@ -359,17 +434,31 @@ if (selectedSearchResult) {
   void searchPath
   void searchCollection
 }
+// `searchNavigation` is the sole name for search navigation data (VNEXT.md 27.2)
+// — there is no `navigation` compatibility alias.
+const searchNavItem = headlessSearch.searchNavigation.value[0]
+if (searchNavItem) {
+  const searchNavTitle: string = searchNavItem.title
+  void searchNavTitle
+}
+// @ts-expect-error `navigation` is not a compatibility alias for `searchNavigation`.
+void headlessSearch.navigation
 
-/* ── Auto-imported variants ─────────────────────────────────────────────── */
+// `collection` opts into the absorbed useContentSearchData index/navigation loading.
+const collectionSearch = await useContentSearch({ collection: docs, locale: 'de' })
+const searchFile = collectionSearch.files.value[0]
+if (searchFile) {
+  const searchFileTitle: string = searchFile.title
+  void searchFileTitle
+}
 
-const autoPagination = await autoUseContentPagination(posts, { page: 1, limit: 5 })
-void autoPagination
-const autoBacklinkData = await autoUseContentBacklinks(authors, {
-  locale: 'de',
-  by: { ref: 'authors.evan' },
-  from: posts
-})
-void autoBacklinkData
+/* ── Auto-imported variants (VNEXT.md 10.8: exactly useContentPage/useContentSearch) ── */
+
+const autoRoutePage = await autoUseContentPage(posts)
+void autoRoutePage
+const autoSearch = await autoUseContentSearch({ initialQuery: 'guide' })
+void autoSearch
+
 /* ── Provider fixture public testing subpath ───────────────────────────── */
 
 const fixture = createProviderFixture({
@@ -386,62 +475,113 @@ const fixtureProvider = createFixtureContentProvider(fixture)
 const fixtureEvent = createProviderFixtureEvent({ fixture, provider: fixtureProvider })
 void fixtureEvent
 
-/* ── tree() returns typed navigation items, not unknown[] ──────────────── */
+/* ── navigation() returns typed navigation items, not unknown[] ────────── */
 
-const navResult = await tree(docs, { locale: 'de', fields: ['title'] as const })
+const navResult = await navigation(docs, { locale: 'de', select: ['title'] as const })
 type _NavItem = typeof navResult[number]
 type _NavTitleIsTyped = Expect<Equal<_NavItem['title'], string>>
 void navResult
 
-const navigationState = await useContentNavigation('docs', {
-  locale: 'de',
-  fields: ['title', 'author'] as const
+/* ── surround() takes by (not top-level ref/path) and returns previous/next ── */
+
+const surroundEntries = await surround(docs, { locale: 'de', by: { ref: 'guide.intro' } })
+type _SurroundPreviousIsTyped = Expect<Equal<typeof surroundEntries.previous, ContentNavigationTreeItem<DocsDoc> | null>>
+void surroundEntries
+
+/* ── 10.3 selection-aware return types (decision 24) ───────────────────── */
+
+// With a const `select`, `one()` narrows to the selected keys PLUS the
+// guaranteed identity/route/resolution keys, and drops unselected frontmatter.
+const selectedPost = await one(posts, { by: { path: '/hello' }, select: ['title', 'date'] })
+if (selectedPost) {
+  const selTitle: string = selectedPost.title
+  const selDate: string = selectedPost.date
+  // Guaranteed keys survive projection in the TYPE exactly as at runtime.
+  const selId: string = selectedPost.id
+  const selResolvedPath: string = selectedPost.route.resolvedPath
+  const selResolvedLocale: string = selectedPost.resolution.resolved.locale
+  void selTitle
+  void selDate
+  void selId
+  void selResolvedPath
+  void selResolvedLocale
+  // @ts-expect-error `description` was not selected — it does not survive projection.
+  void selectedPost.description
+  // @ts-expect-error `authors` was not selected — it does not survive projection.
+  void selectedPost.authors
+}
+
+// Populated fields survive even when not named in `select` (VNEXT.md 10.3).
+const selectedPopulated = await one(posts, {
+  by: { path: '/hello' },
+  select: ['title'],
+  populate: { authors: 'authors' }
 })
-const navigationItem = navigationState.data.value[0]
-if (navigationItem) {
-  const navigationId: string = navigationItem.id
-  const navigationPath: string = navigationItem.path
-  const firstNavigationPath: string | undefined = navigationState.firstPage.value?.path
-  const hasNavigationPath: boolean = navigationState.paths.value.has(navigationPath)
-  void navigationId
-  void navigationPath
-  void firstNavigationPath
-  void hasNavigationPath
+if (selectedPopulated?.authors[0]) {
+  const populatedAuthorName: string = selectedPopulated.authors[0].name
+  void populatedAuthorName
+}
+if (selectedPopulated) {
+  const selectedPopulatedTitle: string = selectedPopulated.title
+  void selectedPopulatedTitle
+  // @ts-expect-error `date` was neither selected nor populated — it is dropped.
+  void selectedPopulated.date
 }
 
-const stringSearchData = await useContentSearchData('docs', { locale: 'de' })
-const stringSearchFile = stringSearchData.files.value[0]
-if (stringSearchFile) {
-  const searchFilePath: string = stringSearchFile.id
-  const searchFileTitle: string = stringSearchFile.title
-  void searchFilePath
-  void searchFileTitle
-}
-const stringSearchNavigationItem = stringSearchData.searchNavigation.value[0]
-if (stringSearchNavigationItem) {
-  const searchNavTitle: string = stringSearchNavigationItem.title
-  const searchNavPath: string = stringSearchNavigationItem.path
-  void searchNavTitle
-  void searchNavPath
+// Without `select`, the complete inferred document is returned unchanged.
+const unselectedPost = await one(posts, { by: { path: '/hello' } })
+if (unselectedPost) {
+  const fullDescription: string | undefined = unselectedPost.description
+  const fullAuthors: string[] = unselectedPost.authors
+  void fullDescription
+  void fullAuthors
 }
 
-/* ── variants/neighbors take by (not top-level ref/path) ───────────────── */
-
-const variantList = await variants(docs, { locale: 'de', by: { ref: 'guide.intro' } })
-type _DocsVariantListShape = Expect<Equal<typeof variantList, Array<ContentVariant<DocsDoc>>>>
-const firstVariant = variantList[0]
-if (firstVariant) {
-  const variantLocale: string = firstVariant.locale
-  const variantPath: string = firstVariant.path
-  const variantTranslated: boolean = firstVariant.translated
-  void variantLocale
-  void variantPath
-  void variantTranslated
+// `many` uses the same projection helper (VNEXT.md 10.3).
+const selectedMany = await many(posts, { select: ['title'] })
+const selectedManyItem = selectedMany[0]
+if (selectedManyItem) {
+  const selectedManyTitle: string = selectedManyItem.title
+  const selectedManyId: string = selectedManyItem.id
+  void selectedManyTitle
+  void selectedManyId
+  // @ts-expect-error `date` was not selected on the many() projection.
+  void selectedManyItem.date
 }
-void variantList
 
-const neighborEntries = await neighbors(docs, { locale: 'de', by: { ref: 'guide.intro' } })
-void neighborEntries
+// `paginate` items use the same projection helper in both modes.
+const selectedOffsetPage = await paginate(posts, { page: 1, limit: 5, select: ['title'] })
+const selectedOffsetItem = selectedOffsetPage.data[0]
+if (selectedOffsetItem) {
+  const selectedOffsetTitle: string = selectedOffsetItem.title
+  void selectedOffsetTitle
+  // @ts-expect-error `date` was not selected on the paginate() offset projection.
+  void selectedOffsetItem.date
+}
+const selectedOffsetTotal: number = selectedOffsetPage.total
+void selectedOffsetTotal
+
+const selectedCursorPage = await paginate(posts, { mode: 'cursor', after: null, limit: 5, select: ['title'] })
+const selectedCursorItem = selectedCursorPage.data[0]
+if (selectedCursorItem) {
+  const selectedCursorTitle: string = selectedCursorItem.title
+  void selectedCursorTitle
+  // @ts-expect-error `date` was not selected on the paginate() cursor projection.
+  void selectedCursorItem.date
+}
+// @ts-expect-error a cursor page has no `total`, even with a selection applied.
+void selectedCursorPage.total
+
+// `resolveOne().doc` uses the same projection helper (VNEXT.md 10.3).
+const selectedResolve = await resolveOne(posts, { by: { path: '/hello' }, select: ['title'] })
+if (selectedResolve.doc) {
+  const selectedResolveTitle: string = selectedResolve.doc.title
+  const selectedResolveLocale: string = selectedResolve.doc.resolution.resolved.locale
+  void selectedResolveTitle
+  void selectedResolveLocale
+  // @ts-expect-error `date` was not selected on the resolveOne().doc projection.
+  void selectedResolve.doc.date
+}
 
 /* ── Negative cases (must fail at type-check) ──────────────────────────── */
 
@@ -455,13 +595,7 @@ await one('docs', { by: { ref: 'guide.intro' } })
 await one('missing', { by: { path: '/missing' } })
 
 // @ts-expect-error generated collection names reject unknown literals in composables
-await useContentPage('missing', { notFound: false })
-
-// @ts-expect-error generated collection names reject unknown literals in navigation
-await useContentNavigation('missing')
-
-// @ts-expect-error generated collection names reject unknown literals in search data
-await useContentSearchData('missing')
+await useContentPage('missing')
 
 // @ts-expect-error i18n collection requires locale on many as well
 await many(docs, { where: {} })
@@ -469,18 +603,15 @@ await many(docs, { where: {} })
 // @ts-expect-error i18n collection requires locale on pagination as well
 await paginate(docs, { page: 1, limit: 10 })
 
-// @ts-expect-error i18n collection requires locale on pagination composable as well
-await useContentPagination(docs, { page: 1, limit: 10 })
-
 // @ts-expect-error i18n source collection requires locale on backlinks
-await backlinks(posts, { by: { path: '/hello' }, from: docs, fields: { docs: ['post'] } })
+await backlinks(posts, { by: { path: '/hello' }, from: docs, via: { docs: ['post'] } })
 
 await backlinks(authors, {
   locale: 'de',
   by: { ref: 'authors.evan' },
   from: posts,
   // @ts-expect-error backlink field maps accept source collection names only
-  fields: { postz: ['authors'] }
+  via: { postz: ['authors'] }
 })
 
 // @ts-expect-error by accepts exactly one selector
@@ -507,22 +638,27 @@ await many('posts', { select: ['titel'] })
 // @ts-expect-error populate shorthand is intentionally not part of the public API
 await one('docs', { locale: 'de', by: { path: '/leitfaden' }, populate: ['author'] })
 
-// @ts-expect-error variants requires `by`
-await variants(docs, { ref: 'guide.intro' })
-
-// @ts-expect-error neighbors requires `by`
-await neighbors(docs, { locale: 'de', ref: 'guide.intro' })
+// @ts-expect-error surround requires `by`
+await surround(docs, { locale: 'de', ref: 'guide.intro' })
 
 /* ── CS-7 (T5.5): i18n zero-arg / empty-options holes ──────────────────── */
 
 // @ts-expect-error — i18n collections require a locale; zero-arg many() must not compile
 await many(docs)
 
-// @ts-expect-error — tree options on i18n collections require `locale`
-await tree(docs, {})
+// @ts-expect-error — navigation options on i18n collections require `locale`
+await navigation(docs, {})
 
 // Control (must compile): zero-arg many on a non-i18n handle
 await many(posts)
 
 void blogResult
 void docsResult
+
+/**
+ * Minimal stand-in for Nuxt's `useAsyncData` so this fixture can typecheck
+ * the documented `useAsyncData(key, () => many(...))` migration recipe
+ * (VNEXT.md 10.6) without depending on a live Nuxt app instance. Only the
+ * type shape matters here — `pnpm typecheck` never executes this file.
+ */
+declare function useAsyncDataTypecheckOnly<T>(key: string, handler: () => Promise<T>): Promise<{ data: { value: T | undefined } }>

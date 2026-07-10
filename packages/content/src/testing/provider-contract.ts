@@ -11,9 +11,9 @@ export interface ProviderContractSuiteOptions {
    * The capabilities the provider under test declares. Each capability block
    * runs its positive assertions only when the matching flag is `true`.
    * Operation capabilities (`routeBackedCollections`, `navigation`,
-   * `surroundings`, `searchSections`, `sitemap`) and the query sub-capabilities
-   * (`query.limit`/`skip`/`count`) additionally assert the typed provider error
-   * when declared `false`; descriptive flags (`dataCollections`,
+   * `surroundings`, `searchSections`, `sitemap`) and the query pagination
+   * modes (`query.pagination`) additionally assert the typed provider error
+   * when the mode is not advertised; descriptive flags (`dataCollections`,
    * `localizedRoutes`, `translatedSlugs`) only gate their positive block.
    */
   expectedCapabilities: ContentProviderCapabilities
@@ -185,9 +185,7 @@ export const expectProviderCapabilities = (provider: ContentProvider, expected: 
   expect(provider.capabilities).toMatchObject({
     ...expected,
     query: {
-      limit: expected.query.limit,
-      skip: expected.query.skip,
-      count: expected.query.count
+      pagination: expected.query.pagination
     }
   })
   expect(provider.capabilities.query.operators).toEqual(
@@ -257,32 +255,28 @@ export const runProviderContractSuite = ({
   test(`${name} supports list queries with locale, ordering, limit, count, and projection`, async () => {
     const provider = await loadProvider()
 
-    if (!caps.query.limit) {
-      await expectUnsupportedProviderQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
-        collection: 'posts',
-        resolveLocale: { locale: 'de', fallback: false },
-        limit: 1
-      })), 'limit')
-    } else {
-      const response = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
-        collection: 'posts',
-        resolveLocale: { locale: 'de', fallback: false },
-        sort: [{ date: -1 }],
-        limit: 1,
-        only: ['title', 'path', 'locale']
-      }))) as { result: Array<{ title?: string, path?: string, locale?: string }>, total?: number }
+    // `limit` alone needs no pagination-mode capability (VNEXT.md 13.1) — a
+    // plain bounded query is valid for every provider regardless of its
+    // advertised pagination modes.
+    const response = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
+      collection: 'posts',
+      resolveLocale: { locale: 'de', fallback: false },
+      sort: [{ date: -1 }],
+      limit: 1,
+      only: ['title', 'path', 'locale']
+    }))) as { result: Array<{ title?: string, path?: string, locale?: string }> }
 
-      expect(response.result).toEqual([
-        {
-          title: 'Mehrsprachiges Onboarding',
-          path: '/magazin/mehrsprachiges-onboarding',
-          locale: 'de'
-        }
-      ])
-      expect(typeof response.total).toBe('number')
-    }
+    expect(response.result).toEqual([
+      {
+        title: 'Mehrsprachiges Onboarding',
+        path: '/magazin/mehrsprachiges-onboarding',
+        locale: 'de'
+      }
+    ])
 
-    if (!caps.query.count) {
+    // The `count` terminal requires `offset` (an exact count implies an
+    // exact total is meaningful) — VNEXT.md 13.1.
+    if (!caps.query.pagination.includes('offset')) {
       await expectUnsupportedProviderQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
         collection: 'posts',
         resolveLocale: { locale: 'de', fallback: false },
@@ -295,6 +289,42 @@ export const runProviderContractSuite = ({
         count: true
       })))
       expect(countResponse).toEqual({ result: 1 })
+    }
+  })
+
+  test(`${name} advertises only its real pagination modes and rejects the rest before dispatch`, async () => {
+    const provider = await loadProvider()
+
+    if (caps.query.pagination.includes('offset')) {
+      const offsetResponse = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
+        collection: 'posts',
+        skip: 0,
+        limit: 1
+      }))) as { mode?: string, skip?: number, limit?: number, total?: number }
+
+      expect(offsetResponse.mode === undefined || offsetResponse.mode === 'offset').toBe(true)
+      expect(typeof offsetResponse.total).toBe('number')
+    } else {
+      await expectUnsupportedProviderQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
+        collection: 'posts',
+        skip: 1
+      })), 'skip')
+    }
+
+    if (caps.query.pagination.includes('cursor')) {
+      const cursorResponse = unwrapProviderContractResult(await provider.query(createEvent(), toContentProviderQuery({
+        collection: 'posts',
+        paging: { mode: 'cursor', after: null, limit: 1 }
+      }))) as { mode?: string, total?: unknown, pageInfo?: { hasNext?: boolean, endCursor?: string | null } }
+
+      expect(cursorResponse.mode).toBe('cursor')
+      expect(cursorResponse.total).toBeUndefined()
+      expect(typeof cursorResponse.pageInfo?.hasNext).toBe('boolean')
+    } else {
+      await expectUnsupportedProviderQueryShape(() => provider.query(createEvent(), toContentProviderQuery({
+        collection: 'posts',
+        paging: { mode: 'cursor', after: null, limit: 1 }
+      })), 'paging')
     }
   })
 

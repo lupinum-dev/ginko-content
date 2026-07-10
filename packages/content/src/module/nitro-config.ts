@@ -5,7 +5,7 @@ import { join } from 'pathe'
 import { withTrailingSlash } from 'ufo'
 import type { ContentConfig } from '../types/config'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
-import { processMarkdownOptions, useContentMounts } from '../utils'
+import { useContentMounts } from '../utils'
 import { normalizeAgentRouteOptions } from './agent-options'
 import { registerContentNitroIntegrationHooks } from './integration-hooks'
 import type { createSearchRuntimeConfig } from './options'
@@ -22,6 +22,10 @@ const hookNuxtBoundary = <T>(
   hook(name, callback)
 }
 
+interface ContentNitroConfigLogger {
+  warn: (message: string) => void
+}
+
 interface ContentNitroConfigOptions {
   nuxt: Nuxt
   options: ModuleOptions
@@ -34,6 +38,7 @@ interface ContentNitroConfigOptions {
   resolveModuleFile: (path: string) => string
   getResolvedContentContext: () => ResolvedContentContext
   getSearchRuntime: () => SearchRuntime
+  logger: ContentNitroConfigLogger
 }
 
 export const registerContentNitroConfig = ({
@@ -47,7 +52,8 @@ export const registerContentNitroConfig = ({
   resolveRuntimeModule,
   resolveModuleFile,
   getResolvedContentContext,
-  getSearchRuntime
+  getSearchRuntime,
+  logger
 }: ContentNitroConfigOptions) => {
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()
@@ -55,9 +61,41 @@ export const registerContentNitroConfig = ({
     nitroConfig.prerender.routes = nitroConfig.prerender.routes || []
 
     const usesFilesystemProvider = !contentContext.provider || contentContext.provider === 'filesystem'
+    // Matches `module/server-handlers.ts`'s route registration exactly (dev
+    // has no build integrity suffix; the cache/build route is otherwise only
+    // ever unshifted into the non-dev prerender route list below).
+    const cacheRoute = nuxt.options.dev
+      ? `${options.api.baseURL}/cache.json`
+      : `${options.api.baseURL}/cache.${buildIntegrity}.json`
 
     if (!nuxt.options.dev && usesFilesystemProvider) {
-      nitroConfig.prerender.routes.unshift(`${options.api.baseURL}/cache.${buildIntegrity}.json`)
+      nitroConfig.prerender.routes.unshift(cacheRoute)
+      // The cache/build route's HTML response (see
+      // `runtime/server/api/cache.ts`) seeds content-route prerender
+      // injection via Nitro's own crawl-links mechanism (VNEXT §14.4,
+      // §25.2, deleted module-time `module/derived-route-discovery.ts`).
+      // This is the only viable injection point for BOTH static (`nuxi
+      // generate`) and non-static (`nuxi build`) presets: Nitro's own
+      // `prerender()` finalizes its crawl queue from
+      // `nitro.options.prerender.routes` before the compiled main Nitro
+      // instance's own `'compiled'` hook ever fires for a non-static build
+      // (confirmed empirically — Nuxt's hybrid build only compiles a
+      // request-servable main bundle of its own AFTER prerendering
+      // completes), so a build hook has no earlier, reliable way to push
+      // additional routes into that queue. Enabling `crawlLinks` here means
+      // a hybrid build's prerender crawl also reaches ordinary app-owned
+      // pages reachable by link from a prerendered page — not just content
+      // routes — which is reflected in the updated `build` lane goldens.
+      if (nitroConfig.prerender.crawlLinks === false) {
+        // The user explicitly opted out of crawling in their own nuxt.config. Respect
+        // that choice (least surprising) rather than silently forcing it back on, but
+        // warn loudly: without crawling, filesystem content routes never reach the
+        // prerender queue and the build will ship without them.
+        logger.warn(
+          'content module needs `nitro.prerender.crawlLinks` to inject filesystem content routes into the prerender queue (see VNEXT §14.4, §25.2), but it is explicitly set to `false` in your nuxt.config. Content routes will NOT be prerendered until you remove `crawlLinks: false`.'
+        )
+      }
+      nitroConfig.prerender.crawlLinks = nitroConfig.prerender.crawlLinks ?? true
     }
 
     const sources = useContentMounts(nuxt, contentContext.sources)
@@ -108,18 +146,13 @@ export const registerContentNitroConfig = ({
     }
 
     registerContentNitroIntegrationHooks(nitroConfig, {
-      rootDir: nuxt.options.rootDir,
+      cacheRoute,
       sitemapPrerenderRoutes: () => contentContext.sitemap === false ? [] : resolveNuxtSitemapPrerenderRoutes(nuxt),
-      resolveContentContext: getResolvedContentContext
+      resolveContentContext: () => {
+        const resolved = getResolvedContentContext()
+        return { sitemap: resolved.sitemap, provider: resolved.provider }
+      }
     }, {
-      collections: contentContext.collections,
-      locales: contentContext.locales,
-      defaultLocale: contentContext.defaultLocale,
-      translatedSlugs: contentContext.translatedSlugs,
-      respectPathCase: contentContext.respectPathCase,
-      markdown: processMarkdownOptions(contentContext.markdown),
-      yaml: contentContext.yaml,
-      csv: contentContext.csv,
       sitemap: contentContext.sitemap,
       provider: contentContext.provider
     })

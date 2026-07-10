@@ -863,7 +863,7 @@ describe('agent markdown', () => {
     const query = vi.fn(async (_event, params) => {
       // Providers now receive the lowered wire query (CS-5), not builder params.
       expect(params).toEqual(expect.objectContaining({
-        v: 1,
+        v: 2,
         plan: expect.objectContaining({
           resolveLocale: expect.objectContaining({ locale: 'de' }),
           projection: expect.objectContaining({ only: expect.arrayContaining(['path', 'locale', 'localePaths']) })

@@ -50,13 +50,21 @@ export interface ContentFileMeta {
  * Per-request locale/reference resolution carrier.
  *
  * Folded from the legacy underscore resolution meta into one object. It is the
- * pre-shaping form of the modern `resolved`/`localePaths`/`variants` envelope:
- * the query pipeline attaches it, and result shaping reads it to build
- * `ContentRouteMeta`. Field names mirror `ContentResolvedMeta` so a consumer
- * can read `resolved.locale`/`resolved.requestedRoute`/… off either a raw
- * document or a fully shaped result.
+ * pre-shaping form of the legacy `resolved`/`localePaths`/`variants` envelope
+ * still produced by the pre-4C provider `page()`/`routeMeta()` methods and
+ * `shapeProviderDocument` (VNEXT.md 10.8, 13.2 — deleted in Phase 4C, not
+ * touched here): the query pipeline attaches it, and legacy result shaping
+ * reads it to build `ContentRouteMeta`. Field names mirror `ContentResolvedMeta`
+ * so a consumer can read `resolved.locale`/`resolved.requestedRoute`/… off
+ * either a raw document or a fully shaped legacy result.
+ *
+ * Not to be confused with the public `ContentDocumentResolution` envelope
+ * type (VNEXT.md 10.4, `types/query-parts/results.ts`) returned by the
+ * unified query API (`one`/`many`/`resolveOne`/`surround`/`backlinks`) and
+ * `useContentPage` — that is a distinct, much smaller shape. This internal
+ * carrier is named `ContentResolutionCarrier` to avoid colliding with it.
  */
-export interface ContentDocumentResolution {
+export interface ContentResolutionCarrier {
   /** Resolved locale after locale fallback. */
   locale?: string
   /** Requested locale before locale fallback. */
@@ -132,7 +140,7 @@ export interface ParsedContentInternalMeta {
    * variant; shaping reads it to build the `resolved`/`localePaths`/`variants`
    * route envelope.
    */
-  resolved?: ContentDocumentResolution
+  resolved?: ContentResolutionCarrier
   /**
    * Collection name, when matched by a configured collection glob.
    */

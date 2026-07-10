@@ -27,9 +27,7 @@ const capabilities: ContentProviderCapabilities = {
   sitemap: true,
   query: {
     operators: ['$eq', '$in'],
-    limit: true,
-    skip: false,
-    count: false
+    pagination: []
   }
 }
 

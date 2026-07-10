@@ -1,13 +1,15 @@
-import { defu } from 'defu'
 import type { Nuxt } from '@nuxt/schema'
 import type { ContentMiniSearchOptions, ContentSearchPublicRuntimeConfig } from '../types/search'
 import type { ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
+import { resolveLocalePolicy } from '../features/localization/locale-policy'
+import type { LocalePolicyCollectionInput, ResolvedLocalePolicy } from '../features/localization/locale-policy'
 import { normalizeContentSitemapAssertOptions } from './sitemap-assert'
 import { GINKO_SITEMAP_SOURCE_NAME, resolveContentSitemapSource } from '../runtime/utils/sitemap-source'
 
 type NuxtI18nConfig = {
   defaultLocale?: string
   locales?: Array<string | { code?: string, language?: string }>
+  strategy?: string
 }
 
 function hasNuxtModule(modules: unknown[] = [], name: string): boolean {
@@ -81,43 +83,62 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
   return Array.from(new Set(['/sitemap.xml', '/sitemap_index.xml', ...childRoutes]))
 }
 
-export function resolveModuleI18nOptions(
+/**
+ * Resolve the immutable, site-wide locale policy for the whole content
+ * context (VNEXT.md §12.1, §22). This is the sole place authority between
+ * Nuxt I18n and Ginko content config is decided:
+ *
+ * - when `@nuxtjs/i18n` is installed, it is the sole authority for
+ *   `locales`/`defaultLocale` — declaring `content.i18n.locales` or
+ *   `content.i18n.defaultLocale` fails setup rather than unioning values;
+ * - fallback and translated-slug policy always belong to Ginko content.
+ */
+export function resolveContentLocalePolicy(
   options: Pick<ModuleOptions, 'i18n'>,
-  nuxt: Nuxt
-): ResolvedContentI18nOptions {
-  if (options.i18n === false) {
-    return {
-      locales: [],
-      defaultLocale: undefined,
-      fallback: {},
-      translatedSlugs: false,
-      strictTranslatedSlugs: false
-    }
-  }
-
-  const moduleI18n = options.i18n === true ? {} : (options.i18n || {})
+  nuxt: Nuxt,
+  collections: readonly LocalePolicyCollectionInput[] = []
+): ResolvedLocalePolicy {
+  const moduleI18n = options.i18n === false ? undefined : (options.i18n === true ? {} : (options.i18n || {}))
   const nuxtI18n = (nuxt.options as { i18n?: NuxtI18nConfig }).i18n || {}
   const nuxtLocales = Array.isArray(nuxtI18n.locales)
-    ? nuxtI18n.locales.map(locale => typeof locale === 'string' ? locale : locale.code).filter(Boolean)
-    : []
+    ? nuxtI18n.locales.map(locale => typeof locale === 'string' ? locale : locale.code).filter((code): code is string => Boolean(code))
+    : undefined
 
-  const locales = Array.from(new Set([
-    moduleI18n.defaultLocale,
-    nuxtI18n.defaultLocale,
-    ...(moduleI18n.locales || []),
-    ...nuxtLocales
-  ].filter(Boolean))) as string[]
+  return resolveLocalePolicy({
+    nuxtI18n: {
+      installed: hasNuxtI18nModule(nuxt.options.modules),
+      locales: nuxtLocales,
+      defaultLocale: nuxtI18n.defaultLocale,
+      strategy: nuxtI18n.strategy
+    },
+    content: {
+      locales: moduleI18n?.locales,
+      defaultLocale: moduleI18n?.defaultLocale,
+      fallback: moduleI18n?.fallback,
+      translatedSlugs: moduleI18n?.translatedSlugs ?? false
+    },
+    collections: [...collections]
+  })
+}
 
-  const defaultLocale = moduleI18n.defaultLocale
-    || nuxtI18n.defaultLocale
-    || locales[0]
-
+/**
+ * Adapt a resolved locale policy back into the flat shape most existing
+ * consumers (runtime config, nitro config, static output, route-meta
+ * validation) accept. `strictTranslatedSlugs` is not part of the locale
+ * policy — it is a validation-strictness toggle read straight off module
+ * options.
+ */
+export function toResolvedContentI18nOptions(
+  policy: ResolvedLocalePolicy,
+  options: Pick<ModuleOptions, 'i18n'>
+): ResolvedContentI18nOptions {
+  const moduleI18n = options.i18n === false || options.i18n === true ? undefined : options.i18n
   return {
-    locales,
-    defaultLocale,
-    fallback: defu({}, moduleI18n.fallback),
-    translatedSlugs: moduleI18n.translatedSlugs ?? false,
-    strictTranslatedSlugs: moduleI18n.strictTranslatedSlugs ?? false
+    locales: [...policy.locales],
+    defaultLocale: policy.defaultLocale,
+    fallback: Object.fromEntries(Object.entries(policy.fallback).map(([locale, chain]) => [locale, [...chain]])),
+    translatedSlugs: policy.translatedSlugs,
+    strictTranslatedSlugs: moduleI18n?.strictTranslatedSlugs ?? false
   }
 }
 
@@ -144,7 +165,7 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
   return {
     engine: options.search?.engine || 'minisearch',
     ignoredTags: options.search?.ignoredTags || ['script', 'style', 'pre'],
-    filterQuery: options.search?.filterQuery || { draft: false, partial: false },
+    filterQuery: options.search?.filterQuery || { partial: false },
     collections: options.search?.collections,
     extraFields: options.search?.extraFields || [],
     apiBaseURL: options.search?.apiBaseURL,

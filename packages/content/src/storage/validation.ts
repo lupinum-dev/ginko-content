@@ -4,6 +4,7 @@ import { buildReferenceTargets, normalizeReferenceValue } from '../core/referenc
 import { getObjectShape, getReferenceDescriptor, getSchemaDef, getSchemaTypeName, unwrapSchema } from '../core/references/schema'
 import { collectTranslatedSlugValidationIssues } from '../features/localization/translated-slugs'
 import { ContentError, type ContentErrorCode } from '../core/errors'
+import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { fail, ok, type Result } from '../core/result'
 
 /**
@@ -245,6 +246,42 @@ export const validateCollectionDocument = (
       file: document.file?.path || document.id,
       collection: document.collection,
       ...(details ? { details } : {})
+    }
+  ))
+}
+
+/**
+ * The canonical JSON-purity gate (VNEXT §11, §21).
+ *
+ * Runs immediately after collection schema parsing and before graph
+ * insertion for every document entering core — filesystem-parsed documents
+ * (via `integrations/nitro/ingest.ts`) and provider documents (via
+ * `runtime/server/provider-document.ts`) alike, in both dev and build.
+ *
+ * A single recursive validator (`core/json-value.ts`) backs every call site
+ * so dev and production reject the exact same shapes. Failure always names
+ * the collection, the document (file path or id), and every offending
+ * property path in one error, so an author does not need one build per field.
+ */
+export const validateDocumentJsonPurity = (
+  document: ParsedContent
+): Result<ParsedContent, ContentError> => {
+  const violations = collectJsonPurityViolations(document)
+  if (!violations.length) {
+    return ok(document)
+  }
+
+  const file = document.file?.path || document.id
+  const collection = document.collection ? ` (collection "${document.collection}")` : ''
+  const details = formatJsonPurityViolations(violations)
+
+  return fail(new ContentError(
+    'NON_JSON_VALUE',
+    `Invalid content in ${file}${collection}: document contains non-JSON value(s) — ${details}`,
+    {
+      file,
+      collection: document.collection,
+      violations
     }
   ))
 }

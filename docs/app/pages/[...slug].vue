@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useContentPage } from '#imports'
 import { landing } from '../../content.config'
 
 const { page } = await useContentPage(landing)

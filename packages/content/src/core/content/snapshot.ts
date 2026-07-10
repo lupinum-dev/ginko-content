@@ -1,7 +1,12 @@
 import { splitInlineLocaleVariantId } from './locale'
 import type { ParsedContent } from '../../types/content'
+import { collectJsonPurityViolations } from '../json-value'
 
-export const CONTENT_SNAPSHOT_VERSION = 1 as const
+// Bumped for VNEXT §11/§21: the snapshot's value model tightened from
+// "JSON.stringify-representable" (which admitted `Date` and `undefined`) to
+// strict JSON purity, matching the gate that already runs before graph
+// insertion. A pre-0.3 snapshot on disk is not compatible with this reader.
+export const CONTENT_SNAPSHOT_VERSION = 2 as const
 
 export interface ContentSnapshot {
   version: typeof CONTENT_SNAPSHOT_VERSION
@@ -30,93 +35,16 @@ const documentIdOf = (document: ParsedContent) => document.id
 const documentSourceIdOf = (document: ParsedContent) =>
   splitInlineLocaleVariantId(documentIdOf(document)).sourceId
 
-const isPlainObject = (value: object) => {
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
-
-const describeSymbolKey = (symbol: symbol) =>
-  `[${String(symbol)}] (symbol-keyed property)`
-
-// `ancestors` holds only the objects on the current traversal path, not every
-// visited object: a shared (non-circular) reference is valid JSON — stringify
-// duplicates it — so only true cycles may be flagged.
-const collectNonJsonValues = (value: unknown, path: string, ancestors: WeakSet<object>, offenders: string[]): void => {
-  if (
-    value === null
-    || value === undefined
-    || typeof value === 'string'
-    || typeof value === 'boolean'
-  ) {
-    // `undefined` is admitted for the same prod-parity reason as Date:
-    // JSON.stringify drops undefined-valued object keys (and nulls them in
-    // arrays), which is exactly what the pre-snapshot production pipeline
-    // served. Disabled-feature decorations (e.g. search: false) legitimately
-    // set undefined fields on every document.
-    return
-  }
-
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) offenders.push(path)
-    return
-  }
-
-  if (typeof value !== 'object') {
-    offenders.push(path)
-    return
-  }
-
-  // Dates are admitted: JSON.stringify serializes them deterministically to
-  // ISO strings, which matches what the pre-snapshot production pipeline
-  // already served (parsed artifacts were stored as JSON), so round-tripping
-  // is value-preserving with prior prod behavior. Frontmatter like
-  // `date: 2026-01-01` parses to a Date and must not fail the build.
-  // Invalid dates have no faithful serialization and stay rejected.
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) offenders.push(path)
-    return
-  }
-
-  if (ancestors.has(value)) {
-    offenders.push(path)
-    return
-  }
-  ancestors.add(value)
-
-  try {
-    // Enumerable symbol-keyed properties are silently dropped by JSON.stringify
-    // on both arrays and plain objects, so the rejection must run before either
-    // container branch returns.
-    for (const symbol of Object.getOwnPropertySymbols(value)) {
-      if (Object.prototype.propertyIsEnumerable.call(value, symbol)) {
-        offenders.push(`${path}${describeSymbolKey(symbol)}`)
-      }
-    }
-
-    if (Array.isArray(value)) {
-      for (let index = 0; index < value.length; index += 1) {
-        if (!(index in value)) {
-          offenders.push(`${path}[${index}]`)
-          continue
-        }
-        collectNonJsonValues(value[index], `${path}[${index}]`, ancestors, offenders)
-      }
-      return
-    }
-
-    if (!isPlainObject(value)) {
-      offenders.push(path)
-      return
-    }
-
-    for (const [key, child] of Object.entries(value)) {
-      collectNonJsonValues(child, `${path}.${key}`, ancestors, offenders)
-    }
-  } finally {
-    ancestors.delete(value)
-  }
-}
-
+/**
+ * A cheap defensive re-assertion, not a normalization pass (VNEXT §11.3): by
+ * the time a document reaches the snapshot builder it already passed the
+ * canonical JSON-purity gate (`storage/validation.ts`'s
+ * `validateDocumentJsonPurity`, run right after schema parsing and before
+ * graph insertion). This just proves that invariant held — it must never
+ * silently admit a different value model (no more Date/undefined leniency)
+ * and never quietly re-normalize a value the gate should have already
+ * rejected.
+ */
 export const buildContentSnapshot = (args: BuildContentSnapshotArgs): ContentSnapshot => {
   const lossy: string[] = []
   const documents: ParsedContent[] = []
@@ -124,10 +52,9 @@ export const buildContentSnapshot = (args: BuildContentSnapshotArgs): ContentSna
     // Skip the round-trip for flagged documents: JSON.stringify on a circular
     // structure throws a raw TypeError, which would preempt the aggregated
     // ContentSnapshotError below.
-    const offenders: string[] = []
-    collectNonJsonValues(document, '$', new WeakSet(), offenders)
-    if (offenders.length) {
-      lossy.push(...offenders.map(path => `${documentIdOf(document)}:${path}`))
+    const violations = collectJsonPurityViolations(document)
+    if (violations.length) {
+      lossy.push(...violations.map(violation => `${documentIdOf(document)}:${violation.path} (${violation.reason})`))
       continue
     }
     documents.push(JSON.parse(JSON.stringify(document)) as ParsedContent)

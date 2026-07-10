@@ -29,7 +29,7 @@ export const posts = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),
-    date: z.union([z.string(), z.date()]),
+    date: z.string(),
     authors: z.array(reference('authors'))
   })
 })

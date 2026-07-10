@@ -10,7 +10,11 @@ export const contentModuleDefaults = {
   search: {
     engine: 'minisearch',
     ignoredTags: ['script', 'style', 'pre'],
-    filterQuery: { draft: false, partial: false },
+    // `partial` is structural (never a real searchable page) and always
+    // excluded by default. `draft` is NOT baked in here: draft visibility in
+    // search follows the one core environment/preview decision applied at
+    // the query layer (VNEXT.md 13.6/24.2), not a hardcoded caller filter.
+    filterQuery: { partial: false },
     extraFields: [],
     minisearch: {
       fields: [...defaultMiniSearchOptions.fields],
@@ -52,7 +56,6 @@ export const contentModuleDefaults = {
     markdownNegotiation: true,
     prerender: true
   },
-  contentHead: true,
   respectPathCase: false,
   experimental: {
     stripQueryParameters: false

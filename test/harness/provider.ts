@@ -78,9 +78,7 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       sitemap: true,
       query: {
         operators: [...SUPPORTED_QUERY_OPERATORS],
-        limit: true,
-        skip: true,
-        count: true
+        pagination: ['offset', 'cursor']
       }
     },
     query,

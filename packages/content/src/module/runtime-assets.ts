@@ -4,34 +4,25 @@ import { addComponentsDir, addImports, addPlugin, addServerImports, addTypeTempl
 import type { addTemplate } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
+/**
+ * The final app function auto-import list (VNEXT.md 10.5, 10.8): exactly
+ * `useContentPage` and `useContentSearch`. Every deleted wrapper, and the
+ * pure `getCollectionPath`/`querySiteData` helpers, are imported explicitly
+ * from `/client` instead.
+ */
 export const runtimeAppImportSpecs = [
-  { name: 'getCollectionPath', as: 'getCollectionPath', from: './query/routes.js' },
-  { name: 'useContentHead', as: 'useContentHead', from: './app/composables/head.js' },
-  { name: 'useContentPage', as: 'useContentPage', from: './app/composables/use-content.js' },
-  { name: 'useContentOne', as: 'useContentOne', from: './app/composables/use-content.js' },
-  { name: 'useContentMany', as: 'useContentMany', from: './app/composables/use-content.js' },
-  { name: 'useContentPagination', as: 'useContentPagination', from: './app/composables/use-content.js' },
-  { name: 'useContentBacklinks', as: 'useContentBacklinks', from: './app/composables/use-content.js' },
-  { name: 'useContentResolveOne', as: 'useContentResolveOne', from: './app/composables/use-content.js' },
-  { name: 'useContentVariants', as: 'useContentVariants', from: './app/composables/use-content.js' },
-  { name: 'useContentTree', as: 'useContentTree', from: './app/composables/use-content.js' },
-  { name: 'useContentNavigation', as: 'useContentNavigation', from: './app/composables/use-content.js' },
-  { name: 'useContentNeighbors', as: 'useContentNeighbors', from: './app/composables/use-content.js' },
-  { name: 'useContentSwitchLocalePath', as: 'useContentSwitchLocalePath', from: './app/composables/route.js' },
-  { name: 'useContentSearchData', as: 'useContentSearchData', from: './app/composables/search.js' },
-  { name: 'useContentSearchResults', as: 'useContentSearchResults', from: './app/composables/search.js' },
-  { name: 'querySiteData', as: 'querySiteData', from: './app/composables/site-data.js' }
+  { name: 'useContentPage', as: 'useContentPage', from: './app/composables/use-content-page.js' },
+  { name: 'useContentSearch', as: 'useContentSearch', from: './app/composables/search.js' }
 ] as const
 
 export const runtimeServerImportSpecs = [
   { name: 'one', as: 'one' },
   { name: 'many', as: 'many' },
   { name: 'paginate', as: 'paginate' },
-  { name: 'backlinks', as: 'backlinks' },
   { name: 'resolveOne', as: 'resolveOne' },
-  { name: 'variants', as: 'variants' },
-  { name: 'tree', as: 'tree' },
-  { name: 'neighbors', as: 'neighbors' },
+  { name: 'surround', as: 'surround' },
+  { name: 'backlinks', as: 'backlinks' },
+  { name: 'navigation', as: 'navigation' },
   { name: 'getCollectionPath', as: 'getCollectionPath' },
   { name: 'queryCollectionsSitemapEntries', as: 'queryCollectionsSitemapEntries' }
 ] as const
@@ -102,11 +93,10 @@ export const registerContentI18nTemplate = (
     write: true,
     getContents: () => hasNuxtI18nModule
       ? [
-          'export { useLocalePath, useRouteBaseName, useSetI18nParams, useSwitchLocalePath } from \'#i18n\''
+          'export { useLocalePath } from \'#i18n\''
         ].join('\n')
       : [
           'import { useRouter } from \'#imports\'',
-          'const routeNameLocaleRE = /___([^_]+)$/',
           'const resolveName = (value) => {',
           '  if (typeof value === \'string\') {',
           '    return value',
@@ -133,23 +123,14 @@ export const registerContentI18nTemplate = (
           '      ...(typeof value.hash === \'string\' ? { hash: value.hash } : {})',
           '    }).href',
           '  }',
-          '}',
-          'export const useRouteBaseName = () => (value) => {',
-          '  const name = resolveName(value)',
-          '  return typeof name === \'string\' ? name.replace(routeNameLocaleRE, \'\') : undefined',
-          '}',
-          'export const useSetI18nParams = () => () => {}',
-          'export const useSwitchLocalePath = () => () => \'\''
+          '}'
         ].join('\n')
   })
   addTemplateImpl({
     filename: 'content-i18n.d.mts',
     write: true,
     getContents: () => [
-      'export function useLocalePath(): (route: string | { name?: string, hash?: string, params?: Record<string, unknown>, query?: Record<string, unknown> }, locale?: string) => string',
-      'export function useRouteBaseName(): (route: { name?: unknown } | unknown) => string | undefined',
-      'export function useSetI18nParams(): (params: Record<string, unknown>) => void',
-      'export function useSwitchLocalePath(): (locale: string) => string'
+      'export function useLocalePath(): (route: string | { name?: string, hash?: string, params?: Record<string, unknown>, query?: Record<string, unknown> }, locale?: string) => string'
     ].join('\n')
   })
 
@@ -158,9 +139,6 @@ export const registerContentI18nTemplate = (
     getContents: () => [
       'declare module \'#build/content-i18n.mjs\' {',
       '  export function useLocalePath(): (route: string | { name?: string, hash?: string, params?: Record<string, unknown>, query?: Record<string, unknown> }, locale?: string) => string',
-      '  export function useRouteBaseName(): (route: { name?: unknown } | unknown) => string | undefined',
-      '  export function useSetI18nParams(): (params: Record<string, unknown>) => void',
-      '  export function useSwitchLocalePath(): (locale: string) => string',
       '}'
     ].join('\n')
   })
@@ -226,6 +204,7 @@ export const registerGeneratedTypes = (
         : 'declare const contentConfigModule: {}',
       'import type { StrictParsedContent } from \'@lupinum/ginko-content\'',
       'import type { CollectionSchema } from \'@lupinum/ginko-content/config\'',
+      'import { __ginkoSchemaBrand, __ginkoI18nBrand } from \'@lupinum/ginko-content/config\'',
       contentConfigPath
         ? 'type __ContentConfig = typeof contentConfig'
         : '',
@@ -243,7 +222,7 @@ export const registerGeneratedTypes = (
       'type __ContentCollectionExport<K extends string> = K extends keyof typeof contentConfigModule',
       '  ? typeof contentConfigModule[K]',
       '  : __ContentCollections[K]',
-      'type __GeneratedCollectionSchema<TCollection> = TCollection extends { __schema: infer TSchema }',
+      'type __GeneratedCollectionSchema<TCollection> = TCollection extends { [__ginkoSchemaBrand]: infer TSchema }',
       '  ? TSchema extends { _output: infer TOutput } ? TOutput : {}',
       '  : CollectionSchema<TCollection>',
       'type __GeneratedContentCollectionMap = {',
@@ -251,7 +230,7 @@ export const registerGeneratedTypes = (
       '}',
       `type __RuntimeI18nCollectionNames = ${i18nCollectionNameUnion}`,
       'type __InferredI18nCollectionNames = {',
-      '  [K in __ContentCollectionNames]: __ContentCollectionExport<K> extends { __i18n: true }',
+      '  [K in __ContentCollectionNames]: __ContentCollectionExport<K> extends { [__ginkoI18nBrand]: true }',
       '    ? K',
       '    : __ContentCollectionExport<K> extends { i18n: true } ? K : never',
       '}[__ContentCollectionNames]',

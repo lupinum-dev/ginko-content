@@ -213,24 +213,4 @@ export const routeToContentPathCandidates = (
   }))
 }
 
-export const projectContentPathToLocale = (
-  path: string,
-  locale?: string,
-  defaultLocale?: string,
-  mounts?: RouteMounts
-) => {
-  const normalizedPath = normalizeContentPath(path || '/')
-  if (normalizedPath === '/') {
-    return prefixPathWithLocale(normalizedPath, locale, defaultLocale)
-  }
-
-  if (!locale || !mounts) {
-    return prefixPathWithLocale(normalizedPath, locale, defaultLocale)
-  }
-
-  const source = longestMountForPath(normalizedPath, mounts)
-  const remainder = source ? routeRemainder(normalizedPath, source[1]) : normalizedPath
-  return prefixPathWithLocale(mountContentPath(remainder, locale, mounts), locale, defaultLocale)
-}
-
 export const pathHasLocalePrefix = isLocalePrefixedPath

@@ -318,7 +318,7 @@ The packed package rendered this page.
       import { useContentPage } from '#imports'
       import { pages } from '../content.config'
 
-      const { page } = await useContentPage(pages, { notFound: false })
+      const { page } = await useContentPage(pages)
       </script>
 
       <template>
@@ -328,9 +328,9 @@ The packed package rendered this page.
 
     writeFile(resolve(appDir, 'pages/import-smoke.vue'), `
       <script setup lang="ts">
-      import { one, useContentPage, useContentSearchResults, extractContentToc, useContentToc } from '@lupinum/ginko-content/client'
+      import { one, useContentPage, useContentSearch, extractContentToc } from '@lupinum/ginko-content/client'
 
-      void [one, useContentPage, useContentSearchResults, extractContentToc, useContentToc]
+      void [one, useContentPage, useContentSearch, extractContentToc]
       </script>
 
       <template>

@@ -85,9 +85,7 @@ describe('content provider contract', () => {
       searchSections: true,
       sitemap: true,
       query: {
-        limit: true,
-        skip: true,
-        count: true
+        pagination: ['offset', 'cursor']
       }
     })
     expect(filesystemProvider.capabilities.query.operators).toContain('$eq')
@@ -134,9 +132,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: false,
-          count: false
+          pagination: []
         }
       },
       query: vi.fn(),
@@ -182,9 +178,7 @@ describe('content provider contract', () => {
         query: {
           operators: '$eq',
           sort: 'sometimes',
-          limit: true,
-          skip: false,
-          count: false
+          pagination: []
         }
       },
       query: vi.fn(),
@@ -220,9 +214,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: true,
-          count: true
+          pagination: ['offset']
         }
       },
       query: vi.fn(),
@@ -280,9 +272,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: false,
-          count: false
+          pagination: []
         }
       },
       query,
@@ -343,7 +333,7 @@ describe('content provider contract', () => {
     }))).resolves.toEqual([])
     expect(query).toHaveBeenCalledTimes(1)
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      v: 1,
+      v: 2,
       collection: 'posts',
       plan: expect.objectContaining({
         collection: 'posts',
@@ -372,9 +362,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: true,
-          count: true
+          pagination: ['offset']
         }
       },
       query,
@@ -421,9 +409,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: false,
-          skip: true,
-          count: true
+          pagination: []
         }
       },
       query: vi.fn(async () => []),
@@ -450,14 +436,17 @@ describe('content provider contract', () => {
       })
     })
 
+    // `limit` alone needs no pagination-mode capability (VNEXT.md 13.1) — a
+    // plain bounded navigation query is valid for any provider. `skip` DOES
+    // require the `offset` mode this provider does not advertise.
     await expect(provider.navigationQuery?.(createProviderEvent(), toContentProviderNavigationQuery({
       collection: 'posts',
-      limit: 1
+      skip: 5
     }).query)).rejects.toMatchObject({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({
         provider: 'limited-navigation-query',
-        field: 'limit'
+        field: 'skip'
       })
     })
 
@@ -481,7 +470,7 @@ describe('content provider contract', () => {
     await expect(provider.navigationQuery?.(createProviderEvent(), wire.query, wire.options)).resolves.toEqual([])
     expect(navigationQuery).toHaveBeenCalledTimes(1)
     expect(navigationQuery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      v: 1,
+      v: 2,
       collection: 'posts',
       plan: expect.objectContaining({
         filter: { type: 'compare', field: 'title', operator: 'eq', value: 'hello' }
@@ -508,9 +497,7 @@ describe('content provider contract', () => {
         sitemap: false,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: true,
-          count: true
+          pagination: ['offset']
         }
       },
       query: vi.fn(async () => ({ result: [] })),
@@ -611,9 +598,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: false,
-          count: false
+          pagination: []
         }
       },
       query,
@@ -703,9 +688,7 @@ describe('content provider contract', () => {
         sitemap: true,
         query: {
           operators: ['$eq'],
-          limit: true,
-          skip: true,
-          count: true
+          pagination: ['offset']
         }
       },
       query: vi.fn(async () => ({ result: [] })),
@@ -784,7 +767,7 @@ describe('content provider contract', () => {
         surroundings: false,
         searchSections: false,
         sitemap: false,
-        query: { operators: ['$eq'], limit: true, skip: false, count: false }
+        query: { operators: ['$eq'], pagination: [] }
       },
       query
     })

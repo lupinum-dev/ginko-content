@@ -9,7 +9,8 @@ export interface GeneratedTextArtifact {
 
 export const fixtureLeakSentinels = {
   basic: ['Draft Post'],
-  i18n: ['Draft Roadmap', 'Internal Note']
+  i18n: ['Draft Roadmap', 'Internal Note'],
+  vnextRouteInvariants: ['Draft Page', 'Entwurf', 'Internal Partial', 'Interner Partial']
 } as const
 
 const textArtifactPattern = /\.(?:html|xml|json|txt|md)$/

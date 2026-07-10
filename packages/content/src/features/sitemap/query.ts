@@ -1,5 +1,6 @@
 import type { ContentSitemapAlternative, ContentSitemapEntry, ContentSitemapImage } from '../../types/query'
 import { createContentProviderError } from '../../core/provider-errors'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 
 type ContentLikePage = {
   path?: string
@@ -229,7 +230,10 @@ export async function queryCollectionsSitemapEntriesData (
   const localeToLanguage = Object.fromEntries((runtime.localeConfigs || []).map(locale => [locale.code, locale.language || locale.code]))
   const collections = resolveSitemapCollections(runtime, options)
   const siteUrl = resolveSiteUrl(runtime, options.siteUrl)
-  const shouldIncludeDrafts = typeof options.includeDrafts === 'boolean' ? options.includeDrafts : import.meta.dev
+  const shouldIncludeDrafts = resolveIncludeDrafts({
+    environment: resolveRuntimeEnvironment(),
+    includeDrafts: options.includeDrafts
+  })
   const pages = (await Promise.all(collections.map(async (collection) => {
     const collectionPages = await loaders.loadCollectionPages(collection)
     return collectionPages.map(page => ({

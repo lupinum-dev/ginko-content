@@ -60,6 +60,14 @@ Rules:
   (`content.sitemap.includeDrafts` to override).
 - Standard Nuxt `pages/` routes stay owned by Nuxt SEO's app sources.
 - Content-backed routes stay owned by the content sitemap source.
+- `content.sitemap` (including per-collection/per-document `sitemap: false`
+  and `includeDrafts`) governs **sitemap inclusion only**. It never changes
+  which routes are enumerated for prerender/static generation — sitemap
+  policy and prerender policy are separate concerns with separate config.
+- `queryCollectionsSitemapEntries` (server surface) is the supported way to
+  build a custom sitemap/robots endpoint against content data directly, for
+  apps that do not want the `@nuxtjs/sitemap` auto-registration path. It
+  returns entry data; it does not render XML.
 
 ## Alternatives considered
 

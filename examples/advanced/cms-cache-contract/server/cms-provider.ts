@@ -100,9 +100,7 @@ export default {
     sitemap: true,
     query: {
       operators: ['$eq'],
-      limit: true,
-      skip: true,
-      count: true
+      pagination: ['offset']
     }
   },
   async query(_event, query: ContentProviderQuery) {

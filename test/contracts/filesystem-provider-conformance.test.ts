@@ -22,6 +22,20 @@ vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
     if (plan.mode === 'count') {
       return { result: 1 }
     }
+    if (plan.paging?.mode === 'cursor') {
+      return {
+        mode: 'cursor',
+        result: [
+          {
+            title: 'Mehrsprachiges Onboarding',
+            path: '/magazin/mehrsprachiges-onboarding',
+            locale: 'de'
+          }
+        ],
+        limit: plan.paging.limit,
+        pageInfo: { endCursor: null, hasNext: false }
+      }
+    }
     return {
       result: [
         {
@@ -131,7 +145,7 @@ describe('filesystem provider conformance', () => {
     surroundings: true,
     searchSections: true,
     sitemap: true,
-    query: { operators: ['$eq', '$contains'], limit: true, skip: true, count: true }
+    query: { operators: ['$eq', '$contains'], pagination: ['offset', 'cursor'] }
   }
 
   runProviderContractSuite({

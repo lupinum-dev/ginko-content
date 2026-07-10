@@ -64,4 +64,29 @@ describe('static sitemap output', () => {
     expect(sitemap).not.toMatch(localOriginPattern)
     expect(sitemap).not.toMatch(repeatedLocalePrefixPattern)
   }, 240000)
+
+  // Phase 3 gate follow-up: the sitemap-assert `'compiled'` hook (mode
+  // `build`/`both`) fetches its collection counts by spawning the just-built
+  // server bundle as a real process and calling its content cache/build
+  // route over HTTP (`fetchSitemapCollectionCounts` in
+  // `packages/content/src/module/integration-hooks.ts`). That path was only
+  // covered by a synthetic fake server in
+  // `test/contracts/integration-hooks-contracts.test.ts`. This exercises it
+  // against a real `nuxi build` of the existing `ginko-i18n` fixture,
+  // switched into `mode: 'build'` via `CONTENT_SITEMAP_ASSERT_MODE` (see
+  // `playground/ginko-i18n/nuxt.config.ts`) instead of standing up a new
+  // playground.
+  test('mode "build" asserts sitemap collection counts fetched from the spawned compiled server', async () => {
+    const fixture = await buildProductionFixture(fixtureDir, { CONTENT_SITEMAP_ASSERT_MODE: 'build' })
+    const bundle = await readSitemapBundle(fixture.publicDir)
+    const allLocs = collectSitemapLocs(bundle)
+
+    // The build only reaches this log line if `assertGeneratedSitemaps` did not throw --
+    // in particular, `requiredCollections: ['docs']` (set only for this mode in the
+    // fixture's nuxt.config) only passes if `fetchSitemapCollectionCounts` really spawned
+    // `.output/server` and got a non-zero "docs" count back from the real build, not a
+    // fake/empty one.
+    expect(fixture.stdout).toMatch(/Content sitemap assertion passed for \d+ sitemaps?\./)
+    expect(allLocs).toEqual(expect.arrayContaining([`${siteUrl}/guide/getting-started`]))
+  }, 240000)
 })

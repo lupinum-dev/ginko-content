@@ -32,7 +32,7 @@ const explainResolution = (
   requestedFallback: LocaleFallback | undefined,
   doc: LocalizedDoc<ParsedContent> | null
 ): ResolutionEnvelope => {
-  const resolvedLocale = doc?.resolved?.locale || doc?.locale
+  const resolvedLocale = doc?.resolution?.resolved?.locale || doc?.locale
   return {
     requested: {
       collection,
@@ -46,8 +46,7 @@ const explainResolution = (
     matched: {
       found: Boolean(doc),
       collection,
-      ...(doc?.path ? { path: doc.path } : {}),
-      ...(doc?.unprefixedPath ? { unprefixedPath: doc.unprefixedPath } : {}),
+      ...(doc?.route?.resolvedPath ? { path: doc.route.resolvedPath } : {}),
       ...((doc as unknown as { ref?: string } | null)?.ref ? { ref: (doc as unknown as { ref: string }).ref } : {}),
       ...(resolvedLocale ? { locale: resolvedLocale } : {})
     },

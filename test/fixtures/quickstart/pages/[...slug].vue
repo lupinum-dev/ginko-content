@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { page } = await useContentPage('pages')
+import { pages } from '~/content.config'
+
+const { page } = await useContentPage(pages)
 </script>
 
 <template>

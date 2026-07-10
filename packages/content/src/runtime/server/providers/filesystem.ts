@@ -38,9 +38,7 @@ export const filesystemProvider: ContentProvider = {
         '$and',
         '$or'
       ],
-      limit: true,
-      skip: true,
-      count: true
+      pagination: ['offset', 'cursor']
     }
   },
   query: <T = ParsedContent>(event: H3Event, query: import('../../../public/provider').ContentProviderQuery) =>

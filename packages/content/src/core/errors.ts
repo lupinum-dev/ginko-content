@@ -27,6 +27,11 @@ export type ContentErrorCode =
   // A collection's Zod schema rejected the document (strict collection only;
   // non-strict collections warn and pass through).
   | 'SCHEMA_VALIDATION_FAILED'
+  // Post-schema document contains a value outside the canonical JSON value
+  // model (Date, Map, Set, undefined, bigint, class instance, cycle, array
+  // hole, symbol, non-finite number, ...). Runs after schema parsing and
+  // before graph insertion, in both dev and build.
+  | 'NON_JSON_VALUE'
   // One file matched multiple collection globs — the resolver cannot decide
   // which collection owns the document.
   | 'CONFLICTING_COLLECTION_MATCH'
