@@ -5,8 +5,6 @@ import { PROVIDER_QUERY_VERSION, type ContentProvider, type ContentProviderQuery
 import type { FilterExpr } from '../../../core/query/plan'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '../provider-result'
-import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../../core/visibility'
-import { isPreview } from '../../../integrations/nitro/preview'
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -162,33 +160,15 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
 export const enforceProviderCapabilities = (provider: ContentProvider): ContentProvider => ({
   ...provider,
   query: async (event, query) => {
-    const requestQuery = {
-      ...query,
-      visibility: {
-        includeDrafts: resolveIncludeDrafts({
-          environment: resolveRuntimeEnvironment(),
-          previewAuthorized: isPreview(event)
-        })
-      }
-    }
-    assertJsonPureProviderQuery(provider, requestQuery)
-    assertProviderQuerySupported(provider, requestQuery)
-    return await provider.query(event, requestQuery)
+    assertJsonPureProviderQuery(provider, query)
+    assertProviderQuerySupported(provider, query)
+    return await provider.query(event, query)
   },
   navigation: provider.navigation
     ? async (event, query, options) => {
-        const requestQuery = {
-          ...query,
-          visibility: {
-            includeDrafts: resolveIncludeDrafts({
-              environment: resolveRuntimeEnvironment(),
-              previewAuthorized: isPreview(event)
-            })
-          }
-        }
-        assertJsonPureProviderQuery(provider, requestQuery)
-        assertProviderQuerySupported(provider, requestQuery)
-        return await provider.navigation!(event, requestQuery, options)
+        assertJsonPureProviderQuery(provider, query)
+        assertProviderQuerySupported(provider, query)
+        return await provider.navigation!(event, query, options)
       }
     : undefined,
   surroundings: provider.surroundings,

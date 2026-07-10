@@ -23,11 +23,6 @@ export const PROVIDER_QUERY_VERSION = 2 as const
 export const toContentProviderQuery = (params: ContentQueryBuilderParams): ContentProviderQuery => ({
   v: PROVIDER_QUERY_VERSION,
   collection: params.collection ?? null,
-  // The provider registry overwrites this with the request's resolved
-  // environment/preview policy immediately before dispatch. Keeping it in
-  // the pure lowering result makes the wire closed and easy to construct in
-  // provider conformance tests without relying on ambient runtime state.
-  visibility: { includeDrafts: true },
   plan: lowerQueryPlan(params)
 })
 

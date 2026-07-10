@@ -6,7 +6,6 @@ import type {
 } from '../../packages/content/src/public/provider'
 import { SUPPORTED_QUERY_OPERATORS } from '../../packages/content/src/core/query/operators'
 import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
-import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 import { normalizeContentPath } from '../../packages/content/src/core/content/path'
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
 import type { ParsedContent } from '../../packages/content/src/types/content'
@@ -32,9 +31,6 @@ export const createInMemoryProvider = (scenario: ContentScenario, name = 'in-mem
 
   const execute = (providerQuery: ContentProviderQuery) => {
     assertCollection(providerQuery.plan.collection)
-    const graph = providerQuery.visibility.includeDrafts
-      ? scenario.graph
-      : buildContentGraph(scenario.documents.filter(document => !document.draft), scenario.runtime)
     const plan = {
       ...providerQuery.plan,
       projection: {
@@ -48,7 +44,7 @@ export const createInMemoryProvider = (scenario: ContentScenario, name = 'in-mem
         without: providerQuery.plan.projection.only.length ? [] : providerQuery.plan.projection.without
       }
     }
-    return executeQueryPlan<ParsedContent>(graph, plan, scenario.runtime)
+    return executeQueryPlan<ParsedContent>(scenario.graph, plan, scenario.runtime)
   }
 
   const routeVariantsFor = (document: ParsedContent) => scenario.documents

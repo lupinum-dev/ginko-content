@@ -90,24 +90,17 @@ describe('provider registry contract', () => {
     expect(query).not.toHaveBeenCalled()
   })
 
-  test('injects one visibility decision immediately before query and navigation dispatch', async () => {
+  test('dispatches the closed query unchanged without leaking core visibility policy', async () => {
     const query = vi.fn(async () => ({ result: [], limit: 0 }))
     const navigation = vi.fn(async () => [])
     const provider = enforceProviderCapabilities(createProvider({ query, navigation }))
     const lowered = toContentProviderQuery({ collection: 'docs' })
 
-    await provider.query(createEvent(), {
-      ...lowered,
-      visibility: { includeDrafts: !lowered.visibility.includeDrafts }
-    })
+    await provider.query(createEvent(), lowered)
     await provider.navigation!(createEvent(), lowered)
 
-    expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      visibility: { includeDrafts: expect.any(Boolean) }
-    }))
-    expect(navigation).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      visibility: { includeDrafts: expect.any(Boolean) }
-    }), undefined)
+    expect(query).toHaveBeenCalledWith(expect.anything(), lowered)
+    expect(navigation).toHaveBeenCalledWith(expect.anything(), lowered, undefined)
   })
 })
 

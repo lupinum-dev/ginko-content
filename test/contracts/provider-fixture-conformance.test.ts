@@ -79,19 +79,11 @@ describe('provider fixture conformance', () => {
     }
   })
 
-  test('uses the visibility fact for list, first, and count queries', async () => {
-    const visible = { includeDrafts: false }
-    const list = await provider.query(createEvent(), {
-      ...toContentProviderQuery({ collection: 'docs' }),
-      visibility: visible
-    }) as { result: Array<{ draft?: boolean }> }
-    expect(list.result.every(document => !document.draft)).toBe(true)
-
-    const count = await provider.query(createEvent(), {
-      ...toContentProviderQuery({ collection: 'docs', count: true }),
-      visibility: visible
-    }) as { result: number }
-    expect(count.result).toBe(list.result.length)
+  test('returns drafts as raw facts for core to filter', async () => {
+    const list = await provider.query(createEvent(), toContentProviderQuery({ collection: 'docs' })) as {
+      result: Array<{ draft?: boolean }>
+    }
+    expect(list.result.some(document => document.draft)).toBe(true)
   })
 
   test('returns raw facts from every optional route-bearing operation', async () => {

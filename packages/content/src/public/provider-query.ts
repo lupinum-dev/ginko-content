@@ -58,10 +58,6 @@ export interface ContentProviderQuery {
   v: 2
   /** `null` = cross-collection query (navigation / search aggregation paths). */
   collection: string | null
-  /** Publication policy resolved by core, independent of query operators. */
-  visibility: {
-    includeDrafts: boolean
-  }
   plan: ContentQueryPlan
 }
 

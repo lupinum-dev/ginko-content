@@ -247,11 +247,8 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
 
   const execute = (providerQuery: ContentProviderQuery) => {
     assertCollection(providerQuery.plan.collection)
-    const graph = providerQuery.visibility.includeDrafts
-      ? fixture.graph
-      : buildContentGraph(fixture.documents.filter(document => !document.draft), fixture.runtime)
     return executeQueryPlan<ParsedContent>(
-      graph,
+      fixture.graph,
       {
         ...providerQuery.plan,
         projection: {
@@ -318,7 +315,6 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       }
     })
     return normalizeQueryResult<ParsedContent>(response.result as ParsedContent | ParsedContent[] | number | undefined)
-      .filter(doc => providerQuery.visibility.includeDrafts || !doc.draft)
       .filter(doc => !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
   }
 
