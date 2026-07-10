@@ -8,7 +8,7 @@ Ginko supports three intended search modes:
 
 - MiniSearch JSON index for small-to-medium static/runtime sites.
 - Pagefind for larger static sites with sharded search.
-- CMS/provider-owned search through `engine: 'cms'`.
+- Provider-owned search through `engine: 'provider'`.
 
 External search services can be used by apps when product search behavior is needed, but Ginko core should not become a full-text search backend.
 
@@ -35,7 +35,7 @@ Client API:
 
 Provider APIs:
 
-- `searchSections`: provider-produced sections for index generation.
+- Provider `query`: core derives index sections from canonical documents.
 - optional direct `search`: provider-owned search runtime.
 
 Route-backed and data-only collection rules still apply. Data-only search access must fail clearly when unsupported.

@@ -121,7 +121,7 @@ export const registerContentNitroConfig = ({
         ...runtimeInlineDependencies
       ]
     })
-    if (searchRuntime !== false && searchRuntime.engine !== 'cms' && usesFilesystemProvider) {
+    if (searchRuntime !== false && searchRuntime.engine !== 'provider' && usesFilesystemProvider) {
       nitroConfig.routeRules = nitroConfig.routeRules || {}
       nitroConfig.routeRules[searchRuntime.indexURL] = {
         prerender: true,

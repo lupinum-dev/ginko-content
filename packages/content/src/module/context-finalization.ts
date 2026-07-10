@@ -65,7 +65,7 @@ export const registerContentContextFinalization = ({
     await nuxt.callHook('content:context', contextForObservers)
     await validateBuiltinMarkdownPlugins(resolvedContentContext.markdown.plugins, resolvePath)
 
-    const collectionEntries = Object.entries(options.collections || {}).map(([name, collection]) => {
+    const collectionEntries = Object.entries(contentContext.collections).map(([name, collection]) => {
       const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
       const runtimeCollection = {
         ...(collection.source ? { source: collection.source } : {}),

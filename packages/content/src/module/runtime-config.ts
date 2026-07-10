@@ -204,9 +204,6 @@ export const applyContentRuntimeConfig = async (
     collections: runtimeCollections,
     links: contentContext.links || {},
     integrity: buildIntegrity as number,
-    experimental: {
-      stripQueryParameters: options.experimental.stripQueryParameters
-    },
     respectPathCase: options.respectPathCase ?? false,
     api: {
       baseURL: options.api.baseURL

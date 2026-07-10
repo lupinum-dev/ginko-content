@@ -10,7 +10,6 @@
  * This is a PURE re-export: the registration API was reshaped once (per-app
  * registry) in T4.2b — the moved names keep their call signatures.
  */
-export { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../features/agent/agent-paths.js'
 export {
   clearAgentMarkdownSerializers,
   blockquoteMarkdown,
@@ -19,30 +18,18 @@ export {
   getMarkdownProp,
   jsonFenceMarkdown,
   linkMarkdown,
-  queryMarkdownEnabledContent,
   registerAgentMarkdownComponent,
   registerAgentMarkdownComponents,
   registerAgentMarkdownSerializer,
   registerAgentMarkdownSerializers,
   renderMarkdownChildren,
-  resolveAgentMarkdownOptions,
-  resolveContentMarkdown,
-  resolveContentMarkdownByRoute,
   xmlComponentMarkdown
 } from '../runtime/server/agent-markdown.js'
 export {
-  buildAgentPageIndex,
-  collectAgentMarkdownPrerenderRoutes,
-  getAgentLocales,
-  isSupportedAgentLocale,
-  localeFromAgentPath,
   renderAgentMarkdownFrontmatter,
   renderAgentMarkdownPage,
   renderLlmsFullTxt,
-  renderLlmsTxt,
-  resolveMarkdownForPublicRoute,
-  routePathFromIndexSlug,
-  routePathFromRawSlug
+  renderLlmsTxt
 } from '../runtime/server/agent-site.js'
 export type {
   AgentMarkdown,

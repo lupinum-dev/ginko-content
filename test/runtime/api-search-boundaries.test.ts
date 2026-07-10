@@ -125,7 +125,7 @@ describe('runtime search API boundaries', () => {
 
   test('search API delegates provider-owned search and normalizes result collections', async () => {
     runtime.content.search = {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     } as never
     const providerSearch = vi.fn(async () => [
@@ -168,7 +168,7 @@ describe('runtime search API boundaries', () => {
 
   test('search API fails loudly when provider-owned search is selected without provider support', async () => {
     runtime.content.search = {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     } as never
     mocks.getContentProvider.mockResolvedValue({

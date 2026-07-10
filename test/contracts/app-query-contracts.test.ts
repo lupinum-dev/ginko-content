@@ -18,12 +18,9 @@ const runtime = {
       integrity: 'abc123',
       // Disabled here so `useContentSearch` tests exercise only the
       // collection-scoped `files`/`searchNavigation` loading (VNEXT.md
-      // 27.2), not the query-driven minisearch/pagefind/cms backend
+      // 27.2), not the query-driven minisearch/pagefind/provider backend
       // (already covered end-to-end in test/client/search-composables.test.ts).
-      search: false,
-      experimental: {
-        stripQueryParameters: false
-      }
+      search: false
     }
   }
 }
@@ -160,7 +157,6 @@ describe('app query/composable contracts', () => {
     asyncDataCalls.length = 0
     fetchContentApi.mockClear()
     route.path = '/de/guide/advanced'
-    runtime.public.content.experimental.stripQueryParameters = false
   })
 
   afterEach(() => {

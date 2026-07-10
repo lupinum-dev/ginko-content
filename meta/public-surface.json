@@ -54,26 +54,6 @@
       "category": "markdown-transformer-extension",
       "audience": "library-user",
       "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/markdown": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/yaml": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/json": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/csv": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
     }
   },
   "clientValueExports": {
@@ -411,11 +391,6 @@
       "audience": "server-runtime-author",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "createServerContentQueryContext": {
-      "category": "advanced-server-query-context",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "getCollectionPath": {
       "category": "stable-route-helper",
       "audience": "app-developer",
@@ -426,22 +401,12 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "createContentProviderError": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
     "contentCacheHeaders": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "noopContentCache": {
-      "category": "stable-provider-cache-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "vercelContentCache": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -463,31 +428,6 @@
     },
     "getContentCacheHint": {
       "category": "stable-provider-cache-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "withContentCache": {
-      "category": "stable-provider-cache-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "toContentProviderQuery": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "toContentProviderNavigationQuery": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "PROVIDER_QUERY_VERSION": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "normalizeProviderDocument": {
-      "category": "stable-provider-author-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
@@ -523,23 +463,8 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ContentPageResult": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "ContentQueryResponse": {
       "category": "transport-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentResolvedMeta": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentRouteMeta": {
-      "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
@@ -569,11 +494,6 @@
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
     "LocaleFallback": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "LocalePathEntry": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
@@ -633,16 +553,6 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ProviderDocumentInput": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "ContentProviderVariantFact": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
     "QueryOperators": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -678,10 +588,45 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "VercelContentCacheOptions": {
-      "category": "stable-provider-cache-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    "ResolutionEnvelope": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentAlternate": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentDocumentRoute": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentDocumentResolution": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentNavigationItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionName": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionStringName": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionTarget": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
     }
   },
   "providerValueExports": {
@@ -888,21 +833,6 @@
     }
   },
   "agentValueExports": {
-    "agentMarkdownPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "agentRawPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "normalizeAgentRoutePath": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
     "clearAgentMarkdownSerializers": {
       "category": "advanced-agent-markdown-extension",
       "audience": "advanced-integrator",
@@ -938,11 +868,6 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "queryMarkdownEnabledContent": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
     "registerAgentMarkdownComponent": {
       "category": "advanced-agent-markdown-extension",
       "audience": "advanced-integrator",
@@ -968,48 +893,8 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "resolveAgentMarkdownOptions": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveContentMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveContentMarkdownByRoute": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
     "xmlComponentMarkdown": {
       "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "buildAgentPageIndex": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "collectAgentMarkdownPrerenderRoutes": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "getAgentLocales": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "isSupportedAgentLocale": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "localeFromAgentPath": {
-      "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
@@ -1029,21 +914,6 @@
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "renderLlmsTxt": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveMarkdownForPublicRoute": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "routePathFromIndexSlug": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "routePathFromRawSlug": {
       "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
@@ -1124,31 +994,6 @@
     }
   },
   "rootValueExports": {
-    "agentMetadataFields": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentAppPage": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentMarkdownPolicy": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentMetadataFields": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentSection": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
     "defineCollection": {
       "category": "content-config-author",
       "audience": "content-author",

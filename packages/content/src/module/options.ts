@@ -1,5 +1,5 @@
 import type { Nuxt } from '@nuxt/schema'
-import type { ContentMiniSearchOptions, ContentSearchPublicRuntimeConfig } from '../types/search'
+import type { ContentMiniSearchOptions, ContentSearchEngine, ContentSearchPublicRuntimeConfig } from '../types/search'
 import type { ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
 import { resolveLocalePolicy } from '../features/localization/locale-policy'
 import type { LocalePolicyCollectionInput, ResolvedLocalePolicy } from '../features/localization/locale-policy'
@@ -162,8 +162,19 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
     return false as const
   }
 
+  const engine = (options.search as { engine?: unknown } | undefined)?.engine
+  if (engine === 'cms') {
+    throw new Error('content.search.engine "cms" was renamed to "provider". Update the search configuration before upgrading.')
+  }
+  if (engine !== undefined && engine !== 'minisearch' && engine !== 'pagefind' && engine !== 'provider') {
+    throw new Error(`Unsupported content.search.engine: ${String(engine)}. Expected "minisearch", "pagefind", or "provider".`)
+  }
+  const normalizedEngine: ContentSearchEngine = engine === 'pagefind' || engine === 'provider'
+    ? engine
+    : 'minisearch'
+
   return {
-    engine: options.search?.engine || 'minisearch',
+    engine: normalizedEngine,
     ignoredTags: options.search?.ignoredTags || ['script', 'style', 'pre'],
     filterQuery: options.search?.filterQuery || { partial: false },
     collections: options.search?.collections,

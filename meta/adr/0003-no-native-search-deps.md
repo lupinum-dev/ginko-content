@@ -64,6 +64,6 @@ search service, or a provider-owned search backend.
   unattractive.
 - Pagefind covers medium-size sites well but is also not infinite.
 - CMS/provider search is provider-owned and can be selected with
-  `engine: 'cms'`.
+  `engine: 'provider'`.
 - For sites above the filesystem search range, we document external or
   provider-owned search rather than grow our own native search backend.

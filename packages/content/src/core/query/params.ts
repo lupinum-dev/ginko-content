@@ -1,11 +1,18 @@
 import type { ContentQueryBuilderParams, ContentQueryBuilderWhere } from '../../types/query'
 import type { ContentCollectionI18nConfig } from '../../types/config'
 import { buildLocaleFallbackChain } from '../content/locale'
-import { jsonParse, jsonStringify } from './json'
 import { withoutTrailingSlash } from 'ufo'
 
+const stringifyQueryParams = (value: unknown) => JSON.stringify(value, (_key, item) =>
+  item instanceof RegExp ? `--REGEX ${item.toString()}` : item)
+
+const parseQueryParams = (value: string) => JSON.parse(value, (_key, item: unknown) => {
+  const encoded = typeof item === 'string' ? item.match(/^--REGEX \/(.*)\/([dgimsuy]*)$/) : undefined
+  return encoded?.[1] ? new RegExp(encoded[1], encoded[2] || '') : item
+})
+
 export const encodeQueryParams = (params: ContentQueryBuilderParams) => {
-  let encoded = jsonStringify(params)
+  let encoded = stringifyQueryParams(params)
   encoded = typeof Buffer !== 'undefined' ? Buffer.from(encoded).toString('base64') : btoa(encoded)
   encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 
@@ -18,7 +25,7 @@ export const decodeQueryParams = (encoded: string) => {
   encoded = encoded.replace(/-/g, '+').replace(/_/g, '/')
   encoded = encoded.padEnd(encoded.length + (4 - (encoded.length % 4)) % 4, '=')
 
-  return jsonParse(typeof Buffer !== 'undefined' ? Buffer.from(encoded, 'base64').toString() : atob(encoded))
+  return parseQueryParams(typeof Buffer !== 'undefined' ? Buffer.from(encoded, 'base64').toString() : atob(encoded))
 }
 
 const escapeContentPath = (path: string) => path.replace(/[-[\]{}()*+.,^$\s/]/g, '\\$&')

@@ -1,8 +1,6 @@
 import { resolve } from 'pathe'
 import type { Nuxt } from '@nuxt/schema'
 import fsDriver from 'unstorage/drivers/fs'
-import httpDriver from 'unstorage/drivers/http'
-import githubDriver from 'unstorage/drivers/github'
 import { consola } from 'consola'
 
 import type { ModuleOptions, MountOptions } from './types'
@@ -19,9 +17,7 @@ export const CACHE_VERSION = 3
 export const MOUNT_PREFIX = 'content:source:'
 
 const unstorageDrivers = {
-  fs: fsDriver,
-  http: httpDriver,
-  github: githubDriver
+  fs: fsDriver
 }
 
 /**

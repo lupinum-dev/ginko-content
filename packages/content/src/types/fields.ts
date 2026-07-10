@@ -229,21 +229,16 @@ export const fields = {
   text: () => textLike('text'),
   textarea: () => textLike('textarea'),
   richtext: () => textLike('richtext'),
-  markdown: () => textLike('richtext'),
   slug: (options: { from?: string } = {}) =>
     optionalField(z.string(), { type: 'slug', slugFrom: options.from ?? null }),
   email: () => optionalField(z.string().email(), { type: 'email' }),
   url: () => optionalField(z.string().url(), { type: 'url' }),
   number: () => optionalField(z.number(), { type: 'number', localized: false }),
   boolean: () => optionalField(z.boolean(), { type: 'boolean', localized: false }),
-  toggle: () => optionalField(z.boolean(), { type: 'boolean', localized: false }),
   date: () => optionalField(dateOnlySchema, { type: 'date', localized: false }),
   datetime: () => optionalField(datetimeSchema, { type: 'datetime', localized: false }),
   select<const Values extends readonly [string, ...string[]]> (values: Values) {
     return optionalField(z.enum(values), { type: 'select', options: [...values] })
-  },
-  enum<const Values extends readonly [string, ...string[]]> (values: Values) {
-    return fields.select(values)
   },
   json: () => optionalField(z.unknown(), { type: 'json' }),
   icon: () => optionalField(z.string(), { type: 'icon' }),
@@ -295,11 +290,3 @@ export const fields = {
     })
   },
 }
-
-export const image = fields.image
-export const asset = fields.asset
-export const file = fields.file
-export const relation = fields.relation
-export const relations = fields.relations
-export const richtext = fields.richtext
-export const text = fields.text

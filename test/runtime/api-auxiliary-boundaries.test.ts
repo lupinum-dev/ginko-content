@@ -20,7 +20,7 @@ const runtime = vi.hoisted(() => ({
   },
   content: {
     search: {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     },
     defaultLocale: 'en',
@@ -63,7 +63,7 @@ describe('runtime auxiliary API provider boundaries', () => {
     mocks.getContentProvider.mockReset()
     mocks.getContentProvider.mockResolvedValue(provider)
     runtime.content.search = {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     }
     runtime.public.content.sitemap = {

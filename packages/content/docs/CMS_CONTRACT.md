@@ -22,7 +22,7 @@ Changes affect:
 
 - `@lupinum/ginko-content/cms-contract`
 - `@lupinum/ginko-content/cms-import`
-- `@lupinum/ginko-content/agent` — the LLM markdown output surface (agent-readable content: `/raw/*.md`, `/llms.txt`, component→markdown serializers, and the per-app registration API `registerAgentMarkdownSerializer` / `createAgentMarkdownRegistry` / `defineAgentMarkdownComponent`, plus `renderLlmsTxt`, `agentMarkdownPathForRoute`). These live on their own subpath, not on `./server`.
+- `@lupinum/ginko-content/agent` — extension points for component-to-markdown serializers and public index rendering. Route parsing, route collection, and site-generation orchestration remain internal.
 - provider authors that map CMS data into `ContentProvider` — the single home for provider types is `@lupinum/ginko-content/provider`.
 
 Update `meta/public-surface.json`, package export contracts, and docs when CMS subpath exports change.

@@ -31,7 +31,7 @@ export interface UseContentSearchOptions extends UseContentSearchResultsOptions 
    * Optional collection to additionally load that collection's search
    * sections and search-shaped navigation tree from — absorbs the deleted
    * `useContentSearchData` (VNEXT.md 27.2). Omit to use only the
-   * query-driven `results` (minisearch/pagefind/cms backend); `files` and
+   * query-driven `results` (minisearch/pagefind/provider backend); `files` and
    * `searchNavigation` stay empty and no extra request is issued.
    */
   collection?: ContentCollectionHandle | ContentCollectionStringName
@@ -138,7 +138,7 @@ const resolveSearchConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>)
   return {
     apiBaseURL: typeof value.apiBaseURL === 'string' ? value.apiBaseURL : defaultSearchConfig.apiBaseURL,
     indexURL: typeof value.indexURL === 'string' ? value.indexURL : defaultSearchConfig.indexURL,
-    engine: value.engine === 'pagefind' || value.engine === 'cms' ? value.engine : 'minisearch',
+    engine: value.engine === 'pagefind' || value.engine === 'provider' ? value.engine : 'minisearch',
     minisearch: resolveMiniSearchRuntimeOptions(value.minisearch)
   }
 }
@@ -179,7 +179,7 @@ const resolveContentConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>
           ? {
               apiBaseURL: typeof value.search.apiBaseURL === 'string' ? value.search.apiBaseURL : defaultSearchConfig.apiBaseURL,
               indexURL: typeof value.search.indexURL === 'string' ? value.search.indexURL : defaultSearchConfig.indexURL,
-              engine: value.search.engine === 'pagefind' || value.search.engine === 'cms' ? value.search.engine : 'minisearch',
+              engine: value.search.engine === 'pagefind' || value.search.engine === 'provider' ? value.search.engine : 'minisearch',
               minisearch: resolveMiniSearchRuntimeOptions(value.search.minisearch)
             }
           : undefined)
@@ -273,8 +273,8 @@ const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options
     return usePagefindSearch(search, withBase('/pagefind/pagefind.js', appConfig.baseURL || '/'), options)
   }
 
-  if (config.engine === 'cms') {
-    return await useCmsSearch(search, config.apiBaseURL, options)
+  if (config.engine === 'provider') {
+    return await useProviderSearch(search, config.apiBaseURL, options)
   }
 
   return await useMiniSearch(search, config.indexURL, config.minisearch, options)
@@ -282,7 +282,7 @@ const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options
 
 /**
  * The sole public search composable (VNEXT.md 10.5, 27.2). Consolidates the
- * reactive, backend-normalized query-driven search (minisearch/pagefind/cms)
+ * reactive, backend-normalized query-driven search (minisearch/pagefind/provider)
  * with the opt-in per-collection search-section/navigation loading
  * previously split across the deleted `useContentSearchData` and
  * `useContentSearchResults`. `searchNavigation` is the sole name for the
@@ -384,7 +384,7 @@ const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string,
   }
 }
 
-const useCmsSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
+const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
   const locale = computed(() => toValue(options.locale))
   const requestUrl = computed(() => {
     const params = new URLSearchParams()

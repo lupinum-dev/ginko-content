@@ -5,7 +5,6 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 import type { ContentSearchIndexRecord } from '../../types/search'
 import { createSearchSections } from '../../features/search/sections'
 import { resolveCollectionI18n } from '../../features/localization/path'
-import { getContentProvider } from './providers'
 import { serverQueryCollection } from './provider-query'
 
 export { searchRecords } from '../shared/search'
@@ -56,27 +55,6 @@ export const resolveSearchCollections = (
     .map(([collection]) => collection)
 }
 
-const searchRecordsCache = new Map<string, ContentSearchIndexRecord[]>()
-const MAX_SEARCH_RECORDS_CACHE_ENTRIES = 12
-
-export const clearSearchRecordsCache = () => {
-  searchRecordsCache.clear()
-}
-
-const rememberSearchRecords = (cacheKey: string, records: ContentSearchIndexRecord[]) => {
-  if (searchRecordsCache.has(cacheKey)) {
-    searchRecordsCache.delete(cacheKey)
-  }
-  searchRecordsCache.set(cacheKey, records)
-  while (searchRecordsCache.size > MAX_SEARCH_RECORDS_CACHE_ENTRIES) {
-    const oldest = searchRecordsCache.keys().next().value
-    if (typeof oldest !== 'string') {
-      break
-    }
-    searchRecordsCache.delete(oldest)
-  }
-}
-
 const mergeSearchFilter = (
   filterQuery?: ContentQueryBuilderWhere,
   locale?: string
@@ -90,7 +68,7 @@ const mergeSearchFilter = (
   return filterQuery || localeFilter
 }
 
-export async function serverSearchContent (
+async function loadSearchDocuments (
   event: H3Event,
   filterQuery?: ContentQueryBuilderWhere,
   locale?: string,
@@ -171,24 +149,8 @@ export async function buildSearchIndex (
   } = {}
 ) {
   const runtimeConfig = useRuntimeConfig(event)
-  const provider = await getContentProvider(event)
-  const cacheKey = JSON.stringify({
-    provider: provider.name,
-    integrity: runtimeConfig.content.cacheIntegrity || runtimeConfig.public.content?.integrity,
-    collections: resolveSearchCollections(runtimeConfig.content, opts.collections),
-    ignoredTags: opts.ignoredTags || [],
-    extraFields: opts.extraFields || runtimeConfig.content.search?.extraFields || [],
-    filterQuery: opts.filterQuery,
-    locale: opts.locale,
-    allLocales: opts.allLocales
-  })
-  const cached = searchRecordsCache.get(cacheKey)
-  if (cached) {
-    return cached
-  }
-
   const extraFields = opts.extraFields || runtimeConfig.content.search?.extraFields || []
-  const pages = await serverSearchContent(event, opts.filterQuery, opts.locale, opts.collections, {
+  const pages = await loadSearchDocuments(event, opts.filterQuery, opts.locale, opts.collections, {
     allLocales: opts.allLocales,
     extraFields
   })
@@ -196,8 +158,5 @@ export async function buildSearchIndex (
     ignoredTags: opts.ignoredTags || [],
     extraFields: unique(['locale', 'collection', ...extraFields])
   }) as SearchSectionWithLocale[]
-  const records = sections.map(toSearchRecord)
-
-  rememberSearchRecords(cacheKey, records)
-  return records
+  return sections.map(toSearchRecord)
 }

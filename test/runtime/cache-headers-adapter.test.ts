@@ -6,7 +6,7 @@ import type { ContentCacheHint } from '../../packages/content/src/public/provide
 /**
  * T7.3: the headers cache adapter is the one adapter whose `apply` does work —
  * it must translate a cache hint into real HTTP response headers. The two
- * shipped inert adapters (`noopContentCache`, `vercelContentCache`) leave the
+ * shipped inert adapter (`noopContentCache`) leaves the
  * response untouched; this asserts the active one does not.
  */
 

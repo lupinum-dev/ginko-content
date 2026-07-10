@@ -61,13 +61,11 @@ function createOptions(overrides: Record<string, any> = {}) {
     watch: true,
     sources: {},
     ignores: [],
-    collections: {},
     markdown: { plugins: [], tags: {}, anchorLinks: { depth: 4, exclude: [1] } },
     yaml: {},
     csv: { delimiter: ',', json: true },
     navigation: { fields: [] },
     respectPathCase: false,
-    experimental: { stripQueryParameters: false },
     ...overrides
   }
 }
@@ -137,6 +135,14 @@ describe('module contracts', () => {
     vi.doMock('../../packages/content/src/core/content/locale', () => ({
       resolveCollectionI18nConfig: vi.fn((collection: any) => collection.i18n)
     }))
+  })
+
+  test.each(['collections', 'provider', 'providers'])('rejects nuxt.config content.%s as a second source of truth', async (key) => {
+    const { validateContentConfigOnlyOptions } = await import('../../packages/content/src/module/validation')
+    expect(() => validateContentConfigOnlyOptions({
+      ...createOptions(),
+      [key]: key === 'provider' ? 'cms' : {}
+    })).toThrow(`content.${key} was removed from nuxt.config`)
   })
 
   test('registers the content sitemap Nitro plugin when sitemap integration is enabled', async () => {
@@ -257,12 +263,7 @@ describe('module contracts', () => {
 
     expect(applyContentRuntimeConfig).toHaveBeenCalledWith(
       nuxt,
-      expect.objectContaining({
-        provider: 'cms',
-        providers: {
-          cms: '@lupinum/ginko-cms/nuxt-provider'
-        }
-      }),
+      expect.not.objectContaining({ provider: 'cms' }),
       expect.objectContaining({
         provider: 'cms',
         providers: {

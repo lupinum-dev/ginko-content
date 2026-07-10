@@ -317,6 +317,8 @@ describe('package export contracts', () => {
 
     expect(module.default).toBeTypeOf('function')
     expect(module.defineContentConfig).toBeTypeOf('function')
+    expect(module).not.toHaveProperty('agentMetadataFields')
+    expect(module).not.toHaveProperty('defineAgentAppPage')
   })
 
   test('built server export loads as Node ESM', async () => {
@@ -333,7 +335,10 @@ describe('package export contracts', () => {
     expect(server.getCollectionPath).toBeTypeOf('function')
     // Auxiliary / sitemap helpers preserved across the redesign.
     expect(server.queryCollectionsSitemapEntries).toBeTypeOf('function')
-    expect(server.createContentProviderError).toBeTypeOf('function')
+    expect(server).not.toHaveProperty('createContentProviderError')
+    expect(server).not.toHaveProperty('withContentCache')
+    expect(server).not.toHaveProperty('vercelContentCache')
+    expect(server).not.toHaveProperty('createServerContentQueryContext')
     expect(server).not.toHaveProperty('serverQueryCollection')
     expect(server).not.toHaveProperty('resolveContentReference')
   })
@@ -382,7 +387,23 @@ describe('package export contracts', () => {
     expect(agent.createAgentMarkdownRegistry).toBeTypeOf('function')
     expect(agent.defineAgentMarkdownComponent).toBeTypeOf('function')
     expect(agent.renderLlmsTxt).toBeTypeOf('function')
-    expect(agent.agentMarkdownPathForRoute).toBeTypeOf('function')
+    expect(agent).not.toHaveProperty('agentMarkdownPathForRoute')
+    expect(agent).not.toHaveProperty('resolveContentMarkdown')
+    expect(agent).not.toHaveProperty('buildAgentPageIndex')
+  })
+
+  test('built config export keeps one field-builder vocabulary', async () => {
+    const config = await import('../../packages/content/dist/config.mjs')
+
+    expect(config.fields.richtext).toBeTypeOf('function')
+    expect(config.fields.select).toBeTypeOf('function')
+    expect(config.fields.boolean).toBeTypeOf('function')
+    expect(config.fields).not.toHaveProperty('markdown')
+    expect(config.fields).not.toHaveProperty('enum')
+    expect(config.fields).not.toHaveProperty('toggle')
+    for (const alias of ['image', 'asset', 'file', 'relation', 'relations', 'richtext', 'text']) {
+      expect(config).not.toHaveProperty(alias)
+    }
   })
 
   test('built provider export loads as Node ESM', async () => {

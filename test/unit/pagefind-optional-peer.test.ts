@@ -14,6 +14,18 @@ const importFails = () => Promise.reject(new Error("Cannot find package 'pagefin
 const importOk = () => Promise.resolve({})
 
 describe('assertPagefindAvailable (module-setup optional-peer guard)', () => {
+  test('rejects the removed cms engine with an actionable migration', () => {
+    expect(() => normalizeSearchOptions({
+      search: { engine: 'cms' } as never
+    })).toThrow(/"cms" was renamed to "provider"/)
+  })
+
+  test('rejects unknown search engines instead of silently selecting minisearch', () => {
+    expect(() => normalizeSearchOptions({
+      search: { engine: 'remote' } as never
+    })).toThrow(/Unsupported content\.search\.engine/)
+  })
+
   test('does nothing when search is disabled', async () => {
     const importSpy = vi.fn(importFails)
     await expect(assertPagefindAvailable(normalizeSearchOptions({ search: false }), importSpy)).resolves.toBeUndefined()
@@ -26,9 +38,9 @@ describe('assertPagefindAvailable (module-setup optional-peer guard)', () => {
     expect(importSpy).not.toHaveBeenCalled()
   })
 
-  test('does nothing for the cms engine', async () => {
+  test('does nothing for the provider engine', async () => {
     const importSpy = vi.fn(importFails)
-    await expect(assertPagefindAvailable(normalizeSearchOptions({ search: { engine: 'cms' } }), importSpy)).resolves.toBeUndefined()
+    await expect(assertPagefindAvailable(normalizeSearchOptions({ search: { engine: 'provider' } }), importSpy)).resolves.toBeUndefined()
     expect(importSpy).not.toHaveBeenCalled()
   })
 

@@ -83,7 +83,7 @@ describe('public search composable (VNEXT.md 10.5, 27.2)', () => {
 
   test('useContentSearch delegates CMS searches to the configured endpoint', async () => {
     setRuntimeSearch({
-      engine: 'cms',
+      engine: 'provider',
       apiBaseURL: '/api/_content/search'
     })
     fetchPayload = [{ collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 1 }]

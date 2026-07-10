@@ -68,7 +68,6 @@ const stalePublicApiPatterns = [
 const advancedServerSurfacePatterns = [
   /\bwithContentCache\b/,
   /\bcontentCacheHeaders\b/,
-  /\bvercelContentCache\b/,
   /\bnoopContentCache\b/,
   /\bContentCacheAdapter\b/,
   /\bContentCacheHint\b/,

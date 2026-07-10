@@ -1,5 +1,4 @@
 import type { ModuleOptions } from '../types/module'
-import { defaultMiniSearchOptions } from './options'
 
 export const contentModuleDefaults = {
   api: {
@@ -7,28 +6,11 @@ export const contentModuleDefaults = {
   },
   i18n: true,
   sitemap: true,
-  search: {
-    engine: 'minisearch',
-    ignoredTags: ['script', 'style', 'pre'],
-    // `partial` is structural (never a real searchable page) and always
-    // excluded by default. `draft` is NOT baked in here: draft visibility in
-    // search follows the one core environment/preview decision applied at
-    // the query layer (VNEXT.md 13.6/24.2), not a hardcoded caller filter.
-    filterQuery: { partial: false },
-    extraFields: [],
-    minisearch: {
-      fields: [...defaultMiniSearchOptions.fields],
-      storeFields: [...defaultMiniSearchOptions.storeFields],
-      boost: { ...defaultMiniSearchOptions.boost },
-      fuzzy: defaultMiniSearchOptions.fuzzy,
-      prefix: defaultMiniSearchOptions.prefix
-    }
-  },
+  search: false,
   watch: true,
   sources: {},
   ignores: [],
   links: {},
-  collections: {},
   markdown: {
     plugins: [],
     tags: {
@@ -56,8 +38,5 @@ export const contentModuleDefaults = {
     markdownNegotiation: true,
     prerender: true
   },
-  respectPathCase: false,
-  experimental: {
-    stripQueryParameters: false
-  }
+  respectPathCase: false
 } satisfies ModuleOptions

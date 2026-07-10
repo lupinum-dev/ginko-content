@@ -85,7 +85,7 @@ export const registerStaticOutputGeneration = ({
 
         if (
           searchRuntime !== false
-          && searchRuntime.engine !== 'cms'
+          && searchRuntime.engine !== 'provider'
           && usesFilesystemProvider
         ) {
           const response = await localFetch(searchRuntime.indexURL)

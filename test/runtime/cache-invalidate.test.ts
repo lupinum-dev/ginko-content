@@ -12,7 +12,6 @@ import type { ContentCacheInvalidateInput } from '../../packages/content/src/pub
  */
 
 const mocks = vi.hoisted(() => ({
-  clearSearchRecordsCache: vi.fn(),
   getContentCacheAdapter: vi.fn(),
   getContentProvider: vi.fn(),
   getContentRuntimeConfig: vi.fn()
@@ -28,10 +27,6 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
 
 vi.mock('../../packages/content/src/runtime/server/runtime-config', () => ({
   getContentRuntimeConfig: mocks.getContentRuntimeConfig
-}))
-
-vi.mock('../../packages/content/src/runtime/server/search', () => ({
-  clearSearchRecordsCache: mocks.clearSearchRecordsCache
 }))
 
 const createRecordingAdapter = () => {
@@ -78,7 +73,6 @@ const mutate = async (body: Record<string, unknown>) => {
 describe('cache invalidation wiring (recording adapter)', () => {
   beforeEach(() => {
     mocks.getContentCacheAdapter.mockReset()
-    mocks.clearSearchRecordsCache.mockReset()
     mocks.getContentProvider.mockReset()
     // No provider-level invalidation: the cache adapter is the sole handler.
     mocks.getContentProvider.mockResolvedValue({})
@@ -102,7 +96,6 @@ describe('cache invalidation wiring (recording adapter)', () => {
     expect(recording.invalidations).toEqual([
       { tags: ['entry:docs:a', 'entry:docs:b'], paths: ['/docs/a', '/docs/b'] }
     ])
-    expect(mocks.clearSearchRecordsCache).toHaveBeenCalledTimes(1)
   })
 
   test('paths-only and tags-only mutations record with the empty side undefined', async () => {
@@ -116,7 +109,6 @@ describe('cache invalidation wiring (recording adapter)', () => {
       { tags: undefined, paths: ['/docs/only'] },
       { tags: ['tag:only'], paths: undefined }
     ])
-    expect(mocks.clearSearchRecordsCache).toHaveBeenCalledTimes(2)
   })
 
   test('successive mutations accumulate in the adapter end-to-end', async () => {

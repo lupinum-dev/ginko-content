@@ -3,7 +3,6 @@ import type { ContentCacheInvalidateInput } from '../../../public/provider'
 import { getContentCacheAdapter } from '../cache-adapter'
 import { getContentProvider } from '../providers'
 import { getContentRuntimeConfig } from '../runtime-config'
-import { clearSearchRecordsCache } from '../search'
 
 const normalizePath = (path: string) => {
   const normalized = path.startsWith('/') ? path : `/${path}`
@@ -176,7 +175,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  clearSearchRecordsCache()
 
   return {
     ok: true,

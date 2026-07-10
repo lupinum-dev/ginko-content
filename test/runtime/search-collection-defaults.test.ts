@@ -4,18 +4,11 @@ import { createInMemoryProvider } from '../harness/provider'
 import { createTestEvent } from '../harness/event'
 import {
   buildSearchIndex,
-  clearSearchRecordsCache,
-  resolveSearchCollections,
-  serverSearchContent
+  resolveSearchCollections
 } from '../../packages/content/src/runtime/server/search'
 
 const mocks = vi.hoisted(() => ({
-  getContentProvider: vi.fn(),
   serverQueryCollection: vi.fn()
-}))
-
-vi.mock('../../packages/content/src/runtime/server/providers', () => ({
-  getContentProvider: mocks.getContentProvider
 }))
 
 vi.mock('../../packages/content/src/runtime/server/provider-query', () => ({
@@ -45,9 +38,6 @@ const createRuntime = (search: Record<string, unknown> = {}) => ({
 
 describe('runtime search collection defaults', () => {
   beforeEach(() => {
-    clearSearchRecordsCache()
-    mocks.getContentProvider.mockReset()
-    mocks.getContentProvider.mockResolvedValue(provider)
     mocks.serverQueryCollection.mockReset()
     mocks.serverQueryCollection.mockImplementation((_event, collection: string) => {
       const builder = {
@@ -90,15 +80,5 @@ describe('runtime search collection defaults', () => {
     expect(records.map(record => record.collection)).toEqual(
       expect.arrayContaining(['pages', 'docs', 'posts'])
     )
-  })
-
-  test('server search content uses the same default collection boundary', async () => {
-    const records = await serverSearchContent(createTestEvent({ scenario, provider }))
-
-    expect(records.map(record => record.collection)).toEqual(
-      expect.arrayContaining(['pages', 'docs', 'posts'])
-    )
-    expect(records.map(record => record.collection)).not.toContain('data')
-    expect(mocks.serverQueryCollection.mock.calls.map(([, collection]) => collection)).toEqual(['pages', 'docs', 'posts'])
   })
 })

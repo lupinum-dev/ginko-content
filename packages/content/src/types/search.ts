@@ -1,4 +1,4 @@
-export type ContentSearchEngine = 'minisearch' | 'pagefind' | 'cms'
+export type ContentSearchEngine = 'minisearch' | 'pagefind' | 'provider'
 
 export interface ContentMiniSearchOptions {
   /**

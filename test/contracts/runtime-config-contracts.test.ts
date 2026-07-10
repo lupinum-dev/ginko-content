@@ -2,12 +2,10 @@ import { describe, expect, test } from 'vitest'
 
 import { applyContentRuntimeConfig } from '../../packages/content/src/module/runtime-config'
 import { contentModuleDefaults } from '../../packages/content/src/module/defaults'
-import { defaultMiniSearchOptions } from '../../packages/content/src/module/options'
 
 const createOptions = () => ({
   api: { baseURL: '/api/_content' },
   links: {},
-  experimental: { stripQueryParameters: false },
   respectPathCase: false
 })
 
@@ -30,7 +28,8 @@ const createContentContext = () => ({
     path: '/sitemap'
   },
   search: false,
-  navigation: { fields: [] }
+  navigation: { fields: [] },
+  collections: {}
 })
 
 const createNuxt = (site?: { url?: string }, siteUrl?: string) => ({
@@ -68,14 +67,8 @@ const applyRuntimeConfig = async (
 }
 
 describe('runtime config contracts', () => {
-  test('uses the shared MiniSearch defaults as the module default source of truth', () => {
-    expect(contentModuleDefaults.search.minisearch).toEqual({
-      fields: [...defaultMiniSearchOptions.fields],
-      storeFields: [...defaultMiniSearchOptions.storeFields],
-      boost: { ...defaultMiniSearchOptions.boost },
-      fuzzy: defaultMiniSearchOptions.fuzzy,
-      prefix: defaultMiniSearchOptions.prefix
-    })
+  test('keeps search disabled until an application opts in', () => {
+    expect(contentModuleDefaults.search).toBe(false)
   })
 
   test('exposes Nuxt site.url as runtimeConfig.public.content.siteUrl for runtime content features', async () => {

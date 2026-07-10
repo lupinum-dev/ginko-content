@@ -25,7 +25,7 @@ import { validateContentPageRouteMetadata } from './module/route-meta-validation
 import { hasAgentSurface, validateAgentConfig } from './module/agent-config'
 import { registerStaticOutputGeneration } from './module/static-output'
 import { registerContentNitroConfig } from './module/nitro-config'
-import { validateCollectionNames, validateRemovedMarkdownOptions } from './module/validation'
+import { validateCollectionNames, validateContentConfigOnlyOptions, validateRemovedMarkdownOptions } from './module/validation'
 import { contentModuleDefaults } from './module/defaults'
 import './module/augmentations'
 import { registerContentContextFinalization } from './module/context-finalization'
@@ -39,7 +39,7 @@ const hookNuxtBoundary = <T>(
   hook(name, callback)
 }
 
-export { agentMetadataFields, defineAgentAppPage, defineAgentMarkdownPolicy, defineAgentMetadataFields, defineAgentSection, defineCollection, defineContentConfig, reference } from './types/config.js'
+export { defineCollection, defineContentConfig, reference } from './types/config.js'
 // Curated root-entry type surface (GC-4). The former wildcard type re-export
 // leaked the entire internal type graph — including the retired fluent-builder
 // types — through the package root. Keep this list minimal: the module options,
@@ -91,6 +91,7 @@ export default defineNuxtModule<ModuleOptions>({
     const logger = useLogger(name)
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path)
     const runtimeInlineDependencies = ['comark', '@comark/vue']
+    validateContentConfigOnlyOptions(options)
     validateRemovedMarkdownOptions(options)
     nuxt.options.experimental.payloadExtraction ??= false
     nuxt.options.build.transpile ||= []
@@ -105,10 +106,6 @@ export default defineNuxtModule<ModuleOptions>({
     })
     const contentConfigPath = resolveContentConfigPath(nuxt)
     const appContentConfig = await loadContentConfig(nuxt)
-    const externalGinkoContentConfig = (nuxt.options as any).ginkoContent
-    if (externalGinkoContentConfig?.agent && options.agent !== false) {
-      options.agent = defu(options.agent || {}, externalGinkoContentConfig.agent)
-    }
     if (!contentConfigPath || !appContentConfig.collections || !Object.keys(appContentConfig.collections).length) {
       throw new Error('@lupinum/ginko-content requires a content.config.ts with at least one collection. Define collections with defineContentConfig({ collections: { ... } }).')
     }
@@ -132,7 +129,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
     validateAgentConfig(appContentConfig, options, { dev: nuxt.options.dev })
 
-    options.collections = Object.fromEntries(Object.entries(appContentConfig.collections).map(([name, collection]) => [
+    const collections = Object.fromEntries(Object.entries(appContentConfig.collections).map(([name, collection]) => [
       name,
       {
         ...collection,
@@ -145,17 +142,16 @@ export default defineNuxtModule<ModuleOptions>({
         )
       }
     ]))
-    options.provider = appContentConfig.provider || options.provider || 'filesystem'
-    const providerRegistry = {
-      ...(options.providers || {}),
-      ...(appContentConfig.providers || {})
-    }
-    options.providers = providerRegistry
+    const provider = appContentConfig.provider || 'filesystem'
+    const providerRegistry = { ...(appContentConfig.providers || {}) }
     // Disable cache in dev mode
     const buildIntegrity = nuxt.options.dev ? undefined : Date.now()
 
     const contentContext: ContentContext = {
       ...options,
+      collections,
+      provider,
+      providers: providerRegistry,
       transformers: options.transformers || [],
       locales: resolvedI18n.locales,
       defaultLocale: resolvedI18n.defaultLocale,
@@ -181,7 +177,7 @@ export default defineNuxtModule<ModuleOptions>({
       configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
     }
     nuxt.hook('pages:extend', (pages) => {
-      validateContentPageRouteMetadata(pages, options.collections || {}, {
+      validateContentPageRouteMetadata(pages, collections, {
         locales: resolvedI18n.locales,
         defaultLocale: resolvedI18n.defaultLocale
       })

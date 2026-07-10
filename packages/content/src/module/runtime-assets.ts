@@ -28,38 +28,10 @@ export const runtimeServerImportSpecs = [
 ] as const
 
 export const generatedContentServerValueNames = [
-  ...runtimeServerImportSpecs.map(spec => spec.name),
-  'contentCacheHeaders',
-  'noopContentCache',
-  'vercelContentCache',
-  'headersContentCache',
-  'clearContentCacheHint',
-  'collectContentCacheHint',
-  'getContentCacheHint',
-  'withContentCache',
-  'PROVIDER_QUERY_VERSION',
-  'toContentProviderQuery',
-  'toContentProviderNavigationQuery',
-  'createContentProviderError',
-  'normalizeProviderDocument'
+  ...runtimeServerImportSpecs.map(spec => spec.name)
 ] as const
 
-export const generatedContentServerTypeSpecs = [
-  { local: 'ContentCacheAdapter', exported: 'ContentCacheAdapter' },
-  { local: 'ContentCacheHint', exported: 'ContentCacheHint' },
-  { local: 'ContentCacheHintInput', exported: 'ContentCacheHintInput' },
-  { local: 'ContentCacheInvalidateInput', exported: 'ContentCacheInvalidateInput' },
-  { local: 'ContentProvider', exported: 'ContentProvider' },
-  { local: 'ContentProviderCapabilities', exported: 'ContentProviderCapabilities' },
-  { local: 'ContentProviderQuery', exported: 'ContentProviderQuery' },
-  { local: 'ContentProviderNavigationOptions', exported: 'ContentProviderNavigationOptions' },
-  { local: 'ContentProviderResult<T>', exported: 'ContentProviderResult<T>' },
-  { local: 'MaybeContentProviderResult<T>', exported: 'MaybeContentProviderResult<T>' },
-  { local: 'ContentProviderErrorCode', exported: 'ContentProviderErrorCode' },
-  { local: 'ProviderDocumentInput', exported: 'ProviderDocumentInput' },
-  { local: 'ShapeProviderDocumentOptions', exported: 'ShapeProviderDocumentOptions' },
-  { local: 'VercelContentCacheOptions', exported: 'VercelContentCacheOptions' }
-] as const
+export const generatedContentServerTypeSpecs = [] as const
 
 export const registerRuntimeImports = (resolveRuntimeModule: (path: string) => string) => {
   addImports(runtimeAppImportSpecs.map(spec => ({
@@ -188,9 +160,6 @@ export const registerGeneratedTypes = (
   const contentServerValueDeclarations = generatedContentServerValueNames.map(name =>
     `  const ${name}: typeof import(${serverModuleLiteral}).${name}`
   )
-  const contentServerTypeDeclarations = generatedContentServerTypeSpecs.map(spec =>
-    `  type ${spec.local} = import(${serverModuleLiteral}).${spec.exported}`
-  )
 
   return addTypeTemplate({
     filename: 'types/content.d.ts',
@@ -236,27 +205,14 @@ export const registerGeneratedTypes = (
       'type __GeneratedI18nCollectionNames = [__RuntimeI18nCollectionNames] extends [never]',
       '  ? __InferredI18nCollectionNames',
       '  : __RuntimeI18nCollectionNames',
-      'declare module \'@lupinum/ginko-content\' {',
-      '  interface ContentCollectionMap extends __GeneratedContentCollectionMap {}',
-      '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
-      '}',
       'declare global {',
       '  interface GinkoContentCollectionMap {',
       ...collectionMapProperties,
       '  }',
       '  interface GinkoContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
       '}',
-      'declare module \'@lupinum/ginko-content/dist/types/query\' {',
-      '  interface ContentCollectionMap extends __GeneratedContentCollectionMap {}',
-      '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
-      '}',
-      'declare module \'@lupinum/ginko-content/dist/types/query.js\' {',
-      '  interface ContentCollectionMap extends __GeneratedContentCollectionMap {}',
-      '  interface ContentCollectionI18nMap extends Pick<__GeneratedContentCollectionMap, __GeneratedI18nCollectionNames> {}',
-      '}',
       'declare module \'#content/server\' {',
       ...contentServerValueDeclarations,
-      ...contentServerTypeDeclarations,
       '}'
     ].filter(Boolean).join('\n')
   })

@@ -5,10 +5,6 @@ import type { ContentContext, ContentRevalidateOptions, ModuleOptions, ResolvedC
 import type { createSearchRuntimeConfig } from './options'
 
 interface ModulePublicRuntimeConfig {
-  experimental: {
-    stripQueryParameters: boolean
-  }
-
   api: {
     baseURL: string
   }

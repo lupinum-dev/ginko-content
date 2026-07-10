@@ -173,8 +173,7 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/cms-import`
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
-- `@lupinum/ginko-content/transformers` (+ `/transformers/markdown`,
-  `/transformers/yaml`, `/transformers/json`, `/transformers/csv`)
+- `@lupinum/ginko-content/transformers`
 
 This list is enforced against the package manifest by
 `test/contracts/package-exports-contracts.test.ts` and `meta/public-surface.json`

@@ -5,7 +5,7 @@ import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
 import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
 
 export type MountOptions = {
-  driver: 'fs' | 'http' | string
+  driver: string
   name?: string
   prefix?: string
   [options: string]: unknown
@@ -446,26 +446,6 @@ export interface ModuleOptions {
     fields: Array<string>
   }
   /**
-   * Typed collection definitions loaded from `content.config.*`.
-   *
-   * Globs are relative to the content source root.
-   *
-   * @default {}
-   */
-  collections?: Record<string, ContentCollectionConfig>
-  /**
-   * Backing implementation for public content reads.
-   *
-   * `filesystem` is the default. Provider modules can register named
-   * implementations, for example `cms`.
-   */
-  provider?: ContentProviderName
-  /**
-   * External provider modules keyed by provider name. First-party provider
-   * modules register themselves, so app configs usually do not need this.
-   */
-  providers?: Record<string, string>
-  /**
    * Custom transformer modules, each resolved as an import specifier and
    * default-exporting a `ContentTransformer` (see `defineTransformer` from
    * `@lupinum/ginko-content/transformers`). Transformers run inside the real
@@ -482,9 +462,6 @@ export interface ModuleOptions {
    * @default false
    */
   respectPathCase: boolean
-  experimental: {
-    stripQueryParameters?: boolean
-  }
 }
 
 
@@ -497,6 +474,9 @@ export interface ResolvedContentI18nOptions {
 }
 
 export interface ContentContext extends ModuleOptions {
+  collections: Record<string, ContentCollectionConfig>
+  provider: ContentProviderName
+  providers: Record<string, string>
   transformers: Array<string>
   sitemap: false | ContentSitemapOptions
   locales: string[]

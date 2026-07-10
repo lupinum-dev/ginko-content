@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   const term = typeof rawTerm === 'string' ? rawTerm.slice(0, 200) : ''
   const locale = typeof query.locale === 'string' ? query.locale : undefined
 
-  if (searchConfig.engine === 'cms') {
+  if (searchConfig.engine === 'provider') {
     const provider = await getContentProvider(event)
     if (typeof provider.search !== 'function') {
       throw createContentProviderError('unsupported_provider_search', `${provider.name} does not support provider-backed search`, {

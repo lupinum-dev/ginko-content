@@ -3,9 +3,6 @@ import { describe, expect, test } from 'vitest'
 import {
   fields,
   getContentFieldMetadata,
-  image,
-  relation,
-  richtext,
 } from '../../packages/content/src/types/fields'
 
 describe('content schema fields', () => {
@@ -23,7 +20,7 @@ describe('content schema fields', () => {
   })
 
   test('creates CMS image fields as asset references', () => {
-    const avatar = image({ aspectRatio: '1:1', accept: ['image/png'] }).required()
+    const avatar = fields.image({ aspectRatio: '1:1', accept: ['image/png'] }).required()
 
     expect(avatar.safeParse('asset:123').success).toBe(true)
     expect(avatar.safeParse({ src: '/avatar.png' }).success).toBe(false)
@@ -39,7 +36,7 @@ describe('content schema fields', () => {
   })
 
   test('creates relation and richtext metadata for CMS inference', () => {
-    expect(getContentFieldMetadata(relation('authors').required())).toMatchObject({
+    expect(getContentFieldMetadata(fields.relation('authors').required())).toMatchObject({
       type: 'relation',
       required: true,
       localized: false,
@@ -51,7 +48,7 @@ describe('content schema fields', () => {
       localized: false,
       relation: { collectionId: 'authors', multiple: true },
     })
-    expect(getContentFieldMetadata(richtext())).toMatchObject({
+    expect(getContentFieldMetadata(fields.richtext())).toMatchObject({
       type: 'richtext',
       required: false,
     })
