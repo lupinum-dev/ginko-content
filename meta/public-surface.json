@@ -490,11 +490,6 @@
       "category": "stable-provider-author-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "shapeProviderDocument": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
   },
   "serverTypeExports": {
@@ -643,6 +638,11 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "ContentProviderVariantFact": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "QueryOperators": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -662,11 +662,6 @@
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ShapeProviderDocumentOptions": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "SortSpec": {
       "category": "stable-query-type",
@@ -695,7 +690,7 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "contentProviderResultMarker": {
+    "isContentProviderResult": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -706,11 +701,6 @@
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "normalizeProviderDocument": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "shapeProviderDocument": {
       "category": "stable-provider-author-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -762,6 +752,11 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "ContentProviderNavigationItem": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "ContentProviderErrorCode": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
@@ -782,6 +777,16 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "ContentProviderRouteFact": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderSearchResult": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "ContentProviderSiteDataRequest": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
@@ -792,12 +797,32 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ProviderDocumentInput": {
+    "ContentProviderSurroundItem": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ShapeProviderDocumentOptions": {
+    "ContentProviderSurroundingsOptions": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderVariantFact": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentRouteRecord": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentSitemapMetadata": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ProviderDocumentInput": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -834,47 +859,7 @@
     }
   },
   "providerContractValueExports": {
-    "LEGACY_PROVIDER_ENVELOPE_FIELDS": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "createAuthorDependencyContractProvider": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectNoLegacyProviderEnvelopeFields": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
     "expectProviderCapabilities": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectProviderDocumentEnvelope": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectUnsupportedProviderOperation": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectUnsupportedProviderQueryShape": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "runAuthorDependencyContractTest": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "runAuthorDependencyFixtureSelfTest": {
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -891,12 +876,12 @@
     }
   },
   "providerContractTypeExports": {
-    "AuthorDependencyContractOptions": {
+    "ProviderContractSuiteOptions": {
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ProviderContractSuiteOptions": {
+    "ProviderQueryProbe": {
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"

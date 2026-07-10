@@ -36,6 +36,19 @@ export const decorateLocalizedDocument = <T extends ParsedContent & Record<strin
 ): LocalizedDoc<T> | null => {
   if (!doc) return null
 
+  // Server/provider transports already return the canonical public envelope.
+  // Keep that single source of truth instead of attempting to project a
+  // second time from the intentionally removed top-level `path` field.
+  if (
+    typeof doc.route === 'object'
+    && doc.route !== null
+    && typeof (doc.route as { resolvedPath?: unknown }).resolvedPath === 'string'
+    && typeof doc.resolution === 'object'
+    && doc.resolution !== null
+  ) {
+    return doc as unknown as LocalizedDoc<T>
+  }
+
   const { locales, defaultLocale, routeMounts, hasLocaleConfig } = collectionLocaleConfig(collection, runtime)
   return decorateLocalizedDocumentEnvelope(
     doc,

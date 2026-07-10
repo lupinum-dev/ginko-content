@@ -52,36 +52,26 @@ export {
   toContentProviderNavigationQuery
 } from '../runtime/server/provider-query-wire'
 
-/** The single wire type crossing the provider `query`/`navigationQuery` boundary. */
+/** The single wire type crossing the provider `query`/`navigation` boundary. */
 export interface ContentProviderQuery {
   /** Wire version — always `PROVIDER_QUERY_VERSION` (2). No v1 dispatch remains. */
   v: 2
   /** `null` = cross-collection query (navigation / search aggregation paths). */
   collection: string | null
+  /** Publication policy resolved by core, independent of query operators. */
+  visibility: {
+    includeDrafts: boolean
+  }
   plan: ContentQueryPlan
 }
 
 /**
- * Navigation-only knobs that are NOT part of the query plan. Navigation adds
- * projection fields, a canonical-vs-localized routing flag, and a locale
- * resolution spec — all of which configure `navigationQuery` tree shaping
- * rather than document selection, so they travel beside the plan instead of
- * being smuggled through it.
- *
- * `resolveLocale` is carried here in its un-lowered builder shape because
- * navigation walks the fallback chain itself and must distinguish
- * `fallback: true` (expand from config) / `false` (exact) / an explicit chain —
- * a distinction the executor plan intentionally normalizes away.
+ * Locale/fallback facts needed while a provider builds a navigation tree.
+ * Selection already lives in the versioned query plan; providers return raw
+ * route facts, so there is no second `fields` or `canonical` projection knob.
  */
 export interface ContentProviderNavigationOptions {
-  /** Extra fields the navigation tree should carry beyond the defaults. */
-  fields?: string[]
-  /** Emit canonical (locale-agnostic) routes instead of localized ones. */
-  canonical?: boolean
-  /** Locale resolution for the navigation tree, in builder shape. */
-  resolveLocale?: {
-    locale?: string
-    fallback?: boolean | string[]
-    exact?: boolean
-  }
+  locale?: string
+  fallback?: boolean | readonly string[]
+  exact?: boolean
 }

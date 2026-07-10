@@ -1,14 +1,12 @@
-import { contentProviderResultMarker, toContentProviderQuery, type ContentCacheHint, type ContentCacheInvalidateInput, type ContentProvider, type ContentProviderQuery } from '../public/provider'
+import type { ContentCacheHint, ContentCacheInvalidateInput, ContentProvider, ContentProviderQuery } from '../public/provider'
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../types/api'
-import type { ContentFileMeta, NavItem, ParsedContent } from '../types/content'
-import type { ContentCollectionPageOptions, ContentPageResult, ContentQueryBuilderParams } from '../types/query'
+import type { ContentFileMeta, ParsedContent } from '../types/content'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
 import { SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
-import { normalizeContentPath, normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
-import { createRouteMeta, localizePageResult } from '../features/localization/results'
+import { normalizeContentPath } from '../features/localization/path'
 import { normalizeProviderDocument } from '../runtime/server/provider-document'
 import { createContentProviderError } from '../public/provider-errors'
 
@@ -70,88 +68,17 @@ export interface ProviderFixtureEventOptions {
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
-const unwrapResponseResult = <T>(response: ContentQueryResponse<T> | import('../public/provider').ContentProviderResult<ContentQueryResponse<T>>): T | T[] | number | undefined => {
-  if (isObject(response) && response[contentProviderResultMarker] === true) {
-    return unwrapResponseResult<T>((response as import('../public/provider').ContentProviderResult<ContentQueryResponse<T>>).data)
-  }
-  const envelope = response as ContentQueryResponse<T>
-  return envelope.result as T | T[] | number | undefined
-}
-
 const normalizeQueryResult = <T>(value: T | T[] | number | undefined): T[] => {
   if (Array.isArray(value)) return value
   return value && typeof value === 'object' ? [value] : []
 }
-
-const routeMountsFor = (fixture: ProviderFixture, collection: string) => {
-  const config = fixture.collections[collection]
-  const collectionI18n = config?.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
-  return normalizeRouteMounts(
-    config?.route,
-    collectionI18n?.locales || fixture.locales,
-    collectionI18n?.defaultLocale || fixture.defaultLocale
-  )
-}
-
-const localizePath = (fixture: ProviderFixture, collection: string, path: string, locale?: string) => {
-  const config = fixture.collections[collection]
-  const collectionI18n = config?.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
-  return projectContentPathToLocale(
-    path,
-    locale,
-    collectionI18n?.defaultLocale || fixture.defaultLocale,
-    routeMountsFor(fixture, collection)
-  )
-}
-
-const navFieldsFromDoc = (doc: ParsedContent, fields: string[] = []) =>
-  Object.fromEntries(fields.filter(field => field in doc).map(field => [field, doc[field]]))
-
-const navIdentityFromDoc = (doc: ParsedContent) => ({
-  ref: doc.ref,
-  stableId: doc.ref || doc.canonicalKey || doc.id
-})
 
 const normalizeCachePath = (path: string) => {
   const normalized = path.startsWith('/') ? path : `/${path}`
   return normalized.replace(/\/{2,}/g, '/')
 }
 
-const documentEntryTag = (doc: ParsedContent) => `entry:${doc.collection}:${String(doc.ref || doc.canonicalKey || doc.id)}`
 const collectionTag = (collection: string) => `collection:${collection}`
-const routeTag = (path: string) => `route:${normalizeCachePath(path)}`
-
-const collectStringValues = (value: unknown): string[] => {
-  if (typeof value === 'string') {
-    return [value]
-  }
-  if (Array.isArray(value)) {
-    return value.flatMap(collectStringValues)
-  }
-  if (value && typeof value === 'object') {
-    return Object.values(value).flatMap(collectStringValues)
-  }
-  return []
-}
-
-const referenceEntryTags = (fixture: ProviderFixture, doc: ParsedContent) => {
-  const knownRefs = new Map(fixture.documents
-    .filter(document => document !== doc)
-    .flatMap((document) => {
-      const ref = typeof document.ref === 'string' ? document.ref : undefined
-      const [collection, ...id] = ref?.split('.') || []
-      return ref && collection && id.length
-        ? [[ref, `entry:${collection}:${id.join('.')}`] as const]
-        : []
-    }))
-
-  return Array.from(new Set(collectStringValues(doc)
-    .map(value => knownRefs.get(value))
-    .filter((tag): tag is `entry:${string}:${string}` => typeof tag === 'string')))
-}
 
 type ProviderFixtureRuntimeContext = {
   cacheHint?: ContentCacheHint | false
@@ -184,65 +111,12 @@ export const collectProviderFixtureCacheHint = (
 export const getProviderFixtureCacheHint = (event: H3Event): ContentCacheHint | false | undefined =>
   getProviderFixtureRuntimeContext(event).cacheHint
 
-const createCacheHintForDocument = (
-  fixture: ProviderFixture,
-  doc: ParsedContent,
-  path: string
-): ContentCacheHint => {
-  const collection = doc.collection || 'content'
-  return {
-    tags: Array.from(new Set([
-      documentEntryTag(doc),
-      collectionTag(collection),
-      routeTag(path),
-      ...referenceEntryTags(fixture, doc)
-    ])),
-    paths: [normalizeCachePath(path)],
-    lastModified: fixture.documents
-      .map(document => document.updatedAt || document.date)
-      .filter((value): value is string => typeof value === 'string')
-      .map(value => new Date(value))
-      .filter(date => Number.isFinite(date.getTime()))
-      .sort((left, right) => right.getTime() - left.getTime())[0]
-  }
-}
-
 const createProviderFixtureCacheState = (): ProviderFixtureCacheState => ({
   events: [],
   dependenciesByPath: new Map(),
   pathsByTag: new Map(),
   renderedPaths: new Set()
 })
-
-const recordRouteDependencies = (
-  cache: ProviderFixtureCacheState,
-  path: string,
-  tags: string[]
-) => {
-  const normalizedPath = normalizeCachePath(path)
-  const normalizedTags = Array.from(new Set(tags.filter(Boolean)))
-  for (const oldTag of cache.dependenciesByPath.get(normalizedPath) || []) {
-    const oldPaths = cache.pathsByTag.get(oldTag)
-    oldPaths?.delete(normalizedPath)
-    if (oldPaths && oldPaths.size === 0) {
-      cache.pathsByTag.delete(oldTag)
-    }
-  }
-  cache.events.push({
-    type: cache.renderedPaths.has(normalizedPath) ? 'hit' : 'miss',
-    key: normalizedPath,
-    tags: normalizedTags,
-    paths: [normalizedPath]
-  })
-  cache.renderedPaths.add(normalizedPath)
-  cache.dependenciesByPath.set(normalizedPath, new Set(normalizedTags))
-  for (const tag of normalizedTags) {
-    const paths = cache.pathsByTag.get(tag) || new Set<string>()
-    paths.add(normalizedPath)
-    cache.pathsByTag.set(tag, paths)
-  }
-  cache.events.push({ type: 'set', key: normalizedPath, tags: normalizedTags, paths: [normalizedPath] })
-}
 
 const invalidateFixtureCache = (
   cache: ProviderFixtureCacheState,
@@ -288,7 +162,7 @@ export const createProviderFixtureDocument = (
     ...input,
     collection,
     locale,
-    path,
+    contentPath: path,
     canonicalKey,
     type,
     id: String(input.id || `content:${locale}:${trimSlashes(path).replace(/\//g, ':') || 'index'}.${extension}`),
@@ -371,54 +245,107 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     }
   }
 
-  const query: ContentProvider['query'] = async (event, providerQuery: ContentProviderQuery) => {
+  const execute = (providerQuery: ContentProviderQuery) => {
     assertCollection(providerQuery.plan.collection)
-
-    collectProviderFixtureCacheHint(event, {
-      tags: providerQuery.collection ? [collectionTag(providerQuery.collection)] : []
-    })
-
-    return executeQueryPlan(
-      fixture.graph,
-      providerQuery.plan,
+    const graph = providerQuery.visibility.includeDrafts
+      ? fixture.graph
+      : buildContentGraph(fixture.documents.filter(document => !document.draft), fixture.runtime)
+    return executeQueryPlan<ParsedContent>(
+      graph,
+      {
+        ...providerQuery.plan,
+        projection: {
+          only: providerQuery.plan.projection.only.length
+            ? [...new Set([
+                ...providerQuery.plan.projection.only,
+                'id', 'collection', 'canonicalKey', 'locale', 'path', 'resolved',
+                'type', 'body', 'file'
+              ])]
+            : [],
+          without: providerQuery.plan.projection.only.length ? [] : providerQuery.plan.projection.without
+        }
+      },
       fixture.runtime
     )
   }
 
-  // Internal helper: lower builder params to the wire query so the fixture's
-  // navigation/page/surroundings helpers can reuse the single `query` path.
-  const queryWithParams = <T = ParsedContent>(event: H3Event, params: ContentQueryBuilderParams) =>
-    query<T>(event, toContentProviderQuery(params))
+  const routeVariantsFor = (doc: ParsedContent) => fixture.documents
+    .filter(candidate => candidate.canonicalKey === doc.canonicalKey && candidate.path && candidate.locale)
+    .map(candidate => ({ locale: candidate.locale!, contentPath: normalizeContentPath(candidate.path!) }))
 
-  const docsForNavigation = async (event: H3Event, params: ContentQueryBuilderParams) => {
-    const response = await queryWithParams<ParsedContent>(event, params)
-    return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-      .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
+  const toRawDocument = (doc: ParsedContent) => {
+    const { path, resolved, route, resolution, ...data } = doc as ParsedContent & Record<string, unknown>
+    void route
+    void resolution
+    return {
+      ...data,
+      id: doc.id,
+      collection: doc.collection || '',
+      canonicalKey: doc.canonicalKey || '',
+      locale: doc.locale || '',
+      contentPath: normalizeContentPath(path || '/'),
+      routeVariants: routeVariantsFor(doc),
+      type: doc.type,
+      body: doc.body ?? null,
+      ...(doc.file ? { file: doc.file } : {}),
+      ...(resolved ? { _fixtureResolution: resolved } : {})
+    }
   }
+
+  const mapResponse = (response: ReturnType<typeof executeQueryPlan>) => {
+    if (typeof response.result === 'number') return response
+    if (Array.isArray(response.result)) {
+      return { ...response, result: response.result.map(toRawDocument) }
+    }
+    return { ...response, result: response.result ? toRawDocument(response.result as unknown as ParsedContent) : response.result }
+  }
+
+  const query: ContentProvider['query'] = async <T = ParsedContent>(event: H3Event, providerQuery: ContentProviderQuery) => {
+    collectProviderFixtureCacheHint(event, {
+      tags: providerQuery.collection ? [collectionTag(providerQuery.collection)] : []
+    })
+    return mapResponse(execute(providerQuery)) as unknown as ContentQueryResponse<T>
+  }
+
+  const navigationDocuments = (providerQuery: ContentProviderQuery) => {
+    // Projection governs the extra fields returned by navigation; it must not
+    // remove the identity and eligibility facts needed to build raw routes.
+    const response = execute({
+      ...providerQuery,
+      plan: {
+        ...providerQuery.plan,
+        projection: { only: [], without: [] }
+      }
+    })
+    return normalizeQueryResult<ParsedContent>(response.result as ParsedContent | ParsedContent[] | number | undefined)
+      .filter(doc => providerQuery.visibility.includeDrafts || !doc.draft)
+      .filter(doc => !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
+  }
+
+  const routeFact = (doc: ParsedContent) => ({
+    collection: doc.collection || '',
+    canonicalKey: doc.canonicalKey || '',
+    locale: doc.locale || '',
+    contentPath: normalizeContentPath(doc.path || '/')
+  })
 
   const provider: ContentProvider = {
     name: name as ContentProvider['name'],
     capabilities: {
-      routeBackedCollections: true,
-      dataCollections: true,
-      localizedRoutes: true,
-      translatedSlugs: true,
-      navigation: true,
-      surroundings: true,
-      searchSections: true,
-      sitemap: true,
       query: {
-        operators: [...SUPPORTED_QUERY_OPERATORS],
+        operators: [
+          ...SUPPORTED_QUERY_OPERATORS.filter(operator => operator !== '$options'),
+          '$and',
+          '$or'
+        ],
         pagination: ['offset', 'cursor']
       }
     },
     query,
-    navigationQuery: async (event, providerQuery, navigationOptions = {}) => {
-      const response = await query<ParsedContent>(event, providerQuery)
-      const docs = normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-        .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
+    navigation: async (event, providerQuery, navigationOptions = {}) => {
+      const docs = navigationDocuments(providerQuery)
       const collection = providerQuery.collection ?? undefined
-      const queryLocale = navigationOptions.resolveLocale?.locale
+      const queryLocale = navigationOptions.locale
       collectProviderFixtureCacheHint(event, {
         tags: [
           ...(collection ? [collectionTag(collection)] : []),
@@ -426,88 +353,31 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         ]
       })
       return docs.map(doc => ({
-        title: doc.title,
-        ...navIdentityFromDoc(doc),
-        unprefixedPath: normalizeContentPath(doc.path || '/'),
-        path: localizePath(fixture, doc.collection || collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
-        locale: doc.locale
-      })) as NavItem[]
+        title: String(doc.title || ''),
+        ...Object.fromEntries(providerQuery.plan.projection.only
+          .filter(field => !['path', 'href', 'localePath', 'alternates', 'route', 'resolution'].includes(field) && field in doc)
+          .map(field => [field, (doc as Record<string, unknown>)[field]])),
+        route: routeFact(doc)
+      }))
     },
-    navigation: async (event, collection, options = {}) => {
+    surroundings: async (event, collection, contentPath, options = {}) => {
       assertCollection(collection)
-      const fields = Array.isArray(options) ? options : options.fields || []
-      const locale = typeof options === 'object' && !Array.isArray(options) ? options.locale : undefined
-      collectProviderFixtureCacheHint(event, {
-        tags: [`nav:${collection}:${locale || fixture.defaultLocale}`, collectionTag(collection)]
-      })
-      const docs = await docsForNavigation(event, {
-        collection,
-        resolveLocale: locale
-          ? {
-              locale,
-              fallback: fixture.localeFallback[locale] || [fixture.defaultLocale]
-            }
-          : undefined,
-        sort: [{ path: 1 }]
-      })
-      return docs.map(doc => ({
-        title: doc.title,
-        ...navFieldsFromDoc(doc, fields),
-        ...navIdentityFromDoc(doc),
-        unprefixedPath: normalizeContentPath(doc.path || '/'),
-        path: localizePath(fixture, collection, doc.path || '/', locale || doc.locale),
-        locale: doc.locale
-      })) as NavItem[]
-    },
-    surroundings: async (event, collection, path, options = {}) => {
-      assertCollection(collection)
-      const locale = options.locale
-      const docs = await docsForNavigation(event, {
-        collection,
-        resolveLocale: locale
-          ? {
-              locale,
-              fallback: fixture.localeFallback[locale] || [fixture.defaultLocale]
-            }
-          : undefined,
-        sort: [{ path: 1 }]
-      })
-      const index = docs.findIndex(doc => doc.path === path || localizePath(fixture, collection, doc.path || '/', locale || doc.locale) === path)
+      collectProviderFixtureCacheHint(event, { tags: [collectionTag(collection)] })
+      const docs = fixture.documents
+        .filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc.navigationFile && doc.path)
+        .filter(doc => !options.locale || doc.locale === options.locale)
+        .sort((a, b) => String(a.path).localeCompare(String(b.path)))
+      const index = docs.findIndex(doc => normalizeContentPath(doc.path || '/') === normalizeContentPath(contentPath))
       if (index === -1) return [null, null]
       return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
         ? {
-            title: doc.title,
-            unprefixedPath: normalizeContentPath(doc.path || '/'),
-            path: localizePath(fixture, collection, doc.path || '/', locale || doc.locale)
+            title: String(doc.title || ''),
+            ...Object.fromEntries((options.select || [])
+              .filter(field => field in doc)
+              .map(field => [field, (doc as Record<string, unknown>)[field]])),
+            route: routeFact(doc)
           }
-        : null) as Array<NavItem | null>
-    },
-    searchSections: async (event, collection, options = {}) => {
-      assertCollection(collection)
-      collectProviderFixtureCacheHint(event, {
-        tags: [`search:${options.locale || fixture.defaultLocale}`, collectionTag(collection)]
-      })
-      const docs = await docsForNavigation(event, {
-        collection,
-        where: options.filterQuery,
-        resolveLocale: options.locale
-          ? {
-              locale: options.locale,
-              fallback: fixture.localeFallback[options.locale] || [fixture.defaultLocale]
-            }
-          : undefined
-      })
-      const extraFields = options.extraFields || []
-      return docs.map(doc => ({
-        ...Object.fromEntries(extraFields
-          .filter(field => field in doc)
-          .map(field => [field, (doc as Record<string, unknown>)[field]])),
-        id: localizePath(fixture, collection, doc.path || '/', options.locale || doc.locale),
-        title: doc.title || '',
-        titles: [doc.title || ''],
-        content: String(doc.description || doc.title || ''),
-        level: 1
-      }))
+        : null)
     },
     search: async (_event, request) => {
       const term = request.term.toLocaleLowerCase()
@@ -517,11 +387,9 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
         .map(doc => ({
           score: 1,
-          collection: doc.collection || '',
           title: doc.title || '',
           excerpt: String(doc.description || ''),
-          path: localizePath(fixture, doc.collection || '', doc.path || '/', doc.locale),
-          locale: doc.locale
+          route: routeFact(doc)
         }))
     },
     siteData: async (event, request) => {
@@ -535,69 +403,16 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         updatedAt: 0
       }
     },
-    page: async <T = ParsedContent>(event: H3Event, collection: string, routeOrPath = '/', options: ContentCollectionPageOptions = {}) => {
-      assertCollection(collection)
-      if (fixture.collections[collection]?.type === 'data') {
-        throw createContentProviderError('data_collection_route_access', `${collection} is a data collection.`, { collection })
-      }
-      const segments = routeOrPath.split('/').filter(Boolean)
-      const routeLocale = segments[0] && fixture.locales.includes(segments[0]) ? segments[0] : undefined
-      const providerRoute = routeLocale ? `/${segments.slice(1).join('/')}` : routeOrPath
-      const requestedLocale = options.locale || routeLocale
-      const response = await queryWithParams<ParsedContent>(event, {
-        collection,
-        first: true,
-        resolveVariant: {
-          route: providerRoute,
-          locale: requestedLocale,
-          fallback: options.fallback === false ? [] : fixture.localeFallback[requestedLocale || ''] || [fixture.defaultLocale],
-          exact: options.exact
-        }
-      } as ContentQueryBuilderParams)
-      const doc = unwrapResponseResult<ParsedContent>(response) as ParsedContent | undefined
-      if (!doc) return null
-      const page = localizePageResult(
-        doc,
-        requestedLocale || doc.resolved?.locale || doc.locale,
-        fixture.defaultLocale,
-        fixture.locales,
-        routeMountsFor(fixture, collection)
-      )
-      const hint = createCacheHintForDocument(fixture, doc, page.path)
-      collectProviderFixtureCacheHint(event, hint)
-      recordRouteDependencies(cache, page.path, hint.tags || [])
-      return page as unknown as ContentPageResult<T>
-    },
-    routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
-      const page = await provider.page!(event, collection, routeOrPath, options)
-      const routePage = page as (ContentPageResult<Record<string, unknown>> & { unprefixedPath?: string }) | null
-      return routePage
-        ? createRouteMeta({
-            ...routePage,
-            path: routePage.unprefixedPath || routePage.path
-          } as any, options.locale || routePage.locale, fixture.defaultLocale, fixture.locales, routeMountsFor(fixture, collection))
-        : null
-    },
-    sitemapEntries: async (event, options = {}) => {
+    routes: async (event) => {
       collectProviderFixtureCacheHint(event, { tags: ['sitemap'] })
-      const explicitInclude = Boolean(options.include?.length)
-      const include = explicitInclude ? options.include! : Object.keys(fixture.collections)
-      const entries = []
-      for (const collection of include) {
-        assertCollection(collection)
-        if (fixture.collections[collection]?.type === 'data' || fixture.collections[collection]?.sitemap === false) {
-          if (explicitInclude) {
-            throw createContentProviderError('data_collection_sitemap_access', `${collection} cannot be listed in the sitemap.`, { collection })
-          }
-          continue
-        }
-        for (const doc of fixture.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc.navigationFile)) {
-          entries.push({
-            loc: localizePath(fixture, collection, doc.path || '/', doc.locale)
-          })
-        }
-      }
-      return entries
+      return fixture.documents
+        .filter(doc => fixture.collections[doc.collection || '']?.type !== 'data')
+        .filter(doc => !doc.partial && !doc.navigationFile && doc.path)
+        .map(doc => ({
+          ...routeFact(doc),
+          ...(doc.draft ? { draft: true } : {}),
+          ...(doc.sitemap === false ? { sitemap: false as const } : {})
+        }))
     },
     invalidate: async (_event, input) => {
       invalidateFixtureCache(cache, input)

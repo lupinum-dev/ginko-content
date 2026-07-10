@@ -4,6 +4,8 @@ import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
+import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+import { projectProviderNavigation } from '../../packages/content/src/runtime/server/provider-route-facts'
 
 const scenario = createSaasI18nScenario()
 const provider = createInMemoryProvider(scenario)
@@ -13,9 +15,11 @@ const context = {
   transport: (endpoint: 'query' | 'navigation', params: any) => {
     if (endpoint === 'navigation') {
       const { query, options } = toContentProviderNavigationQuery(params)
-      return provider.navigationQuery!(event, query, options)
+      return provider.navigation!(event, query, options)
+        .then(items => projectProviderNavigation(items, provider.name, scenario.runtime, options.locale))
     }
     return provider.query(event, toContentProviderQuery(params))
+      .then(response => normalizeProviderQueryResponse(params, response, provider.name, scenario.runtime))
   }
 }
 

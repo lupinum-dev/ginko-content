@@ -1,20 +1,9 @@
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../types/api'
-import type { NavItem, ParsedContent } from '../types/content'
+import type { ParsedContent } from '../types/content'
 import type { ContentProviderName } from '../types/config'
-import type {
-  ContentCollectionItemSurroundingsOptions,
-  ContentCollectionNavigationOptions,
-  ContentCollectionPageOptions,
-  ContentCollectionRouteMetaOptions,
-  ContentCollectionSearchSectionsOptions,
-  ContentPageResult,
-  ContentRouteMeta,
-  ContentSearchSection,
-  ContentSitemapEntry
-} from '../types/query'
-import type { QueryCollectionsSitemapEntriesOptions } from '../features/sitemap/query'
-import type { ContentProviderSearchRequest, ContentSearchResult } from '../types/search'
+import type { ContentSitemapImage } from '../types/query'
+import type { ContentProviderSearchRequest } from '../types/search'
 import type { ContentCacheHint, ContentCacheHintInput } from '../core/cache-hints'
 import type { ContentProviderNavigationOptions, ContentProviderPaginationMode, ContentProviderQuery } from './provider-query'
 
@@ -31,10 +20,10 @@ export type {
 export { PROVIDER_QUERY_VERSION, toContentProviderQuery, toContentProviderNavigationQuery } from './provider-query'
 export { createContentProviderError } from './provider-errors'
 export type { ContentProviderErrorCode } from './provider-errors'
-export { normalizeProviderDocument, shapeProviderDocument } from '../runtime/server/provider-document.js'
-export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from '../runtime/server/provider-document.js'
+export { normalizeProviderDocument } from '../runtime/server/provider-document.js'
+export type { ProviderDocumentInput, ContentProviderVariantFact } from '../runtime/server/provider-document.js'
 
-export const contentProviderResultMarker = '__ginkoContentProviderResult'
+const contentProviderResultMarker = Symbol.for('ginko.content.provider-result')
 
 export interface ContentProviderResult<T = unknown> {
   readonly [contentProviderResultMarker]: true
@@ -49,6 +38,11 @@ export const withContentCache = <T>(data: T, cache: ContentCacheHintInput): Cont
   data,
   cache
 })
+
+export const isContentProviderResult = <T = unknown>(value: unknown): value is ContentProviderResult<T> =>
+  Boolean(value)
+  && typeof value === 'object'
+  && (value as ContentProviderResult<T>)[contentProviderResultMarker] === true
 
 export interface ContentCacheInvalidateInput {
   tags?: string[]
@@ -74,16 +68,8 @@ export interface ContentProviderSiteDataResponse<T = unknown> {
 }
 
 export interface ContentProviderCapabilities {
-  routeBackedCollections: boolean
-  dataCollections: boolean
-  localizedRoutes: boolean
-  translatedSlugs: boolean
-  navigation: boolean
-  surroundings: boolean
-  searchSections: boolean
-  sitemap: boolean
   query: {
-    operators: string[]
+    operators: readonly string[]
     /**
      * Advertised pagination modes (VNEXT.md 13.1). `offset` guarantees skip
      * plus an exact total; `cursor` guarantees an opaque forward cursor with
@@ -96,18 +82,60 @@ export interface ContentProviderCapabilities {
   }
 }
 
+/** Raw, pre-locale-prefix route identity returned by every provider surface. */
+export interface ContentProviderRouteFact {
+  collection: string
+  canonicalKey: string
+  locale: string
+  contentPath: string
+}
+
+export interface ContentSitemapMetadata {
+  lastmod?: string
+  images?: readonly ContentSitemapImage[]
+}
+
+/** A structurally valid provider route candidate. Consumer policy is applied by core. */
+export interface ContentRouteRecord extends ContentProviderRouteFact {
+  draft?: boolean
+  sitemap?: false | ContentSitemapMetadata
+}
+
+export interface ContentProviderNavigationItem {
+  title: string
+  route?: ContentProviderRouteFact
+  children?: ContentProviderNavigationItem[]
+  [selectedField: string]: unknown
+}
+
+export interface ContentProviderSurroundItem {
+  title: string
+  route: ContentProviderRouteFact
+  [selectedField: string]: unknown
+}
+
+export interface ContentProviderSearchResult {
+  title: string
+  excerpt?: string
+  score: number
+  route: ContentProviderRouteFact
+  [selectedField: string]: unknown
+}
+
+export interface ContentProviderSurroundingsOptions {
+  locale?: string
+  fallback?: boolean | readonly string[]
+  select?: readonly string[]
+}
+
 export interface ContentProvider {
   name: ContentProviderName
   capabilities: ContentProviderCapabilities
   query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promise<MaybeContentProviderResult<ContentQueryResponse<T>>>
-  navigationQuery?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<MaybeContentProviderResult<NavItem[]>>
-  navigation?: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) => Promise<MaybeContentProviderResult<NavItem[]>>
-  surroundings?: (event: H3Event, collection: string, path: string, options?: ContentCollectionItemSurroundingsOptions) => Promise<MaybeContentProviderResult<Array<NavItem | null>>>
-  searchSections?: (event: H3Event, collection: string, options?: ContentCollectionSearchSectionsOptions) => Promise<MaybeContentProviderResult<ContentSearchSection[]>>
-  search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<MaybeContentProviderResult<ContentSearchResult[]>>
+  navigation?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<MaybeContentProviderResult<ContentProviderNavigationItem[]>>
+  surroundings?: (event: H3Event, collection: string, contentPath: string, options?: ContentProviderSurroundingsOptions) => Promise<MaybeContentProviderResult<Array<ContentProviderSurroundItem | null>>>
+  search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<MaybeContentProviderResult<ContentProviderSearchResult[]>>
   siteData?: <T = unknown>(event: H3Event, request: ContentProviderSiteDataRequest) => Promise<MaybeContentProviderResult<ContentProviderSiteDataResponse<T>>>
-  page?: <T = ParsedContent>(event: H3Event, collection: string, routeOrPath?: string, options?: ContentCollectionPageOptions) => Promise<MaybeContentProviderResult<ContentPageResult<T> | null>>
-  routeMeta?: (event: H3Event, collection: string, routeOrPath?: string, options?: ContentCollectionRouteMetaOptions) => Promise<MaybeContentProviderResult<ContentRouteMeta | null>>
-  sitemapEntries?: (event: H3Event, options?: QueryCollectionsSitemapEntriesOptions) => Promise<MaybeContentProviderResult<ContentSitemapEntry[]>>
+  routes?: (event: H3Event) => Promise<MaybeContentProviderResult<ContentRouteRecord[]>>
   invalidate?: (event: H3Event, input: ContentCacheInvalidateInput) => Promise<void>
 }

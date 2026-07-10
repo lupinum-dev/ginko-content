@@ -20,6 +20,8 @@ import { normalizeReferenceValue } from '../../core/references/resolve'
 import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { lowerRouteToCandidates } from '../../features/localization/route-projector'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
+import { buildContentDocumentEnvelope } from '../../features/localization/results'
+import { normalizeProviderDocument, type ProviderDocumentInput } from './provider-document'
 import { getContentRuntimeConfig } from './runtime-config'
 import { isPreview } from '../../integrations/nitro/preview'
 import { createContentProviderError } from '../../public/provider-errors'
@@ -221,10 +223,88 @@ const invalidProviderQueryResult = (
   })
 }
 
+const isProviderDocumentInput = (value: unknown): value is ProviderDocumentInput =>
+  isObject(value)
+  && typeof value.collection === 'string'
+  && typeof value.locale === 'string'
+  && typeof value.contentPath === 'string'
+  && typeof value.canonicalKey === 'string'
+  && 'body' in value
+
+const shapeProviderQueryDocument = (
+  value: unknown,
+  params: ContentQueryBuilderParams,
+  providerName?: string,
+  runtimeConfig = getContentRuntimeConfig().content || {}
+): ParsedContent => {
+  if (!isProviderDocumentInput(value)) {
+    throw createContentProviderError('provider_result_invalid', `${providerName || 'Content provider'} returned a document that does not match ProviderDocumentInput. Documents require collection, canonicalKey, locale, contentPath, and body.`, {
+      provider: providerName,
+      collection: params.collection,
+      operation: 'query',
+      field: 'result'
+    })
+  }
+
+  const normalized = normalizeProviderDocument(value)
+  const config = runtimeConfig
+  const collectionI18n = resolveRuntimeCollectionI18nConfig(value.collection, config)
+  const locales = collectionI18n?.locales?.length ? collectionI18n.locales : (config.locales || [])
+  const defaultLocale = collectionI18n?.defaultLocale || config.defaultLocale
+  const routeMounts = normalizeRouteMounts(
+    config.collections?.[value.collection]?.route,
+    locales,
+    defaultLocale
+  )
+  const variants = Object.fromEntries(
+    (value.routeVariants || []).map(variant => [variant.locale, variant.contentPath])
+  )
+  const requestedLocale = params.resolveVariant?.locale || params.resolveLocale?.locale
+  const envelope = buildContentDocumentEnvelope({
+    unprefixedPath: value.contentPath,
+    variantPaths: variants,
+    requestedLocale,
+    resolvedLocale: value.locale,
+    defaultLocale,
+    locales,
+    // Provider paths already carry a concrete mount. The projector detects
+    // and replaces that mount when synthesizing a fallback alternate for a
+    // different locale; resolved concrete variants remain byte-identical.
+    routeMounts,
+    requestedPath: params.resolveVariant?.route || params.resolveVariant?.path
+  })
+
+  const {
+    contentPath: _contentPath,
+    routeVariants: _routeVariants,
+    path: _path,
+    resolved: _resolved,
+    ...document
+  } = normalized as ParsedContent & Record<string, unknown>
+
+  const shaped = {
+    ...document,
+    locale: envelope.locale,
+    route: envelope.route,
+    resolution: envelope.resolution
+  } as ParsedContent & Record<string, unknown>
+
+  const selected = Array.isArray(params.only) ? params.only.map(String) : []
+  if (!selected.length) {
+    return shaped
+  }
+
+  const guaranteed = new Set(['id', 'collection', 'canonicalKey', 'locale', 'route', 'resolution'])
+  return Object.fromEntries(
+    Object.entries(shaped).filter(([key]) => guaranteed.has(key) || selected.includes(key))
+  ) as ParsedContent
+}
+
 export const normalizeProviderQueryResponse = <T>(
   params: ContentQueryBuilderParams,
   response: unknown,
-  providerName?: string
+  providerName?: string,
+  runtimeConfig = getContentRuntimeConfig().content || {}
 ): ContentQueryResponse<T> => {
   if (params.count) {
     if (isProviderCountResponse(response)) {
@@ -235,13 +315,20 @@ export const normalizeProviderQueryResponse = <T>(
 
   if (params.first) {
     if (isProviderFindOneResponse<T>(response)) {
-      return response
+      return {
+        result: response.result === undefined || response.result === null
+          ? response.result
+          : shapeProviderQueryDocument(response.result, params, providerName, runtimeConfig) as T
+      }
     }
     return invalidProviderQueryResult(params, 'Provider first queries must return a find-one envelope: { result: item | undefined }.', response, providerName)
   }
 
   if (isProviderFindResponse<T>(response)) {
-    return response
+    return {
+      ...response,
+      result: response.result.map(item => shapeProviderQueryDocument(item, params, providerName, runtimeConfig) as T)
+    }
   }
 
   if (isObject(response) && hasListEnvelopeKeys(response)) {

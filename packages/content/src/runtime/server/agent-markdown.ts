@@ -26,7 +26,7 @@ import { projectContentRoute } from '../../features/localization/route-projector
 import { isPublicationVisible, resolveRuntimeEnvironment, type ContentVisibilityContext } from '../../core/visibility'
 import { isPreview } from '../../integrations/nitro/preview'
 import { getContentProvider } from './providers'
-import { createProviderQuery } from './provider-query'
+import { createProviderQuery, normalizeProviderQueryResponse } from './provider-query'
 import { contentConfig } from './storage-access'
 
 const visibilityContextForEvent = (event: H3Event): ContentVisibilityContext => ({
@@ -173,8 +173,10 @@ const toAgentMarkdown = (
   page: ParsedContent,
   options: ResolvedAgentMarkdownOptions
 ): AgentMarkdown => {
-  const path = normalizeAgentRoutePath((page as { path?: string }).path || page.resolved?.requestedRoute)
-  const locale = (page as { locale?: string }).locale || page.resolved?.locale || page.locale
+  const route = (page as { route?: { resolvedPath?: string } }).route
+  const resolution = (page as { resolution?: { resolved?: { locale?: string } } }).resolution
+  const path = normalizeAgentRoutePath(route?.resolvedPath || (page as { path?: string }).path || page.resolved?.requestedRoute)
+  const locale = resolution?.resolved?.locale || (page as { locale?: string }).locale || page.resolved?.locale || page.locale
   const title = typeof page.title === 'string' && page.title.trim()
     ? page.title.trim()
     : path.split('/').filter(Boolean).pop() || 'Index'
@@ -253,6 +255,9 @@ const publicPathForQueryRow = (
   row: ParsedContent,
   locale?: string
 ) => {
+  const route = (row as { route?: { resolvedPath?: string } }).route
+  if (route?.resolvedPath) return normalizeAgentRoutePath(route.resolvedPath)
+
   const requested = (row as { path?: string }).path || row.resolved?.requestedRoute
   if (requested) return normalizeAgentRoutePath(requested)
 
@@ -277,10 +282,21 @@ export async function resolveContentMarkdown (
   const agentOptions = resolveAgentMarkdownOptions(config)
   if (!config || !agentOptions) return null
   const provider = await getContentProvider(event)
-  if (!provider.page) return null
-  const page = await provider.page<ParsedContent>(event, collection, routeOrPath, {
-    ...(options.locale ? { locale: options.locale } : {})
-  })
+  const params = {
+    collection,
+    first: true,
+    resolveVariant: {
+      route: routeOrPath,
+      ...(options.locale ? { locale: options.locale } : {}),
+      fallback: true
+    }
+  }
+  const response = normalizeProviderQueryResponse<ParsedContent>(
+    params,
+    await provider.query<ParsedContent>(event, createProviderQuery(params)),
+    provider.name
+  )
+  const page = (Array.isArray(response.result) ? response.result[0] : response.result) as ParsedContent | null | undefined
   if (!page || !isPublicPage(page, config, visibilityContextForEvent(event))) return null
   return toAgentMarkdown(collection, page, agentOptions)
 }

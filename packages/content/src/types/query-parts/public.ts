@@ -124,9 +124,7 @@ export type LocaleFallback = false | true | 'default' | string | string[]
  * `surround`/`backlinks`) and by `useContentPage`. `locale` is a convenience
  * top-level copy of `resolution.resolved.locale`; the route/resolution facts
  * themselves live only under `route`/`resolution` — there is no top-level
- * `path`, `variants`, `localePaths`, or `resolved` shape (that legacy shape
- * is `ContentRouteMeta`, used only by the pre-4C provider `page()`/
- * `routeMeta()` methods until Phase 4C deletes them).
+ * `path`, `variants`, `localePaths`, or `resolved` shape.
  */
 export type LocalizedContentDocument<T = ParsedContentMeta> = Omit<T, 'path' | 'resolved'> & {
   locale: string

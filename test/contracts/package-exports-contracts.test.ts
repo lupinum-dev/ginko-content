@@ -390,8 +390,9 @@ describe('package export contracts', () => {
 
     expect(provider.toContentProviderQuery).toBeTypeOf('function')
     expect(provider.withContentCache).toBeTypeOf('function')
+    expect(provider.isContentProviderResult).toBeTypeOf('function')
     expect(provider.normalizeProviderDocument).toBeTypeOf('function')
-    expect(provider.shapeProviderDocument).toBeTypeOf('function')
+    expect(provider.shapeProviderDocument).toBeUndefined()
   })
 
   test('built provider fixture export loads as Node ESM', async () => {
@@ -407,16 +408,8 @@ describe('package export contracts', () => {
   test('built provider contract export loads as Node ESM', async () => {
     const contractModule = await import('@lupinum/ginko-content/testing/provider-contract')
 
-    expect(contractModule.createAuthorDependencyContractProvider).toBeTypeOf('function')
-    expect(contractModule.expectNoLegacyProviderEnvelopeFields).toBeTypeOf('function')
     expect(contractModule.expectProviderCapabilities).toBeTypeOf('function')
-    expect(contractModule.expectProviderDocumentEnvelope).toBeTypeOf('function')
-    expect(contractModule.expectUnsupportedProviderOperation).toBeTypeOf('function')
-    expect(contractModule.expectUnsupportedProviderQueryShape).toBeTypeOf('function')
-    expect(contractModule.LEGACY_PROVIDER_ENVELOPE_FIELDS).toEqual(expect.arrayContaining(['_id', '_path']))
     expect(contractModule.runProviderContractSuite).toBeTypeOf('function')
-    expect(contractModule.runAuthorDependencyContractTest).toBeTypeOf('function')
-    expect(contractModule.runAuthorDependencyFixtureSelfTest).toBeTypeOf('function')
     expect(contractModule.unwrapProviderContractResult).toBeTypeOf('function')
   })
 

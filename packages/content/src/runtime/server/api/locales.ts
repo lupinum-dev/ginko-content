@@ -22,11 +22,14 @@ export default defineEventHandler(async (event) => {
     ? resolved.variants
         .filter((doc) => doc.canonicalKey === resolved.canonicalKey && typeof doc.locale === 'string')
         .sort((left, right) => String(left.locale).localeCompare(String(right.locale)))
-        .map((doc) => ({
-          canonicalKey: resolved.canonicalKey,
-          locale: String(doc.locale),
-          ...(typeof doc.path === 'string' ? { path: doc.path } : {}),
-        }))
+        .map((doc) => {
+          const route = doc.route as { resolvedPath?: unknown } | undefined
+          return {
+            canonicalKey: resolved.canonicalKey,
+            locale: String(doc.locale),
+            ...(typeof route?.resolvedPath === 'string' ? { path: route.resolvedPath } : {})
+          }
+        })
     : []
   if (!locales.length) {
     throw createError({

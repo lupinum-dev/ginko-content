@@ -38,8 +38,7 @@ const toLocalePolicy = (
  * section 12.2), but some inputs reaching this hub (e.g. a third-party
  * provider's own `path`, or `decorateLocalePathsWithFallbacks` re-projecting
  * a fallback locale's already-mounted public path) may already carry a
- * mount for some locale - `shapeProviderDocument`'s contract test proves
- * this is real, exercised behavior, not a theoretical case. The
+ * mount for some locale. The
  * mount-detection step mirrors `path.ts#projectContentPathToLocale` exactly
  * so both hubs stay byte-identical: it strips whichever configured mount
  * (if any) the path already carries before handing a genuinely
@@ -191,14 +190,8 @@ export const buildContentDocumentEnvelope = (input: ContentDocumentEnvelopeInput
 
 /**
  * Decorate a raw parsed document with the canonical `route`/`resolution`
- * envelope (VNEXT.md 10.4) consumed by the unified query API
- * (`one`/`many`/`resolveOne`/`surround`/`backlinks`) and `useContentPage`.
- *
- * This is the ONE path to that public envelope — a hard cut from the legacy
- * `localizePageResult`/`createRouteMeta` pair below, which continue to back
- * the pre-4C `ContentProvider` `page()`/`routeMeta()` methods and
- * `shapeProviderDocument` until Phase 4C deletes that subsystem (VNEXT.md
- * 10.8, 13.2) — provider interface files are out of scope for Phase 4B.
+ * envelope (VNEXT.md 10.4) consumed by the unified query API and
+ * `useContentPage`.
  */
 export interface DecoratedLocalizedDocument {
   locale: string

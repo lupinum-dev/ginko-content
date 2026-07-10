@@ -6,6 +6,20 @@ const markdownBody = (children: NonNullable<ParsedContent['body']>['children']):
   children
 })
 
+const providerForPage = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
+  name: 'fixture',
+  query: async () => ({
+    result: {
+      ...page,
+      collection: String(page.collection || 'docs'),
+      canonicalKey: String(page.canonicalKey || `docs:${String(page.path || '/').replace(/^\//, '')}`),
+      locale: String(page.locale || 'en'),
+      contentPath: String(page.path || '/'),
+      body: page.body ?? null
+    }
+  })
+})
+
 describe('agent markdown', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -58,7 +72,7 @@ describe('agent markdown', () => {
   })
 
   test('returns null for disabled collections before querying the provider', async () => {
-    const page = vi.fn()
+    const query = vi.fn()
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
         collections: {
@@ -67,13 +81,13 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({ page })
+      getContentProvider: async () => ({ query })
     }))
 
     const { resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
 
     await expect(resolveContentMarkdown({ context: {} } as any, 'docs', '/intro')).resolves.toBeNull()
-    expect(page).not.toHaveBeenCalled()
+    expect(query).not.toHaveBeenCalled()
   })
 
   test('renders normalized markdown with registered serializers', async () => {
@@ -106,9 +120,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, registerAgentMarkdownSerializer, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -190,9 +202,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const {
@@ -247,9 +257,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -294,9 +302,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -341,9 +347,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -399,9 +403,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -452,9 +454,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -495,9 +495,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const {
@@ -567,9 +565,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -632,9 +628,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -690,9 +684,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -727,9 +719,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')

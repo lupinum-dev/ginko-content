@@ -9,6 +9,13 @@ const mocks = vi.hoisted(() => ({
 
 const runtime = vi.hoisted(() => ({
   content: {
+    defaultLocale: 'en',
+    locales: ['en', 'de'],
+    collections: {
+      docs: {
+        i18n: { defaultLocale: 'en', locales: ['en', 'de'] }
+      }
+    },
     search: {
       engine: 'minisearch',
       collections: ['docs'],
@@ -123,9 +130,14 @@ describe('runtime search API boundaries', () => {
     } as never
     const providerSearch = vi.fn(async () => [
       {
-        path: '/de/dokumentation/provider-leitfaden',
         title: 'Provider Deutscher Leitfaden',
-        score: 1
+        score: 1,
+        route: {
+          collection: 'docs',
+          canonicalKey: 'docs:provider-guide',
+          locale: 'de',
+          contentPath: '/dokumentation/provider-leitfaden'
+        }
       }
     ])
     mocks.getContentProvider.mockResolvedValue({
@@ -137,7 +149,9 @@ describe('runtime search API boundaries', () => {
 
     await expect(handler(createTestEvent({ query: { q: longTerm, locale: 'de' } }))).resolves.toEqual([
       {
-        collection: '',
+        collection: 'docs',
+        excerpt: '',
+        locale: 'de',
         path: '/de/dokumentation/provider-leitfaden',
         title: 'Provider Deutscher Leitfaden',
         score: 1

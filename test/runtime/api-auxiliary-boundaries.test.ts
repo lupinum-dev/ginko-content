@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 const runtime = vi.hoisted(() => ({
   public: {
     content: {
+      siteUrl: 'https://example.test',
       sitemap: {
         include: ['docs']
       }
@@ -80,7 +81,7 @@ describe('runtime auxiliary API provider boundaries', () => {
     })
 
     await expect(handler(event)).resolves.toEqual([
-      { canonicalKey: 'docs:getting-started', locale: 'de', path: '/dokumentation/erste-schritte' },
+      { canonicalKey: 'docs:getting-started', locale: 'de', path: '/de/dokumentation/erste-schritte' },
       { canonicalKey: 'docs:getting-started', locale: 'en', path: '/docs/getting-started' }
     ])
   })
@@ -97,8 +98,8 @@ describe('runtime auxiliary API provider boundaries', () => {
 
     await expect(handler(event)).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ loc: '/docs/getting-started' }),
-        expect.objectContaining({ loc: '/de/dokumentation/erste-schritte' })
+        expect.objectContaining({ loc: 'https://example.test/docs/getting-started' }),
+        expect.objectContaining({ loc: 'https://example.test/de/dokumentation/erste-schritte' })
       ])
     )
   })

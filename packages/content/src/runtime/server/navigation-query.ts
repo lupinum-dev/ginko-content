@@ -59,8 +59,8 @@ const sortClausesToBuilder = (sort: SortClause[]): ContentQuerySortOptions[] =>
 
 /**
  * Rebuild the builder params the navigation pipeline expects from the wire
- * pair (CS-5): collection + user filter/sort come from the plan; `fields`,
- * `canonical`, and the raw `resolveLocale` come from the navigation options.
+ * pair. Selection comes from the plan; only locale/fallback facts are kept in
+ * the navigation options.
  */
 const providerQueryToNavigationParams = (
   query: ContentProviderQuery,
@@ -72,9 +72,18 @@ const providerQueryToNavigationParams = (
     ...(query.collection ? { collection: query.collection } : {}),
     ...(where.length ? { where } : {}),
     ...(sort.length ? { sort } : {}),
-    ...(options.resolveLocale ? { resolveLocale: options.resolveLocale } : {}),
-    ...(options.fields?.length ? { only: options.fields } : {}),
-    ...(options.canonical ? { canonical: true } : {})
+    ...(options.locale || options.fallback !== undefined || options.exact
+      ? {
+          resolveLocale: {
+            ...(options.locale ? { locale: options.locale } : {}),
+            ...(options.fallback !== undefined
+              ? { fallback: typeof options.fallback === 'boolean' ? options.fallback : Array.from(options.fallback) }
+              : {}),
+            ...(options.exact ? { exact: true } : {})
+          }
+        }
+      : {}),
+    ...(query.plan.projection.only.length ? { only: query.plan.projection.only } : {})
   }
 }
 

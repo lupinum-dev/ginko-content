@@ -5,20 +5,11 @@ import { PROVIDER_QUERY_VERSION, type ContentProvider, type ContentProviderQuery
 import type { FilterExpr } from '../../../core/query/plan'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '../provider-result'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../../core/visibility'
+import { isPreview } from '../../../integrations/nitro/preview'
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
-const requiredCapabilityBooleans = [
-  'routeBackedCollections',
-  'dataCollections',
-  'localizedRoutes',
-  'translatedSlugs',
-  'navigation',
-  'surroundings',
-  'searchSections',
-  'sitemap'
-] as const
 
 const assertProviderField = (providerName: string, condition: boolean, field: string) => {
   if (!condition) {
@@ -168,73 +159,46 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
   }
 }
 
-const assertProviderOperationSupported = (
-  provider: ContentProvider,
-  supported: boolean,
-  operation: string
-) => {
-  if (!supported) {
-    throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support ${operation}.`, {
-      provider: provider.name,
-      operation
-    })
-  }
-}
-
 export const enforceProviderCapabilities = (provider: ContentProvider): ContentProvider => ({
   ...provider,
   query: async (event, query) => {
-    assertJsonPureProviderQuery(provider, query)
-    assertProviderQuerySupported(provider, query)
-    return await provider.query(event, query)
+    const requestQuery = {
+      ...query,
+      visibility: {
+        includeDrafts: resolveIncludeDrafts({
+          environment: resolveRuntimeEnvironment(),
+          previewAuthorized: isPreview(event)
+        })
+      }
+    }
+    assertJsonPureProviderQuery(provider, requestQuery)
+    assertProviderQuerySupported(provider, requestQuery)
+    return await provider.query(event, requestQuery)
   },
-  navigationQuery: provider.navigationQuery
-    ? async (event, query, options) => {
-        assertProviderOperationSupported(provider, provider.capabilities.navigation, 'navigation')
-        assertJsonPureProviderQuery(provider, query)
-        assertProviderQuerySupported(provider, query)
-        return await provider.navigationQuery!(event, query, options)
-      }
-    : undefined,
   navigation: provider.navigation
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.navigation, 'navigation')
-        return await provider.navigation!(...args)
+    ? async (event, query, options) => {
+        const requestQuery = {
+          ...query,
+          visibility: {
+            includeDrafts: resolveIncludeDrafts({
+              environment: resolveRuntimeEnvironment(),
+              previewAuthorized: isPreview(event)
+            })
+          }
+        }
+        assertJsonPureProviderQuery(provider, requestQuery)
+        assertProviderQuerySupported(provider, requestQuery)
+        return await provider.navigation!(event, requestQuery, options)
       }
     : undefined,
-  surroundings: provider.surroundings
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.surroundings, 'surroundings')
-        return await provider.surroundings!(...args)
-      }
-    : undefined,
-  searchSections: provider.searchSections
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.searchSections, 'search sections')
-        return await provider.searchSections!(...args)
-      }
-    : undefined,
-  page: provider.page
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.routeBackedCollections, 'route-backed pages')
-        return await provider.page!(...args)
-      }
-    : undefined,
-  routeMeta: provider.routeMeta
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.routeBackedCollections, 'route metadata')
-        return await provider.routeMeta!(...args)
-      }
-    : undefined,
-  sitemapEntries: provider.sitemapEntries
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.sitemap, 'sitemap entries')
-        return await provider.sitemapEntries!(...args)
-      }
-    : undefined
+  surroundings: provider.surroundings,
+  search: provider.search,
+  siteData: provider.siteData,
+  routes: provider.routes,
+  invalidate: provider.invalidate
 })
 
-const validateContentProvider = (providerName: string, provider: unknown): ContentProvider => {
+export const validateContentProvider = (providerName: string, provider: unknown): ContentProvider => {
   if (!isObject(provider)) {
     throw createContentProviderError('provider_module_invalid', `Content provider module for ${providerName} did not export a provider object.`, {
       provider: providerName
@@ -255,8 +219,12 @@ const validateContentProvider = (providerName: string, provider: unknown): Conte
     })
   }
 
-  for (const key of requiredCapabilityBooleans) {
-    assertProviderField(providerName, typeof provider.capabilities[key] === 'boolean', `capabilities.${key}`)
+  const capabilityKeys = Object.keys(provider.capabilities)
+  if (capabilityKeys.length !== 1 || capabilityKeys[0] !== 'query') {
+    throw createContentProviderError('provider_module_invalid', `Content provider ${providerName} capabilities may only declare query semantics. Optional operation support is inferred from method presence.`, {
+      provider: providerName,
+      field: 'capabilities'
+    })
   }
 
   const queryCapabilities = provider.capabilities.query
@@ -274,26 +242,10 @@ const validateContentProvider = (providerName: string, provider: unknown): Conte
 
   assertProviderMethod(providerName, provider, 'query')
 
-  if (provider.capabilities.navigation) {
-    assertProviderMethod(providerName, provider, 'navigationQuery')
-    assertProviderMethod(providerName, provider, 'navigation')
-  }
-
-  if (provider.capabilities.surroundings) {
-    assertProviderMethod(providerName, provider, 'surroundings')
-  }
-
-  if (provider.capabilities.searchSections) {
-    assertProviderMethod(providerName, provider, 'searchSections')
-  }
-
-  if (provider.capabilities.sitemap) {
-    assertProviderMethod(providerName, provider, 'sitemapEntries')
-  }
-
-  if (provider.capabilities.routeBackedCollections || provider.capabilities.localizedRoutes) {
-    assertProviderMethod(providerName, provider, 'page')
-    assertProviderMethod(providerName, provider, 'routeMeta')
+  for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes', 'invalidate'] as const) {
+    if (method in provider) {
+      assertProviderMethod(providerName, provider, method)
+    }
   }
 
   return provider as unknown as ContentProvider

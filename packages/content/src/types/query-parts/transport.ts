@@ -73,6 +73,14 @@ export interface ContentQueryBuilderParams {
     fallback?: string[] | boolean
     exact?: boolean
   }
+  resolveVariant?: {
+    path?: string
+    route?: string
+    ref?: string
+    locale?: string
+    fallback?: string[] | boolean
+    exact?: boolean
+  }
   /** Explicit wire pagination-mode request — see `ContentProviderPaging`. */
   paging?: ContentProviderPaging
 

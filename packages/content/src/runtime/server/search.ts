@@ -3,12 +3,10 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentQueryBuilderWhere } from '../../types/query'
 import { useRuntimeConfig } from 'nitropack/runtime'
 import type { ContentSearchIndexRecord } from '../../types/search'
-import type { createSearchSections } from '../../features/search/sections'
+import { createSearchSections } from '../../features/search/sections'
 import { resolveCollectionI18n } from '../../features/localization/path'
 import { getContentProvider } from './providers'
 import { serverQueryCollection } from './provider-query'
-import { createContentProviderError } from '../../public/provider-errors'
-import type { RuntimeContentProvider } from './provider-result'
 
 export { searchRecords } from '../shared/search'
 
@@ -99,6 +97,7 @@ export async function serverSearchContent (
   collectionsOverride?: string[],
   opts: {
     allLocales?: boolean
+    extraFields?: string[]
   } = {}
 ): Promise<SearchablePage[]> {
   const runtimeConfig = useRuntimeConfig(event)
@@ -107,14 +106,18 @@ export async function serverSearchContent (
   const results = await Promise.all(collections.map(async (collection) => {
     const loadPages = async (queryLocale?: string) => {
       const query = serverQueryCollection(event, collection)
-        .select('path', 'locale', 'title', 'description', 'body')
+        .select('path', 'locale', 'title', 'description', 'body', ...(opts.extraFields || []))
       const mergedFilter = mergeSearchFilter(filterQuery, queryLocale)
 
-      if (mergedFilter) {
-        return await (query as any).where(mergedFilter).find()
-      }
-
-      return await (query as any).find()
+      const pages = mergedFilter
+        ? await (query as any).where(mergedFilter).find()
+        : await (query as any).find()
+      return (pages as Array<Record<string, unknown>>).map(page => ({
+        ...page,
+        path: typeof page.path === 'string'
+          ? page.path
+          : (page.route as { resolvedPath?: string } | undefined)?.resolvedPath || ''
+      }))
     }
 
     if (locale) {
@@ -156,49 +159,6 @@ const toSearchRecord = (section: SearchSectionWithLocale): ContentSearchIndexRec
   }
 }
 
-const buildProviderSearchSections = async (
-  event: H3Event,
-  collections: string[],
-  provider: Awaited<ReturnType<typeof getContentProvider>> & { searchSections: NonNullable<Awaited<ReturnType<typeof getContentProvider>>['searchSections']> },
-  opts: {
-    ignoredTags?: string[]
-    extraFields?: string[]
-    filterQuery?: ContentQueryBuilderWhere
-    locale?: string
-    allLocales?: boolean
-  }
-): Promise<SearchSectionWithLocale[]> => {
-  const runtimeConfig = useRuntimeConfig(event)
-  const sections = await Promise.all(collections.map(async (collection) => {
-    const loadCollectionLocale = async (locale?: string) => (await provider.searchSections(event, collection, {
-      ignoredTags: opts.ignoredTags || [],
-      extraFields: unique(['locale', ...(opts.extraFields || [])]),
-      filterQuery: opts.filterQuery,
-      locale
-    }) as SearchSectionWithLocale[]).map(section => ({
-      ...section,
-      collection
-    }))
-
-    if (opts.locale) {
-      return await loadCollectionLocale(opts.locale)
-    }
-
-    const collectionI18n = opts.allLocales
-      ? resolveCollectionI18n(collection, runtimeConfig.content)
-      : undefined
-
-    if (opts.allLocales && collectionI18n?.locales.length) {
-      const localizedSections = await Promise.all(collectionI18n.locales.map(locale => loadCollectionLocale(locale)))
-      return localizedSections.flat()
-    }
-
-    return await loadCollectionLocale()
-  }))
-
-  return sections.flat()
-}
-
 export async function buildSearchIndex (
   event: H3Event,
   opts: {
@@ -227,24 +187,16 @@ export async function buildSearchIndex (
     return cached
   }
 
-  const collections = resolveSearchCollections(runtimeConfig.content, opts.collections)
-  if (!provider.capabilities.searchSections) {
-    throw createContentProviderError('unsupported_provider_search_index', `${provider.name} does not support search index generation`, {
-      provider: provider.name
-    })
-  }
-  if (!provider.searchSections) {
-    throw createContentProviderError('unsupported_provider_search_index', `${provider.name} does not support search section generation`, {
-      provider: provider.name
-    })
-  }
-  const records = (await buildProviderSearchSections(event, collections, provider as RuntimeContentProvider & { searchSections: NonNullable<RuntimeContentProvider['searchSections']> }, {
-    ignoredTags: opts.ignoredTags,
-    extraFields: opts.extraFields || runtimeConfig.content.search?.extraFields || [],
-    filterQuery: opts.filterQuery,
-    locale: opts.locale,
-    allLocales: opts.allLocales
-  })).map(toSearchRecord)
+  const extraFields = opts.extraFields || runtimeConfig.content.search?.extraFields || []
+  const pages = await serverSearchContent(event, opts.filterQuery, opts.locale, opts.collections, {
+    allLocales: opts.allLocales,
+    extraFields
+  })
+  const sections = createSearchSections(pages, {
+    ignoredTags: opts.ignoredTags || [],
+    extraFields: unique(['locale', 'collection', ...extraFields])
+  }) as SearchSectionWithLocale[]
+  const records = sections.map(toSearchRecord)
 
   rememberSearchRecords(cacheKey, records)
   return records

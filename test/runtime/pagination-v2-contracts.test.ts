@@ -102,7 +102,7 @@ describe('provider query wire v2 — pagination and route candidates', () => {
       provider,
       params: { params: `docs/${encodeQueryParams({ ...baseParams, paging: { mode: 'cursor', after: null, limit: 1 } } as never)}` }
     })
-    const page1 = await handler(page1Event) as { result: Array<{ path?: string }>, pageInfo: { endCursor: string | null, hasNext: boolean } }
+    const page1 = await handler(page1Event) as { result: Array<{ route?: { resolvedPath?: string } }>, pageInfo: { endCursor: string | null, hasNext: boolean } }
     expect(page1.pageInfo.hasNext).toBe(true)
     const cursor = page1.pageInfo.endCursor
     expect(typeof cursor).toBe('string')
@@ -115,10 +115,10 @@ describe('provider query wire v2 — pagination and route candidates', () => {
       provider,
       params: { params: `docs/${encodeQueryParams({ ...baseParams, paging: { mode: 'cursor', after: cursor, limit: 1 } } as never)}` }
     })
-    const page2 = await handler(page2Event) as { result: Array<{ path?: string }>, pageInfo: { endCursor: string | null, hasNext: boolean } }
+    const page2 = await handler(page2Event) as { result: Array<{ route?: { resolvedPath?: string } }>, pageInfo: { endCursor: string | null, hasNext: boolean } }
 
     expect(page2.result).toHaveLength(1)
-    expect(page2.result[0]?.path).not.toBe(page1.result[0]?.path)
+    expect(page2.result[0]?.route?.resolvedPath).not.toBe(page1.result[0]?.route?.resolvedPath)
   })
 
   test('v2 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {

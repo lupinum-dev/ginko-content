@@ -3,37 +3,46 @@ import { toContentProviderQuery } from '../../packages/content/src/public/provid
 import { createInMemoryProvider } from '../harness/provider'
 import { createBasicScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
-import { expectProviderError } from '../harness/assertions'
 
-describe('basic content scenario harness', () => {
+describe('basic in-memory provider scenario', () => {
   const scenario = createBasicScenario()
   const provider = createInMemoryProvider(scenario)
   const event = createTestEvent({ scenario, provider })
 
-  test('resolves page routes without a Nuxt production build', async () => {
-    await expect(provider.page(event, 'pages', '/')).resolves.toMatchObject({
-      title: 'Ginko',
-      path: '/'
+  test('resolves routes through the provider query wire', async () => {
+    await expect(provider.query(event, toContentProviderQuery({
+      collection: 'docs',
+      first: true,
+      resolveVariant: { route: '/guide/getting-started' }
+    }))).resolves.toMatchObject({
+      result: {
+        title: 'Getting Started',
+        contentPath: '/guide/getting-started',
+        canonicalKey: expect.any(String)
+      }
     })
 
-    await expect(provider.page(event, 'docs', '/guide/getting-started')).resolves.toMatchObject({
-      title: 'Getting Started',
-      path: '/guide/getting-started'
-    })
-
-    await expect(provider.page(event, 'docs', '/missing-page')).resolves.toBeNull()
+    await expect(provider.query(event, toContentProviderQuery({
+      collection: 'docs',
+      first: true,
+      resolveVariant: { route: '/missing-page' }
+    }))).resolves.toEqual({ result: undefined })
   })
 
-  test('keeps hidden and draft content out of navigation-facing reads', async () => {
-    const navigation = await provider.navigation(event, 'docs')
+  test('returns raw route facts and excludes hidden or draft navigation items', async () => {
+    const navigation = await provider.navigation!(event, toContentProviderQuery({
+      collection: 'docs',
+      sort: [{ path: 1 }]
+    }))
     expect(navigation.map(item => item.title)).toEqual(['Guide', 'Getting Started'])
+    expect(navigation[0]?.route).toEqual(expect.objectContaining({
+      collection: 'docs',
+      contentPath: expect.stringMatching(/^\//)
+    }))
     expect(JSON.stringify(navigation)).not.toContain('Hidden Page')
-
-    const posts = await provider.navigation(event, 'posts')
-    expect(JSON.stringify(posts)).not.toContain('Third Post')
   })
 
-  test('covers query operators, count, windows, projection, and structured content in-process', async () => {
+  test('covers operators, count, windows, projection, and data documents', async () => {
     await expect(provider.query(event, toContentProviderQuery({
       collection: 'posts',
       where: {
@@ -44,11 +53,11 @@ describe('basic content scenario harness', () => {
         ]
       },
       sort: [{ order: 1 }],
-      only: ['title', 'path']
+      only: ['title']
     }))).resolves.toMatchObject({
       result: [
-        { title: 'Hello World', path: '/blog/hello-world' },
-        { title: 'Second Post', path: '/blog/second-post' }
+        { title: 'Hello World' },
+        { title: 'Second Post' }
       ],
       total: 2
     })
@@ -72,31 +81,10 @@ describe('basic content scenario harness', () => {
       limit: 1,
       total: 2
     })
-
-    await expect(provider.query(event, toContentProviderQuery({
-      collection: 'data',
-      sort: [{ path: 1 }],
-      only: ['title', 'version', 'owner', 'downloads']
-    }))).resolves.toMatchObject({
-      result: [
-        { title: 'App config', version: 2, owner: 'Matthias' },
-        { title: 'Metrics', downloads: 42 },
-        { title: 'Team', owner: 'Matthias' }
-      ]
-    })
   })
 
-  test('does not expose data collections through route or sitemap access', async () => {
-    await expectProviderError(
-      provider.page(event, 'data', '/data/app'),
-      'data_collection_route_access',
-      { collection: 'data' }
-    )
-
-    await expectProviderError(
-      provider.sitemapEntries(event, { include: ['data'] }),
-      'data_collection_sitemap_access',
-      { collection: 'data' }
-    )
+  test('keeps data collections out of route enumeration', async () => {
+    const routes = await provider.routes!(event)
+    expect(routes.some(route => route.collection === 'data')).toBe(false)
   })
 })

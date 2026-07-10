@@ -101,6 +101,22 @@ export async function resolveSurround<H extends ContentCollectionHandle | string
 
   if (!seed) return { previous: null, next: null }
 
+  if (context.surroundings) {
+    const fallback = resolveFallback(options.fallback, collection, runtime)
+    const items = await context.surroundings(collection, seed.route.resolvedPath, {
+      ...(options.locale ? { locale: options.locale } : {}),
+      ...(seed.resolution.resolved.locale ? { resolvedLocale: seed.resolution.resolved.locale } : {}),
+      ...(fallback !== undefined
+        ? { fallback: typeof fallback === 'string' ? [fallback] : fallback }
+        : {}),
+      ...(options.select ? { select: options.select.map(String) } : {})
+    })
+    return {
+      previous: (items[0] as ContentNavigationTreeItem<ParsedContent> | null | undefined) ?? null,
+      next: (items[1] as ContentNavigationTreeItem<ParsedContent> | null | undefined) ?? null
+    } as SurroundResult<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent>
+  }
+
   const fullTree = await navigation(context, handle, {
     locale: options.locale,
     fallback: options.fallback,

@@ -41,8 +41,7 @@ export const generatedContentServerValueNames = [
   'toContentProviderQuery',
   'toContentProviderNavigationQuery',
   'createContentProviderError',
-  'normalizeProviderDocument',
-  'shapeProviderDocument'
+  'normalizeProviderDocument'
 ] as const
 
 export const generatedContentServerTypeSpecs = [

@@ -76,5 +76,5 @@ export {
   getContentCacheHint
 } from '../runtime/server/cache-hints.js'
 export { PROVIDER_QUERY_VERSION, toContentProviderNavigationQuery, toContentProviderQuery, withContentCache } from './provider.js'
-export { normalizeProviderDocument, shapeProviderDocument } from '../runtime/server/provider-document.js'
-export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from '../runtime/server/provider-document.js'
+export { normalizeProviderDocument } from '../runtime/server/provider-document.js'
+export type { ProviderDocumentInput, ContentProviderVariantFact } from '../runtime/server/provider-document.js'
