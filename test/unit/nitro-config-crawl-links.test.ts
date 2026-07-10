@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { registerContentNitroConfig } from '../../packages/content/src/module/nitro-config'
 
-// Covers the Phase 3 gate follow-up: filesystem content-route prerender
+// Covers the Phase 3 gate follow-up: provider content-route prerender
 // injection depends on Nitro's own `crawlLinks` mechanism (see the long
 // comment in `module/nitro-config.ts` and `module/integration-hooks.ts`).
 // When a user has explicitly disabled `nitro.prerender.crawlLinks` in their
@@ -27,7 +27,7 @@ function createNuxt() {
   return { nuxt, hooks }
 }
 
-function createHarness(prerenderOverrides: Record<string, any> = {}) {
+function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 'filesystem') {
   const { nuxt, hooks } = createNuxt()
   const logger = { warn: vi.fn() }
 
@@ -35,13 +35,13 @@ function createHarness(prerenderOverrides: Record<string, any> = {}) {
     nuxt: nuxt as any,
     options: { api: { baseURL: '/api/_content' } } as any,
     appContentConfig: {} as any,
-    contentContext: { provider: 'filesystem', sources: {}, sitemap: false, cache: false } as any,
+    contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
     runtimeInlineDependencies: [],
     buildIntegrity: 123,
     resolvedI18n: { locales: [], defaultLocale: undefined },
     resolveRuntimeModule: (path: string) => `/resolved/runtime/${path}`,
     resolveModuleFile: (path: string) => `/resolved/module/${path}`,
-    getResolvedContentContext: () => ({ sitemap: false, provider: 'filesystem' }) as any,
+    getResolvedContentContext: () => ({ sitemap: false, provider }) as any,
     getSearchRuntime: () => false,
     logger
   })
@@ -76,5 +76,12 @@ describe('nitro-config crawlLinks handling', () => {
 
     expect(nitroConfig.prerender.crawlLinks).toBe(true)
     expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('seeds the build endpoint for external providers so routes() can feed the crawler', () => {
+    const { nitroConfig } = createHarness({}, 'cms-demo')
+
+    expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
+    expect(nitroConfig.prerender.crawlLinks).toBe(true)
   })
 })

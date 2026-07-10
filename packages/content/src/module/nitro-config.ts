@@ -68,7 +68,7 @@ export const registerContentNitroConfig = ({
       ? `${options.api.baseURL}/cache.json`
       : `${options.api.baseURL}/cache.${buildIntegrity}.json`
 
-    if (!nuxt.options.dev && usesFilesystemProvider) {
+    if (!nuxt.options.dev) {
       nitroConfig.prerender.routes.unshift(cacheRoute)
       // The cache/build route's HTML response (see
       // `runtime/server/api/cache.ts`) seeds content-route prerender
@@ -92,7 +92,7 @@ export const registerContentNitroConfig = ({
         // warn loudly: without crawling, filesystem content routes never reach the
         // prerender queue and the build will ship without them.
         logger.warn(
-          'content module needs `nitro.prerender.crawlLinks` to inject filesystem content routes into the prerender queue (see VNEXT §14.4, §25.2), but it is explicitly set to `false` in your nuxt.config. Content routes will NOT be prerendered until you remove `crawlLinks: false`.'
+          'content module needs `nitro.prerender.crawlLinks` to inject provider content routes into the prerender queue (see VNEXT §14.4, §25.2), but it is explicitly set to `false` in your nuxt.config. Content routes will NOT be prerendered until you remove `crawlLinks: false`.'
         )
       }
       nitroConfig.prerender.crawlLinks = nitroConfig.prerender.crawlLinks ?? true

@@ -17,7 +17,8 @@ const mocks = vi.hoisted(() => ({
   getSourceContentIds: vi.fn(),
   loadContentVariants: vi.fn(),
   setItem: vi.fn(),
-  validateContentGraph: vi.fn()
+  validateContentGraph: vi.fn(),
+  getContentProvider: vi.fn()
 }))
 
 const runtimeContent = {
@@ -63,6 +64,10 @@ vi.mock('../../packages/content/src/storage/validation', async () => {
   }
 })
 
+vi.mock('../../packages/content/src/runtime/server/providers', () => ({
+  getContentProvider: mocks.getContentProvider
+}))
+
 describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => {
   beforeEach(() => {
     mocks.getSourceContentIds.mockReset()
@@ -70,6 +75,8 @@ describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => 
     mocks.setItem.mockReset()
     mocks.validateContentGraph.mockReset()
     mocks.validateContentGraph.mockReturnValue(ok(undefined))
+    mocks.getContentProvider.mockReset()
+    delete (runtimeContent as { provider?: string }).provider
   })
 
   test('a successful build performs exactly one final snapshot.json write', async () => {
@@ -104,6 +111,30 @@ describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => 
       documentCount: 1,
       generateTime: expect.any(Number),
       routesByCollection: { docs: 1 }
+    }))
+  })
+
+  test('external providers seed prerender routes through routes() without building a filesystem snapshot', async () => {
+    ;(runtimeContent as { provider?: string }).provider = 'cms-demo'
+    mocks.getContentProvider.mockResolvedValue({
+      name: 'cms-demo',
+      routes: vi.fn(async () => [
+        { collection: 'docs', canonicalKey: 'docs/guide', locale: 'en', contentPath: '/guide' },
+        { collection: 'docs', canonicalKey: 'docs/draft', locale: 'en', contentPath: '/draft', draft: true },
+        { collection: 'docs', canonicalKey: 'docs/private-map', locale: 'en', contentPath: '/private-map', sitemap: false }
+      ])
+    })
+
+    const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
+    const result = await handler(createTestEvent())
+
+    expect(mocks.getSourceContentIds).not.toHaveBeenCalled()
+    expect(mocks.setItem).not.toHaveBeenCalled()
+    expect(result).toEqual(expect.objectContaining({
+      documentCount: 0,
+      routes: ['/guide', '/private-map'],
+      routesByCollection: { docs: 2 },
+      sitemapByCollection: { docs: 1 }
     }))
   })
 
