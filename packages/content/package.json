@@ -102,7 +102,7 @@
   },
   "dependencies": {
     "@comark/vue": "^0.4.0",
-    "@nuxt/kit": "^4.4.7",
+    "@nuxt/kit": "^4.4.8",
     "@shikijs/transformers": "^4.2.0",
     "comark": "^0.4.0",
     "consola": "^3.4.2",
@@ -129,7 +129,7 @@
   },
   "devDependencies": {
     "@nuxt/module-builder": "1.0.2",
-    "nuxt": "4.4.7",
+    "nuxt": "4.4.8",
     "unbuild": "^3.6.1",
     "vue-docgen-web-types": "^0.1.8"
   },
