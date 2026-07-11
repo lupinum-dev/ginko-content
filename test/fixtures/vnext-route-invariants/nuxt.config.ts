@@ -15,6 +15,9 @@ export default defineNuxtConfig({
   ],
 
   content: {
+    // Search is opt-in in vNext. This fixture asserts cross-artifact search
+    // invariants, so enable the built-in MiniSearch index explicitly.
+    search: {},
     i18n: {
       defaultLocale: 'en',
       locales: ['en', 'de'],
