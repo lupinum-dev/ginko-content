@@ -91,12 +91,27 @@ describe('public search composable (VNEXT.md 10.5, 27.2)', () => {
 
     const search = await useContentSearch({ initialQuery: 'fallback', locale: 'de' })
 
-    expect((fetchCalls[0] as { value: string }).value).toBe('/api/_content/search?q=fallback&locale=de')
+    expect(fetchCalls[0]).toBe('/api/_content/search?q=fallback&locale=de')
     expect(search.pending.value).toBe(false)
     expect(search.error.value).toBe(null)
     expect(search.results.value).toEqual([
       { collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 1 }
     ])
+  })
+
+  test('useContentSearch keeps empty provider searches local', async () => {
+    setRuntimeSearch({
+      engine: 'provider',
+      apiBaseURL: '/api/_content/search'
+    })
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    const search = await useContentSearch({ initialQuery: '   ', locale: 'de' })
+
+    expect(fetchCalls).toEqual([])
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toBe(null)
+    expect(search.results.value).toEqual([])
   })
 
   test('useContentSearch returns a stable disabled state when public search config is false', async () => {

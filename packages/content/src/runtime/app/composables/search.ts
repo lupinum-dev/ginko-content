@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { MaybeRefOrGetter } from '#imports'
-import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRuntimeConfig, watchEffect } from '#imports'
+import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRequestFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
 import type { ContentCollectionHandle } from '../../../types/config'
 import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
@@ -291,10 +291,17 @@ const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options
 export const useContentSearch = async (options: UseContentSearchOptions = {}): Promise<UseContentSearchResult> => {
   const query = ref(String(toValue(options.initialQuery) || ''))
   const activeIndex = ref(-1)
-  const search = await useContentSearchResults(query, options)
-  const collectionData = options.collection
-    ? await useContentSearchCollectionData(options.collection, options)
-    : { files: computed(() => [] as ContentSearchSection[]), searchNavigation: computed(() => [] as ContentNavigationItem[]) }
+  // Both branches use Nuxt composables and must start synchronously while the
+  // caller's setup context is active. Awaiting either branch first can lose
+  // that context before the other branch initializes.
+  const searchPromise = useContentSearchResults(query, options)
+  const collectionDataPromise = options.collection
+    ? useContentSearchCollectionData(options.collection, options)
+    : Promise.resolve({
+        files: computed(() => [] as ContentSearchSection[]),
+        searchNavigation: computed(() => [] as ContentNavigationItem[]),
+      })
+  const [search, collectionData] = await Promise.all([searchPromise, collectionDataPromise])
   const limit = computed(() => {
     const value = toValue(options.limit)
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined
@@ -386,20 +393,26 @@ const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string,
 
 const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
   const locale = computed(() => toValue(options.locale))
+  const term = computed(() => String(toValue(search) || '').trim())
   const requestUrl = computed(() => {
     const params = new URLSearchParams()
-    const term = String(toValue(search) || '')
-    if (term) {
-      params.set('q', term)
-    }
+    params.set('q', term.value)
     if (locale.value) {
       params.set('locale', locale.value)
     }
-    const query = params.toString()
-    return query ? `${apiBaseURL}?${query}` : apiBaseURL
+    return `${apiBaseURL}?${params.toString()}`
   })
-  const fetchData = useFetch<ContentSearchResult[]>(requestUrl)
-  const { data, pending, error } = await fetchData
+  const requestKey = computed(() => `content-provider-search:${requestUrl.value}`)
+  const requestFetch = useRequestFetch()
+  const { data, pending, error } = await useAsyncData(requestKey, async () => {
+    // The provider contract rejects empty terms. Keep the empty search state
+    // local so SSR/prerender and a newly opened search dialog never dispatch an
+    // invalid request.
+    if (!term.value) {
+      return []
+    }
+    return await requestFetch<ContentSearchResult[]>(requestUrl.value)
+  })
 
   return {
     results: computed(() => (data.value || []).map((result: ContentSearchResult) => ({
