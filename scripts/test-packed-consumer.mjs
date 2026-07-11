@@ -342,12 +342,12 @@ The packed package rendered this page.
 
     writeFile(resolve(appDir, 'server/api/import-smoke.get.ts'), `
       import { one, many } from '@lupinum/ginko-content/server'
-      import { agentMarkdownPathForRoute } from '@lupinum/ginko-content/agent'
+      import { createAgentMarkdownRegistry } from '@lupinum/ginko-content/agent'
 
       export default defineEventHandler(() => ({
         server: typeof one,
         many: typeof many,
-        agentPath: agentMarkdownPathForRoute('/import-smoke')
+        agentRegistry: typeof createAgentMarkdownRegistry
       }))
     `)
 
@@ -407,8 +407,9 @@ The packed package rendered this page.
 
     const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
     const importSmokeBody = await importSmokeResponse.text()
-    // Asserts the /agent subpath function actually computed (not just imported).
-    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentPath":"/import-smoke/index.md"')) {
+    // Assert that the trimmed /agent subpath is usable from a real Nitro
+    // handler, not merely importable in an isolated Node process.
+    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentRegistry":"function"')) {
       throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
     }
 
