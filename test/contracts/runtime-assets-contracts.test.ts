@@ -50,7 +50,7 @@ describe('runtime asset contracts', () => {
     vi.clearAllMocks()
   })
 
-  test('auto-imports exactly useContentPage and useContentSearch (VNEXT.md 10.5, 10.8)', () => {
+  test('auto-imports useContentPage and the collision-safe Ginko search alias', () => {
     registerRuntimeImports(path => `/runtime/${path}`)
 
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
@@ -58,7 +58,7 @@ describe('runtime asset contracts', () => {
     expect(imports.map(item => item.name).sort()).toEqual(['useContentPage', 'useContentSearch'])
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
-      expect.objectContaining({ name: 'useContentSearch', as: 'useContentSearch' })
+      expect.objectContaining({ name: 'useContentSearch', as: 'useGinkoContentSearch' })
     ]))
   })
 

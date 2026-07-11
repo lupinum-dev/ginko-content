@@ -31,7 +31,7 @@ import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import type { StrictParsedContent } from '@lupinum/ginko-content'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
-import { useContentPage as autoUseContentPage, useContentSearch as autoUseContentSearch } from '#imports'
+import { useContentPage as autoUseContentPage, useGinkoContentSearch as autoUseContentSearch } from '#imports'
 import { z } from 'zod'
 
 declare const clientSurface: typeof import('@lupinum/ginko-content/client')

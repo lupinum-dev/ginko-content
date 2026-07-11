@@ -318,7 +318,8 @@ export interface ModuleOptions {
    * Built-in full-text search configuration.
    *
    * When enabled, Ginko exposes JSON/Pagefind search endpoints under
-   * the content api base route. `useContentSearch()` is auto-imported.
+   * the content api base route. `useGinkoContentSearch()` is auto-imported;
+   * explicit package imports keep the `useContentSearch()` name.
    */
   search: false | ContentSearchOptions
   /**
