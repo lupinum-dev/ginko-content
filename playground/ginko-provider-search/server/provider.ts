@@ -1,19 +1,28 @@
-import type { ContentProvider } from '@lupinum/ginko-content/provider'
+import {
+  normalizeProviderDocument,
+  type ContentProvider
+} from '@lupinum/ginko-content/provider'
 
 const documents = [
   {
     id: 'provider-native-doc-en-001',
+    canonicalKey: 'docs:provider-guide',
+    collection: 'docs',
     title: 'Provider English Guide',
-    path: '/docs/provider-guide',
+    contentPath: '/docs/provider-guide',
     locale: 'en',
-    excerpt: 'Provider-owned search result from the CMS fixture.'
+    excerpt: 'Provider-owned search result from the CMS fixture.',
+    body: null
   },
   {
     id: 'provider-native-doc-de-001',
+    canonicalKey: 'docs:provider-guide',
+    collection: 'docs',
     title: 'Provider Deutscher Leitfaden',
-    path: '/de/dokumentation/provider-leitfaden',
+    contentPath: '/de/dokumentation/provider-leitfaden',
     locale: 'de',
-    excerpt: 'Provider-owned localized search result from the CMS fixture.'
+    excerpt: 'Provider-owned localized search result from the CMS fixture.',
+    body: null
   }
 ]
 
@@ -24,45 +33,49 @@ const emptyList = {
   total: 0
 }
 
+const routeVariants = documents.map(({ locale, contentPath }) => ({ locale, contentPath }))
+const providerDocument = (document: (typeof documents)[number]) => normalizeProviderDocument({
+  ...document,
+  routeVariants
+})
+
 export default {
   name: 'fixture-search',
   capabilities: {
-    routeBackedCollections: true,
-    dataCollections: false,
-    localizedRoutes: true,
-    translatedSlugs: false,
-    navigation: false,
-    surroundings: false,
-    searchSections: false,
-    sitemap: true,
     query: {
       operators: ['$eq'],
       pagination: ['offset']
     }
   },
   async query (_event, query) {
-    if (query.count) {
+    if (query.plan.mode === 'count') {
       return { result: 0 }
     }
-    if (query.first) {
-      return { result: undefined }
+    if (query.plan.mode === 'first') {
+      const selector = query.plan.variantSelector
+      const candidates = selector?.by === 'route' ? selector.candidates : []
+      const document = candidates
+        .map(candidate => documents.find(item =>
+          item.contentPath === candidate.contentPath
+        ))
+        .find(Boolean)
+      return { result: document ? providerDocument(document) : undefined }
     }
-    return emptyList
+    const result = documents.map(providerDocument)
+    return {
+      ...emptyList,
+      result,
+      limit: query.plan.limit || result.length,
+      total: result.length
+    }
   },
-  async page () {
-    return null
-  },
-  async routeMeta () {
-    return null
-  },
-  async sitemapEntries () {
+  async routes () {
     return documents.map(document => ({
-      loc: document.path,
-      alternatives: [
-        { hreflang: 'en', href: '/docs/provider-guide' },
-        { hreflang: 'de', href: '/de/dokumentation/provider-leitfaden' }
-      ],
-      lastmod: '2026-06-08'
+      collection: document.collection,
+      canonicalKey: document.canonicalKey,
+      locale: document.locale,
+      contentPath: document.contentPath,
+      sitemap: { lastmod: '2026-06-08T00:00:00.000Z' }
     }))
   },
   async search (_event, request) {
@@ -75,12 +88,15 @@ export default {
       .filter(document => !request.locale || document.locale === request.locale)
       .filter(document => `${document.title} ${document.excerpt}`.toLowerCase().includes(term))
       .map(document => ({
-        collection: 'docs',
-        path: document.path,
         title: document.title,
         excerpt: document.excerpt,
-        locale: document.locale,
-        score: 1
+        score: 1,
+        route: {
+          collection: document.collection,
+          canonicalKey: document.canonicalKey,
+          locale: document.locale,
+          contentPath: document.contentPath
+        }
       }))
   }
 } satisfies ContentProvider

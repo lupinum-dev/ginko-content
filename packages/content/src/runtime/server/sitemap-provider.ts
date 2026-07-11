@@ -11,6 +11,16 @@ import { normalizeProviderRoutes, projectProviderRouteFact } from './provider-ro
 
 const withoutTrailingSlash = (value: string) => value.replace(/\/$/, '')
 
+const localeLanguageMap = (event: H3Event): Record<string, string> => {
+  const runtime = useRuntimeConfig(event) as unknown as {
+    public?: { i18n?: { locales?: Array<string | { code?: string, language?: string }> } }
+  }
+  return Object.fromEntries((runtime.public?.i18n?.locales || []).flatMap((locale) => {
+    if (typeof locale === 'string') return [[locale, locale]]
+    return locale.code ? [[locale.code, locale.language || locale.code]] : []
+  }))
+}
+
 const resolveSiteUrl = (event: H3Event, explicit?: string) => {
   if (explicit) return withoutTrailingSlash(explicit)
   const runtime = useRuntimeConfig(event) as unknown as {
@@ -52,6 +62,7 @@ export async function queryCollectionsSitemapEntries (
     .filter(route => route.sitemap !== false)
 
   const siteUrl = resolveSiteUrl(event, options.siteUrl)
+  const localeToLanguage = localeLanguageMap(event)
   const byCanonical = new Map<string, typeof routes>()
   for (const route of routes) {
     const key = `${route.collection}:${route.canonicalKey}`
@@ -63,7 +74,7 @@ export async function queryCollectionsSitemapEntries (
   return routes.map((route) => {
     const variants = byCanonical.get(`${route.collection}:${route.canonicalKey}`) || []
     const alternatives: ContentSitemapAlternative[] = variants.map(variant => ({
-      hreflang: variant.locale,
+      hreflang: localeToLanguage[variant.locale] || variant.locale,
       href: `${siteUrl}${projectProviderRouteFact(variant, runtime)}`
     }))
     const metadata = route.sitemap && typeof route.sitemap === 'object' ? route.sitemap : undefined

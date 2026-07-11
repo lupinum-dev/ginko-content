@@ -1,5 +1,4 @@
 import type { H3Event } from 'h3'
-import type { ContentQueryResponse } from '../../types/api'
 import type { MarkdownRoot, ParsedContent } from '../../types/content'
 import type { ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
 import type {
@@ -25,8 +24,7 @@ import { pathHasLocalePrefix } from '../../core/content/path'
 import { projectContentRoute } from '../../features/localization/route-projector'
 import { isPublicationVisible, resolveRuntimeEnvironment, type ContentVisibilityContext } from '../../core/visibility'
 import { isPreview } from '../../integrations/nitro/preview'
-import { getContentProvider } from './providers'
-import { createProviderQuery, normalizeProviderQueryResponse } from './provider-query'
+import { many, one } from './query-api'
 import { contentConfig } from './storage-access'
 
 const visibilityContextForEvent = (event: H3Event): ContentVisibilityContext => ({
@@ -281,22 +279,11 @@ export async function resolveContentMarkdown (
   const config = collectionConfig(collection)
   const agentOptions = resolveAgentMarkdownOptions(config)
   if (!config || !agentOptions) return null
-  const provider = await getContentProvider(event)
-  const params = {
-    collection,
-    first: true,
-    resolveVariant: {
-      route: routeOrPath,
-      ...(options.locale ? { locale: options.locale } : {}),
-      fallback: true
-    }
-  }
-  const response = normalizeProviderQueryResponse<ParsedContent>(
-    params,
-    await provider.query<ParsedContent>(event, createProviderQuery(params)),
-    provider.name
-  )
-  const page = (Array.isArray(response.result) ? response.result[0] : response.result) as ParsedContent | null | undefined
+  const page = await one(event, collection, {
+    by: { route: routeOrPath },
+    ...(options.locale ? { locale: options.locale } : {}),
+    fallback: true
+  }) as unknown as ParsedContent | null
   if (!page || !isPublicPage(page, config, visibilityContextForEvent(event))) return null
   return toAgentMarkdown(collection, page, agentOptions)
 }
@@ -315,26 +302,24 @@ export async function resolveContentMarkdownByRoute (
   return null
 }
 
-const normalizeQueryResult = <T>(value: ContentQueryResponse<T>): T[] =>
-  Array.isArray(value.result) ? value.result : []
-
 export async function queryMarkdownEnabledContent (
   event: H3Event,
   options: { locale?: string, collections?: string[], limit?: number } = {}
 ): Promise<AgentMarkdownMeta[]> {
-  const provider = await getContentProvider(event)
   const result: AgentMarkdownMeta[] = []
   const visibility = visibilityContextForEvent(event)
 
   for (const [collection, config] of markdownEnabledCollectionEntries(options.collections)) {
     const agentOptions = resolveAgentMarkdownOptions(config as any)
     if (!agentOptions) continue
-    const rows = normalizeQueryResult<ParsedContent>(await provider.query<ParsedContent>(event, createProviderQuery({
-      collection,
-      only: ['path', 'locale', 'localePaths', 'resolved', 'file', 'draft', 'partial', 'navigationFile', 'title', 'description', 'updated', 'navigation', 'robots', 'sitemap'],
+    const rows = await many(event, collection, {
+      select: [
+        'file', 'draft', 'partial', 'navigationFile', 'title', 'description',
+        'updated', 'navigation', 'robots', 'sitemap'
+      ],
       ...(options.limit ? { limit: options.limit } : {}),
-      ...(options.locale ? { resolveLocale: { locale: options.locale, fallback: true } } : {})
-    })))
+      ...(options.locale ? { locale: options.locale, fallback: true } : {})
+    }) as unknown as ParsedContent[]
     for (const row of rows) {
       if (!isPublicPage(row, config as any, visibility)) continue
       const locale = options.locale || row.resolved?.locale || row.locale

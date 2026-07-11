@@ -8,7 +8,13 @@ import type {
   ProviderDocumentInput
 } from '../../../public/provider'
 import { SUPPORTED_QUERY_OPERATORS } from '../../../core/query/operators'
-import { normalizeContentPath, normalizeRouteMounts, stripLocalePrefix } from '../../../core/content/path'
+import {
+  longestMountForPath,
+  normalizeContentPath,
+  normalizeRouteMounts,
+  routeRemainder,
+  stripLocalePrefix
+} from '../../../core/content/path'
 import { projectContentRoute } from '../../../features/localization/route-projector'
 import { buildContentResult } from '../../../integrations/nitro/build'
 import { executeFilesystemContentQuery } from '../query-executor'
@@ -24,7 +30,12 @@ const providerContentPath = (collection: string, locale: string, contentPath: st
     : undefined
   const locales = collectionI18n?.locales?.length ? collectionI18n.locales : (config.locales || [])
   const routeMounts = normalizeRouteMounts(collectionConfig?.route, locales, collectionI18n?.defaultLocale || config.defaultLocale)
-  return projectContentRoute({ contentPath, locale }, {
+  const normalizedPath = normalizeContentPath(contentPath)
+  const sourceMount = longestMountForPath(normalizedPath, routeMounts || {})
+  const mountAgnosticPath = sourceMount
+    ? routeRemainder(normalizedPath, sourceMount[1])
+    : normalizedPath
+  return projectContentRoute({ contentPath: mountAgnosticPath, locale }, {
     localized: locales.length > 0,
     locales,
     // Provider facts stop before the application locale prefix, so treating
@@ -63,6 +74,10 @@ const toProviderDocument = (document: ParsedContent): ProviderDocumentInput => {
     routeVariants: toVariantFacts(document),
     type: document.type,
     body: document.body ?? null,
+    // Reference resolution runs before the filesystem document crosses the
+    // provider seam. Preserve its canonical public carrier instead of
+    // dropping it with the rest of the legacy internal `resolved` metadata.
+    ...(resolved?.resolvedRefs ? { resolvedRefs: resolved.resolvedRefs } : {}),
     ...(document.file ? { file: document.file } : {})
   }
 }
@@ -80,10 +95,13 @@ const mapQueryResult = <T>(response: Awaited<ReturnType<typeof executeFilesystem
 
 const routeFactFromNavItem = (collection: string, item: NavItem) => {
   if (!item.path || !item.canonicalKey || !item.locale) return undefined
+  const itemCollection = typeof item.collection === 'string' ? item.collection : ''
+  const resolvedCollection = collection || itemCollection
+  if (!resolvedCollection) return undefined
   const config = getContentRuntimeConfig().content || {}
   const contentPath = stripLocalePrefix(item.path, config.locales || [], config.defaultLocale, item.locale).path
   return {
-    collection,
+    collection: resolvedCollection,
     canonicalKey: item.canonicalKey,
     locale: item.locale,
     contentPath

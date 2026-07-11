@@ -6,18 +6,19 @@ const markdownBody = (children: NonNullable<ParsedContent['body']>['children']):
   children
 })
 
+const providerDocumentFor = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
+  ...page,
+  collection: String(page.collection || 'docs'),
+  canonicalKey: String(page.canonicalKey || `docs:${String(page.path || '/').replace(/^\//, '')}`),
+  locale: String(page.locale || 'en'),
+  contentPath: String(page.path || '/'),
+  routeVariants: [{ locale: String(page.locale || 'en'), contentPath: String(page.path || '/') }],
+  body: page.body ?? null
+})
+
 const providerForPage = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
   name: 'fixture',
-  query: async () => ({
-    result: {
-      ...page,
-      collection: String(page.collection || 'docs'),
-      canonicalKey: String(page.canonicalKey || `docs:${String(page.path || '/').replace(/^\//, '')}`),
-      locale: String(page.locale || 'en'),
-      contentPath: String(page.path || '/'),
-      body: page.body ?? null
-    }
-  })
+  query: async () => ({ result: providerDocumentFor(page) })
 })
 
 describe('agent markdown', () => {
@@ -735,14 +736,14 @@ describe('agent markdown', () => {
   test('does not render markdown bodies while building the agent page index', async () => {
     const query = vi.fn(async () => ({
       result: [
-        {
+        providerDocumentFor({
           path: '/docs/intro',
           title: 'Intro',
           description: 'Start here.',
           body: markdownBody([
             { type: 'element', tag: 'expensive-component' }
           ])
-        }
+        })
       ],
       skip: 0,
       limit: 0,
@@ -827,11 +828,11 @@ describe('agent markdown', () => {
       getContentProvider: async () => ({
         query: async () => ({
           result: [
-            {
+            providerDocumentFor({
               path: '/docs/intro',
               file: { path: 'content/docs/intro.md' },
               title: 'Intro'
-            }
+            })
           ],
           skip: 0,
           limit: 0,
@@ -856,22 +857,20 @@ describe('agent markdown', () => {
         v: 2,
         plan: expect.objectContaining({
           resolveLocale: expect.objectContaining({ locale: 'de' }),
-          projection: expect.objectContaining({ only: expect.arrayContaining(['path', 'locale', 'localePaths']) })
+          projection: expect.objectContaining({
+            only: expect.arrayContaining(['file', 'title', 'description'])
+          })
         })
       }))
 
       return {
         result: [
-          {
+          providerDocumentFor({
             path: '/guide/advanced',
             locale: 'en',
-            resolved: {
-              locale: 'en',
-              fallback: true
-            },
             file: { path: 'en/1.guide/2.advanced.md' },
             title: 'Advanced'
-          }
+          })
         ],
         skip: 0,
         limit: 0,
@@ -963,11 +962,11 @@ describe('agent markdown', () => {
       getContentProvider: async () => ({
         query: async () => ({
           result: [
-            {
+            providerDocumentFor({
               path: '/docs/intro',
               title: 'Content Intro',
               description: 'Content intro.'
-            }
+            })
           ],
           skip: 0,
           limit: 0,

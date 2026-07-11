@@ -20,6 +20,9 @@ export default defineNuxtConfig({
   ],
 
   content: {
+    // Search is intentionally opt-in. Keep it enabled in this fixture because
+    // its smoke tests verify localized generated and runtime search results.
+    search: {},
     // Nuxt I18n (configured below) is the sole locale/default-locale
     // authority (VNEXT.md §12.1): content.i18n must not repeat "locales" or
     // "defaultLocale" once "@nuxtjs/i18n" is installed. Ginko content still
