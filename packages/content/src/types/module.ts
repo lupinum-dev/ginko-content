@@ -3,6 +3,7 @@ import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentQueryBuilderWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
 import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
+import type { ResolvedContentContractV1 } from '../cms-contract/index'
 
 export type MountOptions = {
   driver: string
@@ -492,6 +493,8 @@ export interface ContentContext extends ModuleOptions {
    * facts from loose fields.
    */
   localePolicy: ResolvedLocalePolicy
+  contract: ResolvedContentContractV1
+  contractSha256: string
 }
 
 export type ResolvedContentContext = Omit<ContentContext, 'markdown'> & {

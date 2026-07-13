@@ -6,6 +6,8 @@ import {
 } from '@nuxt/kit'
 import { defu } from 'defu'
 import { name, version } from '../package.json'
+import type { JsonValue } from './cms-contract/index'
+import { buildResolvedContentContract, hashCanonicalJson } from './cms-contract/index'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from './types/module'
 import { loadContentConfig, resolveContentConfigPath } from './utils/content-config'
 import { createVirtualContentTemplates, registerVirtualContentAliases } from './module/virtual'
@@ -144,6 +146,16 @@ export default defineNuxtModule<ModuleOptions>({
     ]))
     const provider = appContentConfig.provider || 'filesystem'
     const providerRegistry = { ...(appContentConfig.providers || {}) }
+    const contract = buildResolvedContentContract(
+      { collections },
+      {
+        defaultLocale: resolvedI18n.defaultLocale || 'en',
+        locales: resolvedI18n.locales.length ? resolvedI18n.locales : [resolvedI18n.defaultLocale || 'en'],
+        localeFallbacks: resolvedI18n.fallback,
+        translatedSlugs: resolvedI18n.translatedSlugs,
+      },
+    )
+    const contractSha256 = await hashCanonicalJson(contract as unknown as JsonValue)
     // Disable cache in dev mode
     const buildIntegrity = nuxt.options.dev ? undefined : Date.now()
 
@@ -159,6 +171,8 @@ export default defineNuxtModule<ModuleOptions>({
       translatedSlugs: resolvedI18n.translatedSlugs,
       strictTranslatedSlugs: resolvedI18n.strictTranslatedSlugs,
       localePolicy,
+      contract,
+      contractSha256,
       sitemap: resolvedSitemap,
       search: resolvedSearch
     }

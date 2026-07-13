@@ -659,6 +659,14 @@ describe('module contracts', () => {
     expect(finalized.locales).toEqual(['en', 'de'])
     expect(finalized.localeFallback).toEqual({})
     expect(finalized.translatedSlugs).toBe(false)
+    expect(finalized.contract).toMatchObject({
+      format: 'ginko-content-contract',
+      version: 1,
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: { docs: { id: 'docs' } },
+    })
+    expect(finalized.contractSha256).toMatch(/^[a-f0-9]{64}$/)
     expect(finalized.localePolicy.collections.docs).toMatchObject({
       localized: true,
       locales: ['en', 'de'],
