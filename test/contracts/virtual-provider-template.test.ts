@@ -108,8 +108,8 @@ describe('virtual provider template contract', () => {
 
     expect(contents).toContain('externalContentProviderNames = []')
     expect(contents).not.toContain('@lupinum/ginko-cms/nuxt-provider')
-    expect(contents).not.toContain('case "ginko"')
-    expect(contents).not.toContain('case "cms"')
+    expect(contents).not.toContain('"ginko": resolveProviderModule')
+    expect(contents).not.toContain('"cms": resolveProviderModule')
   })
 
   test('imports only explicitly registered external providers', () => {
@@ -131,8 +131,10 @@ describe('virtual provider template contract', () => {
     const contents = templates.get('content/virtual-providers.mjs')?.()
 
     expect(contents).toContain('externalContentProviderNames = ["cms","preview"]')
-    expect(contents).toContain('case "cms": return import("@lupinum/ginko-cms/nuxt-provider")')
-    expect(contents).toContain('case "preview": return import("~/providers/preview")')
-    expect(contents).not.toContain('case "ginko"')
+    expect(contents).toContain('import * as provider0 from "@lupinum/ginko-cms/nuxt-provider"')
+    expect(contents).toContain('import * as provider1 from "~/providers/preview"')
+    expect(contents).toContain('"cms": resolveProviderModule(provider0)')
+    expect(contents).toContain('"preview": resolveProviderModule(provider1)')
+    expect(contents).not.toContain('"ginko": resolveProviderModule')
   })
 })

@@ -1,6 +1,6 @@
 import { defineBuildConfig } from 'unbuild'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { basename, dirname, relative } from 'node:path'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { basename, dirname, relative, resolve } from 'node:path'
 import { globby } from 'globby'
 
 const mkdistEntries = [
@@ -28,17 +28,59 @@ const mkdistEntries = [
   ['src/cms-import/', 'dist/cms-import']
 ]
 
+const runtimeExternalPlaceholders = new Set<string>()
+
+const exists = async (path: string) => {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const publishedSpecifier = async (importer: string, specifier: string) => {
+  if (!specifier.startsWith('.')) return specifier
+  if (await exists(resolve(dirname(importer), `${specifier}.js`))) return `${specifier}.js`
+  if (await exists(resolve(dirname(importer), specifier, 'index.js')))
+    return `${specifier}/index.js`
+  return specifier
+}
+
+const rewritePublishedRelativeImports = async () => {
+  const files = await globby('dist/**/*.{js,mjs}')
+  const pattern = /((?:from\s*|import\s*\()(['"]))(\.\.?\/[^'"]+)(\2\)?)/g
+
+  await Promise.all(
+    files.map(async file => {
+      const source = await readFile(file, 'utf8')
+      const matches = [...source.matchAll(pattern)]
+      let output = source
+      for (const match of matches.reverse()) {
+        const specifier = await publishedSpecifier(file, match[3])
+        if (specifier === match[3] || match.index === undefined) continue
+        const start = match.index + match[1].length
+        output = `${output.slice(0, start)}${specifier}${output.slice(start + match[3].length)}`
+      }
+      if (output !== source) await writeFile(file, output, 'utf8')
+    })
+  )
+}
+
 const ensureRuntimeExternalPlaceholders = async () => {
   for (const [input, outDir] of mkdistEntries) {
     const files = await globby(`${input}**/*.ts`, {
       ignore: ['**/*.d.ts']
     })
 
-    await Promise.all(files.map(async (file) => {
-      const output = `${outDir}/${relative(input, file).replace(/\.(ts|vue)$/, '')}`
-      await mkdir(dirname(output), { recursive: true })
-      await writeFile(output, `export * from './${basename(output)}.js'\n`, 'utf8')
-    }))
+    await Promise.all(
+      files.map(async file => {
+        const output = `${outDir}/${relative(input, file).replace(/\.(ts|vue)$/, '')}`
+        await mkdir(dirname(output), { recursive: true })
+        await writeFile(output, `export * from './${basename(output)}.js'\n`, 'utf8')
+        runtimeExternalPlaceholders.add(output)
+      })
+    )
   }
 }
 
@@ -69,6 +111,11 @@ export default defineBuildConfig({
     },
     async 'rollup:options' () {
       await ensureRuntimeExternalPlaceholders()
+    },
+    async 'build:done'() {
+      await rewritePublishedRelativeImports()
+      await Promise.all([...runtimeExternalPlaceholders].map(file => rm(file, { force: true })))
+      runtimeExternalPlaceholders.clear()
     }
   }
 })

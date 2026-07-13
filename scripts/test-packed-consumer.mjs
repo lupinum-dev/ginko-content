@@ -305,8 +305,17 @@ The packed package rendered this page.
 ::
     `)
 
-    writeFile(resolve(appDir, 'server/plugins/register-serializer.ts'), `
-      import { registerAgentMarkdownSerializer } from '@lupinum/ginko-content/agent'
+    writeFile(
+      resolve(appDir, 'server/plugins/register-serializer.ts'),
+      `
+      import {
+        agentRawPathForRoute,
+        registerAgentMarkdownSerializer
+      } from '@lupinum/ginko-content/agent'
+
+      if (agentRawPathForRoute('/docs/intro') !== '/raw/docs/intro.md') {
+        throw new Error('Packed agent path helper export is invalid')
+      }
 
       export default defineNitroPlugin(() => {
         registerAgentMarkdownSerializer('packed-sentinel', () => 'PACKED_SERIALIZER_SENTINEL')

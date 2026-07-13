@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 type PublicSurface = {
@@ -35,6 +35,18 @@ const collectMarkdownFiles = async (root: string): Promise<string[]> => {
     if (entry.isDirectory()) return collectMarkdownFiles(path)
     return entry.name.endsWith('.md') ? [path] : []
   }))
+  return nested.flat()
+}
+
+const collectJavaScriptFiles = async (root: string): Promise<string[]> => {
+  const entries = await readdir(root, { withFileTypes: true })
+  const nested = await Promise.all(
+    entries.map(async entry => {
+      const path = join(root, entry.name)
+      if (entry.isDirectory()) return collectJavaScriptFiles(path)
+      return entry.name.endsWith('.js') || entry.name.endsWith('.mjs') ? [path] : []
+    })
+  )
   return nested.flat()
 }
 
@@ -387,9 +399,28 @@ describe('package export contracts', () => {
     expect(agent.createAgentMarkdownRegistry).toBeTypeOf('function')
     expect(agent.defineAgentMarkdownComponent).toBeTypeOf('function')
     expect(agent.renderLlmsTxt).toBeTypeOf('function')
-    expect(agent).not.toHaveProperty('agentMarkdownPathForRoute')
+    expect(agent.agentMarkdownPathForRoute('/docs/intro')).toBe('/docs/intro/index.md')
+    expect(agent.agentRawPathForRoute('/docs/intro')).toBe('/raw/docs/intro.md')
+    expect(agent.normalizeAgentRoutePath('/docs/intro/')).toBe('/docs/intro')
     expect(agent).not.toHaveProperty('resolveContentMarkdown')
     expect(agent).not.toHaveProperty('buildAgentPageIndex')
+  })
+
+  test('ships browser-safe agent paths on an explicit matching subpath', async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      exports: Record<string, Record<string, string>>
+    }
+    expect(manifest.exports['./agent']).not.toHaveProperty('browser')
+    expect(manifest.exports['./agent-paths']).toEqual({
+      types: './dist/public/agent-paths.d.ts',
+      import: './dist/public/agent-paths.js',
+      default: './dist/public/agent-paths.js'
+    })
+
+    const browserAgent = await readFile('packages/content/dist/public/agent-paths.js', 'utf8')
+    expect(browserAgent).toContain('agentRawPathForRoute')
+    expect(browserAgent).not.toContain('runtime/server')
+    expect(browserAgent).not.toContain('nitropack/runtime')
   })
 
   test('built config export keeps one field-builder vocabulary', async () => {
@@ -414,6 +445,21 @@ describe('package export contracts', () => {
     expect(provider.isContentProviderResult).toBeTypeOf('function')
     expect(provider.normalizeProviderDocument).toBeTypeOf('function')
     expect(provider.shapeProviderDocument).toBeUndefined()
+  })
+
+  test('published JavaScript uses Node-resolvable relative specifiers', async () => {
+    const files = await collectJavaScriptFiles('packages/content/dist')
+    const unresolved: string[] = []
+    const relativeSpecifier = /(?:from\s*|import\s*\()(['"])(\.\.?\/[^'"]+)\1/g
+
+    for (const file of files) {
+      const source = await readFile(file, 'utf8')
+      for (const match of source.matchAll(relativeSpecifier)) {
+        if (!extname(match[2])) unresolved.push(`${file}: ${match[2]}`)
+      }
+    }
+
+    expect(unresolved).toEqual([])
   })
 
   test('built provider fixture export loads as Node ESM', async () => {
