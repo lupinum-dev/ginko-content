@@ -108,10 +108,8 @@ export const registerStaticOutputGeneration = ({
 
         const agentRoutes = normalizeAgentRouteOptions(options)
         if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
-          const defaultLocale = appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale
-          const locales = appContentConfig.agent.site?.locales?.length
-            ? appContentConfig.agent.site.locales
-            : resolvedI18n.locales
+          const defaultLocale = resolvedI18n.defaultLocale
+          const locales = resolvedI18n.locales
           const llmsRoutes = [
             '/llms.txt',
             '/llms-full.txt',

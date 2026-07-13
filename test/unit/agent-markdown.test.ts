@@ -758,9 +758,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            url: 'https://example.test'
           },
           sections: [{ id: 'docs', title: 'Docs', order: 10 }]
         },
@@ -809,9 +807,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            url: 'https://example.test'
           },
           sections: [{ id: 'docs', title: 'Docs', order: 10 }]
         },
@@ -886,9 +882,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en', 'de']
+            url: 'https://example.test'
           },
           sections: [{ id: 'docs', title: { en: 'Docs', de: 'Dokumentation' }, order: 10 }]
         },
@@ -933,9 +927,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            url: 'https://example.test'
           },
           pages: [
             {

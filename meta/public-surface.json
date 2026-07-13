@@ -30,6 +30,16 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
+    "./agent-registry": {
+      "category": "advanced-agent-subpath",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "./agent-paths": {
+      "category": "app-runtime",
+      "audience": "app-developer",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
     "./cms-contract": {
       "category": "advanced-cms-contract",
       "audience": "advanced-integrator",
@@ -833,6 +843,16 @@
     }
   },
   "agentValueExports": {
+    "agentMarkdownPathForRoute": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "agentRawPathForRoute": {
+      "category": "advanced-agent-site-generation",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
     "clearAgentMarkdownSerializers": {
       "category": "advanced-agent-markdown-extension",
       "audience": "advanced-integrator",
@@ -860,6 +880,11 @@
     },
     "jsonFenceMarkdown": {
       "category": "advanced-agent-markdown-extension",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "normalizeAgentRoutePath": {
+      "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },

@@ -108,6 +108,50 @@ describe('agent markdown per-app registry', () => {
 
     expect(out).toContain('ALIASED')
   })
+
+  test("walker rewrites stable content refs through the document's resolved refs", () => {
+    const doc = body([
+      {
+        type: 'element',
+        tag: 'a',
+        props: { href: '$docs/essentials/navigation' },
+        children: [{ type: 'text', value: 'Navigation' }]
+      }
+    ])
+    const out = renderAgentMarkdownBody(
+      doc,
+      renderContext({
+        page: {
+          path: '/docs/essentials/markdown-syntax',
+          resolvedRefs: { '$docs/essentials/navigation': '/docs/essentials/navigation' }
+        } as never
+      })
+    )
+
+    expect(out).toContain('[Navigation](/raw/docs/essentials/navigation.md)')
+    expect(out).not.toContain('$docs')
+  })
+
+  test('walker resolves stable refs inside serialized component props', () => {
+    const registry = createAgentMarkdownRegistry()
+    registry.register('card', (node, ctx) => ctx.xmlComponent('card', ctx.cleanProps(node)))
+    const doc = body([
+      { type: 'element', tag: 'card', props: { to: '$docs/navigation', title: 'Navigation' } }
+    ])
+    const out = renderAgentMarkdownBody(
+      doc,
+      renderContext({
+        registry,
+        page: {
+          path: '/docs/components',
+          resolvedRefs: { '$docs/navigation': '/docs/navigation' }
+        } as never
+      })
+    )
+
+    expect(out).toContain('to="/docs/navigation"')
+    expect(out).not.toContain('$docs')
+  })
 })
 
 describe('agent markdown module setup (dev HMR)', () => {

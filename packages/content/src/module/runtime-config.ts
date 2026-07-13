@@ -135,8 +135,8 @@ const sanitizeAgentConfig = async (
     return undefined
   }
 
-  const defaultLocale = agent.site?.defaultLocale || contentContext.defaultLocale || contentContext.locales?.[0] || 'en'
-  const locales = agent.site?.locales?.length ? agent.site.locales : (contentContext.locales?.length ? contentContext.locales : [defaultLocale])
+  const defaultLocale = contentContext.defaultLocale || contentContext.locales?.[0] || 'en'
+  const locales = contentContext.locales?.length ? contentContext.locales : [defaultLocale]
   const agentSiteUrl = siteUrl || agent.site?.url || 'http://localhost:3000'
   const pages = await Promise.all((agent.pages || []).map(async (page) => {
     const title: Record<string, string> = {}

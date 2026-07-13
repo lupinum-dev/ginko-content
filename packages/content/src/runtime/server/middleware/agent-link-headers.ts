@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const locale = localeFromAgentPath(pathname)
-  const defaultLocale = contentConfig().agent?.site?.defaultLocale || contentConfig().defaultLocale || getAgentLocales()[0]
+  const defaultLocale = contentConfig().defaultLocale || getAgentLocales()[0]
   const prefix = locale && locale !== defaultLocale ? `/${locale}` : ''
   const page = canAdvertisePageAlternate(pathname)
     ? await resolveMarkdownForPublicRoute(event, pathname, locale)

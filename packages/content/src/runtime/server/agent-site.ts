@@ -50,11 +50,10 @@ const localizedValue = (
   return value[locale] || value[defaultLocale()] || Object.values(value)[0] || fallback
 }
 
-const defaultLocale = () => contentConfig().agent?.site?.defaultLocale || contentConfig().defaultLocale || contentConfig().locales?.[0] || 'en'
+const defaultLocale = () => contentConfig().defaultLocale || contentConfig().locales?.[0] || 'en'
 
 export const getAgentLocales = () => {
-  const site = contentConfig().agent?.site
-  const locales = site?.locales?.length ? site.locales : contentConfig().locales
+  const locales = contentConfig().locales
   return locales?.length ? locales : [defaultLocale()]
 }
 

@@ -81,6 +81,11 @@ Rules:
 - We depend on `@nuxtjs/i18n` semantics and follow them upstream.
 - Content-specific fallback and translated-slug behavior stay in
   `content.i18n` where they belong.
+- Agent/LLM output uses this same resolved locale policy. `agent.site`
+  owns presentation and site identity only; it cannot redeclare locales or
+  the default locale. Consequently rendered links, localized `llms.txt`
+  routes, app-owned agent pages, and prerender output cannot drift from the
+  content routes they describe.
 - **Content-only localization is a fully supported mode, not a
   degraded fallback.** A site can declare multiple locales, a default
   locale, and per-collection `i18n` config entirely through

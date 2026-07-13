@@ -61,6 +61,16 @@
       "import": "./dist/public/agent.js",
       "default": "./dist/public/agent.js"
     },
+    "./agent-registry": {
+      "types": "./dist/public/agent-registry.d.ts",
+      "import": "./dist/public/agent-registry.js",
+      "default": "./dist/public/agent-registry.js"
+    },
+    "./agent-paths": {
+      "types": "./dist/public/agent-paths.d.ts",
+      "import": "./dist/public/agent-paths.js",
+      "default": "./dist/public/agent-paths.js"
+    },
     "./cms-contract": {
       "types": "./dist/cms-contract/index.d.ts",
       "import": "./dist/cms-contract/index.js",

@@ -160,8 +160,8 @@ export const registerContentNitroConfig = ({
     const agentRoutes = normalizeAgentRouteOptions(options)
     if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
       nitroConfig.prerender.routes.push('/llms.txt', '/llms-full.txt')
-      for (const locale of appContentConfig.agent.site?.locales || resolvedI18n.locales || []) {
-        if (locale && locale !== (appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale)) {
+      for (const locale of resolvedI18n.locales || []) {
+        if (locale && locale !== resolvedI18n.defaultLocale) {
           nitroConfig.prerender.routes.push(`/${locale}/llms.txt`, `/${locale}/llms-full.txt`)
         }
       }

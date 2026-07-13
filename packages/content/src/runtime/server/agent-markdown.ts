@@ -1,22 +1,14 @@
 import type { H3Event } from 'h3'
-import type { MarkdownRoot, ParsedContent } from '../../types/content'
+import type { MarkdownRoot, ParsedContent, StrictParsedContentMeta } from '../../types/content'
 import type { ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
+import type { LocalizedDoc } from '../../types/query'
 import type {
   AgentMarkdown,
-  AgentMarkdownComponent,
-  AgentMarkdownComponentMap,
   AgentMarkdownMeta,
-  AgentMarkdownRegistry,
   AgentMarkdownRenderContext,
-  AgentMarkdownSerializer,
-  AgentMarkdownSerializerMap,
-  AgentMarkdownSerializerRegistrationOptions,
   ResolvedAgentMarkdownOptions
 } from '../../features/agent/agent-markdown'
-import {
-  createAgentMarkdownRegistry,
-  resolveAgentMarkdownOptions
-} from '../../features/agent/agent-markdown'
+import { resolveAgentMarkdownOptions } from '../../features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../features/agent/walker'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
 import { getCollectionPath } from '../../features/query/routes'
@@ -26,6 +18,7 @@ import { isPublicationVisible, resolveRuntimeEnvironment, type ContentVisibility
 import { isPreview } from '../../integrations/nitro/preview'
 import { many, one } from './query-api'
 import { contentConfig } from './storage-access'
+import { getAgentMarkdownRegistry } from './agent-registry'
 
 const visibilityContextForEvent = (event: H3Event): ContentVisibilityContext => ({
   environment: resolveRuntimeEnvironment(),
@@ -33,58 +26,74 @@ const visibilityContextForEvent = (event: H3Event): ContentVisibilityContext => 
 })
 
 export * from '../../features/agent/agent-markdown'
+export * from './agent-registry'
 export { renderAgentMarkdownBody } from '../../features/agent/walker'
-
-// --- Per-process serializer singleton --------------------------------------
-//
-// `appRegistry` is a per-process singleton: one instance shared by every
-// request in this server process. Serializers are registered into it via
-// `registerAgentMarkdownSerializer` (and friends) from Nitro plugins during
-// server startup. Re-registering the same name throws unless `{ override: true }`
-// is passed, in which case the last registration wins. The walker reads the
-// current registry through the context. `createAgentMarkdownRegistry` remains
-// the primitive for creating isolated registries (e.g. tests) that do not touch
-// this shared singleton.
-
-const appRegistry: AgentMarkdownRegistry = createAgentMarkdownRegistry()
-
-/** The current app's serializer registry the walker resolves tags against. */
-export const getAgentMarkdownRegistry = (): AgentMarkdownRegistry => appRegistry
-
-export const registerAgentMarkdownSerializer = (
-  name: string,
-  serializer: AgentMarkdownSerializer,
-  options?: AgentMarkdownSerializerRegistrationOptions
-) => appRegistry.register(name, serializer, options)
-
-export const registerAgentMarkdownSerializers = (
-  entries: AgentMarkdownSerializerMap,
-  options?: AgentMarkdownSerializerRegistrationOptions
-) => appRegistry.registerMany(entries, options)
-
-export const registerAgentMarkdownComponent = (
-  name: string,
-  component: AgentMarkdownComponent,
-  options?: AgentMarkdownSerializerRegistrationOptions
-) => appRegistry.registerComponent(name, component, options)
-
-export const registerAgentMarkdownComponents = (
-  entries: AgentMarkdownComponentMap,
-  options?: AgentMarkdownSerializerRegistrationOptions
-) => appRegistry.registerComponents(entries, options)
-
-export const clearAgentMarkdownSerializers = () => appRegistry.clear()
 
 // --- Config-derived context inputs -----------------------------------------
 
-const defaultLocale = () => contentConfig().defaultLocale || contentConfig().locales?.[0] || contentConfig().agent?.site?.defaultLocale || 'en'
+const defaultLocale = () => contentConfig().defaultLocale || contentConfig().locales?.[0] || 'en'
 
 const configuredLocales = (): string[] => {
-  const locales = contentConfig().agent?.site?.locales?.length
-    ? contentConfig().agent?.site?.locales
-    : contentConfig().locales
+  const locales = contentConfig().locales
   return locales?.length ? locales : [defaultLocale()]
 }
+
+type AgentSourceDocument = Pick<
+  LocalizedDoc<StrictParsedContentMeta>,
+  'id' | 'locale' | 'route' | 'resolution' | 'file' | 'resolvedRefs'
+> & {
+  body?: MarkdownRoot | null
+  title?: string
+  description?: string
+  draft?: boolean
+  partial?: boolean
+  navigationFile?: boolean
+  navigation?: unknown
+  robots?: unknown
+  sitemap?: unknown
+  updated?: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+/**
+ * The unified query API promises one canonical localized-document envelope.
+ * Agent output validates that public boundary once instead of probing removed
+ * top-level `path`/`resolved` compatibility shapes throughout the renderer.
+ */
+const requireAgentSourceDocument = (value: unknown): AgentSourceDocument => {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    typeof value.locale !== 'string' ||
+    !isRecord(value.route) ||
+    typeof value.route.resolvedPath !== 'string' ||
+    !isRecord(value.resolution) ||
+    !isRecord(value.resolution.resolved) ||
+    typeof value.resolution.resolved.locale !== 'string' ||
+    (value.title !== undefined && typeof value.title !== 'string') ||
+    (value.description !== undefined && typeof value.description !== 'string') ||
+    (value.updated !== undefined && typeof value.updated !== 'string') ||
+    (value.draft !== undefined && typeof value.draft !== 'boolean') ||
+    (value.partial !== undefined && typeof value.partial !== 'boolean') ||
+    (value.navigationFile !== undefined && typeof value.navigationFile !== 'boolean')
+  ) {
+    throw new Error(
+      'Agent markdown requires the canonical localized document envelope (`route.resolvedPath` and `resolution.resolved.locale`).'
+    )
+  }
+
+  return value as AgentSourceDocument
+}
+
+const parsedContentForAgent = (page: AgentSourceDocument): ParsedContent => ({
+  ...page,
+  body: page.body ?? null
+})
+
+const asCollectionConfig = (value: unknown): ContentCollectionConfig | undefined =>
+  isRecord(value) ? value : undefined
 
 const buildRenderContext = (
   collection: string,
@@ -96,18 +105,24 @@ const buildRenderContext = (
   page,
   path,
   locale,
-  registry: appRegistry,
+  registry: getAgentMarkdownRegistry(),
   tagAliases: contentConfig().markdown?.tags || {},
   defaultLocale: defaultLocale(),
   locales: configuredLocales()
 })
 
 const collectionConfig = (collection: string) =>
-  contentConfig().collections?.[collection]
+  asCollectionConfig(contentConfig().collections?.[collection])
 
 const markdownEnabledCollectionEntries = (collections?: string[]) =>
-  Object.entries(contentConfig().collections || {})
-    .filter(([name, config]) => (!collections?.length || collections.includes(name)) && resolveAgentMarkdownOptions(config as any))
+  Object.entries(contentConfig().collections || {}).flatMap(([name, value]) => {
+    const config = asCollectionConfig(value)
+    return config &&
+      (!collections?.length || collections.includes(name)) &&
+      resolveAgentMarkdownOptions(config)
+      ? [[name, config] as const]
+      : []
+  })
 
 // Publication visibility (draft) is applied here through the one core
 // predicate (`isPublicationVisible`, VNEXT.md 13.6/24.2) rather than a
@@ -142,13 +157,11 @@ const escapeMarkdownText = (value: string) =>
 
 const hasH1 = (markdown: string) => /^#\s+/m.test(markdown)
 
-const normalizeDescription = (page: ParsedContent) =>
-  typeof page.description === 'string' && page.description.trim()
-    ? page.description.trim()
-    : ''
+const normalizeDescription = (page: { description?: string }) =>
+  typeof page.description === 'string' && page.description.trim() ? page.description.trim() : ''
 
 const renderAgentMarkdown = (
-  page: ParsedContent,
+  page: AgentSourceDocument,
   collection: string,
   path: string,
   locale: string | undefined,
@@ -158,7 +171,10 @@ const renderAgentMarkdown = (
     ? page.title.trim()
     : path.split('/').filter(Boolean).pop() || 'Index'
   const description = normalizeDescription(page)
-  const rendered = renderAgentMarkdownBody(page.body as MarkdownRoot | null | undefined, buildRenderContext(collection, page, path, locale))
+  const rendered = renderAgentMarkdownBody(
+    page.body,
+    buildRenderContext(collection, parsedContentForAgent(page), path, locale)
+  )
   const parts: string[] = []
   if (!hasH1(rendered)) parts.push(`# ${escapeMarkdownText(title)}`)
   if (description && !rendered.includes(description)) parts.push(`> ${description}`)
@@ -168,16 +184,15 @@ const renderAgentMarkdown = (
 
 const toAgentMarkdown = (
   collection: string,
-  page: ParsedContent,
+  page: AgentSourceDocument,
   options: ResolvedAgentMarkdownOptions
 ): AgentMarkdown => {
-  const route = (page as { route?: { resolvedPath?: string } }).route
-  const resolution = (page as { resolution?: { resolved?: { locale?: string } } }).resolution
-  const path = normalizeAgentRoutePath(route?.resolvedPath || (page as { path?: string }).path || page.resolved?.requestedRoute)
-  const locale = resolution?.resolved?.locale || (page as { locale?: string }).locale || page.resolved?.locale || page.locale
-  const title = typeof page.title === 'string' && page.title.trim()
-    ? page.title.trim()
-    : path.split('/').filter(Boolean).pop() || 'Index'
+  const path = normalizeAgentRoutePath(page.route.resolvedPath)
+  const locale = page.resolution.resolved.locale
+  const title =
+    typeof page.title === 'string' && page.title.trim()
+      ? page.title.trim()
+      : path.split('/').filter(Boolean).pop() || 'Index'
   const description = normalizeDescription(page)
   return {
     path,
@@ -190,7 +205,7 @@ const toAgentMarkdown = (
     markdown: renderAgentMarkdown(page, collection, path, locale, options),
     ...(page.file?.path ? { sourceFile: page.file?.path } : {}),
     canonicalUrl: path,
-    ...(typeof (page as { updated?: unknown }).updated === 'string' ? { lastModified: (page as unknown as { updated: string }).updated } : {}),
+    ...(page.updated ? { lastModified: page.updated } : {}),
     metadataFields: options.metadata,
     includeInIndex: options.includeInIndex,
     includeInFull: options.includeInFull
@@ -209,7 +224,7 @@ const routeBaseForLocale = (config: ContentCollectionConfig, locale?: string) =>
 
 const collectionDefaultLocale = (config: ContentCollectionConfig) => {
   const collectionI18n = config.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
-  return collectionI18n?.defaultLocale || contentConfig().defaultLocale || contentConfig().agent?.site?.defaultLocale
+  return collectionI18n?.defaultLocale || contentConfig().defaultLocale
 }
 
 /**
@@ -250,24 +265,25 @@ const publicPathForLocale = (
 const publicPathForQueryRow = (
   collection: string,
   config: ContentCollectionConfig,
-  row: ParsedContent,
+  row: AgentSourceDocument,
   locale?: string
 ) => {
-  const route = (row as { route?: { resolvedPath?: string } }).route
-  if (route?.resolvedPath) return normalizeAgentRoutePath(route.resolvedPath)
-
-  const requested = (row as { path?: string }).path || row.resolved?.requestedRoute
-  if (requested) return normalizeAgentRoutePath(requested)
+  const resolvedPath = normalizeAgentRoutePath(row.route.resolvedPath)
+  const resolvedLocale = row.resolution.resolved.locale
+  if (!locale || locale === resolvedLocale) return resolvedPath
 
   const defaultLocale = collectionDefaultLocale(config)
-  const rowPath = normalizeAgentRoutePath(row.path || '/')
-  const resolvedLocale = row.resolved?.locale || row.locale
   if (locale && resolvedLocale && locale !== resolvedLocale) {
-    const sourceLocalePath = publicPathForLocale(collection, config, rowPath, resolvedLocale, defaultLocale)
+    const sourceLocalePath = publicPathForLocale(
+      collection,
+      config,
+      resolvedPath,
+      resolvedLocale,
+      defaultLocale
+    )
     return prefixRequestedLocale(sourceLocalePath, locale, defaultLocale)
   }
-
-  return publicPathForLocale(collection, config, rowPath, locale, defaultLocale)
+  return publicPathForLocale(collection, config, resolvedPath, locale, defaultLocale)
 }
 
 export async function resolveContentMarkdown (
@@ -279,12 +295,14 @@ export async function resolveContentMarkdown (
   const config = collectionConfig(collection)
   const agentOptions = resolveAgentMarkdownOptions(config)
   if (!config || !agentOptions) return null
-  const page = await one(event, collection, {
+  const result = await one(event, collection, {
     by: { route: routeOrPath },
     ...(options.locale ? { locale: options.locale } : {}),
     fallback: true
-  }) as unknown as ParsedContent | null
-  if (!page || !isPublicPage(page, config, visibilityContextForEvent(event))) return null
+  })
+  const page = result ? requireAgentSourceDocument(result) : null
+  if (!page || !isPublicPage(parsedContentForAgent(page), config, visibilityContextForEvent(event)))
+    return null
   return toAgentMarkdown(collection, page, agentOptions)
 }
 
@@ -310,7 +328,7 @@ export async function queryMarkdownEnabledContent (
   const visibility = visibilityContextForEvent(event)
 
   for (const [collection, config] of markdownEnabledCollectionEntries(options.collections)) {
-    const agentOptions = resolveAgentMarkdownOptions(config as any)
+    const agentOptions = resolveAgentMarkdownOptions(config)
     if (!agentOptions) continue
     const rows = await many(event, collection, {
       select: [
@@ -319,14 +337,16 @@ export async function queryMarkdownEnabledContent (
       ],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { locale: options.locale, fallback: true } : {})
-    }) as unknown as ParsedContent[]
-    for (const row of rows) {
-      if (!isPublicPage(row, config as any, visibility)) continue
-      const locale = options.locale || row.resolved?.locale || row.locale
-      const path = publicPathForQueryRow(collection, config as any, row, locale)
-      const title = typeof row.title === 'string' && row.title.trim()
-        ? row.title.trim()
-        : path.split('/').filter(Boolean).pop() || 'Index'
+    })
+    for (const queryRow of rows) {
+      const row = requireAgentSourceDocument(queryRow)
+      if (!isPublicPage(parsedContentForAgent(row), config, visibility)) continue
+      const locale = options.locale || row.resolution.resolved.locale
+      const path = publicPathForQueryRow(collection, config, row, locale)
+      const title =
+        typeof row.title === 'string' && row.title.trim()
+          ? row.title.trim()
+          : path.split('/').filter(Boolean).pop() || 'Index'
       const description = normalizeDescription(row)
       result.push({
         path,
@@ -338,7 +358,7 @@ export async function queryMarkdownEnabledContent (
         description,
         ...(row.file?.path ? { sourceFile: row.file?.path } : {}),
         canonicalUrl: path,
-        ...(typeof (row as { updated?: unknown }).updated === 'string' ? { lastModified: (row as unknown as { updated: string }).updated } : {}),
+        ...(row.updated ? { lastModified: row.updated } : {}),
         metadataFields: agentOptions.metadata,
         includeInIndex: agentOptions.includeInIndex,
         includeInFull: agentOptions.includeInFull

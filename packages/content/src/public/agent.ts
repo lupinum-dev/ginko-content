@@ -31,6 +31,11 @@ export {
   renderLlmsFullTxt,
   renderLlmsTxt
 } from '../runtime/server/agent-site.js'
+export {
+  agentMarkdownPathForRoute,
+  agentRawPathForRoute,
+  normalizeAgentRoutePath
+} from '../features/agent/agent-paths.js'
 export type {
   AgentMarkdown,
   AgentMarkdownComponent,

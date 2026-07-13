@@ -165,8 +165,6 @@ export interface ContentAgentSiteConfig {
   title: ContentAgentLocalizedValue
   description: ContentAgentLocalizedValue
   url?: string
-  defaultLocale?: string
-  locales?: string[]
   profile?: string
   contentSignals?: {
     search?: boolean

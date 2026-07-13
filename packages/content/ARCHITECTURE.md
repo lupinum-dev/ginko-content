@@ -83,6 +83,10 @@ The LLM markdown output feature (`/raw/*.md`, `/llms.txt`, `/llms-full.txt`, and
 
 The code identifiers stay `agent` (the shipped module option is `agent: {...}`); "LLM markdown output" is the prose name for the same feature.
 
+Agent output does not own a parallel locale configuration. All localized
+agent pages and routes derive from the resolved content locale policy;
+`agent.site` contains presentation and identity fields only.
+
 ## Request Context
 
 Request-scoped runtime state lives in `src/integrations/nitro/context.ts`.
@@ -94,6 +98,12 @@ It owns:
 
 Nothing else should create parallel request caches.
 
+Client query contexts follow the same ownership rule. Nuxt-bound request
+capabilities (`useRequestFetch` and the preview cookie token) are captured once
+when the context is created. Nested operations such as reference population
+reuse those captured values; they must not call Nuxt composables after an async
+boundary, where Vue setup context is no longer guaranteed.
+
 ## Public Surface
 
 Public package exports are the compatibility seam. Current subpaths:
@@ -103,6 +113,8 @@ Public package exports are the compatibility seam. Current subpaths:
 - `@lupinum/ginko-content/provider`
 - `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/agent`
+- `@lupinum/ginko-content/agent-paths`
+- `@lupinum/ginko-content/agent-registry`
 - `@lupinum/ginko-content/cms-contract`
 - `@lupinum/ginko-content/cms-import`
 - `@lupinum/ginko-content/testing/provider-fixture`
@@ -119,7 +131,7 @@ audience, and docs target.
 Collection search-section generation remains in this package under `src/features/search`.
 Full-text search transport, indexing, and runtime bindings also live in this package under `src/runtime`.
 
-MiniSearch and Pagefind are filesystem/default-provider search paths. Provider-owned search is selected through the `cms` search engine and delegates to the active provider.
+MiniSearch and Pagefind are filesystem/default-provider search paths. Provider-owned search is selected through the `provider` search engine and delegates to the active provider.
 
 ## Providers
 
