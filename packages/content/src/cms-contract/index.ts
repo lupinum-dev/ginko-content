@@ -92,3 +92,16 @@ export {
 } from './hash.js'
 
 export { assertResolvedContentContract } from './validate.js'
+
+export {
+  assertCmsRequestedFacts,
+  cmsPublicEntryWireSchema,
+  parseCmsListWireResult,
+  parseCmsNavWireResult,
+  parseCmsPageWireResult,
+  parseCmsRoutesWireResult,
+  parseCmsSearchWireResult,
+  parseCmsSiteDataWireResult,
+  parseCmsSurroundWireResult,
+  type CmsPublicEntryWire,
+} from './provider-wire.js'
