@@ -54,6 +54,11 @@ export const cmsPublicEntryWireSchema = z.object({
   toc: jsonValueSchema.optional(), publishedAt: isoDate, updatedAt: isoDate,
   revision: nonEmptyString, stableId: nonEmptyString
 }).strict()
+export type CmsPublicEntryWire = z.infer<typeof cmsPublicEntryWireSchema>
+export interface CmsNavNodeWire {
+  entry: CmsPublicEntryWire
+  children: CmsNavNodeWire[]
+}
 const pageInfoSchema = z.object({
   hasNextPage: z.boolean(), endCursor: z.string().min(1).nullable()
 }).strict().superRefine((value, ctx) => {
@@ -83,7 +88,7 @@ export const cmsListWireResultSchema = z.object({
   entries: z.array(cmsPublicEntryWireSchema).max(100), pageInfo: pageInfoSchema,
   collection: nonEmptyString, locale: localeResolutionSchema
 }).strict()
-const navNodeSchema: z.ZodType<unknown> = z.lazy(() =>
+const navNodeSchema: z.ZodType<CmsNavNodeWire> = z.lazy(() =>
   z.object({ entry: cmsPublicEntryWireSchema, children: z.array(navNodeSchema) }).strict()
 )
 export const cmsNavWireResultSchema = z.object({
@@ -108,7 +113,6 @@ export const cmsSiteDataWireResultSchema = z.object({
   key: nonEmptyString, data: jsonValueSchema.nullable(), locale: localeResolutionSchema
 }).strict()
 
-export type CmsPublicEntryWire = z.infer<typeof cmsPublicEntryWireSchema>
 const parse = <T>(schema: z.ZodType<T>, operation: string, value: unknown): T => {
   const result = schema.safeParse(value)
   if (result.success) return result.data
