@@ -65,6 +65,9 @@ const locales = computed(() => {
     ...alternateLocales
   ]))
 })
+const renderPolicy = computed(() =>
+  runtimeContent.renderPolicies?.[props.value.collection] || { components: {} }
+)
 
 const body = computed(() => {
   let body = props.value.body || props.value
@@ -132,6 +135,7 @@ const rendererAttrs = computed(() => {
     :default-locale="defaultLocale"
     :locales="locales"
     :components="resolvedComponents"
+    :render-policy="renderPolicy"
     :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"
   />

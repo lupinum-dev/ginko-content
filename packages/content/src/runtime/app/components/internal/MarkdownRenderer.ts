@@ -4,6 +4,10 @@ import type { MarkdownNode, MarkdownRoot } from '../../../../types/content'
 import { kebabCase, pascalCase } from 'scule'
 import htmlTags from '../../../../integrations/vue/html-tags.js'
 import { localizeLinkProps } from '../../../../features/localization/links'
+import {
+  assertPublicMarkdownAst,
+  type PortableComponentPolicyV1,
+} from '../../../../cms-contract/index'
 
 function parsePropValue (value: string) {
   if (value === 'true') return true
@@ -229,6 +233,10 @@ export default defineComponent({
     locales: {
       type: Array as PropType<string[]>,
       default: () => []
+    },
+    renderPolicy: {
+      type: Object as PropType<PortableComponentPolicyV1>,
+      default: () => ({ components: {} })
     }
   },
   setup (props) {
@@ -236,6 +244,7 @@ export default defineComponent({
     const attrs = getCurrentInstance()?.attrs || {}
 
     return () => {
+      assertPublicMarkdownAst(props.tree, props.renderPolicy)
       const children = (props.tree.children || [])
         .map((node, index) => renderNode(node, {
           components: props.components,

@@ -3,6 +3,7 @@ import type { ParsedContent, MarkdownOptions } from '../types/content'
 import type { ContentCollectionConfig, ContentCollectionI18nConfig } from '../types/config'
 import type { ContentContext, ContentRevalidateOptions, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { createSearchRuntimeConfig } from './options'
+import type { PortableComponentPolicyV1 } from '../cms-contract/types'
 
 interface ModulePublicRuntimeConfig {
   api: {
@@ -37,6 +38,8 @@ interface ModulePublicRuntimeConfig {
     i18n?: ContentCollectionI18nConfig
     sitemap?: boolean
   }>
+
+  renderPolicies: Record<string, PortableComponentPolicyV1>
 
   localeFallback: ContentContext['localeFallback']
 

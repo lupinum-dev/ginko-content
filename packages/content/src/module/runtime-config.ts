@@ -202,6 +202,12 @@ export const applyContentRuntimeConfig = async (
     translatedSlugs: contentContext.translatedSlugs ?? false,
     strictTranslatedSlugs: contentContext.strictTranslatedSlugs ?? false,
     collections: runtimeCollections,
+    renderPolicies: Object.fromEntries(
+      Object.entries(contentContext.contract.collections).map(([id, collection]) => [
+        id,
+        collection.componentPolicy,
+      ]),
+    ),
     links: contentContext.links || {},
     integrity: buildIntegrity as number,
     respectPathCase: options.respectPathCase ?? false,

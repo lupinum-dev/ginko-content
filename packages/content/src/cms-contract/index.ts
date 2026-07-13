@@ -84,6 +84,16 @@ export {
 } from './mdc.js'
 
 export {
+  assertPublicMarkdownAst,
+  isSafePublicMarkdownUrl,
+  PublicMarkdownValidationError,
+  validatePublicMarkdownAst,
+  type PublicMarkdownIssue,
+  type PublicMarkdownIssueCode,
+  type PublicMarkdownValidationResult,
+} from './render-policy.js'
+
+export {
   canonicalJsonBytes,
   hashCanonicalJson,
   sha256Hex,
