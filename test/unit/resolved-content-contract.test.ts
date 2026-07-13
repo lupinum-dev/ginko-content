@@ -4,6 +4,7 @@ import {
   buildResolvedContentContract,
   canonicalJsonBytes,
   hashCanonicalJson,
+  assertResolvedContentContract,
   sha256Hex,
 } from '../../packages/content/src/cms-contract'
 
@@ -89,6 +90,25 @@ describe('resolved content contract v1', () => {
         },
       },
     })).toThrow(/asset prop/)
+  })
+
+  it('rejects malformed resolved artifacts and cyclic fallback chains', () => {
+    const contract = buildResolvedContentContract({ collections: {} }, {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      localeFallbacks: { de: ['en'] },
+    })
+
+    expect(assertResolvedContentContract(contract)).toBe(contract)
+    expect(() => assertResolvedContentContract({ ...contract, extra: true })).toThrow(/unknown key/i)
+    expect(() => assertResolvedContentContract({
+      ...contract,
+      localeFallbacks: { en: ['de'], de: ['en'] },
+    })).toThrow(/cycle/i)
+    expect(() => assertResolvedContentContract({
+      ...contract,
+      collections: { broken: { id: 'broken' } },
+    })).toThrow(/collection/i)
   })
 })
 

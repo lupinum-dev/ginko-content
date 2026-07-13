@@ -90,3 +90,5 @@ export {
   type JsonPrimitive,
   type JsonValue,
 } from './hash.js'
+
+export { assertResolvedContentContract } from './validate.js'
