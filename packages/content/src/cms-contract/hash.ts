@@ -108,7 +108,7 @@ const ROUND_CONSTANTS = new Uint32Array([
   0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208, 0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2,
 ])
 
-class Sha256 {
+export class IncrementalSha256 {
   private readonly state = new Uint32Array(INITIAL_HASH)
   private readonly block = new Uint8Array(64)
   private blockLength = 0
@@ -175,7 +175,7 @@ class Sha256 {
 }
 
 export async function sha256Hex(bytes: Uint8Array | AsyncIterable<Uint8Array>): Promise<string> {
-  const hash = new Sha256()
+  const hash = new IncrementalSha256()
   if (bytes instanceof Uint8Array) {
     hash.update(bytes)
   } else {

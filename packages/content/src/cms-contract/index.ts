@@ -94,9 +94,15 @@ export {
 } from './render-policy.js'
 
 export {
+  verifyPublicImageBytes,
+  type VerifiedPublicImage,
+} from './asset-bytes.js'
+
+export {
   canonicalJsonBytes,
   hashCanonicalJson,
   sha256Hex,
+  IncrementalSha256,
   type JsonPrimitive,
   type JsonValue,
 } from './hash.js'
