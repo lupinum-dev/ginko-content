@@ -93,11 +93,11 @@ These are not requirements for every provider. A CMS provider should map its nat
 
 Ingest follows parse -> transform -> validate.
 
-- generic pipeline contracts: `src/core/pipeline`
+- fixed ingest sequence: `src/integrations/nitro/ingest.ts`
 - Nitro orchestration: `src/integrations/nitro/ingest.ts`
 - parser entrypoints: `src/parsers`
 - validation: `src/storage/validation.ts`
-- manifest and variant lookup: `src/storage/manifest.ts`
+- canonical graph and variant lookup: `src/storage/graph.ts`
 
 The storage layer answers "what content exists?" for the filesystem provider. It should not become a generic CMS data model.
 
@@ -159,6 +159,12 @@ Ginko owns content-backed sitemap entries. `@nuxtjs/sitemap` owns XML output, hr
 
 The module registers a content sitemap source when sitemap support is enabled. Content collections are included unless config excludes them or the collection is data-only and not opted in.
 
+For localized sources, Ginko projects canonical variants into the Nuxt Sitemap v8
+source-entry contract: every entry carries its locale sitemap name in `_sitemap`
+and the complete reciprocal hreflang set, including `x-default` when a default
+variant exists. Nuxt Sitemap partitions those entries into locale child XML
+sitemaps. Docs layers and consumers must not reconstruct or filter that identity.
+
 ## Public Surface
 
 The package export map is a compatibility commitment:
@@ -169,6 +175,8 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/server`
 - `@lupinum/ginko-content/provider`
 - `@lupinum/ginko-content/agent`
+- `@lupinum/ginko-content/agent-paths`
+- `@lupinum/ginko-content/agent-registry`
 - `@lupinum/ginko-content/cms-contract`
 - `@lupinum/ginko-content/cms-import`
 - `@lupinum/ginko-content/testing/provider-fixture`
