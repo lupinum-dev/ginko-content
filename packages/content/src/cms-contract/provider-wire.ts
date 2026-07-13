@@ -21,7 +21,14 @@ const sitePath = z.string().refine((value) => {
 const routeSchema = z.object({
   slug: z.string(), path: sitePath, href: sitePath.optional(), locale: nonEmptyString,
   source: z.literal('published')
-}).strict()
+}).strict().superRefine((route, ctx) => {
+  if (route.path === `/${route.locale}` || route.path.startsWith(`/${route.locale}/`)) {
+    ctx.addIssue({
+      code: 'custom', path: ['path'],
+      message: 'CMS route.path must not contain a site-locale prefix.'
+    })
+  }
+})
 const localeResolutionSchema = z.object({
   requested: nonEmptyString, resolved: nonEmptyString,
   policy: z.enum(['strict', 'transparent']),
@@ -120,12 +127,48 @@ export const parseCmsSiteDataWireResult = (value: unknown) => parse(cmsSiteDataW
 export const assertCmsRequestedFacts = (args: {
   operation: string
   requested: { collection?: string, locale?: string }
-  returned: { collection?: string, locale?: { requested?: string } }
+  returned: {
+    collection?: string
+    locale?: { requested?: string }
+    page?: CmsPublicEntryWire | null
+    entries?: CmsPublicEntryWire[]
+    results?: CmsPublicEntryWire[]
+    previous?: CmsPublicEntryWire[]
+    next?: CmsPublicEntryWire[]
+  }
 }) => {
-  if (args.requested.collection && args.returned.collection !== args.requested.collection) {
+  if (
+    args.requested.collection &&
+    args.returned.collection !== undefined &&
+    args.returned.collection !== args.requested.collection
+  ) {
     throw new TypeError(`Invalid CMS ${args.operation} wire result: returned collection does not match the request.`)
   }
   if (args.requested.locale && args.returned.locale?.requested !== args.requested.locale) {
     throw new TypeError(`Invalid CMS ${args.operation} wire result: returned locale does not match the request.`)
+  }
+  const entries = [
+    ...(args.returned.page ? [args.returned.page] : []),
+    ...(args.returned.entries ?? []),
+    ...(args.returned.results ?? []),
+    ...(args.returned.previous ?? []),
+    ...(args.returned.next ?? [])
+  ]
+  const identities = new Set<string>()
+  for (const entry of entries) {
+    if (args.requested.collection && entry.collection !== args.requested.collection) {
+      throw new TypeError(`Invalid CMS ${args.operation} wire result: an entry substituted another collection.`)
+    }
+    if (args.requested.locale && entry.locale.requested !== args.requested.locale) {
+      throw new TypeError(`Invalid CMS ${args.operation} wire result: an entry substituted another requested locale.`)
+    }
+    if (entry.route.locale !== entry.locale.resolved) {
+      throw new TypeError(`Invalid CMS ${args.operation} wire result: entry route locale conflicts with locale resolution.`)
+    }
+    const identity = `${entry.collection}\u0000${entry.stableId}\u0000${entry.locale.resolved}`
+    if (identities.has(identity)) {
+      throw new TypeError(`Invalid CMS ${args.operation} wire result: duplicate canonical identity.`)
+    }
+    identities.add(identity)
   }
 }

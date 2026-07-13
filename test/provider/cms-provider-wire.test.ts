@@ -49,5 +49,12 @@ describe('CMS provider wire decoders', () => {
       operation: 'list', requested: { collection: 'docs', locale: 'en' },
       returned: { collection: 'other', locale: { requested: 'fr' } }
     })).toThrow(/collection/i)
+    expect(() => assertCmsRequestedFacts({
+      operation: 'list', requested: { collection: 'docs', locale: 'en' },
+      returned: {
+        collection: 'docs', locale: { requested: 'en' },
+        entries: [{ ...entry, collection: 'other' } as never]
+      }
+    })).toThrow(/substituted another collection/i)
   })
 })
