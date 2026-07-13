@@ -149,7 +149,8 @@ vi.mock('../../packages/content/src/runtime/app/composables/preview', () => ({
 
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
   fetchContentApi,
-  getContentApiFetcher: () => vi.fn(async () => ({ result: [] }))
+  getContentApiFetcher: () => vi.fn(async () => ({ result: [] })),
+  getPreviewToken: () => 'captured-preview-token'
 }))
 
 describe('app query/composable contracts', () => {
@@ -225,13 +226,17 @@ describe('app query/composable contracts', () => {
     expect(items[0]).not.toHaveProperty('unprefixedPath')
     expect(items[0]).not.toHaveProperty('localePaths')
     expect(items[0]).not.toHaveProperty('variants')
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'docs',
-      only: expect.arrayContaining(['title', 'path', 'locale']),
-      resolveLocale: expect.objectContaining({
-        locale: 'de'
-      })
-    }), expect.anything())
+    expect(fetchContentApi).toHaveBeenCalledWith(
+      'query',
+      expect.objectContaining({
+        collection: 'docs',
+        only: expect.arrayContaining(['title', 'path', 'locale']),
+        resolveLocale: expect.objectContaining({
+          locale: 'de'
+        })
+      }),
+      expect.objectContaining({ previewToken: 'captured-preview-token' })
+    )
   })
 
   test('useContentSearch({ collection }) absorbs the deleted useContentSearchData index/navigation loading', async () => {

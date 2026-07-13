@@ -82,7 +82,8 @@ vi.mock('../../packages/content/src/runtime/app/composables/runtime', () => ({
 
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
   fetchContentApi,
-  getContentApiFetcher: () => vi.fn()
+  getContentApiFetcher: () => vi.fn(),
+  getPreviewToken: () => undefined
 }))
 
 vi.mock('../../packages/content/src/runtime/app/composables/preview', () => ({
@@ -153,13 +154,17 @@ describe('useContentPage contracts', () => {
 
     const state = await useContentPage('docs')
 
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'docs',
-      first: true,
-      resolveVariant: expect.objectContaining({
-        route: '/docs/getting-started'
-      })
-    }), expect.anything())
+    expect(fetchContentApi).toHaveBeenCalledWith(
+      'query',
+      expect.objectContaining({
+        collection: 'docs',
+        first: true,
+        resolveVariant: expect.objectContaining({
+          route: '/docs/getting-started'
+        })
+      }),
+      expect.objectContaining({ previewToken: null })
+    )
     expect(state.page.value?.title).toBe('Getting Started')
     expect(state.page.value?.route.resolvedPath).toBe('/docs/getting-started')
     expect(state.page.value?.route.requestedPath).toBe('/docs/getting-started')

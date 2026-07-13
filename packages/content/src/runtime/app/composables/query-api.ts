@@ -25,7 +25,7 @@ import type {
 } from '../../../types/query'
 import type { ContentQueryResponse } from '../../../types/api'
 import type { __ginkoSchemaBrand } from '../../../types/config'
-import { fetchContentApi, getContentApiFetcher } from './utils'
+import { fetchContentApi, getContentApiFetcher, getPreviewToken } from './utils'
 import { getContentRuntime } from './runtime'
 import {
   backlinks as backlinksWithContext,
@@ -41,11 +41,19 @@ import {
 export const createClientContentQueryContext = (): ContentQueryContext => {
   const runtime = getContentRuntime()
   const fetcher = getContentApiFetcher()
+  // `null` is the captured "no token" value. Leaving this as `undefined`
+  // would make nested queries call the Nuxt cookie composable again after an
+  // async boundary, where setup context is no longer available.
+  const previewToken = getPreviewToken() ?? null
 
   return {
     runtime,
     transport: async <T>(endpoint: 'query' | 'navigation', params: ContentQueryBuilderParams) => {
-      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | NavItem[] | null>(endpoint, params, { fetcher, runtime })
+      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | NavItem[] | null>(
+        endpoint,
+        params,
+        { fetcher, runtime, previewToken }
+      )
     }
   }
 }

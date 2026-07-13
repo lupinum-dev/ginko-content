@@ -424,14 +424,8 @@ const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: s
   }
 }
 
-// Pagefind ships as one browser-side module per generated site. Cache the
-// dynamic import at app scope so multiple search boxes do not fetch it again.
-let pagefindModulePromise: Promise<PagefindModule> | null = null
-
-const loadPagefindModule = (pagefindUrl: string): Promise<PagefindModule> => {
-  pagefindModulePromise = pagefindModulePromise || import(/* @vite-ignore */ pagefindUrl) as Promise<PagefindModule>
-  return pagefindModulePromise
-}
+const loadPagefindModule = (pagefindUrl: string): Promise<PagefindModule> =>
+  import(/* @vite-ignore */ pagefindUrl) as Promise<PagefindModule>
 
 const deriveLocale = (path: string, locales: string[] = []) => {
   const segments = path.split('/').filter(Boolean)

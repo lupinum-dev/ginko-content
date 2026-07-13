@@ -51,6 +51,7 @@ declare module '#imports' {
   export const useFetch: typeof import('#app').useFetch
   export const useHead: typeof import('#app').useHead
   export const useNuxtApp: typeof import('#app').useNuxtApp
+  export const useCookie: typeof import('#app').useCookie
   export const useRequestEvent: typeof import('#app').useRequestEvent
   export const useRequestFetch: typeof import('#app').useRequestFetch
   export const useRoute: typeof import('#app').useRoute
