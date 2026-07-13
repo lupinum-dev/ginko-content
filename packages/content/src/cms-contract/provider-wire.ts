@@ -46,13 +46,29 @@ const publicDataSchema = z.record(z.string(), jsonValueSchema).superRefine((valu
     })
   }
 })
+const publicAssetFactSchema = z.object({
+  fieldPath: z.string().regex(/^(?:data|bodyAst)(?:\.[A-Za-z0-9_-]+|\[\d+\])*$/).refine(
+    (value) => !value.split(/[.\[\]]+/).some((part) => ['__proto__', 'prototype', 'constructor'].includes(part)),
+    'Asset field path contains a forbidden property.'
+  ),
+  assetId: nonEmptyString,
+  url: z.string().url().refine((value) => {
+    const parsed = new URL(value)
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password
+  }, 'Expected a credential-free HTTPS asset URL.'),
+  expiresAt: z.number().int().positive().nullable(),
+  mediaType: z.enum(['image/png', 'image/jpeg', 'image/gif', 'image/webp']),
+  bytes: z.number().int().positive().max(25 * 1024 * 1024),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict()
 
 export const cmsPublicEntryWireSchema = z.object({
   id: nonEmptyString, collection: nonEmptyString, route: routeSchema,
   translations: z.array(translationSchema), locale: localeResolutionSchema,
   title: z.string(), data: publicDataSchema, bodyAst: jsonValueSchema.optional(),
   toc: jsonValueSchema.optional(), publishedAt: isoDate, updatedAt: isoDate,
-  revision: nonEmptyString, stableId: nonEmptyString
+  revision: nonEmptyString, stableId: nonEmptyString,
+  assetFacts: z.array(publicAssetFactSchema).max(100)
 }).strict()
 export type CmsPublicEntryWire = z.infer<typeof cmsPublicEntryWireSchema>
 export interface CmsNavNodeWire {

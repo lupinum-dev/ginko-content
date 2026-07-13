@@ -10,7 +10,8 @@ const entry = {
   route: { slug: 'guide', path: '/guide', locale: 'en', source: 'published' },
   translations: [], locale, title: 'Guide', data: { description: 'Safe' },
   bodyAst: { type: 'root', children: [] }, publishedAt: '2026-07-13T00:00:00.000Z',
-  updatedAt: '2026-07-13T00:00:00.000Z', revision: 'revision-1', stableId: 'canonical-1'
+  updatedAt: '2026-07-13T00:00:00.000Z', revision: 'revision-1', stableId: 'canonical-1',
+  assetFacts: []
 }
 
 describe('CMS provider wire decoders', () => {
@@ -23,6 +24,27 @@ describe('CMS provider wire decoders', () => {
       entries: [entry], pageInfo: { hasNextPage: true, endCursor: 'opaque' },
       collection: 'docs', locale
     }).entries).toHaveLength(1)
+  })
+
+  it('accepts only bounded structured asset facts with credential-free HTTPS URLs', () => {
+    const fact = {
+      fieldPath: 'data.hero.src', assetId: 'asset-1', url: 'https://assets.example/hero.png',
+      expiresAt: null, mediaType: 'image/png', bytes: 68, sha256: '0'.repeat(64)
+    }
+    expect(parseCmsListWireResult({
+      entries: [{ ...entry, assetFacts: [fact] }],
+      pageInfo: { hasNextPage: false, endCursor: null }, collection: 'docs', locale
+    }).entries[0]?.assetFacts).toEqual([fact])
+    for (const invalid of [
+      { ...fact, fieldPath: 'data.__proto__.src' },
+      { ...fact, url: 'https://user:secret@assets.example/hero.png' },
+      { ...fact, url: 'http://assets.example/hero.png' }
+    ]) {
+      expect(() => parseCmsListWireResult({
+        entries: [{ ...entry, assetFacts: [invalid] }],
+        pageInfo: { hasNextPage: false, endCursor: null }, collection: 'docs', locale
+      })).toThrow(/asset|credential|HTTPS|field path/i)
+    }
   })
 
   it('rejects projected fields, unsafe paths, invalid dates, and malformed cursors', () => {
