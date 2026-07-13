@@ -19,7 +19,7 @@ export const getNavigationItemPath = (item: ContentNavigationItem | null | undef
     return undefined
   }
 
-  return stringValue(item.path) || stringValue(item.path)
+  return stringValue(item.path)
 }
 
 export const resolveNavigationItem = (item: ContentNavigationItem | null | undefined): ResolvedContentNavigationItem | null => {

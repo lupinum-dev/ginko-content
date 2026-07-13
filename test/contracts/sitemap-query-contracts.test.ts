@@ -1,7 +1,55 @@
 import { describe, expect, test } from 'vitest'
-import { queryCollectionsSitemapEntriesData } from '../../packages/content/src/features/sitemap/query'
+import {
+  projectSitemapEntry,
+  queryCollectionsSitemapEntriesData
+} from '../../packages/content/src/features/sitemap/query'
 
 describe('sitemap query contracts', () => {
+  test('projects locale ownership and reciprocal alternates for Nuxt Sitemap sources', () => {
+    const variants = [
+      { locale: 'en', path: '/guide/intro' },
+      { locale: 'de', path: '/de/leitfaden/einfuehrung' }
+    ]
+    const localeToLanguage = { en: 'en-US', de: 'de-DE' }
+
+    expect(
+      variants.map(variant =>
+        projectSitemapEntry({
+          siteUrl: 'https://docs.example.test',
+          defaultLocale: 'en',
+          localeToLanguage,
+          variant,
+          variants
+        })
+      )
+    ).toEqual([
+      {
+        _sitemap: 'en-US',
+        loc: '/guide/intro',
+        alternatives: [
+          { hreflang: 'x-default', href: 'https://docs.example.test/guide/intro' },
+          { hreflang: 'en-US', href: 'https://docs.example.test/guide/intro' },
+          {
+            hreflang: 'de-DE',
+            href: 'https://docs.example.test/de/leitfaden/einfuehrung'
+          }
+        ]
+      },
+      {
+        _sitemap: 'de-DE',
+        loc: '/de/leitfaden/einfuehrung',
+        alternatives: [
+          { hreflang: 'x-default', href: 'https://docs.example.test/guide/intro' },
+          { hreflang: 'en-US', href: 'https://docs.example.test/guide/intro' },
+          {
+            hreflang: 'de-DE',
+            href: 'https://docs.example.test/de/leitfaden/einfuehrung'
+          }
+        ]
+      }
+    ])
+  })
+
   test('emits non-i18n sitemap entries without requiring a locale', async () => {
     await expect(queryCollectionsSitemapEntriesData({
       collections: {

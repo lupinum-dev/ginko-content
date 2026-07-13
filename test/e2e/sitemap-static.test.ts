@@ -28,13 +28,27 @@ describe('static sitemap output', () => {
     expect(bundle.childSitemaps.get('__sitemap__/en-US.xml')).toBeTruthy()
     expect(bundle.childSitemaps.get('__sitemap__/de-DE.xml')).toBeTruthy()
 
-    expect(allLocs).toEqual(expect.arrayContaining([
-      `${siteUrl}/guide/getting-started`,
-      `${siteUrl}/guide/advanced`,
-      `${siteUrl}/guide/deep/nested`,
-      `${siteUrl}/de/leitfaden/erste-schritte`,
-      `${siteUrl}/de/leitfaden/tief/verschachtelt`
-    ]))
+    const englishSitemap = bundle.childSitemaps.get('__sitemap__/en-US.xml')!
+    const germanSitemap = bundle.childSitemaps.get('__sitemap__/de-DE.xml')!
+    expect(englishSitemap).toContain(`${siteUrl}/guide/getting-started`)
+    expect(englishSitemap).not.toContain(`<loc>${siteUrl}/de/leitfaden/erste-schritte</loc>`)
+    expect(germanSitemap).toContain(`${siteUrl}/de/leitfaden/erste-schritte`)
+    expect(germanSitemap).not.toContain(`<loc>${siteUrl}/guide/getting-started</loc>`)
+    for (const sitemap of [englishSitemap, germanSitemap]) {
+      expect(sitemap).toContain('hreflang="x-default"')
+      expect(sitemap).toContain('hreflang="en-US"')
+      expect(sitemap).toContain('hreflang="de-DE"')
+    }
+
+    expect(allLocs).toEqual(
+      expect.arrayContaining([
+        `${siteUrl}/guide/getting-started`,
+        `${siteUrl}/guide/advanced`,
+        `${siteUrl}/guide/deep/nested`,
+        `${siteUrl}/de/leitfaden/erste-schritte`,
+        `${siteUrl}/de/leitfaden/tief/verschachtelt`
+      ])
+    )
     expect(allLocs.length).toBeGreaterThanOrEqual(7)
 
     expect(alternates).toEqual(expect.arrayContaining([

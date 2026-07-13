@@ -1,6 +1,6 @@
 import type { ContentNavigationItem } from '../../types/content'
 
-const itemPath = (item: ContentNavigationItem) => item.path || item.path
+const itemPath = (item: ContentNavigationItem) => item.path
 const searchGroupId = (item: ContentNavigationItem, depth: number, index: number) =>
   `content-search-group:${String(item.canonicalKey || item.stem || `${depth}:${index}`)}`
 
@@ -15,7 +15,6 @@ export function createContentSearchNavigation (items: ContentNavigationItem[] = 
     const hasSelfChild = children.some(child => itemPath(child) === path)
     const normalizedItem = {
       ...item,
-      ...(path && !item.path ? { path } : {}),
       ...(!path ? { searchGroupId: searchGroupId(item, depth, index) } : {})
     }
 

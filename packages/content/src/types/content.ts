@@ -349,7 +349,7 @@ export interface NavItem {
   /**
    * Nuxt Content compatible route path used by Nuxt UI content components.
    */
-  path: string
+  path?: string
   stem?: string
   page?: false
   id?: string

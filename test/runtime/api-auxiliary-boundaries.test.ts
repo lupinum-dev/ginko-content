@@ -98,8 +98,11 @@ describe('runtime auxiliary API provider boundaries', () => {
 
     await expect(handler(event)).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ loc: 'https://example.test/docs/getting-started' }),
-        expect.objectContaining({ loc: 'https://example.test/de/dokumentation/erste-schritte' })
+        expect.objectContaining({ loc: '/docs/getting-started', _sitemap: 'en' }),
+        expect.objectContaining({
+          loc: '/de/dokumentation/erste-schritte',
+          _sitemap: 'de'
+        })
       ])
     )
   })

@@ -1,8 +1,9 @@
 import type { H3Event } from 'h3'
 import { getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import type { ContentSitemapAlternative, ContentSitemapEntry } from '../../types/query'
+import type { ContentSitemapEntry } from '../../types/query'
 import type { QueryCollectionsSitemapEntriesOptions } from '../../features/sitemap/query'
+import { projectSitemapEntry } from '../../features/sitemap/query'
 import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { createContentProviderError } from '../../public/provider-errors'
 import { getContentProvider } from './providers'
@@ -73,16 +74,28 @@ export async function queryCollectionsSitemapEntries (
 
   return routes.map((route) => {
     const variants = byCanonical.get(`${route.collection}:${route.canonicalKey}`) || []
-    const alternatives: ContentSitemapAlternative[] = variants.map(variant => ({
-      hreflang: localeToLanguage[variant.locale] || variant.locale,
-      href: `${siteUrl}${projectProviderRouteFact(variant, runtime)}`
+    const projectedVariants = variants.map(variant => ({
+      locale: variant.locale,
+      path: projectProviderRouteFact(variant, runtime)
     }))
-    const metadata = route.sitemap && typeof route.sitemap === 'object' ? route.sitemap : undefined
-    return {
-      loc: `${siteUrl}${projectProviderRouteFact(route, runtime)}`,
-      ...(metadata?.lastmod ? { lastmod: metadata.lastmod } : {}),
-      ...(metadata?.images?.length ? { images: [...metadata.images] } : {}),
-      ...(alternatives.length > 1 ? { alternatives } : {})
+    const variant = {
+      locale: route.locale,
+      path: projectProviderRouteFact(route, runtime)
     }
+    const collectionI18n = runtime.collections?.[route.collection]?.i18n
+    const defaultLocale =
+      collectionI18n && typeof collectionI18n === 'object'
+        ? collectionI18n.defaultLocale || runtime.defaultLocale || route.locale
+        : runtime.defaultLocale || route.locale
+    const metadata = route.sitemap && typeof route.sitemap === 'object' ? route.sitemap : undefined
+    return projectSitemapEntry({
+      siteUrl,
+      defaultLocale,
+      localeToLanguage,
+      variant,
+      variants: projectedVariants,
+      lastmod: metadata?.lastmod,
+      images: metadata?.images?.length ? [...metadata.images] : undefined
+    })
   })
 }

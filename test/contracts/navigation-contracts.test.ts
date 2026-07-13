@@ -81,7 +81,7 @@ describe('navigation contracts', () => {
           }
         ]
       }
-    ] as any[]
+    ]
 
     const result = createContentSearchNavigation(navigation)
 
@@ -117,7 +117,7 @@ describe('navigation contracts', () => {
           { title: 'Install', path: '/docs/install' }
         ]
       }
-    ] as any[])
+    ])
 
     expect(result[0]).toEqual(expect.objectContaining({
       title: 'Docs',
