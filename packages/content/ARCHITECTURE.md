@@ -21,7 +21,7 @@ The source layout is layered by **framework coupling** and **dependency directio
 | `runtime/` | Thin Nuxt/Nitro/Vue entrypoints: app composables, server API handlers, middleware, markdown/transformer runtime, virtual bindings. Should stay thin — accumulating logic here is a smell. | all internal layers + `public` |
 | `public/` | Export-facing facades for the `@lupinum/ginko-content/*` package subpaths (`client`, `server`, `provider`, `provider-query`, `provider-errors`). Provider types live here for external providers to implement. | `runtime`, `features`, `core`, `types` |
 | `config.ts` | Source of the `@lupinum/ginko-content/config` subpath: authoring/schema exports (`defineCollection`, `defineContentConfig`, field builders, `slugifyUrlSegment`). | `core`, `types` |
-| `cms-contract/` | The CMS-facing contract surface: `buildCmsContract`, schema, mdc, path, and contract types. | `core`, `types` |
+| `cms-contract/` | The runtime-safe resolved content contract, canonical JSON/SHA-256, schema helpers, MDC, and path surface shared by portability and CMS. | `core`, `types` |
 | `cms-import/` | The CMS import surface. | `core`, `parsers`, `types` |
 | `cli/` | The `doctor` CLI. | `core`, `parsers`, `types` |
 | `testing/` | The provider conformance suite and the default provider fixture (`testing/provider-fixture`, `testing/provider-contract`). | `core`, `features`, `public`, `runtime`, `types` |

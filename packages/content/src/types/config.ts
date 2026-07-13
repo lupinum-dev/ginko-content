@@ -117,6 +117,8 @@ export interface ContentCmsCollectionConfig {
     slugMode?: 'shared' | 'localized' | 'stable' | 'localizedStable'
     rootSlug?: string | null
     singleton?: boolean
+    /** Whether a tree collection may contain more than one root entry. */
+    allowMultipleRoots?: boolean
   }
   fields?: Record<string, ContentCmsFieldConfig>
   settings?: unknown

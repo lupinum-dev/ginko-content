@@ -7,8 +7,10 @@
  * component, Cloudflare Workers, browser).
  *
  * The CMS uses this surface to:
- *  - normalize a host's `content.config.ts` into a `CmsContract` artifact
- *    (`buildCmsContract`),
+ *  - normalize a host's `content.config.ts` into the one portable
+ *    `ResolvedContentContractV1` artifact (`buildResolvedContentContract`),
+ *  - produce RFC 8785 canonical JSON and incremental SHA-256 hashes without
+ *    relying on Node or Web Crypto,
  *  - introspect Zod schemas without re-implementing the walker
  *    (`unwrapSchema`, `getObjectShape`, `getReferenceDescriptor`, ...),
  *  - generate paths consistently with how the filesystem provider does
@@ -20,20 +22,20 @@
  */
 
 export {
-  CMS_CONTRACT_VERSION,
-  CmsContractSchemaUnsupportedError,
-  buildCmsContract,
-  type BuildCmsContractInput,
-  type BuildCmsContractOptions,
+  RESOLVED_CONTENT_CONTRACT_VERSION,
+  buildResolvedContentContract,
+  type BuildResolvedContentContractInput,
+  type BuildResolvedContentContractOptions,
 } from './build.js'
 
 export type {
-  CmsCollectionContract,
-  CmsCollectionRouting,
-  CmsContract,
-  CmsFieldContract,
-  CmsSchemaArtifactRef,
-  CmsSchemaCapabilities,
+  PortableComponentPolicyV1,
+  PortableMediaType,
+  ResolvedContentCollectionV1,
+  ResolvedContentContractV1,
+  ResolvedContentFieldTypeV1,
+  ResolvedContentFieldV1,
+  ResolvedContentValidationV1,
   ContentCmsCollectionConfig,
   ContentCmsFieldConfig,
   ContentCmsFieldType,
@@ -80,3 +82,11 @@ export {
   type ParseMdcBodyOptions,
   type ParseMdcBodyResult,
 } from './mdc.js'
+
+export {
+  canonicalJsonBytes,
+  hashCanonicalJson,
+  sha256Hex,
+  type JsonPrimitive,
+  type JsonValue,
+} from './hash.js'
