@@ -25,6 +25,14 @@ export type PortableMdcClassification =
 const builtins = new Set(['p', 'span', 'strong', 'em', 'del', 'a', 'img', 'ul', 'ol', 'li', 'blockquote', 'hr', 'code', 'pre', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 
 export async function parsePortableMdc(source: string, policy: PortableComponentPolicyV1): Promise<PortableMdcAstV1> {
+  return await parseMdc(source, policy, false)
+}
+
+export async function parseStoredMdc(source: string, policy: PortableComponentPolicyV1): Promise<PortableMdcAstV1> {
+  return await parseMdc(source, policy, true)
+}
+
+async function parseMdc(source: string, policy: PortableComponentPolicyV1, allowStoredAssets: boolean): Promise<PortableMdcAstV1> {
   if (source.includes('\uFEFF')) throw unsupported()
   const normalized = normalizeBody(source)
   let tree: Awaited<ReturnType<typeof parse>>
@@ -33,7 +41,7 @@ export async function parsePortableMdc(source: string, policy: PortableComponent
   } catch {
     throw unsupported()
   }
-  validateNodes(tree.nodes as unknown[], policy)
+  validateNodes(tree.nodes as unknown[], policy, allowStoredAssets)
   const nodes = stripPositions(tree.nodes) as JsonValue[]
   canonicalJsonBytes(nodes)
   return { format: 'ginko-portable-mdc-ast', version: 1, source: normalized, nodes }
@@ -59,7 +67,7 @@ export function portableMdcSemanticallyEqual(left: PortableMdcAstV1, right: Port
   return JSON.stringify(left.nodes) === JSON.stringify(right.nodes)
 }
 
-function validateNodes(nodes: unknown[], policy: PortableComponentPolicyV1): void {
+function validateNodes(nodes: unknown[], policy: PortableComponentPolicyV1, allowStoredAssets: boolean): void {
   for (const node of nodes) {
     if (typeof node === 'string') continue
     if (!Array.isArray(node) || typeof node[0] !== 'string') throw unsupported()
@@ -72,19 +80,25 @@ function validateNodes(nodes: unknown[], policy: PortableComponentPolicyV1): voi
       if (/^(?:on|v-|[:@#])/i.test(key)) throw unsupported()
       if (component) {
         const rule = component.props[key]
-        if (!rule || !matchesProp(value, rule.type)) throw unsupported()
+        if (!rule || !matchesProp(value, rule.type, allowStoredAssets)) throw unsupported()
       }
-      if ((key === 'href' || key === 'src') && typeof value === 'string' && !safeUrl(value)) throw unsupported()
+      const storageAssetProp = (tag === 'img' && key === 'src') || component?.props[key]?.type === 'asset'
+      if (
+        (key === 'href' || key === 'src') &&
+        typeof value === 'string' &&
+        !safeUrl(value) &&
+        !(allowStoredAssets && storageAssetProp && storedAssetIdentity(value))
+      ) throw unsupported()
     }
     if (component) for (const [key, rule] of Object.entries(component.props)) if (rule.required && !(key in props)) throw unsupported()
-    validateNodes(node.slice(2), policy)
+    validateNodes(node.slice(2), policy, allowStoredAssets)
   }
 }
 
-const matchesProp = (value: unknown, type: string) => type === 'json'
+const matchesProp = (value: unknown, type: string, allowStoredAssets: boolean) => type === 'json'
   ? isJson(value)
   : type === 'asset'
-    ? typeof value === 'string' && safeUrl(value)
+    ? typeof value === 'string' && (safeUrl(value) || (allowStoredAssets && storedAssetIdentity(value)))
     : typeof value === type
 const isJson = (value: unknown) => {
   try { canonicalJsonBytes(value as JsonValue); return true } catch { return false }
@@ -94,6 +108,7 @@ const safeUrl = (value: string) => {
   try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password } catch { return false }
 }
 const hasUrlControl = (value: string) => [...value].some(character => character === '\\' || character.codePointAt(0)! <= 31)
+const storedAssetIdentity = (value: string) => /^[a-z0-9;:_-]{1,512}$/i.test(value)
 const stripPositions = (value: unknown): unknown => Array.isArray(value)
   ? value.map(stripPositions)
   : value && typeof value === 'object'

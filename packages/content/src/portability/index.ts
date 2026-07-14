@@ -35,6 +35,8 @@ export {
   collectPortableMdcAssetReferences,
   rewritePortableAssetReferences,
   rewritePortableMdcAssetReferences,
+  rewritePortableMdcAssetReferencesForStorage,
+  rewriteStoredMdcAssetReferences,
   validatePortableAssets,
   type PortableMdcAssetReferenceV1,
 } from './assets.js'
