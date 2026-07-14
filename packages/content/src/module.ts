@@ -153,6 +153,7 @@ export default defineNuxtModule<ModuleOptions>({
         locales: resolvedI18n.locales.length ? resolvedI18n.locales : [resolvedI18n.defaultLocale || 'en'],
         localeFallbacks: resolvedI18n.fallback,
         translatedSlugs: resolvedI18n.translatedSlugs,
+        componentPolicy: options.componentPolicy,
       },
     )
     const contractSha256 = await hashCanonicalJson(contract as unknown as JsonValue)

@@ -3,7 +3,8 @@ import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentQueryBuilderWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
 import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
-import type { ResolvedContentContractV1 } from '../cms-contract/index'
+import type { ResolvedContentContractV1 } from '../cms-contract/types'
+import type { PortableComponentPolicyV1 } from './component-policy'
 
 export type MountOptions = {
   driver: string
@@ -304,6 +305,14 @@ export interface ModuleOptions {
      */
     baseURL: string
   }
+  /**
+   * Closed allowlist for custom MDC components and their render-safe props.
+   * The resolved content contract is the canonical runtime and portability
+   * representation of this policy.
+   *
+   * @default { components: {} }
+   */
+  componentPolicy?: PortableComponentPolicyV1
   /**
    * Locale-aware content behavior.
    */

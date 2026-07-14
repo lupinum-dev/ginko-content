@@ -695,4 +695,28 @@ describe('module contracts', () => {
       observed.defaultLocale = 'de'
     }).toThrow()
   })
+
+  test('uses the configured component policy as the contract and renderer source of truth', async () => {
+    const { nuxt, hooks } = createNuxt()
+    let observed: any
+    nuxt.hook('content:context', (ctx: any) => {
+      observed = ctx
+    })
+
+    const componentPolicy = {
+      components: {
+        callout: {
+          kind: 'block',
+          props: { tone: { type: 'string', required: false } },
+          slots: ['default'],
+          media: null,
+        },
+      },
+    }
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions({ componentPolicy }), nuxt as any)
+    await hooks.get('modules:done')?.()
+
+    expect(observed.contract.collections.docs.componentPolicy).toEqual(componentPolicy)
+  })
 })

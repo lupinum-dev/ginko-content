@@ -6,6 +6,7 @@ import type {
   ContentCollectionConfig,
   ContentCollectionI18nConfig,
 } from '../types/config.js'
+import type { PortableComponentPolicyV1 } from '../types/component-policy.js'
 import type { JsonValue } from './hash.js'
 
 export type {
@@ -15,26 +16,10 @@ export type {
   ContentCmsRelationConfig,
   ContentCollectionConfig,
   ContentCollectionI18nConfig,
+  PortableComponentPolicyV1,
 }
 
 export type PortableMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
-
-export interface PortableComponentPolicyV1 {
-  components: Record<string, {
-    kind: 'block' | 'inline'
-    props: Record<string, {
-      type: 'string' | 'number' | 'boolean' | 'json' | 'asset'
-      required: boolean
-    }>
-    slots: string[]
-    media: {
-      sourceProp: string
-      altProp: string | null
-      titleProp: string | null
-      filenameProp: string | null
-    } | null
-  }>
-}
 
 export type ResolvedContentFieldTypeV1 =
   | 'text'

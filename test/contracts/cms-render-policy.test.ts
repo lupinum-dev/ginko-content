@@ -72,6 +72,34 @@ describe('canonical public Markdown render policy', () => {
     })
   })
 
+  it('accepts passive code-block metadata emitted by the Markdown parser', () => {
+    expect(validatePublicMarkdownAst(root(element('pre', {
+      language: 'ts',
+      filename: 'content.config.ts',
+    })))).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('pre', { language: { executable: false } })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+    })
+  })
+
+  it('accepts only the inert inline styles emitted by Shiki', () => {
+    expect(validatePublicMarkdownAst(root(element('span', {
+      style: 'color:#39ADB5;--shiki-dark:#89DDFF;--shiki-dark-font-style:italic',
+    })))).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('span', { style: 'display: inline' })))).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('span', {
+      style: 'background-image:url(https://evil.test/pixel)',
+    })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_prop' })],
+    })
+    expect(validatePublicMarkdownAst(root(element('div', { style: 'color:#39ADB5' })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_prop' })],
+    })
+  })
+
   it('shares one HTTPS-only URL rule with agent Markdown serialization', () => {
     expect(isSafePublicMarkdownUrl('https://example.test/image.png', 'asset')).toBe(true)
     expect(isSafePublicMarkdownUrl('http://example.test/image.png', 'asset')).toBe(false)

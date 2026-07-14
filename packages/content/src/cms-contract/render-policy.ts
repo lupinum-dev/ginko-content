@@ -61,6 +61,7 @@ const HTML_PROPS: Record<string, Set<string>> = {
   ins: new Set(['cite', 'datetime']),
   li: new Set(['value']),
   ol: new Set(['start', 'reversed', 'type']),
+  pre: new Set(['language', 'filename']),
   td: new Set(['colspan', 'rowspan', 'headers']),
   th: new Set(['colspan', 'rowspan', 'headers', 'scope']),
   time: new Set(['datetime']),
@@ -88,6 +89,37 @@ const isSafeBindingValue = (value: unknown): boolean => {
   return Object.entries(value).every(
     ([key, child]) => !FORBIDDEN_PROPS.has(key.toLowerCase()) && isSafeBindingValue(child),
   )
+}
+
+const SHIKI_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+const SHIKI_STYLE_VALUES: Record<string, RegExp> = {
+  color: SHIKI_COLOR,
+  '--shiki-light': SHIKI_COLOR,
+  '--shiki-dark': SHIKI_COLOR,
+  '--shiki-light-font-style': /^(?:normal|italic|oblique)$/,
+  '--shiki-dark-font-style': /^(?:normal|italic|oblique)$/,
+  '--shiki-light-font-weight': /^(?:normal|bold|[1-9]00)$/,
+  '--shiki-dark-font-weight': /^(?:normal|bold|[1-9]00)$/,
+  '--shiki-light-text-decoration': /^(?:none|underline|line-through)$/,
+  '--shiki-dark-text-decoration': /^(?:none|underline|line-through)$/,
+}
+
+const isSafeShikiStyle = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false
+  if (value.trim() === 'display: inline') return true
+  const declarations = value.split(';')
+  if (!declarations.length || declarations.some(declaration => !declaration)) return false
+  const seen = new Set<string>()
+  return declarations.every((declaration) => {
+    const separator = declaration.indexOf(':')
+    if (separator <= 0) return false
+    const name = declaration.slice(0, separator).trim()
+    const propertyValue = declaration.slice(separator + 1).trim()
+    const pattern = SHIKI_STYLE_VALUES[name]
+    if (!pattern || seen.has(name) || !pattern.test(propertyValue)) return false
+    seen.add(name)
+    return true
+  })
 }
 
 export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 'href'): boolean {
@@ -145,6 +177,7 @@ export function validatePublicMarkdownAst(
         ) report('unsafe_prop', propPath, 'Parser metadata is malformed.')
         continue
       }
+      if (name === 'style' && tag === 'span' && isSafeShikiStyle(propValue)) continue
       if (
         !name || /^on/i.test(name) || /^v-|^@|^:|^#/.test(name) ||
         FORBIDDEN_PROPS.has(lower)
@@ -176,6 +209,10 @@ export function validatePublicMarkdownAst(
         HTML_PROPS[tag]?.has(name)
       if (!allowed) {
         report('unknown_prop', propPath, `HTML property "${name}" is not allowed on <${tag}>.`)
+        continue
+      }
+      if (tag === 'pre' && (name === 'language' || name === 'filename') && typeof propValue !== 'string') {
+        report('invalid_prop_value', propPath, `HTML property "${name}" on <pre> must be a string.`)
         continue
       }
       if (URL_PROPS.has(lower) && typeof propValue === 'string') {
