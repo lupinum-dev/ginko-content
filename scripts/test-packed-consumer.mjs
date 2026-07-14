@@ -85,7 +85,8 @@ function run(command, args, cwd, options = {}) {
         ...(packageManager === 'pnpm' ? { npm_config_verify_deps_before_run: 'false' } : {}),
         ...options.env
       },
-      stdio: options.stdio || 'inherit'
+      stdio: options.stdio || 'inherit',
+      shell: process.platform === 'win32'
     })
   } catch (error) {
     const commandText = [command, ...args].join(' ')
