@@ -47,6 +47,7 @@ const nodeContractTests = [
   // under a plain Node environment instead.
   'test/contracts/integration-hooks-contracts.test.ts',
   'test/contracts/module-contracts.test.ts',
+  'test/contracts/portability-contracts.test.ts',
   'test/contracts/runtime-assets-contracts.test.ts',
   'test/contracts/server-handlers-contracts.test.ts',
   'test/contracts/transformers-contracts.test.ts',

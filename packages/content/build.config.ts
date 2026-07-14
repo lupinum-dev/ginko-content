@@ -22,6 +22,8 @@ const mkdistEntries = [
   // its Convex component. Must stay free of Node/Nuxt/h3/nitropack runtime
   // deps; if a transitive import drags one in, the CMS build fails loudly.
   ['src/cms-contract/', 'dist/cms-contract'],
+  // Pure portability codecs share the runtime-neutral contract/hash boundary.
+  ['src/portability/', 'dist/portability'],
   // `src/cms-import/` is the Node-side importer boundary used by ginko-cms
   // migration. It may read filesystem-shaped content, but parsing semantics
   // still live in ginko-content instead of a second CMS parser.

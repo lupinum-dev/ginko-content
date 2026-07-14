@@ -20,6 +20,16 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "./data-source": {
+      "category": "pure-provider-contract",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "./portability": {
+      "category": "pure-portability-contract",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
     "./client": {
       "category": "app-runtime",
       "audience": "app-developer",
@@ -59,6 +69,16 @@
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "./testing/data-source-contract": {
+      "category": "testing-only-data-source-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "./testing/portability-contract": {
+      "category": "testing-only-portability-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "./transformers": {
       "category": "markdown-transformer-extension",
@@ -641,6 +661,11 @@
   },
   "providerValueExports": {
     "PROVIDER_QUERY_VERSION": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "bindContentProvider": {
       "category": "stable-provider-author-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"

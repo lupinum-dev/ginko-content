@@ -75,6 +75,7 @@ declare module '#build/content-components' {
 }
 
 declare module 'js-yaml' {
+  export const JSON_SCHEMA: unknown
   export function load(input: string, options?: Record<string, unknown>): unknown
   export function dump(input: unknown, options?: Record<string, unknown>): string
 }

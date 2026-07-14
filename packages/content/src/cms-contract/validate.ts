@@ -212,14 +212,33 @@ export function assertResolvedContentContract(value: unknown): ResolvedContentCo
     if (!Array.isArray(collection.fields)) throw new Error(`${path}.fields must be an array.`)
     const fields = collection.fields.map((candidate, index) => field(candidate, `${path}.fields[${index}]`))
     if (new Set(fields.map(candidate => candidate.key)).size !== fields.length) throw new Error(`${path} has duplicate fields.`)
+    assertPortableFieldKeys(fields, path)
     const portable = record(collection.portable, `${path}.portable`)
     exact(portable, ['format', 'bodyField'], `${path}.portable`)
     if (!['mdc', 'yaml', 'json'].includes(String(portable.format))) throw new Error(`${path}.portable.format is invalid.`)
     nullableString(portable.bodyField, `${path}.portable.bodyField`)
+    const bodyFields = fields.filter(candidate => candidate.role === 'body')
+    if (collection.kind === 'page') {
+      if (portable.format !== 'mdc' || bodyFields.length !== 1 || bodyFields[0]!.type !== 'richtext' || portable.bodyField !== bodyFields[0]!.key) throw new Error(`${path} page portability policy is invalid.`)
+    } else if (!['yaml', 'json'].includes(String(portable.format)) || portable.bodyField !== null || bodyFields.length !== 0) {
+      throw new Error(`${path} data portability policy is invalid.`)
+    }
     componentPolicy(collection.componentPolicy, `${path}.componentPolicy`)
     for (const candidate of fields) visitRelations(candidate, collectionIds, path)
   }
   return value as ResolvedContentContractV1
+}
+
+const reservedPortableFields = new Set(['ginko', 'id', '_id', 'stableId', 'translationKey', 'path', '_path', 'route', 'ast', 'toc', 'searchText', 'provider'])
+
+function assertPortableFieldKeys(fields: ResolvedContentFieldV1[], path: string): void {
+  for (const candidate of fields) {
+    if (reservedPortableFields.has(candidate.key)) throw new Error(`${path} field "${candidate.key}" is reserved.`)
+    if (candidate.fields) {
+      if (new Set(candidate.fields.map(field => field.key)).size !== candidate.fields.length) throw new Error(`${path} field "${candidate.key}" has duplicate nested fields.`)
+      assertPortableFieldKeys(candidate.fields, `${path} field "${candidate.key}"`)
+    }
+  }
 }
 
 function visitRelations(field: ResolvedContentFieldV1, collectionIds: Set<string>, path: string): void {

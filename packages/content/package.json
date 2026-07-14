@@ -86,6 +86,11 @@
       "import": "./dist/cms-import/index.js",
       "default": "./dist/cms-import/index.js"
     },
+    "./portability": {
+      "types": "./dist/portability/index.d.ts",
+      "import": "./dist/portability/index.js",
+      "default": "./dist/portability/index.js"
+    },
     "./testing/provider-fixture": {
       "types": "./dist/testing/provider-fixture.d.ts",
       "import": "./dist/testing/provider-fixture.js",
@@ -100,6 +105,11 @@
       "types": "./dist/testing/data-source-contract.d.ts",
       "import": "./dist/testing/data-source-contract.js",
       "default": "./dist/testing/data-source-contract.js"
+    },
+    "./testing/portability-contract": {
+      "types": "./dist/testing/portability-contract.d.ts",
+      "import": "./dist/testing/portability-contract.js",
+      "default": "./dist/testing/portability-contract.js"
     },
     "./transformers": {
       "types": "./dist/runtime/transformers/define.d.ts",
