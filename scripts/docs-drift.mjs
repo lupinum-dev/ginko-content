@@ -192,6 +192,8 @@ const isAdvancedSurfaceDoc = (file) => {
     lower.includes('/advanced/') ||
     lower.includes('agent') ||
     lower.includes('provider') ||
+    lower.includes('data-source') ||
+    lower.includes('data_source') ||
     lower.includes('cache') ||
     lower.includes('cms_contract') ||
     lower.includes('public-surface') ||

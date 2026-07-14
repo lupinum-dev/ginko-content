@@ -23,7 +23,7 @@
     "./data-source": {
       "category": "pure-provider-contract",
       "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+      "docs": "packages/content/docs/DATA_SOURCE_ADAPTER_GUIDE.md"
     },
     "./portability": {
       "category": "pure-portability-contract",
@@ -73,7 +73,7 @@
     "./testing/data-source-contract": {
       "category": "testing-only-data-source-contract",
       "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+      "docs": "packages/content/docs/DATA_SOURCE_ADAPTER_GUIDE.md"
     },
     "./testing/portability-contract": {
       "category": "testing-only-portability-contract",

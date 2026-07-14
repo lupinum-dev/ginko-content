@@ -329,6 +329,14 @@ The packed package rendered this page.
       })
     `)
 
+    writeFile(
+      resolve(appDir, 'server/data-source-adapter.ts'),
+      readFileSync(
+        resolve(repoRoot, 'test/fixtures/typecheck/types/data-source-adapter.ts'),
+        'utf8'
+      )
+    )
+
     writeFile(resolve(appDir, 'pages/index.vue'), `
       <script setup lang="ts">
       import { useContentPage } from '#imports'

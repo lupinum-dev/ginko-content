@@ -3,6 +3,10 @@
 Use this guide when changing provider capabilities, raw result shapes, cache
 hints, or provider-backed operations.
 
+For a framework-free backend adapter, start with the
+[data-source adapter author guide](./DATA_SOURCE_ADAPTER_GUIDE.md), then bind
+that pure source to this runtime provider boundary.
+
 ## Ownership
 
 - `src/public/provider.ts` is the external provider interface.
