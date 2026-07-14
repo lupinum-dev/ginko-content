@@ -58,24 +58,18 @@ export const registerContentNitroConfig = ({
   logger,
   platform = process.platform
 }: ContentNitroConfigOptions) => {
-  // Nuxt 4.4.3-4.4.8 mounts its prerender cache through a file: driver on
-  // Windows. Nitropack 2.13.4 externalizes that virtual import as a raw drive
-  // path, which Node rejects. The cache is derived build state, so memory keeps
-  // the same build semantics without copying or patching Nuxt internals. The
-  // file: guard makes this disappear automatically once upstream changes the
-  // driver.
-  hookNuxtBoundary(nuxt, 'nitro:init', (nitro: {
-    options?: { _config?: { storage?: Record<string, { driver?: unknown }> } }
-  }) => {
-    if (platform !== 'win32') return
-
-    const storage = nitro.options?._config?.storage
-    if (!storage) return
-    const prerenderStorage = storage[NUXT_PRERENDER_STORAGE]
-    if (typeof prerenderStorage?.driver !== 'string' || !prerenderStorage.driver.startsWith('file:')) return
-
-    storage[NUXT_PRERENDER_STORAGE] = { driver: 'memory' }
-  })
+  // Nuxt 4.4.3-4.4.8 defaults this derived cache to a file: driver on Windows.
+  // Nitropack 2.13.4 externalizes that virtual import as a raw drive path, which
+  // Node rejects. Supplying the memory mount before Nuxt creates Nitro lets
+  // Nuxt's own defaulting retain it for both the main and prerender instances.
+  // Do not replace an explicit consumer-owned storage choice.
+  if (platform === 'win32') {
+    const nitro = (nuxt.options as unknown as {
+      nitro: { storage?: Record<string, { driver?: string }> }
+    }).nitro
+    nitro.storage ||= {}
+    nitro.storage[NUXT_PRERENDER_STORAGE] ||= { driver: 'memory' }
+  }
 
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()

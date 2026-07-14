@@ -1,6 +1,6 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -237,6 +237,9 @@ async function main() {
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
     console.log(`Testing exact release tarball with ${packageManager}: ${tarball} (sha256 ${tarballSha256})`)
     assertNoWorkspaceRanges(tarball, tempRoot)
+    const installedTarball = join(tempRoot, 'artifacts', `${tarballSha256}.tgz`)
+    mkdirSync(resolve(installedTarball, '..'), { recursive: true })
+    copyFileSync(tarball, installedTarball)
 
     writeFile(resolve(appDir, 'package.json'), JSON.stringify({
       type: 'module',
@@ -246,7 +249,7 @@ async function main() {
         build: 'nuxt build'
       },
       dependencies: {
-        '@lupinum/ginko-content': `file:${tarball}`,
+        '@lupinum/ginko-content': `file:${installedTarball}`,
         '@nuxtjs/sitemap': process.env.GINKO_CONSUMER_SITEMAP_VERSION || '8.0.15',
         '@types/node': process.env.GINKO_CONSUMER_NODE_TYPES_VERSION || '^24.0.0',
         nuxt: process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7',

@@ -93,6 +93,7 @@ describe('Content 0.3 candidate release contract', () => {
     expect(packedConsumerRun).toContain("shell: process.platform === 'win32'")
     expect(packedConsumer.match(/execFileSync\(/g)).toHaveLength(1)
     expect(packedConsumerMain).toContain("mkdtempSync(join(tmpdir(), 'ginko-packed-consumer-'))")
+    expect(packedConsumerMain).toContain("join(tempRoot, 'artifacts', `${tarballSha256}.tgz`)")
     expect(packedConsumerMain).not.toContain('RUNNER_TEMP')
   })
 })
