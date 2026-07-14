@@ -6,3 +6,7 @@ export function assertReproduciblePacks(first, second) {
     throw new Error(`Release archives differ: ${first.sha256} != ${second.sha256}`)
   }
 }
+
+export function normalizeArchiveEntry(entry) {
+  return entry.replaceAll('\\', '/')
+}

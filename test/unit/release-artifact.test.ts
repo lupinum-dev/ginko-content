@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { assertReproduciblePacks } from '../../scripts/lib/release-artifact.mjs'
+import {
+  assertReproduciblePacks,
+  normalizeArchiveEntry,
+} from '../../scripts/lib/release-artifact.mjs'
 
 describe('release artifact reproducibility', () => {
   test('accepts two byte-identical package archives', () => {
@@ -19,5 +22,11 @@ describe('release artifact reproducibility', () => {
       { filename: 'first.tgz', sha256: 'same' },
       { filename: 'second.tgz', sha256: 'same' },
     )).toThrow('Release archive filenames differ')
+  })
+
+  test('normalizes Windows tar listings to portable archive paths', () => {
+    expect(normalizeArchiveEntry('package\\dist\\module.d.mts')).toBe(
+      'package/dist/module.d.mts',
+    )
   })
 })

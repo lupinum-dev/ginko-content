@@ -4,7 +4,10 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertReproduciblePacks } from './lib/release-artifact.mjs'
+import {
+  assertReproduciblePacks,
+  normalizeArchiveEntry,
+} from './lib/release-artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
@@ -102,6 +105,7 @@ function assertReleaseTarball(tarball) {
     const entries = run('tar', ['-tzf', tarball], repoRoot, 'pipe')
       .split('\n')
       .filter(Boolean)
+      .map(normalizeArchiveEntry)
     const entrySet = new Set(entries)
     const forbiddenPatterns = [
       /^package\/\.env(?:\.|$)/,
