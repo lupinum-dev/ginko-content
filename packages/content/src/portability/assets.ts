@@ -1,6 +1,12 @@
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
-import type { PortableMediaType, ResolvedContentContractV1, ResolvedContentFieldV1 } from '../cms-contract/types.js'
+import type {
+  PortableComponentPolicyV1,
+  PortableMediaType,
+  ResolvedContentContractV1,
+  ResolvedContentFieldV1,
+} from '../cms-contract/types.js'
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
+import { renderMarkdown } from 'comark/render'
 import { portabilityError } from './errors.js'
 import { parsePortableMdc } from './mdc.js'
 import type { JsonObject, PortableAssetBlobV1, PortableAssetReferenceV1, PortableDocumentV1 } from './model.js'
@@ -10,6 +16,19 @@ const extensions: Record<PortableMediaType, string> = {
   'image/jpeg': 'jpg',
   'image/gif': 'gif',
   'image/webp': 'webp',
+}
+
+const mediaTypesByExtension: Record<string, PortableMediaType> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+}
+
+export interface PortableMdcAssetReferenceV1 {
+  path: `/ginko-assets/${string}`
+  sha256: string
+  mediaType: PortableMediaType
 }
 
 const exactKeys = (value: Record<string, unknown>, keys: string[]) =>
@@ -81,6 +100,32 @@ export function rewritePortableAssetReferences(
   return output
 }
 
+export async function collectPortableMdcAssetReferences(
+  source: string,
+  policy: PortableComponentPolicyV1,
+): Promise<PortableMdcAssetReferenceV1[]> {
+  const ast = await parsePortableMdc(source, policy)
+  const output: PortableMdcAssetReferenceV1[] = []
+  visitMdcAssetSources(ast.nodes, policy, (reference) => {
+    output.push(reference)
+    return reference.path
+  })
+  return output
+}
+
+export async function rewritePortableMdcAssetReferences(
+  source: string,
+  policy: PortableComponentPolicyV1,
+  rewrite: (reference: PortableMdcAssetReferenceV1) => string,
+): Promise<string> {
+  const ast = await parsePortableMdc(source, policy)
+  visitMdcAssetSources(ast.nodes, policy, rewrite)
+  const rewritten = await renderMarkdown({ nodes: ast.nodes as never, frontmatter: {}, meta: {} })
+  const normalized = rewritten.replace(/\n+$/g, '')
+  await parsePortableMdc(normalized, policy)
+  return normalized
+}
+
 export async function validatePortableAssets(
   documents: PortableDocumentV1[],
   contract: ResolvedContentContractV1,
@@ -103,25 +148,43 @@ export async function validatePortableAssets(
       if (reference.kind === 'local') referenced.add(reference.sha256)
     }
     if (document.body) {
-      const ast = await parsePortableMdc(document.body.source, collection.componentPolicy)
-      collectMdcAssetHashes(ast.nodes, collection.componentPolicy.components, referenced)
+      for (const reference of await collectPortableMdcAssetReferences(
+        document.body.source,
+        collection.componentPolicy,
+      )) {
+        referenced.add(reference.sha256)
+      }
     }
   }
   for (const sha256 of referenced) if (!byHash.has(sha256)) throw portabilityError('ASSET_MISSING', 'portability.validateAssets', 'Portable asset file is missing.')
   for (const sha256 of byHash.keys()) if (!referenced.has(sha256)) throw portabilityError('ASSET_INTEGRITY_FAILED', 'portability.validateAssets', 'Portable asset file is unreferenced.')
 }
 
-function collectMdcAssetHashes(nodes: JsonValue[], components: ResolvedContentContractV1['collections'][string]['componentPolicy']['components'], output: Set<string>): void {
+function visitMdcAssetSources(
+  nodes: JsonValue[],
+  policy: PortableComponentPolicyV1,
+  visit: (reference: PortableMdcAssetReferenceV1) => string,
+): void {
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : components[node[0]]?.media?.sourceProp
+    const sourceProp = node[0] === 'img' ? 'src' : policy.components[node[0]]?.media?.sourceProp
     const source = sourceProp ? props[sourceProp] : undefined
-    if (typeof source === 'string') {
-      const match = /^\/ginko-assets\/([0-9a-f]{64})\.(?:png|jpg|gif|webp)$/.exec(source)
-      if (match) output.add(match[1]!)
+    if (sourceProp && typeof source === 'string') {
+      const reference = portableMdcAssetReference(source)
+      if (reference) props[sourceProp] = visit(reference)
     }
-    collectMdcAssetHashes(node.slice(2) as JsonValue[], components, output)
+    visitMdcAssetSources(node.slice(2) as JsonValue[], policy, visit)
+  }
+}
+
+function portableMdcAssetReference(value: string): PortableMdcAssetReferenceV1 | null {
+  const match = /^\/ginko-assets\/([0-9a-f]{64})\.(png|jpg|gif|webp)$/.exec(value)
+  if (!match) return null
+  return {
+    path: value as `/ginko-assets/${string}`,
+    sha256: match[1]!,
+    mediaType: mediaTypesByExtension[match[2]!]!,
   }
 }
 

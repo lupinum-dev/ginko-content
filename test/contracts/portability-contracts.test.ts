@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { ResolvedContentContractV1, ResolvedContentFieldV1 } from '../../packages/content/src/cms-contract'
 import {
   classifyPortableMdc,
+  collectPortableMdcAssetReferences,
   decodePortableIdentitySegment,
   encodePortableIdentitySegment,
   normalizePortableModel,
@@ -12,6 +13,7 @@ import {
   parsePortableManifest,
   portableDocumentPath,
   rebuildPortableManifest,
+  rewritePortableMdcAssetReferences,
   serializePortableDocument,
   serializePortableManifest,
   validatePortableReferences,
@@ -68,7 +70,17 @@ const contract: ResolvedContentContractV1 = {
         field('body', 'richtext', true, { role: 'body' }),
       ],
       portable: { format: 'mdc', bodyField: 'body' },
-      componentPolicy: { components: { callout: { kind: 'block', props: { tone: { type: 'string', required: true } }, slots: ['default'], media: null } } },
+      componentPolicy: {
+        components: {
+          callout: { kind: 'block', props: { tone: { type: 'string', required: true } }, slots: ['default'], media: null },
+          media: {
+            kind: 'block',
+            props: { src: { type: 'asset', required: true } },
+            slots: [],
+            media: { sourceProp: 'src', altProp: null, titleProp: null, filenameProp: null },
+          },
+        },
+      },
     },
     authors: {
       id: 'authors', kind: 'data', structure: 'flat', defaultLocale: 'en', locales: ['en'],
@@ -148,6 +160,38 @@ describe('portable content contract', () => {
   it('classifies portable MDC semantically and rejects active syntax', async () => {
     await expect(classifyPortableMdc('::callout{tone="info"}\nSafe\n::', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'portable' })
     await expect(classifyPortableMdc('<script>alert(1)</script>', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected', issues: [{ code: 'MDC_UNSUPPORTED' }] })
+  })
+
+  it('collects and rewrites only structural Markdown and MDC asset sources', async () => {
+    const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const local = `/ginko-assets/${sha256}.png`
+    const source = [
+      `![Hero](${local})`,
+      '',
+      `::media{src="${local}"}`,
+      '::',
+      '',
+      `\`${local}\` remains authored text.`,
+      '',
+      '![External](https://images.example.test/external.png)',
+    ].join('\n')
+
+    await expect(
+      collectPortableMdcAssetReferences(source, contract.collections.docs.componentPolicy),
+    ).resolves.toEqual([
+      { path: local, sha256, mediaType: 'image/png' },
+      { path: local, sha256, mediaType: 'image/png' },
+    ])
+
+    const rewritten = await rewritePortableMdcAssetReferences(
+      source,
+      contract.collections.docs.componentPolicy,
+      (reference) => `https://assets.example.test/${reference.sha256}.png`,
+    )
+    expect(rewritten).toContain(`![Hero](https://assets.example.test/${sha256}.png)`)
+    expect(rewritten).toContain(`::media{src="https://assets.example.test/${sha256}.png"}`)
+    expect(rewritten).toContain(`\`${local}\` remains authored text.`)
+    expect(rewritten).toContain('![External](https://images.example.test/external.png)')
   })
 
   it('normalizes ordering without deriving identity from paths', async () => {

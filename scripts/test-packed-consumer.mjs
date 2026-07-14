@@ -380,7 +380,7 @@ The packed package rendered this page.
       const { mkdtemp, readFile, rm } = await import('node:fs/promises')
       const { tmpdir } = await import('node:os')
       const { join } = await import('node:path')
-      const { parsePortableDocument } = await import('@lupinum/ginko-content/portability')
+      const { collectPortableMdcAssetReferences, parsePortableDocument, rewritePortableMdcAssetReferences } = await import('@lupinum/ginko-content/portability')
       const { readPortableDirectory, rebuildPortableDirectoryManifest, writePortableDirectory } = await import('@lupinum/ginko-content/portability/node')
       const { PORTABILITY_CONTRACT_FIXTURES, createPortabilityContractFixture, runPortabilityContract, runPortableDirectoryContract } = await import('@lupinum/ginko-content/testing/portability-contract')
       const parent = await mkdtemp(join(tmpdir(), 'ginko-packed-portability-'))
@@ -389,6 +389,18 @@ The packed package rendered this page.
         const document = await parsePortableDocument(PORTABILITY_CONTRACT_FIXTURES.document, contract)
         const result = await runPortabilityContract()
         if (result.checks !== 9) throw new Error('Packed portability codec contract failed')
+        const localPath = '/ginko-assets/' + PORTABILITY_CONTRACT_FIXTURES.png.sha256 + '.png'
+        const codeDelimiter = String.fromCharCode(96)
+        const body = '![Packed](' + localPath + ')\\n\\n' + codeDelimiter + localPath + codeDelimiter
+        const references = await collectPortableMdcAssetReferences(body, contract.collections.docs.componentPolicy)
+        const rewritten = await rewritePortableMdcAssetReferences(
+          body,
+          contract.collections.docs.componentPolicy,
+          reference => 'https://assets.example.test/' + reference.sha256 + '.png'
+        )
+        if (references.length !== 1 || !rewritten.includes('https://assets.example.test/') || !rewritten.includes(codeDelimiter + localPath + codeDelimiter)) {
+          throw new Error('Packed portability MDC asset contract failed')
+        }
         const directory = await runPortableDirectoryContract({
           firstDestination: join(parent, 'first'),
           secondDestination: join(parent, 'second'),

@@ -29,7 +29,15 @@ export {
   portableDocumentPath,
 } from './documents.js'
 export { collectPortableReferences, validatePortableReferences } from './references.js'
-export { assertPortableAssetReference, collectPortableAssetReferences, rewritePortableAssetReferences, validatePortableAssets } from './assets.js'
+export {
+  assertPortableAssetReference,
+  collectPortableAssetReferences,
+  collectPortableMdcAssetReferences,
+  rewritePortableAssetReferences,
+  rewritePortableMdcAssetReferences,
+  validatePortableAssets,
+  type PortableMdcAssetReferenceV1,
+} from './assets.js'
 export { parsePortableManifest, serializePortableManifest, assertPortableManifest, rebuildPortableManifest } from './manifest.js'
 export { normalizePortableModel, portableModelsSemanticallyEqual } from './semantic-equality.js'
 export { canonicalJsonBytes, hashCanonicalJson, sha256Hex, IncrementalSha256 } from '../cms-contract/hash.js'
