@@ -38,7 +38,8 @@ A tag may only be cut from the exact commit SHA whose CI release workflow,
 including `release-verify`, minimum-runtime, and Windows portability contracts,
 is green. The Windows packed Nuxt consumer remains a visible non-blocking
 canary while the Nuxt 4.4.7–4.4.8 drive-letter prerender issue documented in
-the README is open. Release metadata must be committed before that workflow runs. A local
+the 0.2-to-0.3 migration guide is open. Release metadata must be committed
+before that workflow runs. A local
 `pnpm run release:verify` is a useful pre-check, but it does not authorize a tag
 unless it ran from a clean tree at the exact tagged SHA and its environment and
 artifact evidence were retained durably. See `testing-harness-rfc.md` for the
