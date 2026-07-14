@@ -19,7 +19,9 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/provider`
 - `@lupinum/ginko-content/agent`
 - `@lupinum/ginko-content/cms-contract`
-- `@lupinum/ginko-content/cms-import`
+- `@lupinum/ginko-content/data-source`
+- `@lupinum/ginko-content/portability`
+- `@lupinum/ginko-content/portability/node`
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
@@ -40,7 +42,8 @@ Use the narrowest category that describes the intended audience:
 - `stable-provider-*`: provider author APIs, provider error helpers, cache hints, and cache adapters.
 - `stable-search-*`, `stable-site-data-*`, `stable-sitemap-*`, `stable-toc-*`: feature-specific public helpers and types.
 - `advanced-agent-*`: agent markdown paths, serializers, llms text generation, and agent site output. These are public extension points, not beginner content APIs.
-- `advanced-cms-*`: CMS contract/import surfaces. Keep CMS workflow logic outside core.
+- `advanced-cms-*`: CMS-neutral contract surfaces. Keep CMS workflow logic outside core.
+- `advanced-portability-*`: canonical portability codecs and the safe Node directory boundary.
 - `testing-only-*`: package-supported test fixtures and provider contract suites.
 - `transport-query-type`: serialized query/envelope shapes. Treat these as advanced unless a user-facing API explicitly needs them.
 - `*-compatibility`: retained compatibility surfaces. Do not teach them as the preferred path in beginner docs.

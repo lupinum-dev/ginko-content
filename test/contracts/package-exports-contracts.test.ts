@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { access, readdir, readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
@@ -249,7 +249,7 @@ describe('package export contracts', () => {
       'app-runtime',
       'advanced-agent-subpath',
       'advanced-cms-contract',
-      'advanced-cms-import',
+      'advanced-portability-node',
       'pure-provider-contract',
       'pure-portability-contract',
       'testing-only-provider-fixture',
@@ -494,11 +494,15 @@ describe('package export contracts', () => {
     expect(manifest.peerDependenciesMeta?.vitest?.optional).toBe(true)
   })
 
-  test('built CMS import export loads as Node ESM', async () => {
-    const cmsImport = await import('@lupinum/ginko-content/cms-import')
+  test('superseded CMS import mapping is absent from the package', async () => {
+    const publicSurface = await readPublicSurface()
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      exports: Record<string, unknown>
+    }
 
-    expect(cmsImport.parseCmsImportFile).toBeTypeOf('function')
-    expect(cmsImport.buildCmsImportGraph).toBeTypeOf('function')
+    expect(manifest.exports).not.toHaveProperty('./cms-import')
+    expect(publicSurface.packageExportSubpaths).not.toHaveProperty('./cms-import')
+    await expect(access('packages/content/dist/cms-import')).rejects.toThrow()
   })
 
   test('public export files keep Node ESM relative specifiers explicit', async () => {

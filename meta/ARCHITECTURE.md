@@ -178,7 +178,9 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/agent-paths`
 - `@lupinum/ginko-content/agent-registry`
 - `@lupinum/ginko-content/cms-contract`
-- `@lupinum/ginko-content/cms-import`
+- `@lupinum/ginko-content/data-source`
+- `@lupinum/ginko-content/portability`
+- `@lupinum/ginko-content/portability/node`
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`

@@ -6,7 +6,7 @@ The source layout is layered by **framework coupling** and **dependency directio
 
 ## Source tree (every top-level directory)
 
-`packages/content/src/` has fifteen top-level homes. Each row states what lives there and which other top-level homes it may import from.
+`packages/content/src/` has sixteen top-level homes. Each row states what lives there and which other top-level homes it may import from.
 
 | Directory | What lives here | May import from |
 |---|---|---|
@@ -22,7 +22,8 @@ The source layout is layered by **framework coupling** and **dependency directio
 | `public/` | Export-facing facades for the `@lupinum/ginko-content/*` package subpaths (`client`, `server`, `provider`, `provider-query`, `provider-errors`). Provider types live here for external providers to implement. | `runtime`, `features`, `core`, `types` |
 | `config.ts` | Source of the `@lupinum/ginko-content/config` subpath: authoring/schema exports (`defineCollection`, `defineContentConfig`, field builders, `slugifyUrlSegment`). | `core`, `types` |
 | `cms-contract/` | The runtime-safe resolved content contract, canonical JSON/SHA-256, schema helpers, MDC, and path surface shared by portability and CMS. | `core`, `types` |
-| `cms-import/` | The CMS import surface. | `core`, `parsers`, `types` |
+| `portability/` | Pure portable documents, codecs, manifests, references, assets, and semantic equality. | `cms-contract` |
+| `portability-node/` | Safe bounded Node directory reads, writes, and verification. | `portability`, `cms-contract` |
 | `cli/` | The `doctor` CLI. | `core`, `parsers`, `types` |
 | `testing/` | The provider conformance suite and the default provider fixture (`testing/provider-fixture`, `testing/provider-contract`). | `core`, `features`, `public`, `runtime`, `types` |
 
@@ -43,7 +44,7 @@ The remaining edges are conventional (not machine-checked) but hold in the tree:
 - `runtime` sits at the top: it may import every internal layer and `public`.
 - `module` composes `core`, `features`, `parsers`, `utils`, and `types` at build time, plus one narrow `runtime` sitemap-source helper.
 - `public` composes `runtime`, `features`, `core`, `types` into export facades.
-- `cms-contract` → `core`, `types`; `cms-import` → `core`, `parsers`, `types`; `cli` → `core`, `parsers`, `types`; `config.ts` → `core`, `types`.
+- `cms-contract` → `core`, `types`; `portability` → `cms-contract`; `portability-node` → `portability`, `cms-contract`; `cli` → `core`, `parsers`, `types`; `config.ts` → `core`, `types`.
 - `testing` may reach `core`, `features`, `public`, `runtime`, `types` (it exercises the public seam).
 
 Disallowed, always:
@@ -116,7 +117,9 @@ Public package exports are the compatibility seam. Current subpaths:
 - `@lupinum/ginko-content/agent-paths`
 - `@lupinum/ginko-content/agent-registry`
 - `@lupinum/ginko-content/cms-contract`
-- `@lupinum/ginko-content/cms-import`
+- `@lupinum/ginko-content/data-source`
+- `@lupinum/ginko-content/portability`
+- `@lupinum/ginko-content/portability/node`
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`

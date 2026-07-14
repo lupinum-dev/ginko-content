@@ -81,11 +81,6 @@
       "import": "./dist/cms-contract/index.js",
       "default": "./dist/cms-contract/index.js"
     },
-    "./cms-import": {
-      "types": "./dist/cms-import/index.d.ts",
-      "import": "./dist/cms-import/index.js",
-      "default": "./dist/cms-import/index.js"
-    },
     "./portability": {
       "types": "./dist/portability/index.d.ts",
       "import": "./dist/portability/index.js",

@@ -45,7 +45,6 @@ const nodeImportableSubpaths = [
   '@lupinum/ginko-content/portability/node',
   '@lupinum/ginko-content/transformers',
   '@lupinum/ginko-content/cms-contract',
-  '@lupinum/ginko-content/cms-import',
   '@lupinum/ginko-content/testing/provider-fixture',
   '@lupinum/ginko-content/testing/provider-contract',
   '@lupinum/ginko-content/testing/data-source-contract',
@@ -70,7 +69,6 @@ const expectedDeclarations = [
   'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
   'dist/cms-contract/index.d.ts',
-  'dist/cms-import/index.d.ts',
   'dist/testing/provider-fixture.d.ts',
   'dist/testing/provider-contract.d.ts',
   'dist/testing/data-source-contract.d.ts',
@@ -375,6 +373,13 @@ The packed package rendered this page.
       for (const subpath of subpaths) {
         console.log(\`Importing \${subpath}\`)
         await import(subpath)
+      }
+
+      try {
+        await import('@lupinum/ginko-content/cms-import')
+        throw new Error('Superseded CMS import subpath unexpectedly resolved')
+      } catch (error) {
+        if (error?.code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw error
       }
 
       const { mkdtemp, readFile, rm } = await import('node:fs/promises')
