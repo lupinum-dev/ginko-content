@@ -578,7 +578,7 @@ describe('module contracts', () => {
     )
   })
 
-  test('inlines comark runtime dependencies into Nitro', async () => {
+  test('inlines the complete package implementation and runtime dependencies into Nitro', async () => {
     const { nuxt, hooks } = createNuxt()
 
     const mod = await import('../../packages/content/src/module')
@@ -588,7 +588,7 @@ describe('module contracts', () => {
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.externals?.inline).toEqual(expect.arrayContaining([
-      expect.stringContaining('runtime'),
+      '/resolved/.',
       'comark',
       '@comark/vue'
     ]))

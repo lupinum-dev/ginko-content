@@ -18,8 +18,7 @@ function createNuxt() {
       rootDir: '/workspace/app',
       srcDir: '/workspace/app',
       buildDir: '/workspace/.nuxt',
-      ignore: [] as string[],
-      nitro: { storage: {} as Record<string, { driver?: string, base?: string }> }
+      ignore: [] as string[]
     },
     hook(name: string, fn: (...arguments_: any[]) => any) {
       hooks.set(name, fn)
@@ -28,11 +27,7 @@ function createNuxt() {
   return { nuxt, hooks }
 }
 
-function createHarness(
-  prerenderOverrides: Record<string, any> = {},
-  provider = 'filesystem',
-  platform: NodeJS.Platform = process.platform
-) {
+function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 'filesystem') {
   const { nuxt, hooks } = createNuxt()
   const logger = { warn: vi.fn() }
 
@@ -48,8 +43,7 @@ function createHarness(
     resolveModuleFile: (path: string) => `/resolved/module/${path}`,
     getResolvedContentContext: () => ({ sitemap: false, provider }) as any,
     getSearchRuntime: () => false,
-    logger,
-    platform
+    logger
   })
 
   const nitroConfig: Record<string, any> = {
@@ -89,36 +83,6 @@ describe('nitro-config crawlLinks handling', () => {
 
     expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
     expect(nitroConfig.prerender.crawlLinks).toBe(true)
-  })
-
-  test('replaces Nuxt\'s file URL driver in the final prerenderer config on Windows', () => {
-    const { hooks } = createHarness({}, 'filesystem', 'win32')
-    let configurePrerenderer: ((config: Record<string, any>) => void) | undefined
-    hooks.get('nitro:init')?.({
-      hooks: {
-        hook(name: string, callback: (config: Record<string, any>) => void) {
-          if (name === 'prerender:config') configurePrerenderer = callback
-        }
-      }
-    })
-    const config = {
-      storage: {
-        'internal:nuxt:prerender': {
-          driver: 'file:///C:/app/node_modules/@nuxt/nitro-server/cache-driver.js',
-          base: 'C:/app/.nuxt/cache/nitro/prerender'
-        }
-      }
-    }
-
-    configurePrerenderer?.(config)
-
-    expect(config.storage['internal:nuxt:prerender']).toEqual({ driver: 'memory' })
-  })
-
-  test('does not register a prerender cache override outside Windows', () => {
-    const { hooks } = createHarness({}, 'filesystem', 'linux')
-
-    expect(hooks.has('nitro:init')).toBe(false)
   })
 
 })

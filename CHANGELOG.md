@@ -48,10 +48,10 @@ required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
 - Add real static-generation manifests, generated-link integrity, broader
   hydration checks, exact-tarball pnpm/npm consumers, and scheduled dependency
   compatibility canaries.
-- Work around the Windows production-build failure present in Nuxt
-  4.4.3-4.4.8 with Nitropack 2.13.4 by replacing Nuxt's broken file-URL
-  prerender cache mount with Nitro's built-in memory driver. Other platforms
-  and storage mounts are unchanged.
+- Fix packed Nuxt production builds on Windows and hash-addressed `file:`
+  installs by inlining Ginko Content's complete server implementation into
+  Nitro instead of leaving package-internal files as absolute filesystem
+  imports.
 
 ### Migrating from 0.2.1
 

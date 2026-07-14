@@ -12,7 +12,6 @@ import type { createSearchRuntimeConfig } from './options'
 import { resolveNuxtSitemapPrerenderRoutes } from './options'
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
-const NUXT_PRERENDER_STORAGE = 'internal:nuxt:prerender'
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -40,7 +39,6 @@ interface ContentNitroConfigOptions {
   getResolvedContentContext: () => ResolvedContentContext
   getSearchRuntime: () => SearchRuntime
   logger: ContentNitroConfigLogger
-  platform?: NodeJS.Platform
 }
 
 export const registerContentNitroConfig = ({
@@ -55,26 +53,8 @@ export const registerContentNitroConfig = ({
   resolveModuleFile,
   getResolvedContentContext,
   getSearchRuntime,
-  logger,
-  platform = process.platform
+  logger
 }: ContentNitroConfigOptions) => {
-  // Nuxt 4.4.3-4.4.8 defaults this derived cache to a file: driver on Windows.
-  // Nitropack 2.13.4 externalizes that virtual import as a raw drive path, which
-  // Node rejects. Replace only that driver on the final config passed to the
-  // prerender Nitro instance; earlier Nuxt/Nitro config objects are normalized
-  // before this point and do not reliably control the generated import.
-  if (platform === 'win32') {
-    hookNuxtBoundary(nuxt, 'nitro:init', (nitro: {
-      hooks: { hook: (name: string, callback: (config: Record<string, any>) => void) => void }
-    }) => {
-      nitro.hooks.hook('prerender:config', (config) => {
-        const mount = config.storage?.[NUXT_PRERENDER_STORAGE]
-        if (typeof mount?.driver !== 'string' || !mount.driver.startsWith('file:')) return
-        config.storage[NUXT_PRERENDER_STORAGE] = { driver: 'memory' }
-      })
-    })
-  }
-
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()
     nitroConfig.prerender = nitroConfig.prerender || {}
@@ -137,7 +117,7 @@ export const registerContentNitroConfig = ({
 
     nitroConfig.externals = defu(typeof nitroConfig.externals === 'object' ? nitroConfig.externals : {}, {
       inline: [
-        resolveModuleFile('./runtime'),
+        resolveModuleFile('.'),
         ...runtimeInlineDependencies
       ]
     })
