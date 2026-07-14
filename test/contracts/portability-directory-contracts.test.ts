@@ -1,4 +1,4 @@
-import { link, mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import { link, mkdtemp, mkdir, readdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -57,6 +57,60 @@ describe('Node portable directory contract', () => {
     await rebuildPortableDirectoryManifest(first)
     expect(await readFile(join(first, '.ginko/portable.json'))).toEqual(firstManifest)
     await expect(verifyPortableDirectory(first)).resolves.toMatchObject({ manifest: { format: 'ginko-content-portable' } })
+  })
+
+  it('writes documents and asset bytes lazily from bounded async iterables', async () => {
+    const parent = await temporary('streaming')
+    const destination = join(parent, 'bundle')
+    const bundle = await fixtureBundle()
+    const assetContent = PORTABILITY_CONTRACT_FIXTURES.png.bytes
+    const assetSha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const titleField = bundle.contract.collections.docs!.fields[0]!
+    bundle.contract.collections.docs!.fields.push({
+      ...titleField,
+      key: 'hero',
+      type: 'image',
+      role: null,
+      required: false,
+      media: { mediaTypes: ['image/png'], aspectRatio: null },
+    })
+    bundle.documents[0]!.localized.hero = {
+      kind: 'local',
+      path: `/ginko-assets/${assetSha256}.png`,
+      sha256: assetSha256,
+      bytes: assetContent.byteLength,
+      mediaType: 'image/png',
+      originalFilename: 'hero.png',
+    }
+    let documentFinished = false
+    const documents = async function* () {
+      yield bundle.documents[0]!
+      const staging = (await readdir(parent)).find(name => name.startsWith('.bundle.ginko-staging-'))
+      expect(staging).toBeTruthy()
+      await expect(readFile(join(parent, staging!, 'content/docs/docs.introduction/en.md'))).resolves.toBeInstanceOf(Buffer)
+      documentFinished = true
+    }
+    const assets = async function* () {
+      expect(documentFinished).toBe(true)
+      yield {
+        sha256: assetSha256,
+        file: `public/ginko-assets/${assetSha256}.png`,
+        bytes: assetContent.byteLength,
+        mediaType: 'image/png' as const,
+        content: (async function* () {
+          yield assetContent.subarray(0, 16)
+          yield assetContent.subarray(16)
+        })(),
+      }
+    }
+
+    await writePortableDirectory(destination, { contract: bundle.contract, documents: documents(), assets: assets() })
+
+    const read = await verifyPortableDirectory(destination)
+    expect(read.documents).toHaveLength(1)
+    expect(read.assets).toEqual([
+      expect.objectContaining({ sha256: assetSha256, bytes: assetContent.byteLength }),
+    ])
   })
 
   it('never overwrites an existing destination', async () => {

@@ -1,4 +1,5 @@
-import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { lstat, mkdir, mkdtemp, open, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
@@ -11,8 +12,12 @@ import { validatePortableRelativePath } from './safe-path.js'
 
 export interface WritePortableDirectoryInput {
   contract: ResolvedContentContractV1
-  documents: PortableDocumentV1[]
-  assets: Array<PortableAssetBlobV1 & { content: Uint8Array }>
+  documents: Iterable<PortableDocumentV1> | AsyncIterable<PortableDocumentV1>
+  assets: Iterable<PortableAssetWriteInput> | AsyncIterable<PortableAssetWriteInput>
+}
+
+export type PortableAssetWriteInput = PortableAssetBlobV1 & {
+  content: Uint8Array | AsyncIterable<Uint8Array>
 }
 
 export async function writePortableDirectory(destination: string, input: WritePortableDirectoryInput): Promise<void> {
@@ -25,11 +30,11 @@ export async function writePortableDirectory(destination: string, input: WritePo
     const contractBytes = new Uint8Array(contract.length + 1)
     contractBytes.set(contract); contractBytes[contractBytes.length - 1] = 10
     await write(staging, '.ginko/content-contract.json', contractBytes)
-    for (const document of input.documents) {
+    for await (const document of input.documents) {
       const file = portableDocumentPath(document, input.contract)
       await write(staging, file, new TextEncoder().encode(await serializePortableDocument(document, input.contract)))
     }
-    for (const asset of input.assets) await write(staging, asset.file, asset.content)
+    for await (const asset of input.assets) await writeAsset(staging, asset)
     await rebuildPortableDirectoryManifest(staging)
     await verifyPortableDirectory(staging)
     if (await exists(destination)) throw destinationExists()
@@ -40,6 +45,44 @@ export async function writePortableDirectory(destination: string, input: WritePo
     throw portabilityError('PATH_INVALID', 'directory.write', 'Portable directory could not be written safely.')
   } finally {
     if (!completed) await rm(staging, { recursive: true, force: true, maxRetries: 3 })
+  }
+}
+
+async function writeAsset(root: string, asset: PortableAssetWriteInput): Promise<void> {
+  validatePortableRelativePath(asset.file)
+  if (!Number.isSafeInteger(asset.bytes) || asset.bytes < 0 || asset.bytes > 25 * 1024 * 1024) {
+    throw portabilityError('LIMIT_EXCEEDED', 'directory.write', 'Portable asset exceeds its byte limit.')
+  }
+  const path = join(root, ...asset.file.split('/'))
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 })
+  const handle = await open(path, 'wx', 0o600)
+  const hash = createHash('sha256')
+  let bytes = 0
+  try {
+    const chunks = asset.content instanceof Uint8Array ? [asset.content] : asset.content
+    for await (const chunk of chunks) {
+      if (!(chunk instanceof Uint8Array)) {
+        throw portabilityError('ASSET_INTEGRITY_FAILED', 'directory.write', 'Portable asset stream is invalid.')
+      }
+      bytes += chunk.byteLength
+      if (bytes > asset.bytes || bytes > 25 * 1024 * 1024) {
+        throw portabilityError('ASSET_INTEGRITY_FAILED', 'directory.write', 'Portable asset stream exceeds its declared length.')
+      }
+      hash.update(chunk)
+      let offset = 0
+      while (offset < chunk.byteLength) {
+        const result = await handle.write(chunk, offset, chunk.byteLength - offset)
+        if (result.bytesWritten < 1) {
+          throw portabilityError('ASSET_INTEGRITY_FAILED', 'directory.write', 'Portable asset stream could not be written completely.')
+        }
+        offset += result.bytesWritten
+      }
+    }
+  } finally {
+    await handle.close()
+  }
+  if (bytes !== asset.bytes || hash.digest('hex') !== asset.sha256) {
+    throw portabilityError('ASSET_INTEGRITY_FAILED', 'directory.write', 'Portable asset stream does not match its declared identity.')
   }
 }
 
