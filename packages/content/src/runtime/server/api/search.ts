@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import { buildSearchIndex, searchRecords } from '../search'
+import { buildSearchIndex } from '../search'
+import { createMiniSearchIndex } from '../../shared/search'
 import { getContentProvider } from '../providers'
 import { createContentProviderError } from '../../../public/provider-errors'
 import type { ContentSearchResult } from '../../../types/search'
@@ -56,5 +57,5 @@ export default defineEventHandler(async (event) => {
     allLocales: !locale
   })
 
-  return searchRecords(records, term, locale, searchConfig.minisearch)
+  return createMiniSearchIndex(records, searchConfig.minisearch).search(term, { locale })
 })

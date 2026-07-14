@@ -333,6 +333,12 @@ export interface ModuleOptions {
    */
   search: false | ContentSearchOptions
   /**
+   * Build-owned authored-link validation behavior.
+   * `report` writes diagnostics without blocking; `error` also fails the build.
+   * @default 'report'
+   */
+  validation?: 'report' | 'error'
+  /**
    * Preview storage access configuration.
    *
    * Preview mode is disabled unless a token is configured and the incoming
@@ -490,11 +496,16 @@ export interface ContentContext extends ModuleOptions {
   providers: Record<string, string>
   transformers: Array<string>
   sitemap: false | ContentSitemapOptions
+  validation: 'report' | 'error'
   locales: string[]
   defaultLocale?: string
   localeFallback: Record<string, string[]>
   translatedSlugs: boolean
   strictTranslatedSlugs: boolean
+  /** Resolved Nuxt route facts used only by the build validator. */
+  validationAppRoutes?: Array<{ path: string, name?: string }>
+  /** Root-relative files from Nuxt's resolved public directories. */
+  validationPublicAssets?: string[]
   /**
    * The single immutable, per-collection locale policy resolved once at
    * setup (VNEXT.md §12.1, §22). Downstream route/navigation/search/sitemap/

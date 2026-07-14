@@ -1,9 +1,95 @@
-import { describe, expect, test } from 'vitest'
+import MiniSearch from 'minisearch'
+import { describe, expect, test, vi } from 'vitest'
 import { createSearchSections } from '../../packages/content/src/features/search/sections'
-import { searchRecords } from '../../packages/content/src/runtime/shared/search'
+import { createMiniSearchIndex } from '../../packages/content/src/runtime/shared/search'
+import { createSearchExcerpt } from '../../packages/content/src/features/search/snippet'
+
+const searchWithFreshIndex = (records: Parameters<typeof createMiniSearchIndex>[0], term: string, locale?: string, options?: Parameters<typeof createMiniSearchIndex>[1]) =>
+  createMiniSearchIndex(records, options).search(term, { locale })
 
 describe('search behavior', () => {
-  test('searchRecords returns ranked, locale-scoped result envelopes without indexing empty terms', () => {
+  test('the index shapes a contextual plain-text excerpt around the query', () => {
+    const records = [{
+      id: '/docs/search#lifecycle',
+      collection: 'docs',
+      path: '/docs/search',
+      title: 'Search lifecycle',
+      excerpt: 'Static fallback excerpt',
+      content: `${'introductory material '.repeat(20)}Restore the generated index once and reuse it for every query.${' trailing material'.repeat(20)}`,
+      headings: ['Lifecycle'],
+      anchor: 'lifecycle',
+      locale: 'en'
+    }]
+
+    const [result] = searchWithFreshIndex(records, 'generated index')
+
+    expect(result?.excerpt).toContain('generated index')
+    expect(result?.excerpt.length).toBeLessThanOrEqual(242)
+    expect(result?.excerpt).not.toContain('<mark>')
+  })
+
+  test('indexes keep replacement record arrays independent', () => {
+    const addAll = vi.spyOn(MiniSearch.prototype, 'addAll')
+    const first = [{
+      id: '/docs/first', collection: 'docs', path: '/docs/first', title: 'First', excerpt: '', content: 'cache lifecycle', headings: []
+    }]
+
+    const firstIndex = createMiniSearchIndex(first)
+    expect(firstIndex.search('lifecycle')).toHaveLength(1)
+    expect(firstIndex.search('lifecycle')).toHaveLength(1)
+    expect(createMiniSearchIndex([...first, {
+      id: '/docs/second', collection: 'docs', path: '/docs/second', title: 'Second', excerpt: '', content: 'cache lifecycle', headings: []
+    }]).search('lifecycle')).toHaveLength(2)
+    expect(addAll).toHaveBeenCalledTimes(2)
+    addAll.mockRestore()
+  })
+
+  test('a new index does not reuse stale records after a same-length update', () => {
+    const records = [{
+      id: '/docs/cache', collection: 'docs', path: '/docs/cache', title: 'Before', excerpt: '', content: 'alpha lifecycle', headings: []
+    }]
+
+    const before = createMiniSearchIndex(records)
+    expect(before.search('alpha')).toEqual([expect.objectContaining({ title: 'Before' })])
+    records[0] = {
+      id: '/docs/cache', collection: 'docs', path: '/docs/cache', title: 'After', excerpt: '', content: 'beta lifecycle', headings: []
+    }
+
+    const after = createMiniSearchIndex(records)
+    expect(after.search('alpha')).toEqual([])
+    expect(after.search('beta')).toEqual([expect.objectContaining({ title: 'After' })])
+  })
+
+  test('contextual excerpts preserve matches after length-changing Unicode folds', () => {
+    const records = [{
+      id: '/docs/unicode', collection: 'docs', path: '/docs/unicode', title: 'Unicode', excerpt: '',
+      content: `${'İ'.repeat(180)} TARGET ${'tail '.repeat(80)}`, headings: []
+    }]
+
+    expect(searchWithFreshIndex(records, 'target')[0]?.excerpt.toLocaleLowerCase()).toContain('target')
+  })
+
+  test('contextual excerpts retain matches inside tokens longer than the excerpt window', () => {
+    const records = [{
+      id: '/docs/token', collection: 'docs', path: '/docs/token', title: 'Long token', excerpt: '',
+      content: `${'x'.repeat(300)}needle${'y'.repeat(300)}`, headings: []
+    }]
+
+    expect(createSearchExcerpt(records[0]!.content, 'needle')).toContain('needle')
+  })
+
+  test('contextual excerpts remain bounded at both edges and with combining characters', () => {
+    const combiningMatch = 'Cafe\u0301'
+    const atStart = createSearchExcerpt(`${combiningMatch} ${'tail '.repeat(100)}`, combiningMatch)
+    const atEnd = createSearchExcerpt(`${'lead '.repeat(100)}${combiningMatch}`, combiningMatch)
+
+    expect(atStart).toContain(combiningMatch)
+    expect(atEnd).toContain(combiningMatch)
+    expect(atStart.length).toBeLessThanOrEqual(240)
+    expect(atEnd.length).toBeLessThanOrEqual(240)
+  })
+
+  test('the index returns ranked, locale-scoped result envelopes without indexing empty terms', () => {
     const records = [
       {
         id: '/docs/fallback#overview',
@@ -39,9 +125,9 @@ describe('search behavior', () => {
       }
     ]
 
-    expect(searchRecords(records, '   ')).toEqual([])
+    expect(searchWithFreshIndex(records, '   ')).toEqual([])
 
-    const allLocales = searchRecords(records, 'fallback')
+    const allLocales = searchWithFreshIndex(records, 'fallback')
     expect(allLocales).toEqual(expect.arrayContaining([
       expect.objectContaining({
         title: 'Fallback Lab',
@@ -59,7 +145,7 @@ describe('search behavior', () => {
       })
     ]))
 
-    expect(searchRecords(records, 'fallback', 'de')).toEqual([
+    expect(searchWithFreshIndex(records, 'fallback', 'de')).toEqual([
       expect.objectContaining({
         title: 'Fallback Labor',
         collection: 'docs',
@@ -69,7 +155,7 @@ describe('search behavior', () => {
     ])
   })
 
-  test('searchRecords accepts custom MiniSearch fields, boosts, and stored result fields', () => {
+  test('the index accepts custom MiniSearch fields, boosts, and stored result fields', () => {
     const records = [
       {
         id: '/docs/reference',
@@ -93,7 +179,7 @@ describe('search behavior', () => {
       }
     ]
 
-    expect(searchRecords(records, 'important', undefined, {
+    expect(searchWithFreshIndex(records, 'important', undefined, {
       fields: ['title', 'content', 'tags'],
       storeFields: ['tags'],
       boost: { tags: 10, title: 1, content: 1 },

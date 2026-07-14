@@ -124,6 +124,9 @@ export default defineNuxtConfig({
   },
   content: {
     componentPolicy,
+    search: {
+      engine: 'minisearch'
+    },
     markdown: {
       plugins: [
         ['highlight', {

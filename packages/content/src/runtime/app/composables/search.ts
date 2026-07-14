@@ -6,16 +6,18 @@ import type { ContentCollectionHandle } from '../../../types/config'
 import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
 import type { ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
-import { searchRecords } from '../../shared/search'
+import { createMiniSearchIndex } from '../../shared/search'
 import { createContentSearchNavigation } from '../../../features/search/navigation'
 import { resolveCollectionSearchSectionsData } from '../../../features/collections/resolve'
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { many, navigation as fetchNavigation } from './query-api'
 import { resolveActiveLocale } from './locale'
 import { getContentRuntime } from './runtime'
+import { createPagefindSearchClient } from '../pagefind-client'
 
 interface UseContentSearchResultsOptions {
   locale?: MaybeRefOrGetter<string | undefined>
+  limit?: MaybeRefOrGetter<number | undefined>
 }
 
 export interface UseContentSearchOptions extends UseContentSearchResultsOptions {
@@ -64,28 +66,6 @@ export interface UseContentSearchResult extends UseContentSearchResultsResult {
    * unless `options.collection` is set.
    */
   searchNavigation: ComputedRef<ContentNavigationItem[]>
-}
-
-interface PagefindSearchResultData {
-  url?: string
-  excerpt?: string
-  meta?: {
-    title?: string
-    locale?: string
-  }
-}
-
-interface PagefindSearchResult {
-  score: number
-  data(): Promise<PagefindSearchResultData>
-}
-
-interface PagefindSearchResponse {
-  results?: PagefindSearchResult[]
-}
-
-interface PagefindModule {
-  search(term: string): Promise<PagefindSearchResponse>
 }
 
 type ContentRuntimeConfig = {
@@ -382,7 +362,11 @@ const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string,
   const requestUrl = computed(() => locale.value ? `${indexURL}?locale=${encodeURIComponent(locale.value)}` : indexURL)
   const fetchData = useFetch<ContentSearchIndexRecord[]>(requestUrl)
   const { data, pending, error } = await fetchData
-  const results = computed(() => searchRecords(data.value || [], toValue(search), locale.value, minisearch))
+  const index = computed(() => createMiniSearchIndex(data.value || [], minisearch))
+  const results = computed(() => index.value.search(toValue(search), {
+    locale: locale.value,
+    limit: toValue(options.limit)
+  }))
 
   return {
     results,
@@ -424,14 +408,6 @@ const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: s
   }
 }
 
-const loadPagefindModule = (pagefindUrl: string): Promise<PagefindModule> =>
-  import(/* @vite-ignore */ pagefindUrl) as Promise<PagefindModule>
-
-const deriveLocale = (path: string, locales: string[] = []) => {
-  const segments = path.split('/').filter(Boolean)
-  return segments[0] && locales.includes(segments[0]) ? segments[0] : undefined
-}
-
 const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string, options: UseContentSearchResultsOptions): UseContentSearchResultsResult => {
   const runtimeConfig = useRuntimeConfig()
   const contentConfig = resolveContentConfig(runtimeConfig)
@@ -439,6 +415,9 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
   const results = ref<ContentSearchResult[]>([])
   const pending = ref(false)
   const error = shallowRef<unknown>(null)
+  const client = createPagefindSearchClient({
+    manifestUrl: pagefindUrl.replace(/pagefind\.js(?:\?.*)?$/, 'ginko-locales.json')
+  })
 
   if (contentConfig?.search === false) {
     return {
@@ -466,26 +445,13 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
     error.value = null
 
     try {
-      const pagefind = await loadPagefindModule(pagefindUrl)
-      const response = await pagefind.search(term)
-      const normalized = await Promise.all((response?.results || []).map(async (result) => {
-        const data = await result.data()
-        const meta = data?.meta as { collection?: unknown, title?: unknown, locale?: unknown } | undefined
-        const [path = '', anchor] = String(data?.url || '').split('#')
-
-        return {
-          path,
-          collection: typeof meta?.collection === 'string' ? meta.collection : '',
-          title: typeof meta?.title === 'string' ? meta.title : path,
-          excerpt: data?.excerpt || '',
-          score: result.score,
-          anchor: anchor || undefined,
-          locale: typeof meta?.locale === 'string' ? meta.locale : deriveLocale(path, contentConfig?.locales || [])
-        } satisfies ContentSearchResult
-      }))
+      const normalized = await client.search(term, {
+        locale: locale.value,
+        limit: toValue(options.limit)
+      })
 
       if (!cancelled) {
-        results.value = locale.value ? normalized.filter(result => result.locale === locale.value) : normalized
+        results.value = normalized
       }
     } catch (err) {
       if (!cancelled) {

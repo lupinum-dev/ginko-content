@@ -51,8 +51,7 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
 }))
 
 vi.mock('../../packages/content/src/runtime/server/search', () => ({
-  buildSearchIndex: vi.fn(async () => []),
-  searchRecords: vi.fn(() => [])
+  buildSearchIndex: vi.fn(async () => [])
 }))
 
 describe('runtime auxiliary API provider boundaries', () => {

@@ -49,7 +49,10 @@ import { normalizeRouteMounts } from '../../core/content/path'
 import { countSitemapRoutes, resolveSitemapCollections } from '../../features/sitemap/counts'
 import { chunksFromArray, loadContentVariants } from '../../storage/contents'
 import { getContentRuntimeConfig } from './runtime-config'
-import { cacheStorage, contentConfig, getSourceContentIds } from './storage'
+import { cacheStorage, contentConfig, getSourceContentIds, sourceStorage } from './storage'
+import { validateContentLinks } from '../../features/validation/links'
+import { CONTENT_VALIDATION_REPORT_VERSION, type ContentValidationReport } from '../../features/validation/report'
+import { dirname, normalize, join } from 'pathe'
 
 export { computeSitemapCollectionCounts } from '../../features/sitemap/counts'
 
@@ -58,6 +61,7 @@ export interface ContentBuildResult {
   graph: ContentGraph
   routes: readonly ContentRouteRecord[]
   navigation: readonly { collection: string, locale?: string, items: readonly NavItem[] }[]
+  validation: ContentValidationReport
   counts: {
     documents: number
     routesByCollection: Readonly<Record<string, number>>
@@ -331,6 +335,31 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   // Step 11: derive navigation for the active build consumers.
   const navigation = deriveNavigation(documents, contentContext as ResolvedContentContext)
 
+  const publicAssets = new Set(contentContext.validationPublicAssets || [])
+  const findings = await validateContentLinks(documents, {
+    routes,
+    graph,
+    defaultLocale: contentContext.defaultLocale,
+    links: contentContext.links,
+    appRoutes: contentContext.validationAppRoutes,
+    assetExists: async (document, authoredPath) => {
+      const assetPath = authoredPath.split(/[?#]/, 1)[0] || ''
+      if (assetPath.startsWith('/')) return publicAssets.has(assetPath)
+      const source = document.file?.source
+      const sourceFile = document.file?.path
+      if (!source || !sourceFile) return false
+      const relativePath = normalize(join(dirname(sourceFile), assetPath))
+      if (relativePath === '..' || relativePath.startsWith('../')) return false
+      return await sourceStorage(event).hasItem(`${source}:${relativePath}`)
+    }
+  })
+  const validation: ContentValidationReport = {
+    version: CONTENT_VALIDATION_REPORT_VERSION,
+    generatedAt: now,
+    integrity: contentContext.cacheIntegrity,
+    findings
+  }
+
   // Step 12: construct and validate the snapshot — still in memory, nothing
   // durable yet. When reusing an already-published snapshot (see above),
   // it already passed this exact purity/completeness gate the one time it
@@ -351,6 +380,7 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
     graph,
     routes,
     navigation,
+    validation,
     counts: {
       documents: documents.length,
       routesByCollection,
@@ -362,4 +392,8 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
 /** The one durable publication: called only after `buildContentResult` returns successfully. */
 export const publishContentSnapshot = async (event: H3Event, result: ContentBuildResult): Promise<void> => {
   await cacheStorage(event).setItem('snapshot.json', result.snapshot)
+}
+
+export const publishContentValidationReport = async (event: H3Event, report: ContentValidationReport): Promise<void> => {
+  await cacheStorage(event).setItem('validation.json', report)
 }

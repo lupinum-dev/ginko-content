@@ -1,11 +1,12 @@
 import { defineEventHandler, setHeader, type H3Event } from 'h3'
-import { buildContentResult, publishContentSnapshot } from '../../../integrations/nitro/build'
+import { buildContentResult, publishContentSnapshot, publishContentValidationReport } from '../../../integrations/nitro/build'
 import { usesProcessSnapshot } from '../../../storage/snapshot-runtime'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { resolveIncludeDrafts } from '../../../core/visibility'
 import { getContentProvider } from '../providers'
 import { normalizeProviderRoutes, projectProviderRouteFact } from '../provider-route-facts'
 import { getContentRuntimeConfig } from '../runtime-config'
+import { ContentError } from '../../../core/errors'
 
 interface ContentRouteSeed {
   generatedAt: number
@@ -104,6 +105,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const result = await buildContentResult(event)
+  await publishContentValidationReport(event, result.validation)
+  const validationErrors = result.validation.findings.filter(finding => finding.severity === 'error')
+  if (runtime.validation === 'error' && validationErrors.length) {
+    throw new ContentError(
+      'VALIDATION_FAILED',
+      `[content] authored content validation failed with ${validationErrors.length} error(s). Run \`ginko-content validate\` for details.`,
+      { findings: validationErrors }
+    )
+  }
   // A genuinely compiled production main instance (`usesProcessSnapshot`) has
   // no live `content:source` mount to re-derive from at all, so
   // `buildContentResult` reuses the already-published snapshot as-is there
