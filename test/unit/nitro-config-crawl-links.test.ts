@@ -1,7 +1,3 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { describe, expect, test, vi } from 'vitest'
 import { registerContentNitroConfig } from '../../packages/content/src/module/nitro-config'
 
@@ -31,11 +27,7 @@ function createNuxt() {
   return { nuxt, hooks }
 }
 
-function createHarness(
-  prerenderOverrides: Record<string, any> = {},
-  provider = 'filesystem',
-  platform: NodeJS.Platform = process.platform
-) {
+function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 'filesystem') {
   const { nuxt, hooks } = createNuxt()
   const logger = { warn: vi.fn() }
 
@@ -51,8 +43,7 @@ function createHarness(
     resolveModuleFile: (path: string) => `/resolved/module/${path}`,
     getResolvedContentContext: () => ({ sitemap: false, provider }) as any,
     getSearchRuntime: () => false,
-    logger,
-    platform
+    logger
   })
 
   const nitroConfig: Record<string, any> = {
@@ -92,31 +83,6 @@ describe('nitro-config crawlLinks handling', () => {
 
     expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
     expect(nitroConfig.prerender.crawlLinks).toBe(true)
-  })
-
-  test('bundles Nuxt\'s Windows file URL cache driver through a virtual module', () => {
-    const { nitroConfig } = createHarness({}, 'filesystem', 'win32')
-    const plugin = nitroConfig.rollupConfig.plugins.find(
-      (item: { name?: string }) => item.name === 'ginko:nuxt-windows-cache-driver'
-    )
-    const root = mkdtempSync(join(tmpdir(), 'ginko-cache-driver-'))
-    const driver = join(root, 'node_modules/@nuxt/nitro-server/dist/runtime/utils/cache-driver.js')
-    mkdirSync(join(driver, '..'), { recursive: true })
-    writeFileSync(driver, 'export default "cache driver"')
-
-    try {
-      const id = plugin.resolveId(pathToFileURL(driver).href)
-      expect(id).toMatch(/^\0ginko:nuxt-windows-cache-driver:/)
-      expect(plugin.load(id)).toBe('export default "cache driver"')
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
-  })
-
-  test('does not install the Nuxt cache-driver resolver outside Windows', () => {
-    const { nitroConfig } = createHarness({}, 'filesystem', 'linux')
-
-    expect(nitroConfig.rollupConfig).toBeUndefined()
   })
 
 })
