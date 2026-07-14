@@ -20,9 +20,9 @@ const NAME = 'Ginko Content release compatibility'
 
 // Cross-repo release-stack pins (manifests not present in this repo).
 const RELEASE_STACK_PINS = {
-  '@lupinum/ginko-cms': '0.1.3',
-  '@lupinum/ginko-cms-convex': '0.1.2',
-  '@lupinum/ginko-cms-contract': '0.1.1',
+  '@lupinum/ginko-cms': '0.2.0-rc.1',
+  '@lupinum/ginko-cms-convex': '0.2.0-rc.1',
+  '@lupinum/ginko-cms-contract': '0.2.0-rc.1',
 }
 
 // The pinned-tools map: dependency name -> allowed version ranges across the
