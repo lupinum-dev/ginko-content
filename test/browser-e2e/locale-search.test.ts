@@ -7,6 +7,7 @@ import { describe, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from 'playwright-core'
 import { startFixtureServer } from '../helpers/fixture-server'
 import { buildRouteManifest, navigableRoutesFromManifest } from '../helpers/route-manifest'
+import { isExpectedNuxtPayloadCancellation } from '../helpers/browser-failures'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureDir = resolve(rootDir, 'playground/ginko-i18n')
@@ -57,8 +58,9 @@ function captureBrowserFailures (page: Page, baseURL: string) {
     }
   })
   page.on('requestfailed', (request) => {
-    if (isSameOrigin(request.url())) {
-      failures.push(`request failed: ${request.failure()?.errorText || 'unknown'} ${request.url()}`)
+    const errorText = request.failure()?.errorText
+    if (isSameOrigin(request.url()) && !isExpectedNuxtPayloadCancellation(request.url(), errorText, baseURL)) {
+      failures.push(`request failed: ${errorText || 'unknown'} ${request.url()}`)
     }
   })
   page.on('response', (response) => {
