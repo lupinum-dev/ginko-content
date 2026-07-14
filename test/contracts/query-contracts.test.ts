@@ -161,7 +161,7 @@ describe('query execution contracts', () => {
       }
       ],
       skip: 0,
-      limit: 0,
+      limit: 100,
       total: 5
     })
 
@@ -537,7 +537,7 @@ describe('query execution contracts', () => {
         { title: 'Intro', path: '/guide/intro' }
       ],
       skip: 0,
-      limit: 0,
+      limit: 100,
       total: 2
     })
   })

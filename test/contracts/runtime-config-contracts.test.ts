@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { applyContentRuntimeConfig } from '../../packages/content/src/module/runtime-config'
 import { contentModuleDefaults } from '../../packages/content/src/module/defaults'
+import { createPortabilityContractFixture } from '../../packages/content/src/testing/portability-contract'
 
 const createOptions = () => ({
   api: { baseURL: '/api/_content' },
@@ -29,7 +30,8 @@ const createContentContext = () => ({
   },
   search: false,
   navigation: { fields: [] },
-  collections: {}
+  collections: {},
+  contract: createPortabilityContractFixture()
 })
 
 const createNuxt = (site?: { url?: string }, siteUrl?: string) => ({
