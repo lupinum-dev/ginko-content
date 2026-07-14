@@ -106,6 +106,13 @@ dependencies of `@lupinum/ginko-content`. Apps that use Nuxt locale routing
 still install `@nuxtjs/i18n`; apps that publish sitemap XML still install
 `@nuxtjs/sitemap`.
 
+## Known Windows Build Limitation
+
+With Nuxt 4.4.7–4.4.8, a production build can fail during Nitro prerendering on
+Windows because Nuxt's cache-driver file URL is emitted as a raw drive-letter
+import. This is a build-host limitation; use Linux or macOS for production
+builds until the upstream Nuxt/Nitro path handling is corrected.
+
 ## Scope
 
 Ginko Content is the content engine and default filesystem provider. It is not

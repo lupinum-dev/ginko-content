@@ -8,7 +8,7 @@ content API.
 - [ ] Commit all release metadata before the authoritative CI gate.
 - [ ] Push `main` and record the exact release commit SHA.
 - [ ] Confirm the CI workflow is green for that SHA on Node 24 and the focused Node 22 minimum-runtime job.
-- [ ] Confirm the Windows lane passed portable-directory contracts and built an exact-tarball pnpm consumer.
+- [ ] Confirm the Windows lane passed portable-directory contracts. Inspect the non-blocking packed-consumer canary and confirm any failure is only the documented Nuxt 4.4.7–4.4.8 drive-letter prerender issue.
 - [ ] Confirm the release job ran `verify` once, browser e2e, real static generation, production audit, two byte-identical release packs, and pnpm/npm consumers against the retained verified tarball.
 - [ ] Confirm the pnpm consumer covered public subpaths, declarations, fresh app build/start, the installed CLI help and build-owned validation report, generated Pagefind entry/locale-manifest artifacts, sitemap XML, and agent markdown outputs.
 - [ ] Confirm the npm consumer prepared, typechecked, built, exercised CLI validation, and checked Pagefind artifacts from the same tarball.

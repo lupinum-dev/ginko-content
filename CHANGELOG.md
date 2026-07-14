@@ -48,10 +48,13 @@ required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
 - Add real static-generation manifests, generated-link integrity, broader
   hydration checks, exact-tarball pnpm/npm consumers, and scheduled dependency
   compatibility canaries.
-- Fix packed Nuxt production builds on Windows and hash-addressed `file:`
-  installs by inlining Ginko Content's complete server implementation into
-  Nitro instead of leaving package-internal files as absolute filesystem
-  imports.
+- Fix hash-addressed `file:` installs by inlining Ginko Content's complete
+  server implementation into Nitro instead of leaving package-internal files
+  as absolute filesystem imports.
+- Known issue: Nuxt 4.4.7–4.4.8 production builds can fail during Nitro
+  prerendering on Windows when Nuxt's cache-driver file URL is externalized as
+  a raw drive-letter import. Build release artifacts on Linux or macOS until
+  the upstream Nuxt/Nitro path handling is corrected.
 
 ### Migrating from 0.2.1
 
