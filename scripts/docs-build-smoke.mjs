@@ -10,6 +10,14 @@ const accessibilityOffenders = []
 const generatedPages = []
 const hrefUndefinedPattern = /href="[^"]*undefined/g
 const pathUndefinedPattern = /\/undefined(?=["/?#])/g
+const outputExists = async output => {
+  try {
+    await readFile(join(root, output))
+    return true
+  } catch {
+    return false
+  }
+}
 
 const walk = async (dir) => {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -41,6 +49,85 @@ const walk = async (dir) => {
 }
 
 await walk(root)
+
+const requiredOutputs = [
+  'index.html',
+  'docs/why-ginko.html',
+  'docs/why-ginko/how-ginko-compares.html',
+  'docs/how-it-works.html',
+  'docs/get-started/installation.html',
+  'docs/guides/site-patterns/documentation-site.html',
+  'docs/reference/query-api.html',
+  'docs/migration/from-nuxt-content-v3.html',
+  'raw/docs/why-ginko.md',
+  'raw/docs/reference/query-api.md',
+  'llms.txt',
+  'llms-full.txt'
+]
+const retiredOutputs = [
+  'docs/getting-started.html',
+  'docs/essentials.html',
+  'docs/collections.html',
+  'docs/querying.html',
+  'docs/rendering.html',
+  'docs/i18n.html',
+  'docs/search.html',
+  'docs/api-reference.html',
+  'docs/cms-cache.html'
+]
+const missingOutputs = []
+const unexpectedRetiredOutputs = []
+
+for (const output of requiredOutputs) {
+  if (!await outputExists(output)) missingOutputs.push(output)
+}
+
+for (const output of retiredOutputs) {
+  if (await outputExists(output)) unexpectedRetiredOutputs.push(output)
+}
+
+if (missingOutputs.length > 0 || unexpectedRetiredOutputs.length > 0) {
+  console.error('docs-build-smoke: generated route tree does not match the documentation cutover')
+  for (const output of missingOutputs) console.error(`  missing ${output}`)
+  for (const output of unexpectedRetiredOutputs) console.error(`  retired route still exists: ${output}`)
+  process.exit(1)
+}
+
+const llms = await readFile(join(root, 'llms.txt'), 'utf8')
+const llmsFull = await readFile(join(root, 'llms-full.txt'), 'utf8')
+const whyGinkoMarkdown = await readFile(join(root, 'raw/docs/why-ginko.md'), 'utf8')
+const agentOutputProblems = []
+
+for (const expected of [
+  '[Why Ginko](https://ginko-content.nuxt.dev/raw/docs/why-ginko.md)',
+  '[Build a Documentation Site](https://ginko-content.nuxt.dev/raw/docs/guides/site-patterns/documentation-site.md)',
+  '[Query API](https://ginko-content.nuxt.dev/raw/docs/reference/query-api.md)',
+  '[From Nuxt Content v3](https://ginko-content.nuxt.dev/raw/docs/migration/from-nuxt-content-v3.md)'
+]) {
+  if (!llms.includes(expected)) agentOutputProblems.push(`llms.txt is missing ${expected}`)
+}
+
+for (const retiredUrl of [
+  '/raw/docs/getting-started.md',
+  '/raw/docs/essentials.md',
+  '/raw/docs/api-reference.md'
+]) {
+  if (llms.includes(retiredUrl)) agentOutputProblems.push(`llms.txt contains retired URL ${retiredUrl}`)
+}
+
+for (const heading of ['# Why Ginko', '# Query API', '# From Nuxt Content v3']) {
+  if (!llmsFull.includes(heading)) agentOutputProblems.push(`llms-full.txt is missing ${heading}`)
+}
+
+if (!whyGinkoMarkdown.includes('# Why Ginko') || !whyGinkoMarkdown.includes('## The product decision')) {
+  agentOutputProblems.push('raw Why Ginko Markdown is not the canonical page content')
+}
+
+if (agentOutputProblems.length > 0) {
+  console.error('docs-build-smoke: agent-readable documentation is incomplete')
+  for (const problem of agentOutputProblems) console.error(`  ${problem}`)
+  process.exit(1)
+}
 
 if (offenders.length > 0) {
   console.error('docs-build-smoke: generated docs contain undefined links')
