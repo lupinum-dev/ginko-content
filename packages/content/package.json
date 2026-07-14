@@ -51,6 +51,11 @@
       "import": "./dist/public/provider.js",
       "default": "./dist/public/provider.js"
     },
+    "./data-source": {
+      "types": "./dist/public/data-source.d.ts",
+      "import": "./dist/public/data-source.js",
+      "default": "./dist/public/data-source.js"
+    },
     "./client": {
       "types": "./dist/public/client.d.ts",
       "import": "./dist/public/client.js",
@@ -90,6 +95,11 @@
       "types": "./dist/testing/provider-contract.d.ts",
       "import": "./dist/testing/provider-contract.js",
       "default": "./dist/testing/provider-contract.js"
+    },
+    "./testing/data-source-contract": {
+      "types": "./dist/testing/data-source-contract.d.ts",
+      "import": "./dist/testing/data-source-contract.js",
+      "default": "./dist/testing/data-source-contract.js"
     },
     "./transformers": {
       "types": "./dist/runtime/transformers/define.d.ts",
