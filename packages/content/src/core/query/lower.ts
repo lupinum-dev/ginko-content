@@ -281,7 +281,11 @@ export const lowerQueryPlan = (params: ContentQueryBuilderParams): ContentQueryP
       without: params.without ? [...params.without] : []
     },
     skip: params.skip || 0,
-    limit: params.limit,
+    limit: params.count
+      ? undefined
+      : params.first
+        ? 1
+        : params.limit ?? paging?.limit ?? 100,
     mode: params.count ? 'count' : params.first ? 'first' : 'all',
     ...(paging ? { paging } : {}),
     resolveLocale: params.resolveLocale

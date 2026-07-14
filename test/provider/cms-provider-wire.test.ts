@@ -24,6 +24,9 @@ describe('CMS provider wire decoders', () => {
       entries: [entry], pageInfo: { hasNextPage: true, endCursor: 'opaque' },
       collection: 'docs', locale
     }).entries).toHaveLength(1)
+    expect(parseCmsRoutesWireResult({
+      routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot: 'generation-1'
+    }).snapshot).toBe('generation-1')
   })
 
   it('accepts only bounded structured asset facts with credential-free HTTPS URLs', () => {
@@ -59,8 +62,11 @@ describe('CMS provider wire decoders', () => {
     })).toThrow(/site-relative path/i)
     expect(() => parseCmsRoutesWireResult({
       routes: [{ collection: 'docs', stableId: 'x', locale: 'en', path: '/x', sitemapIncluded: true, lastmod: 'yesterday' }],
-      pageInfo: { hasNextPage: false, endCursor: null }
+      pageInfo: { hasNextPage: false, endCursor: null }, snapshot: 'generation-1'
     })).toThrow(/ISO date/i)
+    expect(() => parseCmsRoutesWireResult({
+      routes: [], pageInfo: { hasNextPage: false, endCursor: null }
+    })).toThrow(/snapshot/i)
     expect(() => parseCmsListWireResult({
       entries: [], pageInfo: { hasNextPage: true, endCursor: null }, collection: 'docs', locale
     })).toThrow(/cursor/i)

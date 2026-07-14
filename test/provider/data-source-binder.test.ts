@@ -19,6 +19,12 @@ const event = () => {
 }
 
 describe('bindContentProvider', () => {
+  it('lowers unbounded builder input to the fixed core query bounds', () => {
+    expect(toContentProviderQuery({ collection: 'docs' }).plan.limit).toBe(100)
+    expect(toContentProviderQuery({ collection: 'docs', first: true }).plan.limit).toBe(1)
+    expect(toContentProviderQuery({ collection: 'docs', count: true }).plan.limit).toBeUndefined()
+  })
+
   it('creates one immutable context per request and source under concurrency', async () => {
     const createContext = vi.fn(async () => Object.freeze({ requestId: 'one' }))
     const query = vi.fn(async (context) => ({
@@ -109,5 +115,96 @@ describe('bindContentProvider', () => {
     expect(error).toBeInstanceOf(Error)
     expect(JSON.stringify(error)).not.toContain('top-secret')
     expect(error).not.toHaveProperty('cause')
+  })
+
+  it('rejects oversized query, navigation, and search results', async () => {
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(async () => ({
+        data: { mode: 'cursor', result: [{}, {}, {}], limit: 2, pageInfo: { endCursor: null, hasNext: false } },
+        cache: false as const,
+      })),
+      navigation: vi.fn(async () => ({
+        data: Array.from({ length: 101 }, (_, index) => ({ title: String(index) })),
+        cache: false as const,
+      })),
+      search: vi.fn(async () => ({
+        data: Array.from({ length: 101 }, (_, index) => ({
+          title: String(index),
+          score: 1,
+          route: { collection: 'docs', canonicalKey: String(index), locale: 'en', contentPath: `/${index}` },
+        })),
+        cache: false as const,
+      })),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+
+    await expect(provider.query(event(), boundedQuery())).rejects.toMatchObject({ data: { code: 'RESULT_LIMIT_EXCEEDED' } })
+    await expect(provider.navigation!(event(), boundedQuery())).rejects.toMatchObject({ data: { code: 'RESULT_LIMIT_EXCEEDED' } })
+    await expect(provider.search!(event(), { term: 'x', collections: ['docs'] })).rejects.toMatchObject({ data: { code: 'RESULT_LIMIT_EXCEEDED' } })
+  })
+
+  it('validates site-data identity, JSON size, route progress, and cache credentials', async () => {
+    const base = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+    }
+    const siteData = bindContentProvider({
+      source: {
+        ...base,
+        siteData: vi.fn(async () => ({
+          data: { key: 'announcement', locale: 'de', data: 'x'.repeat(256 * 1024), updatedAt: -1 },
+          cache: false as const,
+        })),
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+    await expect(siteData.siteData!(event(), { key: 'announcement', locale: 'en' })).rejects.toMatchObject({
+      data: { code: 'RESPONSE_INVALID' },
+    })
+
+    let routeCalls = 0
+    const routes = bindContentProvider({
+      source: {
+        ...base,
+        routes: vi.fn(async () => ({
+          data: {
+            items: [],
+            nextCursor: ++routeCalls < 3 ? 'same' : null,
+            snapshot: 'generation-1',
+          },
+          cache: false as const,
+        })),
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+    await expect(routes.routes!(event())).rejects.toMatchObject({ data: { code: 'CURSOR_INVALID' } })
+
+    const cache = bindContentProvider({
+      source: {
+        ...base,
+        query: vi.fn(async () => ({
+          data: { mode: 'cursor', result: [], limit: 2, pageInfo: { endCursor: null, hasNext: false } },
+          cache: {
+            tags: ['https://user:password@example.test/private'],
+            paths: [],
+            maxAge: null,
+            swr: null,
+            etag: null,
+            lastModified: null,
+          },
+        })),
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+    await expect(cache.query(event(), boundedQuery())).rejects.toMatchObject({ data: { code: 'CACHE_HINT_INVALID' } })
   })
 })

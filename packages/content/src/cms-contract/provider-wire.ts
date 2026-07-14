@@ -125,7 +125,8 @@ export const cmsRoutesWireResultSchema = z.object({
     collection: nonEmptyString, stableId: nonEmptyString, locale: nonEmptyString,
     path: sitePath, sitemapIncluded: z.boolean(), lastmod: isoDate
   }).strict()).max(1000),
-  pageInfo: pageInfoSchema
+  pageInfo: pageInfoSchema,
+  snapshot: nonEmptyString.max(256)
 }).strict()
 export const cmsSiteDataWireResultSchema = z.object({
   key: nonEmptyString, data: jsonValueSchema.nullable(), locale: localeResolutionSchema
