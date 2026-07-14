@@ -51,7 +51,8 @@ required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
 - Fix packed Nuxt production builds on Windows and hash-addressed `file:`
   installs by inlining Ginko Content's complete server implementation into
   Nitro instead of leaving package-internal files as absolute filesystem
-  imports.
+  imports, and by bundling Nuxt's Windows-only file-URL cache driver through a
+  narrowly scoped virtual module.
 
 ### Migrating from 0.2.1
 

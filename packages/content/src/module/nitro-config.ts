@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 import { join } from 'pathe'
@@ -12,6 +14,25 @@ import type { createSearchRuntimeConfig } from './options'
 import { resolveNuxtSitemapPrerenderRoutes } from './options'
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
+const WINDOWS_CACHE_DRIVER_ID = '\0ginko:nuxt-windows-cache-driver:entry'
+const WINDOWS_CACHE_DRIVER_SUFFIX = '/@nuxt/nitro-server/dist/runtime/utils/cache-driver.js'
+
+const createWindowsCacheDriverPlugin = () => {
+  let driverURL: string | undefined
+
+  return {
+    name: 'ginko:nuxt-windows-cache-driver',
+    resolveId(source: string) {
+      if (!source.startsWith('file:') || !source.endsWith(WINDOWS_CACHE_DRIVER_SUFFIX)) return null
+      driverURL = source
+      return WINDOWS_CACHE_DRIVER_ID
+    },
+    load(id: string) {
+      if (id !== WINDOWS_CACHE_DRIVER_ID || !driverURL) return null
+      return readFileSync(fileURLToPath(driverURL), 'utf8')
+    }
+  }
+}
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -39,6 +60,7 @@ interface ContentNitroConfigOptions {
   getResolvedContentContext: () => ResolvedContentContext
   getSearchRuntime: () => SearchRuntime
   logger: ContentNitroConfigLogger
+  platform?: NodeJS.Platform
 }
 
 export const registerContentNitroConfig = ({
@@ -53,7 +75,8 @@ export const registerContentNitroConfig = ({
   resolveModuleFile,
   getResolvedContentContext,
   getSearchRuntime,
-  logger
+  logger,
+  platform = process.platform
 }: ContentNitroConfigOptions) => {
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()
@@ -121,6 +144,11 @@ export const registerContentNitroConfig = ({
         ...runtimeInlineDependencies
       ]
     })
+    if (platform === 'win32') {
+      nitroConfig.rollupConfig ||= {}
+      nitroConfig.rollupConfig.plugins ||= []
+      nitroConfig.rollupConfig.plugins.unshift(createWindowsCacheDriverPlugin())
+    }
     if (searchRuntime !== false && searchRuntime.engine !== 'provider' && usesFilesystemProvider) {
       nitroConfig.routeRules = nitroConfig.routeRules || {}
       nitroConfig.routeRules[searchRuntime.indexURL] = {
