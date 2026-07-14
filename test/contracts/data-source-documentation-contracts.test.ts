@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest'
 
 const guidePath = 'packages/content/docs/DATA_SOURCE_ADAPTER_GUIDE.md'
 const examplePath = 'test/fixtures/typecheck/types/data-source-adapter.ts'
-const apiReferencePath = 'docs/content/docs/9.api-reference/7.data-source.md'
+const apiReferencePath = 'docs/content/docs/5.reference/11.package-exports.md'
 
 describe('data-source adapter documentation', () => {
   test('publishes one complete adapter-author guide', async () => {

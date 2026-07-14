@@ -54,7 +54,7 @@ Prefer adding or updating a contract test when the change touches public behavio
 ## Docs Locations
 
 - Main docs content: `docs/content/docs/`
-- Search docs: `docs/content/docs/search/`
+- Search docs: `docs/content/docs/4.guides/3.discovery/`
 - Sitemap docs: `docs/content/docs/sitemap/`
 - Package README: `packages/content/README.md`
 - Root orientation: `README.md`, `VISION.md`, `ABSTRACTIONS.md`, `ARCHITECTURE.md`

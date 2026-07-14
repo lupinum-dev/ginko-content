@@ -16,18 +16,49 @@ const Button = z.object({
 export const landing = defineCollection({
   type: 'page',
   source: 'index.md',
-  route: '/'
+  route: '/',
+  agent: {
+    section: 'overview',
+    markdown: true
+  }
 })
 
 export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
   route: '/docs',
+  agent: {
+    section: 'documentation',
+    markdown: true
+  },
   schema: z.object({
     links: z.array(Button).optional()
   }) as any
 })
 
 export default defineContentConfig({
-  collections: { landing, docs }
+  collections: { landing, docs },
+  agent: {
+    site: {
+      title: 'Ginko Content documentation',
+      description: 'Filesystem-first content for Nuxt sites that need coherent routes, types, localization, search, and SEO.',
+      url: 'https://ginko-content.nuxt.dev',
+      profile: 'https://ginko-content.nuxt.dev',
+      contentSignals: {
+        search: true,
+        aiInput: true,
+        aiTrain: true
+      }
+    },
+    sections: [
+      { id: 'overview', title: 'Overview', order: 0 },
+      { id: 'documentation', title: 'Documentation', order: 10 }
+    ],
+    markdown: {
+      metadata: {
+        enabled: true,
+        defaultFields: ['title', 'description', 'url', 'source']
+      }
+    }
+  }
 })

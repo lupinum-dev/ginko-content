@@ -73,7 +73,7 @@ describe('query operator parity ($nin makes drift impossible)', () => {
   })
 
   test('the documentation operator reference table lists $nin', () => {
-    const docsPath = resolve(__dirname, '../../docs/content/docs/4.querying/2.filters.md')
+    const docsPath = resolve(__dirname, '../../docs/content/docs/5.reference/9.query-operators.md')
     const source = readFileSync(docsPath, 'utf8')
     const operatorRows = [...source.matchAll(/\|\s*`(\$\w+)`\s*\|/g)].map(match => match[1])
 

@@ -53,7 +53,7 @@ describe('Content 0.3 candidate release contract', () => {
     const changelog = await readFile('CHANGELOG.md', 'utf8')
     const specification = await readFile('VNEXT-0.3-PORTABILITY.md', 'utf8')
     const migration = await readFile(
-      'docs/content/docs/8.migration/7.from-0-2-to-0-3.md',
+      'docs/content/docs/6.migration/4.ginko-version-upgrades.md',
       'utf8',
     )
 
