@@ -73,11 +73,14 @@ describe('Content 0.3 candidate release contract', () => {
 
   it('runs portability and an exact packed consumer on Windows', async () => {
     const workflow = await readFile('.github/workflows/ci.yml', 'utf8')
+    const releasePack = await readFile('scripts/release-pack.mjs', 'utf8')
 
     expect(workflow).toContain('windows-portability:')
     expect(workflow).toContain('runs-on: windows-latest')
     expect(workflow).toContain('test/contracts/portability-directory-contracts.test.ts')
     expect(workflow).toContain('pnpm release:pack')
     expect(workflow).toContain('scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack')
+    expect(releasePack).toContain("shell: process.platform === 'win32'")
+    expect(releasePack.match(/execFileSync\(/g)).toHaveLength(1)
   })
 })

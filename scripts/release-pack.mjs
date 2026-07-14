@@ -10,11 +10,13 @@ const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
 const packDir = resolve(repoRoot, '.pack')
 
-function run(command, args, cwd = repoRoot) {
-  execFileSync(command, args, {
+function run(command, args, cwd = repoRoot, stdio = 'inherit') {
+  return execFileSync(command, args, {
     cwd,
+    encoding: stdio === 'pipe' ? 'utf8' : undefined,
     env: { ...process.env, npm_config_verify_deps_before_run: 'false' },
-    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    stdio,
   })
 }
 
@@ -22,7 +24,7 @@ function assertNoWorkspaceRanges(tarball) {
   const offenders = []
   const tempDir = mkdtempSync(join(tmpdir(), 'ginko-content-release-pack-'))
   try {
-    execFileSync('tar', ['-xzf', tarball], { cwd: tempDir, stdio: 'pipe' })
+    run('tar', ['-xzf', tarball], tempDir, 'pipe')
     const manifestPath = resolve(tempDir, 'package/package.json')
     if (!existsSync(manifestPath)) {
       offenders.push(`${tarball}: missing package/package.json after extract`)
@@ -97,7 +99,7 @@ function assertReleaseTarball(tarball) {
   const tempDir = mkdtempSync(join(tmpdir(), 'ginko-content-release-inspect-'))
 
   try {
-    const entries = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
+    const entries = run('tar', ['-tzf', tarball], repoRoot, 'pipe')
       .split('\n')
       .filter(Boolean)
     const entrySet = new Set(entries)
@@ -118,7 +120,7 @@ function assertReleaseTarball(tarball) {
       throw new Error(`Release tarball includes forbidden files:\n${offenders.map(entry => `  - ${entry}`).join('\n')}`)
     }
 
-    execFileSync('tar', ['-xzf', tarball], { cwd: tempDir, stdio: 'pipe' })
+    run('tar', ['-xzf', tarball], tempDir, 'pipe')
     const manifestPath = resolve(tempDir, 'package/package.json')
     if (!existsSync(manifestPath)) {
       throw new Error(`Release tarball is missing package/package.json: ${tarball}`)
@@ -191,11 +193,12 @@ try {
   assertNoWorkspaceRanges(tarballPath)
   assertReleaseTarball(tarballPath)
 
-  const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
-  const worktreeDirty = execFileSync(
+  const commit = run('git', ['rev-parse', 'HEAD'], repoRoot, 'pipe').trim()
+  const worktreeDirty = run(
     'git',
     ['status', '--porcelain', '--untracked-files=normal'],
-    { cwd: repoRoot, encoding: 'utf8' }
+    repoRoot,
+    'pipe',
   ).trim().length > 0
   const metadata = {
     commit,
@@ -203,8 +206,8 @@ try {
     releaseEligible: !worktreeDirty,
     reproduciblePacks: 2,
     node: process.version,
-    npm: execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim(),
-    pnpm: execFileSync('pnpm', ['--version'], { encoding: 'utf8' }).trim(),
+    npm: run('npm', ['--version'], repoRoot, 'pipe').trim(),
+    pnpm: run('pnpm', ['--version'], repoRoot, 'pipe').trim(),
     tarball: first.filename,
     sha256: first.sha256
   }
