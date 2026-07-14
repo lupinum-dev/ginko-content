@@ -227,7 +227,7 @@ async function stopServer(child) {
 }
 
 async function main() {
-  const tempRoot = mkdtempSync(join(tmpdir(), 'ginko-packed-consumer-'))
+  const tempRoot = mkdtempSync(join(process.env.RUNNER_TEMP || tmpdir(), 'ginko-packed-consumer-'))
   let server
 
   try {

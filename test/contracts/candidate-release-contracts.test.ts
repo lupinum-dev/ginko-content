@@ -79,6 +79,9 @@ describe('Content 0.3 candidate release contract', () => {
       packedConsumer.indexOf('function run('),
       packedConsumer.indexOf('function runAndCapture('),
     )
+    const packedConsumerMain = packedConsumer.slice(
+      packedConsumer.indexOf('async function main()'),
+    )
 
     expect(workflow).toContain('windows-portability:')
     expect(workflow).toContain('runs-on: windows-latest')
@@ -89,5 +92,6 @@ describe('Content 0.3 candidate release contract', () => {
     expect(releasePack.match(/execFileSync\(/g)).toHaveLength(1)
     expect(packedConsumerRun).toContain("shell: process.platform === 'win32'")
     expect(packedConsumer.match(/execFileSync\(/g)).toHaveLength(1)
+    expect(packedConsumerMain).toContain('process.env.RUNNER_TEMP || tmpdir()')
   })
 })
