@@ -7,7 +7,10 @@ import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
 import { serializePortableDocument, portableDocumentPath } from '../portability/documents.js'
 import { portabilityError } from '../portability/errors.js'
 import type { PortableAssetBlobV1, PortableDocumentV1 } from '../portability/model.js'
-import { rebuildPortableDirectoryManifest, verifyPortableDirectory } from './read-directory.js'
+import {
+  rebuildPortableDirectoryManifest,
+  verifyPortableDirectoryBounded,
+} from './read-directory.js'
 import { validatePortableRelativePath } from './safe-path.js'
 
 export interface WritePortableDirectoryInput {
@@ -36,7 +39,7 @@ export async function writePortableDirectory(destination: string, input: WritePo
     }
     for await (const asset of input.assets) await writeAsset(staging, asset)
     await rebuildPortableDirectoryManifest(staging)
-    await verifyPortableDirectory(staging)
+    await verifyPortableDirectoryBounded(staging)
     if (await exists(destination)) throw destinationExists()
     await rename(staging, destination)
     completed = true

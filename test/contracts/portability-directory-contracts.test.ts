@@ -10,6 +10,7 @@ import {
   rebuildPortableDirectoryManifest,
   validatePortableRelativePath,
   verifyPortableDirectory,
+  verifyPortableDirectoryBounded,
   writePortableDirectory,
 } from '../../packages/content/src/portability-node'
 import { PORTABILITY_CONTRACT_FIXTURES, createPortabilityContractFixture, runPortableDirectoryContract } from '../../packages/content/src/testing/portability-contract'
@@ -111,6 +112,10 @@ describe('Node portable directory contract', () => {
     expect(read.assets).toEqual([
       expect.objectContaining({ sha256: assetSha256, bytes: assetContent.byteLength }),
     ])
+    await expect(verifyPortableDirectoryBounded(destination)).resolves.toEqual({
+      contract: bundle.contract,
+      manifest: read.manifest,
+    })
   })
 
   it('never overwrites an existing destination', async () => {
