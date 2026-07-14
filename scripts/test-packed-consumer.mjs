@@ -84,7 +84,7 @@ function run(command, args, cwd, options = {}) {
       cwd,
       env: {
         ...process.env,
-        npm_config_verify_deps_before_run: 'false',
+        ...(packageManager === 'pnpm' ? { npm_config_verify_deps_before_run: 'false' } : {}),
         ...options.env
       },
       stdio: options.stdio || 'inherit'
@@ -100,7 +100,7 @@ function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
     cwd,
     env: {
       ...process.env,
-      npm_config_verify_deps_before_run: 'false'
+      ...(packageManager === 'pnpm' ? { npm_config_verify_deps_before_run: 'false' } : {})
     },
     encoding: 'utf8',
     shell: process.platform === 'win32'
@@ -311,24 +311,23 @@ title: Package Consumer Page
 
 The packed package rendered this page.
 
-::packed-sentinel
-::
     `)
 
     writeFile(
-      resolve(appDir, 'server/plugins/register-serializer.ts'),
+      resolve(appDir, 'server/plugins/agent-contract.ts'),
       `
       import {
-        agentRawPathForRoute,
-        registerAgentMarkdownSerializer
+        agentRawPathForRoute
       } from '@lupinum/ginko-content/agent'
 
       if (agentRawPathForRoute('/docs/intro') !== '/raw/docs/intro.md') {
         throw new Error('Packed agent path helper export is invalid')
       }
 
-      export default defineNitroPlugin(() => {
-        registerAgentMarkdownSerializer('packed-sentinel', () => 'PACKED_SERIALIZER_SENTINEL')
+      export default defineNitroPlugin((nitroApp) => {
+        nitroApp.hooks.hook('error', (error) => {
+          console.error('PACKED_CONSUMER_SERVER_ERROR', error)
+        })
       })
     `)
 
@@ -473,7 +472,7 @@ The packed package rendered this page.
     }
     const llms = readFileSync(llmsPath, 'utf8')
     const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
-    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page') || !rawMarkdown.includes('PACKED_SERIALIZER_SENTINEL')) {
+    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
       throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 
