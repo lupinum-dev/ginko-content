@@ -102,7 +102,7 @@ export const registerStaticOutputGeneration = ({
           if (searchRuntime.engine === 'pagefind') {
             const records = JSON.parse(json)
             const { writePagefindIndex } = await import(resolveRuntimeModule('./server/pagefind.js'))
-            await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'))
+            await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'), resolvedI18n.defaultLocale)
           }
         }
 

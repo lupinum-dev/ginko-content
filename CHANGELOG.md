@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Add build-owned content validation for internal links, heading anchors, quick
+  links, Nuxt route names, and local assets. Builds persist a versioned report;
+  `content.validation: 'error'` blocks invalid snapshots, while the default
+  `'report'` mode remains diagnostic. `ginko-content validate` reads that exact
+  report from Nuxt's configured build directory.
+- Improve the normalized search experience with contextual plain-text
+  MiniSearch excerpts and explicit immutable index ownership. Pagefind now emits
+  one index per locale plus a versioned locale manifest, supports selected- and
+  all-language queries, limits before detail loading, and returns plain excerpts.
+  Existing Pagefind sites should rebuild their generated index.
+- Add a reproducible MiniSearch/Orama benchmark over Ginko-generated docs and
+  localized content. MiniSearch remains the JSON engine; Orama is benchmark-only
+  and is not a new runtime backend.
+- Document consumer-owned search previews, all-language toggles, collection
+  categories, and agent-readable copy actions, and add docs semantic-structure
+  and compressed-asset budget gates.
 - Raise the supported Node.js runtime from the now end-of-life Node 20 line to
   Node 22 or newer, and verify the full release on Node 24 LTS.
 - Bound Nuxt and optional Vitest peer support to their current major lines so

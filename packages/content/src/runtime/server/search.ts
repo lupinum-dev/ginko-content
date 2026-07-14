@@ -2,12 +2,10 @@ import type { H3Event } from 'h3'
 import type { ParsedContent } from '../../types/content'
 import type { ContentQueryBuilderWhere } from '../../types/query'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import type { ContentSearchIndexRecord } from '../../types/search'
 import { createSearchSections } from '../../features/search/sections'
+import { toSearchIndexRecord } from '../../features/search/records'
 import { resolveCollectionI18n } from '../../features/localization/path'
 import { serverQueryCollection } from './provider-query'
-
-export { searchRecords } from '../shared/search'
 
 type SearchablePage = Pick<ParsedContent, 'path' | 'locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
@@ -117,26 +115,6 @@ async function loadSearchDocuments (
   return results.flat() as SearchablePage[]
 }
 
-const toSearchRecord = (section: SearchSectionWithLocale): ContentSearchIndexRecord => {
-  const [path = '', anchor = ''] = section.id.split('#')
-  const extraFields = Object.fromEntries(
-    Object.entries(section).filter(([key]) => !['id', 'title', 'titles', 'content', 'level'].includes(key))
-  )
-
-  return {
-    ...extraFields,
-    id: section.id,
-    collection: section.collection || '',
-    path,
-    title: section.title,
-    excerpt: section.content.slice(0, 240),
-    content: section.content,
-    headings: section.titles,
-    anchor: anchor || undefined,
-    locale: typeof section.locale === 'string' ? section.locale : undefined
-  }
-}
-
 export async function buildSearchIndex (
   event: H3Event,
   opts: {
@@ -158,5 +136,5 @@ export async function buildSearchIndex (
     ignoredTags: opts.ignoredTags || [],
     extraFields: unique(['locale', 'collection', ...extraFields])
   }) as SearchSectionWithLocale[]
-  return sections.map(toSearchRecord)
+  return sections.map(toSearchIndexRecord)
 }

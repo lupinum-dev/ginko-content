@@ -45,6 +45,7 @@ export interface ContentSearchIndexRecord {
   collection: string
   path: string
   title: string
+  /** Plain-text context for the match. Consumers own visual highlighting. */
   excerpt: string
   content: string
   headings: string[]

@@ -29,6 +29,7 @@ const runtimeContent = {
   defaultLocale: 'en',
   translatedSlugs: false,
   sitemap: false,
+  validation: 'report',
   cacheIntegrity: 'integrity'
 }
 
@@ -37,7 +38,8 @@ vi.mock('../../packages/content/src/integrations/nitro/storage', () => ({
   contentConfig: () => runtimeContent,
   cacheStorage: () => ({
     setItem: mocks.setItem
-  })
+  }),
+  sourceStorage: () => ({ hasItem: vi.fn(async () => false) })
 }))
 
 vi.mock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
@@ -77,6 +79,7 @@ describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => 
     mocks.validateContentGraph.mockReturnValue(ok(undefined))
     mocks.getContentProvider.mockReset()
     delete (runtimeContent as { provider?: string }).provider
+    runtimeContent.validation = 'report'
   })
 
   test('a successful build performs exactly one final snapshot.json write', async () => {
@@ -104,14 +107,36 @@ describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => 
       documentSourceIds: ['content:docs:intro.md'],
       documents: [document]
     }))
-    // No `_nav.json`/`_meta.json` derivative writes (VNEXT §15.4, §15.7, §25.4).
-    expect(mocks.setItem).toHaveBeenCalledTimes(1)
+    expect(mocks.setItem).toHaveBeenCalledWith('validation.json', expect.objectContaining({ version: 1, findings: [] }))
+    // The validation report is the only rebuildable diagnostic beside the canonical snapshot.
+    expect(mocks.setItem).toHaveBeenCalledTimes(2)
     expect(result).toEqual(expect.objectContaining({
       generatedAt: expect.any(Number),
       documentCount: 1,
       generateTime: expect.any(Number),
       routesByCollection: { docs: 1 }
     }))
+  })
+
+  test('strict authored-link validation persists diagnostics but never publishes the snapshot', async () => {
+    runtimeContent.validation = 'error'
+    const document = doc({
+      id: 'content:docs:intro.md',
+      collection: 'docs',
+      path: '/docs/intro',
+      canonicalKey: 'docs/intro',
+      body: { type: 'root', children: [{ type: 'element', tag: 'a', props: { href: '/missing' }, children: [] }] }
+    })
+    mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md'])
+    mocks.loadContentVariants.mockResolvedValue([document])
+
+    const handler = (await import('../../packages/content/src/runtime/server/api/cache')).default
+    await expect(handler(createTestEvent())).rejects.toThrow(/authored content validation failed/)
+
+    expect(mocks.setItem).toHaveBeenCalledWith('validation.json', expect.objectContaining({
+      findings: [expect.objectContaining({ message: expect.stringContaining('/missing') })]
+    }))
+    expect(mocks.setItem.mock.calls.some(call => call[0] === 'snapshot.json')).toBe(false)
   })
 
   test('external providers seed prerender routes through routes() without building a filesystem snapshot', async () => {

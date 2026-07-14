@@ -7,6 +7,7 @@ export const contentModuleDefaults = {
   i18n: true,
   sitemap: true,
   search: false,
+  validation: 'report',
   watch: true,
   sources: {},
   ignores: [],
