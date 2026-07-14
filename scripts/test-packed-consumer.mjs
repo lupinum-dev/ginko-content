@@ -40,11 +40,16 @@ function resolveReleaseTarball() {
 const nodeImportableSubpaths = [
   '@lupinum/ginko-content/config',
   '@lupinum/ginko-content/provider',
+  '@lupinum/ginko-content/data-source',
+  '@lupinum/ginko-content/portability',
+  '@lupinum/ginko-content/portability/node',
   '@lupinum/ginko-content/transformers',
   '@lupinum/ginko-content/cms-contract',
   '@lupinum/ginko-content/cms-import',
   '@lupinum/ginko-content/testing/provider-fixture',
-  '@lupinum/ginko-content/testing/provider-contract'
+  '@lupinum/ginko-content/testing/provider-contract',
+  '@lupinum/ginko-content/testing/data-source-contract',
+  '@lupinum/ginko-content/testing/portability-contract'
 ]
 
 // The root module export and client/server facades are verified from Nuxt
@@ -58,6 +63,9 @@ const expectedDeclarations = [
   'dist/public/client.d.ts',
   'dist/public/server.d.ts',
   'dist/public/provider.d.ts',
+  'dist/public/data-source.d.ts',
+  'dist/portability/index.d.ts',
+  'dist/portability-node/index.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
   'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
@@ -65,6 +73,8 @@ const expectedDeclarations = [
   'dist/cms-import/index.d.ts',
   'dist/testing/provider-fixture.d.ts',
   'dist/testing/provider-contract.d.ts',
+  'dist/testing/data-source-contract.d.ts',
+  'dist/testing/portability-contract.d.ts',
   'dist/types/query.d.ts'
 ]
 
@@ -366,6 +376,31 @@ The packed package rendered this page.
       for (const subpath of subpaths) {
         console.log(\`Importing \${subpath}\`)
         await import(subpath)
+      }
+
+      const { mkdtemp, readFile, rm } = await import('node:fs/promises')
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { parsePortableDocument } = await import('@lupinum/ginko-content/portability')
+      const { readPortableDirectory, rebuildPortableDirectoryManifest, writePortableDirectory } = await import('@lupinum/ginko-content/portability/node')
+      const { PORTABILITY_CONTRACT_FIXTURES, createPortabilityContractFixture, runPortabilityContract, runPortableDirectoryContract } = await import('@lupinum/ginko-content/testing/portability-contract')
+      const parent = await mkdtemp(join(tmpdir(), 'ginko-packed-portability-'))
+      try {
+        const contract = createPortabilityContractFixture()
+        const document = await parsePortableDocument(PORTABILITY_CONTRACT_FIXTURES.document, contract)
+        const result = await runPortabilityContract()
+        if (result.checks !== 9) throw new Error('Packed portability codec contract failed')
+        const directory = await runPortableDirectoryContract({
+          firstDestination: join(parent, 'first'),
+          secondDestination: join(parent, 'second'),
+          write: writePortableDirectory,
+          read: readPortableDirectory,
+          rebuildManifest: rebuildPortableDirectoryManifest,
+          readManifestBytes: destination => readFile(join(destination, '.ginko/portable.json'))
+        })
+        if (directory.checks !== 3 || document.canonicalKey !== 'docs.introduction') throw new Error('Packed portability directory contract failed')
+      } finally {
+        await rm(parent, { recursive: true, force: true })
       }
     `)
 

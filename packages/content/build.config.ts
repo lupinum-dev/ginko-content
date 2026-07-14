@@ -24,6 +24,7 @@ const mkdistEntries = [
   ['src/cms-contract/', 'dist/cms-contract'],
   // Pure portability codecs share the runtime-neutral contract/hash boundary.
   ['src/portability/', 'dist/portability'],
+  ['src/portability-node/', 'dist/portability-node'],
   // `src/cms-import/` is the Node-side importer boundary used by ginko-cms
   // migration. It may read filesystem-shaped content, but parsing semantics
   // still live in ginko-content instead of a second CMS parser.

@@ -11,6 +11,7 @@ import {
   sha256Hex,
   type PortableDocumentV1,
   type PortableManifestV1,
+  type PortableAssetBlobV1,
 } from '../portability/index.js'
 
 export interface PortabilityContractImplementation {
@@ -129,5 +130,33 @@ export async function runPortabilityContract(implementation: PortabilityContract
   const manifestBytes = implementation.serializeManifest(manifest)
   const rebuiltManifestBytes = implementation.serializeManifest(implementation.parseManifest(manifestBytes))
   check(manifestBytes[manifestBytes.length - 1] === 10 && manifestBytes.every((byte, index) => rebuiltManifestBytes[index] === byte), 'canonical manifest round trip')
+  return { checks }
+}
+
+export interface PortableDirectoryContractImplementation {
+  firstDestination: string
+  secondDestination: string
+  write(destination: string, input: { contract: ResolvedContentContractV1; documents: PortableDocumentV1[]; assets: Array<PortableAssetBlobV1 & { content: Uint8Array }> }): Promise<void>
+  read(destination: string): Promise<{ documents: Array<{ document: PortableDocumentV1 }> }>
+  rebuildManifest(destination: string): Promise<PortableManifestV1>
+  readManifestBytes(destination: string): Promise<Uint8Array>
+}
+
+export async function runPortableDirectoryContract(implementation: PortableDirectoryContractImplementation): Promise<{ checks: number }> {
+  const contract = createPortabilityContractFixture()
+  const document = await parsePortableDocument(PORTABILITY_CONTRACT_FIXTURES.document, contract)
+  const input = { contract, documents: [document], assets: [] }
+  await implementation.write(implementation.firstDestination, input)
+  await implementation.write(implementation.secondDestination, input)
+  let checks = 0
+  const check = (condition: unknown, message: string) => { if (!condition) throw new Error(`Portable directory contract failed: ${message}`); checks++ }
+  const first = await implementation.readManifestBytes(implementation.firstDestination)
+  const second = await implementation.readManifestBytes(implementation.secondDestination)
+  check(first.length === second.length && first.every((byte, index) => second[index] === byte), 'deterministic writes')
+  const read = await implementation.read(implementation.firstDestination)
+  check(read.documents.length === 1 && read.documents[0]!.document.canonicalKey === document.canonicalKey, 'semantic read')
+  await implementation.rebuildManifest(implementation.firstDestination)
+  const rebuilt = await implementation.readManifestBytes(implementation.firstDestination)
+  check(first.length === rebuilt.length && first.every((byte, index) => rebuilt[index] === byte), 'deterministic manifest rebuild')
   return { checks }
 }

@@ -31,11 +31,18 @@ import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import type { StrictParsedContent } from '@lupinum/ginko-content'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
+import { parsePortableDocument, type PortableDocumentV1, type PortableManifestV1 } from '@lupinum/ginko-content/portability'
+import { readPortableDirectory, writePortableDirectory } from '@lupinum/ginko-content/portability/node'
+import { runPortabilityContract, runPortableDirectoryContract } from '@lupinum/ginko-content/testing/portability-contract'
 import { useContentPage as autoUseContentPage, useGinkoContentSearch as autoUseContentSearch } from '#imports'
 import { z } from 'zod'
 
 declare const clientSurface: typeof import('@lupinum/ginko-content/client')
 declare const publicDocument: StrictParsedContent
+declare const portableDocument: PortableDocumentV1
+declare const portableManifest: PortableManifestV1
+
+void [parsePortableDocument, readPortableDirectory, writePortableDirectory, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest]
 
 // Structural source classification is module-private and never part of the
 // public/root document contract (VNEXT.md 18.4, deletion register §30).

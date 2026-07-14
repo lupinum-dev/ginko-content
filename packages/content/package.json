@@ -91,6 +91,11 @@
       "import": "./dist/portability/index.js",
       "default": "./dist/portability/index.js"
     },
+    "./portability/node": {
+      "types": "./dist/portability-node/index.d.ts",
+      "import": "./dist/portability-node/index.js",
+      "default": "./dist/portability-node/index.js"
+    },
     "./testing/provider-fixture": {
       "types": "./dist/testing/provider-fixture.d.ts",
       "import": "./dist/testing/provider-fixture.js",
