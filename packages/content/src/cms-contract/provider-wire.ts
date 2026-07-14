@@ -48,7 +48,7 @@ const publicDataSchema = z.record(z.string(), jsonValueSchema).superRefine((valu
 })
 const publicAssetFactSchema = z.object({
   fieldPath: z.string().regex(/^(?:data|bodyAst)(?:\.[A-Za-z0-9_-]+|\[\d+\])*$/).refine(
-    (value) => !value.replaceAll('[', '.').replaceAll(']', '.').split('.').some(
+    (value) => !value.split('[').join('.').split(']').join('.').split('.').some(
       (part) => ['__proto__', 'prototype', 'constructor'].includes(part)
     ),
     'Asset field path contains a forbidden property.'

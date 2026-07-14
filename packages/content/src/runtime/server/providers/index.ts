@@ -174,8 +174,7 @@ export const enforceProviderCapabilities = (provider: ContentProvider): ContentP
   surroundings: provider.surroundings,
   search: provider.search,
   siteData: provider.siteData,
-  routes: provider.routes,
-  invalidate: provider.invalidate
+  routes: provider.routes
 })
 
 export const validateContentProvider = (providerName: string, provider: unknown): ContentProvider => {
@@ -222,7 +221,7 @@ export const validateContentProvider = (providerName: string, provider: unknown)
 
   assertProviderMethod(providerName, provider, 'query')
 
-  for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes', 'invalidate'] as const) {
+  for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
     if (method in provider) {
       assertProviderMethod(providerName, provider, method)
     }

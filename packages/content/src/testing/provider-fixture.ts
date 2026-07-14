@@ -1,4 +1,4 @@
-import type { ContentCacheHint, ContentCacheInvalidateInput, ContentProvider, ContentProviderQuery } from '../public/provider'
+import type { ContentCacheHint, ContentProvider, ContentProviderQuery } from '../public/provider'
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, ParsedContent } from '../types/content'
@@ -73,11 +73,6 @@ const normalizeQueryResult = <T>(value: T | T[] | number | undefined): T[] => {
   return value && typeof value === 'object' ? [value] : []
 }
 
-const normalizeCachePath = (path: string) => {
-  const normalized = path.startsWith('/') ? path : `/${path}`
-  return normalized.replace(/\/{2,}/g, '/')
-}
-
 const collectionTag = (collection: string) => `collection:${collection}`
 
 type ProviderFixtureRuntimeContext = {
@@ -117,32 +112,6 @@ const createProviderFixtureCacheState = (): ProviderFixtureCacheState => ({
   pathsByTag: new Map(),
   renderedPaths: new Set()
 })
-
-const invalidateFixtureCache = (
-  cache: ProviderFixtureCacheState,
-  input: ContentCacheInvalidateInput
-) => {
-  const paths = new Set((input.paths || []).map(normalizeCachePath))
-  for (const tag of input.tags || []) {
-    for (const path of cache.pathsByTag.get(tag) || []) {
-      paths.add(path)
-    }
-  }
-
-  for (const path of paths) {
-    const tags = Array.from(cache.dependenciesByPath.get(path) || [])
-    cache.renderedPaths.delete(path)
-    cache.dependenciesByPath.delete(path)
-    for (const tag of tags) {
-      const tagPaths = cache.pathsByTag.get(tag)
-      tagPaths?.delete(path)
-      if (tagPaths && tagPaths.size === 0) {
-        cache.pathsByTag.delete(tag)
-      }
-    }
-    cache.events.push({ type: 'purge', key: path, tags, paths: [path] })
-  }
-}
 
 export const createProviderFixtureDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
@@ -409,9 +378,6 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
           ...(doc.draft ? { draft: true } : {}),
           ...(doc.sitemap === false ? { sitemap: false as const } : {})
         }))
-    },
-    invalidate: async (_event, input) => {
-      invalidateFixtureCache(cache, input)
     }
   }
 

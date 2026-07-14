@@ -22,6 +22,7 @@ export { createContentProviderError } from './provider-errors'
 export type { ContentProviderErrorCode } from './provider-errors'
 export { normalizeProviderDocument } from '../runtime/server/provider-document.js'
 export type { ProviderDocumentInput, ContentProviderVariantFact } from '../runtime/server/provider-document.js'
+export { bindContentProvider } from './provider-binder.js'
 
 const contentProviderResultMarker = Symbol.for('ginko.content.provider-result')
 
@@ -137,5 +138,4 @@ export interface ContentProvider {
   search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<MaybeContentProviderResult<ContentProviderSearchResult[]>>
   siteData?: <T = unknown>(event: H3Event, request: ContentProviderSiteDataRequest) => Promise<MaybeContentProviderResult<ContentProviderSiteDataResponse<T>>>
   routes?: (event: H3Event) => Promise<MaybeContentProviderResult<ContentRouteRecord[]>>
-  invalidate?: (event: H3Event, input: ContentCacheInvalidateInput) => Promise<void>
 }

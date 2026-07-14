@@ -95,7 +95,7 @@ export const runProviderContractSuite = (options: ProviderContractSuiteOptions) 
 
   test(`${name} infers optional operation support from method presence`, async () => {
     const provider = await loadProvider()
-    for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes', 'invalidate'] as const) {
+    for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
       if (method in provider) expect(provider[method]).toBeTypeOf('function')
     }
   })

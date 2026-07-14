@@ -159,7 +159,7 @@ describe('provider fixture conformance', () => {
     }))
   })
 
-  test('normalizes fixture defaults and invalidates recorded cache dependencies', async () => {
+  test('normalizes fixture defaults without provider-owned invalidation', async () => {
     const custom = createProviderFixture({
       defaultLocale: 'en',
       locales: ['de'],
@@ -168,10 +168,6 @@ describe('provider fixture conformance', () => {
     })
     expect(custom.locales).toEqual(['en', 'de'])
 
-    provider.cache.dependenciesByPath.set('/docs/intro', new Set(['collection:docs']))
-    provider.cache.pathsByTag.set('collection:docs', new Set(['/docs/intro']))
-    provider.cache.renderedPaths.add('/docs/intro')
-    await provider.invalidate!(createEvent(), { tags: ['collection:docs'] })
-    expect(provider.cache.renderedPaths.has('/docs/intro')).toBe(false)
+    expect(provider).not.toHaveProperty('invalidate')
   })
 })

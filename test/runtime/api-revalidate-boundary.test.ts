@@ -123,9 +123,13 @@ describe('runtime revalidate API boundary', () => {
     expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
-  test('passes validated tags and paths to provider invalidation', async () => {
+  test('passes validated tags and paths once to the configured cache adapter', async () => {
     const invalidate = vi.fn()
-    mocks.getContentProvider.mockResolvedValue({ invalidate })
+    mocks.getContentCacheAdapter.mockResolvedValue({
+      name: 'test-cache',
+      apply: vi.fn(),
+      invalidate,
+    })
     const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
     const body = JSON.stringify({
       tags: ['entry:docs:a', 'entry:docs:a'],
@@ -166,10 +170,12 @@ describe('runtime revalidate API boundary', () => {
       tags: ['entry:docs:a'],
       paths: ['/docs/a']
     })
-    expect(invalidate).toHaveBeenCalledWith(event, {
+    expect(invalidate).toHaveBeenCalledOnce()
+    expect(invalidate).toHaveBeenCalledWith({
       tags: ['entry:docs:a'],
       paths: ['/docs/a']
     })
+    expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
   test('rejects when revalidation is disabled', async () => {
@@ -440,7 +446,11 @@ describe('runtime revalidate API boundary', () => {
   test('accepts signed revalidation requests without exposing the shared secret as a token header', async () => {
     mocks.getContentRuntimeConfig.mockReturnValue({ content: { revalidate: { token: 'secret' } } })
     const invalidate = vi.fn()
-    mocks.getContentProvider.mockResolvedValue({ invalidate })
+    mocks.getContentCacheAdapter.mockResolvedValue({
+      name: 'test-cache',
+      apply: vi.fn(),
+      invalidate,
+    })
     const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
     const body = JSON.stringify({ paths: ['/docs/a'] })
     const event = {
@@ -464,9 +474,11 @@ describe('runtime revalidate API boundary', () => {
       tags: [],
       paths: ['/docs/a']
     })
-    expect(invalidate).toHaveBeenCalledWith(event, {
+    expect(invalidate).toHaveBeenCalledOnce()
+    expect(invalidate).toHaveBeenCalledWith({
       tags: undefined,
       paths: ['/docs/a']
     })
+    expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 })

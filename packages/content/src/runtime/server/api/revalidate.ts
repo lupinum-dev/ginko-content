@@ -1,7 +1,6 @@
 import { createError, defineEventHandler, getHeader, readRawBody } from 'h3'
 import type { ContentCacheInvalidateInput } from '../../../public/provider'
 import { getContentCacheAdapter } from '../cache-adapter'
-import { getContentProvider } from '../providers'
 import { getContentRuntimeConfig } from '../runtime-config'
 
 const normalizePath = (path: string) => {
@@ -153,29 +152,15 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const provider = await getContentProvider(event)
   const adapter = await getContentCacheAdapter()
-  let handled = false
-
-  if (typeof provider.invalidate === 'function') {
-    await provider.invalidate(event, input)
-    handled = true
-  }
-
-  if (adapter) {
-    await adapter.invalidate(input)
-    handled = true
-  }
-
-  if (!handled) {
+  if (!adapter) {
     throw createError({
       statusCode: 501,
       statusMessage: 'revalidation_not_supported',
-      message: 'The active content provider/cache adapter does not support revalidation.'
+      message: 'The configured Content cache adapter does not support revalidation.'
     })
   }
-
-
+  await adapter.invalidate(input)
   return {
     ok: true,
     tags: input.tags || [],
