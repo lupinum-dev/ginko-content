@@ -8,7 +8,7 @@ import type {
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
 import { renderMarkdown } from 'comark/render'
 import { portabilityError } from './errors.js'
-import { parsePortableMdc } from './mdc.js'
+import { parsePortableMdc, parseStoredMdc } from './mdc.js'
 import type { JsonObject, PortableAssetBlobV1, PortableAssetReferenceV1, PortableDocumentV1 } from './model.js'
 
 const extensions: Record<PortableMediaType, string> = {
@@ -118,12 +118,51 @@ export async function rewritePortableMdcAssetReferences(
   policy: PortableComponentPolicyV1,
   rewrite: (reference: PortableMdcAssetReferenceV1) => string,
 ): Promise<string> {
-  const ast = await parsePortableMdc(source, policy)
-  visitMdcAssetSources(ast.nodes, policy, rewrite)
+  const normalized = await renderRewrittenPortableMdc(source, policy, rewrite)
+  await parsePortableMdc(normalized, policy)
+  return normalized
+}
+
+export async function rewritePortableMdcAssetReferencesForStorage(
+  source: string,
+  policy: PortableComponentPolicyV1,
+  rewrite: (reference: PortableMdcAssetReferenceV1) => string,
+): Promise<string> {
+  return await renderRewrittenPortableMdc(source, policy, (reference) => {
+    const target = rewrite(reference)
+    if (!/^[a-z0-9;:_-]{1,512}$/i.test(target)) {
+      throw portabilityError(
+        'ASSET_INTEGRITY_FAILED',
+        'portability.validateAssets',
+        'Stored asset identity is invalid.',
+      )
+    }
+    return target
+  })
+}
+
+export async function rewriteStoredMdcAssetReferences(
+  source: string,
+  policy: PortableComponentPolicyV1,
+  rewrite: (identity: string) => string | Promise<string>,
+): Promise<string> {
+  const ast = await parseStoredMdc(source, policy)
+  await visitStoredMdcAssetSources(ast.nodes, policy, rewrite)
   const rewritten = await renderMarkdown({ nodes: ast.nodes as never, frontmatter: {}, meta: {} })
   const normalized = rewritten.replace(/\n+$/g, '')
   await parsePortableMdc(normalized, policy)
   return normalized
+}
+
+async function renderRewrittenPortableMdc(
+  source: string,
+  policy: PortableComponentPolicyV1,
+  rewrite: (reference: PortableMdcAssetReferenceV1) => string,
+) {
+  const ast = await parsePortableMdc(source, policy)
+  visitMdcAssetSources(ast.nodes, policy, rewrite)
+  const rewritten = await renderMarkdown({ nodes: ast.nodes as never, frontmatter: {}, meta: {} })
+  return rewritten.replace(/\n+$/g, '')
 }
 
 export async function validatePortableAssets(
@@ -175,6 +214,23 @@ function visitMdcAssetSources(
       if (reference) props[sourceProp] = visit(reference)
     }
     visitMdcAssetSources(node.slice(2) as JsonValue[], policy, visit)
+  }
+}
+
+async function visitStoredMdcAssetSources(
+  nodes: JsonValue[],
+  policy: PortableComponentPolicyV1,
+  rewrite: (identity: string) => string | Promise<string>,
+): Promise<void> {
+  for (const node of nodes) {
+    if (!Array.isArray(node) || typeof node[0] !== 'string') continue
+    const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
+    const sourceProp = node[0] === 'img' ? 'src' : policy.components[node[0]]?.media?.sourceProp
+    const source = sourceProp ? props[sourceProp] : undefined
+    if (sourceProp && typeof source === 'string' && /^[a-z0-9;:_-]{1,512}$/i.test(source)) {
+      props[sourceProp] = await rewrite(source)
+    }
+    await visitStoredMdcAssetSources(node.slice(2) as JsonValue[], policy, rewrite)
   }
 }
 

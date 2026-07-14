@@ -14,6 +14,8 @@ import {
   portableDocumentPath,
   rebuildPortableManifest,
   rewritePortableMdcAssetReferences,
+  rewritePortableMdcAssetReferencesForStorage,
+  rewriteStoredMdcAssetReferences,
   serializePortableDocument,
   serializePortableManifest,
   validatePortableReferences,
@@ -192,6 +194,29 @@ describe('portable content contract', () => {
     expect(rewritten).toContain(`::media{src="https://assets.example.test/${sha256}.png"}`)
     expect(rewritten).toContain(`\`${local}\` remains authored text.`)
     expect(rewritten).toContain('![External](https://images.example.test/external.png)')
+
+    const stored = await rewritePortableMdcAssetReferencesForStorage(
+      source,
+      contract.collections.docs.componentPolicy,
+      () => 'opaqueassetid1234567890',
+    )
+    expect(stored).toContain('![Hero](opaqueassetid1234567890)')
+    expect(stored).toContain('::media{src="opaqueassetid1234567890"}')
+    expect(stored).toContain(`\`${local}\` remains authored text.`)
+    const roundTrip = await rewriteStoredMdcAssetReferences(
+      stored,
+      contract.collections.docs.componentPolicy,
+      async () => local,
+    )
+    expect(roundTrip).toContain(`![Hero](${local})`)
+    expect(roundTrip).toContain(`::media{src="${local}"}`)
+    await expect(
+      rewritePortableMdcAssetReferencesForStorage(
+        source,
+        contract.collections.docs.componentPolicy,
+        () => 'javascript:alert(1)',
+      ),
+    ).rejects.toMatchObject({ code: 'ASSET_INTEGRITY_FAILED' })
   })
 
   it('normalizes ordering without deriving identity from paths', async () => {
