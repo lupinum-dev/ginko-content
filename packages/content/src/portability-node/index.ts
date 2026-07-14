@@ -1,6 +1,5 @@
 export {
   readPortableDirectory,
-  verifyPortableDirectory,
   verifyPortableDirectoryBounded,
   rebuildPortableDirectoryManifest,
   type PortableDirectoryAsset,

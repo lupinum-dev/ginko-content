@@ -32,7 +32,7 @@ Update `meta/public-surface.json`, package export contracts, and docs when CMS s
 
 ## Migration from the removed CMS importer
 
-Ginko Content 0.4 removes `@lupinum/ginko-content/cms-import`. It parsed source
+Ginko Content 0.3 removes `@lupinum/ginko-content/cms-import`. It parsed source
 files into filesystem-runtime records and duplicated mapping decisions now owned
 by the versioned portable contract.
 

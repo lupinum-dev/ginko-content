@@ -1,11 +1,14 @@
 import { IncrementalSha256 } from './hash.js'
+import { PORTABLE_CONTENT_LIMITS } from './limits.js'
 import type { PortableMediaType } from './types.js'
 
-const MAX_BYTES = 25 * 1024 * 1024
-const MAX_DIMENSION = 16_384
-const MAX_PIXELS = 100_000_000
-const MAX_FRAMES = 100
-const MAX_DECODED_BYTES = 512 * 1024 * 1024
+const {
+  assetBytes: MAX_BYTES,
+  imageDimension: MAX_DIMENSION,
+  imagePixels: MAX_PIXELS,
+  imageFrames: MAX_FRAMES,
+  imageDecodedBytes: MAX_DECODED_BYTES,
+} = PORTABLE_CONTENT_LIMITS
 
 export interface VerifiedPublicImage {
   mediaType: PortableMediaType
@@ -35,14 +38,19 @@ const u32le = (bytes: Uint8Array, offset: number) =>
 const ascii = (bytes: Uint8Array, offset: number, length: number) =>
   String.fromCharCode(...bytes.subarray(offset, offset + length))
 
-function validateBounds(facts: ImageFacts): ImageFacts {
+function validateDimensions(width: number, height: number): number {
   if (
-    !Number.isInteger(facts.width) || !Number.isInteger(facts.height) ||
-    facts.width <= 0 || facts.height <= 0 ||
-    facts.width > MAX_DIMENSION || facts.height > MAX_DIMENSION
+    !Number.isInteger(width) || !Number.isInteger(height) ||
+    width <= 0 || height <= 0 ||
+    width > MAX_DIMENSION || height > MAX_DIMENSION
   ) failure('dimensions exceed the supported range.')
-  const pixels = facts.width * facts.height
+  const pixels = width * height
   if (pixels > MAX_PIXELS) failure('pixel count exceeds the supported limit.')
+  return pixels
+}
+
+function validateBounds(facts: ImageFacts): ImageFacts {
+  const pixels = validateDimensions(facts.width, facts.height)
   if (!Number.isInteger(facts.frames) || facts.frames <= 0 || facts.frames > MAX_FRAMES) {
     failure('frame count exceeds the supported limit.')
   }
@@ -184,6 +192,7 @@ function parseGif(bytes: Uint8Array): ImageFacts {
   const packed = bytes[10]!
   let offset = 13 + ((packed & 0x80) ? 3 * (1 << ((packed & 0x07) + 1)) : 0)
   let frames = 0
+  let decodedPixels = 0
   let sawEnd = false
   while (offset < bytes.length) {
     const marker = bytes[offset++]!
@@ -202,6 +211,8 @@ function parseGif(bytes: Uint8Array): ImageFacts {
     const frameHeight = u16le(bytes, offset + 6)
     const framePacked = bytes[offset + 8]!
     if (!frameWidth || !frameHeight) failure('GIF frame dimensions are invalid.')
+    decodedPixels += validateDimensions(frameWidth, frameHeight)
+    if (decodedPixels * 4 > MAX_DECODED_BYTES) failure('calculated decoded bytes exceed the supported limit.')
     offset += 9
     if (framePacked & 0x80) offset += 3 * (1 << ((framePacked & 0x07) + 1))
     if (offset >= bytes.length || bytes[offset++]! > 11) failure('GIF LZW code size is invalid.')

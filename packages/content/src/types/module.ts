@@ -289,6 +289,13 @@ export interface ContentLinkRouteTarget {
 
 export type ContentLinksOptions = Record<string, Record<string, ContentLinkRouteTarget>>
 
+export interface ContentValidationRouteFacts {
+  /** Vue Router matcher expressions for concrete, non-catch-all app routes. */
+  patterns: Array<{ source: string, flags: string }>
+  /** Required parameter names for every resolved named route. */
+  named: Record<string, { requiredParams: string[] }>
+}
+
 export interface ContentAgentRouteOptions {
   routes?: boolean
   linkHeaders?: boolean
@@ -502,8 +509,8 @@ export interface ContentContext extends ModuleOptions {
   localeFallback: Record<string, string[]>
   translatedSlugs: boolean
   strictTranslatedSlugs: boolean
-  /** Resolved Nuxt route facts used only by the build validator. */
-  validationAppRoutes?: Array<{ path: string, name?: string }>
+  /** Resolved, serializable Nuxt route facts used only by the build validator. */
+  validationRouteFacts?: ContentValidationRouteFacts
   /** Root-relative files from Nuxt's resolved public directories. */
   validationPublicAssets?: string[]
   /**

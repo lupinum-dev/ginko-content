@@ -3,6 +3,7 @@ import { lstat, mkdir, mkdtemp, open, rename, rm, writeFile } from 'node:fs/prom
 import { basename, dirname, join } from 'node:path'
 
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
+import { PORTABLE_CONTENT_LIMITS } from '../cms-contract/limits.js'
 import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
 import { serializePortableDocument, portableDocumentPath } from '../portability/documents.js'
 import { portabilityError } from '../portability/errors.js'
@@ -53,7 +54,7 @@ export async function writePortableDirectory(destination: string, input: WritePo
 
 async function writeAsset(root: string, asset: PortableAssetWriteInput): Promise<void> {
   validatePortableRelativePath(asset.file)
-  if (!Number.isSafeInteger(asset.bytes) || asset.bytes < 0 || asset.bytes > 25 * 1024 * 1024) {
+  if (!Number.isSafeInteger(asset.bytes) || asset.bytes < 0 || asset.bytes > PORTABLE_CONTENT_LIMITS.assetBytes) {
     throw portabilityError('LIMIT_EXCEEDED', 'directory.write', 'Portable asset exceeds its byte limit.')
   }
   const path = join(root, ...asset.file.split('/'))
@@ -68,7 +69,7 @@ async function writeAsset(root: string, asset: PortableAssetWriteInput): Promise
         throw portabilityError('ASSET_INTEGRITY_FAILED', 'directory.write', 'Portable asset stream is invalid.')
       }
       bytes += chunk.byteLength
-      if (bytes > asset.bytes || bytes > 25 * 1024 * 1024) {
+      if (bytes > asset.bytes || bytes > PORTABLE_CONTENT_LIMITS.assetBytes) {
         throw portabilityError('ASSET_INTEGRITY_FAILED', 'directory.write', 'Portable asset stream exceeds its declared length.')
       }
       hash.update(chunk)

@@ -10,9 +10,10 @@
  *    key is what refs point at and what navigation deduplicates on.
  *  - **`byId`**: lookup by the fully-qualified, locale-suffixed content id.
  *    One entry per file-on-disk variant.
- *  - **`byCanonical`**: the core locale-aware index. `byCanonical[key]` is
- *    a `{ [locale]: variant }` map so resolving a page in a given locale
- *    is an O(1) lookup rather than a linear scan.
+ *  - **`byCollectionCanonical`**: the exact locale-aware identity index.
+ *    Canonical keys are only unique within a collection.
+ *  - **`byCanonical`**: a derived convenience index containing only keys
+ *    that occur in one collection. Ambiguous unscoped lookups fail closed.
  *  - **`byRoute`**: route path (user-visible URL) → content id. Used by the
  *    page resolver when the request arrives as a localized URL.
  *  - **`byRef`**: normalized ref string → canonical key. This is how
@@ -45,7 +46,9 @@ export interface ContentGraph {
   byCollection: Record<string, string[]>
   /** localized route path → list of document ids sharing that path. */
   byPath: Record<string, string[]>
-  /** canonical key → `{ [locale]: variant }`. The locale-aware index. */
+  /** collection → canonical key → `{ [locale]: variant }`. Exact identity index. */
+  byCollectionCanonical: Record<string, Record<string, Record<string, ContentGraphVariant>>>
+  /** Unambiguous canonical keys only. Derived from `byCollectionCanonical`. */
   byCanonical: Record<string, Record<string, ContentGraphVariant>>
   /** route path → content id. Used by page resolution. */
   byRoute: Record<string, string>
@@ -55,6 +58,8 @@ export interface ContentGraph {
   byNavigationPath: Record<string, Record<string, ParsedContent>>
   /** Every user-writable reference shape pre-resolved to a canonical key. */
   referenceTargets: Map<string, string>
+  /** Exact collection-scoped user-writable reference targets. */
+  referenceTargetsByCollection: Record<string, Map<string, string>>
   manifest: ContentManifest
 }
 
@@ -67,7 +72,9 @@ const normalizePath = (path: string) => {
 }
 
 const emptyManifest = (): ContentManifest => ({
+  byCollectionCanonical: {},
   byCanonical: {},
+  byCollectionRef: {},
   byRef: {},
   byRoute: {},
   paths: {},
@@ -125,6 +132,7 @@ export const buildContentGraph = (
 ): ContentGraph => {
   const manifest = emptyManifest()
   const byId: Record<string, ParsedContent> = {}
+  const byCollectionCanonical: ContentGraph['byCollectionCanonical'] = {}
   const byCanonical: Record<string, Record<string, ContentGraphVariant>> = {}
   const byNavigationPath: Record<string, Record<string, ParsedContent>> = {}
   const defaultLocale = options.defaultLocale || ''
@@ -168,6 +176,7 @@ export const buildContentGraph = (
     }
 
     const locale = document.locale || defaultLocale
+    const collection = document.collection || 'content'
     const variant: ContentGraphVariant = {
       canonicalKey: document.canonicalKey!,
       contentId: documentId,
@@ -176,24 +185,60 @@ export const buildContentGraph = (
       document
     }
 
-    manifest.byCanonical[document.canonicalKey!] ||= {}
-    manifest.byCanonical[document.canonicalKey!]![locale] = variant
+    manifest.byCollectionCanonical[collection] ||= {}
+    manifest.byCollectionCanonical[collection]![document.canonicalKey!] ||= {}
+    manifest.byCollectionCanonical[collection]![document.canonicalKey!]![locale] = variant
     manifest.byRoute[`${locale}:${path}`] = document.canonicalKey!
     if (document.type === 'markdown' && typeof document.ref === 'string' && document.ref.length) {
-      manifest.byRef[document.ref] = document.canonicalKey!
+      manifest.byCollectionRef[collection] ||= {}
+      manifest.byCollectionRef[collection]![document.ref] = document.canonicalKey!
     }
   }
 
-  for (const [canonicalKey, variants] of Object.entries(manifest.byCanonical)) {
-    byCanonical[canonicalKey] = Object.fromEntries(
-      Object.entries(variants).map(([locale, variant]) => [
-        locale,
-        {
-          ...variant,
-          document: byId[variant.contentId]!
-        }
-      ])
-    )
+  const collectionsByCanonical = new Map<string, string[]>()
+  for (const [collection, canonicalEntries] of Object.entries(manifest.byCollectionCanonical)) {
+    byCollectionCanonical[collection] = {}
+    for (const [canonicalKey, variants] of Object.entries(canonicalEntries)) {
+      const graphVariants = Object.fromEntries(
+        Object.entries(variants).map(([locale, variant]) => [locale, { ...variant, document: byId[variant.contentId]! }])
+      )
+      byCollectionCanonical[collection]![canonicalKey] = graphVariants
+      collectionsByCanonical.set(canonicalKey, [...(collectionsByCanonical.get(canonicalKey) || []), collection])
+    }
+  }
+
+  for (const [canonicalKey, collections] of collectionsByCanonical) {
+    if (collections.length !== 1) continue
+    const collection = collections[0]!
+    manifest.byCanonical[canonicalKey] = manifest.byCollectionCanonical[collection]![canonicalKey]!
+    byCanonical[canonicalKey] = byCollectionCanonical[collection]![canonicalKey]!
+  }
+
+  const collectionsByRef = new Map<string, string[]>()
+  for (const [collection, refs] of Object.entries(manifest.byCollectionRef)) {
+    for (const ref of Object.keys(refs)) {
+      collectionsByRef.set(ref, [...(collectionsByRef.get(ref) || []), collection])
+    }
+  }
+  for (const [ref, collections] of collectionsByRef) {
+    if (collections.length === 1) manifest.byRef[ref] = manifest.byCollectionRef[collections[0]!]![ref]!
+  }
+
+  const referenceTargetsByCollection = Object.fromEntries(
+    Object.keys(manifest.byCollectionCanonical).map(collection => [
+      collection,
+      buildReferenceTargets(documents.filter(document => (document.collection || 'content') === collection && !document.partial && !isNavigationFile(document)), options.locales || [])
+    ])
+  )
+  const referenceTargetCollections = new Map<string, string[]>()
+  for (const [collection, targets] of Object.entries(referenceTargetsByCollection)) {
+    for (const identity of targets.keys()) {
+      referenceTargetCollections.set(identity, [...(referenceTargetCollections.get(identity) || []), collection])
+    }
+  }
+  const referenceTargets = new Map<string, string>()
+  for (const [identity, collections] of referenceTargetCollections) {
+    if (collections.length === 1) referenceTargets.set(identity, referenceTargetsByCollection[collections[0]!]!.get(identity)!)
   }
 
   return {
@@ -201,13 +246,33 @@ export const buildContentGraph = (
     byId,
     byCollection: manifest.collections,
     byPath: manifest.paths,
+    byCollectionCanonical,
     byCanonical,
     byRoute: manifest.byRoute,
     byRef: manifest.byRef,
     byNavigationPath,
-    referenceTargets: buildReferenceTargets(documents.filter(document => !document.partial && !isNavigationFile(document)), options.locales || []),
+    referenceTargets,
+    referenceTargetsByCollection,
     manifest
   }
+}
+
+/** Resolve the exact collection-scoped variant set, or an unambiguous one. */
+export const getGraphCanonicalVariants = (
+  graph: ContentGraph,
+  canonicalKey: string,
+  collection?: string
+): Record<string, ContentGraphVariant> | undefined => {
+  return collection
+    ? graph.byCollectionCanonical[collection]?.[canonicalKey]
+    : graph.byCanonical[canonicalKey]
+}
+
+const getGraphVariantLocales = (graph: ContentGraph, collection?: string) => {
+  const canonicalEntries = collection
+    ? Object.values(graph.byCollectionCanonical[collection] || {})
+    : Object.values(graph.byCollectionCanonical).flatMap(entries => Object.values(entries))
+  return canonicalEntries.flatMap(variants => Object.keys(variants))
 }
 
 /**
@@ -242,35 +307,24 @@ export const resolveGraphVariant = (
     collection?: string
   } = {}
 ): ResolvedVariant | null => {
-  const variants = graph.byCanonical[canonicalKey]
+  const variants = getGraphCanonicalVariants(graph, canonicalKey, options.collection)
   if (!variants) {
     return null
   }
 
-  // Scope to collection by filtering the variant map upfront.
-  const collectionIds = options.collection
-    ? new Set(graph.byCollection[options.collection] || [])
-    : null
-  const scopedVariants = collectionIds
-    ? Object.fromEntries(Object.entries(variants).filter(([, v]) => collectionIds.has(v.contentId)))
-    : variants
-  if (!Object.keys(scopedVariants).length) {
-    return null
-  }
-
-  const availableLocales = sortLocalesCanonically(Object.keys(scopedVariants), options)
+  const availableLocales = sortLocalesCanonically(Object.keys(variants), options)
   const localeChain = options.exact
     ? (requestedLocale ? [requestedLocale] : [])
     : (options.fallback?.length
         ? Array.from(new Set([requestedLocale, ...options.fallback].filter(Boolean) as string[]))
         : resolveLocaleChain(requestedLocale, options.defaultLocale, options.localeFallback || {}))
 
-  const resolvedLocale = localeChain.find(locale => scopedVariants[locale]) || (options.exact ? undefined : availableLocales[0])
+  const resolvedLocale = localeChain.find(locale => variants[locale]) || (options.exact ? undefined : availableLocales[0])
   if (resolvedLocale === undefined) {
     return null
   }
 
-  const variant = scopedVariants[resolvedLocale]
+  const variant = variants[resolvedLocale]
   return {
     canonicalKey,
     contentId: variant.contentId,
@@ -312,7 +366,7 @@ export const resolveGraphRouteVariant = (
         : resolveLocaleChain(requestedLocale, options.defaultLocale, options.localeFallback || {}))
   const localesToSearch = localeChain.length
     ? localeChain
-    : sortLocalesCanonically(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants)), options)
+    : sortLocalesCanonically(getGraphVariantLocales(graph, options.collection), options)
 
   for (const locale of localesToSearch) {
     const canonicalKey = graph.byRoute[`${locale}:${normalizedPath}`]
@@ -355,19 +409,16 @@ export const resolveGraphCanonicalKey = (
   }
 
   const hasCollectionVariant = (canonicalKey: string) => {
-    if (!collection) {
-      return true
-    }
-
-    const collectionIds = new Set(graph.byCollection[collection] || [])
-    return Object.values(graph.byCanonical[canonicalKey] || {}).some(variant => collectionIds.has(variant.contentId))
+    return Boolean(getGraphCanonicalVariants(graph, canonicalKey, collection))
   }
 
-  if (graph.byCanonical[normalizedIdentity] && hasCollectionVariant(normalizedIdentity)) {
+  if (hasCollectionVariant(normalizedIdentity)) {
     return normalizedIdentity
   }
 
-  const refCanonicalKey = graph.byRef[normalizedIdentity]
+  const refCanonicalKey = collection
+    ? graph.manifest.byCollectionRef[collection]?.[normalizedIdentity]
+    : graph.byRef[normalizedIdentity]
   if (refCanonicalKey && hasCollectionVariant(refCanonicalKey)) {
     return refCanonicalKey
   }
@@ -376,7 +427,9 @@ export const resolveGraphCanonicalKey = (
     return null
   }
 
-  const targetCanonicalKey = graph.referenceTargets.get(normalizedIdentity)
+  const targetCanonicalKey = collection
+    ? graph.referenceTargetsByCollection[collection]?.get(normalizedIdentity)
+    : graph.referenceTargets.get(normalizedIdentity)
   return targetCanonicalKey && hasCollectionVariant(targetCanonicalKey) ? targetCanonicalKey : null
 }
 
@@ -390,7 +443,7 @@ export const resolveGraphCollectionLocales = (
     return []
   }
 
-  return Object.values(graph.byCanonical[canonicalKey] || {})
+  return Object.values(getGraphCanonicalVariants(graph, canonicalKey, collection) || {})
     .sort((a, b) => a.locale.localeCompare(b.locale))
     .map(variant => ({
       canonicalKey,

@@ -7,7 +7,6 @@ import {
 import { defu } from 'defu'
 import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
-import { globby } from 'globby'
 import { name, version } from '../package.json'
 import type { JsonValue } from './cms-contract/index'
 import { buildResolvedContentContract, hashCanonicalJson } from './cms-contract/index'
@@ -34,6 +33,8 @@ import { validateCollectionNames, validateContentConfigOnlyOptions, validateRemo
 import { contentModuleDefaults } from './module/defaults'
 import './module/augmentations'
 import { registerContentContextFinalization } from './module/context-finalization'
+import { createContentValidationRouteFacts } from './module/validation-routes'
+import { collectContentValidationPublicAssets } from './module/validation-assets'
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -182,13 +183,15 @@ export default defineNuxtModule<ModuleOptions>({
       validation: options.validation || 'report'
     }
     await rm(resolveFilePath(nuxt.options.buildDir, 'content-cache/validation.json'), { force: true })
-    const publicAssets = new Set<string>()
     const layers = nuxt.options._layers || [{ cwd: nuxt.options.rootDir, config: {} }]
-    for (const layer of layers) {
-      const publicDir = resolveFilePath(layer.cwd, layer.config.dir?.public || 'public')
-      for (const file of await globby('**/*', { cwd: publicDir, onlyFiles: true })) publicAssets.add(`/${file.replace(/\\/g, '/')}`)
-    }
-    contentContext.validationPublicAssets = [...publicAssets].sort()
+    const nitroPublicAssets = (nuxt.options as typeof nuxt.options & {
+      nitro?: { publicAssets?: Array<{ dir: string, baseURL?: string }> }
+    }).nitro?.publicAssets || []
+    contentContext.validationPublicAssets = await collectContentValidationPublicAssets({
+      rootDir: nuxt.options.rootDir,
+      layers: layers.map(layer => ({ cwd: layer.cwd, publicDir: layer.config.dir?.public || 'public' })),
+      nitroPublicAssets
+    })
     let resolvedContentContext: ResolvedContentContext | undefined
     const getResolvedContentContext = () => {
       if (!resolvedContentContext) {
@@ -208,17 +211,10 @@ export default defineNuxtModule<ModuleOptions>({
         locales: resolvedI18n.locales,
         defaultLocale: resolvedI18n.defaultLocale
       })
-      const appRoutes: Array<{ path: string, name?: string }> = []
-      const collectRoutes = (items: typeof pages) => {
-        for (const page of items) {
-          if (page.path) appRoutes.push({ path: page.path, ...(page.name ? { name: String(page.name) } : {}) })
-          if (page.children?.length) collectRoutes(page.children)
-        }
-      }
-      collectRoutes(pages)
-      contentContext.validationAppRoutes = appRoutes
+      const routeFacts = createContentValidationRouteFacts(pages)
+      contentContext.validationRouteFacts = routeFacts
       const runtimeContent = (nuxt.options.runtimeConfig.content ||= {}) as Record<string, unknown>
-      runtimeContent.validationAppRoutes = appRoutes
+      runtimeContent.validationRouteFacts = routeFacts
       runtimeContent.validationPublicAssets = contentContext.validationPublicAssets
     })
     if (resolvedSitemap && resolvedSitemap.assert.enabled) {

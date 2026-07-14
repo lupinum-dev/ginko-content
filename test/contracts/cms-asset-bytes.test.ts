@@ -51,6 +51,17 @@ describe('public image byte verification', () => {
     })
   })
 
+  it('rejects GIF frame dimensions that exceed the decoded image bounds', async () => {
+    const forged = gif.slice()
+    const descriptor = forged.indexOf(0x2C)
+    forged[descriptor + 5] = 0xFF
+    forged[descriptor + 6] = 0xFF
+    forged[descriptor + 7] = 0xFF
+    forged[descriptor + 8] = 0xFF
+
+    await expect(verifyPublicImageBytes(forged, 'image/gif')).rejects.toThrow(/dimension|pixel|decoded/i)
+  })
+
   it.each([
     ['image/jpeg', jpeg],
     ['image/webp', webp],

@@ -67,6 +67,34 @@ describe('provider contract assertion helpers', () => {
     }, 'fixture', 'navigation')).toThrow(/preprojected route field/)
   })
 
+  test.each([
+    '//evil.test/path',
+    '/docs/intro?preview=true',
+    '/docs/intro#section',
+    '/docs\\intro',
+    '/docs/../admin',
+    '/"><script>alert(1)</script>'
+  ])('rejects non-canonical provider content path %s', (contentPath) => {
+    expect(() => normalizeProviderRouteFact({
+      collection: 'docs',
+      canonicalKey: 'docs:intro',
+      locale: 'en',
+      contentPath
+    }, 'fixture', 'routes')).toThrow(/site-relative content route contract/)
+  })
+
+  test.each([
+    ['/café/', '/café'],
+    ['/docs/a%20b', '/docs/a%20b']
+  ])('preserves valid Unicode and percent-encoded provider path %s', (contentPath, expected) => {
+    expect(normalizeProviderRouteFact({
+      collection: 'docs',
+      canonicalKey: 'docs:intro',
+      locale: 'en',
+      contentPath
+    }, 'fixture', 'routes').contentPath).toBe(expected)
+  })
+
   test('validates route metadata and normalized UTC dates', () => {
     expect(normalizeProviderRoutes([{
       collection: 'docs',

@@ -9,7 +9,7 @@
  */
 import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionConfig } from '../../types/config'
-import { buildContentGraph, type ContentGraph } from '../../core/content/graph'
+import { buildContentGraph, getGraphCanonicalVariants, type ContentGraph } from '../../core/content/graph'
 import { resolveIncludeDrafts } from '../../core/visibility'
 
 export interface SitemapCountsContentContext {
@@ -58,7 +58,7 @@ export const countSitemapRoutes = (
       continue
     }
 
-    const variants = Object.values(graph.byCanonical[document.canonicalKey] || {})
+    const variants = Object.values(getGraphCanonicalVariants(graph, document.canonicalKey, collection) || {})
     if (!variants.some(variant => variant.path)) {
       continue
     }

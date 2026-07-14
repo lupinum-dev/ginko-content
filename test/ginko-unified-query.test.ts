@@ -459,6 +459,24 @@ describe('route mount resolution', () => {
 })
 
 describe('query executor correctness', () => {
+  test('locale resolution keeps equal canonical keys from different collections distinct', () => {
+    const graph = buildContentGraph([
+      doc({ collection: 'docs', id: 'docs:en:shared.md', path: '/docs/shared', canonicalKey: 'shared', locale: 'en', title: 'Docs' }),
+      doc({ collection: 'authors', id: 'authors:en:shared.md', path: '/authors/shared', canonicalKey: 'shared', locale: 'en', title: 'Author' })
+    ], { defaultLocale: 'en', locales: ['en'] })
+
+    const response = executeQueryPlan(graph, lowerQueryPlan({
+      resolveLocale: { locale: 'en' },
+      sort: [{ title: 1 }],
+      only: ['collection', 'title']
+    } as never), { defaultLocale: 'en' })
+
+    expect(response.result).toEqual([
+      { collection: 'authors', title: 'Author' },
+      { collection: 'docs', title: 'Docs' }
+    ])
+  })
+
   test('does not use path prefiltering for $or clauses with non-path branches', () => {
     const graph = buildContentGraph([
       doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', canonicalKey: 'docs/intro', title: 'Intro', section: 'guide' }),

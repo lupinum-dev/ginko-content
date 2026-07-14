@@ -34,6 +34,41 @@ const assertNoProjectedKeys = (value: Record<string, unknown>, provider: string,
   }
 }
 
+const normalizeProviderContentPath = (
+  value: string,
+  provider: string,
+  operation: string,
+  field: string,
+) => {
+  const hasControlCharacter = [...value].some((character) => {
+    const code = character.codePointAt(0)!
+    return code <= 31 || code === 127
+  })
+  if (
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    value.includes('\\') ||
+    value.includes('?') ||
+    value.includes('#') ||
+    /[\s"<>]/u.test(value) ||
+    hasControlCharacter
+  ) {
+    return fail(provider, operation, field, 'returned contentPath outside the leading-slash, site-relative content route contract.')
+  }
+
+  try {
+    const parsed = new URL(value, 'https://ginko.invalid')
+    const sourcePreserved = parsed.pathname === value || decodeURI(parsed.pathname) === value
+    if (parsed.origin !== 'https://ginko.invalid' || !sourcePreserved) {
+      return fail(provider, operation, field, 'returned contentPath outside the leading-slash, site-relative content route contract.')
+    }
+  } catch {
+    return fail(provider, operation, field, 'returned contentPath outside the leading-slash, site-relative content route contract.')
+  }
+
+  return normalizeContentPath(value)
+}
+
 export const normalizeProviderRouteFact = (
   value: unknown,
   provider: string,
@@ -50,15 +85,18 @@ export const normalizeProviderRouteFact = (
       fail(provider, operation, `${field}.${key}`, `returned a route fact without a non-empty ${key}.`)
     }
   }
-  if (!String(value.contentPath).startsWith('/') || String(value.contentPath).includes('://')) {
-    fail(provider, operation, `${field}.contentPath`, 'returned contentPath outside the leading-slash, site-relative content route contract.')
-  }
+  const contentPath = normalizeProviderContentPath(
+    String(value.contentPath),
+    provider,
+    operation,
+    `${field}.contentPath`,
+  )
 
   return {
     collection: String(value.collection),
     canonicalKey: String(value.canonicalKey),
     locale: String(value.locale),
-    contentPath: normalizeContentPath(String(value.contentPath))
+    contentPath
   }
 }
 

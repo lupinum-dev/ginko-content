@@ -16,7 +16,7 @@ import type { ContentResolutionCarrier, ParsedContent } from '../types/content'
 import type { ContentCollectionI18nConfig } from '../types/config'
 import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
-import { resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
+import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
 import { sortLocalesCanonically } from '../core/content/locale'
 import { normalizeReferenceValue } from '../core/references/resolve'
 import { executeQueryPlan } from '../core/query/execute'
@@ -70,7 +70,7 @@ export const resolveContentReference = async <T = ParsedContent> (
     return null
   }
 
-  const variants = Object.values(graph.byCanonical[canonicalId] || {})
+  const variants = Object.values(getGraphCanonicalVariants(graph, canonicalId, options.collection) || {})
     .map(entry => entry.document)
     .filter(document => !options.collection || document.collection === options.collection)
 
@@ -84,7 +84,8 @@ export const resolveContentReference = async <T = ParsedContent> (
       ? options.fallback
       : (options.fallback ? config.localeFallback?.[options.locale || ''] || [] : []),
     exact: options.exact,
-    localeFallback: config.localeFallback
+    localeFallback: config.localeFallback,
+    collection: options.collection
   })
   const resolved = resolvedVariant ? graph.byId[resolvedVariant.contentId] : undefined
   if (!resolved || !resolvedVariant) {

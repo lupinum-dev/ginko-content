@@ -17,10 +17,15 @@ import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const INTENDED_VERSION = '0.4.0-rc.1'
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
 const outputRoot = resolve(repoRoot, '.pack/dev')
+const sourceManifest = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))
+const packageVersion = sourceManifest.version
+
+if (sourceManifest.name !== '@lupinum/ginko-content' || typeof packageVersion !== 'string' || !packageVersion) {
+  throw new Error('Development packing requires a named, versioned @lupinum/ginko-content package manifest.')
+}
 
 const run = (command, args, cwd = repoRoot, stdio = 'inherit') => execFileSync(command, args, {
   cwd,
@@ -62,10 +67,8 @@ try {
   }
   cpSync(resolve(packageRoot, 'dist'), resolve(stagingRoot, 'dist'), { recursive: true })
 
-  const sourceManifest = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))
   const stagingManifest = {
     ...sourceManifest,
-    version: INTENDED_VERSION,
     scripts: Object.fromEntries(
       Object.entries(sourceManifest.scripts ?? {}).filter(([name]) => !['prepack', 'prepublishOnly'].includes(name)),
     ),
@@ -81,7 +84,7 @@ try {
   const temporaryTarball = resolve(packOutput, packed[0])
   const sha256 = sha256File(temporaryTarball)
   const commit = run('git', ['rev-parse', '--short=12', 'HEAD'], repoRoot, 'pipe').trim()
-  const filename = `ginko-content-${INTENDED_VERSION}-dev.${commit}.${sha256}.tgz`
+  const filename = `ginko-content-${packageVersion}-dev.${commit}.${sha256}.tgz`
   const finalTarball = resolve(outputRoot, filename)
   if (existsSync(finalTarball)) throw new Error(`Development artifact already exists: ${finalTarball}`)
 
@@ -89,8 +92,8 @@ try {
   mkdirSync(inspectionRoot)
   run('tar', ['-xzf', temporaryTarball, '-C', inspectionRoot])
   const packagedManifest = JSON.parse(readFileSync(resolve(inspectionRoot, 'package/package.json'), 'utf8'))
-  if (packagedManifest.version !== INTENDED_VERSION) {
-    throw new Error(`Development artifact has version ${packagedManifest.version}, expected ${INTENDED_VERSION}.`)
+  if (packagedManifest.version !== packageVersion) {
+    throw new Error(`Development artifact has version ${packagedManifest.version}, expected ${packageVersion}.`)
   }
 
   const worktreeDirty = run('git', ['status', '--porcelain', '--untracked-files=normal'], repoRoot, 'pipe').trim().length > 0
@@ -98,7 +101,7 @@ try {
     format: 'ginko-content-development-artifact',
     version: 1,
     package: '@lupinum/ginko-content',
-    packageVersion: INTENDED_VERSION,
+    packageVersion,
     commit,
     worktreeDirty,
     node: process.version,

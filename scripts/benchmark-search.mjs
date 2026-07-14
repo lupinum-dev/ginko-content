@@ -10,7 +10,7 @@ import { loadNuxtConfig } from '@nuxt/kit'
 import { createSearchSections } from '../packages/content/dist/features/search/sections.js'
 import { toSearchIndexRecord } from '../packages/content/dist/features/search/records.js'
 import { createSearchExcerpt } from '../packages/content/dist/features/search/snippet.js'
-import { readBenchmarkCorpus, resolveNuxtBuildArtifact } from './lib/search-benchmark.mjs'
+import { readBenchmarkCorpus, resolveNuxtBuildArtifact, shapeBenchmarkResults } from './lib/search-benchmark.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const outputDirectory = resolve(root, '.benchmarks/search')
@@ -173,10 +173,7 @@ const measureEngine = async (adapter, records, queries) => {
     restoreTimes.push(performance.now() - started)
   }
 
-  const shape = (results, term) => results.map(result => ({
-    ...result,
-    excerpt: createSearchExcerpt(recordsById.get(String(result.id))?.content || result.content || '', term, result.excerpt || '')
-  }))
+  const shape = (results, term) => shapeBenchmarkResults(results, recordsById, term, createSearchExcerpt)
 
   const relevance = queries.map(query => {
     const results = adapter.search(fullIndex, query.term, query.locale)
@@ -244,7 +241,7 @@ const measureEngine = async (adapter, records, queries) => {
       note: 'Heap delta after forced GC; compare directionally on the same machine.'
     },
     locale: {
-      isolatedQueries: localeChecks.every(check => check.leakedLocales.length === 0),
+      selectedLocaleIsolation: localeChecks.every(check => check.leakedLocales.length === 0),
       checks: localeChecks,
       allLanguagesGuideLocales: [...new Set(allLanguageResults.map(result => result.locale).filter(Boolean))].sort()
     }
@@ -253,7 +250,7 @@ const measureEngine = async (adapter, records, queries) => {
 
 const formatBytes = value => `${(value / 1024).toFixed(1)} KiB`
 const toMarkdown = report => {
-  const rows = report.engines.map(engine => `| ${engine.engine} | ${engine.relevance.top1}/${engine.relevance.total} | ${engine.relevance.top3}/${engine.relevance.total} | ${formatBytes(engine.assets.serializedIndexBytes)} / ${formatBytes(engine.assets.serializedIndexGzipBytes)} | ${formatBytes(engine.assets.browserRuntime.rawBytes)} / ${formatBytes(engine.assets.browserRuntime.gzipBytes)} | ${engine.timingMs.initialIndexMedian} | ${engine.timingMs.restoreMedian} | ${engine.timingMs.engineQueryP95} | ${engine.timingMs.ginkoQueryP95} | ${formatBytes(engine.memory.approximateHeapBytes)} | ${engine.locale.isolatedQueries ? 'pass' : 'fail'} |`)
+  const rows = report.engines.map(engine => `| ${engine.engine} | ${engine.relevance.top1}/${engine.relevance.total} | ${engine.relevance.top3}/${engine.relevance.total} | ${formatBytes(engine.assets.serializedIndexBytes)} / ${formatBytes(engine.assets.serializedIndexGzipBytes)} | ${formatBytes(engine.assets.browserRuntime.rawBytes)} / ${formatBytes(engine.assets.browserRuntime.gzipBytes)} | ${engine.timingMs.initialIndexMedian} | ${engine.timingMs.restoreMedian} | ${engine.timingMs.engineQueryP95} | ${engine.timingMs.ginkoQueryP95} | ${formatBytes(engine.memory.approximateHeapBytes)} | ${engine.locale.selectedLocaleIsolation ? 'pass' : 'fail'} |`)
   const queryDetails = report.engines.flatMap(engine => engine.relevance.queries.map(query => `| ${engine.engine} | \`${query.term}\` | ${query.locale || 'all'} | ${query.top1 ? 'yes' : 'no'} | ${query.top3 ? 'yes' : 'no'} | ${query.actualTop3.map(path => `\`${path}\``).join('<br>')} |`))
   return `# Search benchmark report
 
@@ -261,7 +258,7 @@ Generated: ${report.generatedAt}
 Runtime: ${report.environment.node} on ${report.environment.platform} (${report.environment.arch})  
 Corpus: ${report.corpus.records} generated records, ${formatBytes(report.corpus.rawBytes)} raw / ${formatBytes(report.corpus.gzipBytes)} gzip
 
-| Engine | Top 1 | Top 3 | Serialized index raw / gzip | Browser runtime raw / gzip | Initial index median ms | Restore median ms | Engine p95 ms | Ginko p95 ms | Approx. heap | Locale isolation |
+| Engine | Top 1 | Top 3 | Serialized index raw / gzip | Browser runtime raw / gzip | Initial index median ms | Restore median ms | Engine p95 ms | Ginko p95 ms | Approx. heap | Selected-locale isolation |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 ${rows.join('\n')}
 

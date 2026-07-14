@@ -21,7 +21,7 @@ function canonicalize(value: unknown, ancestors: Set<object>): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new TypeError('Canonical JSON requires finite numbers.')
-    if (Number.isInteger(value) && Math.abs(value) < 1e21 && !Number.isSafeInteger(value)) {
+    if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
       throw new TypeError('Canonical JSON integers must be JavaScript safe integers.')
     }
     return Object.is(value, -0) ? '0' : JSON.stringify(value)

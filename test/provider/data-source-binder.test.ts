@@ -15,7 +15,8 @@ const boundedQuery = () => {
 
 const event = () => {
   const request = new EventEmitter()
-  return { context: {}, node: { req: request } } as unknown as H3Event
+  const response = new EventEmitter()
+  return { context: {}, node: { req: request, res: response } } as unknown as H3Event
 }
 
 describe('bindContentProvider', () => {
@@ -70,6 +71,28 @@ describe('bindContentProvider', () => {
     expect(source.query).not.toHaveBeenCalled()
   })
 
+  it('does not treat normal request completion as an abort', async () => {
+    let resolveBackend!: (value: unknown) => void
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(async () => await new Promise((resolve) => { resolveBackend = resolve })),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+    const requestEvent = event()
+    const pending = provider.query(requestEvent, boundedQuery())
+
+    await vi.waitUntil(() => source.query.mock.calls.length === 1)
+
+    ;(requestEvent.node.req as unknown as EventEmitter).emit('close')
+    resolveBackend({ data: { mode: 'cursor', result: [], limit: 2, pageInfo: { endCursor: null, hasNext: false } }, cache: false })
+
+    await expect(pending).resolves.toMatchObject({ data: { result: [] } })
+  })
+
   it('aborts disposed requests and ignores a late backend result', async () => {
     let observedSignal: AbortSignal | undefined
     let resolveBackend!: (value: unknown) => void
@@ -87,7 +110,7 @@ describe('bindContentProvider', () => {
     const provider = bindContentProvider({ source, createContext: () => null })
     const requestEvent = event()
     const pending = provider.query(requestEvent, boundedQuery())
-    ;(requestEvent.node.req as unknown as EventEmitter).emit('close')
+    ;(requestEvent.node.res as unknown as EventEmitter).emit('close')
 
     await expect(pending).rejects.toThrow(/abort|disposed/i)
     expect(observedSignal?.aborted).toBe(true)
@@ -104,7 +127,7 @@ describe('bindContentProvider', () => {
       query: vi.fn(async () => {
         throw Object.assign(new Error('Bearer top-secret'), {
           code: 'BACKEND_FAILURE',
-          details: { field: 'title', token: 'top-secret' },
+          details: { field: 'password=top-secret', token: 'top-secret' },
           cause: { password: 'top-secret' },
         })
       }),
@@ -115,6 +138,24 @@ describe('bindContentProvider', () => {
     expect(error).toBeInstanceOf(Error)
     expect(JSON.stringify(error)).not.toContain('top-secret')
     expect(error).not.toHaveProperty('cause')
+  })
+
+  it('does not trust timeout-like text from backend errors', async () => {
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(async () => {
+        throw new Error('backend timeout while using token=top-secret')
+      }),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+
+    const error = await provider.query(event(), boundedQuery()).catch((cause) => cause)
+    expect(error.message).toBe('Content data-source operation failed.')
+    expect(JSON.stringify({ message: error.message, ...error })).not.toContain('top-secret')
   })
 
   it('rejects oversized query, navigation, and search results', async () => {
@@ -206,5 +247,67 @@ describe('bindContentProvider', () => {
       createContext: () => null,
     })
     await expect(cache.query(event(), boundedQuery())).rejects.toMatchObject({ data: { code: 'CACHE_HINT_INVALID' } })
+  })
+
+  it('rejects non-progressing route pages and oversized cursors', async () => {
+    const base = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+    }
+    const routes = vi.fn(async () => ({
+      data: { items: [], nextCursor: 'page-2', snapshot: 'generation-1' },
+      cache: false as const,
+    }))
+    const nonProgressing = bindContentProvider({
+      source: {
+        ...base,
+        routes,
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+    await expect(nonProgressing.routes!(event())).rejects.toMatchObject({ data: { code: 'CURSOR_INVALID' } })
+    expect(routes).toHaveBeenCalledOnce()
+
+    const oversizedCursor = bindContentProvider({
+      source: {
+        ...base,
+        routes: vi.fn(async () => ({
+          data: { items: [], nextCursor: 'x'.repeat(257), snapshot: 'generation-1' },
+          cache: false as const,
+        })),
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+    await expect(oversizedCursor.routes!(event())).rejects.toMatchObject({ data: { code: 'CURSOR_INVALID' } })
+  })
+
+  it('stops route enumeration after request abort even when the source ignores its signal', async () => {
+    const requestEvent = event()
+    let calls = 0
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+      routes: vi.fn(async () => {
+        calls += 1
+        if (calls === 1) (requestEvent.node.res as unknown as EventEmitter).emit('close')
+        return {
+          data: { items: [], nextCursor: calls === 1 ? 'next' : null, snapshot: 'generation-1' },
+          cache: false as const,
+        }
+      }),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+
+    await expect(provider.routes!(requestEvent)).rejects.toMatchObject({ code: 'BACKEND_ABORTED' })
+    await new Promise(resolve => setImmediate(resolve))
+    expect(source.routes).toHaveBeenCalledOnce()
   })
 })

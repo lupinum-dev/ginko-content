@@ -315,7 +315,8 @@ export const validateContentGraph = (
   const markdownEntries = routeEntries.filter(content => content.type === 'markdown')
   const idsByLocale = new Map<string, ParsedContent>()
   const pathsByLocale = new Map<string, ParsedContent>()
-  const referenceTargets = buildReferenceTargets(routeEntries, locales)
+  const referenceTargets = new Map<string, string>()
+  const referenceTargetsByCollection = new Map<string, Map<string, string>>()
   const targetCollections = new Map<string, Set<string>>()
   const markdownVariantsByCanonicalKey = new Map<string, ParsedContent[]>()
   const refsByValue = new Map<string, ParsedContent>()
@@ -328,6 +329,21 @@ export const validateContentGraph = (
     const collections = targetCollections.get(canonicalId) || new Set<string>()
     collections.add(document.collection)
     targetCollections.set(canonicalId, collections)
+  }
+  for (const collection of new Set(routeEntries.map(document => document.collection || 'content'))) {
+    referenceTargetsByCollection.set(
+      collection,
+      buildReferenceTargets(routeEntries.filter(document => (document.collection || 'content') === collection), locales)
+    )
+  }
+  const targetCollectionsByIdentity = new Map<string, string[]>()
+  for (const [collection, targets] of referenceTargetsByCollection) {
+    for (const identity of targets.keys()) {
+      targetCollectionsByIdentity.set(identity, [...(targetCollectionsByIdentity.get(identity) || []), collection])
+    }
+  }
+  for (const [identity, collections] of targetCollectionsByIdentity) {
+    if (collections.length === 1) referenceTargets.set(identity, referenceTargetsByCollection.get(collections[0]!)!.get(identity)!)
   }
 
   for (const issue of collectTranslatedSlugValidationIssues(markdownEntries, {
@@ -349,12 +365,14 @@ export const validateContentGraph = (
 
   for (const document of markdownEntries) {
     const variantKey = document.canonicalKey || getCanonicalContentId(document, locales)
-    const siblings = markdownVariantsByCanonicalKey.get(variantKey) || []
+    const scopedVariantKey = `${document.collection || 'content'}\0${variantKey}`
+    const siblings = markdownVariantsByCanonicalKey.get(scopedVariantKey) || []
     siblings.push(document)
-    markdownVariantsByCanonicalKey.set(variantKey, siblings)
+    markdownVariantsByCanonicalKey.set(scopedVariantKey, siblings)
   }
 
-  for (const [variantKey, variants] of markdownVariantsByCanonicalKey.entries()) {
+  for (const [scopedVariantKey, variants] of markdownVariantsByCanonicalKey.entries()) {
+    const variantKey = scopedVariantKey.slice(scopedVariantKey.indexOf('\0') + 1)
     const explicitRefs = Array.from(new Set(variants
       .map(document => typeof document.ref === 'string' && document.ref.length ? document.ref : undefined)
       .filter((value): value is string => Boolean(value))))
@@ -371,7 +389,7 @@ export const validateContentGraph = (
 
   for (const document of routeEntries) {
     const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
-    const localeKey = `${canonicalId}:${document.locale || ''}`
+    const localeKey = `${document.collection || 'content'}\0${canonicalId}\0${document.locale || ''}`
     if (idsByLocale.has(localeKey)) {
       const previous = idsByLocale.get(localeKey)!
       return fail(createContentError(
@@ -410,7 +428,8 @@ export const validateContentGraph = (
       continue
     }
 
-    const previous = refsByValue.get(ref)
+    const scopedRef = `${document.collection || 'content'}\0${ref}`
+    const previous = refsByValue.get(scopedRef)
     if (previous && (previous.canonicalKey || getCanonicalContentId(previous, locales)) !== (document.canonicalKey || getCanonicalContentId(document, locales))) {
       return fail(createContentError(
         'CONFLICTING_REFS',
@@ -420,7 +439,7 @@ export const validateContentGraph = (
       ))
     }
 
-    refsByValue.set(ref, document)
+    refsByValue.set(scopedRef, document)
   }
 
   for (const document of docs) {
@@ -437,7 +456,9 @@ export const validateContentGraph = (
 
     const issues: string[] = []
     const resolveReference = (value: string, collection?: string) => {
-      const canonicalId = referenceTargets.get(normalizeReferenceValue(value))
+      const canonicalId = collection
+        ? referenceTargetsByCollection.get(collection)?.get(normalizeReferenceValue(value))
+        : referenceTargets.get(normalizeReferenceValue(value))
       if (!canonicalId) {
         return false
       }

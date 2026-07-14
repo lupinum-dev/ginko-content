@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  assertCmsRequestedFacts, parseCmsListWireResult, parseCmsPageWireResult,
-  parseCmsRoutesWireResult
+  assertCmsRequestedFacts, cmsPublicEntryWireSchema, parseCmsListWireResult, parseCmsNavWireResult,
+  parseCmsPageWireResult, parseCmsRoutesWireResult, parseCmsSiteDataWireResult
 } from '../../packages/content/src/cms-contract/provider-wire'
 
 const locale = { requested: 'en', resolved: 'en', policy: 'strict', fallbacks: { fields: [] } }
@@ -84,5 +84,47 @@ describe('CMS provider wire decoders', () => {
         entries: [{ ...entry, collection: 'other' } as never]
       }
     })).toThrow(/substituted another collection/i)
+  })
+
+  it('rejects hostile wire depth before recursive schema decoding', () => {
+    let data: unknown = 'leaf'
+    for (let depth = 0; depth < 80; depth++) data = { child: data }
+
+    expect(() => parseCmsSiteDataWireResult({
+      key: 'deep', data, locale
+    })).toThrow(/depth|bounded|limit/i)
+
+    let node: unknown = { entry, children: [] }
+    for (let depth = 0; depth < 80; depth++) node = { entry, children: [node] }
+    expect(() => parseCmsNavWireResult({
+      tree: [node], collection: 'docs', locale
+    })).toThrow(/depth|bounded|limit/i)
+  })
+
+  it('rejects oversized strings and containers before Zod clones them', () => {
+    expect(cmsPublicEntryWireSchema.safeParse({
+      ...entry,
+      title: 'x'.repeat(1024 * 1024 + 1)
+    }).success).toBe(false)
+
+    expect(() => parseCmsSiteDataWireResult({
+      key: 'large-string', data: 'x'.repeat(1024 * 1024 + 1), locale
+    })).toThrow(/string|bounded|limit/i)
+
+    expect(() => parseCmsSiteDataWireResult({
+      key: 'large-array', data: Array.from({ length: 2001 }, () => null), locale
+    })).toThrow(/container|array|bounded|limit/i)
+
+    expect(() => parseCmsSiteDataWireResult({
+      key: 'wide-object',
+      data: Object.fromEntries(Array.from({ length: 257 }, (_, index) => [`key-${index}`, index])),
+      locale
+    })).toThrow(/container|object|bounded|limit/i)
+
+    expect(() => parseCmsSiteDataWireResult({
+      key: 'many-nodes',
+      data: Array.from({ length: 101 }, () => Array.from({ length: 1000 }, () => null)),
+      locale
+    })).toThrow(/node count|bounded|limit/i)
   })
 })

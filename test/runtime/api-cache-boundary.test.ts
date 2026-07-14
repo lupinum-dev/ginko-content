@@ -163,6 +163,14 @@ describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => 
     }))
   })
 
+  test('escapes route paths before embedding them in prerender HTML', async () => {
+    const { renderContentRouteLinks } = await import('../../packages/content/src/runtime/server/api/cache')
+
+    expect(renderContentRouteLinks(['/docs?x="quoted"&next=<unsafe>'])).toBe(
+      '<a href="/docs?x=&quot;quoted&quot;&amp;next=&lt;unsafe&gt;"></a>'
+    )
+  })
+
   test('forced failure after parsing (an unreadable source): snapshot.json is never written', async () => {
     mocks.getSourceContentIds.mockResolvedValue(['content:docs:intro.md', 'content:docs:missing.md'])
     mocks.loadContentVariants.mockImplementation(async (_event: unknown, id: string) =>

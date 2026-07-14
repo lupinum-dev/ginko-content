@@ -1,10 +1,5 @@
 import type { ContentSearchResult } from '../../types/search'
-
-interface PagefindLocaleManifest {
-  version: 1
-  defaultLocale: string
-  indexes: Record<string, string>
-}
+import { isPagefindLocaleManifest, type PagefindLocaleManifest } from '../pagefind-manifest'
 
 interface PagefindResultData {
   url?: string
@@ -18,23 +13,13 @@ interface PagefindResultData {
 }
 
 interface PagefindResult {
+  id?: string
   score: number
   data(): Promise<PagefindResultData>
 }
 
 interface PagefindModule {
   search(term: string): Promise<{ results?: PagefindResult[] }>
-}
-
-const isManifest = (value: unknown): value is PagefindLocaleManifest => {
-  if (!value || typeof value !== 'object') return false
-  const manifest = value as Record<string, unknown>
-  return manifest.version === 1
-    && typeof manifest.defaultLocale === 'string'
-    && Boolean(manifest.defaultLocale)
-    && Boolean(manifest.indexes)
-    && typeof manifest.indexes === 'object'
-    && Object.values(manifest.indexes as Record<string, unknown>).every(entry => typeof entry === 'string' && Boolean(entry))
 }
 
 const defaultManifestLoader = async (url: string) => {
@@ -46,8 +31,22 @@ const defaultManifestLoader = async (url: string) => {
 const defaultModuleLoader = (url: string) => import(/* @vite-ignore */ url) as Promise<PagefindModule>
 
 const resolveEntryUrl = (manifestUrl: string, entry: string) => {
-  if (/^(?:https?:)?\/\//.test(entry) || entry.startsWith('/')) return entry
   return `${manifestUrl.slice(0, manifestUrl.lastIndexOf('/') + 1)}${entry}`
+}
+
+const normalizeResultUrl = (value: unknown) => {
+  const source = typeof value === 'string' ? value : ''
+  if (!source) return { path: '', anchor: undefined }
+  try {
+    const url = new URL(source, 'https://ginko.invalid')
+    return {
+      path: decodeURIComponent(url.pathname),
+      anchor: url.hash ? decodeURIComponent(url.hash.slice(1)) : undefined
+    }
+  } catch {
+    const [path = '', anchor] = source.split('#')
+    return { path, anchor: anchor || undefined }
+  }
 }
 
 export const createPagefindSearchClient = (options: {
@@ -62,7 +61,7 @@ export const createPagefindSearchClient = (options: {
 
   const manifest = () => {
     manifestPromise ||= loadManifest(options.manifestUrl).then((value) => {
-      if (!isManifest(value)) throw new Error('Invalid Pagefind locale manifest. Rebuild the site search index.')
+      if (!isPagefindLocaleManifest(value)) throw new Error('Invalid Pagefind locale manifest. Rebuild the site search index.')
       return value
     })
     return manifestPromise
@@ -90,14 +89,17 @@ export const createPagefindSearchClient = (options: {
         const pagefind = await moduleFor(locale, entry)
         return (await pagefind.search(term)).results || []
       }))
-      const ranked = responses.flat().sort((left, right) => right.score - left.score)
-      const limited = typeof execution.limit === 'number' && execution.limit > 0
-        ? ranked.slice(0, Math.floor(execution.limit))
-        : ranked
-      const normalized = await Promise.all(limited.map(async (result) => {
+      const ranked = responses.flatMap((results, localeIndex) =>
+        results.map((result, resultIndex) => ({ result, localeIndex, resultIndex })))
+        .sort((left, right) =>
+          right.result.score - left.result.score
+          || String(left.result.id || '').localeCompare(String(right.result.id || ''))
+          || left.localeIndex - right.localeIndex
+          || left.resultIndex - right.resultIndex)
+      const normalize = async (result: PagefindResult) => {
         const data = await result.data()
         const meta = data.meta
-        const [path = '', anchor] = String(data.url || '').split('#')
+        const { path, anchor } = normalizeResultUrl(data.url)
         return {
           path,
           collection: typeof meta?.collection === 'string' ? meta.collection : '',
@@ -107,8 +109,30 @@ export const createPagefindSearchClient = (options: {
           anchor: anchor || undefined,
           locale: typeof meta?.locale === 'string' ? meta.locale : undefined
         } satisfies ContentSearchResult
-      }))
+      }
+      const compare = (left: ContentSearchResult, right: ContentSearchResult) =>
+        right.score - left.score
+        || left.path.localeCompare(right.path)
+        || (left.anchor || '').localeCompare(right.anchor || '')
 
+      const requestedLimit = typeof execution.limit === 'number' && execution.limit > 0
+        ? Math.floor(execution.limit)
+        : undefined
+      if (requestedLimit !== undefined) {
+        if (requestedLimit === 0) return []
+        const normalized = (await Promise.all(
+          ranked.slice(0, requestedLimit).map(item => normalize(item.result))
+        )).sort(compare)
+        const seen = new Set<string>()
+        return normalized.filter((result) => {
+          const key = `${result.path}#${result.anchor || ''}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      }
+
+      const normalized = (await Promise.all(ranked.map(item => normalize(item.result)))).sort(compare)
       const seen = new Set<string>()
       return normalized.filter((result) => {
         const key = `${result.path}#${result.anchor || ''}`

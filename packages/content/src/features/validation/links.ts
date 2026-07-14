@@ -1,10 +1,9 @@
-import { createRouterMatcher } from 'vue-router'
 import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../../core/content/graph'
 import { resolveGraphCanonicalKey } from '../../core/content/graph'
 import { parseRefLink } from '../../core/references/resolve'
 import type { ContentRouteRecord } from '../localization/route-projector'
-import type { ContentLinksOptions } from '../../types/module'
+import type { ContentLinksOptions, ContentValidationRouteFacts } from '../../types/module'
 import type { ContentValidationFinding } from './report'
 
 interface ContentLinkValidationOptions {
@@ -12,7 +11,7 @@ interface ContentLinkValidationOptions {
   graph: ContentGraph
   defaultLocale?: string
   links?: ContentLinksOptions
-  appRoutes?: Array<{ path: string, name?: string }>
+  routeFacts?: ContentValidationRouteFacts
   assetExists: (document: ParsedContent, assetPath: string) => boolean | Promise<boolean>
 }
 
@@ -49,15 +48,9 @@ const isAssetPath = (path: string) => /\/[^/]+\.[a-z\d]{1,10}$/i.test(path) && !
 const identityKey = (collection: string | undefined, canonicalKey: string | undefined, locale: string | undefined) =>
   `${collection || ''}\0${canonicalKey || ''}\0${locale || ''}`
 
-const createAppRouteMatcher = (routes: Array<{ path: string, name?: string }> = []) => {
-  const concrete = routes.filter(route => route.path && !/[*(]\.?\*|:pathMatch/.test(route.path))
-  const matcher = createRouterMatcher(concrete.map((route, index) => ({
-    path: route.path,
-    name: route.name || `ginko-validation-${index}`,
-    component: {}
-  })), {})
-  const current = { path: '/', name: undefined, params: {}, matched: [], meta: {}, href: '/' }
-  return (path: string) => matcher.resolve({ path }, current as never).matched.length > 0
+const createAppRouteMatcher = (facts?: ContentValidationRouteFacts) => {
+  const patterns = (facts?.patterns || []).map(pattern => new RegExp(pattern.source, pattern.flags))
+  return (path: string) => patterns.some(pattern => pattern.test(path))
 }
 
 const configuredQuickLink = (value: string, links: ContentLinksOptions | undefined) => {
@@ -88,8 +81,8 @@ export const validateContentLinks = async (
     }
   }
 
-  const matchesAppRoute = createAppRouteMatcher(options.appRoutes)
-  const appRouteNames = new Set((options.appRoutes || []).map(route => route.name).filter(Boolean))
+  const matchesAppRoute = createAppRouteMatcher(options.routeFacts)
+  const namedRoutes = options.routeFacts?.named || {}
   const findings: ContentValidationFinding[] = []
   let externalLinks = 0
 
@@ -120,11 +113,22 @@ export const validateContentLinks = async (
       if (parsedRef) {
         const quickLink = configuredQuickLink(authoredValue, options.links)
         if (quickLink) {
-          if (appRouteNames.size && !appRouteNames.has(quickLink.route)) {
+          const route = namedRoutes[quickLink.route]
+          if (!route) {
             findings.push({
               severity: 'error', file: sourceFile,
               message: `Configured quick link "${authoredValue}" references missing Nuxt route name "${quickLink.route}".`,
               suggestion: 'Correct the quick-link route name or add the named Nuxt page route.'
+            })
+          } else {
+            const missingParam = route.requiredParams.find((param) => {
+              const value = quickLink.params?.[param]
+              return value === undefined || value === null || value === ''
+            })
+            if (missingParam) findings.push({
+              severity: 'error', file: sourceFile,
+              message: `Configured quick link "${authoredValue}" is missing required route parameter "${missingParam}".`,
+              suggestion: `Add params.${missingParam} to the configured quick link.`
             })
           }
           continue
@@ -172,7 +176,8 @@ export const validateContentLinks = async (
 
       const targetDocument = documentByRoute.get(resolved.path)
       if (reference.kind === 'asset' || (!targetDocument && isAssetPath(resolved.path))) {
-        if (!await options.assetExists(document, authoredValue)) {
+        const authoredAssetPath = decodeURIComponent(authoredValue.split(/[?#]/, 1)[0] || '')
+        if (!await options.assetExists(document, authoredAssetPath)) {
           findings.push({
             severity: 'error', file: sourceFile,
             message: `Missing asset "${authoredValue}".`,

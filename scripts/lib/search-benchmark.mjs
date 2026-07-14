@@ -36,3 +36,16 @@ export const readBenchmarkCorpus = async (source, createRecords) => {
     )
   }
 }
+
+export const shapeBenchmarkResults = (results, recordsById, term, createExcerpt) => results.map((result) => {
+  const record = recordsById.get(String(result.id))
+  return {
+    path: typeof result.path === 'string' ? result.path : '',
+    collection: typeof result.collection === 'string' ? result.collection : '',
+    title: typeof result.title === 'string' ? result.title : '',
+    excerpt: createExcerpt(record?.content || '', term, typeof result.excerpt === 'string' ? result.excerpt : ''),
+    score: typeof result.score === 'number' ? result.score : 0,
+    anchor: typeof result.anchor === 'string' ? result.anchor : undefined,
+    locale: typeof result.locale === 'string' ? result.locale : undefined
+  }
+})

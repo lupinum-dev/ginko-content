@@ -27,7 +27,7 @@ import type { NavItem, ParsedContent, ParsedContentMeta } from '../../types/cont
 import type { ContentCollectionConfig } from '../../types/config'
 import type { ResolvedContentContext } from '../../types/module'
 import type { ContentGraph } from '../../core/content/graph'
-import { buildContentGraph } from '../../core/content/graph'
+import { buildContentGraph, getGraphCanonicalVariants } from '../../core/content/graph'
 import { isRealDocument } from '../../core/content/document'
 import { buildContentSnapshot, assertSnapshotComplete, isContentSnapshot, type ContentSnapshot } from '../../core/content/snapshot'
 import { validateContentGraph } from '../../storage/validation'
@@ -51,7 +51,7 @@ import { chunksFromArray, loadContentVariants } from '../../storage/contents'
 import { getContentRuntimeConfig } from './runtime-config'
 import { cacheStorage, contentConfig, getSourceContentIds, sourceStorage } from './storage'
 import { validateContentLinks } from '../../features/validation/links'
-import { CONTENT_VALIDATION_REPORT_VERSION, type ContentValidationReport } from '../../features/validation/report'
+import { CONTENT_VALIDATION_REPORT_VERSION, isContentValidationReport, type ContentValidationReport } from '../../features/validation/report'
 import { dirname, normalize, join } from 'pathe'
 
 export { computeSitemapCollectionCounts } from '../../features/sitemap/counts'
@@ -130,7 +130,7 @@ const collectRouteFacts = (graph: ContentGraph, collection: string): ContentProv
     }
     seenCanonicalKeys.add(document.canonicalKey)
 
-    const variants = graph.byCanonical[document.canonicalKey] || {}
+    const variants = getGraphCanonicalVariants(graph, document.canonicalKey, collection) || {}
     for (const [locale, variant] of Object.entries(variants)) {
       if (!variant.path) {
         continue
@@ -147,6 +147,39 @@ const collectRouteFacts = (graph: ContentGraph, collection: string): ContentProv
   }
 
   return facts
+}
+
+const createValidationReport = async (
+  event: H3Event,
+  documents: ParsedContent[],
+  routes: readonly ContentRouteRecord[],
+  graph: ContentGraph,
+  contentContext: ResolvedContentContext & { cacheIntegrity: string },
+  generatedAt: number
+): Promise<ContentValidationReport> => {
+  const publicAssets = new Set(contentContext.validationPublicAssets || [])
+  const findings = await validateContentLinks(documents, {
+    routes,
+    graph,
+    defaultLocale: contentContext.defaultLocale,
+    links: contentContext.links,
+    routeFacts: contentContext.validationRouteFacts,
+    assetExists: async (document, authoredPath) => {
+      if (authoredPath.startsWith('/')) return publicAssets.has(authoredPath)
+      const source = document.file?.source
+      const sourceFile = document.file?.path
+      if (!source || !sourceFile) return false
+      const relativePath = normalize(join(dirname(sourceFile), authoredPath))
+      if (relativePath === '..' || relativePath.startsWith('../')) return false
+      return await sourceStorage(event).hasItem(`${source}:${relativePath}`)
+    }
+  })
+  return {
+    version: CONTENT_VALIDATION_REPORT_VERSION,
+    generatedAt,
+    integrity: contentContext.cacheIntegrity,
+    findings
+  }
 }
 
 /**
@@ -251,6 +284,7 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   let documents: ParsedContent[]
   let sourceIds: string[]
   let existingSnapshot: ContentSnapshot | undefined
+  let existingValidation: ContentValidationReport | undefined
 
   if (usesProcessSnapshot) {
     const raw = await cacheStorage(event).getItem('snapshot.json')
@@ -263,6 +297,11 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
     documents = raw.documents
     sourceIds = raw.documentSourceIds
     existingSnapshot = raw
+    const validation = await cacheStorage(event).getItem('validation.json')
+    if (!isContentValidationReport(validation) || validation.integrity !== contentContext.cacheIntegrity) {
+      throw new Error('[content] production validation report missing, invalid, or stale. Rebuild with this package version.')
+    }
+    existingValidation = validation
   } else {
     // Steps 2-3: enumerate mounted sources and ingest each through the real
     // transformer + parse-hook pipeline (integrations/nitro/ingest.ts).
@@ -335,30 +374,15 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   // Step 11: derive navigation for the active build consumers.
   const navigation = deriveNavigation(documents, contentContext as ResolvedContentContext)
 
-  const publicAssets = new Set(contentContext.validationPublicAssets || [])
-  const findings = await validateContentLinks(documents, {
-    routes,
-    graph,
-    defaultLocale: contentContext.defaultLocale,
-    links: contentContext.links,
-    appRoutes: contentContext.validationAppRoutes,
-    assetExists: async (document, authoredPath) => {
-      const assetPath = authoredPath.split(/[?#]/, 1)[0] || ''
-      if (assetPath.startsWith('/')) return publicAssets.has(assetPath)
-      const source = document.file?.source
-      const sourceFile = document.file?.path
-      if (!source || !sourceFile) return false
-      const relativePath = normalize(join(dirname(sourceFile), assetPath))
-      if (relativePath === '..' || relativePath.startsWith('../')) return false
-      return await sourceStorage(event).hasItem(`${source}:${relativePath}`)
-    }
-  })
-  const validation: ContentValidationReport = {
-    version: CONTENT_VALIDATION_REPORT_VERSION,
-    generatedAt: now,
-    integrity: contentContext.cacheIntegrity,
-    findings
-  }
+  const validation = existingValidation
+    ?? await createValidationReport(
+      event,
+      documents,
+      routes,
+      graph,
+      contentContext as ResolvedContentContext & { cacheIntegrity: string },
+      now
+    )
 
   // Step 12: construct and validate the snapshot — still in memory, nothing
   // durable yet. When reusing an already-published snapshot (see above),

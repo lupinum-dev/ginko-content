@@ -128,10 +128,12 @@ export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 
     const code = character.charCodeAt(0)
     return code < 32 || code === 127
   })
-  if (!input || input.startsWith('//') || hasControlCharacter) return false
-  if (input.startsWith('/') || input.startsWith('./') || input.startsWith('../')) return true
+  if (!input || input.startsWith('//') || input.includes('\\') || hasControlCharacter) return false
   if (kind === 'href' && input.startsWith('#')) return true
   try {
+    if (input.startsWith('/') || input.startsWith('./') || input.startsWith('../')) {
+      return new URL(input, 'https://ginko.invalid').origin === 'https://ginko.invalid'
+    }
     const url = new URL(input)
     if (url.username || url.password) return false
     if (url.protocol === 'https:') return true
@@ -200,6 +202,9 @@ export function validatePublicMarkdownAst(
           (declared.type === 'asset' && typeof propValue === 'string' && propValue.length > 0) ||
           (declared.type !== 'asset' && typeof propValue === declared.type)
         if (!valid) report('invalid_prop_value', propPath, `Component property "${name}" has the wrong type.`)
+        else if (declared.type === 'asset' && !isSafePublicMarkdownUrl(propValue as string, 'asset')) {
+          report('unsafe_url', propPath, `Component property "${name}" contains an unsafe URL.`)
+        }
         continue
       }
       const allowed =

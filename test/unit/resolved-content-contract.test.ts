@@ -115,9 +115,9 @@ describe('resolved content contract v1', () => {
 describe('RFC 8785 canonical JSON and incremental SHA-256', () => {
   it('uses ECMAScript number spelling, UTF-16 key order, and canonical -0', () => {
     expect(text(canonicalJsonBytes({
-      numbers: [JSON.parse('333333333.33333329'), 1e30, 4.50, 2e-3, 1e-27, -0],
+      numbers: [JSON.parse('333333333.33333329'), 4.50, 2e-3, 1e-27, -0],
       nested: { b: null, a: true },
-    }))).toBe('{"nested":{"a":true,"b":null},"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27,0]}')
+    }))).toBe('{"nested":{"a":true,"b":null},"numbers":[333333333.3333333,4.5,0.002,1e-27,0]}')
   })
 
   it('matches SHA-256 for contiguous and streamed bytes', async () => {
@@ -134,6 +134,7 @@ describe('RFC 8785 canonical JSON and incremental SHA-256', () => {
   it.each([
     ['undefined', undefined],
     ['unsafe integer', Number.MAX_SAFE_INTEGER + 1],
+    ['unsafe exponential integer', 1e21],
     ['non-finite number', Number.POSITIVE_INFINITY],
     ['lone surrogate', '\uD800'],
     ['array hole', Array(1)],

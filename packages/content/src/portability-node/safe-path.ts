@@ -3,6 +3,7 @@ import { posix } from 'node:path'
 import { portabilityError } from '../portability/errors.js'
 
 const device = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i
+const windowsForbidden = /[<>:"|?*]/
 const encoder = new TextEncoder()
 
 export function validatePortableRelativePath(value: string): string {
@@ -23,12 +24,13 @@ export function assertPortablePathSet(values: Iterable<string>): void {
 }
 
 function validSegment(segment: string): boolean {
-  if (!segment || segment === '.' || segment === '..' || segment.endsWith('.') || segment.endsWith(' ') || device.test(segment)) return false
+  if (!segment || segment === '.' || segment === '..' || segment.endsWith('.') || segment.endsWith(' ') || device.test(segment) || windowsForbidden.test(segment) || encoder.encode(segment).length > 255) return false
   return ![...segment].some(character => {
     const code = character.codePointAt(0)!
     return code === 0 || code <= 31 || code === 127
   })
 }
 
-export const portableCaseFold = (value: string) => value.normalize('NFC').toLowerCase()
+export const portableCaseFold = (value: string) =>
+  value.normalize('NFC').toUpperCase().toLowerCase().normalize('NFC')
 const invalidPath = () => portabilityError('PATH_INVALID', 'directory.verify', 'Portable directory path is invalid.')

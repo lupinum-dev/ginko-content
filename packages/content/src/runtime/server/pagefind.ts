@@ -1,18 +1,25 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ContentSearchIndexRecord } from '../../types/search'
+import { createPagefindLocaleManifest, isPagefindLocale } from '../pagefind-manifest'
 
 export async function writePagefindIndex (records: ContentSearchIndexRecord[], outputPath: string, defaultLocale: string) {
   const { createIndex } = await import('pagefind')
   const fallbackLocale = defaultLocale || 'en'
+  if (!isPagefindLocale(fallbackLocale)) {
+    throw new Error(`Invalid Pagefind locale "${fallbackLocale}".`)
+  }
   const recordsByLocale = new Map<string, ContentSearchIndexRecord[]>()
   for (const record of records) {
     const locale = record.locale || fallbackLocale
+    if (!isPagefindLocale(locale)) {
+      throw new Error(`Invalid Pagefind locale "${locale}".`)
+    }
     const scoped = recordsByLocale.get(locale) || []
     scoped.push({ ...record, locale })
     recordsByLocale.set(locale, scoped)
   }
-  const locales = [...recordsByLocale.keys()].sort((left, right) => {
+  const locales = [...new Set([fallbackLocale, ...recordsByLocale.keys()])].sort((left, right) => {
     if (left === fallbackLocale) return -1
     if (right === fallbackLocale) return 1
     return left.localeCompare(right)
@@ -54,13 +61,6 @@ export async function writePagefindIndex (records: ContentSearchIndexRecord[], o
     }
   }
 
-  const indexes = Object.fromEntries(locales.map(locale => [
-    locale,
-    locale === fallbackLocale ? 'pagefind.js' : `${locale}/pagefind.js`
-  ]))
-  await writeFile(join(outputPath, 'ginko-locales.json'), `${JSON.stringify({
-    version: 1,
-    defaultLocale: fallbackLocale,
-    indexes
-  }, null, 2)}\n`, 'utf8')
+  const manifest = createPagefindLocaleManifest(fallbackLocale, locales)
+  await writeFile(join(outputPath, 'ginko-locales.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 }

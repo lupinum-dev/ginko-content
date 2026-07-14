@@ -1,27 +1,29 @@
-# Ginko Content 0.4 Data Source And Portability Specification
+# Ginko Content 0.3 Data Source And Portability Addendum
 
 Status: implementation candidate
 
-Target: `0.4.0-rc.1`, followed by `0.4.0`
+Target: `0.3.0-rc.1`, followed by `0.3.0`
 
-Prerequisite: accepted, clean Ginko Content `0.3.0`
+Baseline: Ginko Content `0.2.1`; this addendum and `VNEXT.md` ship together as
+one coordinated `0.3.0` release.
 
 Last reviewed: 2026-07-13
 
 ## 1. Authority
 
-This document owns the Ginko Content `0.4` public contracts and implementation
-order. The coordinated
+This document is the data-source and portability addendum to the Ginko Content
+`0.3` contracts and implementation order in `VNEXT.md`. The coordinated
 [Ginko CMS vNext plan](../ginko-cms/ginko-cms-complete-migration-plan.md) owns
 CMS implementation, exact cross-repository artifacts, and release approval.
-`VNEXT.md` remains the `0.3` specification.
+Together, `VNEXT.md` and this addendum describe the complete `0.3` release from
+the published `0.2.1` baseline; there is no intermediate unpublished release.
 
 An implementation change that contradicts this file requires a reviewed spec
 amendment first. Developers must not invent missing semantics while coding.
 
 ## 2. Executive Decision
 
-Ginko Content `0.4` ships:
+Ginko Content `0.3` ships:
 
 1. a framework-neutral, bounded runtime `ContentDataSource<Context>`;
 2. the official Nuxt/H3 binder for that data source;
@@ -94,7 +96,7 @@ Adapters own authorization, persistence, transactions, retries, and storage.
 | auth, transactions, receipts, cleanup        | adapter                                | operational evidence                 |
 
 There is no separate CMS policy artifact. Evolve the existing `CmsContract` into
-`ResolvedContentContractV1` or rename it in the `0.4` hard cutover. The exact
+`ResolvedContentContractV1` or rename it in the `0.3` hard cutover. The exact
 artifact installed by CMS is the exact artifact used by portability.
 
 ## 5. Canonical Contract And Hashing
@@ -1136,7 +1138,7 @@ an exact artifact and deployment shape.
 `meta/public-surface.json`, API documentation, declarations, and consumer probes
 from it.
 
-Final `0.4` additions:
+Final `0.3` additions:
 
 ```text
 @lupinum/ginko-content/data-source
@@ -1168,26 +1170,27 @@ Requirements:
 - may pack a dirty tree;
 - writes under `.pack/dev/`;
 - records commit, dirty state, Node/pnpm versions, file manifest, and SHA-256;
-- embeds the intended `0.4.0-rc.1` package version;
+- embeds the package-manifest version;
 - packs to a temporary name, hashes it, then atomically renames it to
   `.pack/dev/<package>-<version>-dev.<commit>.<sha256>.tgz`;
 - never overwrites or reuses a development artifact path;
 - is accepted only through an explicit artifact path;
 - never updates compatibility or release evidence.
 
-### Candidate Lane
+### Release Candidate Lane
 
 ```bash
-pnpm run candidate:pack
+pnpm run release:pack
 ```
 
 Requirements:
 
 - clean accepted commit;
-- exact version from the candidate plan;
-- two serial packs with identical contents and SHA-256;
-- output under `.pack/candidate/`;
-- signed evidence is not required, but content manifest and hash are mandatory;
+- exact version from the package manifest;
+- two serial packs with identical archive bytes and SHA-256;
+- the verified tarball and `release-artifact.json` under `.pack/`;
+- release evidence records the exact commit, dirty state, runtime versions,
+  archive hash, and reproducible pack count;
 - downstream temporary consumers verify the expected hash before install.
 
 Committed package manifests retain semver ranges. Machine-specific `file:` paths
@@ -1199,21 +1202,20 @@ different hashes demonstrably load different bytes.
 
 ## 16. Implementation Order
 
-1. finish, commit, and certify `0.3.0`;
-2. freeze the resolved contract and RFC 8785/SHA-256 vectors;
-3. add portable semantic fixtures;
-4. implement the corrected pure data source and bounds;
-5. migrate the filesystem provider and H3 binder without losing cache behavior;
-6. implement `PortableDocumentV1` and frontmatter/data mappings;
-7. implement references and two-pass graph validation;
-8. implement the portable MDC syntax matrix and semantic tests;
-9. implement structural asset handling and byte verification;
-10. implement manifest rebuilding and the safe Node directory codec;
-11. pack the Content development artifact;
-12. implement the CMS-specific vertical slice against that tarball;
-13. run Level-1 and adapter-owned CMS evidence;
-14. remove `/cms-import` and duplicate CMS mapping in the same cutover;
-15. create clean exact candidates and run coordinated verification.
+1. freeze the resolved contract and RFC 8785/SHA-256 vectors;
+2. add portable semantic fixtures;
+3. implement the corrected pure data source and bounds;
+4. migrate the filesystem provider and H3 binder without losing cache behavior;
+5. implement `PortableDocumentV1` and frontmatter/data mappings;
+6. implement references and two-pass graph validation;
+7. implement the portable MDC syntax matrix and semantic tests;
+8. implement structural asset handling and byte verification;
+9. implement manifest rebuilding and the safe Node directory codec;
+10. pack the Content development artifact;
+11. implement the CMS-specific vertical slice against that tarball;
+12. run Level-1 and adapter-owned CMS evidence;
+13. remove `/cms-import` and duplicate CMS mapping in the same cutover;
+14. create clean exact candidates and run coordinated verification.
 
 ## 17. Required Tests
 
@@ -1259,7 +1261,7 @@ All examples compile against packed packages.
 
 ## 19. Completion Checklist
 
-- [ ] clean accepted `0.3.0` baseline exists;
+- [ ] published `0.2.1` baseline and combined `0.3.0` release scope are recorded;
 - [ ] one resolved contract and hash exist;
 - [ ] canonical JSON/hash vectors pass in Node, Worker V8, and Convex;
 - [ ] data-source methods are fixed-type, bounded, and framework-free;

@@ -40,7 +40,10 @@ describe('content link validation', () => {
       routes: [route(home, '/de'), route(guide, '/de/leitfaden')],
       graph: buildContentGraph(documents, { locales: ['en', 'de'], defaultLocale: 'en' }),
       defaultLocale: 'en',
-      appRoutes: [{ path: '/users-:group', name: 'users-group' }, { path: '/:pathMatch(.*)*', name: 'catch-all' }],
+      routeFacts: {
+        patterns: [{ source: '^\\/users-([^/]+?)\\/?$', flags: 'i' }],
+        named: { 'users-group': { requiredParams: ['group'] } }
+      },
       assetExists: async () => false
     })
 
@@ -61,13 +64,66 @@ describe('content link validation', () => {
           missing: { route: 'missing-route' }
         }
       },
-      appRoutes: [{ path: '/pricing', name: 'pricing' }],
+      routeFacts: {
+        patterns: [{ source: '^\\/pricing\\/?$', flags: 'i' }],
+        named: { pricing: { requiredParams: [] } }
+      },
       assetExists
     })
 
     expect(assetExists).not.toHaveBeenCalled()
     expect(findings.map(finding => finding.message)).toEqual([
       'Configured quick link "$main.missing" references missing Nuxt route name "missing-route".'
+    ])
+  })
+
+  test('requires configured quick-link route names and required parameters', async () => {
+    const page = document('/', [
+      element('a', { href: '$main.user' }),
+      element('a', { href: '$main.unknown' }),
+      element('a', { href: '$main.complete' })
+    ], 'index.md')
+    const findings = await validateContentLinks([page], {
+      routes: [route(page, '/')],
+      graph: buildContentGraph([page], { locales: ['en'], defaultLocale: 'en' }),
+      links: {
+        main: {
+          user: { route: 'user' },
+          unknown: { route: 'unknown' },
+          complete: { route: 'user', params: { id: '42' } }
+        }
+      },
+      routeFacts: {
+        patterns: [],
+        named: { user: { requiredParams: ['id'] } }
+      },
+      assetExists: async () => false
+    })
+
+    expect(findings.map(finding => finding.message)).toEqual([
+      'Configured quick link "$main.unknown" references missing Nuxt route name "unknown".',
+      'Configured quick link "$main.user" is missing required route parameter "id".'
+    ])
+  })
+
+  test('passes decoded root-relative and colocated asset paths to source-aware validation', async () => {
+    const page = document('/', [
+      element('img', { src: '/images/hero%20wide.png' }),
+      element('img', { src: './image%20one.png' })
+    ], 'guide/index.md')
+    const assetExists = vi.fn(async (_source: ParsedContent, value: string) =>
+      value === '/images/hero wide.png' || value === './image one.png')
+
+    const findings = await validateContentLinks([page], {
+      routes: [route(page, '/')],
+      graph: buildContentGraph([page], { locales: ['en'], defaultLocale: 'en' }),
+      assetExists
+    })
+
+    expect(findings).toEqual([])
+    expect(assetExists.mock.calls.map(([, value]) => value)).toEqual([
+      '/images/hero wide.png',
+      './image one.png'
     ])
   })
 
@@ -106,6 +162,11 @@ describe('content link validation', () => {
 
       await writeFile(join(reportDirectory, 'validation.json'), JSON.stringify({
         version: 0, generatedAt: Date.now(), integrity: 'stale', findings: []
+      }))
+      await expect(runContentValidation({ rootDir })).resolves.toEqual(expect.objectContaining({ exitCode: 1 }))
+
+      await writeFile(join(reportDirectory, 'validation.json'), JSON.stringify({
+        version: 1, generatedAt: -1, integrity: '', findings: []
       }))
       await expect(runContentValidation({ rootDir })).resolves.toEqual(expect.objectContaining({ exitCode: 1 }))
 

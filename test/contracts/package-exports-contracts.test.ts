@@ -4,6 +4,14 @@ import { describe, expect, test } from 'vitest'
 
 type PublicSurface = {
   packageExportSubpaths: Record<string, PublicSurfaceEntry>
+  dataSourceValueExports: string[]
+  dataSourceTypeExports: string[]
+  cmsContractValueExports: string[]
+  cmsContractTypeExports: string[]
+  portabilityValueExports: string[]
+  portabilityTypeExports: string[]
+  portabilityNodeValueExports: string[]
+  portabilityNodeTypeExports: string[]
   clientValueExports: Record<string, PublicSurfaceEntry>
   clientTypeExports: Record<string, PublicSurfaceEntry>
   serverValueExports: Record<string, PublicSurfaceEntry>
@@ -121,6 +129,19 @@ const extractTypeExports = (source: string) => {
 }
 
 describe('package export contracts', () => {
+  test.each([
+    ['dataSource', 'packages/content/src/public/data-source.ts'],
+    ['cmsContract', 'packages/content/src/cms-contract/index.ts'],
+    ['portability', 'packages/content/src/portability/index.ts'],
+    ['portabilityNode', 'packages/content/src/portability-node/index.ts'],
+  ] as const)('source %s facade exports stay intentionally curated', async (surface, path) => {
+    const publicSurface = await readPublicSurface()
+    const source = await readFile(path, 'utf8')
+
+    expect(extractValueExports(source)).toEqual(publicSurface[`${surface}ValueExports`].sort())
+    expect(extractTypeExports(source)).toEqual(publicSurface[`${surface}TypeExports`].sort())
+  })
+
   test('source agent facade value exports stay intentionally curated', async () => {
     const publicSurface = await readPublicSurface()
     const source = await readFile('packages/content/src/public/agent.ts', 'utf8')

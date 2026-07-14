@@ -59,6 +59,7 @@ const importsSourceSegment = (segment: 'runtime' | 'features') => (specifier: st
 const importsRuntimeFramework = (specifier: string) =>
   specifier === '#imports'
   || specifier === 'vue'
+  || specifier === 'vue-router'
   || specifier === 'h3'
   || specifier.startsWith('@nuxt/')
   || specifier.startsWith('nitropack/')
@@ -134,6 +135,24 @@ describe('architecture boundaries', () => {
 
   test('core does not import runtime framework modules', async () => {
     await expect(importsFrom('core', importsRuntimeFramework)).resolves.toEqual([])
+  })
+
+  test('features do not import runtime framework modules', async () => {
+    await expect(importsFrom('features', importsRuntimeFramework)).resolves.toEqual([])
+  })
+
+  test('portable read, write, manifest, wire, and image boundaries share one limit policy', async () => {
+    const files = [
+      'packages/content/src/cms-contract/asset-bytes.ts',
+      'packages/content/src/cms-contract/provider-wire.ts',
+      'packages/content/src/portability/manifest.ts',
+      'packages/content/src/portability-node/read-directory.ts',
+      'packages/content/src/portability-node/write-directory.ts',
+    ]
+    const sources = await Promise.all(files.map(file => readFile(file, 'utf8')))
+
+    expect(sources.every(source => source.includes('PORTABLE_CONTENT_LIMITS'))).toBe(true)
+    expect(sources.some(source => source.includes('25 * 1024 * 1024'))).toBe(false)
   })
 
   test('public package surface does not expose CMS admin/editor/workflow/MCP behavior', async () => {

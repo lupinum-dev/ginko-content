@@ -17,10 +17,18 @@ import {
 } from './provider'
 
 const contexts = new WeakMap<object, Map<object, Promise<unknown>>>()
-const safeErrorKeys = new Set(['code', 'field', 'path', 'collection', 'locale', 'operation'])
+class ContentDataSourceControlError extends Error {
+  readonly code: 'BACKEND_ABORTED' | 'BACKEND_TIMEOUT'
+
+  constructor(code: 'BACKEND_ABORTED' | 'BACKEND_TIMEOUT', message: string) {
+    super(message)
+    this.name = 'ContentDataSourceControlError'
+    this.code = code
+  }
+}
 
 function normalizedBackendError(cause: unknown): Error {
-  if (cause instanceof Error && /disposed|aborted|deadline|timeout/i.test(cause.message)) return cause
+  if (cause instanceof ContentDataSourceControlError) return cause
   const record = cause && typeof cause === 'object' ? cause as Record<string, unknown> : {}
   const publicData = record.data && typeof record.data === 'object'
     ? record.data as Record<string, unknown>
@@ -35,14 +43,6 @@ function normalizedBackendError(cause: unknown): Error {
   const code = /token|secret|password|cookie|authorization/i.test(rawCode)
     ? 'BACKEND_FAILURE'
     : rawCode.slice(0, 128)
-  const rawDetails = record.details && typeof record.details === 'object'
-    ? record.details as Record<string, unknown>
-    : publicData
-  const details = Object.fromEntries(
-    Object.entries(rawDetails)
-      .filter(([key, value]) => safeErrorKeys.has(key) && typeof value === 'string')
-      .map(([key, value]) => [key, String(value).slice(0, 512)]),
-  )
   const statusCode = typeof record.statusCode === 'number' && record.statusCode >= 400 && record.statusCode <= 599
     ? record.statusCode
     : 500
@@ -50,7 +50,7 @@ function normalizedBackendError(cause: unknown): Error {
     code,
     statusCode,
     statusMessage: code,
-    data: { code, ...details },
+    data: { code },
   })
 }
 
@@ -247,19 +247,45 @@ async function runControlled<T>(
     once?: (name: string, listener: () => void) => void
     off?: (name: string, listener: () => void) => void
   }
+  const response = event.node?.res as unknown as {
+    once?: (name: string, listener: () => void) => void
+    off?: (name: string, listener: () => void) => void
+  }
   let rejectAbort!: (reason: Error) => void
   const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject })
-  const dispose = () => {
-    controller.abort()
-    rejectAbort(new Error('Content data-source request was disposed or aborted.'))
+  const abort = (error: ContentDataSourceControlError) => {
+    if (controller.signal.aborted) return
+    controller.abort(error)
+    rejectAbort(error)
   }
-  request?.once?.('close', dispose)
-  const timer = setTimeout(dispose, CONTENT_DATA_SOURCE_LIMITS.maxBackendDurationMs)
+  const dispose = () => abort(new ContentDataSourceControlError(
+    'BACKEND_ABORTED',
+    'Content data-source request was disposed or aborted.',
+  ))
+  const timeout = () => abort(new ContentDataSourceControlError(
+    'BACKEND_TIMEOUT',
+    'Content data-source operation exceeded its deadline.',
+  ))
+  request?.once?.('aborted', dispose)
+  response?.once?.('close', dispose)
+  const timer = setTimeout(timeout, CONTENT_DATA_SOURCE_LIMITS.maxBackendDurationMs)
   try {
     return await Promise.race([operation({ signal: controller.signal, deadlineAt }), aborted])
   } finally {
     clearTimeout(timer)
-    request?.off?.('close', dispose)
+    request?.off?.('aborted', dispose)
+    response?.off?.('close', dispose)
+  }
+}
+
+const assertControlActive = (control: ContentDataSourceControl) => {
+  if (control.signal.aborted) {
+    throw control.signal.reason instanceof Error
+      ? control.signal.reason
+      : new ContentDataSourceControlError('BACKEND_ABORTED', 'Content data-source request was disposed or aborted.')
+  }
+  if (Date.now() >= control.deadlineAt) {
+    throw new ContentDataSourceControlError('BACKEND_TIMEOUT', 'Content data-source operation exceeded its deadline.')
   }
 }
 
@@ -377,7 +403,9 @@ export function bindContentProvider<Context>(args: {
             let cache: ContentDataSourceCacheHint | false | undefined
             const seenCursors = new Set<string>()
             do {
+              assertControlActive(control)
               const page = await source.routes!(context, { cursor, limit: CONTENT_DATA_SOURCE_LIMITS.maxRoutePageSize }, control)
+              assertControlActive(control)
               if (page.data.items.length > CONTENT_DATA_SOURCE_LIMITS.maxRoutePageSize) {
                 throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source route page exceeds the result limit.')
               }
@@ -398,7 +426,16 @@ export function bindContentProvider<Context>(args: {
               }
               const nextCursor = page.data.nextCursor
               if (nextCursor !== null) {
-                if (typeof nextCursor !== 'string' || !nextCursor || nextCursor === cursor || seenCursors.has(nextCursor)) {
+                if (page.data.items.length === 0) {
+                  throw dataSourceError('CURSOR_INVALID', 'Content data-source route cursor made no progress.')
+                }
+                if (
+                  typeof nextCursor !== 'string' ||
+                  !nextCursor ||
+                  utf8Bytes(nextCursor) > CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes ||
+                  nextCursor === cursor ||
+                  seenCursors.has(nextCursor)
+                ) {
                   throw dataSourceError('CURSOR_INVALID', 'Content data-source route cursor made no progress.')
                 }
                 seenCursors.add(nextCursor)

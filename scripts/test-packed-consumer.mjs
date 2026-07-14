@@ -93,7 +93,7 @@ function run(command, args, cwd, options = {}) {
   }
 }
 
-function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
+function runAndCapture(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
     env: {
@@ -108,6 +108,12 @@ function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
   if (result.status !== 0) {
     throw new Error(`Command failed in ${cwd}: ${[command, ...args].join(' ')}\n${output}`)
   }
+
+  return output
+}
+
+function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
+  const output = runAndCapture(command, args, cwd)
 
   for (const pattern of forbiddenPatterns) {
     if (pattern.test(output)) {
@@ -128,6 +134,13 @@ function packageExecAndRejectOutput(command, args, cwd, forbiddenPatterns) {
     ? ['exec', command, ...args]
     : ['exec', '--', command, ...args]
   runAndRejectOutput(packageManager, commandArgs, cwd, forbiddenPatterns)
+}
+
+function packageExecAndCapture(command, args, cwd) {
+  const commandArgs = packageManager === 'pnpm'
+    ? ['exec', command, ...args]
+    : ['exec', '--', command, ...args]
+  return runAndCapture(packageManager, commandArgs, cwd)
 }
 
 function writeFile(path, content) {
@@ -236,6 +249,7 @@ async function main() {
         '@nuxtjs/sitemap': process.env.GINKO_CONSUMER_SITEMAP_VERSION || '8.0.15',
         '@types/node': process.env.GINKO_CONSUMER_NODE_TYPES_VERSION || '^24.0.0',
         nuxt: process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7',
+        pagefind: process.env.GINKO_CONSUMER_PAGEFIND_VERSION || '1.5.2',
         typescript: '6.0.3',
         vue: process.env.GINKO_CONSUMER_VUE_VERSION || '3.5.35',
         'vue-tsc': '3.2.9',
@@ -261,7 +275,11 @@ async function main() {
             linkHeaders: true,
             markdownNegotiation: true
           },
-          sitemap: true
+          search: {
+            engine: 'pagefind'
+          },
+          sitemap: true,
+          validation: 'report'
         },
         compatibilityDate: '2026-04-14'
       })
@@ -441,8 +459,28 @@ The packed package rendered this page.
       /could not be resolved[\s\S]*treating it as an external dependency/i
     ])
 
+    const cliHelp = packageExecAndCapture('ginko-content', ['--help'], appDir)
+    if (!cliHelp.includes('validate [root]')) {
+      throw new Error(`Packed CLI help does not expose content validation:\n${cliHelp}`)
+    }
+
+    const validationOutput = packageExecAndCapture('ginko-content', ['validate', appDir], appDir)
+    if (!validationOutput.includes('Ginko Content validation: ok')) {
+      throw new Error(`Packed CLI did not validate the report produced by the build:\n${validationOutput}`)
+    }
+
+    const pagefindDir = resolve(appDir, '.output/public/pagefind')
+    const pagefindManifestPath = resolve(pagefindDir, 'ginko-locales.json')
+    if (!existsSync(resolve(pagefindDir, 'pagefind.js')) || !existsSync(pagefindManifestPath)) {
+      throw new Error('Packed consumer build did not emit Pagefind entry and locale manifest artifacts')
+    }
+    const pagefindManifest = JSON.parse(readFileSync(pagefindManifestPath, 'utf8'))
+    if (pagefindManifest.version !== 1 || pagefindManifest.defaultLocale !== 'en' || pagefindManifest.indexes?.en !== 'pagefind.js') {
+      throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(pagefindManifest)}`)
+    }
+
     if (buildOnly) {
-      console.log(`Packed consumer ${packageManager} prepare/typecheck/build passed.`)
+      console.log(`Packed consumer ${packageManager} prepare/typecheck/build, CLI validation, and Pagefind artifact checks passed.`)
       return
     }
 

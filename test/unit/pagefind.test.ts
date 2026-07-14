@@ -70,6 +70,34 @@ describe('Pagefind index writer', () => {
     await rm(outputPath, { recursive: true, force: true })
   })
 
+  test('always writes the compatibility index for the configured default locale', async () => {
+    const { writePagefindIndex } = await import('../../packages/content/src/runtime/server/pagefind')
+    const outputPath = await mkdtemp(join(tmpdir(), 'ginko-pagefind-'))
+
+    await writePagefindIndex([
+      { id: '/de/start', collection: 'docs', path: '/de/start', title: 'Start', excerpt: '', content: 'Start', headings: [], locale: 'de' }
+    ], outputPath, 'en')
+
+    expect(pagefindMocks.writeFiles).toHaveBeenNthCalledWith(1, { outputPath })
+    expect(pagefindMocks.writeFiles).toHaveBeenNthCalledWith(2, { outputPath: join(outputPath, 'de') })
+    await expect(readFile(join(outputPath, 'ginko-locales.json'), 'utf8')).resolves.toContain('"en": "pagefind.js"')
+    await rm(outputPath, { recursive: true, force: true })
+  })
+
+  test('rejects locale path traversal before creating or writing an index', async () => {
+    const { writePagefindIndex } = await import('../../packages/content/src/runtime/server/pagefind')
+    const outputPath = await mkdtemp(join(tmpdir(), 'ginko-pagefind-'))
+
+    await expect(writePagefindIndex([], outputPath, '../outside')).rejects.toThrow(/locale/i)
+    await expect(writePagefindIndex([
+      { id: '/escape', collection: 'docs', path: '/escape', title: 'Escape', excerpt: '', content: 'Escape', headings: [], locale: 'de/../../outside' }
+    ], outputPath, 'en')).rejects.toThrow(/locale/i)
+
+    expect(pagefindMocks.addCustomRecord).not.toHaveBeenCalled()
+    expect(pagefindMocks.writeFiles).not.toHaveBeenCalled()
+    await rm(outputPath, { recursive: true, force: true })
+  })
+
   test('fails loudly when Pagefind rejects a record', async () => {
     const { writePagefindIndex } = await import('../../packages/content/src/runtime/server/pagefind')
     pagefindMocks.addCustomRecord.mockResolvedValueOnce({ errors: ['bad record'] })

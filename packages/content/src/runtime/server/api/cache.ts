@@ -16,6 +16,17 @@ interface ContentRouteSeed {
   sitemapByCollection: Record<string, number>
 }
 
+const escapeHtmlAttribute = (value: string) => value.replace(/[&<>"']/g, character => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+})[character]!)
+
+export const renderContentRouteLinks = (routes: readonly string[]) =>
+  routes.map(path => `<a href="${escapeHtmlAttribute(path)}"></a>`).join('')
+
 /**
  * External providers have no filesystem snapshot to build. Their optional
  * `routes()` method is the canonical build-time enumeration seam, so this
@@ -98,14 +109,16 @@ export default defineEventHandler(async (event) => {
     const seed = await buildExternalProviderRouteSeed(event)
     if (import.meta.prerender) {
       setHeader(event, 'content-type', 'text/html; charset=utf-8')
-      const links = seed.routes.map(path => `<a href="${path}"></a>`).join('')
+      const links = renderContentRouteLinks(seed.routes)
       return `<!doctype html><html><head><meta charset="utf-8"></head><body>${links}</body></html>`
     }
     return { ...seed, generateTime: Date.now() - start }
   }
 
   const result = await buildContentResult(event)
-  await publishContentValidationReport(event, result.validation)
+  if (!usesProcessSnapshot) {
+    await publishContentValidationReport(event, result.validation)
+  }
   const validationErrors = result.validation.findings.filter(finding => finding.severity === 'error')
   if (runtime.validation === 'error' && validationErrors.length) {
     throw new ContentError(
@@ -128,7 +141,7 @@ export default defineEventHandler(async (event) => {
 
   if (import.meta.prerender) {
     setHeader(event, 'content-type', 'text/html; charset=utf-8')
-    const links = publicRoutePaths.map(path => `<a href="${path}"></a>`).join('')
+    const links = renderContentRouteLinks(publicRoutePaths)
     return `<!doctype html><html><head><meta charset="utf-8"></head><body>${links}</body></html>`
   }
 

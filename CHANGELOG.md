@@ -1,6 +1,29 @@
 # Changelog
 
-## Unreleased
+## v0.3.0-rc.1
+
+This release candidate combines the previously unpublished content-engine work
+and the data-source/portability work into one release from `v0.2.1`. It is a
+coordinated pre-1.0 hard cutover; no intermediate `0.3` or `0.4` package is
+required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
+
+### Breaking changes
+
+- Require Node.js 22 or newer.
+- Replace the broad composable surface with `useContentPage` and
+  `useContentSearch`. Use the pure client query functions with `useAsyncData` for
+  lists, navigation, pagination, backlinks, surroundings, and direct reads.
+- Return canonical `route` and `resolution` facts on documents instead of the
+  former top-level `path`, `localePaths`, and `variants` fields.
+- Remove `@lupinum/ginko-content/cms-import`. Use the runtime-neutral
+  `@lupinum/ginko-content/portability` codecs and the bounded
+  `@lupinum/ginko-content/portability/node` directory helpers.
+
+### Added and improved
+
+- Add the bounded `ContentDataSource` contract, its Nuxt/H3 binder, canonical
+  contract hashing, portable documents, deterministic codecs, structural
+  references/assets, and reusable conformance tests.
 
 - Add build-owned content validation for internal links, heading anchors, quick
   links, Nuxt route names, and local assets. Builds persist a versioned report;
@@ -25,6 +48,21 @@
 - Add real static-generation manifests, generated-link integrity, broader
   hydration checks, exact-tarball pnpm/npm consumers, and scheduled dependency
   compatibility canaries.
+
+### Migrating from 0.2.1
+
+1. Move deployments to Node.js 22 or newer.
+2. Replace deleted composables with the pure query functions documented in the
+   migration guide; keep `useContentPage` and `useContentSearch` for their
+   route/search state ownership.
+3. Read public route and locale resolution from `document.route` and
+   `document.resolution`.
+4. Move CMS import/export code to the portability subpaths and delete duplicated
+   filesystem-to-CMS mapping.
+5. Rebuild generated search indexes. Enable strict content validation explicitly
+   with `content.validation: 'error'` after resolving the diagnostic report.
+6. Run provider/data-source contract tests and certify Ginko CMS against the
+   exact `0.3.0-rc.1` tarball before promoting `0.3.0`.
 
 ## v0.2.1
 

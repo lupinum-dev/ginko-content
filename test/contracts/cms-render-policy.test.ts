@@ -40,7 +40,7 @@ describe('canonical public Markdown render policy', () => {
     },
   )
 
-  it.each(['javascript:alert(1)', 'data:text/html,boom', 'blob:https://example.test/id', '//evil.test/x']) (
+  it.each(['javascript:alert(1)', 'data:text/html,boom', 'blob:https://example.test/id', '//evil.test/x', '/\\evil.test/x']) (
     'rejects unsafe URL %s',
     (src) => {
       expect(validatePublicMarkdownAst(root(element('img', { src, alt: '' })))).toMatchObject({
@@ -70,6 +70,26 @@ describe('canonical public Markdown render policy', () => {
       ok: false,
       issues: [expect.objectContaining({ code: 'unknown_prop' })],
     })
+  })
+
+  it('applies the canonical URL policy to registered asset props', () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: {
+        Media: {
+          kind: 'block',
+          props: { src: { type: 'asset', required: true } },
+          slots: [],
+          media: { sourceProp: 'src', altProp: null },
+        },
+      },
+    }
+
+    expect(validatePublicMarkdownAst(root(element('media', { src: 'javascript:alert(1)' })), policy)).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_url' })],
+    })
+    expect(validatePublicMarkdownAst(root(element('media', { src: '/ginko-assets/image.png' })), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('media', { src: 'https://cdn.example.test/image.png' })), policy)).toMatchObject({ ok: true })
   })
 
   it('accepts passive code-block metadata emitted by the Markdown parser', () => {

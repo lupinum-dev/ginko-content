@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertReproduciblePacks } from './lib/release-artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
@@ -17,40 +18,49 @@ function run(command, args, cwd = repoRoot) {
   })
 }
 
-function assertNoWorkspaceRanges() {
+function assertNoWorkspaceRanges(tarball) {
   const offenders = []
-  for (const tarball of readdirSync(packDir).filter((file) => file.endsWith('.tgz'))) {
-    const tempDir = mkdtempSync(join(tmpdir(), 'ginko-content-release-pack-'))
-    try {
-      execFileSync('tar', ['-xzf', resolve(packDir, tarball)], { cwd: tempDir, stdio: 'pipe' })
-      const manifestPath = resolve(tempDir, 'package/package.json')
-      if (!existsSync(manifestPath)) {
-        offenders.push(`${tarball}: missing package/package.json after extract`)
-        continue
-      }
+  const tempDir = mkdtempSync(join(tmpdir(), 'ginko-content-release-pack-'))
+  try {
+    execFileSync('tar', ['-xzf', tarball], { cwd: tempDir, stdio: 'pipe' })
+    const manifestPath = resolve(tempDir, 'package/package.json')
+    if (!existsSync(manifestPath)) {
+      offenders.push(`${tarball}: missing package/package.json after extract`)
+    }
+    else {
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-      for (const field of [
-        'dependencies',
-        'devDependencies',
-        'peerDependencies',
-        'optionalDependencies',
-      ]) {
+      for (const field of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
         for (const [name, range] of Object.entries(manifest[field] ?? {})) {
           if (typeof range === 'string' && range.startsWith('workspace:')) {
             offenders.push(`${tarball}: ${field}.${name} ships ${range}`)
           }
         }
       }
-    } finally {
-      rmSync(tempDir, { recursive: true, force: true })
     }
+  }
+  finally {
+    rmSync(tempDir, { recursive: true, force: true })
   }
 
   if (offenders.length > 0) {
-    console.error('Release pack workspace:* check failed:')
-    for (const offender of offenders) console.error(`  - ${offender}`)
-    process.exit(1)
+    throw new Error(`Release pack workspace:* check failed:\n${offenders.map(offender => `  - ${offender}`).join('\n')}`)
   }
+}
+
+function sha256(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+function packOnce(parent, index) {
+  const output = resolve(parent, `pack-${index}`)
+  mkdirSync(output)
+  run('pnpm', ['pack', '--pack-destination', output], packageRoot)
+  const tarballs = readdirSync(output).filter(file => file.endsWith('.tgz'))
+  if (tarballs.length !== 1) {
+    throw new Error(`Release pack ${index} expected exactly one tarball, found ${tarballs.length}.`)
+  }
+  const path = resolve(output, tarballs[0])
+  return { filename: tarballs[0], path, sha256: sha256(path) }
 }
 
 function normalizeExportTarget(target) {
@@ -168,32 +178,39 @@ rmSync(packDir, { recursive: true, force: true })
 mkdirSync(packDir, { recursive: true })
 
 // `pnpm pack` runs the package's prepack hook, which is the canonical package build.
-// Do not build once here and then build the same package again during pack.
-run('pnpm', ['pack', '--pack-destination', packDir], packageRoot)
-const tarballs = readdirSync(packDir).filter(file => file.endsWith('.tgz'))
-if (tarballs.length !== 1) {
-  throw new Error(`Release pack expected exactly one tarball, found ${tarballs.length}.`)
-}
-assertNoWorkspaceRanges()
-const tarballPath = resolve(packDir, tarballs[0])
-assertReleaseTarball(tarballPath)
+// Run that canonical build twice and retain only the archive whose bytes were
+// proven reproducible. This is the sole release/candidate artifact path.
+const temporaryRoot = mkdtempSync(join(tmpdir(), 'ginko-content-release-packs-'))
+try {
+  const first = packOnce(temporaryRoot, 1)
+  const second = packOnce(temporaryRoot, 2)
+  assertReproduciblePacks(first, second)
 
-const sha256 = createHash('sha256').update(readFileSync(tarballPath)).digest('hex')
-const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
-const worktreeDirty = execFileSync(
-  'git',
-  ['status', '--porcelain', '--untracked-files=normal'],
-  { cwd: repoRoot, encoding: 'utf8' }
-).trim().length > 0
-const metadata = {
-  commit,
-  worktreeDirty,
-  releaseEligible: !worktreeDirty,
-  node: process.version,
-  npm: execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim(),
-  pnpm: execFileSync('pnpm', ['--version'], { encoding: 'utf8' }).trim(),
-  tarball: tarballs[0],
-  sha256
+  const tarballPath = resolve(packDir, first.filename)
+  copyFileSync(first.path, tarballPath)
+  assertNoWorkspaceRanges(tarballPath)
+  assertReleaseTarball(tarballPath)
+
+  const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  const worktreeDirty = execFileSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=normal'],
+    { cwd: repoRoot, encoding: 'utf8' }
+  ).trim().length > 0
+  const metadata = {
+    commit,
+    worktreeDirty,
+    releaseEligible: !worktreeDirty,
+    reproduciblePacks: 2,
+    node: process.version,
+    npm: execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim(),
+    pnpm: execFileSync('pnpm', ['--version'], { encoding: 'utf8' }).trim(),
+    tarball: first.filename,
+    sha256: first.sha256
+  }
+  writeFileSync(resolve(packDir, 'release-artifact.json'), `${JSON.stringify(metadata, null, 2)}\n`)
+  console.log(`Release pack wrote ${first.filename} (sha256 ${first.sha256}) to ${packDir}.`)
 }
-writeFileSync(resolve(packDir, 'release-artifact.json'), `${JSON.stringify(metadata, null, 2)}\n`)
-console.log(`Release pack wrote ${tarballs[0]} (sha256 ${sha256}) to ${packDir}.`)
+finally {
+  rmSync(temporaryRoot, { recursive: true, force: true })
+}

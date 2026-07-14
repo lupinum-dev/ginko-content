@@ -23,7 +23,7 @@ import type { ContentGraph } from '../content/graph'
 import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
 import { isPlanRegex } from './plan'
 import { sortLocalesCanonically } from '../content/locale'
-import { resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
+import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
 import { ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
 import { normalizeRouteMounts, routeToContentPathCandidates } from '../content/path'
 
@@ -374,10 +374,11 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
       continue
     }
 
-    const key = item.canonicalKey || item.id || item.id || item.path
+    const identity = item.canonicalKey || item.id || item.path
+    const key = typeof identity === 'string' ? `${item.collection || 'content'}\0${identity}` : identity
     const rank = localeRank.get(item.locale || '') ?? Number.MAX_SAFE_INTEGER
     const availableLocales = item.canonicalKey
-      ? sortLocalesCanonically(Object.keys(graph.byCanonical[item.canonicalKey] || {}), { defaultLocale, locales })
+      ? sortLocalesCanonically(Object.keys(getGraphCanonicalVariants(graph, item.canonicalKey, item.collection) || {}), { defaultLocale, locales })
       : [item.locale].filter(Boolean) as string[]
     const enriched = {
       ...item,
@@ -453,9 +454,12 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
             : (plan.resolveVariant!.fallback?.length
                 ? Array.from(new Set([plan.resolveVariant!.locale, ...plan.resolveVariant!.fallback].filter(Boolean) as string[]))
                 : resolveLocaleChain(plan.resolveVariant!.locale, defaultLocale, localeFallback || {}))
+          const collectionVariants = plan.collection
+            ? Object.values(graph.byCollectionCanonical[plan.collection] || {})
+            : Object.values(graph.byCollectionCanonical).flatMap(entries => Object.values(entries))
           const candidateLocales = localeChain.length
             ? localeChain
-            : sortLocalesCanonically(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants)), { defaultLocale, locales: collectionI18n?.locales })
+            : sortLocalesCanonically(collectionVariants.flatMap(variants => Object.keys(variants)), { defaultLocale, locales: collectionI18n?.locales })
           if (!candidateLocales.length) {
             candidateLocales.push('')
           }
@@ -509,7 +513,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
   }
   const dirConfig = findDirConfig(graph, content?.path, variant.resolvedLocale)
   const variantPaths = Object.fromEntries(
-    Object.entries(graph.byCanonical[variant.canonicalKey] || {}).map(([locale, entry]) => [locale, entry.path])
+    Object.entries(getGraphCanonicalVariants(graph, variant.canonicalKey, content?.collection) || {}).map(([locale, entry]) => [locale, entry.path])
   )
 
   const enriched = {

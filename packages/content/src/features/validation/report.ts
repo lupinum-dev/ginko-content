@@ -19,7 +19,10 @@ export const isContentValidationReport = (value: unknown): value is ContentValid
   const report = value as Record<string, unknown>
   return report.version === CONTENT_VALIDATION_REPORT_VERSION
     && typeof report.generatedAt === 'number'
+    && Number.isFinite(report.generatedAt)
+    && report.generatedAt >= 0
     && typeof report.integrity === 'string'
+    && report.integrity.length > 0
     && Array.isArray(report.findings)
     && report.findings.every((finding) => {
       if (!finding || typeof finding !== 'object') return false

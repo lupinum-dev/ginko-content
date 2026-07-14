@@ -1,11 +1,102 @@
 import { z } from 'zod'
+import { PORTABLE_CONTENT_LIMITS } from './limits.js'
 
-const jsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.union([
-    z.null(), z.boolean(), z.number().finite(), z.string(),
-    z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)
-  ])
-)
+const wireLimits = {
+  depth: 64,
+  nodes: 100_000,
+  containers: 20_000,
+  arrayItems: 2_000,
+  objectKeys: 256,
+  stringBytes: 1024 * 1024,
+  totalStringBytes: 8 * 1024 * 1024,
+} as const
+const encoder = new TextEncoder()
+
+const wireLimitError = (reason: string) => new TypeError(`CMS wire value exceeds its bounded ${reason} limit.`)
+
+function assertBoundedWireValue(root: unknown): void {
+  type Frame = { value: unknown; depth: number; exit?: object }
+  const stack: Frame[] = [{ value: root, depth: 0 }]
+  const ancestors = new WeakSet<object>()
+  let nodes = 0
+  let containers = 0
+  let totalStringBytes = 0
+
+  const countString = (value: string) => {
+    if (value.length > wireLimits.stringBytes) throw wireLimitError('string')
+    const bytes = encoder.encode(value).byteLength
+    if (bytes > wireLimits.stringBytes) throw wireLimitError('string')
+    totalStringBytes += bytes
+    if (totalStringBytes > wireLimits.totalStringBytes) throw wireLimitError('total string')
+  }
+
+  while (stack.length) {
+    const frame = stack.pop()!
+    if (frame.exit) {
+      ancestors.delete(frame.exit)
+      continue
+    }
+    nodes += 1
+    if (nodes > wireLimits.nodes) throw wireLimitError('node count')
+    if (frame.depth > wireLimits.depth) throw wireLimitError('depth')
+
+    const value = frame.value
+    if (typeof value === 'string') {
+      countString(value)
+      continue
+    }
+    if (value === null || typeof value === 'boolean') continue
+    if (typeof value === 'number' && Number.isFinite(value)) continue
+    if (!value || typeof value !== 'object') throw new TypeError('CMS wire value must contain bounded JSON data only.')
+
+    const object = value as object
+    if (ancestors.has(object)) throw new TypeError('CMS wire value must not contain cycles.')
+    const prototype = Object.getPrototypeOf(object)
+    if (Array.isArray(value)) {
+      if (prototype !== Array.prototype || value.length > wireLimits.arrayItems) throw wireLimitError('array container')
+    } else if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError('CMS wire value must contain plain JSON objects only.')
+    }
+
+    containers += 1
+    if (containers > wireLimits.containers) throw wireLimitError('container count')
+    ancestors.add(object)
+    stack.push({ value: null, depth: frame.depth, exit: object })
+
+    if (Array.isArray(value)) {
+      for (let index = value.length - 1; index >= 0; index--) {
+        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+          throw new TypeError('CMS wire arrays must not contain holes.')
+        }
+        stack.push({ value: value[index], depth: frame.depth + 1 })
+      }
+      continue
+    }
+
+    const descriptors = Object.getOwnPropertyDescriptors(value)
+    const keys = Object.keys(descriptors)
+    if (keys.length > wireLimits.objectKeys) throw wireLimitError('object container')
+    for (let index = keys.length - 1; index >= 0; index--) {
+      const key = keys[index]!
+      const descriptor = descriptors[key]!
+      if (!descriptor.enumerable || !('value' in descriptor)) {
+        throw new TypeError('CMS wire objects must contain enumerable data properties only.')
+      }
+      countString(key)
+      stack.push({ value: descriptor.value, depth: frame.depth + 1 })
+    }
+  }
+}
+
+const boundedWireValueSchema: z.ZodType<unknown> = z.custom((value) => {
+  try {
+    assertBoundedWireValue(value)
+    return true
+  } catch {
+    return false
+  }
+}, 'Expected bounded JSON data.')
+const jsonValueSchema = boundedWireValueSchema
 const nonEmptyString = z.string().min(1)
 const isoDate = z.string().refine((value) => {
   try { return new Date(value).toISOString() === value } catch { return false }
@@ -60,11 +151,11 @@ const publicAssetFactSchema = z.object({
   }, 'Expected a credential-free HTTPS asset URL.'),
   expiresAt: z.number().int().positive().nullable(),
   mediaType: z.enum(['image/png', 'image/jpeg', 'image/gif', 'image/webp']),
-  bytes: z.number().int().positive().max(25 * 1024 * 1024),
+  bytes: z.number().int().positive().max(PORTABLE_CONTENT_LIMITS.assetBytes),
   sha256: z.string().regex(/^[a-f0-9]{64}$/)
 }).strict()
 
-export const cmsPublicEntryWireSchema = z.object({
+const cmsPublicEntryWireObjectSchema = z.object({
   id: nonEmptyString, collection: nonEmptyString, route: routeSchema,
   translations: z.array(translationSchema), locale: localeResolutionSchema,
   title: z.string(), data: publicDataSchema, bodyAst: jsonValueSchema.optional(),
@@ -72,6 +163,7 @@ export const cmsPublicEntryWireSchema = z.object({
   revision: nonEmptyString, stableId: nonEmptyString,
   assetFacts: z.array(publicAssetFactSchema).max(100)
 }).strict()
+export const cmsPublicEntryWireSchema = boundedWireValueSchema.pipe(cmsPublicEntryWireObjectSchema)
 export type CmsPublicEntryWire = z.infer<typeof cmsPublicEntryWireSchema>
 export interface CmsNavNodeWire {
   entry: CmsPublicEntryWire
@@ -133,6 +225,12 @@ export const cmsSiteDataWireResultSchema = z.object({
 }).strict()
 
 const parse = <T>(schema: z.ZodType<T>, operation: string, value: unknown): T => {
+  try {
+    assertBoundedWireValue(value)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'CMS wire value is not bounded.'
+    throw new TypeError(`Invalid CMS ${operation} wire result at result: ${message}`)
+  }
   const result = schema.safeParse(value)
   if (result.success) return result.data
   const issue = result.error.issues[0]

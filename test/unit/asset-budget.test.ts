@@ -18,6 +18,16 @@ describe('docs initial asset budget', () => {
     expect(result.largestAsset.asset).toBe('app.css')
   })
 
+  test('does not treat lazy data attributes as initial asset references', () => {
+    const html = [
+      '<script data-src="/_nuxt/lazy.js"></script>',
+      '<link rel="modulepreload" data-href="/_nuxt/lazy-preload.js">',
+      '<script src="/_nuxt/entry.js"></script>'
+    ].join('')
+
+    expect(collectReferencedAssets(html)).toEqual(['entry.js'])
+  })
+
   test('reports the page with the largest referenced gzip payload', async () => {
     const pages = [
       { path: 'small.html', html: '<script src="/_nuxt/small.js"></script>' },

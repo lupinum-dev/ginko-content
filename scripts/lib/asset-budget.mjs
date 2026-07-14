@@ -1,6 +1,6 @@
 import { gzipSync } from 'node:zlib'
 
-const attribute = (tag, name) => tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`, 'i'))?.[1]
+const attribute = (tag, name) => tag.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*["']([^"']+)["']`, 'i'))?.[1]
 const assetName = (url) => {
   const match = url.match(/(?:^|\/)_nuxt\/([^?#]+)/)
   return match?.[1] && /\.(?:css|js)$/.test(match[1]) ? match[1] : undefined

@@ -1,4 +1,5 @@
 import { assertResolvedContentContract } from '../cms-contract/validate.js'
+import { PORTABLE_CONTENT_LIMITS } from '../cms-contract/limits.js'
 import { canonicalJsonBytes, hashCanonicalJson, sha256Hex, type JsonValue } from '../cms-contract/hash.js'
 import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
 import { portabilityError } from './errors.js'
@@ -21,7 +22,7 @@ export function serializePortableManifest(manifest: PortableManifestV1): Uint8Ar
 export function parsePortableManifest(input: string | Uint8Array): PortableManifestV1 {
   try {
     const source = typeof input === 'string' ? input : new TextDecoder('utf-8', { fatal: true }).decode(input)
-    if (new TextEncoder().encode(source).length > 32 * 1024 * 1024) throw portabilityError('LIMIT_EXCEEDED', 'portability.parse', 'Portable manifest exceeds 32 MiB.')
+    if (new TextEncoder().encode(source).length > PORTABLE_CONTENT_LIMITS.manifestBytes) throw portabilityError('LIMIT_EXCEEDED', 'portability.parse', 'Portable manifest exceeds 32 MiB.')
     return assertPortableManifest(parsePortableJson(source))
   } catch (error) {
     if (error instanceof Error && error.name === 'GinkoBoundaryError') throw error
@@ -55,7 +56,7 @@ export async function rebuildPortableManifest(args: {
   assets: Array<PortableAssetBlobV1 & { content: Uint8Array }>
 }): Promise<PortableManifestV1> {
   const contract = assertResolvedContentContract(args.contract)
-  if (args.documents.length > 100_000 || args.documents.length + args.assets.length + 2 > 200_000) throw portabilityError('LIMIT_EXCEEDED', 'portability.rebuildManifest', 'Portable file count exceeds the supported limit.')
+  if (args.documents.length > PORTABLE_CONTENT_LIMITS.documents || args.documents.length + args.assets.length + 2 > PORTABLE_CONTENT_LIMITS.files) throw portabilityError('LIMIT_EXCEEDED', 'portability.rebuildManifest', 'Portable file count exceeds the supported limit.')
   validatePortableReferences(args.documents.map(item => item.document), contract)
   await validatePortableAssets(args.documents.map(item => item.document), contract, args.assets)
   const documents = await Promise.all(args.documents.map(async item => ({

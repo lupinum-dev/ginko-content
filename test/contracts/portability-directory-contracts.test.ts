@@ -9,7 +9,6 @@ import {
   assertPortablePathSet,
   rebuildPortableDirectoryManifest,
   validatePortableRelativePath,
-  verifyPortableDirectory,
   verifyPortableDirectoryBounded,
   writePortableDirectory,
 } from '../../packages/content/src/portability-node'
@@ -57,7 +56,7 @@ describe('Node portable directory contract', () => {
     await rm(join(first, '.ginko/portable.json'))
     await rebuildPortableDirectoryManifest(first)
     expect(await readFile(join(first, '.ginko/portable.json'))).toEqual(firstManifest)
-    await expect(verifyPortableDirectory(first)).resolves.toMatchObject({ manifest: { format: 'ginko-content-portable' } })
+    await expect(readPortableDirectory(first)).resolves.toMatchObject({ manifest: { format: 'ginko-content-portable' } })
   })
 
   it('writes documents and asset bytes lazily from bounded async iterables', async () => {
@@ -107,7 +106,7 @@ describe('Node portable directory contract', () => {
 
     await writePortableDirectory(destination, { contract: bundle.contract, documents: documents(), assets: assets() })
 
-    const read = await verifyPortableDirectory(destination)
+    const read = await readPortableDirectory(destination)
     expect(read.documents).toHaveLength(1)
     expect(read.assets).toEqual([
       expect.objectContaining({ sha256: assetSha256, bytes: assetContent.byteLength }),
@@ -128,13 +127,24 @@ describe('Node portable directory contract', () => {
   it('rejects traversal, reserved paths, case-fold collisions, and extra files', async () => {
     expect(() => validatePortableRelativePath('../escape')).toThrowError(expect.objectContaining({ code: 'PATH_INVALID' }))
     expect(() => validatePortableRelativePath('content/CON/file.md')).toThrowError(expect.objectContaining({ code: 'PATH_INVALID' }))
+    for (const character of ['<', '>', ':', '"', '|', '?', '*']) {
+      expect(() => validatePortableRelativePath(`content/docs/a${character}b.md`)).toThrowError(expect.objectContaining({ code: 'PATH_INVALID' }))
+    }
+    expect(() => validatePortableRelativePath(`content/docs/${'a'.repeat(256)}.md`)).toThrowError(expect.objectContaining({ code: 'PATH_INVALID' }))
     const parent = await temporary('extra')
     const destination = join(parent, 'bundle')
     await writePortableDirectory(destination, await fixtureBundle())
     await writeFile(join(destination, 'README.txt'), 'not indexed')
-    await expect(verifyPortableDirectory(destination)).rejects.toMatchObject({ code: 'PATH_INVALID' })
+    await expect(verifyPortableDirectoryBounded(destination)).rejects.toMatchObject({ code: 'PATH_INVALID' })
     await rm(join(destination, 'README.txt'))
     expect(() => assertPortablePathSet(['content/docs/entry/en.md', 'content/docs/entry/EN.md'])).toThrowError(expect.objectContaining({ code: 'PATH_COLLISION' }))
+    for (const [left, right] of [
+      ['content/docs/s.md', 'content/docs/ſ.md'],
+      ['content/docs/σ.md', 'content/docs/ς.md'],
+      ['content/docs/ss.md', 'content/docs/ß.md'],
+    ]) {
+      expect(() => assertPortablePathSet([left, right])).toThrowError(expect.objectContaining({ code: 'PATH_COLLISION' }))
+    }
   })
 
   it('rejects symlinks and bytes changed after manifest creation', async () => {
@@ -143,7 +153,10 @@ describe('Node portable directory contract', () => {
     await writePortableDirectory(destination, await fixtureBundle())
     const document = join(destination, 'content/docs/docs.introduction/en.md')
     await writeFile(document, `${await readFile(document, 'utf8')}changed\n`)
-    await expect(verifyPortableDirectory(destination)).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
+    const materializedError = await readPortableDirectory(destination).catch(error => error)
+    const boundedError = await verifyPortableDirectoryBounded(destination).catch(error => error)
+    expect(materializedError).toMatchObject({ code: 'DOCUMENT_INVALID' })
+    expect(boundedError).toMatchObject({ code: materializedError.code })
     await rm(document)
     await symlink('/etc/hosts', document)
     await expect(rebuildPortableDirectoryManifest(destination)).rejects.toMatchObject({ code: 'PATH_INVALID' })

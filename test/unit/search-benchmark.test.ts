@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { readBenchmarkCorpus, resolveNuxtBuildArtifact } from '../../scripts/lib/search-benchmark.mjs'
+import { readBenchmarkCorpus, resolveNuxtBuildArtifact, shapeBenchmarkResults } from '../../scripts/lib/search-benchmark.mjs'
 
 describe('search benchmark corpus', () => {
   it('resolves artifacts from Nuxt actual configured build directory', async () => {
@@ -36,5 +36,17 @@ describe('search benchmark corpus', () => {
     }, () => [{ id: 'fallback' }])
 
     expect(corpus.records).toEqual([{ id: 'generated' }])
+  })
+
+  it('applies identical end-to-end shaping to engine-specific result objects', () => {
+    const records = new Map([['record', { content: 'Canonical content match' }]])
+    const excerpt = (content: string, term: string) => `${content}:${term}`
+    const common = { id: 'record', path: '/docs', collection: 'docs', title: 'Docs', excerpt: '', score: 2, locale: 'en' }
+
+    const mini = shapeBenchmarkResults([{ ...common, match: { title: ['docs'] }, queryTerms: ['docs'] }], records, 'docs', excerpt)
+    const orama = shapeBenchmarkResults([{ ...common, content: 'engine copy', headings: ['Docs'] }], records, 'docs', excerpt)
+
+    expect(mini).toEqual(orama)
+    expect(Object.keys(mini[0] || {}).sort()).toEqual(['anchor', 'collection', 'excerpt', 'locale', 'path', 'score', 'title'])
   })
 })
