@@ -8,5 +8,5 @@ export function assertReproduciblePacks(first, second) {
 }
 
 export function normalizeArchiveEntry(entry) {
-  return entry.replaceAll('\\', '/')
+  return entry.replace(/\r$/, '').replaceAll('\\', '/')
 }

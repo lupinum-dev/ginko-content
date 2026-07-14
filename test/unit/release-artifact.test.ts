@@ -25,7 +25,7 @@ describe('release artifact reproducibility', () => {
   })
 
   test('normalizes Windows tar listings to portable archive paths', () => {
-    expect(normalizeArchiveEntry('package\\dist\\module.d.mts')).toBe(
+    expect(normalizeArchiveEntry('package\\dist\\module.d.mts\r')).toBe(
       'package/dist/module.d.mts',
     )
   })
