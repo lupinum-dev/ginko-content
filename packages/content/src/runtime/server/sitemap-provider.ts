@@ -1,82 +1,101 @@
 import type { H3Event } from 'h3'
+import { getRequestURL } from 'h3'
+import { useRuntimeConfig } from 'nitropack/runtime'
 import type { ContentSitemapEntry } from '../../types/query'
-import type { QueryCollectionsSitemapEntriesOptions } from './sitemap'
+import type { QueryCollectionsSitemapEntriesOptions } from '../../features/sitemap/query'
+import { projectSitemapEntry } from '../../features/sitemap/query'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { createContentProviderError } from '../../public/provider-errors'
+import { getContentProvider } from './providers'
+import { getContentRuntimeConfig } from './runtime-config'
+import { normalizeProviderRoutes, projectProviderRouteFact } from './provider-route-facts'
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+const withoutTrailingSlash = (value: string) => value.replace(/\/$/, '')
 
-const describeShape = (value: unknown) => {
-  if (Array.isArray(value)) return 'array'
-  if (value === null) return 'null'
-  return typeof value
+const localeLanguageMap = (event: H3Event): Record<string, string> => {
+  const runtime = useRuntimeConfig(event) as unknown as {
+    public?: { i18n?: { locales?: Array<string | { code?: string, language?: string }> } }
+  }
+  return Object.fromEntries((runtime.public?.i18n?.locales || []).flatMap((locale) => {
+    if (typeof locale === 'string') return [[locale, locale]]
+    return locale.code ? [[locale.code, locale.language || locale.code]] : []
+  }))
 }
 
-const assertSitemapEntry = (
-  entry: unknown,
-  index: number,
-  provider: string
-): asserts entry is ContentSitemapEntry => {
-  if (!isObject(entry) || typeof entry.loc !== 'string' || !entry.loc.trim()) {
-    throw createContentProviderError('provider_result_invalid', `${provider} returned an invalid sitemap entry.`, {
-      provider,
-      operation: 'sitemap entries',
-      index,
-      field: 'loc',
-      actual: describeShape(entry)
-    })
+const resolveSiteUrl = (event: H3Event, explicit?: string) => {
+  if (explicit) return withoutTrailingSlash(explicit)
+  const runtime = useRuntimeConfig(event) as unknown as {
+    public?: { content?: { siteUrl?: string }, siteUrl?: string }
   }
-
-  if (
-    entry.alternatives !== undefined &&
-    (!Array.isArray(entry.alternatives) || entry.alternatives.some(alternative =>
-      !isObject(alternative) ||
-      typeof alternative.hreflang !== 'string' ||
-      typeof alternative.href !== 'string'
-    ))
-  ) {
-    throw createContentProviderError('provider_result_invalid', `${provider} returned invalid sitemap alternatives.`, {
-      provider,
-      operation: 'sitemap entries',
-      index,
-      field: 'alternatives',
-      actual: describeShape(entry.alternatives)
-    })
+  const configured = runtime.public?.content?.siteUrl || runtime.public?.siteUrl
+  if (configured) return withoutTrailingSlash(configured)
+  if (resolveRuntimeEnvironment() === 'development') {
+    const url = getRequestURL(event)
+    return `${url.protocol}//${url.host}`
   }
+  throw new Error('Content sitemap generation requires site.url or runtimeConfig.public.content.siteUrl in production.')
 }
 
-const assertSitemapEntries = (
-  value: unknown,
-  provider: string
-): ContentSitemapEntry[] => {
-  if (!Array.isArray(value)) {
-    throw createContentProviderError('provider_result_invalid', `${provider} returned invalid sitemap entries.`, {
-      provider,
-      operation: 'sitemap entries',
-      actual: describeShape(value)
-    })
-  }
-
-  value.forEach((entry, index) => assertSitemapEntry(entry, index, provider))
-  return value
-}
-
-/**
- * Generate sitemap entries for one or more content collections.
- *
- * Entries include locale alternatives when i18n metadata is available and
- * attempt to collect images from page metadata and markdown bodies.
- */
+/** Build final sitemap entries from provider route facts. Providers never receive consumer policy. */
 export async function queryCollectionsSitemapEntries (
   event: H3Event,
   options: QueryCollectionsSitemapEntriesOptions = {}
 ): Promise<ContentSitemapEntry[]> {
-  const { getContentProvider } = await import('./providers')
   const provider = await getContentProvider(event)
-  if (!provider.sitemapEntries) {
-    throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support sitemap entries`, {
-      provider: provider.name
+  if (!provider.routes) {
+    throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support route enumeration.`, {
+      provider: provider.name,
+      operation: 'routes'
     })
   }
-  return assertSitemapEntries(await provider.sitemapEntries(event, options), provider.name)
+
+  const runtime = getContentRuntimeConfig().content
+  const include = options.include?.length ? new Set(options.include) : undefined
+  const exclude = new Set(options.exclude || [])
+  const includeDrafts = resolveIncludeDrafts({
+    environment: resolveRuntimeEnvironment(),
+    includeDrafts: options.includeDrafts
+  })
+  const routes = normalizeProviderRoutes(await provider.routes(event), provider.name)
+    .filter(route => (!include || include.has(route.collection)) && !exclude.has(route.collection))
+    .filter(route => runtime.collections?.[route.collection]?.type !== 'data')
+    .filter(route => includeDrafts || !route.draft)
+    .filter(route => route.sitemap !== false)
+
+  const siteUrl = resolveSiteUrl(event, options.siteUrl)
+  const localeToLanguage = localeLanguageMap(event)
+  const byCanonical = new Map<string, typeof routes>()
+  for (const route of routes) {
+    const key = `${route.collection}:${route.canonicalKey}`
+    const group = byCanonical.get(key) || []
+    group.push(route)
+    byCanonical.set(key, group)
+  }
+
+  return routes.map((route) => {
+    const variants = byCanonical.get(`${route.collection}:${route.canonicalKey}`) || []
+    const projectedVariants = variants.map(variant => ({
+      locale: variant.locale,
+      path: projectProviderRouteFact(variant, runtime)
+    }))
+    const variant = {
+      locale: route.locale,
+      path: projectProviderRouteFact(route, runtime)
+    }
+    const collectionI18n = runtime.collections?.[route.collection]?.i18n
+    const defaultLocale =
+      collectionI18n && typeof collectionI18n === 'object'
+        ? collectionI18n.defaultLocale || runtime.defaultLocale || route.locale
+        : runtime.defaultLocale || route.locale
+    const metadata = route.sitemap && typeof route.sitemap === 'object' ? route.sitemap : undefined
+    return projectSitemapEntry({
+      siteUrl,
+      defaultLocale,
+      localeToLanguage,
+      variant,
+      variants: projectedVariants,
+      lastmod: metadata?.lastmod,
+      images: metadata?.images?.length ? [...metadata.images] : undefined
+    })
+  })
 }

@@ -16,18 +16,9 @@ vi.mock('#imports', () => ({
   })
 }))
 
-const getContentManifest = vi.fn()
-const resolveLocaleChain = vi.fn()
-const resolveRouteVariant = vi.fn()
 const getContentsList = vi.fn()
 const getContent = vi.fn()
 const createServerContentQuery = vi.fn()
-
-vi.mock('../../packages/content/src/runtime/server/manifest', () => ({
-  getContentManifest,
-  resolveLocaleChain,
-  resolveRouteVariant
-}))
 
 vi.mock('../../packages/content/src/runtime/server/storage', () => ({
   createServerContentQuery
@@ -86,9 +77,6 @@ const assertNoModuleOwnedUnderscoreKeys = (value: unknown, where: string) => {
 
 describe('query execution contracts', () => {
   beforeEach(() => {
-    getContentManifest.mockReset()
-    resolveLocaleChain.mockReset()
-    resolveRouteVariant.mockReset()
     getContentsList.mockReset()
     getContent.mockReset()
     createServerContentQuery.mockReset()
@@ -110,16 +98,6 @@ describe('query execution contracts', () => {
     ]
 
     getContentsList.mockResolvedValue(dataset)
-    getContentManifest.mockResolvedValue({
-      byCanonical: {
-        'docs/intro': { en: { locale: 'en' }, de: { locale: 'de' } },
-        'docs/advanced': { en: { locale: 'en' } },
-        'docs/guide': { en: { locale: 'en' } },
-        'docs/middle': { de: { locale: 'de' } },
-        'docs/zed': { en: { locale: 'en' }, de: { locale: 'de' } }
-      }
-    })
-    resolveLocaleChain.mockReturnValue(['de', 'en'])
 
     const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // The executor now takes a lowered plan (CS-5); lower builder params here.
@@ -183,7 +161,7 @@ describe('query execution contracts', () => {
       }
       ],
       skip: 0,
-      limit: 0,
+      limit: 100,
       total: 5
     })
 
@@ -235,14 +213,6 @@ describe('query execution contracts', () => {
     ]
 
     getContentsList.mockResolvedValue(dataset)
-    getContentManifest.mockResolvedValue({
-      byCanonical: {
-        'docs/intro': { de: { locale: 'de' } },
-        'docs/guide': { en: { locale: 'en' } },
-        'docs/advanced': { en: { locale: 'en' } }
-      }
-    })
-    resolveLocaleChain.mockReturnValue(['de', 'en'])
 
     const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // The executor now takes a lowered plan (CS-5); lower builder params here.
@@ -280,8 +250,6 @@ describe('query execution contracts', () => {
         path: '/guide/intro'
       })
     ]
-    resolveLocaleChain.mockReturnValue(['de', 'en'])
-
     const { buildContentGraph } = await import('../../packages/content/src/core/content/graph')
     const { executeQueryPlan } = await import('../../packages/content/src/core/query/execute')
     const { localizePageResult } = await import('../../packages/content/src/features/localization/results')
@@ -439,6 +407,39 @@ describe('query execution contracts', () => {
     ])
   })
 
+  // VNEXT.md 13.6/24.2/24.4: one core visibility decision, applied at the
+  // untrusted public query boundary. Structural eligibility (partial,
+  // navigationFile) is unconditional — never a route, in any environment —
+  // while draft is the one environment-aware publication-visibility fact.
+  test('executeContentQuery applies structural exclusion unconditionally and draft visibility per environment', async () => {
+    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+
+    const dataset = [
+      doc({ id: 'content:en:docs:published.md', collection: 'docs', canonicalKey: 'docs/published', path: '/docs/published', title: 'Published' }),
+      doc({ id: 'content:en:docs:draft.md', collection: 'docs', canonicalKey: 'docs/draft', path: '/docs/draft', title: 'Draft', draft: true }),
+      doc({ id: 'content:en:docs:_dir.yml', collection: 'docs', canonicalKey: 'docs/_dir', path: '/docs', title: 'Dir config', partial: true }),
+      doc({ id: 'content:en:docs:_nav.yml', collection: 'docs', canonicalKey: 'docs/_nav', path: '/docs/nav', title: 'Nav marker', navigationFile: true })
+    ]
+    getContentsList.mockResolvedValue(dataset)
+
+    const result = await executeContentQuery(createEvent(), { collection: 'docs' })
+    const titles = (result.result as any[]).map(item => item.title).sort()
+
+    // Structural non-routes never reach the public query, and an explicit
+    // client `where` cannot override that (it is not even referenced here,
+    // proving the exclusion is unconditional rather than opt-out-shaped).
+    expect(titles).not.toContain('Dir config')
+    expect(titles).not.toContain('Nav marker')
+    // This suite's ambient (test) environment resolves to production
+    // semantics with no preview authorized, so the draft is hidden by
+    // default alongside the two structural exclusions — only the published
+    // page is visible. See `test/runtime/snapshot-runtime-boundary.test.ts`
+    // for the same predicate showing drafts in development and rejecting an
+    // authenticated preview request in production.
+    expect(titles).toEqual(['Published'])
+  })
+
   test('executeContentQuery rejects empty public graph queries', async () => {
     const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // The executor now takes a lowered plan (CS-5); lower builder params here.
@@ -520,7 +521,6 @@ describe('query execution contracts', () => {
       doc({ collection: 'docs', id: 'content:api:index.md', file: { path: '/api/index.md' }, canonicalKey: 'api/index', path: '/api', title: 'API' })
     ]
     getContentsList.mockResolvedValue(dataset)
-    getContentManifest.mockResolvedValue({ byCanonical: {} })
 
     const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // The executor now takes a lowered plan (CS-5); lower builder params here.
@@ -537,7 +537,7 @@ describe('query execution contracts', () => {
         { title: 'Intro', path: '/guide/intro' }
       ],
       skip: 0,
-      limit: 0,
+      limit: 100,
       total: 2
     })
   })
@@ -550,7 +550,6 @@ describe('query execution contracts', () => {
     ]
 
     getContentsList.mockResolvedValue(dataset)
-    getContentManifest.mockResolvedValue({ byCanonical: {} })
 
     const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // The executor now takes a lowered plan (CS-5); lower builder params here.

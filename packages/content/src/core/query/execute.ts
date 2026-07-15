@@ -23,14 +23,14 @@ import type { ContentGraph } from '../content/graph'
 import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
 import { isPlanRegex } from './plan'
 import { sortLocalesCanonically } from '../content/locale'
-import { resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
+import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
 import { ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
 import { normalizeRouteMounts, routeToContentPathCandidates } from '../content/path'
 
 // Comparable operands accepted by `>`/`>=`/`<`/`<=`. JS permits cross-type
 // coercion here (string vs. number) and has always done so for content
 // filters; we keep that behavior but make the type contract explicit.
-type Comparable = number | string | Date
+type Comparable = number | string
 
 // String/array haystack. `contains`/`containsAny` accept either, and both
 // shapes expose a compatible `.includes()`.
@@ -44,9 +44,6 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 const reviveRegex = (value: unknown): unknown =>
   isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
 
-const comparableValue = (value: unknown): unknown =>
-  value instanceof Date ? value.toISOString() : value
-
 const includesEntry = (haystack: Haystack, entry: unknown): boolean =>
   typeof haystack === 'string'
     ? isPlanRegex(entry) ? (reviveRegex(entry) as RegExp).test(haystack) : haystack.includes(String(entry))
@@ -55,19 +52,20 @@ const includesEntry = (haystack: Haystack, entry: unknown): boolean =>
 const compareOperators: Record<CompareOperator, (item: unknown, value: unknown) => boolean> = {
   eq: (item, value) => {
     const operand = reviveRegex(value)
-    return operand instanceof RegExp ? operand.test(String(item)) : comparableValue(item) === comparableValue(operand)
+    return operand instanceof RegExp ? operand.test(String(item)) : item === operand
   },
   ne: (item, value) => {
     const operand = reviveRegex(value)
-    return operand instanceof RegExp ? !operand.test(String(item)) : comparableValue(item) !== comparableValue(operand)
+    return operand instanceof RegExp ? !operand.test(String(item)) : item !== operand
   },
-  gt: (item, value) => (comparableValue(item) as Comparable) > (comparableValue(value) as Comparable),
-  gte: (item, value) => (comparableValue(item) as Comparable) >= (comparableValue(value) as Comparable),
-  lt: (item, value) => (comparableValue(item) as Comparable) < (comparableValue(value) as Comparable),
-  lte: (item, value) => (comparableValue(item) as Comparable) <= (comparableValue(value) as Comparable),
+  gt: (item, value) => (item as Comparable) > (value as Comparable),
+  gte: (item, value) => (item as Comparable) >= (value as Comparable),
+  lt: (item, value) => (item as Comparable) < (value as Comparable),
+  lte: (item, value) => (item as Comparable) <= (value as Comparable),
   in: (item, value) => ensureArray(value).some(entry => Array.isArray(item)
     ? item.some(itemEntry => compareOperators.eq(itemEntry, entry))
     : compareOperators.eq(item, entry)),
+  nin: (item, value) => !compareOperators.in(item, value),
   contains: (item, value) => {
     const haystack: Haystack = Array.isArray(item) ? item : String(item)
     return ensureArray(value).every(entry => includesEntry(haystack, entry))
@@ -186,6 +184,36 @@ export const applyQueryPlanProjection = <T>(items: T[], plan: ContentQueryPlan) 
   })
 }
 
+/**
+ * Opaque forward-cursor encoding for the filesystem provider's `cursor`
+ * pagination mode (VNEXT.md 10.2/13.1). The filesystem provider always has
+ * the full matched set in memory, so its cursor is internally just an
+ * offset — but that encoding is a filesystem implementation detail, never a
+ * public contract; applications and other providers must not parse it.
+ */
+const FILESYSTEM_CURSOR_PREFIX = 'o:'
+
+const encodeFilesystemCursor = (offset: number): string => {
+  const raw = `${FILESYSTEM_CURSOR_PREFIX}${offset}`
+  return typeof Buffer !== 'undefined' ? Buffer.from(raw).toString('base64') : btoa(raw)
+}
+
+const decodeFilesystemCursor = (cursor: string | null | undefined): number => {
+  if (!cursor) {
+    return 0
+  }
+  try {
+    const raw = typeof Buffer !== 'undefined' ? Buffer.from(cursor, 'base64').toString() : atob(cursor)
+    if (!raw.startsWith(FILESYSTEM_CURSOR_PREFIX)) {
+      return 0
+    }
+    const offset = Number(raw.slice(FILESYSTEM_CURSOR_PREFIX.length))
+    return Number.isFinite(offset) && offset >= 0 ? offset : 0
+  } catch {
+    return 0
+  }
+}
+
 export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPlan): ContentQueryResponse<T> => {
   if (plan.mode === 'count') {
     return {
@@ -193,16 +221,39 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
     }
   }
 
-  const skipped = plan.skip ? matched.slice(plan.skip) : matched
-  const limited = typeof plan.limit === 'number' ? skipped.slice(0, plan.limit) : skipped
+  if (plan.mode === 'all' && plan.paging?.mode === 'cursor') {
+    const { limit } = plan.paging
+    const skip = decodeFilesystemCursor(plan.paging.after)
+    const page = matched.slice(skip, skip + limit)
+    const projected = applyQueryPlanProjection(page, plan)
+    const hasNext = skip + limit < matched.length
+    return {
+      mode: 'cursor',
+      result: projected,
+      limit,
+      pageInfo: {
+        endCursor: hasNext ? encodeFilesystemCursor(skip + limit) : null,
+        hasNext
+      }
+    }
+  }
+
+  // An explicit `paging: { mode: 'offset' }` request is the single source of
+  // truth for skip/limit when present, so callers never have to duplicate the
+  // same numbers on both `plan.skip`/`plan.limit` and `plan.paging` — it falls
+  // back to the plain fields for a request that never named a paging mode.
+  const effectiveSkip = plan.paging?.mode === 'offset' ? plan.paging.skip : plan.skip
+  const effectiveLimit = plan.paging?.mode === 'offset' ? plan.paging.limit : plan.limit
+  const skipped = effectiveSkip ? matched.slice(effectiveSkip) : matched
+  const limited = typeof effectiveLimit === 'number' ? skipped.slice(0, effectiveLimit) : skipped
   const projected = applyQueryPlanProjection(limited, plan)
 
   if (plan.mode === 'first') {
     return {
       ...omit(['skip', 'limit', 'total'])(({
         result: projected,
-        skip: plan.skip,
-        limit: plan.limit || 0,
+        skip: effectiveSkip,
+        limit: effectiveLimit || 0,
         total: matched.length
       } as ContentQueryFindResponse<T>) as unknown as Record<string, unknown>),
       result: projected[0]
@@ -210,9 +261,10 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
   }
 
   return {
+    ...(plan.paging?.mode === 'offset' ? { mode: 'offset' as const } : {}),
     result: projected,
-    skip: plan.skip,
-    limit: plan.limit || 0,
+    skip: effectiveSkip,
+    limit: effectiveLimit || 0,
     total: matched.length
   }
 }
@@ -322,10 +374,11 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
       continue
     }
 
-    const key = item.canonicalKey || item.id || item.id || item.path
+    const identity = item.canonicalKey || item.id || item.path
+    const key = typeof identity === 'string' ? `${item.collection || 'content'}\0${identity}` : identity
     const rank = localeRank.get(item.locale || '') ?? Number.MAX_SAFE_INTEGER
     const availableLocales = item.canonicalKey
-      ? sortLocalesCanonically(Object.keys(graph.byCanonical[item.canonicalKey] || {}), { defaultLocale, locales })
+      ? sortLocalesCanonically(Object.keys(getGraphCanonicalVariants(graph, item.canonicalKey, item.collection) || {}), { defaultLocale, locales })
       : [item.locale].filter(Boolean) as string[]
     const enriched = {
       ...item,
@@ -401,9 +454,12 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
             : (plan.resolveVariant!.fallback?.length
                 ? Array.from(new Set([plan.resolveVariant!.locale, ...plan.resolveVariant!.fallback].filter(Boolean) as string[]))
                 : resolveLocaleChain(plan.resolveVariant!.locale, defaultLocale, localeFallback || {}))
+          const collectionVariants = plan.collection
+            ? Object.values(graph.byCollectionCanonical[plan.collection] || {})
+            : Object.values(graph.byCollectionCanonical).flatMap(entries => Object.values(entries))
           const candidateLocales = localeChain.length
             ? localeChain
-            : sortLocalesCanonically(Object.values(graph.byCanonical).flatMap(variants => Object.keys(variants)), { defaultLocale, locales: collectionI18n?.locales })
+            : sortLocalesCanonically(collectionVariants.flatMap(variants => Object.keys(variants)), { defaultLocale, locales: collectionI18n?.locales })
           if (!candidateLocales.length) {
             candidateLocales.push('')
           }
@@ -457,7 +513,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
   }
   const dirConfig = findDirConfig(graph, content?.path, variant.resolvedLocale)
   const variantPaths = Object.fromEntries(
-    Object.entries(graph.byCanonical[variant.canonicalKey] || {}).map(([locale, entry]) => [locale, entry.path])
+    Object.entries(getGraphCanonicalVariants(graph, variant.canonicalKey, content?.collection) || {}).map(([locale, entry]) => [locale, entry.path])
   )
 
   const enriched = {

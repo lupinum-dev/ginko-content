@@ -88,6 +88,51 @@ export type ContentPageResult<T = ParsedContentMeta> = T & ContentRouteMeta & {
   extension?: string
 }
 
+/**
+ * The canonical document-facts envelope (VNEXT.md 10.4), returned by the
+ * unified query API (`one`/`many`/`resolveOne().doc`/`surround`/`backlinks`)
+ * and consumed by `useContentPage`. This is a hard cut from the legacy
+ * `ContentRouteMeta`/`ContentResolvedMeta` shape above: no `canonicalPath`,
+ * no caller-selector echo, no indistinguishable synthesized paths.
+ *
+ * `requestedPath` is present only when the caller resolved the document
+ * through a route/path selector; `resolvedPath` is always the document's
+ * projected public path. `alternates` carries one entry per configured
+ * locale that has a concrete variant (`source: 'variant'`) or a resolvable
+ * fallback (`source: 'fallback'`, labeled with the `resolvedLocale` that
+ * actually owns the served content) — the same distinction
+ * `synthesizeAlternates` (features/localization/route-projector.ts) makes for
+ * the canonical route index.
+ */
+export type ContentAlternate =
+  | {
+      locale: string
+      path: string
+      source: 'variant'
+    }
+  | {
+      locale: string
+      path: string
+      source: 'fallback'
+      resolvedLocale: string
+    }
+
+export interface ContentDocumentRoute {
+  requestedPath?: string
+  resolvedPath: string
+  alternates: ContentAlternate[]
+}
+
+export interface ContentDocumentResolution {
+  requested: {
+    locale?: string
+  }
+  resolved: {
+    locale: string
+  }
+  usedFallback: boolean
+}
+
 export interface ContentSitemapAlternative {
   hreflang: string
   href: string

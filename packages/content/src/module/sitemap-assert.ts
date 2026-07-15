@@ -1,6 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import type { ContentSitemapAssertOptions } from '../types/module'
+import type { ContentSitemapAssertOptions, ResolvedContentContext } from '../types/module'
+import { isContentSnapshot } from '../core/content/snapshot'
+import { computeSitemapCollectionCounts } from '../features/sitemap/counts'
 
 export type NormalizedContentSitemapAssertOptions = {
   enabled: boolean
@@ -284,4 +286,43 @@ export const createSitemapAssertionTargetsFromPrerenderedSitemaps = (sitemaps: G
     throw new Error('Content sitemap assertion failed: no sitemap urlsets were available from sitemap:prerender:done.')
   }
   return targets
+}
+
+/**
+ * Sitemap collection route counts for the `sitemap:prerender:done` assertion
+ * (generate/'both' mode). This Nuxt-level hook fires in the Nuxt CLI process
+ * after the ENTIRE prerender crawl — including the content cache/build
+ * route that produces and persists the canonical snapshot
+ * (`runtime/server/api/cache.ts`) — has already completed, so by this point
+ * `<buildDir>/content-cache/snapshot.json` exists on disk. Reading it back
+ * and re-deriving counts through `computeSitemapCollectionCounts` is a
+ * rebuildable view over the canonical persisted snapshot (VNEXT §14.2), not
+ * a second content-file parse — replaces the deleted module-time
+ * `module/derived-route-discovery.ts#collectSitemapCollectionRouteCounts`.
+ *
+ * Returns an empty count map (rather than throwing) when the snapshot is
+ * absent — e.g. an external provider build, or `content.sitemap.assert`
+ * enabled without a filesystem-backed build — mirroring the prior
+ * best-effort behavior for non-filesystem providers.
+ */
+export const readPersistedSitemapCollectionCounts = async (
+  buildDir: string,
+  contentContext: Pick<ResolvedContentContext, 'locales' | 'defaultLocale' | 'collections' | 'sitemap'>
+): Promise<Record<string, number>> => {
+  let raw: string
+  try {
+    raw = await readFile(join(buildDir, 'content-cache/snapshot.json'), 'utf8')
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return {}
+    }
+    throw error
+  }
+
+  const snapshot = JSON.parse(raw)
+  if (!isContentSnapshot(snapshot)) {
+    throw new Error('[content] sitemap assertion: persisted content-cache/snapshot.json is invalid.')
+  }
+
+  return computeSitemapCollectionCounts(snapshot.documents, contentContext)
 }

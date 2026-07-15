@@ -19,6 +19,17 @@ const volatileArtifactPatterns = [
   /^_i18n\//,
   /(?:^|\/)_payload\.json$/,
   /^api\/_content\/cache\.\d+\.json$/,
+  // During prerendering the content cache/build route responds with HTML (a
+  // route-injection seed for Nitro's crawler — see
+  // `runtime/server/api/cache.ts`), which Nitro's own content-type-based
+  // rename writes as `<route>/index.html` (subfolder-index output, matching
+  // `nitro.options.prerender.autoSubfolderIndex`) instead of the original
+  // `.json` route path. Checked BEFORE `stableArtifactPattern` below (which
+  // would otherwise treat any `.html`-suffixed path as stable) since the
+  // filename embeds a non-deterministic build timestamp and must never
+  // enter the golden.
+  /^api\/_content\/cache\.\d+\.json\/index\.html$/,
+  /^api\/_content\/cache\.\d+\.json\.html$/,
   /^api\/_content\/(?:navigation|query)\//
 ]
 
@@ -53,6 +64,8 @@ export function normalizeRouteManifest (
       continue
     }
 
+    if (isKnownVolatileArtifact(path)) continue
+
     if (
       path === searchIndexPath ||
       path.startsWith(sitemapDirPrefix) ||
@@ -61,8 +74,6 @@ export function normalizeRouteManifest (
       entries.add(path)
       continue
     }
-
-    if (isKnownVolatileArtifact(path)) continue
     unknown.push(path)
   }
 

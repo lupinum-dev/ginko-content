@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { useContentOne, useRoute } from '#imports'
+import { useContentPage } from '#imports'
 import { pages } from '../content.config'
 
-const route = useRoute()
-const { data: page } = await useContentOne(pages, {
-  by: { path: () => route.path }
-})
+const { page } = await useContentPage(pages)
 </script>
 
 <template>

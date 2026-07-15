@@ -1,36 +1,22 @@
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../../types/api'
-import type { NavItem, ParsedContent } from '../../types/content'
-import type {
-  ContentCollectionItemSurroundingsOptions,
-  ContentCollectionNavigationOptions,
-  ContentCollectionPageOptions,
-  ContentCollectionRouteMetaOptions,
-  ContentCollectionSearchSectionsOptions,
-  ContentPageResult,
-  ContentRouteMeta,
-  ContentSearchSection,
-  ContentSitemapEntry
-} from '../../types/query'
-import type { QueryCollectionsSitemapEntriesOptions } from '../../features/sitemap/query'
+import type { ParsedContent } from '../../types/content'
 import type {
   ContentProvider,
+  ContentProviderNavigationItem,
   ContentProviderNavigationOptions,
   ContentProviderQuery,
-  ContentProviderResult,
+  ContentProviderSearchResult,
   ContentProviderSiteDataRequest,
   ContentProviderSiteDataResponse,
+  ContentProviderSurroundItem,
+  ContentProviderSurroundingsOptions,
+  ContentRouteRecord,
   MaybeContentProviderResult
 } from '../../public/provider'
-import type { ContentProviderSearchRequest, ContentSearchResult } from '../../types/search'
-import { contentProviderResultMarker } from '../../public/provider'
+import type { ContentProviderSearchRequest } from '../../types/search'
+import { isContentProviderResult } from '../../public/provider'
 import { collectContentCacheHint } from './cache-hints'
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
-export const isContentProviderResult = <T = unknown>(value: unknown): value is ContentProviderResult<T> =>
-  isObject(value) && value[contentProviderResultMarker] === true
 
 export const unwrapContentProviderResult = <T>(
   event: H3Event,
@@ -53,17 +39,13 @@ const wrapProviderMethod = <T extends ProviderMethod>(event: H3Event, method: T)
     unwrapContentProviderResult(event, await method(...args))) as UnwrappedProviderMethod<T>
 }
 
-export interface RuntimeContentProvider extends Omit<ContentProvider, 'query' | 'navigationQuery' | 'navigation' | 'surroundings' | 'searchSections' | 'search' | 'siteData' | 'page' | 'routeMeta' | 'sitemapEntries'> {
+export interface RuntimeContentProvider extends Omit<ContentProvider, 'query' | 'navigation' | 'surroundings' | 'search' | 'siteData' | 'routes'> {
   query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promise<ContentQueryResponse<T>>
-  navigationQuery?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<NavItem[]>
-  navigation?: (event: H3Event, collection: string, options?: string[] | ContentCollectionNavigationOptions) => Promise<NavItem[]>
-  surroundings?: (event: H3Event, collection: string, path: string, options?: ContentCollectionItemSurroundingsOptions) => Promise<Array<NavItem | null>>
-  searchSections?: (event: H3Event, collection: string, options?: ContentCollectionSearchSectionsOptions) => Promise<ContentSearchSection[]>
-  search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<ContentSearchResult[]>
+  navigation?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<ContentProviderNavigationItem[]>
+  surroundings?: (event: H3Event, collection: string, contentPath: string, options?: ContentProviderSurroundingsOptions) => Promise<Array<ContentProviderSurroundItem | null>>
+  search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<ContentProviderSearchResult[]>
   siteData?: <T = unknown>(event: H3Event, request: ContentProviderSiteDataRequest) => Promise<ContentProviderSiteDataResponse<T>>
-  page?: <T = ParsedContent>(event: H3Event, collection: string, routeOrPath?: string, options?: ContentCollectionPageOptions) => Promise<ContentPageResult<T> | null>
-  routeMeta?: (event: H3Event, collection: string, routeOrPath?: string, options?: ContentCollectionRouteMetaOptions) => Promise<ContentRouteMeta | null>
-  sitemapEntries?: (event: H3Event, options?: QueryCollectionsSitemapEntriesOptions) => Promise<ContentSitemapEntry[]>
+  routes?: (event: H3Event) => Promise<ContentRouteRecord[]>
 }
 
 /**
@@ -77,15 +59,11 @@ export const wrapContentProviderCacheResults = (event: H3Event, provider: Conten
     query: wrapProviderMethod(event, provider.query)
   } as RuntimeContentProvider
 
-  if (provider.navigationQuery) wrapped.navigationQuery = wrapProviderMethod(event, provider.navigationQuery)
   if (provider.navigation) wrapped.navigation = wrapProviderMethod(event, provider.navigation)
   if (provider.surroundings) wrapped.surroundings = wrapProviderMethod(event, provider.surroundings)
-  if (provider.searchSections) wrapped.searchSections = wrapProviderMethod(event, provider.searchSections)
   if (provider.search) wrapped.search = wrapProviderMethod(event, provider.search)
   if (provider.siteData) wrapped.siteData = wrapProviderMethod(event, provider.siteData) as RuntimeContentProvider['siteData']
-  if (provider.page) wrapped.page = wrapProviderMethod(event, provider.page) as RuntimeContentProvider['page']
-  if (provider.routeMeta) wrapped.routeMeta = wrapProviderMethod(event, provider.routeMeta)
-  if (provider.sitemapEntries) wrapped.sitemapEntries = wrapProviderMethod(event, provider.sitemapEntries)
+  if (provider.routes) wrapped.routes = wrapProviderMethod(event, provider.routes)
 
   return wrapped
 }

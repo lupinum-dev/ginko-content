@@ -42,9 +42,13 @@ describe('runtime API provider boundary', () => {
     await expect(handler(event)).resolves.toMatchObject({
       result: {
         title: 'Fallback Lab',
-        resolved: {
-          locale: 'en',
-          fallback: true
+        route: {
+          requestedPath: '/de/dokumentation/essentials/fallback-lab',
+          resolvedPath: '/docs/essentials/fallback-lab'
+        },
+        resolution: {
+          resolved: { locale: 'en' },
+          usedFallback: true
         }
       }
     })
@@ -53,7 +57,14 @@ describe('runtime API provider boundary', () => {
 
   test('query API validates canonical provider responses at the handler boundary', async () => {
     const query = vi.fn(async () => ({
-      result: [{ title: 'Intro' }],
+      result: [{
+        collection: 'docs',
+        canonicalKey: 'docs:intro',
+        locale: 'en',
+        contentPath: '/docs/intro',
+        body: { type: 'root', children: [] },
+        title: 'Intro'
+      }],
       skip: 0,
       limit: 10,
       total: 1
@@ -75,13 +86,17 @@ describe('runtime API provider boundary', () => {
     })
 
     await expect(handler(event)).resolves.toEqual({
-      result: [{ title: 'Intro' }],
+      result: [expect.objectContaining({
+        title: 'Intro',
+        route: expect.objectContaining({ resolvedPath: '/docs/intro' }),
+        resolution: expect.objectContaining({ resolved: { locale: 'en' } })
+      })],
       skip: 0,
       limit: 10,
       total: 1
     })
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
-      v: 1,
+      v: 2,
       collection: 'docs',
       plan: expect.objectContaining({ collection: 'docs', limit: 10 })
     }))
@@ -109,10 +124,10 @@ describe('runtime API provider boundary', () => {
   })
 
   test('navigation API keeps query-string collection and locale adaptation at the handler seam', async () => {
-    const navigationQuery = vi.fn(async () => [])
+    const navigation = vi.fn(async () => [])
     mocks.getContentProvider.mockResolvedValue({
       ...provider,
-      navigationQuery
+      navigation
     })
     const handler = (await import('../../packages/content/src/runtime/server/api/navigation')).default
     const event = createTestEvent({
@@ -126,10 +141,36 @@ describe('runtime API provider boundary', () => {
 
     await expect(handler(event)).resolves.toEqual([])
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
-    expect(navigationQuery).toHaveBeenCalledWith(
+    expect(navigation).toHaveBeenCalledWith(
       event,
-      expect.objectContaining({ v: 1, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
-      expect.objectContaining({ resolveLocale: { locale: 'de' } })
+      expect.objectContaining({ v: 2, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
+      expect.objectContaining({ locale: 'de' })
+    )
+  })
+
+  test('server surround uses the provider surroundings operation when available', async () => {
+    vi.stubGlobal('__ginkoTestRuntimeConfig', { content: scenario.runtime })
+    const surroundings = vi.fn(provider.surroundings!.bind(provider))
+    mocks.getContentProvider.mockResolvedValue({ ...provider, surroundings })
+    const { surround } = await import('../../packages/content/src/runtime/server/query-api')
+    const event = createTestEvent({ scenario, provider })
+
+    await expect(surround(event, 'docs', {
+      by: { route: '/de/dokumentation/erste-schritte' },
+      locale: 'de',
+      fallback: true
+    })).resolves.toEqual({
+      previous: null,
+      next: expect.objectContaining({
+        title: 'Markdown Syntax DE',
+        path: '/de/dokumentation/grundlagen/markdown-syntax'
+      })
+    })
+    expect(surroundings).toHaveBeenCalledWith(
+      event,
+      'docs',
+      '/dokumentation/erste-schritte',
+      expect.objectContaining({ locale: 'de' })
     )
   })
 })

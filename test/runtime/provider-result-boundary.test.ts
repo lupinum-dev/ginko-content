@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
-import { withContentCache } from '../../packages/content/src/public/provider'
-import { isContentProviderResult, unwrapContentProviderResult } from '../../packages/content/src/runtime/server/provider-result'
+import { isContentProviderResult, withContentCache } from '../../packages/content/src/public/provider'
+import { unwrapContentProviderResult } from '../../packages/content/src/runtime/server/provider-result'
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
 import { createTestEvent } from '../harness/event'
 

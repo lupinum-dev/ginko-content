@@ -16,9 +16,11 @@ const runtime = {
       locales: ['en', 'de'],
       localeFallback: { de: ['en'] },
       integrity: 'abc123',
-      experimental: {
-        stripQueryParameters: false
-      }
+      // Disabled here so `useContentSearch` tests exercise only the
+      // collection-scoped `files`/`searchNavigation` loading (VNEXT.md
+      // 27.2), not the query-driven minisearch/pagefind/provider backend
+      // (already covered end-to-end in test/client/search-composables.test.ts).
+      search: false
     }
   }
 }
@@ -104,12 +106,14 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
 vi.mock('#imports', () => ({
   useNuxtApp: () => ({ $i18n: { locale: undefined } }),
   useRoute: () => route,
+  useRuntimeConfig: () => runtime.public,
   useState: (_key: string, init?: () => any) => ({ value: init ? init() : undefined }),
   computed: (fn: any) => ({ get value () { return fn() } }),
   ref: (value: any) => ({ value }),
   shallowRef: (value: any) => ({ value }),
   shallowReactive: (value: any) => value,
   toValue: (value: any) => typeof value === 'function' ? value() : value?.value ?? value,
+  watchEffect: (effect: (onCleanup: (fn: () => void) => void) => void) => effect(() => {}),
   useRequestFetch: () => vi.fn(async () => ({ result: [] })),
   useAsyncData: async (key: string, handler: () => Promise<any>, options?: any) => {
     const result = await handler()
@@ -137,41 +141,16 @@ vi.mock('../../packages/content/src/runtime/app/composables/locale-context', () 
   })
 }))
 
-vi.mock('../../packages/content/src/runtime/app/composables/async-data', () => ({
-  useContentAsyncData: async (key: string, handler: () => Promise<any>, options?: any) => {
-    const result = await handler()
-    asyncDataCalls.push({ key, options, result })
-    return {
-      data: { value: result },
-      error: { value: null },
-      pending: { value: false },
-      status: { value: 'success' },
-      refresh: vi.fn(async () => {})
-    }
-  }
-}))
-
 vi.mock('../../packages/content/src/runtime/app/composables/preview', () => ({
   useContentPreview: () => ({
     getPreviewToken: () => undefined
   })
 }))
 
-vi.mock('#build/content-i18n.mjs', () => ({
-  useRouteBaseName: () => () => undefined,
-  useSetI18nParams: () => () => {},
-  useSwitchLocalePath: () => () => ''
-}))
-
-vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () => ({
-  useRouteBaseName: () => () => undefined,
-  useSetI18nParams: () => () => {},
-  useSwitchLocalePath: () => () => ''
-}))
-
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
   fetchContentApi,
-  getContentApiFetcher: () => vi.fn(async () => ({ result: [] }))
+  getContentApiFetcher: () => vi.fn(async () => ({ result: [] })),
+  getPreviewToken: () => 'captured-preview-token'
 }))
 
 describe('app query/composable contracts', () => {
@@ -179,14 +158,13 @@ describe('app query/composable contracts', () => {
     asyncDataCalls.length = 0
     fetchContentApi.mockClear()
     route.path = '/de/guide/advanced'
-    runtime.public.content.experimental.stripQueryParameters = false
   })
 
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  test('client public API exports only the unified query API (ADR-0016) and supported auxiliaries', async () => {
+  test('client public API exports exactly useContentPage/useContentSearch plus the unified query API (VNEXT.md 10.5)', async () => {
     const client = await import('../../packages/content/src/public/client')
 
     for (const name of [
@@ -195,11 +173,23 @@ describe('app query/composable contracts', () => {
       'paginate',
       'backlinks',
       'resolveOne',
-      'variants',
-      'tree',
-      'neighbors',
-      'useContentHead',
+      'surround',
+      'navigation',
+      'getCollectionPath',
       'useContentPage',
+      'useContentSearch',
+      'querySiteData',
+      'extractContentToc'
+    ]) {
+      expect(client).toHaveProperty(name)
+      expect(client[name as keyof typeof client]).toBeTypeOf('function')
+    }
+
+    for (const staleName of [
+      'queryCollection',
+      'useContentRoute',
+      'useContentSwitchLocalePath',
+      'useContentHead',
       'useContentOne',
       'useContentMany',
       'useContentPagination',
@@ -209,189 +199,74 @@ describe('app query/composable contracts', () => {
       'useContentTree',
       'useContentNavigation',
       'useContentNeighbors',
-      'useContentSearch',
+      'useContentToc',
       'useContentSearchData',
-      'useContentSearchResults',
-      'querySiteData'
-    ]) {
-      expect(client).toHaveProperty(name)
-      expect(client[name as keyof typeof client]).toBeTypeOf('function')
-    }
-
-    for (const staleName of [
-      'queryCollection',
-      'useContentRoute',
-      'useContentSwitchLocalePath'
+      'useContentSearchResults'
     ]) {
       expect(client).not.toHaveProperty(staleName)
     }
   })
 
-  test('useContentNavigation wraps tree data with normalized helpers', async () => {
-    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
+  test('many() from /client returns the canonical route/resolution envelope, not the legacy flat shape', async () => {
+    const { many } = await import('../../packages/content/src/runtime/app/composables/query-api')
 
-    const state = await useContentNavigation('docs', {
-      locale: 'de',
-      fields: ['icon', 'badge']
-    })
-
-    expect(fetchContentApi).toHaveBeenCalledWith('navigation', expect.objectContaining({
-      collection: 'docs',
-      resolveLocale: expect.objectContaining({ locale: 'de' }),
-      only: expect.arrayContaining(['icon', 'badge'])
-    }), expect.anything())
-    expect(state.data.value).toEqual([
-      expect.objectContaining({
-        id: 'folder:guide',
-        path: '/de/guide',
-        title: 'Guide',
-        icon: 'book',
-        children: [
-          expect.objectContaining({
-            id: 'docs/advanced',
-            path: '/de/guide/advanced',
-            title: 'Advanced',
-            badge: 'New'
-          })
-        ]
-      })
-    ])
-    expect(state.firstPage.value).toEqual(expect.objectContaining({
-      id: 'folder:guide',
-      path: '/de/guide'
-    }))
-    expect(state.paths.value.has('/de/guide')).toBe(true)
-    expect(state.paths.value.has('/de/guide/advanced')).toBe(true)
-  })
-
-  test('useContentNavigation infers locale from the current route when none is passed', async () => {
-    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    route.path = '/de/guide'
-    await useContentNavigation('docs', {
-      fields: ['icon']
-    })
-
-    expect(fetchContentApi).toHaveBeenLastCalledWith('navigation', expect.objectContaining({
-      collection: 'docs',
-      resolveLocale: expect.objectContaining({ locale: 'de' }),
-      only: expect.arrayContaining(['icon'])
-    }), expect.anything())
-  })
-
-  test('useContentNavigation uses the default locale for unprefixed routes', async () => {
-    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    route.path = '/guide'
-    await useContentNavigation('docs')
-
-    expect(fetchContentApi).toHaveBeenLastCalledWith('navigation', expect.objectContaining({
-      collection: 'docs',
-      resolveLocale: expect.objectContaining({ locale: 'en' })
-    }), expect.anything())
-  })
-
-  test('useContentNavigation explicit locale overrides route inference', async () => {
-    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    route.path = '/de/guide'
-    await useContentNavigation('docs', {
-      locale: 'en',
-      fields: ['badge']
-    })
-
-    expect(fetchContentApi).toHaveBeenLastCalledWith('navigation', expect.objectContaining({
-      collection: 'docs',
-      only: expect.arrayContaining(['badge']),
-      resolveLocale: expect.objectContaining({ locale: 'en' })
-    }), expect.anything())
-  })
-
-  test('findFirstContentNavigationPage skips pathless folders', async () => {
-    const { findFirstContentNavigationPage } = await import('../../packages/content/src/runtime/app/composables/use-content-navigation')
-
-    expect(findFirstContentNavigationPage([
-      {
-        id: 'folder:guide',
-        title: 'Guide',
-        path: '',
-        children: [
-          {
-            id: 'docs/intro',
-            title: 'Intro',
-            path: '/guide/intro',
-            children: []
-          }
-        ]
-      }
-    ])).toEqual(expect.objectContaining({
-      id: 'docs/intro',
-      path: '/guide/intro'
-    }))
-  })
-
-  test('useContentNavigation keeps pending navigation distinct from an empty provider result', async () => {
-    const { useContentNavigation } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    const state = await useContentNavigation('docs', {
-      locale: 'de',
-      fields: ['icon', 'badge']
-    })
-
-    expect(asyncDataCalls.at(-1)?.options ?? {}).not.toHaveProperty('default')
-    expect(state.pending.value).toBe(false)
-    expect(state.data.value).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: 'folder:guide',
-        path: '/de/guide'
-      })
-    ]))
-  })
-
-  test('useContentMany wraps the unified public query API instead of the removed builder', async () => {
-    const { useContentMany } = await import('../../packages/content/src/runtime/app/composables/use-content')
-
-    const { data } = await useContentMany('docs', {
+    const items = await many('docs', {
       locale: 'de',
       where: { path: { $prefix: '/guide' } },
       select: ['title']
     })
 
-    expect(data.value).toEqual([
+    expect(items).toEqual([
       expect.objectContaining({
-        unprefixedPath: '/guide/advanced',
-        title: 'Advanced'
+        title: 'Advanced',
+        route: expect.objectContaining({ resolvedPath: expect.any(String) }),
+        resolution: expect.objectContaining({ resolved: expect.objectContaining({ locale: expect.any(String) }) })
       })
     ])
-    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
-      collection: 'docs',
-      only: expect.arrayContaining(['title', 'path', 'locale']),
-      resolveLocale: expect.objectContaining({
-        locale: 'de'
-      })
-    }), expect.anything())
+    expect(items[0]).not.toHaveProperty('unprefixedPath')
+    expect(items[0]).not.toHaveProperty('localePaths')
+    expect(items[0]).not.toHaveProperty('variants')
+    expect(fetchContentApi).toHaveBeenCalledWith(
+      'query',
+      expect.objectContaining({
+        collection: 'docs',
+        only: expect.arrayContaining(['title', 'path', 'locale']),
+        resolveLocale: expect.objectContaining({
+          locale: 'de'
+        })
+      }),
+      expect.objectContaining({ previewToken: 'captured-preview-token' })
+    )
   })
 
-  test('useContentSearchData exposes explicit search navigation alias', async () => {
-    const { useContentSearchData } = await import('../../packages/content/src/runtime/app/composables/search')
+  test('useContentSearch({ collection }) absorbs the deleted useContentSearchData index/navigation loading', async () => {
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
 
-    const searchData = await useContentSearchData('docs', { locale: 'de' })
+    const search = await useContentSearch({ collection: 'docs', locale: 'de' })
 
-    expect(searchData.searchNavigation).toBe(searchData.navigation)
-    expect(searchData.searchNavigation.value).toEqual([
+    expect(search.searchNavigation.value).toEqual([
       expect.objectContaining({
         title: 'Guide',
         path: '/de/guide'
       })
     ])
-    expect(searchData.files.value).toEqual(expect.arrayContaining([
+    expect(search.files.value).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: '/de/guide/advanced#deep-dive',
         title: 'Deep dive',
         content: 'Details'
       })
     ]))
-    expect(searchData.searchTerm.value).toBe('')
   })
 
+  test('useContentSearch omits files/searchNavigation and skips the extra request without a collection', async () => {
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    fetchContentApi.mockClear()
+    const search = await useContentSearch({})
+
+    expect(search.files.value).toEqual([])
+    expect(search.searchNavigation.value).toEqual([])
+    expect(fetchContentApi).not.toHaveBeenCalledWith('navigation', expect.anything(), expect.anything())
+  })
 })

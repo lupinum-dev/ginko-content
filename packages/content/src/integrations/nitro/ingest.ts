@@ -6,7 +6,7 @@ import { ContentError } from '../../core/errors'
 import { transformContent } from '../../parsers'
 import { resolveCollection, resolveCollections } from '../../core/content/collection'
 import { expandDataLocaleVariants } from '../../core/content/locale'
-import { createContentError, validateCollectionDocument } from '../../storage/validation'
+import { createContentError, validateCollectionDocument, validateDocumentJsonPurity } from '../../storage/validation'
 import type { ParseContentOptions } from '../../types/runtime'
 import type { ResolvedContentContext } from '../../types/module'
 
@@ -76,7 +76,16 @@ const validateVariants = (
       if (!outcome.ok) {
         throw outcome.error
       }
-      return outcome.value
+
+      // Canonical JSON-purity gate: runs after schema parsing, before this
+      // document can reach graph insertion (VNEXT §11, §21). Same validator
+      // as the provider-document seam and the snapshot's defensive check.
+      const jsonOutcome = validateDocumentJsonPurity(outcome.value)
+      if (!jsonOutcome.ok) {
+        throw jsonOutcome.error
+      }
+
+      return jsonOutcome.value
     })
   } catch (cause) {
     if (cause instanceof ContentError) {

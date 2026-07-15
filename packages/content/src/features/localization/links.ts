@@ -1,6 +1,6 @@
 import { localizePath } from './path'
 
-const LOCALIZED_PROP_KEYS = new Set(['href', 'to', 'path', 'path'])
+const LOCALIZED_PROP_KEYS = new Set(['href', 'to', 'path'])
 const LOCALIZED_BOUND_PREFIXES = [':', 'v-bind:'] as const
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

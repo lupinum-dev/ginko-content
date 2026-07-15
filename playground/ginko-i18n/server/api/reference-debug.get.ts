@@ -15,13 +15,16 @@ export default defineEventHandler(async (event) => {
 
   if (!resolved) return null
   const doc = resolved as Record<string, unknown>
+  const route = doc.route as Record<string, unknown> | undefined
+  const resolution = doc.resolution as Record<string, unknown> | undefined
+  const resolvedInfo = resolution?.resolved as Record<string, unknown> | undefined
+  const requestedInfo = resolution?.requested as Record<string, unknown> | undefined
   return {
     title: doc.title,
-    path: doc.path,
-    requestedLocale: (doc.resolved as Record<string, unknown> | undefined)?.requestedLocale,
-    resolvedLocale: (doc.resolved as Record<string, unknown> | undefined)?.locale,
-    fallback: (doc.resolved as Record<string, unknown> | undefined)?.fallback,
-    availableLocales: (doc.resolved as Record<string, unknown> | undefined)?.availableLocales,
-    variantPaths: doc.localePaths
+    path: route?.resolvedPath,
+    requestedLocale: requestedInfo?.locale,
+    resolvedLocale: resolvedInfo?.locale,
+    usedFallback: resolution?.usedFallback,
+    alternates: route?.alternates
   }
 })

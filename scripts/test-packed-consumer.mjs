@@ -1,6 +1,6 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,11 +40,15 @@ function resolveReleaseTarball() {
 const nodeImportableSubpaths = [
   '@lupinum/ginko-content/config',
   '@lupinum/ginko-content/provider',
+  '@lupinum/ginko-content/data-source',
+  '@lupinum/ginko-content/portability',
+  '@lupinum/ginko-content/portability/node',
   '@lupinum/ginko-content/transformers',
   '@lupinum/ginko-content/cms-contract',
-  '@lupinum/ginko-content/cms-import',
   '@lupinum/ginko-content/testing/provider-fixture',
-  '@lupinum/ginko-content/testing/provider-contract'
+  '@lupinum/ginko-content/testing/provider-contract',
+  '@lupinum/ginko-content/testing/data-source-contract',
+  '@lupinum/ginko-content/testing/portability-contract'
 ]
 
 // The root module export and client/server facades are verified from Nuxt
@@ -58,13 +62,17 @@ const expectedDeclarations = [
   'dist/public/client.d.ts',
   'dist/public/server.d.ts',
   'dist/public/provider.d.ts',
+  'dist/public/data-source.d.ts',
+  'dist/portability/index.d.ts',
+  'dist/portability-node/index.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
   'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
   'dist/cms-contract/index.d.ts',
-  'dist/cms-import/index.d.ts',
   'dist/testing/provider-fixture.d.ts',
   'dist/testing/provider-contract.d.ts',
+  'dist/testing/data-source-contract.d.ts',
+  'dist/testing/portability-contract.d.ts',
   'dist/types/query.d.ts'
 ]
 
@@ -74,10 +82,11 @@ function run(command, args, cwd, options = {}) {
       cwd,
       env: {
         ...process.env,
-        npm_config_verify_deps_before_run: 'false',
+        ...(packageManager === 'pnpm' ? { npm_config_verify_deps_before_run: 'false' } : {}),
         ...options.env
       },
-      stdio: options.stdio || 'inherit'
+      stdio: options.stdio || 'inherit',
+      shell: process.platform === 'win32'
     })
   } catch (error) {
     const commandText = [command, ...args].join(' ')
@@ -85,12 +94,12 @@ function run(command, args, cwd, options = {}) {
   }
 }
 
-function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
+function runAndCapture(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
     env: {
       ...process.env,
-      npm_config_verify_deps_before_run: 'false'
+      ...(packageManager === 'pnpm' ? { npm_config_verify_deps_before_run: 'false' } : {})
     },
     encoding: 'utf8',
     shell: process.platform === 'win32'
@@ -100,6 +109,12 @@ function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
   if (result.status !== 0) {
     throw new Error(`Command failed in ${cwd}: ${[command, ...args].join(' ')}\n${output}`)
   }
+
+  return output
+}
+
+function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
+  const output = runAndCapture(command, args, cwd)
 
   for (const pattern of forbiddenPatterns) {
     if (pattern.test(output)) {
@@ -120,6 +135,13 @@ function packageExecAndRejectOutput(command, args, cwd, forbiddenPatterns) {
     ? ['exec', command, ...args]
     : ['exec', '--', command, ...args]
   runAndRejectOutput(packageManager, commandArgs, cwd, forbiddenPatterns)
+}
+
+function packageExecAndCapture(command, args, cwd) {
+  const commandArgs = packageManager === 'pnpm'
+    ? ['exec', command, ...args]
+    : ['exec', '--', command, ...args]
+  return runAndCapture(packageManager, commandArgs, cwd)
 }
 
 function writeFile(path, content) {
@@ -215,6 +237,9 @@ async function main() {
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
     console.log(`Testing exact release tarball with ${packageManager}: ${tarball} (sha256 ${tarballSha256})`)
     assertNoWorkspaceRanges(tarball, tempRoot)
+    const installedTarball = join(tempRoot, 'artifacts', `${tarballSha256}.tgz`)
+    mkdirSync(resolve(installedTarball, '..'), { recursive: true })
+    copyFileSync(tarball, installedTarball)
 
     writeFile(resolve(appDir, 'package.json'), JSON.stringify({
       type: 'module',
@@ -224,10 +249,11 @@ async function main() {
         build: 'nuxt build'
       },
       dependencies: {
-        '@lupinum/ginko-content': `file:${tarball}`,
+        '@lupinum/ginko-content': `file:${installedTarball}`,
         '@nuxtjs/sitemap': process.env.GINKO_CONSUMER_SITEMAP_VERSION || '8.0.15',
         '@types/node': process.env.GINKO_CONSUMER_NODE_TYPES_VERSION || '^24.0.0',
         nuxt: process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7',
+        pagefind: process.env.GINKO_CONSUMER_PAGEFIND_VERSION || '1.5.2',
         typescript: '6.0.3',
         vue: process.env.GINKO_CONSUMER_VUE_VERSION || '3.5.35',
         'vue-tsc': '3.2.9',
@@ -253,7 +279,11 @@ async function main() {
             linkHeaders: true,
             markdownNegotiation: true
           },
-          sitemap: true
+          search: {
+            engine: 'pagefind'
+          },
+          sitemap: true,
+          validation: 'report'
         },
         compatibilityDate: '2026-04-14'
       })
@@ -301,24 +331,40 @@ title: Package Consumer Page
 
 The packed package rendered this page.
 
-::packed-sentinel
-::
     `)
 
-    writeFile(resolve(appDir, 'server/plugins/register-serializer.ts'), `
-      import { registerAgentMarkdownSerializer } from '@lupinum/ginko-content/agent'
+    writeFile(
+      resolve(appDir, 'server/plugins/agent-contract.ts'),
+      `
+      import {
+        agentRawPathForRoute
+      } from '@lupinum/ginko-content/agent'
 
-      export default defineNitroPlugin(() => {
-        registerAgentMarkdownSerializer('packed-sentinel', () => 'PACKED_SERIALIZER_SENTINEL')
+      if (agentRawPathForRoute('/docs/intro') !== '/raw/docs/intro.md') {
+        throw new Error('Packed agent path helper export is invalid')
+      }
+
+      export default defineNitroPlugin((nitroApp) => {
+        nitroApp.hooks.hook('error', (error) => {
+          console.error('PACKED_CONSUMER_SERVER_ERROR', error)
+        })
       })
     `)
+
+    writeFile(
+      resolve(appDir, 'server/data-source-adapter.ts'),
+      readFileSync(
+        resolve(repoRoot, 'test/fixtures/typecheck/types/data-source-adapter.ts'),
+        'utf8'
+      )
+    )
 
     writeFile(resolve(appDir, 'pages/index.vue'), `
       <script setup lang="ts">
       import { useContentPage } from '#imports'
       import { pages } from '../content.config'
 
-      const { page } = await useContentPage(pages, { notFound: false })
+      const { page } = await useContentPage(pages)
       </script>
 
       <template>
@@ -328,9 +374,9 @@ The packed package rendered this page.
 
     writeFile(resolve(appDir, 'pages/import-smoke.vue'), `
       <script setup lang="ts">
-      import { one, useContentPage, useContentSearchResults, extractContentToc, useContentToc } from '@lupinum/ginko-content/client'
+      import { one, useContentPage, useContentSearch, extractContentToc } from '@lupinum/ginko-content/client'
 
-      void [one, useContentPage, useContentSearchResults, extractContentToc, useContentToc]
+      void [one, useContentPage, useContentSearch, extractContentToc]
       </script>
 
       <template>
@@ -342,12 +388,12 @@ The packed package rendered this page.
 
     writeFile(resolve(appDir, 'server/api/import-smoke.get.ts'), `
       import { one, many } from '@lupinum/ginko-content/server'
-      import { agentMarkdownPathForRoute } from '@lupinum/ginko-content/agent'
+      import { createAgentMarkdownRegistry } from '@lupinum/ginko-content/agent'
 
       export default defineEventHandler(() => ({
         server: typeof one,
         many: typeof many,
-        agentPath: agentMarkdownPathForRoute('/import-smoke')
+        agentRegistry: typeof createAgentMarkdownRegistry
       }))
     `)
 
@@ -357,6 +403,50 @@ The packed package rendered this page.
       for (const subpath of subpaths) {
         console.log(\`Importing \${subpath}\`)
         await import(subpath)
+      }
+
+      try {
+        await import('@lupinum/ginko-content/cms-import')
+        throw new Error('Superseded CMS import subpath unexpectedly resolved')
+      } catch (error) {
+        if (error?.code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw error
+      }
+
+      const { mkdtemp, readFile, rm } = await import('node:fs/promises')
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { collectPortableMdcAssetReferences, parsePortableDocument, rewritePortableMdcAssetReferences } = await import('@lupinum/ginko-content/portability')
+      const { readPortableDirectory, rebuildPortableDirectoryManifest, writePortableDirectory } = await import('@lupinum/ginko-content/portability/node')
+      const { PORTABILITY_CONTRACT_FIXTURES, createPortabilityContractFixture, runPortabilityContract, runPortableDirectoryContract } = await import('@lupinum/ginko-content/testing/portability-contract')
+      const parent = await mkdtemp(join(tmpdir(), 'ginko-packed-portability-'))
+      try {
+        const contract = createPortabilityContractFixture()
+        const document = await parsePortableDocument(PORTABILITY_CONTRACT_FIXTURES.document, contract)
+        const result = await runPortabilityContract()
+        if (result.checks !== 9) throw new Error('Packed portability codec contract failed')
+        const localPath = '/ginko-assets/' + PORTABILITY_CONTRACT_FIXTURES.png.sha256 + '.png'
+        const codeDelimiter = String.fromCharCode(96)
+        const body = '![Packed](' + localPath + ')\\n\\n' + codeDelimiter + localPath + codeDelimiter
+        const references = await collectPortableMdcAssetReferences(body, contract.collections.docs.componentPolicy)
+        const rewritten = await rewritePortableMdcAssetReferences(
+          body,
+          contract.collections.docs.componentPolicy,
+          reference => 'https://assets.example.test/' + reference.sha256 + '.png'
+        )
+        if (references.length !== 1 || !rewritten.includes('https://assets.example.test/') || !rewritten.includes(codeDelimiter + localPath + codeDelimiter)) {
+          throw new Error('Packed portability MDC asset contract failed')
+        }
+        const directory = await runPortableDirectoryContract({
+          firstDestination: join(parent, 'first'),
+          secondDestination: join(parent, 'second'),
+          write: writePortableDirectory,
+          read: readPortableDirectory,
+          rebuildManifest: rebuildPortableDirectoryManifest,
+          readManifestBytes: destination => readFile(join(destination, '.ginko/portable.json'))
+        })
+        if (directory.checks !== 3 || document.canonicalKey !== 'docs.introduction') throw new Error('Packed portability directory contract failed')
+      } finally {
+        await rm(parent, { recursive: true, force: true })
       }
     `)
 
@@ -373,8 +463,28 @@ The packed package rendered this page.
       /could not be resolved[\s\S]*treating it as an external dependency/i
     ])
 
+    const cliHelp = packageExecAndCapture('ginko-content', ['--help'], appDir)
+    if (!cliHelp.includes('validate [root]')) {
+      throw new Error(`Packed CLI help does not expose content validation:\n${cliHelp}`)
+    }
+
+    const validationOutput = packageExecAndCapture('ginko-content', ['validate', appDir], appDir)
+    if (!validationOutput.includes('Ginko Content validation: ok')) {
+      throw new Error(`Packed CLI did not validate the report produced by the build:\n${validationOutput}`)
+    }
+
+    const pagefindDir = resolve(appDir, '.output/public/pagefind')
+    const pagefindManifestPath = resolve(pagefindDir, 'ginko-locales.json')
+    if (!existsSync(resolve(pagefindDir, 'pagefind.js')) || !existsSync(pagefindManifestPath)) {
+      throw new Error('Packed consumer build did not emit Pagefind entry and locale manifest artifacts')
+    }
+    const pagefindManifest = JSON.parse(readFileSync(pagefindManifestPath, 'utf8'))
+    if (pagefindManifest.version !== 1 || pagefindManifest.defaultLocale !== 'en' || pagefindManifest.indexes?.en !== 'pagefind.js') {
+      throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(pagefindManifest)}`)
+    }
+
     if (buildOnly) {
-      console.log(`Packed consumer ${packageManager} prepare/typecheck/build passed.`)
+      console.log(`Packed consumer ${packageManager} prepare/typecheck/build, CLI validation, and Pagefind artifact checks passed.`)
       return
     }
 
@@ -407,8 +517,9 @@ The packed package rendered this page.
 
     const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
     const importSmokeBody = await importSmokeResponse.text()
-    // Asserts the /agent subpath function actually computed (not just imported).
-    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentPath":"/import-smoke/index.md"')) {
+    // Assert that the trimmed /agent subpath is usable from a real Nitro
+    // handler, not merely importable in an isolated Node process.
+    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentRegistry":"function"')) {
       throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
     }
 
@@ -428,7 +539,7 @@ The packed package rendered this page.
     }
     const llms = readFileSync(llmsPath, 'utf8')
     const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
-    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page') || !rawMarkdown.includes('PACKED_SERIALIZER_SENTINEL')) {
+    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
       throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 

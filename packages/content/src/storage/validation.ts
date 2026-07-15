@@ -4,7 +4,9 @@ import { buildReferenceTargets, normalizeReferenceValue } from '../core/referenc
 import { getObjectShape, getReferenceDescriptor, getSchemaDef, getSchemaTypeName, unwrapSchema } from '../core/references/schema'
 import { collectTranslatedSlugValidationIssues } from '../features/localization/translated-slugs'
 import { ContentError, type ContentErrorCode } from '../core/errors'
+import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { fail, ok, type Result } from '../core/result'
+import { isNavigationFile } from '../core/content/structural'
 
 /**
  * Graph- and document-level validators.
@@ -142,7 +144,7 @@ const toUserContentDocument = (document: ParsedContent) => {
 }
 
 const validateNavigationDocument = (document: ParsedContent): Result<void, ContentError> => {
-  if (!document.navigationFile) {
+  if (!isNavigationFile(document)) {
     return ok(undefined)
   }
 
@@ -250,6 +252,42 @@ export const validateCollectionDocument = (
 }
 
 /**
+ * The canonical JSON-purity gate (VNEXT §11, §21).
+ *
+ * Runs immediately after collection schema parsing and before graph
+ * insertion for every document entering core — filesystem-parsed documents
+ * (via `integrations/nitro/ingest.ts`) and provider documents (via
+ * `runtime/server/provider-document.ts`) alike, in both dev and build.
+ *
+ * A single recursive validator (`core/json-value.ts`) backs every call site
+ * so dev and production reject the exact same shapes. Failure always names
+ * the collection, the document (file path or id), and every offending
+ * property path in one error, so an author does not need one build per field.
+ */
+export const validateDocumentJsonPurity = (
+  document: ParsedContent
+): Result<ParsedContent, ContentError> => {
+  const violations = collectJsonPurityViolations(document)
+  if (!violations.length) {
+    return ok(document)
+  }
+
+  const file = document.file?.path || document.id
+  const collection = document.collection ? ` (collection "${document.collection}")` : ''
+  const details = formatJsonPurityViolations(violations)
+
+  return fail(new ContentError(
+    'NON_JSON_VALUE',
+    `Invalid content in ${file}${collection}: document contains non-JSON value(s) — ${details}`,
+    {
+      file,
+      collection: document.collection,
+      violations
+    }
+  ))
+}
+
+/**
  * Graph-level invariants across a whole content tree.
  *
  * Checks, in order:
@@ -273,11 +311,12 @@ export const validateContentGraph = (
 ): Result<void, ContentError> => {
   const locales = config.locales || []
   const docs = contents.filter(content => content && content.path)
-  const routeEntries = docs.filter(content => !content.partial && !content.navigationFile)
+  const routeEntries = docs.filter(content => !content.partial && !isNavigationFile(content))
   const markdownEntries = routeEntries.filter(content => content.type === 'markdown')
   const idsByLocale = new Map<string, ParsedContent>()
   const pathsByLocale = new Map<string, ParsedContent>()
-  const referenceTargets = buildReferenceTargets(routeEntries, locales)
+  const referenceTargets = new Map<string, string>()
+  const referenceTargetsByCollection = new Map<string, Map<string, string>>()
   const targetCollections = new Map<string, Set<string>>()
   const markdownVariantsByCanonicalKey = new Map<string, ParsedContent[]>()
   const refsByValue = new Map<string, ParsedContent>()
@@ -290,6 +329,21 @@ export const validateContentGraph = (
     const collections = targetCollections.get(canonicalId) || new Set<string>()
     collections.add(document.collection)
     targetCollections.set(canonicalId, collections)
+  }
+  for (const collection of new Set(routeEntries.map(document => document.collection || 'content'))) {
+    referenceTargetsByCollection.set(
+      collection,
+      buildReferenceTargets(routeEntries.filter(document => (document.collection || 'content') === collection), locales)
+    )
+  }
+  const targetCollectionsByIdentity = new Map<string, string[]>()
+  for (const [collection, targets] of referenceTargetsByCollection) {
+    for (const identity of targets.keys()) {
+      targetCollectionsByIdentity.set(identity, [...(targetCollectionsByIdentity.get(identity) || []), collection])
+    }
+  }
+  for (const [identity, collections] of targetCollectionsByIdentity) {
+    if (collections.length === 1) referenceTargets.set(identity, referenceTargetsByCollection.get(collections[0]!)!.get(identity)!)
   }
 
   for (const issue of collectTranslatedSlugValidationIssues(markdownEntries, {
@@ -311,12 +365,14 @@ export const validateContentGraph = (
 
   for (const document of markdownEntries) {
     const variantKey = document.canonicalKey || getCanonicalContentId(document, locales)
-    const siblings = markdownVariantsByCanonicalKey.get(variantKey) || []
+    const scopedVariantKey = `${document.collection || 'content'}\0${variantKey}`
+    const siblings = markdownVariantsByCanonicalKey.get(scopedVariantKey) || []
     siblings.push(document)
-    markdownVariantsByCanonicalKey.set(variantKey, siblings)
+    markdownVariantsByCanonicalKey.set(scopedVariantKey, siblings)
   }
 
-  for (const [variantKey, variants] of markdownVariantsByCanonicalKey.entries()) {
+  for (const [scopedVariantKey, variants] of markdownVariantsByCanonicalKey.entries()) {
+    const variantKey = scopedVariantKey.slice(scopedVariantKey.indexOf('\0') + 1)
     const explicitRefs = Array.from(new Set(variants
       .map(document => typeof document.ref === 'string' && document.ref.length ? document.ref : undefined)
       .filter((value): value is string => Boolean(value))))
@@ -333,7 +389,7 @@ export const validateContentGraph = (
 
   for (const document of routeEntries) {
     const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
-    const localeKey = `${canonicalId}:${document.locale || ''}`
+    const localeKey = `${document.collection || 'content'}\0${canonicalId}\0${document.locale || ''}`
     if (idsByLocale.has(localeKey)) {
       const previous = idsByLocale.get(localeKey)!
       return fail(createContentError(
@@ -372,7 +428,8 @@ export const validateContentGraph = (
       continue
     }
 
-    const previous = refsByValue.get(ref)
+    const scopedRef = `${document.collection || 'content'}\0${ref}`
+    const previous = refsByValue.get(scopedRef)
     if (previous && (previous.canonicalKey || getCanonicalContentId(previous, locales)) !== (document.canonicalKey || getCanonicalContentId(document, locales))) {
       return fail(createContentError(
         'CONFLICTING_REFS',
@@ -382,7 +439,7 @@ export const validateContentGraph = (
       ))
     }
 
-    refsByValue.set(ref, document)
+    refsByValue.set(scopedRef, document)
   }
 
   for (const document of docs) {
@@ -399,7 +456,9 @@ export const validateContentGraph = (
 
     const issues: string[] = []
     const resolveReference = (value: string, collection?: string) => {
-      const canonicalId = referenceTargets.get(normalizeReferenceValue(value))
+      const canonicalId = collection
+        ? referenceTargetsByCollection.get(collection)?.get(normalizeReferenceValue(value))
+        : referenceTargets.get(normalizeReferenceValue(value))
       if (!canonicalId) {
         return false
       }

@@ -40,6 +40,8 @@ const createNuxt = (layers: string[]) => {
   }
 }
 
+const toNuxtPath = (path: string) => path.replaceAll('\\', '/')
+
 describe('runtime asset contracts', () => {
   const tempDirs: string[] = []
 
@@ -48,23 +50,19 @@ describe('runtime asset contracts', () => {
     vi.clearAllMocks()
   })
 
-  test('does not auto-import useContentSearch because Nuxt UI owns the same composable name', () => {
+  test('auto-imports useContentPage and the collision-safe Ginko search alias', () => {
     registerRuntimeImports(path => `/runtime/${path}`)
 
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
     expect(imports.map(item => item.name).sort()).toEqual(runtimeAppImportSpecs.map(spec => spec.name).sort())
+    expect(imports.map(item => item.name).sort()).toEqual(['useContentPage', 'useContentSearch'])
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
-      expect.objectContaining({ name: 'useContentHead', as: 'useContentHead' }),
-      expect.objectContaining({ name: 'useContentSearchData', as: 'useContentSearchData' }),
-      expect.objectContaining({ name: 'useContentSearchResults', as: 'useContentSearchResults' })
-    ]))
-    expect(imports).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'useContentSearch', as: 'useContentSearch' })
+      expect.objectContaining({ name: 'useContentSearch', as: 'useGinkoContentSearch' })
     ]))
   })
 
-  test('does not auto-import low-level query primitives into app code', () => {
+  test('does not auto-import low-level query primitives or deleted wrappers into app code', () => {
     registerRuntimeImports(path => `/runtime/${path}`)
 
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
@@ -74,20 +72,24 @@ describe('runtime asset contracts', () => {
       expect.objectContaining({ name: 'paginate', as: 'paginate' }),
       expect.objectContaining({ name: 'backlinks', as: 'backlinks' }),
       expect.objectContaining({ name: 'resolveOne', as: 'resolveOne' }),
-      expect.objectContaining({ name: 'variants', as: 'variants' }),
-      expect.objectContaining({ name: 'tree', as: 'tree' }),
-      expect.objectContaining({ name: 'neighbors', as: 'neighbors' })
-    ]))
-    expect(imports).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
+      expect.objectContaining({ name: 'surround', as: 'surround' }),
+      expect.objectContaining({ name: 'navigation', as: 'navigation' }),
+      expect.objectContaining({ name: 'getCollectionPath', as: 'getCollectionPath' }),
+      expect.objectContaining({ name: 'querySiteData', as: 'querySiteData' }),
+      expect.objectContaining({ name: 'useContentHead', as: 'useContentHead' }),
+      expect.objectContaining({ name: 'useContentOne', as: 'useContentOne' }),
       expect.objectContaining({ name: 'useContentMany', as: 'useContentMany' }),
+      expect.objectContaining({ name: 'useContentPagination', as: 'useContentPagination' }),
+      expect.objectContaining({ name: 'useContentBacklinks', as: 'useContentBacklinks' }),
+      expect.objectContaining({ name: 'useContentResolveOne', as: 'useContentResolveOne' }),
+      expect.objectContaining({ name: 'useContentVariants', as: 'useContentVariants' }),
       expect.objectContaining({ name: 'useContentTree', as: 'useContentTree' }),
       expect.objectContaining({ name: 'useContentNavigation', as: 'useContentNavigation' }),
-      expect.objectContaining({
-        name: 'useContentSwitchLocalePath',
-        as: 'useContentSwitchLocalePath',
-        from: '/runtime/./app/composables/route.js'
-      })
+      expect.objectContaining({ name: 'useContentNeighbors', as: 'useContentNeighbors' }),
+      expect.objectContaining({ name: 'useContentToc', as: 'useContentToc' }),
+      expect.objectContaining({ name: 'useContentSwitchLocalePath', as: 'useContentSwitchLocalePath' }),
+      expect.objectContaining({ name: 'useContentSearchData', as: 'useContentSearchData' }),
+      expect.objectContaining({ name: 'useContentSearchResults', as: 'useContentSearchResults' })
     ]))
   })
 
@@ -195,13 +197,13 @@ describe('runtime asset contracts', () => {
 
     expect(dirs).toEqual([
       {
-        path: join(appLayer, 'components/content'),
+        path: toNuxtPath(join(appLayer, 'components/content')),
         global: false,
         pathPrefix: false,
         prefix: ''
       },
       {
-        path: join(baseLayer, 'components/content'),
+        path: toNuxtPath(join(baseLayer, 'components/content')),
         global: false,
         pathPrefix: false,
         prefix: ''
@@ -227,7 +229,7 @@ describe('runtime asset contracts', () => {
 
     expect(dirs).toEqual([
       {
-        path: join(appLayer, 'components/content'),
+        path: toNuxtPath(join(appLayer, 'components/content')),
         global: false,
         pathPrefix: false,
         prefix: ''

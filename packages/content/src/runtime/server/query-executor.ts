@@ -4,6 +4,7 @@ import type { ContentQueryPlan, FilterExpr } from '../../core/query/plan'
 import { isPlanRegex } from '../../core/query/plan'
 import { executeQueryPlan } from '../../core/query/execute'
 import { ContentError, type ContentErrorCode } from '../../core/errors'
+import { assertFilesystemPreviewSupported, resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { withResolvedRefs, withResolvedRefsList } from '../../storage/references'
 import { getContentGraph } from '../../storage/graph'
 import { getContentRuntimeConfig } from './runtime-config'
@@ -85,10 +86,19 @@ const andPlanFilters = (base: FilterExpr, ...extra: FilterExpr[]): FilterExpr =>
 /**
  * The filesystem provider's public-query policy, applied to the wire plan it
  * receives: require a collection target, reject untrusted regex, clamp
- * limit/skip to the public ceilings, and (outside dev/preview) hide draft and
- * partial documents. These are filesystem-specific guards — a third-party
- * provider owns its own visibility rules — so they live here rather than in the
- * generic plan-lowering boundary.
+ * limit/skip to the public ceilings, and enforce the one core
+ * publication-visibility decision (draft) plus structural eligibility
+ * (partial, navigationFile — VNEXT.md 13.6/24.2).
+ *
+ * This enforcement is unconditional (AND-combined with whatever the caller's
+ * own filter already says), not skipped when the caller already filters on
+ * `draft`/`partial` — this is the untrusted public boundary, so an explicit
+ * `{ draft: true }` from the caller must not be able to unlock drafts the
+ * environment says are hidden. Every other filesystem-backed consumer
+ * (navigation, sitemap, search, agent output) applies this same decision
+ * through its own trusted path; this is only the untrusted-HTTP instance of
+ * it, applied here because the filesystem operator surface is fully known
+ * (a generic third-party provider is not — see `createProviderQuery`).
  */
 const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): ContentQueryPlan => {
   if (!plan.collection) {
@@ -99,14 +109,18 @@ const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): Con
     badQuery('Public content queries do not accept RegExp filters.')
   }
 
-  const enforceProductionVisibility = !import.meta.dev && !isPreview(event)
-  const filter = enforceProductionVisibility
-    ? andPlanFilters(
-        plan.filter,
-        { type: 'compare', field: 'draft', operator: 'ne', value: true },
-        { type: 'compare', field: 'partial', operator: 'ne', value: true }
-      )
-    : plan.filter
+  const includeDrafts = resolveIncludeDrafts({
+    environment: resolveRuntimeEnvironment(),
+    previewAuthorized: isPreview(event)
+  })
+  const visibilityClauses: FilterExpr[] = [
+    { type: 'compare', field: 'partial', operator: 'ne', value: true },
+    { type: 'compare', field: 'navigationFile', operator: 'ne', value: true }
+  ]
+  if (!includeDrafts) {
+    visibilityClauses.push({ type: 'compare', field: 'draft', operator: 'ne', value: true })
+  }
+  const filter = andPlanFilters(plan.filter, ...visibilityClauses)
 
   return {
     ...plan,
@@ -117,6 +131,16 @@ const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): Con
 }
 
 export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputPlan: ContentQueryPlan): Promise<ContentQueryResponse<T>> => {
+  // Fail before any query dispatch touches the sealed snapshot (VNEXT.md
+  // 15.8/24.3). `getContentGraph` enforces this same guard for every other
+  // filesystem-backed consumer (navigation, sitemap, search, agent output);
+  // asserting it here too keeps the untrusted HTTP boundary's failure
+  // directly attributable to query dispatch, not to a graph-loading detail.
+  assertFilesystemPreviewSupported({
+    environment: resolveRuntimeEnvironment(),
+    previewAuthorized: isPreview(event)
+  })
+
   const config = getContentRuntimeConfig().content || {}
   const plan = applyFilesystemQueryPolicy(event, inputPlan)
   let graph

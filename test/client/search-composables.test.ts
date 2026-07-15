@@ -16,7 +16,7 @@ const setRuntimeSearch = (search: unknown) => {
   }
 }
 
-describe('public search composables', () => {
+describe('public search composable (VNEXT.md 10.5, 27.2)', () => {
   beforeEach(() => {
     vi.resetModules()
     fetchCalls.length = 0
@@ -31,7 +31,7 @@ describe('public search composables', () => {
     }
   })
 
-  test('useContentSearchResults loads MiniSearch indexes and filters results by locale', async () => {
+  test('useContentSearch loads MiniSearch indexes and filters results by locale', async () => {
     setRuntimeSearch({
       engine: 'minisearch',
       indexURL: '/api/_content/search/index.json'
@@ -60,14 +60,14 @@ describe('public search composables', () => {
         locale: 'de'
       }
     ]
-    const { useContentSearchResults } = await import('../../packages/content/src/runtime/app/composables/search')
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
 
-    const result = await useContentSearchResults('fallback', { locale: 'de' })
+    const search = await useContentSearch({ initialQuery: 'fallback', locale: 'de' })
 
     expect((fetchCalls[0] as { value: string }).value).toBe('/api/_content/search/index.json?locale=de')
-    expect(result.pending.value).toBe(false)
-    expect(result.error.value).toBe(null)
-    expect(result.results.value).toEqual([
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toBe(null)
+    expect(search.results.value).toEqual([
       expect.objectContaining({
         title: 'Fallback Labor',
         collection: 'docs',
@@ -75,36 +75,55 @@ describe('public search composables', () => {
         locale: 'de'
       })
     ])
+    // Collection-scoped search sections/navigation are opt-in; omitting
+    // `collection` keeps them empty with no extra request.
+    expect(search.files.value).toEqual([])
+    expect(search.searchNavigation.value).toEqual([])
   })
 
-  test('useContentSearchResults delegates CMS searches to the configured endpoint', async () => {
+  test('useContentSearch delegates CMS searches to the configured endpoint', async () => {
     setRuntimeSearch({
-      engine: 'cms',
+      engine: 'provider',
       apiBaseURL: '/api/_content/search'
     })
     fetchPayload = [{ collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 1 }]
-    const { useContentSearchResults } = await import('../../packages/content/src/runtime/app/composables/search')
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
 
-    const result = await useContentSearchResults('fallback', { locale: 'de' })
+    const search = await useContentSearch({ initialQuery: 'fallback', locale: 'de' })
 
-    expect((fetchCalls[0] as { value: string }).value).toBe('/api/_content/search?q=fallback&locale=de')
-    expect(result.pending.value).toBe(false)
-    expect(result.error.value).toBe(null)
-    expect(result.results.value).toEqual([
+    expect(fetchCalls[0]).toBe('/api/_content/search?q=fallback&locale=de')
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toBe(null)
+    expect(search.results.value).toEqual([
       { collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 1 }
     ])
   })
 
-  test('useContentSearchResults returns a stable disabled state when public search config is false', async () => {
-    setRuntimeSearch(false)
-    const { useContentSearchResults } = await import('../../packages/content/src/runtime/app/composables/search')
+  test('useContentSearch keeps empty provider searches local', async () => {
+    setRuntimeSearch({
+      engine: 'provider',
+      apiBaseURL: '/api/_content/search'
+    })
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
 
-    const result = await useContentSearchResults('fallback')
+    const search = await useContentSearch({ initialQuery: '   ', locale: 'de' })
 
     expect(fetchCalls).toEqual([])
-    expect(result.results.value).toEqual([])
-    expect(result.pending.value).toBe(false)
-    expect(result.error.value).toEqual(new Error('Ginko search is disabled. Enable it with `content.search`.'))
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toBe(null)
+    expect(search.results.value).toEqual([])
+  })
+
+  test('useContentSearch returns a stable disabled state when public search config is false', async () => {
+    setRuntimeSearch(false)
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    const search = await useContentSearch({ initialQuery: 'fallback' })
+
+    expect(fetchCalls).toEqual([])
+    expect(search.results.value).toEqual([])
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toEqual(new Error('Ginko search is disabled. Enable it with `content.search`.'))
   })
 
   test('useContentSearch exposes headless query, navigation, and selection state', async () => {

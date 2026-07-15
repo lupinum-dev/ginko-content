@@ -9,17 +9,6 @@ import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '..
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const requiredCapabilityBooleans = [
-  'routeBackedCollections',
-  'dataCollections',
-  'localizedRoutes',
-  'translatedSlugs',
-  'navigation',
-  'surroundings',
-  'searchSections',
-  'sitemap'
-] as const
-
 const assertProviderField = (providerName: string, condition: boolean, field: string) => {
   if (!condition) {
     throw createContentProviderError('provider_module_invalid', `Content provider ${providerName} has an invalid ${field} field.`, {
@@ -130,37 +119,40 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
     }
   }
 
-  if (!capabilities.limit && query.plan.limit !== undefined) {
-    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support query limits.`, {
-      provider: provider.name,
-      field: 'limit'
-    })
-  }
+  // Pagination-mode capability preflight (VNEXT.md 10.2/13.1) — this runs
+  // BEFORE `provider.query()` is ever invoked (see `enforceProviderCapabilities`
+  // below), so an unsupported paging request never reaches provider dispatch.
+  // `limit` alone needs no capability: bounding a provider's natural result
+  // order is always safe. `skip > 0` and an explicit cursor request each
+  // require the matching advertised mode; the `count` terminal requires
+  // `offset` (an exact count implies an exact total is meaningful).
+  const pagination = new Set(capabilities.pagination)
 
-  if (!capabilities.skip && query.plan.skip > 0) {
-    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support query offsets.`, {
+  if (query.plan.skip > 0 && !pagination.has('offset')) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support offset pagination (skip).`, {
       provider: provider.name,
       field: 'skip'
     })
   }
 
-  if (!capabilities.count && query.plan.mode === 'count') {
+  if (query.plan.paging?.mode === 'cursor' && !pagination.has('cursor')) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support cursor pagination.`, {
+      provider: provider.name,
+      field: 'paging'
+    })
+  }
+
+  if (query.plan.paging?.mode === 'offset' && !pagination.has('offset')) {
+    throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support offset pagination.`, {
+      provider: provider.name,
+      field: 'paging'
+    })
+  }
+
+  if (query.plan.mode === 'count' && !pagination.has('offset')) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support count queries.`, {
       provider: provider.name,
       field: 'count'
-    })
-  }
-}
-
-const assertProviderOperationSupported = (
-  provider: ContentProvider,
-  supported: boolean,
-  operation: string
-) => {
-  if (!supported) {
-    throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support ${operation}.`, {
-      provider: provider.name,
-      operation
     })
   }
 }
@@ -172,53 +164,20 @@ export const enforceProviderCapabilities = (provider: ContentProvider): ContentP
     assertProviderQuerySupported(provider, query)
     return await provider.query(event, query)
   },
-  navigationQuery: provider.navigationQuery
+  navigation: provider.navigation
     ? async (event, query, options) => {
-        assertProviderOperationSupported(provider, provider.capabilities.navigation, 'navigation')
         assertJsonPureProviderQuery(provider, query)
         assertProviderQuerySupported(provider, query)
-        return await provider.navigationQuery!(event, query, options)
+        return await provider.navigation!(event, query, options)
       }
     : undefined,
-  navigation: provider.navigation
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.navigation, 'navigation')
-        return await provider.navigation!(...args)
-      }
-    : undefined,
-  surroundings: provider.surroundings
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.surroundings, 'surroundings')
-        return await provider.surroundings!(...args)
-      }
-    : undefined,
-  searchSections: provider.searchSections
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.searchSections, 'search sections')
-        return await provider.searchSections!(...args)
-      }
-    : undefined,
-  page: provider.page
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.routeBackedCollections, 'route-backed pages')
-        return await provider.page!(...args)
-      }
-    : undefined,
-  routeMeta: provider.routeMeta
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.routeBackedCollections, 'route metadata')
-        return await provider.routeMeta!(...args)
-      }
-    : undefined,
-  sitemapEntries: provider.sitemapEntries
-    ? async (...args) => {
-        assertProviderOperationSupported(provider, provider.capabilities.sitemap, 'sitemap entries')
-        return await provider.sitemapEntries!(...args)
-      }
-    : undefined
+  surroundings: provider.surroundings,
+  search: provider.search,
+  siteData: provider.siteData,
+  routes: provider.routes
 })
 
-const validateContentProvider = (providerName: string, provider: unknown): ContentProvider => {
+export const validateContentProvider = (providerName: string, provider: unknown): ContentProvider => {
   if (!isObject(provider)) {
     throw createContentProviderError('provider_module_invalid', `Content provider module for ${providerName} did not export a provider object.`, {
       provider: providerName
@@ -239,8 +198,12 @@ const validateContentProvider = (providerName: string, provider: unknown): Conte
     })
   }
 
-  for (const key of requiredCapabilityBooleans) {
-    assertProviderField(providerName, typeof provider.capabilities[key] === 'boolean', `capabilities.${key}`)
+  const capabilityKeys = Object.keys(provider.capabilities)
+  if (capabilityKeys.length !== 1 || capabilityKeys[0] !== 'query') {
+    throw createContentProviderError('provider_module_invalid', `Content provider ${providerName} capabilities may only declare query semantics. Optional operation support is inferred from method presence.`, {
+      provider: providerName,
+      field: 'capabilities'
+    })
   }
 
   const queryCapabilities = provider.capabilities.query
@@ -249,32 +212,19 @@ const validateContentProvider = (providerName: string, provider: unknown): Conte
     Array.isArray(queryCapabilities.operators) && queryCapabilities.operators.every(operator => typeof operator === 'string'),
     'capabilities.query.operators'
   )
-  assertProviderField(providerName, typeof queryCapabilities.limit === 'boolean', 'capabilities.query.limit')
-  assertProviderField(providerName, typeof queryCapabilities.skip === 'boolean', 'capabilities.query.skip')
-  assertProviderField(providerName, typeof queryCapabilities.count === 'boolean', 'capabilities.query.count')
+  assertProviderField(
+    providerName,
+    Array.isArray(queryCapabilities.pagination)
+    && queryCapabilities.pagination.every((mode: unknown) => mode === 'offset' || mode === 'cursor'),
+    'capabilities.query.pagination'
+  )
 
   assertProviderMethod(providerName, provider, 'query')
 
-  if (provider.capabilities.navigation) {
-    assertProviderMethod(providerName, provider, 'navigationQuery')
-    assertProviderMethod(providerName, provider, 'navigation')
-  }
-
-  if (provider.capabilities.surroundings) {
-    assertProviderMethod(providerName, provider, 'surroundings')
-  }
-
-  if (provider.capabilities.searchSections) {
-    assertProviderMethod(providerName, provider, 'searchSections')
-  }
-
-  if (provider.capabilities.sitemap) {
-    assertProviderMethod(providerName, provider, 'sitemapEntries')
-  }
-
-  if (provider.capabilities.routeBackedCollections || provider.capabilities.localizedRoutes) {
-    assertProviderMethod(providerName, provider, 'page')
-    assertProviderMethod(providerName, provider, 'routeMeta')
+  for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
+    if (method in provider) {
+      assertProviderMethod(providerName, provider, method)
+    }
   }
 
   return provider as unknown as ContentProvider

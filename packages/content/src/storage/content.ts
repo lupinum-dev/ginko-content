@@ -12,17 +12,19 @@
  */
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ContentDocumentResolution, ParsedContent } from '../types/content'
+import type { ContentResolutionCarrier, ParsedContent } from '../types/content'
 import type { ContentCollectionI18nConfig } from '../types/config'
 import type { ContentCollectionMap, ContentLocaleEntry, ContentQueryBuilderParams, ContentQueryFetcher, ContentQueryRequest, CollectionQueryBuilder, ResolveContentReferenceOptions } from '../types/query'
 import { createQuery, wrapQueryBuilder } from '../core/query/builder'
-import { resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
+import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphCollectionLocales, resolveGraphVariant } from '../core/content/graph'
 import { sortLocalesCanonically } from '../core/content/locale'
 import { normalizeReferenceValue } from '../core/references/resolve'
 import { executeQueryPlan } from '../core/query/execute'
 import { lowerQueryPlan } from '../core/query/lower'
 import { normalizeContentQueryParams } from '../core/query/params'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../features/localization/config'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../core/visibility'
+import { isPreview } from '../integrations/nitro/preview'
 import { contentConfig } from './driver'
 import { withResolvedRefsQueryResponse } from './references'
 import { getContentGraph } from './graph'
@@ -58,7 +60,7 @@ export const resolveContentReference = async <T = ParsedContent> (
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
+): Promise<(T & { resolved?: ContentResolutionCarrier }) | null> => {
   const config = contentConfig()
   const graph = await getContentGraph(event)
   const normalizedReference = normalizeReferenceValue(reference)
@@ -68,7 +70,7 @@ export const resolveContentReference = async <T = ParsedContent> (
     return null
   }
 
-  const variants = Object.values(graph.byCanonical[canonicalId] || {})
+  const variants = Object.values(getGraphCanonicalVariants(graph, canonicalId, options.collection) || {})
     .map(entry => entry.document)
     .filter(document => !options.collection || document.collection === options.collection)
 
@@ -82,7 +84,8 @@ export const resolveContentReference = async <T = ParsedContent> (
       ? options.fallback
       : (options.fallback ? config.localeFallback?.[options.locale || ''] || [] : []),
     exact: options.exact,
-    localeFallback: config.localeFallback
+    localeFallback: config.localeFallback,
+    collection: options.collection
   })
   const resolved = resolvedVariant ? graph.byId[resolvedVariant.contentId] : undefined
   if (!resolved || !resolvedVariant) {
@@ -144,7 +147,10 @@ export const createServerContentQuery = <T = ParsedContent>(event: H3Event, quer
       defaultLocale: config.defaultLocale,
       localeFallback: config.localeFallback,
       activeLocale: collectionI18n?.defaultLocale,
-      includeDraftFilter: !import.meta.dev
+      includeDraftFilter: !resolveIncludeDrafts({
+        environment: resolveRuntimeEnvironment(),
+        previewAuthorized: isPreview(event)
+      })
     })
   })
 }

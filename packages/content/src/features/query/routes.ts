@@ -1,5 +1,7 @@
 import type { ContentCollectionHandle } from '../../types/config'
-import { mountContentPath, normalizeContentPath, normalizeRouteMounts, prefixPathWithLocale } from '../../core/content/path'
+import type { ResolvedCollectionLocalePolicy } from '../localization/locale-policy'
+import { normalizeContentPath, normalizeRouteMounts } from '../../core/content/path'
+import { projectContentRoute } from '../localization/route-projector'
 
 export interface CollectionPathOptions {
   /**
@@ -58,9 +60,19 @@ export const getCollectionPath = (
   const locale = options.locale || defaultLocale
   const mounts = normalizeRouteMounts(collection.route, locales, defaultLocale)
   const remainder = normalizeRemainder(options.path ?? normalizeSlug(options.slug) ?? '/')
-  const mounted = mountContentPath(remainder, locale, mounts)
 
-  return options.canonical
-    ? mounted
-    : prefixPathWithLocale(mounted, locale, defaultLocale)
+  // `canonical: true` asks for the mounted-but-unprefixed path. Feeding the
+  // projector a policy whose `defaultLocale` equals the requested locale
+  // reproduces that exactly (VNEXT.md §12.2): the mount is still applied,
+  // but `prefixPathWithLocale` never adds a prefix when locale === defaultLocale.
+  const policy: ResolvedCollectionLocalePolicy = {
+    localized: locales.length > 0,
+    locales,
+    defaultLocale: options.canonical ? locale : defaultLocale,
+    fallback: {},
+    translatedSlugs: false,
+    routeMounts: mounts ?? {}
+  }
+
+  return projectContentRoute({ contentPath: remainder, locale: locale ?? '' }, policy)
 }

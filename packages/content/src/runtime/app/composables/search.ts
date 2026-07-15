@@ -1,21 +1,23 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { MaybeRefOrGetter } from '#imports'
-import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRuntimeConfig, watchEffect } from '#imports'
+import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRequestFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
 import type { ContentCollectionHandle } from '../../../types/config'
 import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
-import type { ContentCollectionMap, ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
+import type { ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
-import { searchRecords } from '../../shared/search'
+import { createMiniSearchIndex } from '../../shared/search'
 import { createContentSearchNavigation } from '../../../features/search/navigation'
 import { resolveCollectionSearchSectionsData } from '../../../features/collections/resolve'
 import { resolveCollectionI18n } from '../../../features/localization/path'
-import { many, tree } from './query-api'
+import { many, navigation as fetchNavigation } from './query-api'
 import { resolveActiveLocale } from './locale'
 import { getContentRuntime } from './runtime'
+import { createPagefindSearchClient } from '../pagefind-client'
 
-export interface UseContentSearchResultsOptions {
+interface UseContentSearchResultsOptions {
   locale?: MaybeRefOrGetter<string | undefined>
+  limit?: MaybeRefOrGetter<number | undefined>
 }
 
 export interface UseContentSearchOptions extends UseContentSearchResultsOptions {
@@ -27,9 +29,17 @@ export interface UseContentSearchOptions extends UseContentSearchResultsOptions 
    * Maximum number of results exposed by the headless controller.
    */
   limit?: MaybeRefOrGetter<number | undefined>
+  /**
+   * Optional collection to additionally load that collection's search
+   * sections and search-shaped navigation tree from — absorbs the deleted
+   * `useContentSearchData` (VNEXT.md 27.2). Omit to use only the
+   * query-driven `results` (minisearch/pagefind/provider backend); `files` and
+   * `searchNavigation` stay empty and no extra request is issued.
+   */
+  collection?: ContentCollectionHandle | ContentCollectionStringName
 }
 
-export interface UseContentSearchResultsResult {
+interface UseContentSearchResultsResult {
   results: ComputedRef<ContentSearchResult[]>
   pending: ComputedRef<boolean>
   error: ComputedRef<unknown>
@@ -48,45 +58,14 @@ export interface UseContentSearchResult extends UseContentSearchResultsResult {
   previous: () => void
   reset: () => void
   select: (index?: number) => ContentSearchResult | null
-}
-
-export interface UseContentSearchDataOptions {
-  locale?: MaybeRefOrGetter<string | undefined>
-}
-
-export interface UseContentSearchDataResult {
+  /** This collection's search sections (empty unless `options.collection` is set). */
   files: ComputedRef<ContentSearchSection[]>
-  searchNavigation: ComputedRef<ContentNavigationItem[]>
   /**
-   * Compatibility alias for `searchNavigation`.
-   *
-   * Prefer `searchNavigation` so layout navigation and search navigation are
-   * not confused.
+   * This collection's navigation tree, shaped for search UI (Nuxt UI
+   * `UContentSearch`) — the sole name for this data (VNEXT.md 27.2). Empty
+   * unless `options.collection` is set.
    */
-  navigation: ComputedRef<ContentNavigationItem[]>
-  searchTerm: ReturnType<typeof ref<string>>
-}
-
-interface PagefindSearchResultData {
-  url?: string
-  excerpt?: string
-  meta?: {
-    title?: string
-    locale?: string
-  }
-}
-
-interface PagefindSearchResult {
-  score: number
-  data(): Promise<PagefindSearchResultData>
-}
-
-interface PagefindSearchResponse {
-  results?: PagefindSearchResult[]
-}
-
-interface PagefindModule {
-  search(term: string): Promise<PagefindSearchResponse>
+  searchNavigation: ComputedRef<ContentNavigationItem[]>
 }
 
 type ContentRuntimeConfig = {
@@ -139,7 +118,7 @@ const resolveSearchConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>)
   return {
     apiBaseURL: typeof value.apiBaseURL === 'string' ? value.apiBaseURL : defaultSearchConfig.apiBaseURL,
     indexURL: typeof value.indexURL === 'string' ? value.indexURL : defaultSearchConfig.indexURL,
-    engine: value.engine === 'pagefind' || value.engine === 'cms' ? value.engine : 'minisearch',
+    engine: value.engine === 'pagefind' || value.engine === 'provider' ? value.engine : 'minisearch',
     minisearch: resolveMiniSearchRuntimeOptions(value.minisearch)
   }
 }
@@ -180,7 +159,7 @@ const resolveContentConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>
           ? {
               apiBaseURL: typeof value.search.apiBaseURL === 'string' ? value.search.apiBaseURL : defaultSearchConfig.apiBaseURL,
               indexURL: typeof value.search.indexURL === 'string' ? value.search.indexURL : defaultSearchConfig.indexURL,
-              engine: value.search.engine === 'pagefind' || value.search.engine === 'cms' ? value.search.engine : 'minisearch',
+              engine: value.search.engine === 'pagefind' || value.search.engine === 'provider' ? value.search.engine : 'minisearch',
               minisearch: resolveMiniSearchRuntimeOptions(value.search.minisearch)
             }
           : undefined)
@@ -194,7 +173,7 @@ const resolveAppConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>): A
 
 const loadSearchSections = async (
   collection: string,
-  options: UseContentSearchDataOptions
+  options: UseContentSearchResultsOptions
 ) => {
   const runtime = getContentRuntime()
   const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)
@@ -204,10 +183,19 @@ const loadSearchSections = async (
     locale,
     activeLocale: locale || resolveActiveLocale(locales, defaultLocale),
     loadPages: async (extraFields) => {
-      return await many(collection, {
+      const items = await many(collection, {
         ...(locale ? { locale } : {}),
-        select: ['path', 'title', 'description', 'body', ...extraFields]
-      }) as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
+        select: ['title', 'description', 'body', ...extraFields]
+      })
+      // `createSearchSections` (shared with the legacy provider `page()`
+      // pathway) reads the raw, pre-decoration `path` field. The unified
+      // query envelope (VNEXT.md 10.4) drops that internal field in favor of
+      // `route.resolvedPath` — re-attach it under the name this shared
+      // helper still expects rather than forking it.
+      return items.map(item => ({
+        ...item,
+        path: item.route.resolvedPath
+      })) as unknown as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
     }
   })
 }
@@ -215,25 +203,21 @@ const loadSearchSections = async (
 const collectionName = (collection: ContentCollectionHandle | string) =>
   typeof collection === 'string' ? collection : collection.name
 
-export async function useContentSearchData<K extends keyof ContentCollectionMap & string> (
-  collection: ContentCollectionHandle<K> | K,
-  options?: UseContentSearchDataOptions
-): Promise<UseContentSearchDataResult>;
-export async function useContentSearchData (
+/**
+ * Load one collection's search sections and search-shaped navigation tree —
+ * the index/navigation loading absorbed from the deleted
+ * `useContentSearchData` (VNEXT.md 27.2). Internal to `useContentSearch`.
+ */
+const useContentSearchCollectionData = async (
   collection: ContentCollectionStringName | ContentCollectionHandle,
-  options?: UseContentSearchDataOptions
-): Promise<UseContentSearchDataResult>;
-export async function useContentSearchData (
-  collection: ContentCollectionStringName | ContentCollectionHandle,
-  options: UseContentSearchDataOptions = {}
-) {
+  options: UseContentSearchResultsOptions
+) => {
   const name = collectionName(collection)
-  const searchTerm = ref('')
   const locale = computed(() => toValue(options.locale))
   const payloadPromise = useAsyncData(computed(() => `content-search-data:${name}:${locale.value || 'default'}`), async () => {
     const locale = toValue(options.locale)
     const [navigation, files] = await Promise.all([
-      tree(name, locale ? { locale } : {}),
+      fetchNavigation(name, locale ? { locale } : {}),
       loadSearchSections(name, options)
     ])
 
@@ -246,18 +230,13 @@ export async function useContentSearchData (
   })
   const payload = await payloadPromise
 
-  const files = computed(() => payload.data.value?.files || [])
-  const searchNavigation = computed(() => payload.data.value?.navigation || [])
-
   return {
-    files,
-    searchNavigation,
-    navigation: searchNavigation,
-    searchTerm
+    files: computed(() => payload.data.value?.files || []),
+    searchNavigation: computed(() => payload.data.value?.navigation || [])
   }
 }
 
-export const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options: UseContentSearchResultsOptions = {}): Promise<UseContentSearchResultsResult> => {
+const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options: UseContentSearchResultsOptions = {}): Promise<UseContentSearchResultsResult> => {
   const runtimeConfig = useRuntimeConfig()
   const config = resolveSearchConfig(runtimeConfig)
   const appConfig = resolveAppConfig(runtimeConfig)
@@ -274,17 +253,35 @@ export const useContentSearchResults = async (search: MaybeRefOrGetter<string>, 
     return usePagefindSearch(search, withBase('/pagefind/pagefind.js', appConfig.baseURL || '/'), options)
   }
 
-  if (config.engine === 'cms') {
-    return await useCmsSearch(search, config.apiBaseURL, options)
+  if (config.engine === 'provider') {
+    return await useProviderSearch(search, config.apiBaseURL, options)
   }
 
   return await useMiniSearch(search, config.indexURL, config.minisearch, options)
 }
 
+/**
+ * The sole public search composable (VNEXT.md 10.5, 27.2). Consolidates the
+ * reactive, backend-normalized query-driven search (minisearch/pagefind/provider)
+ * with the opt-in per-collection search-section/navigation loading
+ * previously split across the deleted `useContentSearchData` and
+ * `useContentSearchResults`. `searchNavigation` is the sole name for the
+ * navigation data; there is no `navigation` compatibility alias.
+ */
 export const useContentSearch = async (options: UseContentSearchOptions = {}): Promise<UseContentSearchResult> => {
   const query = ref(String(toValue(options.initialQuery) || ''))
   const activeIndex = ref(-1)
-  const search = await useContentSearchResults(query, options)
+  // Both branches use Nuxt composables and must start synchronously while the
+  // caller's setup context is active. Awaiting either branch first can lose
+  // that context before the other branch initializes.
+  const searchPromise = useContentSearchResults(query, options)
+  const collectionDataPromise = options.collection
+    ? useContentSearchCollectionData(options.collection, options)
+    : Promise.resolve({
+        files: computed(() => [] as ContentSearchSection[]),
+        searchNavigation: computed(() => [] as ContentNavigationItem[]),
+      })
+  const [search, collectionData] = await Promise.all([searchPromise, collectionDataPromise])
   const limit = computed(() => {
     const value = toValue(options.limit)
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined
@@ -354,7 +351,9 @@ export const useContentSearch = async (options: UseContentSearchOptions = {}): P
     next,
     previous,
     reset,
-    select
+    select,
+    files: collectionData.files,
+    searchNavigation: collectionData.searchNavigation
   }
 }
 
@@ -363,7 +362,11 @@ const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string,
   const requestUrl = computed(() => locale.value ? `${indexURL}?locale=${encodeURIComponent(locale.value)}` : indexURL)
   const fetchData = useFetch<ContentSearchIndexRecord[]>(requestUrl)
   const { data, pending, error } = await fetchData
-  const results = computed(() => searchRecords(data.value || [], toValue(search), locale.value, minisearch))
+  const index = computed(() => createMiniSearchIndex(data.value || [], minisearch))
+  const results = computed(() => index.value.search(toValue(search), {
+    locale: locale.value,
+    limit: toValue(options.limit)
+  }))
 
   return {
     results,
@@ -372,22 +375,28 @@ const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string,
   }
 }
 
-const useCmsSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
+const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
   const locale = computed(() => toValue(options.locale))
+  const term = computed(() => String(toValue(search) || '').trim())
   const requestUrl = computed(() => {
     const params = new URLSearchParams()
-    const term = String(toValue(search) || '')
-    if (term) {
-      params.set('q', term)
-    }
+    params.set('q', term.value)
     if (locale.value) {
       params.set('locale', locale.value)
     }
-    const query = params.toString()
-    return query ? `${apiBaseURL}?${query}` : apiBaseURL
+    return `${apiBaseURL}?${params.toString()}`
   })
-  const fetchData = useFetch<ContentSearchResult[]>(requestUrl)
-  const { data, pending, error } = await fetchData
+  const requestKey = computed(() => `content-provider-search:${requestUrl.value}`)
+  const requestFetch = useRequestFetch()
+  const { data, pending, error } = await useAsyncData(requestKey, async () => {
+    // The provider contract rejects empty terms. Keep the empty search state
+    // local so SSR/prerender and a newly opened search dialog never dispatch an
+    // invalid request.
+    if (!term.value) {
+      return []
+    }
+    return await requestFetch<ContentSearchResult[]>(requestUrl.value)
+  })
 
   return {
     results: computed(() => (data.value || []).map((result: ContentSearchResult) => ({
@@ -399,20 +408,6 @@ const useCmsSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string
   }
 }
 
-// Pagefind ships as one browser-side module per generated site. Cache the
-// dynamic import at app scope so multiple search boxes do not fetch it again.
-let pagefindModulePromise: Promise<PagefindModule> | null = null
-
-const loadPagefindModule = (pagefindUrl: string): Promise<PagefindModule> => {
-  pagefindModulePromise = pagefindModulePromise || import(/* @vite-ignore */ pagefindUrl) as Promise<PagefindModule>
-  return pagefindModulePromise
-}
-
-const deriveLocale = (path: string, locales: string[] = []) => {
-  const segments = path.split('/').filter(Boolean)
-  return segments[0] && locales.includes(segments[0]) ? segments[0] : undefined
-}
-
 const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string, options: UseContentSearchResultsOptions): UseContentSearchResultsResult => {
   const runtimeConfig = useRuntimeConfig()
   const contentConfig = resolveContentConfig(runtimeConfig)
@@ -420,6 +415,9 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
   const results = ref<ContentSearchResult[]>([])
   const pending = ref(false)
   const error = shallowRef<unknown>(null)
+  const client = createPagefindSearchClient({
+    manifestUrl: pagefindUrl.replace(/pagefind\.js(?:\?.*)?$/, 'ginko-locales.json')
+  })
 
   if (contentConfig?.search === false) {
     return {
@@ -447,26 +445,13 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
     error.value = null
 
     try {
-      const pagefind = await loadPagefindModule(pagefindUrl)
-      const response = await pagefind.search(term)
-      const normalized = await Promise.all((response?.results || []).map(async (result) => {
-        const data = await result.data()
-        const meta = data?.meta as { collection?: unknown, title?: unknown, locale?: unknown } | undefined
-        const [path = '', anchor] = String(data?.url || '').split('#')
-
-        return {
-          path,
-          collection: typeof meta?.collection === 'string' ? meta.collection : '',
-          title: typeof meta?.title === 'string' ? meta.title : path,
-          excerpt: data?.excerpt || '',
-          score: result.score,
-          anchor: anchor || undefined,
-          locale: typeof meta?.locale === 'string' ? meta.locale : deriveLocale(path, contentConfig?.locales || [])
-        } satisfies ContentSearchResult
-      }))
+      const normalized = await client.search(term, {
+        locale: locale.value,
+        limit: toValue(options.limit)
+      })
 
       if (!cancelled) {
-        results.value = locale.value ? normalized.filter(result => result.locale === locale.value) : normalized
+        results.value = normalized
       }
     } catch (err) {
       if (!cancelled) {

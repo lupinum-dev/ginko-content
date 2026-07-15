@@ -46,7 +46,7 @@ const getTranslatedSlugEntries = (document: ParsedContent, locales: string[] = [
     parentKey = match?.[1] ? `${parentKey}${parentKey === '/' ? '' : '/'}${match[1]}` : `${parentKey}${parentKey === '/' ? '' : '/'}${directory}`
   }
 
-  if (!/^index\./.test(basename) && !/^\.(navigation)(\.[^.]+)?$/.test(basename)) {
+  if (!/^(?:\d+\.)?index\./.test(basename) && !/^\.(navigation)(\.[^.]+)?$/.test(basename)) {
     const match = basename.match(TRANSLATED_SLUG_SEGMENT_RE)
     entries.push({
       locale,
@@ -65,7 +65,7 @@ export const collectTranslatedSlugValidationIssues = (
   contents: ParsedContent[],
   options: { translatedSlugs?: boolean, locales?: string[] }
 ): TranslatedSlugValidationIssue[] => {
-  if (!options.translatedSlugs) {
+  if (!options.translatedSlugs || (options.locales?.length ?? 0) < 2) {
     return []
   }
 

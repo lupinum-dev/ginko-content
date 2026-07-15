@@ -13,6 +13,8 @@ import {
   xmlComponentMarkdown
 } from './agent-markdown'
 import { agentRawPathForRoute, normalizeAgentRoutePath } from './agent-paths'
+import { pathHasLocalePrefix } from '../../core/content/path'
+import { projectContentRoute } from '../localization/route-projector'
 
 const textValue = (node: MarkdownNode): string => {
   if (node.type === 'text') return node.value || ''
@@ -55,9 +57,20 @@ const renderTable = (node: MarkdownNode, ctx: AgentMarkdownContext) => {
 const renderUnknownComponentOmission = (name: string, reason?: string) =>
   `> Component omitted: \`${name}\`.\n> ${reason || 'This page contains an interactive or site-specific block that has no agent markdown serializer yet.'}`
 
+const resolvedRefsForPage = (page: AgentMarkdownRenderContext['page']) =>
+  isRecord(page.resolvedRefs) ? (page.resolvedRefs as Record<string, string>) : {}
+
+const cleanPropsForContext = (props: unknown, ctx: Pick<AgentMarkdownRenderContext, 'page'>) =>
+  Object.fromEntries(
+    Object.entries(cleanPropsObject(props)).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? resolvedRefsForPage(ctx.page)[value] || value : value
+    ])
+  )
+
 const renderUnknownComponent = (node: MarkdownNode, ctx: AgentMarkdownContext) => {
   const tag = node.tag || 'component'
-  const props = cleanPropsObject(node.props)
+  const props = cleanPropsForContext(node.props, ctx)
   const children = renderChildren(node, ctx)
 
   if (children || Object.keys(props).length) {
@@ -87,20 +100,31 @@ const serializerForTag = (tag: string, ctx: AgentMarkdownContext) => {
 const isExternalHref = (href: string) =>
   /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')
 
+/**
+ * Empty-`routeMounts` policy pattern (VNEXT.md §12.2, matching
+ * `features/query/routes.ts#getCollectionPath`): only a locale prefix is
+ * needed for markdown links, so `projectContentRoute` gets a policy with an
+ * empty `routeMounts` and owns the prefix decision instead of a
+ * hand-assembled one.
+ */
 const prefixLocalizedHref = (path: string, locale: string | undefined, ctx: AgentMarkdownContext) => {
   const normalized = normalizeAgentRoutePath(path)
-  if (!locale || locale === ctx.defaultLocale) return normalized
-  if (ctx.locales.some((candidate: string) => normalized === `/${candidate}` || normalized.startsWith(`/${candidate}/`))) return normalized
-  return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
+  if (!locale) return normalized
+  if (pathHasLocalePrefix(normalized, ctx.locales)) return normalized
+  return projectContentRoute(
+    { contentPath: normalized, locale },
+    { localized: true, locales: ctx.locales, defaultLocale: ctx.defaultLocale, fallback: {}, translatedSlugs: false, routeMounts: {} }
+  )
 }
 
 const routeMarkdownPathForHref = (href: string, ctx: AgentMarkdownContext) => {
+  const resolvedHref = resolvedRefsForPage(ctx.page)[href] || href
   const currentPath = ctx.path || '/'
-  const hash = href.match(/#.*$/)?.[0] || ''
-  const withoutHash = href.replace(/#.*$/, '')
-  if (!withoutHash) return href
-  if (isExternalHref(withoutHash)) return href
-  if (withoutHash.endsWith('.md')) return href
+  const hash = resolvedHref.match(/#.*$/)?.[0] || ''
+  const withoutHash = resolvedHref.replace(/#.*$/, '')
+  if (!withoutHash) return resolvedHref
+  if (isExternalHref(withoutHash)) return resolvedHref
+  if (withoutHash.endsWith('.md')) return resolvedHref
   const target = withoutHash.startsWith('/')
     ? prefixLocalizedHref(withoutHash, ctx.locale, ctx)
     : new URL(withoutHash, `https://agent.local${normalizeAgentRoutePath(currentPath)}`).pathname
@@ -116,8 +140,9 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     const nodeCtx: AgentMarkdownContext = {
       ...ctx,
       prop: name => getMarkdownProp(node, name),
-      props: target => (isRecord((target || node).props) ? (target || node).props as Record<string, unknown> : {}),
-      cleanProps: target => cleanPropsObject((target || node).props),
+      props: target =>
+        isRecord((target || node).props) ? ((target || node).props as Record<string, unknown>) : {},
+      cleanProps: target => cleanPropsForContext((target || node).props, ctx),
       children: target => renderChildren(target || node, nodeCtx)
     }
     const rendered = serializer(node, nodeCtx)
@@ -197,8 +222,8 @@ export const renderAgentMarkdownBody = (
     ...context,
     prop: () => '',
     props: node => (node ? (isRecord(node.props) ? node.props : {}) : {}),
-    cleanProps: node => cleanPropsObject(node?.props),
-    children: node => node ? renderChildren(node, ctx) : '',
+    cleanProps: node => cleanPropsForContext(node?.props, context),
+    children: node => (node ? renderChildren(node, ctx) : ''),
     renderChildren: node => renderChildren(node, ctx),
     renderNode: node => renderNode(node, ctx),
     blockquote: value => blockquoteMarkdown(value),

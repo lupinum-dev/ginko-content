@@ -107,7 +107,8 @@ runtime/       thin Nuxt/Nitro/Vue     → all internal layers + public
 public/        export facades          → runtime, features, core, types
 config.ts      /config subpath entry   → core, types
 cms-contract/  CMS contract builder    → core, types
-cms-import/    CMS import surface      → core, parsers, types
+portability/   pure portable model     → cms-contract
+portability-node/ safe Node directory  → portability, cms-contract
 cli/           doctor CLI              → core, parsers, types
 testing/       provider conformance    → core, features, public, runtime, types
 ```

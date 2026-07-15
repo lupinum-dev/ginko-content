@@ -93,13 +93,13 @@ export async function fetchContentApi<T> (
     fetcher?: ContentApiFetcher
     runtime?: ContentRuntimeShape
     notFoundMessage?: string
+    previewToken?: string | null
   } = {}
 ): Promise<T> {
   const apiPath = buildContentApiPath(endpoint, params, options.runtime)
-  const previewToken = getPreviewToken()
-  const addPrerenderPathOnSuccess = !import.meta.dev && import.meta.server
-    ? createPrerenderPathAdder()
-    : undefined
+  const previewToken = options.previewToken === undefined ? getPreviewToken() : options.previewToken
+  const addPrerenderPathOnSuccess =
+    !import.meta.dev && import.meta.server ? createPrerenderPathAdder() : undefined
 
   const fetcher = getContentApiFetcher(options.fetcher)
   const data = await fetcher(apiPath, {

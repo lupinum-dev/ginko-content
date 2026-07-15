@@ -96,7 +96,7 @@ export const ensureArray = <T>(value: T) => {
   return (Array.isArray(value) ? value : isNullish(value) ? [] : [value]) as T extends Array<unknown> ? T : T[]
 }
 
-const LOGICAL_QUERY_OPERATORS = new Set(['$and', '$or', '$not'])
+export const LOGICAL_QUERY_OPERATORS = new Set(['$and', '$or', '$not'])
 
 export const SUPPORTED_QUERY_OPERATORS = [
   '$eq',
@@ -106,6 +106,7 @@ export const SUPPORTED_QUERY_OPERATORS = [
   '$lt',
   '$lte',
   '$in',
+  '$nin',
   '$contains',
   '$containsAny',
   '$icontains',

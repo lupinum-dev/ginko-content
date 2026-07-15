@@ -1,5 +1,3 @@
-import type { Ref } from 'vue'
-import { computed } from 'vue'
 import type { Toc, TocLink } from '../../../types/content'
 
 export type { Toc, TocLink }
@@ -42,15 +40,4 @@ export function extractContentToc (
     searchDepth: options.searchDepth ?? maxDepth,
     links
   }
-}
-
-export function useContentToc (
-  content: Ref<string | null | undefined>,
-  options: ContentTocOptions = {}
-): Ref<TocLink[]> {
-  return computed(() => {
-    const raw = content.value
-    if (!raw) return []
-    return extractContentToc(raw, options).links
-  })
 }

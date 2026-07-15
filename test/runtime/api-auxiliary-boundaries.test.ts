@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 const runtime = vi.hoisted(() => ({
   public: {
     content: {
+      siteUrl: 'https://example.test',
       sitemap: {
         include: ['docs']
       }
@@ -19,7 +20,7 @@ const runtime = vi.hoisted(() => ({
   },
   content: {
     search: {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     },
     defaultLocale: 'en',
@@ -50,8 +51,7 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
 }))
 
 vi.mock('../../packages/content/src/runtime/server/search', () => ({
-  buildSearchIndex: vi.fn(async () => []),
-  searchRecords: vi.fn(() => [])
+  buildSearchIndex: vi.fn(async () => [])
 }))
 
 describe('runtime auxiliary API provider boundaries', () => {
@@ -62,7 +62,7 @@ describe('runtime auxiliary API provider boundaries', () => {
     mocks.getContentProvider.mockReset()
     mocks.getContentProvider.mockResolvedValue(provider)
     runtime.content.search = {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     }
     runtime.public.content.sitemap = {
@@ -80,7 +80,7 @@ describe('runtime auxiliary API provider boundaries', () => {
     })
 
     await expect(handler(event)).resolves.toEqual([
-      { canonicalKey: 'docs:getting-started', locale: 'de', path: '/dokumentation/erste-schritte' },
+      { canonicalKey: 'docs:getting-started', locale: 'de', path: '/de/dokumentation/erste-schritte' },
       { canonicalKey: 'docs:getting-started', locale: 'en', path: '/docs/getting-started' }
     ])
   })
@@ -97,8 +97,11 @@ describe('runtime auxiliary API provider boundaries', () => {
 
     await expect(handler(event)).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ loc: '/docs/getting-started' }),
-        expect.objectContaining({ loc: '/de/dokumentation/erste-schritte' })
+        expect.objectContaining({ loc: '/docs/getting-started', _sitemap: 'en' }),
+        expect.objectContaining({
+          loc: '/de/dokumentation/erste-schritte',
+          _sitemap: 'de'
+        })
       ])
     )
   })

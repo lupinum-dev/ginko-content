@@ -186,6 +186,20 @@ describe('Ginko metadata helpers', () => {
     ])
   })
 
+  test('does not apply translated-slug validation to a single-locale collection', () => {
+    const transformed = pathMeta.transform!(
+      { id: 'content:docs:guide.md', body: {} as any },
+      { locales: ['en'], defaultLocale: 'en', translatedSlugs: true }
+    )
+
+    expect(
+      collectTranslatedSlugValidationIssues([transformed], {
+        locales: ['en'],
+        translatedSlugs: true
+      })
+    ).toEqual([])
+  })
+
   test('can escalate translated slug warnings to validation errors', () => {
     const transformed = pathMeta.transform!(
       { id: 'content:de:leitfaden:1.erste-schritte.md', body: {} as any, type: 'markdown' } as any,
@@ -227,6 +241,24 @@ describe('Ginko metadata helpers', () => {
         reason: 'duplicate numeric prefix "1" among localized siblings'
       })
     ])
+  })
+
+  test('does not treat an ordered index file as a sibling route segment', () => {
+    const index = pathMeta.transform!(
+      { id: 'content:de:1.dokumentation:1.index.md', body: {} as any },
+      { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
+    )
+    const child = pathMeta.transform!(
+      { id: 'content:de:1.dokumentation:1.anleitungen:1.ueberblick.md', body: {} as any },
+      { locales: ['en', 'de'], defaultLocale: 'en', translatedSlugs: true }
+    )
+
+    expect(
+      collectTranslatedSlugValidationIssues([index, child], {
+        locales: ['en', 'de'],
+        translatedSlugs: true
+      })
+    ).toEqual([])
   })
 
   test('allows a ref declared on only one locale variant of a canonical group', () => {

@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { useContentMany } from '@lupinum/ginko-content/client'
+import { useAsyncData } from '#imports'
+import { many } from '@lupinum/ginko-content/client'
 import { ref } from 'vue'
 import { posts } from './content.config'
 
 const skip = ref(2)
 const limit = ref(2)
 
-const { data } = await useContentMany(posts, {
-  skip,
-  limit
-})
+const { data } = await useAsyncData(
+  () => `skip-limit:${skip.value}:${limit.value}`,
+  () => many(posts, {
+    skip: skip.value,
+    limit: limit.value
+  }),
+  { watch: [skip, limit] }
+)
 </script>
 
 <template>

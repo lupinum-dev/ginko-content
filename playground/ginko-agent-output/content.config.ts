@@ -65,8 +65,6 @@ export default defineContentConfig({
         de: 'Kleine Fixture fuer eigene Agent-Markdown-Serializer.'
       },
       url: 'https://agent-output.example.test',
-      defaultLocale: 'en',
-      locales: ['en', 'de'],
       profile: 'documentation',
       contentSignals: {
         search: true,

@@ -4,6 +4,8 @@ import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
+import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+import { projectProviderNavigation } from '../../packages/content/src/runtime/server/provider-route-facts'
 
 const scenario = createSaasI18nScenario()
 const provider = createInMemoryProvider(scenario)
@@ -13,9 +15,11 @@ const context = {
   transport: (endpoint: 'query' | 'navigation', params: any) => {
     if (endpoint === 'navigation') {
       const { query, options } = toContentProviderNavigationQuery(params)
-      return provider.navigationQuery!(event, query, options)
+      return provider.navigation!(event, query, options)
+        .then(items => projectProviderNavigation(items, provider.name, scenario.runtime, options.locale))
     }
     return provider.query(event, toContentProviderQuery(params))
+      .then(response => normalizeProviderQueryResponse(params, response, provider.name, scenario.runtime))
   }
 }
 
@@ -80,17 +84,17 @@ describe('public client query flows against an in-memory content scenario', () =
     })
 
     expect(page).toMatchObject({
-      path: '/plain/about',
-      unprefixedPath: '/plain/about',
-      localePaths: {},
-      variants: []
+      route: {
+        resolvedPath: '/plain/about',
+        alternates: []
+      }
     })
   })
 
   test('uses the first visible navigation item as the collection root surround next entry', async () => {
-    const { neighbors } = await import('../../packages/content/src/features/query/unified')
+    const { surround } = await import('../../packages/content/src/features/query/unified')
 
-    const surround = await neighbors({
+    const result = await surround({
       runtime: {
         collections: {
           docs: {}
@@ -114,8 +118,8 @@ describe('public client query flows against an in-memory content scenario', () =
       by: { route: '/docs' }
     })
 
-    expect(surround).toEqual({
-      prev: null,
+    expect(result).toEqual({
+      previous: null,
       next: expect.objectContaining({
         title: 'Getting Started',
         path: '/docs/getting-started'
@@ -124,9 +128,9 @@ describe('public client query flows against an in-memory content scenario', () =
   })
 
   test('does not treat hidden non-root pages as collection roots', async () => {
-    const { neighbors } = await import('../../packages/content/src/features/query/unified')
+    const { surround } = await import('../../packages/content/src/features/query/unified')
 
-    const surround = await neighbors({
+    const result = await surround({
       runtime: {
         collections: {
           docs: {}
@@ -150,8 +154,8 @@ describe('public client query flows against an in-memory content scenario', () =
       by: { route: '/docs/hidden' }
     })
 
-    expect(surround).toEqual({
-      prev: null,
+    expect(result).toEqual({
+      previous: null,
       next: null
     })
   })
@@ -167,11 +171,15 @@ describe('public client query flows against an in-memory content scenario', () =
 
     expect(page).toMatchObject({
       title: 'Fallback Lab',
-      path: '/de/dokumentation/essentials/fallback-lab',
-      locale: 'de',
-      resolved: {
-        locale: 'en',
-        fallback: true
+      locale: 'en',
+      route: {
+        requestedPath: '/de/dokumentation/essentials/fallback-lab',
+        resolvedPath: '/docs/essentials/fallback-lab'
+      },
+      resolution: {
+        requested: { locale: 'de' },
+        resolved: { locale: 'en' },
+        usedFallback: true
       }
     })
   })
@@ -188,33 +196,34 @@ describe('public client query flows against an in-memory content scenario', () =
 
     expect(page).toMatchObject({
       title: 'Fallback Lab',
-      path: '/de/dokumentation/essentials/fallback-lab',
-      unprefixedPath: '/docs/essentials/fallback-lab',
-      locale: 'de',
-      defaultLocale: 'en',
-      localePaths: {
-        en: {
-          path: '/docs/essentials/fallback-lab',
-          translated: true
-        },
-        de: {
-          path: '/de/dokumentation/essentials/fallback-lab',
-          translated: false
-        }
+      locale: 'en',
+      route: {
+        requestedPath: '/de/dokumentation/essentials/fallback-lab',
+        resolvedPath: '/docs/essentials/fallback-lab',
+        alternates: expect.arrayContaining([
+          expect.objectContaining({
+            locale: 'en',
+            path: '/docs/essentials/fallback-lab',
+            source: 'variant'
+          }),
+          expect.objectContaining({
+            locale: 'de',
+            path: '/de/dokumentation/essentials/fallback-lab',
+            source: 'fallback',
+            resolvedLocale: 'en'
+          })
+        ])
       },
-      resolved: {
-        locale: 'en',
-        requestedLocale: 'de',
-        fallback: true,
-        fallbackLocale: 'en',
-        path: '/de/dokumentation/essentials/fallback-lab',
-        availableLocales: ['en']
+      resolution: {
+        requested: { locale: 'de' },
+        resolved: { locale: 'en' },
+        usedFallback: true
       }
     })
   })
 
-  test('runs consumer-style many, tree, variants, neighbors, resolve, and populate flows', async () => {
-    const { many, neighbors, resolveOne, tree, variants, one } = await import('../../packages/content/src/features/query/unified')
+  test('runs consumer-style many, navigation, surround, resolve, and populate flows', async () => {
+    const { many, surround, resolveOne, navigation, one } = await import('../../packages/content/src/features/query/unified')
 
     await expect(many(context, posts, {
       locale: 'de',
@@ -223,13 +232,13 @@ describe('public client query flows against an in-memory content scenario', () =
     })).resolves.toEqual([
       expect.objectContaining({
         title: 'Kryptowaehrungen',
-        path: '/de/blog/kryptowaehrungen'
+        route: expect.objectContaining({ resolvedPath: '/de/blog/kryptowaehrungen' })
       })
     ])
 
-    await expect(tree(context, docs, {
+    await expect(navigation(context, docs, {
       locale: 'de',
-      fields: ['description']
+      select: ['description']
     })).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -243,21 +252,13 @@ describe('public client query flows against an in-memory content scenario', () =
       ])
     )
 
-    await expect(variants(context, docs, {
-      locale: 'de',
-      by: { path: '/docs/essentials/fallback-lab' }
-    })).resolves.toEqual([
-      { locale: 'en', path: '/docs/essentials/fallback-lab', translated: true },
-      { locale: 'de', path: '/de/dokumentation/essentials/fallback-lab', translated: false, fallback: 'de' }
-    ])
-
-    await expect(neighbors(context, docs, {
+    await expect(surround(context, docs, {
       locale: 'de',
       fallback: true,
       by: { route: '/de/dokumentation/grundlagen/markdown-syntax' },
-      fields: ['description']
+      select: ['description']
     })).resolves.toMatchObject({
-      prev: { title: 'Erste Schritte' },
+      previous: { title: 'Erste Schritte' },
       next: { title: 'Fallback Lab' }
     })
 
@@ -285,7 +286,7 @@ describe('public client query flows against an in-memory content scenario', () =
       authors: expect.arrayContaining([
         expect.objectContaining({
           title: 'Emily DE',
-          path: '/de/autoren/emily'
+          route: expect.objectContaining({ resolvedPath: '/de/autoren/emily' })
         })
       ])
     })

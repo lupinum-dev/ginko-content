@@ -2,5 +2,6 @@ export {
   createContentError,
   getCanonicalContentId,
   validateCollectionDocument,
-  validateContentGraph
+  validateContentGraph,
+  validateDocumentJsonPurity
 } from '../../storage/validation'

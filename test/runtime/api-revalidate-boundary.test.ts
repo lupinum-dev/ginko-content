@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createTestEvent } from '../harness/event'
 
 const mocks = vi.hoisted(() => ({
-  clearSearchRecordsCache: vi.fn(),
   getContentCacheAdapter: vi.fn(),
   getContentProvider: vi.fn(),
   getContentRuntimeConfig: vi.fn()
@@ -18,10 +17,6 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
 
 vi.mock('../../packages/content/src/runtime/server/runtime-config', () => ({
   getContentRuntimeConfig: mocks.getContentRuntimeConfig
-}))
-
-vi.mock('../../packages/content/src/runtime/server/search', () => ({
-  clearSearchRecordsCache: mocks.clearSearchRecordsCache
 }))
 
 async function hmacSha256Hex(secret: string, value: string) {
@@ -57,7 +52,6 @@ describe('runtime revalidate API boundary', () => {
   beforeEach(() => {
     mocks.getContentCacheAdapter.mockReset()
     mocks.getContentCacheAdapter.mockResolvedValue(undefined)
-    mocks.clearSearchRecordsCache.mockReset()
     mocks.getContentProvider.mockReset()
     mocks.getContentRuntimeConfig.mockReset()
     mocks.getContentRuntimeConfig.mockReturnValue({
@@ -129,9 +123,13 @@ describe('runtime revalidate API boundary', () => {
     expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
-  test('passes validated tags and paths to provider invalidation', async () => {
+  test('passes validated tags and paths once to the configured cache adapter', async () => {
     const invalidate = vi.fn()
-    mocks.getContentProvider.mockResolvedValue({ invalidate })
+    mocks.getContentCacheAdapter.mockResolvedValue({
+      name: 'test-cache',
+      apply: vi.fn(),
+      invalidate,
+    })
     const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
     const body = JSON.stringify({
       tags: ['entry:docs:a', 'entry:docs:a'],
@@ -172,10 +170,12 @@ describe('runtime revalidate API boundary', () => {
       tags: ['entry:docs:a'],
       paths: ['/docs/a']
     })
-    expect(invalidate).toHaveBeenCalledWith(event, {
+    expect(invalidate).toHaveBeenCalledOnce()
+    expect(invalidate).toHaveBeenCalledWith({
       tags: ['entry:docs:a'],
       paths: ['/docs/a']
     })
+    expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
   test('rejects when revalidation is disabled', async () => {
@@ -319,10 +319,9 @@ describe('runtime revalidate API boundary', () => {
 
     await expect(handler(event)).resolves.toMatchObject({ ok: true, paths: ['/docs/a'] })
     expect(adapterInvalidate).toHaveBeenCalledWith({ paths: ['/docs/a'], tags: undefined })
-    expect(mocks.clearSearchRecordsCache).toHaveBeenCalledTimes(1)
   })
 
-  test('propagates cache adapter invalidation failures without clearing search cache', async () => {
+  test('propagates cache adapter invalidation failures', async () => {
     const adapterInvalidate = vi.fn(async () => {
       throw new Error('adapter failed')
     })
@@ -356,7 +355,6 @@ describe('runtime revalidate API boundary', () => {
 
     await expect(handler(event)).rejects.toThrow('adapter failed')
     expect(adapterInvalidate).toHaveBeenCalledWith({ tags: ['entry:docs:a'], paths: undefined })
-    expect(mocks.clearSearchRecordsCache).not.toHaveBeenCalled()
   })
 
   test('rejects unsigned revalidation when signed delivery is required', async () => {
@@ -448,7 +446,11 @@ describe('runtime revalidate API boundary', () => {
   test('accepts signed revalidation requests without exposing the shared secret as a token header', async () => {
     mocks.getContentRuntimeConfig.mockReturnValue({ content: { revalidate: { token: 'secret' } } })
     const invalidate = vi.fn()
-    mocks.getContentProvider.mockResolvedValue({ invalidate })
+    mocks.getContentCacheAdapter.mockResolvedValue({
+      name: 'test-cache',
+      apply: vi.fn(),
+      invalidate,
+    })
     const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
     const body = JSON.stringify({ paths: ['/docs/a'] })
     const event = {
@@ -472,9 +474,11 @@ describe('runtime revalidate API boundary', () => {
       tags: [],
       paths: ['/docs/a']
     })
-    expect(invalidate).toHaveBeenCalledWith(event, {
+    expect(invalidate).toHaveBeenCalledOnce()
+    expect(invalidate).toHaveBeenCalledWith({
       tags: undefined,
       paths: ['/docs/a']
     })
+    expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 })

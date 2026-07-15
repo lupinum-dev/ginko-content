@@ -3,9 +3,6 @@ import { describe, expect, test } from 'vitest'
 import {
   fields,
   getContentFieldMetadata,
-  image,
-  relation,
-  richtext,
 } from '../../packages/content/src/types/fields'
 
 describe('content schema fields', () => {
@@ -23,7 +20,7 @@ describe('content schema fields', () => {
   })
 
   test('creates CMS image fields as asset references', () => {
-    const avatar = image({ aspectRatio: '1:1', accept: ['image/png'] }).required()
+    const avatar = fields.image({ aspectRatio: '1:1', accept: ['image/png'] }).required()
 
     expect(avatar.safeParse('asset:123').success).toBe(true)
     expect(avatar.safeParse({ src: '/avatar.png' }).success).toBe(false)
@@ -39,7 +36,7 @@ describe('content schema fields', () => {
   })
 
   test('creates relation and richtext metadata for CMS inference', () => {
-    expect(getContentFieldMetadata(relation('authors').required())).toMatchObject({
+    expect(getContentFieldMetadata(fields.relation('authors').required())).toMatchObject({
       type: 'relation',
       required: true,
       localized: false,
@@ -51,10 +48,63 @@ describe('content schema fields', () => {
       localized: false,
       relation: { collectionId: 'authors', multiple: true },
     })
-    expect(getContentFieldMetadata(richtext())).toMatchObject({
+    expect(getContentFieldMetadata(fields.richtext())).toMatchObject({
       type: 'richtext',
       required: false,
     })
+  })
+
+  test('fields.date() parses valid YYYY-MM-DD strings and preserves them verbatim', () => {
+    const date = fields.date()
+
+    expect(date.parse('2026-01-15')).toBe('2026-01-15')
+    expect(typeof date.parse('2026-01-15')).toBe('string')
+  })
+
+  test('fields.date() rejects an invalid calendar date', () => {
+    const date = fields.date()
+
+    expect(date.safeParse('2026-02-31').success).toBe(false)
+  })
+
+  test('fields.date() rejects malformed date strings', () => {
+    const date = fields.date()
+
+    expect(date.safeParse('2026-1-5').success).toBe(false)
+    expect(date.safeParse('not-a-date').success).toBe(false)
+    expect(date.safeParse('2026-01-15T00:00:00Z').success).toBe(false)
+  })
+
+  test('fields.date() accepts a Date instance at the parse boundary and normalizes it to YYYY-MM-DD', () => {
+    const date = fields.date()
+    const result = date.parse(new Date(Date.UTC(2026, 0, 15)))
+
+    expect(result).toBe('2026-01-15')
+    expect(typeof result).toBe('string')
+  })
+
+  test('fields.datetime() normalizes offsets to a UTC ISO 8601 string', () => {
+    const datetime = fields.datetime()
+
+    expect(datetime.parse('2026-01-01T05:00:00+05:00')).toBe('2026-01-01T00:00:00.000Z')
+  })
+
+  test('fields.datetime() output is always a string, never a Date', () => {
+    const datetime = fields.datetime()
+
+    const fromString = datetime.parse('2026-01-01T00:00:00.000Z')
+    const fromDate = datetime.parse(new Date('2026-01-01T00:00:00.000Z'))
+
+    expect(typeof fromString).toBe('string')
+    expect(typeof fromDate).toBe('string')
+    expect(fromString).not.toBeInstanceOf(Date)
+    expect(fromDate).not.toBeInstanceOf(Date)
+  })
+
+  test('fields.datetime() rejects values that cannot convert to a valid date/time', () => {
+    const datetime = fields.datetime()
+
+    expect(datetime.safeParse('not-a-datetime').success).toBe(false)
   })
 
   test('uses required item schemas inside array helpers', () => {

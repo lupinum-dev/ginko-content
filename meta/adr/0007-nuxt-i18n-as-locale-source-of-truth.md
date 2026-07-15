@@ -81,5 +81,34 @@ Rules:
 - We depend on `@nuxtjs/i18n` semantics and follow them upstream.
 - Content-specific fallback and translated-slug behavior stay in
   `content.i18n` where they belong.
-- When `@nuxtjs/i18n` is not installed, locale-aware features degrade
-  gracefully to single-locale behavior.
+- Agent/LLM output uses this same resolved locale policy. `agent.site`
+  owns presentation and site identity only; it cannot redeclare locales or
+  the default locale. Consequently rendered links, localized `llms.txt`
+  routes, app-owned agent pages, and prerender output cannot drift from the
+  content routes they describe.
+- **Content-only localization is a fully supported mode, not a
+  degraded fallback.** A site can declare multiple locales, a default
+  locale, and per-collection `i18n` config entirely through
+  `content.i18n` in `nuxt.config.ts` without installing `@nuxtjs/i18n`
+  at all. Single-document reads, list queries, and locale fallback all
+  work the same way; the only thing Ginko does not do on its own is own
+  route strategy/i18n routing (that remains `@nuxtjs/i18n`'s job when
+  present).
+
+## Status note (Phase 0, 2026-07)
+
+This ADR states two things at different levels of maturity:
+
+- **Already true today (0.2.x):** content-only localization (the bullet
+  above) builds and resolves without `@nuxtjs/i18n` installed, and when
+  `@nuxtjs/i18n` *is* installed, Ginko reads its `defaultLocale` and
+  `locales` into `content.i18n` resolution.
+- **Not yet enforced (target invariant, tracked separately, not part of
+  Phase 0):** the stronger rule that installing `@nuxtjs/i18n` *while
+  also* declaring conflicting Ginko-owned locale/default authority in
+  `content.i18n` must fail setup with an actionable error. Today the two
+  configurations are merged (Ginko's `content.i18n` values, `@nuxtjs/i18n`'s
+  `defaultLocale`/`locales`, deduplicated) rather than validated for
+  conflicts. Implementing the fail-setup behavior is a later-phase change,
+  not a Phase 0 truth correction — this note exists so the decision above
+  is not mistaken for current runtime behavior.

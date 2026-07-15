@@ -27,15 +27,19 @@ builds packages, builds docs and examples, runs unit/provider/runtime/client/Nux
 tests, runs e2e, and typechecks.
 
 `release:verify` runs `verify` once, production browser e2e, real static
-generation, production audit, release packing, and pnpm/npm consumers against
-the exact tarball left in `.pack/`. Search and sitemap checks already belong to
-the e2e project inside `verify`; they are not run a second time.
+generation, production audit, two byte-identical release packs, and pnpm/npm
+consumers against the exact verified tarball left in `.pack/`. Search and
+sitemap checks already belong to the e2e project inside `verify`; they are not
+run a second time.
 
 ## Release gate
 
 A tag may only be cut from the exact commit SHA whose CI release workflow,
-including `release-verify` and the minimum-runtime job, is green. Release
-metadata must be committed before that workflow runs. A local
+including `release-verify`, minimum-runtime, and Windows portability contracts,
+is green. The Windows packed Nuxt consumer remains a visible non-blocking
+canary while the Nuxt 4.4.7–4.4.8 drive-letter prerender issue documented in
+the 0.2-to-0.3 migration guide is open. Release metadata must be committed
+before that workflow runs. A local
 `pnpm run release:verify` is a useful pre-check, but it does not authorize a tag
 unless it ran from a clean tree at the exact tagged SHA and its environment and
 artifact evidence were retained durably. See `testing-harness-rfc.md` for the
@@ -50,8 +54,16 @@ npm.
 Set the release version once and reuse it in the commands below:
 
 ```bash
-VERSION=0.1.0
+VERSION=0.3.0-rc.2
+case "$VERSION" in
+  *-*) NPM_TAG=next; GH_RELEASE_FLAG=--prerelease ;;
+  *)   NPM_TAG=latest; GH_RELEASE_FLAG= ;;
+esac
 ```
+
+Prereleases must use npm's `next` channel and a GitHub prerelease. Stable
+versions use npm's `latest` channel and a normal GitHub release. Do not override
+these values independently: both registries must describe the same release kind.
 
 1. Start from a clean working tree on the release branch:
 
@@ -111,7 +123,8 @@ gh run download "$RUN_ID" --name ginko-content-release --dir .pack
 
 The downloaded artifact must contain exactly one `.tgz` and
 `release-artifact.json`. The metadata commit must equal `$RELEASE_SHA`,
-`worktreeDirty` must be `false`, and `releaseEligible` must be `true`.
+`worktreeDirty` must be `false`, `releaseEligible` must be `true`, and
+`reproduciblePacks` must be `2`.
 
 6. Inspect the exact CI-tested tarball before tagging or publishing:
 
@@ -152,7 +165,10 @@ The npm CLI may open browser authentication during login or publish. Do not add
 9. Publish manually from the inspected tarball:
 
 ```bash
-npm publish .pack/lupinum-ginko-content-$VERSION.tgz --access public --registry=https://registry.npmjs.org/
+npm publish .pack/lupinum-ginko-content-$VERSION.tgz \
+  --access public \
+  --tag "$NPM_TAG" \
+  --registry=https://registry.npmjs.org/
 ```
 
 If npm opens an authentication URL, complete it in the browser and return to the
@@ -175,6 +191,7 @@ minute and retry before assuming the publish failed.
 gh release create v$VERSION \
   .pack/lupinum-ginko-content-$VERSION.tgz \
   --title "v$VERSION" \
+  $GH_RELEASE_FLAG \
   --notes "$(awk -v version="v$VERSION" '$0 == "## " version { flag=1 } flag' CHANGELOG.md)"
 ```
 

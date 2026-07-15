@@ -85,7 +85,7 @@ export const registerStaticOutputGeneration = ({
 
         if (
           searchRuntime !== false
-          && searchRuntime.engine !== 'cms'
+          && searchRuntime.engine !== 'provider'
           && usesFilesystemProvider
         ) {
           const response = await localFetch(searchRuntime.indexURL)
@@ -102,16 +102,14 @@ export const registerStaticOutputGeneration = ({
           if (searchRuntime.engine === 'pagefind') {
             const records = JSON.parse(json)
             const { writePagefindIndex } = await import(resolveRuntimeModule('./server/pagefind.js'))
-            await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'))
+            await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'), resolvedI18n.defaultLocale)
           }
         }
 
         const agentRoutes = normalizeAgentRouteOptions(options)
         if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
-          const defaultLocale = appContentConfig.agent.site?.defaultLocale || resolvedI18n.defaultLocale
-          const locales = appContentConfig.agent.site?.locales?.length
-            ? appContentConfig.agent.site.locales
-            : resolvedI18n.locales
+          const defaultLocale = resolvedI18n.defaultLocale
+          const locales = resolvedI18n.locales
           const llmsRoutes = [
             '/llms.txt',
             '/llms-full.txt',

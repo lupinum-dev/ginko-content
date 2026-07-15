@@ -6,6 +6,21 @@ const markdownBody = (children: NonNullable<ParsedContent['body']>['children']):
   children
 })
 
+const providerDocumentFor = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
+  ...page,
+  collection: String(page.collection || 'docs'),
+  canonicalKey: String(page.canonicalKey || `docs:${String(page.path || '/').replace(/^\//, '')}`),
+  locale: String(page.locale || 'en'),
+  contentPath: String(page.path || '/'),
+  routeVariants: [{ locale: String(page.locale || 'en'), contentPath: String(page.path || '/') }],
+  body: page.body ?? null
+})
+
+const providerForPage = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
+  name: 'fixture',
+  query: async () => ({ result: providerDocumentFor(page) })
+})
+
 describe('agent markdown', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -58,7 +73,7 @@ describe('agent markdown', () => {
   })
 
   test('returns null for disabled collections before querying the provider', async () => {
-    const page = vi.fn()
+    const query = vi.fn()
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
         collections: {
@@ -67,13 +82,13 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({ page })
+      getContentProvider: async () => ({ query })
     }))
 
     const { resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
 
     await expect(resolveContentMarkdown({ context: {} } as any, 'docs', '/intro')).resolves.toBeNull()
-    expect(page).not.toHaveBeenCalled()
+    expect(query).not.toHaveBeenCalled()
   })
 
   test('renders normalized markdown with registered serializers', async () => {
@@ -106,9 +121,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, registerAgentMarkdownSerializer, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -190,9 +203,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const {
@@ -247,9 +258,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -294,9 +303,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -341,9 +348,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -399,9 +404,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -452,9 +455,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -495,9 +496,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const {
@@ -567,9 +566,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -632,9 +629,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -690,9 +685,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -727,9 +720,7 @@ describe('agent markdown', () => {
       })
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        page: async () => page
-      })
+      getContentProvider: async () => providerForPage(page)
     }))
 
     const { clearAgentMarkdownSerializers, resolveContentMarkdown } = await import('../../packages/content/src/runtime/server/agent-markdown')
@@ -745,14 +736,14 @@ describe('agent markdown', () => {
   test('does not render markdown bodies while building the agent page index', async () => {
     const query = vi.fn(async () => ({
       result: [
-        {
+        providerDocumentFor({
           path: '/docs/intro',
           title: 'Intro',
           description: 'Start here.',
           body: markdownBody([
             { type: 'element', tag: 'expensive-component' }
           ])
-        }
+        })
       ],
       skip: 0,
       limit: 0,
@@ -767,9 +758,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            url: 'https://example.test'
           },
           sections: [{ id: 'docs', title: 'Docs', order: 10 }]
         },
@@ -818,9 +807,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            url: 'https://example.test'
           },
           sections: [{ id: 'docs', title: 'Docs', order: 10 }]
         },
@@ -837,11 +824,11 @@ describe('agent markdown', () => {
       getContentProvider: async () => ({
         query: async () => ({
           result: [
-            {
+            providerDocumentFor({
               path: '/docs/intro',
               file: { path: 'content/docs/intro.md' },
               title: 'Intro'
-            }
+            })
           ],
           skip: 0,
           limit: 0,
@@ -863,25 +850,23 @@ describe('agent markdown', () => {
     const query = vi.fn(async (_event, params) => {
       // Providers now receive the lowered wire query (CS-5), not builder params.
       expect(params).toEqual(expect.objectContaining({
-        v: 1,
+        v: 2,
         plan: expect.objectContaining({
           resolveLocale: expect.objectContaining({ locale: 'de' }),
-          projection: expect.objectContaining({ only: expect.arrayContaining(['path', 'locale', 'localePaths']) })
+          projection: expect.objectContaining({
+            only: expect.arrayContaining(['file', 'title', 'description'])
+          })
         })
       }))
 
       return {
         result: [
-          {
+          providerDocumentFor({
             path: '/guide/advanced',
             locale: 'en',
-            resolved: {
-              locale: 'en',
-              fallback: true
-            },
             file: { path: 'en/1.guide/2.advanced.md' },
             title: 'Advanced'
-          }
+          })
         ],
         skip: 0,
         limit: 0,
@@ -897,9 +882,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en', 'de']
+            url: 'https://example.test'
           },
           sections: [{ id: 'docs', title: { en: 'Docs', de: 'Dokumentation' }, order: 10 }]
         },
@@ -944,9 +927,7 @@ describe('agent markdown', () => {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            url: 'https://example.test'
           },
           pages: [
             {
@@ -973,11 +954,11 @@ describe('agent markdown', () => {
       getContentProvider: async () => ({
         query: async () => ({
           result: [
-            {
+            providerDocumentFor({
               path: '/docs/intro',
               title: 'Content Intro',
               description: 'Content intro.'
-            }
+            })
           ],
           skip: 0,
           limit: 0,

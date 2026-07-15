@@ -63,8 +63,8 @@ describe('generated output smoke', () => {
     expect(existsSync(resolve(outputPublicDir, 'de/leitfaden/erste-schritte/index.md'))).toBe(false)
     expect(enMarkdown).toContain('# Getting Started')
     expect(deMarkdown).toContain('# Einstieg')
-    expect(enMarkdown).toContain('/raw/guide/$guide-advanced.md#deep-dive')
-    expect(deMarkdown).toContain('/raw/de/leitfaden/$guide-advanced.md#deep-dive')
+    expect(enMarkdown).toContain('/raw/guide/advanced.md#deep-dive')
+    expect(deMarkdown).toContain('/raw/de/leitfaden/advanced.md#deep-dive')
     expect(enMarkdown).not.toContain('/index.md')
     expect(deMarkdown).not.toContain('/index.md')
 

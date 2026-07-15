@@ -1,27 +1,75 @@
+import type { ResolvedCollectionLocalePolicy } from './locale-policy'
 import { resolveRuntimeCollectionI18nConfig, type RuntimeContentI18nInput } from './config'
 import {
+  longestMountForPath,
   mountContentPath,
   normalizeContentPath,
   normalizeRouteMounts,
   pathHasLocalePrefix,
   prefixPathWithLocale,
-  projectContentPathToLocale,
   routeRemainder,
   routeToContentPathCandidates,
   stripLocalePrefix,
   type RouteMounts
 } from '../../core/content/path'
+import { projectContentRoute } from './route-projector'
 
 export {
   mountContentPath,
   normalizeContentPath,
   normalizeRouteMounts,
   prefixPathWithLocale,
-  projectContentPathToLocale,
   routeRemainder,
   routeToContentPathCandidates,
   stripLocalePrefix,
   type RouteMounts
+}
+
+/**
+ * Package loose `(defaultLocale, mounts)` call-site params into the
+ * `ResolvedCollectionLocalePolicy` shape `projectContentRoute` requires -
+ * the same pattern proven in `features/query/routes.ts#getCollectionPath`.
+ * This does not re-derive policy from raw config; it only reshapes params
+ * the caller already resolved.
+ */
+const toLocalePolicy = (
+  defaultLocale: string | undefined,
+  mounts: RouteMounts
+): ResolvedCollectionLocalePolicy => ({
+  localized: true,
+  locales: [],
+  defaultLocale,
+  fallback: {},
+  translatedSlugs: false,
+  routeMounts: mounts
+})
+
+/**
+ * Project a content path into its localized public path.
+ *
+ * `path` is ordinarily the mount-agnostic canonical content path (VNEXT.md
+ * section 12.2), in which case this is a straight delegation to the
+ * canonical projector. It may also be an already-projected path for a
+ * DIFFERENT locale (e.g. `decorateLocalePathsWithFallbacks` re-projecting a
+ * fallback locale's public path onto another locale) - the mount-detection
+ * step below strips that locale's mount back off first so the projector
+ * still receives a mount-agnostic content path.
+ */
+export const projectContentPathToLocale = (
+  path: string,
+  locale?: string,
+  defaultLocale?: string,
+  mounts?: RouteMounts
+) => {
+  const normalizedPath = normalizeContentPath(path || '/')
+  if (normalizedPath === '/' || !locale || !mounts) {
+    return prefixPathWithLocale(normalizedPath, locale, defaultLocale)
+  }
+
+  const source = longestMountForPath(normalizedPath, mounts)
+  const remainder = source ? routeRemainder(normalizedPath, source[1]) : normalizedPath
+
+  return projectContentRoute({ contentPath: remainder, locale }, toLocalePolicy(defaultLocale, mounts))
 }
 
 /** Route prefixes that serve raw or API payloads - never locale-prefix these. */
@@ -132,5 +180,12 @@ export const localizePath = (
     return value
   }
 
-  return `${prefixPathWithLocale(pathname, locale, defaultLocale)}${suffix}`
+  // No route-mount concept for link-like strings - an empty mount map makes
+  // `projectContentRoute` a pure locale-prefixer, identical to the old
+  // direct `prefixPathWithLocale` call (VNEXT.md section 12.2).
+  const projected = projectContentRoute(
+    { contentPath: pathname, locale: locale ?? '' },
+    toLocalePolicy(defaultLocale, {})
+  )
+  return `${projected}${suffix}`
 }

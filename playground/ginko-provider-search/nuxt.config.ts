@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   content: {
     i18n: false,
     search: {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     },
     sitemap: true

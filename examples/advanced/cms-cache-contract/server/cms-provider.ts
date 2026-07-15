@@ -1,30 +1,27 @@
 import {
   createContentProviderError,
-  shapeProviderDocument,
   withContentCache,
-  type ContentPageResult,
   type ContentProvider,
   type ContentProviderQuery,
-  type ContentSearchSection,
+  type ContentProviderRouteFact,
   type ProviderDocumentInput
-} from '#content/server'
-import {
-  authors,
-  postByPath,
-  posts,
-  providerCacheEvents
-} from './cms-store'
+} from '@lupinum/ginko-content/provider'
+import { authors, postByPath, posts, providerCacheEvents } from './cms-store'
 
-// This provider is single-locale (`en`). Core derives the localized route
-// envelope (`path`, `variants`, `localePaths`, `resolved`) from these options.
-const shapeOptions = { defaultLocale: 'en', locales: ['en'] }
+/**
+ * This example deliberately returns raw provider facts. Ginko Content owns
+ * route projection and the app-facing document envelope; a CMS adapter only
+ * needs to preserve stable identity plus the source's content path.
+ */
+const routeFact = (document: ProviderDocumentInput): ContentProviderRouteFact => ({
+  collection: document.collection,
+  canonicalKey: document.canonicalKey,
+  locale: document.locale,
+  contentPath: document.contentPath
+})
 
-// A third-party provider emits ONLY the canonical envelope's required fields —
-// `id`, `collection`, `locale`, `path`, `canonicalKey`, `type`, `body` (plus any
-// frontmatter data) — and never hand-builds route/locale metadata. `file` is
-// omitted because CMS-backed documents have no backing file.
-const postDocument = (path: string): ProviderDocumentInput | null => {
-  const post = postByPath(path)
+const postDocument = (contentPath: string): ProviderDocumentInput | null => {
+  const post = postByPath(contentPath)
   if (!post) return null
 
   const author = authors.get(post.author)
@@ -32,7 +29,7 @@ const postDocument = (path: string): ProviderDocumentInput | null => {
     id: `cms:blog:${post.id}`,
     collection: 'blog',
     locale: 'en',
-    path: post.path,
+    contentPath: post.path,
     canonicalKey: `blog:${post.id}`,
     type: 'markdown',
     body: { type: 'root', children: [] },
@@ -43,8 +40,8 @@ const postDocument = (path: string): ProviderDocumentInput | null => {
   }
 }
 
-const authorDocument = (path: string): ProviderDocumentInput | null => {
-  const id = path.replace(/^\/authors\//, '')
+const authorDocument = (contentPath: string): ProviderDocumentInput | null => {
+  const id = contentPath.replace(/^\/authors\//, '')
   const author = authors.get(id)
   if (!author) return null
 
@@ -52,7 +49,7 @@ const authorDocument = (path: string): ProviderDocumentInput | null => {
     id: `cms:authors:${author.id}`,
     collection: 'authors',
     locale: 'en',
-    path: `/authors/${author.id}`,
+    contentPath: `/authors/${author.id}`,
     canonicalKey: `authors:${author.id}`,
     type: 'markdown',
     body: { type: 'root', children: [] },
@@ -62,115 +59,83 @@ const authorDocument = (path: string): ProviderDocumentInput | null => {
   }
 }
 
-const documentFor = (collection: string, routeOrPath = '/'): ProviderDocumentInput | null => {
-  if (collection === 'blog') return postDocument(routeOrPath)
-  if (collection === 'authors') return authorDocument(routeOrPath)
-  throw createContentProviderError('unknown_collection', `Unknown collection: ${collection}`, { collection })
-}
-
-const pageFor = (collection: string, routeOrPath = '/'): ContentPageResult<Record<string, unknown>> | null => {
-  const document = documentFor(collection, routeOrPath)
-  return document ? shapeProviderDocument(document, shapeOptions) : null
-}
-
-const listFor = (collection?: string) => {
-  if (!collection || collection === 'blog') {
-    return Array.from(posts.values())
-      .map(post => pageFor('blog', post.path))
-      .filter(Boolean) as ContentPageResult<Record<string, unknown>>[]
+const documentsFor = (collection: string | null): ProviderDocumentInput[] => {
+  if (collection === null || collection === 'blog') {
+    return Array.from(posts.values()).flatMap(post => {
+      const document = postDocument(post.path)
+      return document ? [document] : []
+    })
   }
   if (collection === 'authors') {
-    return Array.from(authors.values())
-      .map(author => pageFor('authors', `/authors/${author.id}`))
-      .filter(Boolean) as ContentPageResult<Record<string, unknown>>[]
+    return Array.from(authors.values()).flatMap(author => {
+      const document = authorDocument(`/authors/${author.id}`)
+      return document ? [document] : []
+    })
   }
   throw createContentProviderError('unknown_collection', `Unknown collection: ${collection}`, { collection })
+}
+
+/** Resolve the closed route selector supplied by core; providers never guess mounts. */
+const selectDocuments = (query: ContentProviderQuery): ProviderDocumentInput[] => {
+  const documents = documentsFor(query.collection)
+  const selector = query.plan.variantSelector
+  if (!selector) return documents
+
+  if (selector.by === 'route') {
+    const candidates = new Set(selector.candidates.map(candidate => `${candidate.locale}:${candidate.contentPath}`))
+    return documents.filter(document => candidates.has(`${document.locale}:${document.contentPath}`))
+  }
+  return documents.filter(document => document.canonicalKey === selector.ref || document.ref === selector.ref)
 }
 
 export default {
   name: 'cms-demo',
   capabilities: {
-    routeBackedCollections: true,
-    dataCollections: true,
-    localizedRoutes: false,
-    translatedSlugs: false,
-    navigation: true,
-    surroundings: false,
-    searchSections: true,
-    sitemap: true,
     query: {
       operators: ['$eq'],
-      limit: true,
-      skip: true,
-      count: true
+      pagination: ['offset']
     }
   },
-  async query(_event, query: ContentProviderQuery) {
-    const collection = query.collection ?? undefined
-    return withContentCache(listFor(collection), {
-      tags: collection ? [`collection:${collection}`] : ['collection:blog', 'collection:authors'],
+  async query(_event, query) {
+    const documents = selectDocuments(query)
+    const result = query.plan.mode === 'count'
+      ? { result: documents.length }
+      : query.plan.mode === 'first'
+        ? { result: documents[0] }
+        : {
+            mode: 'offset' as const,
+            result: documents.slice(query.plan.skip, query.plan.limit === undefined ? undefined : query.plan.skip + query.plan.limit),
+            skip: query.plan.skip,
+            limit: query.plan.limit ?? documents.length,
+            total: documents.length
+          }
+
+    return withContentCache(result, {
+      tags: query.collection ? [`collection:${query.collection}`] : ['collection:blog', 'collection:authors'],
       maxAge: 300,
       swr: 60
     })
   },
-  async page(_event, collection, routeOrPath = '/') {
-    const page = pageFor(collection, routeOrPath)
-    if (!page) return null
-
-    const tags = [
-      `entry:${collection}:${String(page.ref)}`,
-      `collection:${collection}`,
-      `route:${page.path}`
-    ]
-
-    if (collection === 'blog' && typeof page.author === 'string') {
-      tags.push(`entry:authors:${page.author}`)
-    }
-
-    return withContentCache(page, {
-      tags,
-      paths: [page.path],
-      maxAge: 300,
-      swr: 60,
-      lastModified: new Date()
-    })
-  },
-  async routeMeta(_event, collection, routeOrPath = '/') {
-    return pageFor(collection, routeOrPath)
-  },
-  async navigation(_event, collection) {
-    return withContentCache(listFor(collection).map(page => ({
-      title: String(page.title),
-      path: page.path
+  async navigation(_event, query) {
+    return withContentCache(selectDocuments(query).map(document => ({
+      title: String(document.title),
+      route: routeFact(document)
     })), {
-      tags: [`nav:${collection}:en`, `collection:${collection}`],
+      tags: [`nav:${query.collection ?? 'all'}:en`],
       maxAge: 300
     })
   },
-  async navigationQuery() {
-    return withContentCache(Array.from(posts.values()).map(post => ({
-      title: post.title,
-      path: post.path
-    })), {
-      tags: ['nav:blog:en'],
-      maxAge: 300
-    })
+  async search(_event, request) {
+    const term = request.term.toLocaleLowerCase()
+    return Array.from(posts.values())
+      .filter(post => `${post.title} ${authors.get(post.author)?.name || ''}`.toLocaleLowerCase().includes(term))
+      .map(post => {
+        const document = postDocument(post.path)!
+        return { title: post.title, score: 1, route: routeFact(document) }
+      })
   },
-  async searchSections(): Promise<ContentSearchSection[]> {
-    return Array.from(posts.values()).map(post => ({
-      id: post.path,
-      title: post.title,
-      titles: [post.title],
-      content: `${post.title} ${authors.get(post.author)?.name || ''}`,
-      level: 1
-    }))
-  },
-  async sitemapEntries() {
-    return withContentCache(Array.from(posts.values()).map(post => ({
-      loc: post.path
-    })), {
-      tags: ['sitemap', 'collection:blog']
-    })
+  async routes() {
+    return Array.from(posts.values()).map(post => routeFact(postDocument(post.path)!))
   },
   async invalidate(_event, input) {
     providerCacheEvents.push({ source: 'provider', ...input })

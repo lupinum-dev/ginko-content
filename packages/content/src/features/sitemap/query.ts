@@ -1,5 +1,10 @@
-import type { ContentSitemapAlternative, ContentSitemapEntry, ContentSitemapImage } from '../../types/query'
+import type {
+  ContentSitemapAlternative,
+  ContentSitemapEntry,
+  ContentSitemapImage
+} from '../../types/query'
 import { createContentProviderError } from '../../core/provider-errors'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 
 type ContentLikePage = {
   path?: string
@@ -48,13 +53,21 @@ export interface SitemapRuntime {
 
 export interface SitemapLoaders {
   loadCollectionPages: (collection: string) => Promise<ContentLikePage[]>
-  loadRouteMeta: (collection: string, path: string, locale?: string) => Promise<{
+  loadRouteMeta: (
+    collection: string,
+    path: string,
+    locale?: string
+  ) => Promise<{
     locale: string
     path: string
     defaultLocale: string
-    variants: Array<{ locale: string, path: string }>
+    variants: Array<{ locale: string; path: string }>
   } | null>
-  loadPage: (collection: string, path: string, locale?: string) => Promise<{ body?: unknown } | null>
+  loadPage: (
+    collection: string,
+    path: string,
+    locale?: string
+  ) => Promise<{ body?: unknown } | null>
 }
 
 const normalizeSiteUrl = (siteUrl?: string) => siteUrl?.replace(/\/$/, '')
@@ -75,7 +88,9 @@ const resolveSiteUrl = (runtime: SitemapRuntime, explicitSiteUrl?: string) => {
   }
 
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('Content sitemap generation requires site.url or runtimeConfig.public.content.siteUrl in production.')
+    throw new Error(
+      'Content sitemap generation requires site.url or runtimeConfig.public.content.siteUrl in production.'
+    )
   }
 
   return 'http://localhost'
@@ -150,7 +165,11 @@ const toAbsoluteImageUrl = (siteUrl: string, loc: string) => {
   }
 }
 
-const toPageSitemapImages = (siteUrl: string, page: ContentLikePage | null | undefined, body: unknown): ContentSitemapImage[] | undefined => {
+const toPageSitemapImages = (
+  siteUrl: string,
+  page: ContentLikePage | null | undefined,
+  body: unknown
+): ContentSitemapImage[] | undefined => {
   const urls = collectContentImageUrls(body)
 
   if (page) {
@@ -166,11 +185,11 @@ const toPageSitemapImages = (siteUrl: string, page: ContentLikePage | null | und
 
 const toAbsoluteUrl = (siteUrl: string, path: string) => `${siteUrl}${path}`
 
-const buildAlternatives = (
+export const buildSitemapAlternatives = (
   siteUrl: string,
   defaultLocale: string,
   localeToLanguage: Record<string, string>,
-  variants: Array<{ locale: string, path: string }>
+  variants: Array<{ locale: string; path: string }>
 ): ContentSitemapAlternative[] => {
   const alternatives = variants.map(variant => ({
     hreflang: localeToLanguage[variant.locale] || variant.locale,
@@ -188,6 +207,47 @@ const buildAlternatives = (
   return alternatives
 }
 
+export interface ProjectSitemapEntryOptions {
+  siteUrl: string
+  defaultLocale: string
+  localeToLanguage: Record<string, string>
+  variant: { locale: string; path: string }
+  variants: Array<{ locale: string; path: string }>
+  lastmod?: string
+  images?: ContentSitemapImage[]
+}
+
+/**
+ * Project one localized route into Nuxt Sitemap's source-entry contract.
+ *
+ * Ginko owns canonical route identity and locale relationships. Nuxt Sitemap
+ * v8 owns XML generation and uses `_sitemap` to partition app-source entries
+ * into its per-locale child sitemaps.
+ */
+export const projectSitemapEntry = ({
+  siteUrl,
+  defaultLocale,
+  localeToLanguage,
+  variant,
+  variants,
+  lastmod,
+  images
+}: ProjectSitemapEntryOptions): ContentSitemapEntry => {
+  const localizedVariants = variants.filter(candidate => candidate.locale)
+  const alternatives =
+    localizedVariants.length > 1
+      ? buildSitemapAlternatives(siteUrl, defaultLocale, localeToLanguage, variants)
+      : undefined
+
+  return {
+    loc: variant.path,
+    ...(variant.locale ? { _sitemap: localeToLanguage[variant.locale] || variant.locale } : {}),
+    ...(lastmod ? { lastmod } : {}),
+    ...(alternatives ? { alternatives } : {}),
+    ...(images?.length ? { images } : {})
+  }
+}
+
 const resolveSitemapCollections = (
   runtime: SitemapRuntime,
   options: Pick<QueryCollectionsSitemapEntriesOptions, 'include' | 'exclude'> = {}
@@ -195,7 +255,7 @@ const resolveSitemapCollections = (
   const hasExplicitInclude = Boolean(options.include?.length)
   const include = hasExplicitInclude ? options.include! : Object.keys(runtime.collections || {})
   const excluded = new Set(options.exclude || [])
-  return include.filter((collection) => {
+  return include.filter(collection => {
     const config = runtime.collections?.[collection] as { sitemap?: boolean } | undefined
     if (excluded.has(collection)) {
       return false
@@ -203,9 +263,13 @@ const resolveSitemapCollections = (
 
     if (config?.sitemap === false) {
       if (hasExplicitInclude) {
-        throw createContentProviderError('data_collection_sitemap_access', `${collection} is not sitemap-backed.`, {
-          collection
-        })
+        throw createContentProviderError(
+          'data_collection_sitemap_access',
+          `${collection} is not sitemap-backed.`,
+          {
+            collection
+          }
+        )
       }
       return false
     }
@@ -221,68 +285,80 @@ const resolveSitemapCollections = (
  * URL resolution, locale alternatives, and image extraction testable without
  * coupling the logic to Nitro.
  */
-export async function queryCollectionsSitemapEntriesData (
+export async function queryCollectionsSitemapEntriesData(
   runtime: SitemapRuntime,
   loaders: SitemapLoaders,
   options: QueryCollectionsSitemapEntriesOptions = {}
 ): Promise<ContentSitemapEntry[]> {
-  const localeToLanguage = Object.fromEntries((runtime.localeConfigs || []).map(locale => [locale.code, locale.language || locale.code]))
+  const localeToLanguage = Object.fromEntries(
+    (runtime.localeConfigs || []).map(locale => [locale.code, locale.language || locale.code])
+  )
   const collections = resolveSitemapCollections(runtime, options)
   const siteUrl = resolveSiteUrl(runtime, options.siteUrl)
-  const shouldIncludeDrafts = typeof options.includeDrafts === 'boolean' ? options.includeDrafts : import.meta.dev
-  const pages = (await Promise.all(collections.map(async (collection) => {
-    const collectionPages = await loaders.loadCollectionPages(collection)
-    return collectionPages.map(page => ({
-      ...page,
-      collection: page.collection || collection
-    }))
-  }))).flat()
-    .filter((page) => {
+  const shouldIncludeDrafts = resolveIncludeDrafts({
+    environment: resolveRuntimeEnvironment(),
+    includeDrafts: options.includeDrafts
+  })
+  const pages = (
+    await Promise.all(
+      collections.map(async collection => {
+        const collectionPages = await loaders.loadCollectionPages(collection)
+        return collectionPages.map(page => ({
+          ...page,
+          collection: page.collection || collection
+        }))
+      })
+    )
+  )
+    .flat()
+    .filter(page => {
       if (page.sitemap === false) {
         return false
       }
 
       return shouldIncludeDrafts || !page.draft
     })
-  const uniquePages = Array.from(new Map(
-    pages.map(page => [
-      `${page.collection || ''}:${page.canonicalKey || page.path || ''}`,
-      page
-    ])
-  ).values())
+  const uniquePages = Array.from(
+    new Map(
+      pages.map(page => [`${page.collection || ''}:${page.canonicalKey || page.path || ''}`, page])
+    ).values()
+  )
 
-  const rawEntries = await Promise.all(uniquePages.map(async (page) => {
-    if (!page.path || !page.collection) {
-      return []
-    }
+  const rawEntries = await Promise.all(
+    uniquePages.map(async page => {
+      if (!page.path || !page.collection) {
+        return []
+      }
 
-    const meta = await loaders.loadRouteMeta(page.collection, page.path, page.locale)
-    if (!meta) {
-      return []
-    }
+      const meta = await loaders.loadRouteMeta(page.collection, page.path, page.locale)
+      if (!meta) {
+        return []
+      }
 
-    const variants = (meta.variants.length ? meta.variants : [{ locale: meta.locale, path: meta.path }]).filter(variant => variant.path)
-    const localizedVariants = variants.filter(variant => variant.locale)
-    const alternatives = localizedVariants.length > 1
-      ? buildAlternatives(siteUrl, meta.defaultLocale, localeToLanguage, variants)
-      : undefined
+      const variants = (
+        meta.variants.length ? meta.variants : [{ locale: meta.locale, path: meta.path }]
+      ).filter(variant => variant.path)
+      return await Promise.all(
+        variants.map(async variant => {
+          const variantPage = await loaders.loadPage(page.collection!, variant.path, variant.locale)
+          const images = toPageSitemapImages(
+            siteUrl,
+            variantPage ? { ...page, ...(variantPage as ContentLikePage) } : page,
+            variantPage?.body ?? page.body
+          )
 
-    return await Promise.all(variants.map(async (variant) => {
-      const variantPage = await loaders.loadPage(page.collection!, variant.path, variant.locale)
-      const images = toPageSitemapImages(
-        siteUrl,
-        variantPage ? { ...page, ...(variantPage as ContentLikePage) } : page,
-        variantPage?.body ?? page.body
+          return projectSitemapEntry({
+            siteUrl,
+            defaultLocale: meta.defaultLocale,
+            localeToLanguage,
+            variant,
+            variants,
+            images
+          })
+        })
       )
-
-      return {
-        loc: variant.path,
-        ...(variant.locale ? { _sitemap: localeToLanguage[variant.locale] || variant.locale } : {}),
-        ...(alternatives ? { alternatives } : {}),
-        ...(images ? { images } : {})
-      } satisfies ContentSitemapEntry
-    }))
-  }))
+    })
+  )
 
   const uniqueEntries = new Map<string, ContentSitemapEntry>()
   for (const entry of rawEntries.flat()) {

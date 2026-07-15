@@ -35,7 +35,7 @@ const isBacklinkFieldMap = (value: unknown): value is Record<string, ReadonlyArr
 }
 
 const resolveExplicitBacklinkFields = (
-  fields: BacklinksOptions['fields'],
+  fields: BacklinksOptions['via'],
   sourceName: string
 ) => {
   if (Array.isArray(fields)) {
@@ -70,15 +70,14 @@ const inferBacklinkFields = (
 
 const targetReferenceCandidates = (doc: LocalizedDoc<ParsedContent>) => {
   // Only documents with a real content identity (`canonicalKey`) are valid
-  // reference targets. The shaped result always carries a default `path` of
-  // '/', so path/unprefixedPath candidates are gated on `canonicalKey` to avoid
+  // reference targets. The shaped result always carries a default route of
+  // '/', so the resolved-path candidate is gated on `canonicalKey` to avoid
   // treating an identity-less document as referenceable. `ref` is the sole
   // user-facing alias (the explicit-id alias has been retired).
   const values = [
     (doc as { ref?: unknown }).ref,
     doc.canonicalKey,
-    doc.canonicalKey ? doc.path : undefined,
-    doc.canonicalKey ? doc.unprefixedPath : undefined
+    doc.canonicalKey ? doc.route?.resolvedPath : undefined
   ]
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
     .flatMap(value => [value, normalizeReferenceValue(value)])
@@ -100,7 +99,7 @@ const createMissingBacklinkFieldsError = (
 ) => new Error(
   `Cannot infer backlink fields from "${sourceCollection}" to "${targetCollection}". `
   + `Declare fields.relation('${targetCollection}') / fields.relations('${targetCollection}') in ${sourceCollection}.schema, `
-  + 'or pass fields explicitly.'
+  + 'or pass `via` explicitly.'
 )
 
 export async function resolveBacklinks<
@@ -135,7 +134,7 @@ export async function resolveBacklinks<
     const sourceName = ensureCollectionName(source)
     const fields = [
       ...new Set([
-        ...resolveExplicitBacklinkFields(options.fields, sourceName),
+        ...resolveExplicitBacklinkFields(options.via, sourceName),
         ...inferBacklinkFields(source, targetCollection, context.runtime)
       ])
     ]

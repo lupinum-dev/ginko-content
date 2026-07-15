@@ -109,7 +109,7 @@ describe('locale and manifest contracts', () => {
   })
 
   test('resolveLocaleChain deduplicates configured circular fallbacks', async () => {
-    const { resolveLocaleChain } = await import('../../packages/content/src/runtime/server/manifest')
+    const { resolveLocaleChain } = await import('../../packages/content/src/storage/graph')
 
     expect(resolveLocaleChain('de', 'en', { de: ['fr', 'en', 'fr'] })).toEqual(['de', 'fr', 'en'])
     expect(resolveLocaleChain('fr', 'en', { fr: ['de', 'en', 'de'] })).toEqual(['fr', 'de', 'en'])
@@ -152,9 +152,14 @@ describe('locale and manifest contracts', () => {
       })
     ])
 
-    const { getContentManifest, resolveVariant, resolveRouteVariant } = await import('../../packages/content/src/runtime/server/manifest')
+    const { getContentGraph, resolveVariant, resolveRouteVariant } = await import('../../packages/content/src/storage/graph')
     const event = createEvent()
-    const manifest = await getContentManifest(event)
+    // `getContentGraph(event).manifest` replaces the deleted persisted
+    // `_manifest.json` cache (`storage/manifest.ts#getContentManifest`,
+    // VNEXT.md 15.7, 25.4): the graph's manifest is the same data, computed
+    // fresh (dev) or from the one process-cached graph (production) instead
+    // of a second revisionless cache.
+    const manifest = (await getContentGraph(event)).manifest
 
     expect(Object.keys(manifest.byCanonical['guide/advanced'] || {})).toEqual(['en', 'fr'])
     expect(manifest.paths['/guide/advanced']).toEqual([
@@ -207,7 +212,7 @@ describe('locale and manifest contracts', () => {
     getContentsList.mockResolvedValue(contents)
     getContent.mockImplementation(async (_event, id) => contents.find(content => content.id === id))
 
-    const { getIndexedContentsList } = await import('../../packages/content/src/runtime/server/manifest')
+    const { getIndexedContentsList } = await import('../../packages/content/src/storage/graph')
     const event = {
       ...createEvent(),
       node: {

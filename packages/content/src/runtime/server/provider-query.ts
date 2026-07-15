@@ -1,6 +1,6 @@
 import { joinURL, withLeadingSlash } from 'ufo'
 import type { H3Event } from 'h3'
-import type { ContentDocumentResolution, ParsedContent } from '../../types/content'
+import type { ContentResolutionCarrier, ParsedContent } from '../../types/content'
 import type { ContentQueryCountResponse, ContentQueryFindOneResponse, ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type {
   CollectionQueryBuilder,
@@ -14,12 +14,102 @@ import { normalizeContentQueryParams } from '../../core/query/params'
 import { containsStandaloneRegexOptions, findUnsupportedQueryOperator } from '../../core/query/operators'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 import { sortLocalesCanonically } from '../../core/content/locale'
+import { resolveLocaleChain } from '../../core/content/graph'
+import { normalizeRouteMounts } from '../../core/content/path'
 import { normalizeReferenceValue } from '../../core/references/resolve'
+import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
+import { lowerRouteToCandidates } from '../../features/localization/route-projector'
+import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
+import { buildContentDocumentEnvelope } from '../../features/localization/results'
+import { normalizeProviderDocument, type ProviderDocumentInput } from './provider-document'
 import { getContentRuntimeConfig } from './runtime-config'
+import { isPreview } from '../../integrations/nitro/preview'
 import { createContentProviderError } from '../../public/provider-errors'
 import { toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
 
 export { toContentProviderNavigationQuery as createProviderNavigationQuery } from '../../public/provider-query'
+
+/**
+ * Build the `ResolvedCollectionLocalePolicy` the canonical route projector
+ * needs from the plain runtime content config already resolved at request
+ * time (VNEXT.md 12.1/13.1) — same reshaping pattern as
+ * `features/query/routes.ts#getCollectionPath`.
+ */
+const collectionLocalePolicyFor = (
+  collection: string | null | undefined,
+  config: ReturnType<typeof getContentRuntimeConfig>['content']
+): ResolvedCollectionLocalePolicy => {
+  const collectionConfig = collection ? config.collections?.[collection] : undefined
+  const collectionI18n = collectionConfig?.i18n && typeof collectionConfig.i18n === 'object' ? collectionConfig.i18n : undefined
+  const defaultLocale = collectionI18n?.defaultLocale || config.defaultLocale
+  const locales = collectionI18n?.locales?.length ? collectionI18n.locales : []
+  const mounts = normalizeRouteMounts(collectionConfig?.route, locales, defaultLocale)
+
+  return {
+    localized: locales.length > 0,
+    locales,
+    defaultLocale,
+    fallback: config.localeFallback ?? {},
+    translatedSlugs: false,
+    routeMounts: mounts ?? {}
+  }
+}
+
+/**
+ * Close a plan's `route`/`ref` variant resolution into the honest provider
+ * wire selector (VNEXT.md 13.1): an ordered, exact `{ locale, contentPath }`
+ * candidate list for `route` (via the canonical route projector), or the
+ * resolved locale fallback chain for `ref`. Leaves the plan untouched when
+ * there is no `route`/`ref` selector to close (plain `path` lookups keep
+ * their existing in-graph resolution).
+ */
+const closeProviderVariantSelector = (query: ContentProviderQuery): ContentProviderQuery => {
+  const resolveVariant = query.plan.resolveVariant
+  if (!resolveVariant || (!resolveVariant.route && !resolveVariant.ref)) {
+    return query
+  }
+
+  const config = getContentRuntimeConfig().content || {}
+  const policy = collectionLocalePolicyFor(query.collection, config)
+  const requestedLocale = resolveVariant.locale || policy.defaultLocale || ''
+
+  if (resolveVariant.route) {
+    const candidates = resolveVariant.exact
+      ? lowerRouteToCandidates(resolveVariant.route, policy, requestedLocale).filter(candidate => candidate.locale === requestedLocale)
+      : lowerRouteToCandidates(resolveVariant.route, policy, requestedLocale)
+
+    return {
+      ...query,
+      plan: {
+        ...query.plan,
+        resolveVariant,
+        variantSelector: {
+          by: 'route',
+          requestedLocale,
+          candidates
+        }
+      }
+    }
+  }
+
+  const localeChain = resolveVariant.exact
+    ? (requestedLocale ? [requestedLocale] : [])
+    : resolveLocaleChain(requestedLocale, policy.defaultLocale, requestedLocale ? { [requestedLocale]: [...(resolveVariant.fallback || policy.fallback[requestedLocale] || [])] } : {})
+
+  return {
+    ...query,
+    plan: {
+      ...query.plan,
+      resolveVariant,
+      variantSelector: {
+        by: 'ref',
+        ref: resolveVariant.ref!,
+        requestedLocale,
+        localeChain
+      }
+    }
+  }
+}
 
 /**
  * Build the provider wire query (CS-5) from builder params: reject
@@ -28,9 +118,21 @@ export { toContentProviderNavigationQuery as createProviderNavigationQuery } fro
  * content-query normalization (default sort, locale injection, `fallback: true`
  * → chain expansion), then lower to a JSON-pure `ContentQueryPlan`.
  *
- * This is the single builder-params → plan seam before the provider boundary.
- * Provider-specific policy (draft hiding, limit clamps, regex rejection) lives
- * inside each provider, applied to the plan it receives.
+ * This is the single builder-params → plan seam before *every* provider's
+ * `query()` — filesystem or third-party.
+ *
+ * It deliberately does NOT inject draft/structural visibility filters here:
+ * an arbitrary third-party provider may advertise a minimal operator set
+ * (conformance only requires it to execute the operators it advertises —
+ * VNEXT.md 13.7), so unconditionally adding a `$ne` clause on `draft`, or on
+ * a field the provider may not even carry, can make an otherwise-valid query
+ * fail with `unsupported_query_operator` for a provider that never claimed to
+ * support it. Ginko's own core visibility decision is enforced at the
+ * filesystem-only untrusted HTTP boundary (`query-executor.ts`, where the
+ * operator surface is known and controlled) and by each trusted internal
+ * composable that needs it, not injected blindly into every provider's wire
+ * query. See VNEXT.md 13.6/24.2 and the Phase 2D report's provider-fact
+ * normalization note for the generic-provider follow-up this implies.
  */
 export const createProviderQuery = (params: ContentQueryBuilderParams): ContentProviderQuery => {
   const unsupported = findUnsupportedQueryOperator(params.where)
@@ -54,19 +156,31 @@ export const createProviderQuery = (params: ContentQueryBuilderParams): ContentP
     includeDraftFilter: false
   })
 
-  return toContentProviderQuery(normalized)
+  return closeProviderVariantSelector(toContentProviderQuery(normalized))
 }
 
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const isProviderFindResponse = <T>(response: unknown): response is ContentQueryFindResponse<T> =>
-  isObject(response) &&
+const isProviderOffsetFindResponse = (response: Record<string, unknown>): boolean =>
   Array.isArray(response.result) &&
   typeof response.skip === 'number' &&
   typeof response.limit === 'number' &&
-  typeof response.total === 'number'
+  typeof response.total === 'number' &&
+  (response.mode === undefined || response.mode === 'offset')
+
+const isProviderCursorFindResponse = (response: Record<string, unknown>): boolean =>
+  response.mode === 'cursor' &&
+  Array.isArray(response.result) &&
+  typeof response.limit === 'number' &&
+  isObject(response.pageInfo) &&
+  (response.pageInfo.endCursor === null || typeof response.pageInfo.endCursor === 'string') &&
+  typeof response.pageInfo.hasNext === 'boolean'
+
+/** Closed, discriminated list response — see `ContentQueryFindResponse` (VNEXT.md 10.2/13.1). */
+const isProviderFindResponse = <T>(response: unknown): response is ContentQueryFindResponse<T> =>
+  isObject(response) && (isProviderOffsetFindResponse(response) || isProviderCursorFindResponse(response))
 
 export const normalizeProviderQueryResult = <T>(response: ContentQueryResponse<T>): T[] => {
   if (isProviderFindResponse<T>(response)) {
@@ -87,7 +201,7 @@ const isProviderCountResponse = (response: unknown): response is ContentQueryCou
   Object.keys(response).length === 1
 
 const hasListEnvelopeKeys = (response: Record<string, unknown>) =>
-  ['skip', 'limit', 'total'].some(key => key in response)
+  ['skip', 'limit', 'total', 'pageInfo', 'mode'].some(key => key in response)
 
 const describeProviderResponse = (response: unknown) => {
   if (Array.isArray(response)) return 'array'
@@ -109,10 +223,88 @@ const invalidProviderQueryResult = (
   })
 }
 
+const isProviderDocumentInput = (value: unknown): value is ProviderDocumentInput =>
+  isObject(value)
+  && typeof value.collection === 'string'
+  && typeof value.locale === 'string'
+  && typeof value.contentPath === 'string'
+  && typeof value.canonicalKey === 'string'
+  && 'body' in value
+
+const shapeProviderQueryDocument = (
+  value: unknown,
+  params: ContentQueryBuilderParams,
+  providerName?: string,
+  runtimeConfig = getContentRuntimeConfig().content || {}
+): ParsedContent => {
+  if (!isProviderDocumentInput(value)) {
+    throw createContentProviderError('provider_result_invalid', `${providerName || 'Content provider'} returned a document that does not match ProviderDocumentInput. Documents require collection, canonicalKey, locale, contentPath, and body.`, {
+      provider: providerName,
+      collection: params.collection,
+      operation: 'query',
+      field: 'result'
+    })
+  }
+
+  const normalized = normalizeProviderDocument(value)
+  const config = runtimeConfig
+  const collectionI18n = resolveRuntimeCollectionI18nConfig(value.collection, config)
+  const locales = collectionI18n?.locales?.length ? collectionI18n.locales : (config.locales || [])
+  const defaultLocale = collectionI18n?.defaultLocale || config.defaultLocale
+  const routeMounts = normalizeRouteMounts(
+    config.collections?.[value.collection]?.route,
+    locales,
+    defaultLocale
+  )
+  const variants = Object.fromEntries(
+    (value.routeVariants || []).map(variant => [variant.locale, variant.contentPath])
+  )
+  const requestedLocale = params.resolveVariant?.locale || params.resolveLocale?.locale
+  const envelope = buildContentDocumentEnvelope({
+    unprefixedPath: value.contentPath,
+    variantPaths: variants,
+    requestedLocale,
+    resolvedLocale: value.locale,
+    defaultLocale,
+    locales,
+    // Provider paths already carry a concrete mount. The projector detects
+    // and replaces that mount when synthesizing a fallback alternate for a
+    // different locale; resolved concrete variants remain byte-identical.
+    routeMounts,
+    requestedPath: params.resolveVariant?.route || params.resolveVariant?.path
+  })
+
+  const {
+    contentPath: _contentPath,
+    routeVariants: _routeVariants,
+    path: _path,
+    resolved: _resolved,
+    ...document
+  } = normalized as ParsedContent & Record<string, unknown>
+
+  const shaped = {
+    ...document,
+    locale: envelope.locale,
+    route: envelope.route,
+    resolution: envelope.resolution
+  } as ParsedContent & Record<string, unknown>
+
+  const selected = Array.isArray(params.only) ? params.only.map(String) : []
+  if (!selected.length) {
+    return shaped
+  }
+
+  const guaranteed = new Set(['id', 'collection', 'canonicalKey', 'locale', 'route', 'resolution'])
+  return Object.fromEntries(
+    Object.entries(shaped).filter(([key]) => guaranteed.has(key) || selected.includes(key))
+  ) as ParsedContent
+}
+
 export const normalizeProviderQueryResponse = <T>(
   params: ContentQueryBuilderParams,
   response: unknown,
-  providerName?: string
+  providerName?: string,
+  runtimeConfig = getContentRuntimeConfig().content || {}
 ): ContentQueryResponse<T> => {
   if (params.count) {
     if (isProviderCountResponse(response)) {
@@ -123,20 +315,27 @@ export const normalizeProviderQueryResponse = <T>(
 
   if (params.first) {
     if (isProviderFindOneResponse<T>(response)) {
-      return response
+      return {
+        result: response.result === undefined || response.result === null
+          ? response.result
+          : shapeProviderQueryDocument(response.result, params, providerName, runtimeConfig) as T
+      }
     }
     return invalidProviderQueryResult(params, 'Provider first queries must return a find-one envelope: { result: item | undefined }.', response, providerName)
   }
 
   if (isProviderFindResponse<T>(response)) {
-    return response
+    return {
+      ...response,
+      result: response.result.map(item => shapeProviderQueryDocument(item, params, providerName, runtimeConfig) as T)
+    }
   }
 
   if (isObject(response) && hasListEnvelopeKeys(response)) {
-    return invalidProviderQueryResult(params, 'Provider list query envelopes must include array result, skip, limit, and total.', response, providerName)
+    return invalidProviderQueryResult(params, 'Provider list query envelopes must be either { result, skip, limit, total } (offset) or { mode: \'cursor\', result, limit, pageInfo: { endCursor, hasNext } } (cursor).', response, providerName)
   }
 
-  return invalidProviderQueryResult(params, 'Provider list queries must return a list envelope: { result: item[], skip, limit, total }.', response, providerName)
+  return invalidProviderQueryResult(params, 'Provider list queries must return a list envelope: { result: item[], skip, limit, total } (offset) or { mode: \'cursor\', result, limit, pageInfo } (cursor).', response, providerName)
 }
 
 const identityMatchesDocument = (document: ParsedContent, identity: string) => {
@@ -290,7 +489,10 @@ export const createServerContentQuery = <T = ParsedContent>(
       defaultLocale: config.defaultLocale,
       localeFallback: config.localeFallback,
       activeLocale: collectionI18n?.defaultLocale,
-      includeDraftFilter: !import.meta.dev
+      includeDraftFilter: !resolveIncludeDrafts({
+        environment: resolveRuntimeEnvironment(),
+        previewAuthorized: isPreview(event)
+      })
     })
   })
 }
@@ -314,7 +516,7 @@ export const resolveContentReference = async <T = ParsedContent>(
   event: H3Event,
   reference: string,
   options: ResolveContentReferenceOptions = {}
-): Promise<(T & { resolved?: ContentDocumentResolution }) | null> => {
+): Promise<(T & { resolved?: ContentResolutionCarrier }) | null> => {
   const resolved = await resolveProviderContentVariants(event, reference, options)
   if (!resolved) {
     return null

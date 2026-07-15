@@ -65,7 +65,7 @@ Important provider capabilities include:
 - `translatedSlugs`
 - `navigation`
 - `surroundings`
-- `searchSections`
+- `search`
 - `sitemap`
 - query capabilities: operators, sort, projection, limit, skip, count
 

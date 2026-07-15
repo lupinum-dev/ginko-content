@@ -11,9 +11,9 @@
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
     "@nuxt/ui": "^4.9.0",
-    "nuxt": "4.4.7",
-    "typescript": "^6.0.3",
-    "vue-tsc": "^3.2.9",
+    "nuxt": "4.4.8",
+    "typescript": "~5.9.3",
+    "vue-tsc": "^3.3.7",
     "zod": "^4.4.3"
   }
 }

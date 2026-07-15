@@ -6,7 +6,7 @@ import { isRealDocument } from '../core/content/document'
 import { splitInlineLocaleVariantId } from '../core/content/locale'
 import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { parseContentVariants } from '../integrations/nitro/ingest'
-import { cacheStoreFor, getCachedContents, setCachedContents } from './cache'
+import { cacheStoreFor } from './cache'
 import { contentConfig, contentIgnorePredicate, getContentStorageRuntime, getContentsIds, resolveStorageId } from './driver'
 import { getProcessDocuments, usesProcessSnapshot } from './snapshot-runtime'
 import { validateContentGraph } from './validation'
@@ -89,7 +89,12 @@ const loadContents = async (event: H3Event, prefix?: string) => {
     contents.push(...result.flat())
   }
 
-  const filtered = contents.filter(isRealDocument).filter(document => document.path)
+  // Do not additionally require a truthy `document.path`: a valid `type:
+  // 'data'` document legitimately has no route, and the production build
+  // (`integrations/nitro/build.ts`, VNEXT §14.3) keeps pathless documents in
+  // its snapshot rather than treating "has a route path" as the content-set
+  // inclusion test. Dev must include the same document set as production.
+  const filtered = contents.filter(isRealDocument)
   if (shouldValidateAtRuntime) {
     const outcome = validateContentGraph(filtered, contentConfig())
     if (!outcome.ok) {
@@ -128,18 +133,12 @@ export const getContentsList = (event: H3Event, prefix?: string) => {
     strictTranslatedSlugs: runtime.config.strictTranslatedSlugs
   })
 
-  return memoizeRuntimeValue(event, `contents:${cacheKey}`, async () => {
-    const cached = getCachedContents(event, cacheKey)
-    if (cached?.length) {
-      return cached
-    }
-
-    return await cacheStoreFor(event).inflightContentsList.run(cacheKey, async () => {
-      const result = await loadContents(event, prefix)
-      setCachedContents(event, cacheKey, result)
-      return result
-    })
-  })
+  // One request-scoped memo for the complete contents-list load (VNEXT.md
+  // 15.7). `memoizeRuntimeValue` already shares one in-flight promise across
+  // concurrent callers within a request, so a second single-flight map plus a
+  // separate "contents" map here would only duplicate this memoization with
+  // no independent invalidation source.
+  return memoizeRuntimeValue(event, `contents:${cacheKey}`, () => loadContents(event, prefix))
 }
 
 export const getContent = async (event: H3Event, id: string): Promise<ParsedContent> => {

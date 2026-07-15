@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useContentSearchResults } from '@lupinum/ginko-content/client'
+import { computed } from 'vue'
+import { useContentSearch } from '@lupinum/ginko-content/client'
 
-const term = ref('guide')
-const { results, pending } = await useContentSearchResults(term)
+const { results, pending } = await useContentSearch({ initialQuery: 'guide' })
 const normalizedResults = computed(() => (results.value || []).map(result => ({
   path: result.path,
   title: result.title,

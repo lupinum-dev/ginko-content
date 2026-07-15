@@ -27,6 +27,18 @@ export const toValue = <T>(value: T | Ref<T> | (() => T)): T => {
 export const useRuntimeConfig = () => readGlobal('__nuxtRuntimeConfig', { public: {} })
 export const refreshNuxtData = () => readGlobal<() => void>('__nuxtRefreshNuxtData', () => {})()
 
+export const useRequestFetch = () => async (url: unknown) => {
+  const fetcher = readGlobal<((url: unknown) => unknown | Promise<unknown>) | undefined>('__nuxtUseFetch', undefined)
+  if (!fetcher) {
+    throw new Error('Missing __nuxtUseFetch test mock')
+  }
+  const result = await fetcher(url)
+  if (result && typeof result === 'object' && 'data' in result) {
+    return (result as { data: Ref<unknown> }).data.value
+  }
+  return result
+}
+
 export const useFetch = async (url: unknown) => {
   const fetcher = readGlobal<((url: unknown) => unknown | Promise<unknown>) | undefined>('__nuxtUseFetch', undefined)
   if (!fetcher) {

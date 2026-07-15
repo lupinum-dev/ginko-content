@@ -1,65 +1,34 @@
-/**
- * Preview-mode composable. The `useCookie` / `useRoute` calls below are
- * resolved through `globalThis` rather than statically imported from
- * `#imports` — that keeps this file safe to traverse from a pure-Nitro
- * bundle (where the Nuxt-only auto-imports aren't registered).
- */
-const lookupGlobal = <T>(name: string): T | undefined => {
-  const fn = (globalThis as Record<string, unknown>)[name]
-  return typeof fn === 'function' ? (fn as T) : undefined
-}
-
-interface CookieRef<T> { value: T | null }
-const cookie = <T>(name: string): CookieRef<T> => {
-  const useCookie = lookupGlobal<<U>(name: string) => CookieRef<U>>('useCookie')
-  return useCookie ? useCookie<T>(name) : { value: null }
-}
-
-const route = (): { query: Record<string, unknown> } => {
-  const useRoute = lookupGlobal<() => { query: Record<string, unknown> }>('useRoute')
-  return useRoute ? useRoute() : { query: {} }
-}
-
-let showWarning = true
+import { useCookie, useRoute, useState } from '#imports'
 
 export const useContentPreview = () => {
+  const previewToken = useCookie<string | null>('previewToken')
+  const warningShown = useState('ginko-content:preview-warning-shown', () => false)
+
   const getPreviewToken = () => {
-    return cookie<string>('previewToken').value ||
-      (import.meta.client && sessionStorage.getItem('previewToken')) ||
-      undefined
+    return previewToken.value || undefined
   }
 
   const setPreviewToken = (token: string | undefined) => {
-    cookie<string>('previewToken').value = (token as string | null) ?? null
-
-    route().query.preview = token || ''
+    previewToken.value = token || null
 
     if (import.meta.client) {
-      if (token) {
-        sessionStorage.setItem('previewToken', token)
-      } else {
-        sessionStorage.removeItem('previewToken')
-      }
-
       window.location.reload()
     }
   }
 
   const isEnabled = () => {
-    const query = route().query
+    const query = useRoute().query
     if (Object.prototype.hasOwnProperty.call(query, 'preview') && !query.preview) {
       return false
     }
 
-    if (query.preview || cookie<string>('previewToken').value) {
-      if (import.meta.dev && showWarning) {
-        console.warn('[content] Preview mode enabled since a preview token is set (either in query or cookie).')
-        showWarning = false
+    if (query.preview || previewToken.value) {
+      if (import.meta.dev && !warningShown.value) {
+        console.warn(
+          '[content] Preview mode enabled since a preview token is set (either in query or cookie).'
+        )
+        warningShown.value = true
       }
-      return true
-    }
-
-    if (import.meta.client && sessionStorage.getItem('previewToken')) {
       return true
     }
 

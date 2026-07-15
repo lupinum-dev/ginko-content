@@ -20,6 +20,21 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "./data-source": {
+      "category": "pure-provider-contract",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/DATA_SOURCE_ADAPTER_GUIDE.md"
+    },
+    "./portability": {
+      "category": "pure-portability-contract",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "./portability/node": {
+      "category": "advanced-portability-node",
+      "audience": "advanced-integrator",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
     "./client": {
       "category": "app-runtime",
       "audience": "app-developer",
@@ -30,13 +45,18 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "./cms-contract": {
-      "category": "advanced-cms-contract",
+    "./agent-registry": {
+      "category": "advanced-agent-subpath",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "./cms-import": {
-      "category": "advanced-cms-import",
+    "./agent-paths": {
+      "category": "app-runtime",
+      "audience": "app-developer",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
+    "./cms-contract": {
+      "category": "advanced-cms-contract",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
@@ -50,39 +70,214 @@
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "./testing/data-source-contract": {
+      "category": "testing-only-data-source-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/DATA_SOURCE_ADAPTER_GUIDE.md"
+    },
+    "./testing/portability-contract": {
+      "category": "testing-only-portability-contract",
+      "audience": "test-author",
+      "docs": "packages/content/docs/CMS_CONTRACT.md"
+    },
     "./transformers": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/markdown": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/yaml": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/json": {
-      "category": "markdown-transformer-extension",
-      "audience": "library-user",
-      "docs": "packages/content/docs/RENDERING.md"
-    },
-    "./transformers/csv": {
       "category": "markdown-transformer-extension",
       "audience": "library-user",
       "docs": "packages/content/docs/RENDERING.md"
     }
   },
+  "dataSourceValueExports": [
+    "CONTENT_DATA_SOURCE_LIMITS"
+  ],
+  "dataSourceTypeExports": [
+    "BoundedContentProviderQuery",
+    "ContentDataSource",
+    "ContentDataSourceCacheHint",
+    "ContentDataSourceCapabilities",
+    "ContentDataSourceControl",
+    "ContentDataSourceResult",
+    "ContentDataSourceSiteDataResponse",
+    "CursorPage"
+  ],
+  "cmsContractValueExports": [
+    "CONTENT_FIELD_METADATA_KEY",
+    "CONTENT_REFERENCE_PREFIX",
+    "IncrementalSha256",
+    "PublicMarkdownValidationError",
+    "RESOLVED_CONTENT_CONTRACT_VERSION",
+    "assertCmsRequestedFacts",
+    "assertPublicMarkdownAst",
+    "assertResolvedContentContract",
+    "buildResolvedContentContract",
+    "canonicalJsonBytes",
+    "cmsPublicEntryWireSchema",
+    "collectTopLevelReferenceFields",
+    "describeId",
+    "generateCanonicalKey",
+    "generatePath",
+    "generateTitle",
+    "getContentFieldMetadata",
+    "getObjectShape",
+    "getReferenceDescriptor",
+    "getSchemaDef",
+    "getSchemaTypeName",
+    "hashCanonicalJson",
+    "isDraftPath",
+    "isPartialPath",
+    "isSafePublicMarkdownUrl",
+    "longestMountForPath",
+    "mountContentPath",
+    "normalizeContentPath",
+    "normalizeRouteMounts",
+    "parseCmsListWireResult",
+    "parseCmsNavWireResult",
+    "parseCmsPageWireResult",
+    "parseCmsRoutesWireResult",
+    "parseCmsSearchWireResult",
+    "parseCmsSiteDataWireResult",
+    "parseCmsSurroundWireResult",
+    "parseMdcBody",
+    "prefixPathWithLocale",
+    "refineUrlPart",
+    "routeRemainder",
+    "routeToContentPathCandidates",
+    "sha256Hex",
+    "slugifyUrlSegment",
+    "stripLocalePrefix",
+    "unwrapSchema",
+    "validatePublicMarkdownAst",
+    "verifyPublicImageBytes"
+  ],
+  "cmsContractTypeExports": [
+    "BuildResolvedContentContractInput",
+    "BuildResolvedContentContractOptions",
+    "CmsPublicEntryWire",
+    "ContentCmsCollectionConfig",
+    "ContentCmsFieldConfig",
+    "ContentCmsFieldType",
+    "ContentCmsRelationConfig",
+    "ContentCollectionConfig",
+    "ContentCollectionI18nConfig",
+    "ContentFieldMetadata",
+    "ContentFieldSchema",
+    "JsonPrimitive",
+    "JsonValue",
+    "ParseMdcBodyOptions",
+    "ParseMdcBodyResult",
+    "PortableComponentPolicyV1",
+    "PortableMediaType",
+    "PublicMarkdownIssue",
+    "PublicMarkdownIssueCode",
+    "PublicMarkdownValidationResult",
+    "ResolvedContentCollectionV1",
+    "ResolvedContentContractV1",
+    "ResolvedContentFieldTypeV1",
+    "ResolvedContentFieldV1",
+    "ResolvedContentValidationV1",
+    "VerifiedPublicImage"
+  ],
+  "portabilityValueExports": [
+    "GinkoBoundaryError",
+    "IncrementalSha256",
+    "assertPortableAssetReference",
+    "assertPortableManifest",
+    "canonicalJsonBytes",
+    "classifyPortableMdc",
+    "collectPortableAssetReferences",
+    "collectPortableMdcAssetReferences",
+    "collectPortableReferences",
+    "decodePortableIdentitySegment",
+    "encodePortableIdentitySegment",
+    "hashCanonicalJson",
+    "normalizePortableMdcSource",
+    "normalizePortableModel",
+    "parsePortableDocument",
+    "parsePortableJson",
+    "parsePortableManifest",
+    "parsePortableMdc",
+    "parsePortableYaml",
+    "portableDocumentPath",
+    "portableMdcSemanticallyEqual",
+    "portableModelsSemanticallyEqual",
+    "rebuildPortableManifest",
+    "rewritePortableAssetReferences",
+    "rewritePortableMdcAssetReferences",
+    "rewritePortableMdcAssetReferencesForStorage",
+    "rewriteStoredMdcAssetReferences",
+    "serializePortableDocument",
+    "serializePortableManifest",
+    "serializePortableMdc",
+    "serializePortableYaml",
+    "sha256Hex",
+    "validatePortableAssets",
+    "validatePortableDocument",
+    "validatePortableReferences",
+    "verifyPublicImageBytes"
+  ],
+  "portabilityTypeExports": [
+    "JsonObject",
+    "PortabilityErrorCode",
+    "PortabilityOperation",
+    "PortableAssetBlobV1",
+    "PortableAssetReferenceV1",
+    "PortableBodyV1",
+    "PortableDocumentV1",
+    "PortableManifestV1",
+    "PortableMdcAssetReferenceV1",
+    "PortableMdcAstV1",
+    "PortableMdcClassification",
+    "PortableMdcIssue",
+    "PortableReferenceV1",
+    "PortableSemanticModelV1"
+  ],
+  "portabilityNodeValueExports": [
+    "assertPortablePathSet",
+    "readPortableDirectory",
+    "rebuildPortableDirectoryManifest",
+    "validatePortableRelativePath",
+    "verifyPortableDirectoryBounded",
+    "writePortableDirectory"
+  ],
+  "portabilityNodeTypeExports": [
+    "PortableAssetWriteInput",
+    "PortableDirectoryAsset",
+    "PortableDirectoryBundle",
+    "PortableDirectoryDocument",
+    "PortableDirectoryVerification",
+    "WritePortableDirectoryInput"
+  ],
   "clientValueExports": {
-    "one": {
+    "backlinks": {
       "category": "stable-query-primitive",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
+    "extractContentToc": {
+      "category": "stable-toc-helper",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "findFirstNavigationPage": {
+      "category": "stable-route-helper",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+    },
+    "getCollectionPath": {
+      "category": "stable-route-helper",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
     "many": {
+      "category": "stable-query-primitive",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "navigation": {
+      "category": "stable-query-primitive",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "one": {
       "category": "stable-query-primitive",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
@@ -92,87 +287,22 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "backlinks": {
-      "category": "stable-query-primitive",
+    "querySiteData": {
+      "category": "stable-site-data-helper",
       "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+      "docs": "packages/content/ARCHITECTURE.md"
     },
     "resolveOne": {
       "category": "stable-query-primitive",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "variants": {
+    "surround": {
       "category": "stable-query-primitive",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "tree": {
-      "category": "stable-query-primitive",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "neighbors": {
-      "category": "stable-query-primitive",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "getCollectionPath": {
-      "category": "stable-route-helper",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentHead": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
     "useContentPage": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentOne": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentMany": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentPagination": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentBacklinks": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentResolveOne": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentVariants": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentTree": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentNavigation": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentNeighbors": {
       "category": "stable-app-composable",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
@@ -181,64 +311,9 @@
       "category": "stable-search-composable",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentSearchData": {
-      "category": "stable-search-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentSearchResults": {
-      "category": "stable-search-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "querySiteData": {
-      "category": "stable-site-data-helper",
-      "audience": "library-user",
-      "docs": "packages/content/ARCHITECTURE.md"
-    },
-    "extractContentToc": {
-      "category": "stable-toc-helper",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentToc": {
-      "category": "stable-toc-helper",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
     }
   },
   "clientTypeExports": {
-    "CollectionPathOptions": {
-      "category": "stable-route-helper-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "UseContentPageOptions": {
-      "category": "stable-app-composable-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "QueryWhere": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "QueryOperators": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentSelector": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentResolvedMeta": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "BacklinkFields": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -259,7 +334,82 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "LocaleFallback": {
+    "CollectionPathOptions": {
+      "category": "stable-route-helper-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "ContentAlternate": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionName": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionStringName": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionTarget": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentDocumentResolution": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentDocumentRoute": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentNavigationItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentNavigationTreeItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentSearchSection": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentSelector": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentSeoImage": {
+      "category": "stable-content-rendering-type",
+      "audience": "library-user",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "ContentSeoMeta": {
+      "category": "stable-content-rendering-type",
+      "audience": "library-user",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "ContentSiteDataResponse": {
+      "category": "stable-site-data-type",
+      "audience": "library-user",
+      "docs": "packages/content/ARCHITECTURE.md"
+    },
+    "ContentTocOptions": {
+      "category": "stable-toc-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "CursorPaginationResult": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
@@ -269,12 +419,42 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "OneOptions": {
+    "LocaleFallback": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "LocalizedContentDocument": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "LocalizedDoc": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
     "ManyOptions": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "NavigationOptions": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "OffsetPaginationResult": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "OneOptions": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "PaginationMode": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
@@ -299,6 +479,31 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
+    "QueryOperators": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "QuerySiteDataOptions": {
+      "category": "stable-site-data-type",
+      "audience": "library-user",
+      "docs": "packages/content/ARCHITECTURE.md"
+    },
+    "QueryWhere": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ResolutionEnvelope": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ResolvedContentNavigationItem": {
+      "category": "stable-route-helper-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+    },
     "ResolveOneOptions": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -309,103 +514,33 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "LocalizedDoc": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "LocalizedContentDocument": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "LocalePathEntry": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "NeighborsOptions": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "NeighborsResult": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ResolutionEnvelope": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "SortSpec": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "TreeOptions": {
+    "SurroundOptions": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "VariantsOptions": {
+    "SurroundResult": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ContentVariant": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    "Toc": {
+      "category": "stable-toc-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
-    "ContentNavigationItem": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    "TocLink": {
+      "category": "stable-toc-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
-    "ContentCollectionName": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentCollectionStringName": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentCollectionTarget": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentTreeItem": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentRouteMeta": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentSearchSection": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentNavigationNode": {
+    "UseContentPageOptions": {
       "category": "stable-app-composable-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "UseContentSearchDataOptions": {
-      "category": "stable-search-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "UseContentSearchDataResult": {
-      "category": "stable-search-type",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
@@ -416,51 +551,6 @@
     },
     "UseContentSearchResult": {
       "category": "stable-search-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "UseContentSearchResultsOptions": {
-      "category": "stable-search-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "UseContentSearchResultsResult": {
-      "category": "stable-search-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "ContentSiteDataResponse": {
-      "category": "stable-site-data-type",
-      "audience": "library-user",
-      "docs": "packages/content/ARCHITECTURE.md"
-    },
-    "QuerySiteDataOptions": {
-      "category": "stable-site-data-type",
-      "audience": "library-user",
-      "docs": "packages/content/ARCHITECTURE.md"
-    },
-    "ContentTocOptions": {
-      "category": "stable-toc-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "ContentSeoImage": {
-      "category": "stable-content-rendering-type",
-      "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "ContentSeoMeta": {
-      "category": "stable-content-rendering-type",
-      "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "Toc": {
-      "category": "stable-toc-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "TocLink": {
-      "category": "stable-toc-type",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     }
@@ -491,25 +581,20 @@
       "audience": "server-runtime-author",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "variants": {
+    "surround": {
       "category": "stable-server-query",
       "audience": "server-runtime-author",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "tree": {
+    "navigation": {
       "category": "stable-server-query",
       "audience": "server-runtime-author",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "neighbors": {
-      "category": "stable-server-query",
+    "findFirstNavigationPage": {
+      "category": "stable-route-helper",
       "audience": "server-runtime-author",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "createServerContentQueryContext": {
-      "category": "advanced-server-query-context",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
     },
     "getCollectionPath": {
       "category": "stable-route-helper",
@@ -521,22 +606,12 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "createContentProviderError": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
     "contentCacheHeaders": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "noopContentCache": {
-      "category": "stable-provider-cache-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "vercelContentCache": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -560,84 +635,9 @@
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "withContentCache": {
-      "category": "stable-provider-cache-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "toContentProviderQuery": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "toContentProviderNavigationQuery": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "PROVIDER_QUERY_VERSION": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "normalizeProviderDocument": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "shapeProviderDocument": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     }
   },
   "serverTypeExports": {
-    "CollectionPathOptions": {
-      "category": "stable-route-helper-type",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "QueryWhere": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "QueryOperators": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentSelector": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentPageResult": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentRouteMeta": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentSearchSection": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentResolvedMeta": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "ContentSitemapEntry": {
-      "category": "stable-sitemap-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "BacklinkFields": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -658,7 +658,37 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "LocaleFallback": {
+    "CollectionPathOptions": {
+      "category": "stable-route-helper-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+    },
+    "ContentNavigationTreeItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentQueryResponse": {
+      "category": "transport-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentSearchSection": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentSelector": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentSitemapEntry": {
+      "category": "stable-sitemap-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "CursorPaginationResult": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
@@ -668,12 +698,42 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "OneOptions": {
+    "LocaleFallback": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "LocalizedContentDocument": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "LocalizedDoc": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
     "ManyOptions": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "NavigationOptions": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "OffsetPaginationResult": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "OneOptions": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "PaginationMode": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
@@ -698,6 +758,16 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
+    "QueryOperators": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "QueryWhere": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
     "ResolveOneOptions": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -708,70 +778,65 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "LocalizedDoc": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "LocalizedContentDocument": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "LocalePathEntry": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "NeighborsOptions": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
-    "NeighborsResult": {
-      "category": "stable-query-type",
-      "audience": "library-user",
-      "docs": "packages/content/docs/QUERY_PIPELINE.md"
-    },
     "SortSpec": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "TreeOptions": {
+    "SurroundOptions": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "VariantsOptions": {
+    "SurroundResult": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ContentVariant": {
+    "ResolutionEnvelope": {
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ContentQueryResponse": {
-      "category": "transport-query-type",
+    "ResolvedContentNavigationItem": {
+      "category": "stable-route-helper-type",
+      "audience": "server-runtime-author",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+    },
+    "ContentAlternate": {
+      "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "VercelContentCacheOptions": {
-      "category": "stable-provider-cache-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    "ContentDocumentRoute": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ProviderDocumentInput": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    "ContentDocumentResolution": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
-    "ShapeProviderDocumentOptions": {
-      "category": "stable-provider-author-type",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    "ContentNavigationItem": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionName": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionStringName": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ContentCollectionTarget": {
+      "category": "stable-query-type",
+      "audience": "library-user",
+      "docs": "packages/content/docs/QUERY_PIPELINE.md"
     }
   },
   "providerValueExports": {
@@ -780,7 +845,12 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "contentProviderResultMarker": {
+    "bindContentProvider": {
+      "category": "stable-provider-author-helper",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "isContentProviderResult": {
       "category": "stable-provider-cache-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -791,11 +861,6 @@
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
     "normalizeProviderDocument": {
-      "category": "stable-provider-author-helper",
-      "audience": "provider-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "shapeProviderDocument": {
       "category": "stable-provider-author-helper",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -847,6 +912,11 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "ContentProviderNavigationItem": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "ContentProviderErrorCode": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
@@ -867,6 +937,16 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "ContentProviderRouteFact": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderSearchResult": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "ContentProviderSiteDataRequest": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
@@ -877,17 +957,57 @@
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
+    "ContentProviderSurroundItem": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderSurroundingsOptions": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderVariantFact": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentRouteRecord": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentSitemapMetadata": {
+      "category": "stable-provider-author-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
     "ProviderDocumentInput": {
       "category": "stable-provider-author-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ShapeProviderDocumentOptions": {
-      "category": "stable-provider-author-type",
+    "ContentQueryPlan": {
+      "category": "transport-query-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ContentQueryPlan": {
+    "ContentProviderPaginationMode": {
+      "category": "transport-query-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderPaging": {
+      "category": "transport-query-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderVariantSelector": {
+      "category": "transport-query-type",
+      "audience": "provider-author",
+      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
+    },
+    "ContentProviderListResponse": {
       "category": "transport-query-type",
       "audience": "provider-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -899,47 +1019,7 @@
     }
   },
   "providerContractValueExports": {
-    "LEGACY_PROVIDER_ENVELOPE_FIELDS": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "createAuthorDependencyContractProvider": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectNoLegacyProviderEnvelopeFields": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
     "expectProviderCapabilities": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectProviderDocumentEnvelope": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectUnsupportedProviderOperation": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "expectUnsupportedProviderQueryShape": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "runAuthorDependencyContractTest": {
-      "category": "testing-only-provider-contract",
-      "audience": "test-author",
-      "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
-    },
-    "runAuthorDependencyFixtureSelfTest": {
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -956,12 +1036,12 @@
     }
   },
   "providerContractTypeExports": {
-    "AuthorDependencyContractOptions": {
+    "ProviderContractSuiteOptions": {
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
     },
-    "ProviderContractSuiteOptions": {
+    "ProviderQueryProbe": {
       "category": "testing-only-provider-contract",
       "audience": "test-author",
       "docs": "packages/content/docs/PROVIDER_CONTRACT.md"
@@ -969,17 +1049,12 @@
   },
   "agentValueExports": {
     "agentMarkdownPathForRoute": {
-      "category": "advanced-agent-path-helper",
+      "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "agentRawPathForRoute": {
-      "category": "advanced-agent-path-helper",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "normalizeAgentRoutePath": {
-      "category": "advanced-agent-path-helper",
+      "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
@@ -1013,12 +1088,12 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "linkMarkdown": {
-      "category": "advanced-agent-markdown-extension",
+    "normalizeAgentRoutePath": {
+      "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "queryMarkdownEnabledContent": {
+    "linkMarkdown": {
       "category": "advanced-agent-markdown-extension",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
@@ -1048,48 +1123,8 @@
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
-    "resolveAgentMarkdownOptions": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveContentMarkdown": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveContentMarkdownByRoute": {
-      "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
     "xmlComponentMarkdown": {
       "category": "advanced-agent-markdown-extension",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "buildAgentPageIndex": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "collectAgentMarkdownPrerenderRoutes": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "getAgentLocales": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "isSupportedAgentLocale": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "localeFromAgentPath": {
-      "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
@@ -1109,21 +1144,6 @@
       "docs": "packages/content/docs/CMS_CONTRACT.md"
     },
     "renderLlmsTxt": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "resolveMarkdownForPublicRoute": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "routePathFromIndexSlug": {
-      "category": "advanced-agent-site-generation",
-      "audience": "advanced-integrator",
-      "docs": "packages/content/docs/CMS_CONTRACT.md"
-    },
-    "routePathFromRawSlug": {
       "category": "advanced-agent-site-generation",
       "audience": "advanced-integrator",
       "docs": "packages/content/docs/CMS_CONTRACT.md"
@@ -1192,113 +1212,18 @@
     }
   },
   "runtimeAppAutoImports": {
-    "getCollectionPath": {
-      "category": "stable-route-helper",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentHead": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
     "useContentPage": {
       "category": "stable-app-composable",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
-    "useContentOne": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentMany": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentPagination": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentBacklinks": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentResolveOne": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentVariants": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentTree": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentNavigation": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentNeighbors": {
-      "category": "stable-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentSwitchLocalePath": {
-      "category": "compatibility-app-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentSearchData": {
+    "useContentSearch": {
       "category": "stable-search-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "useContentSearchResults": {
-      "category": "stable-search-composable",
-      "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
-    },
-    "querySiteData": {
-      "category": "stable-site-data-helper",
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     }
   },
   "rootValueExports": {
-    "agentMetadataFields": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentAppPage": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentMarkdownPolicy": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentMetadataFields": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
-    "defineAgentSection": {
-      "category": "content-config-author",
-      "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
-    },
     "defineCollection": {
       "category": "content-config-author",
       "audience": "content-author",

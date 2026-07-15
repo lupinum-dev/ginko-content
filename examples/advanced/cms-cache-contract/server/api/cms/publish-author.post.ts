@@ -1,4 +1,5 @@
 import { adapterCacheEvents, providerCacheEvents, publishAuthorName } from '../../cms-store'
+import { createError, defineEventHandler, getRequestURL, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ author?: string, name?: string }>(event)

@@ -75,6 +75,36 @@ export const unwrapFindResponse = <T>(response: unknown): {
   return { result, total: result.length, skip: 0, limit: result.length, hasTotal: false }
 }
 
+const isCursorFindResponseEnvelope = (response: unknown): response is {
+  mode: 'cursor'
+  result: unknown
+  limit?: unknown
+  pageInfo?: { endCursor?: unknown, hasNext?: unknown }
+} => isObject(response) &&
+  response.mode === 'cursor' &&
+  Array.isArray(response.result) &&
+  isObject(response.pageInfo)
+
+/** Unwrap a `mode: 'cursor'` provider list response (VNEXT.md 10.2). Never invents a `total`. */
+export const unwrapCursorFindResponse = <T>(response: unknown): {
+  result: T[]
+  limit: number
+  endCursor: string | null
+  hasNext: boolean
+} => {
+  if (!isCursorFindResponseEnvelope(response)) {
+    return { result: [], limit: 0, endCursor: null, hasNext: false }
+  }
+
+  const result = response.result as T[]
+  return {
+    result,
+    limit: typeof response.limit === 'number' ? response.limit : result.length,
+    endCursor: typeof response.pageInfo?.endCursor === 'string' ? response.pageInfo.endCursor : null,
+    hasNext: Boolean(response.pageInfo?.hasNext)
+  }
+}
+
 export const unwrapCountResponse = (response: unknown) => {
   if (typeof response === 'number') {
     return response

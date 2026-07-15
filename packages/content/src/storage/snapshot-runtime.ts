@@ -3,6 +3,8 @@ import type { ParsedContent } from '../types/content'
 import type { ContentGraph } from '../core/content/graph'
 import { buildContentGraph } from '../core/content/graph'
 import { isContentSnapshot } from '../core/content/snapshot'
+import { assertFilesystemPreviewSupported, resolveRuntimeEnvironment } from '../core/visibility'
+import { isPreview } from '../integrations/nitro/preview'
 import { cacheStorage, contentConfig } from './driver'
 
 /**
@@ -30,6 +32,19 @@ export const getProcessDocuments = async (event: H3Event): Promise<ParsedContent
 }
 
 const getProcessSnapshotState = (event: H3Event): Promise<ProcessSnapshotState> => {
+  // Defense-in-depth (VNEXT.md 15.8, 24.3): `storage/graph.ts#getContentGraph`
+  // is the primary choke point that asserts filesystem production-preview is
+  // unsupported before reaching the process snapshot, but `storage/contents.ts`
+  // (`getContentsList`/`getContent`) reads the process snapshot through
+  // `getProcessDocuments` directly, bypassing that primary check. Asserting
+  // here too — at the one place both `getProcessGraph` and
+  // `getProcessDocuments` funnel through — closes that gap regardless of
+  // which entry point a future caller uses.
+  assertFilesystemPreviewSupported({
+    environment: resolveRuntimeEnvironment(),
+    previewAuthorized: isPreview(event)
+  })
+
   const config = contentConfig()
   const integrity = config.cacheIntegrity
   if (state && state.integrity === integrity) {

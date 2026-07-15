@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { useContentOne, useRoute, setResponseStatus } from '#imports'
+import { setResponseStatus, useContentPage } from '#imports'
 import { pages } from '../content.config'
 
-const route = useRoute()
-const { data: page } = await useContentOne(pages, {
-  by: { path: route.path }
-})
+const { page } = await useContentPage(pages)
 
 if (import.meta.server && !page.value) {
   setResponseStatus(404, 'Document not found')

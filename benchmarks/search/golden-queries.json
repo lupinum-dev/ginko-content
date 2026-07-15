@@ -1,0 +1,42 @@
+[
+  {
+    "term": "useContentSearch",
+    "locale": "en",
+    "expectedPaths": ["/docs/api-reference/composables", "/docs/search"]
+  },
+  {
+    "term": "translated slug",
+    "locale": "en",
+    "expectedPaths": ["/docs/i18n/strategies", "/docs/i18n"]
+  },
+  {
+    "term": "provider capabilities",
+    "locale": "en",
+    "expectedPaths": ["/docs/api-reference/providers", "/docs/search/choosing-a-search-backend"]
+  },
+  {
+    "term": "llms-full.txt",
+    "locale": "en",
+    "expectedPaths": ["/docs/api-reference/module-options", "/docs/migration/agent-migration-packet"]
+  },
+  {
+    "term": "stable pricing target",
+    "locale": "en",
+    "expectedPaths": ["/guide/advanced"]
+  },
+  {
+    "term": "stable canonical key",
+    "locale": "en",
+    "expectedPaths": ["/guide/getting-started"]
+  },
+  {
+    "term": "lokalisierte Slugs",
+    "locale": "de",
+    "expectedPaths": ["/de/leitfaden/erste-schritte"]
+  },
+  {
+    "term": "verschachtelte Seite",
+    "locale": "de",
+    "expectedPaths": ["/de/leitfaden/tief/verschachtelt"]
+  }
+]

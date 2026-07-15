@@ -23,6 +23,7 @@ export type CompareOperator =
   | 'lt'
   | 'lte'
   | 'in'
+  | 'nin'
   | 'contains'
   | 'containsAny'
   | 'icontains'
@@ -134,6 +135,35 @@ export interface VariantResolution {
 }
 
 /**
+ * Provider wire pagination semantics (CS-5 v2, VNEXT.md 13.1). Exactly one of
+ * two honest modes: `offset` guarantees skip + an exact total; `cursor`
+ * guarantees an opaque forward cursor with no synthetic total. Present on the
+ * plan only when the caller made an explicit paging choice (`paginate()`, or
+ * `many({ skip })` needing offset semantics) — a plain unbounded/limited
+ * `many()` carries no `paging` and keeps its existing skip/limit slicing
+ * untouched, so this is additive rather than a restructuring of every list
+ * query.
+ */
+export type ContentProviderPaginationMode = 'offset' | 'cursor'
+
+export type ContentProviderPaging =
+  | { mode: 'offset', skip: number, limit: number }
+  | { mode: 'cursor', after?: string | null, limit: number }
+
+/**
+ * Closed provider-wire route/ref selector (VNEXT.md 13.1). Core resolves a
+ * public `by.route` through locale prefix and collection mounts (via the
+ * canonical route projector, `lowerRouteToCandidates`) before dispatch, and
+ * hands the provider an ordered, exact `{ locale, contentPath }` candidate
+ * list instead of a raw route the provider would otherwise have to guess a
+ * mount for. Ref lookups carry the resolved locale fallback chain instead of
+ * a raw `locale`/`fallback` pair for the same reason.
+ */
+export type ContentProviderVariantSelector =
+  | { by: 'route', requestedLocale: string, candidates: readonly { locale: string, contentPath: string }[] }
+  | { by: 'ref', ref: string, requestedLocale: string, localeChain: readonly string[] }
+
+/**
  * Complete executor-facing plan. Construct via `lowerQueryPlan(params)`;
  * execute via `executeQueryPlan(graph, plan, options)`. Do not mutate.
  */
@@ -147,4 +177,13 @@ export interface ContentQueryPlan {
   mode: QueryMode
   resolveLocale?: LocaleResolution
   resolveVariant?: VariantResolution
+  /** Explicit wire pagination-mode request for `mode: 'all'` plans (see `ContentProviderPaging`). */
+  paging?: ContentProviderPaging
+  /**
+   * Closed route/ref wire selector, computed by the provider-query lowering
+   * step (`runtime/server/provider-query.ts`) from `resolveVariant` using the
+   * resolved collection locale policy. Populated only when `resolveVariant`
+   * names a `route` or `ref` selector.
+   */
+  variantSelector?: ContentProviderVariantSelector
 }

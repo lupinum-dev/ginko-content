@@ -123,7 +123,7 @@ The public options lower to an internal query plan. Providers may support differ
 
 A route-backed page resolved from a collection.
 
-`useContentOne(handle, { by: { route } })` is the preferred app-facing page loader. It resolves the current route, active locale, fallback state, page data, and route metadata through one workflow.
+`useContentPage(handle)` is the app-facing route workflow. It resolves the current route, active locale, fallback state, page data, and route facts without imposing redirect, head, or 404 policy.
 
 ## Navigation
 
@@ -135,9 +135,9 @@ Apps should consume the normalized result, not provider-native metadata.
 
 ## Search Sections
 
-Provider-produced chunks used to build search.
+Core-derived chunks used to build search.
 
-The filesystem provider creates heading-scoped sections from parsed content. Built-in search can use MiniSearch or Pagefind. A provider can also own search directly through `engine: 'cms'`.
+Core creates heading-scoped sections from provider documents. Built-in search can use MiniSearch or Pagefind, while a provider may own search directly through `engine: 'provider'`.
 
 ## Sitemap Source
 

@@ -9,10 +9,8 @@ import { buildCanonicalNavigation } from '../../features/navigation/build'
 import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
 import { normalizeRouteMounts } from '../../features/localization/path'
 import { getContentRuntimeConfig } from './runtime-config'
-import { isPreview } from './preview'
-import { cacheStorage } from './storage-access'
 import { createServerContentQuery } from './storage'
-import { resolveLocaleChain } from './manifest'
+import { resolveLocaleChain } from '../../storage/graph'
 
 const reviveFilterValue = (value: unknown): unknown =>
   isPlanRegex(value) ? new RegExp(value.source, value.flags) : value
@@ -61,8 +59,8 @@ const sortClausesToBuilder = (sort: SortClause[]): ContentQuerySortOptions[] =>
 
 /**
  * Rebuild the builder params the navigation pipeline expects from the wire
- * pair (CS-5): collection + user filter/sort come from the plan; `fields`,
- * `canonical`, and the raw `resolveLocale` come from the navigation options.
+ * pair. Selection comes from the plan; only locale/fallback facts are kept in
+ * the navigation options.
  */
 const providerQueryToNavigationParams = (
   query: ContentProviderQuery,
@@ -74,9 +72,18 @@ const providerQueryToNavigationParams = (
     ...(query.collection ? { collection: query.collection } : {}),
     ...(where.length ? { where } : {}),
     ...(sort.length ? { sort } : {}),
-    ...(options.resolveLocale ? { resolveLocale: options.resolveLocale } : {}),
-    ...(options.fields?.length ? { only: options.fields } : {}),
-    ...(options.canonical ? { canonical: true } : {})
+    ...(options.locale || options.fallback !== undefined || options.exact
+      ? {
+          resolveLocale: {
+            ...(options.locale ? { locale: options.locale } : {}),
+            ...(options.fallback !== undefined
+              ? { fallback: typeof options.fallback === 'boolean' ? options.fallback : Array.from(options.fallback) }
+              : {}),
+            ...(options.exact ? { exact: true } : {})
+          }
+        }
+      : {}),
+    ...(query.plan.projection.only.length ? { only: query.plan.projection.only } : {})
   }
 }
 
@@ -108,15 +115,9 @@ export async function resolveContentNavigation (
   return await resolveContentNavigationData({
     defaultLocale: runtimeConfig.content.defaultLocale,
     localeFallback: runtimeConfig.content.localeFallback,
-    navigation: runtimeConfig.public.content.navigation,
-    cacheEnabled: true,
-    isPreview: isPreview(event)
+    navigation: runtimeConfig.public.content.navigation
   }, {
     query: inputQuery,
-    readCache: async () => {
-      const cached = await cacheStorage(event).getItem('_nav.json')
-      return cached as NavItem[] | null
-    },
     loadLocaleNavigation: async (locale?: string) => {
       let contentsQuery = createServerContentQuery(event, sourceQuery)
         .where('partial', '=', false)

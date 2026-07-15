@@ -104,10 +104,8 @@ describe('unified query populate', () => {
     expect(post?.authors).toEqual([
       expect.objectContaining({
         name: 'Ada',
-        path: '/authors/ada',
-        resolved: expect.objectContaining({
-          fallback: false
-        })
+        route: expect.objectContaining({ resolvedPath: '/authors/ada' }),
+        resolution: expect.objectContaining({ usedFallback: false })
       })
     ])
 
@@ -166,7 +164,7 @@ describe('unified query populate', () => {
 
     expect(doc?.relatedAuthor).toMatchObject({
       name: 'Ada',
-      path: '/authors/ada'
+      route: expect.objectContaining({ resolvedPath: '/authors/ada' })
     })
     expect(mocks.transport.mock.calls[0]?.[1]).toMatchObject({
       collection: 'docs',
@@ -222,7 +220,7 @@ describe('unified query populate', () => {
 
     expect(doc?.relatedPost).toMatchObject({
       title: 'Hello',
-      path: '/hello'
+      route: expect.objectContaining({ resolvedPath: '/hello' })
     })
     expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
       collection: 'posts',
@@ -339,11 +337,11 @@ describe('unified query populate', () => {
 
     expect(post?.primaryAuthor).toMatchObject({
       title: 'Emily DE',
-      path: '/de/autoren/emily',
-      resolved: expect.objectContaining({
-        locale: 'de',
-        requestedLocale: 'de',
-        fallback: false
+      route: expect.objectContaining({ resolvedPath: '/de/autoren/emily' }),
+      resolution: expect.objectContaining({
+        requested: { locale: 'de' },
+        resolved: { locale: 'de' },
+        usedFallback: false
       })
     })
     expect(mocks.transport.mock.calls[1]?.[1]).toMatchObject({
@@ -403,16 +401,17 @@ describe('unified query populate', () => {
       sort: { title: 'asc' }
     })
 
-    expect(page.data.map(item => item.path)).toEqual(['/two', '/three'])
+    expect(page.data.map(item => item.route.resolvedPath)).toEqual(['/two', '/three'])
     expect(page).toMatchObject({
+      mode: 'offset',
       page: 2,
       limit: 2,
       total: 5,
       pageCount: 3,
       hasNext: true,
-      hasPrev: true,
+      hasPrevious: true,
       nextPage: 3,
-      prevPage: 1
+      previousPage: 1
     })
   })
 
@@ -495,14 +494,15 @@ describe('unified query populate', () => {
     })
 
     expect(page).toMatchObject({
+      mode: 'offset',
       page: 101,
       limit: 100,
       total: 20_000,
       pageCount: 200,
       hasNext: true,
-      hasPrev: true,
+      hasPrevious: true,
       nextPage: 102,
-      prevPage: 100
+      previousPage: 100
     })
   })
 
@@ -564,7 +564,7 @@ describe('unified query populate', () => {
     expect(result).toHaveLength(1)
     expect(result[0]).toMatchObject({
       title: 'Hello',
-      path: '/hello'
+      route: expect.objectContaining({ resolvedPath: '/hello' })
     })
   })
 
@@ -607,7 +607,7 @@ describe('unified query populate', () => {
     }, authors, {
       by: { ref: 'authors.ada' },
       from: 'articles',
-      fields: ['author']
+      via: ['author']
     })
   })
 
@@ -725,7 +725,7 @@ describe('unified query populate', () => {
     }, authors, {
       by: { ref: 'authors.ada' },
       from: [posts, docs],
-      fields: {
+      via: {
         posts: ['authors'],
         docs: ['relatedAuthor']
       }

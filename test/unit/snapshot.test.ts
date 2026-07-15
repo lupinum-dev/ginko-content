@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   assertSnapshotComplete,
   buildContentSnapshot,
+  CONTENT_SNAPSHOT_VERSION,
   ContentSnapshotError
 } from '../../packages/content/src/core/content/snapshot'
 import type { ContentSnapshot } from '../../packages/content/src/core/content/snapshot'
@@ -34,7 +35,7 @@ const doc = (overrides: Partial<ParsedContent> = {}): ParsedContent => ({
 }) as ParsedContent
 
 const snapshot = (overrides: Partial<ContentSnapshot> = {}): ContentSnapshot => ({
-  version: 1,
+  version: CONTENT_SNAPSHOT_VERSION,
   integrity: 'integrity',
   generatedAt: 1,
   documentIds: ['content:en:docs:intro.md'],

@@ -19,6 +19,7 @@
  */
 import type { ContentQueryResponse } from '../api'
 import type { ParsedContentInternalMeta, ParsedContentMeta } from '../content'
+import type { ContentProviderPaging } from '../../core/query/plan'
 
 export interface ContentQuerySortParams {
   $locale?: string
@@ -51,6 +52,7 @@ export interface ContentQueryBuilderWhere extends Partial<Record<keyof ParsedCon
   $containsAny?: Array<string | number | boolean>
   $icontains?: string
   $in?: Array<string | number | boolean>
+  $nin?: Array<string | number | boolean>
 
   [key: string]: string | number | boolean | RegExp | ContentQueryBuilderWhere | Array<string | number | boolean | ContentQueryBuilderWhere> | undefined
 }
@@ -71,11 +73,21 @@ export interface ContentQueryBuilderParams {
     fallback?: string[] | boolean
     exact?: boolean
   }
+  resolveVariant?: {
+    path?: string
+    route?: string
+    ref?: string
+    locale?: string
+    fallback?: string[] | boolean
+    exact?: boolean
+  }
+  /** Explicit wire pagination-mode request — see `ContentProviderPaging`. */
+  paging?: ContentProviderPaging
 
   [key: string]: unknown
 }
 
-type QueryScalar = string | number | boolean | Date
+type QueryScalar = string | number | boolean
 type InternalQueryKeys = Extract<keyof ParsedContentInternalMeta, `_${string}`>
 export type CollectionQueryKey<T> = Extract<keyof T, string> | InternalQueryKeys
 export type CollectionQueryField<T> = CollectionQueryKey<T>
@@ -88,7 +100,7 @@ export type CollectionQueryFieldValue<T, K extends CollectionQueryField<T>> =
       : never
 
 type EqualityValue<T> = T extends QueryScalar ? T | RegExp : T
-type ComparableValue<T> = T extends string | number | Date ? T : never
+type ComparableValue<T> = T extends string | number ? T : never
 type MembershipValue<T> = T extends Array<infer U>
   ? Array<U>
   : T extends QueryScalar

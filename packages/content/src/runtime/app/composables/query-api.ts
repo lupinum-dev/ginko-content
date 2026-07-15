@@ -2,51 +2,58 @@ import type { NavItem, ParsedContent } from '../../../types/content'
 import type {
   ContentQueryBuilderParams,
   ContentCollectionTarget,
-  ContentVariant,
-  ContentTreeItem,
+  ContentNavigationTreeItem,
   BacklinksOptions,
   BacklinksResult,
   BacklinkSource,
   DocumentFromHandle,
   ManyOptions,
-  LocalizedDoc,
-  NeighborsOptions,
-  NeighborsResult,
+  NavigationOptions,
   OneOptions,
   OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
   PaginationOptions,
-  PaginationResult,
+  PaginationResultFor,
+  QueryResultDocument,
   ResolveOneOptions,
   ResolveOneResult,
-  TreeOptions,
-  VariantsOptions
+  SelectedInnerDocument,
+  SurroundOptions,
+  SurroundResult
 } from '../../../types/query'
 import type { ContentQueryResponse } from '../../../types/api'
-import { fetchContentApi, getContentApiFetcher } from './utils'
+import type { __ginkoSchemaBrand } from '../../../types/config'
+import { fetchContentApi, getContentApiFetcher, getPreviewToken } from './utils'
 import { getContentRuntime } from './runtime'
 import {
   backlinks as backlinksWithContext,
   many as manyWithContext,
-  neighbors as neighborsWithContext,
+  navigation as navigationWithContext,
   one as oneWithContext,
   paginate as paginateWithContext,
   resolveOne as resolveOneWithContext,
-  tree as treeWithContext,
-  variants as variantsWithContext,
+  surround as surroundWithContext,
   type ContentQueryContext
 } from '../../../features/query/unified'
 
 export const createClientContentQueryContext = (): ContentQueryContext => {
   const runtime = getContentRuntime()
   const fetcher = getContentApiFetcher()
+  // `null` is the captured "no token" value. Leaving this as `undefined`
+  // would make nested queries call the Nuxt cookie composable again after an
+  // async boundary, where setup context is no longer available.
+  const previewToken = getPreviewToken() ?? null
 
   return {
     runtime,
     transport: async <T>(endpoint: 'query' | 'navigation', params: ContentQueryBuilderParams) => {
-      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | NavItem[] | null>(endpoint, params, { fetcher, runtime })
+      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | NavItem[] | null>(
+        endpoint,
+        params,
+        { fetcher, runtime, previewToken }
+      )
     }
   }
 }
@@ -57,7 +64,7 @@ export async function resolveOne<
 >(
   handle: H,
   options: O
-): Promise<ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
+): Promise<ResolveOneResult<SelectedInnerDocument<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>, O>>> {
   return await resolveOneWithContext(createClientContentQueryContext(), handle, options)
 }
 
@@ -67,7 +74,7 @@ export async function one<
 >(
   handle: H,
   options: O
-): Promise<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>> | null> {
+): Promise<QueryResultDocument<H, O> | null> {
   return await oneWithContext(createClientContentQueryContext(), handle, options)
 }
 
@@ -77,7 +84,7 @@ export async function many<
 >(
   handle: H,
   ...args: OptionsArg<H, O & ManyOptions<H, PopulateSpec | undefined>>
-): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
+): Promise<Array<QueryResultDocument<H, O>>> {
   const options = (args[0] ?? {}) as O & ManyOptions<H, PopulateSpec | undefined>
   return await manyWithContext(createClientContentQueryContext(), handle, options)
 }
@@ -88,8 +95,8 @@ export async function paginate<
 >(
   handle: H,
   options: O
-): Promise<PaginationResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
-  return await paginateWithContext(createClientContentQueryContext(), handle, options)
+): Promise<PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
+  return await paginateWithContext(createClientContentQueryContext(), handle, options) as unknown as PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
 }
 
 export async function backlinks<
@@ -103,27 +110,20 @@ export async function backlinks<
   return await backlinksWithContext(createClientContentQueryContext(), handle, options)
 }
 
-export async function variants<H extends ContentCollectionTarget>(
-  handle: H,
-  options: VariantsOptions<H>
-): Promise<Array<ContentVariant<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>>> {
-  return await variantsWithContext(createClientContentQueryContext(), handle, options)
-}
-
-export async function tree<
+export async function navigation<
   H extends ContentCollectionTarget,
-  Fields extends ReadonlyArray<string> | undefined = undefined
+  Select extends ReadonlyArray<string> | undefined = undefined
 >(
   handle: H,
-  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
-): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
-  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
-  return await treeWithContext(createClientContentQueryContext(), handle, options)
+  ...args: OptionsArg<H, Omit<NavigationOptions<H>, 'select'> & { select?: Select }>
+): Promise<ContentNavigationTreeItem<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent, Select>[]> {
+  const options = (args[0] ?? {}) as Omit<NavigationOptions<H>, 'select'> & { select?: Select }
+  return await navigationWithContext(createClientContentQueryContext(), handle, options)
 }
 
-export async function neighbors<H extends ContentCollectionTarget>(
+export async function surround<H extends ContentCollectionTarget>(
   handle: H,
-  options: NeighborsOptions<H>
-): Promise<NeighborsResult<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
-  return await neighborsWithContext(createClientContentQueryContext(), handle, options)
+  options: SurroundOptions<H>
+): Promise<SurroundResult<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
+  return await surroundWithContext(createClientContentQueryContext(), handle, options)
 }

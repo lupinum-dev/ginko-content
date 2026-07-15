@@ -1,3 +1,42 @@
+import type { PortableComponentPolicyV1 } from '@lupinum/ginko-content/cms-contract'
+
+const componentPolicy = {
+  components: {
+    callout: {
+      kind: 'block',
+      props: { title: { type: 'string', required: false } },
+      slots: ['default'],
+      media: null
+    },
+    card: {
+      kind: 'block',
+      props: {
+        title: { type: 'string', required: false },
+        to: { type: 'string', required: false }
+      },
+      slots: ['default'],
+      media: null
+    },
+    gallery: {
+      kind: 'block',
+      props: {
+        layout: { type: 'string', required: false },
+        caption: { type: 'string', required: false }
+      },
+      slots: ['default'],
+      media: null
+    },
+    chart: { kind: 'block', props: {}, slots: ['default'], media: null },
+    'consent-embed': {
+      kind: 'block',
+      props: { category: { type: 'string', required: false } },
+      slots: ['default'],
+      media: null
+    },
+    'unknown-widget': { kind: 'block', props: {}, slots: ['default'], media: null }
+  }
+} satisfies PortableComponentPolicyV1
+
 export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
 
@@ -7,13 +46,15 @@ export default defineNuxtConfig({
   ],
 
   content: {
+    componentPolicy,
     agent: {
       linkHeaders: true,
       markdownNegotiation: true
     },
+    // Nuxt I18n (configured below) is the sole locale/default-locale
+    // authority (VNEXT.md §12.1). Ginko content still owns translated-slug
+    // policy.
     i18n: {
-      defaultLocale: 'en',
-      locales: ['en', 'de'],
       translatedSlugs: true
     }
   },

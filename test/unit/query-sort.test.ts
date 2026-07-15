@@ -127,4 +127,63 @@ describe('query sort stability and tiebreaks', () => {
       'x-b'
     ])
   })
+
+  // VNEXT §11.2/§21.3: the canonical document value model stores dates as
+  // strings — `YYYY-MM-DD` for `fields.date()`, UTC ISO 8601 for
+  // `fields.datetime()`. Both formats are safe to sort/compare lexically:
+  // fixed-width date-only strings and UTC-normalized ISO strings preserve
+  // chronological order under plain string comparison.
+  test('date-only (YYYY-MM-DD) strings sort chronologically as plain strings', () => {
+    const documents = [
+      { title: 'later', publishedAt: '2026-02-01' },
+      { title: 'earliest', publishedAt: '2025-12-31' },
+      { title: 'middle', publishedAt: '2026-01-15' }
+    ]
+
+    expect(sortTitles(documents, [{ publishedAt: 1 }])).toEqual(['earliest', 'middle', 'later'])
+    expect(sortTitles(documents, [{ publishedAt: -1 }])).toEqual(['later', 'middle', 'earliest'])
+  })
+
+  test('UTC ISO 8601 datetime strings sort chronologically as plain strings', () => {
+    const documents = [
+      { title: 'later', publishedAt: '2026-01-01T12:00:00.000Z' },
+      { title: 'earliest', publishedAt: '2026-01-01T00:00:00.000Z' },
+      { title: 'middle', publishedAt: '2026-01-01T06:30:00.000Z' }
+    ]
+
+    expect(sortTitles(documents, [{ publishedAt: 1 }])).toEqual(['earliest', 'middle', 'later'])
+  })
+})
+
+describe('date-string comparisons through $gt/$lt', () => {
+  const filterTitles = (
+    documents: Array<Record<string, unknown>>,
+    where: Record<string, unknown>
+  ): string[] => {
+    const plan = lowerQueryPlan({ where } as never)
+    const response = executeQueryPlanOnDocuments(documents, plan)
+    return (response.result as Array<Record<string, unknown>>).map(doc => doc.title as string)
+  }
+
+  test('$gt/$lt on YYYY-MM-DD strings compare chronologically', () => {
+    const documents = [
+      { title: 'jan', publishedAt: '2026-01-01' },
+      { title: 'feb', publishedAt: '2026-02-01' },
+      { title: 'mar', publishedAt: '2026-03-01' }
+    ]
+
+    expect(filterTitles(documents, { publishedAt: { $gt: '2026-01-15' } })).toEqual(['feb', 'mar'])
+    expect(filterTitles(documents, { publishedAt: { $lt: '2026-02-15' } })).toEqual(['jan', 'feb'])
+  })
+
+  test('$gt/$lt on UTC ISO datetime strings compare chronologically', () => {
+    const documents = [
+      { title: 'morning', publishedAt: '2026-01-01T06:00:00.000Z' },
+      { title: 'noon', publishedAt: '2026-01-01T12:00:00.000Z' },
+      { title: 'evening', publishedAt: '2026-01-01T18:00:00.000Z' }
+    ]
+
+    expect(filterTitles(documents, { publishedAt: { $gt: '2026-01-01T09:00:00.000Z' } })).toEqual(['noon', 'evening'])
+    expect(filterTitles(documents, { publishedAt: { $lt: '2026-01-01T15:00:00.000Z' } })).toEqual(['morning', 'noon'])
+  })
 })

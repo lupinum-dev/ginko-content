@@ -1,9 +1,11 @@
 /**
  * Layer 1 of the unified query API (ADR-0016).
  *
- * Context-explicit async functions: `one`, `many`, `resolveOne`, `variants`, `tree`, `neighbors`.
- * Each accepts a typed collection handle (from `defineCollection`) plus an
- * options object. Locale is type-required when the handle declares i18n.
+ * Context-explicit async functions: `one`, `many`, `resolveOne`, `paginate`,
+ * `backlinks`, `surround`, `navigation` — the exact six verbs plus
+ * `navigation()` (VNEXT.md 10.2). Each accepts a typed collection handle
+ * (from `defineCollection`) plus an options object. Locale is type-required
+ * when the handle declares i18n.
  *
  * Implementation strategy: compile the public `by` / `where` options to an
  * internal `ContentQueryBuilderParams` payload via `compileQueryParams`, then
@@ -15,37 +17,32 @@
  * locale switching with zero extra round trips.
  */
 import type { ParsedContent } from '../../types/content'
-import type {
-  ContentCollectionHandle
-} from '../../types/config'
+import type { ContentCollectionHandle, __ginkoSchemaBrand } from '../../types/config'
 import type {
   BacklinkSource,
   BacklinksOptions,
   BacklinksResult,
-  ContentTreeItem,
+  ContentNavigationTreeItem,
   DocumentFromHandle,
   ManyOptions,
   LocalizedDoc,
-  NeighborsOptions,
-  NeighborsResult,
+  NavigationOptions,
   OneOptions,
   OptionsArg,
   PopulateSpec,
   PopulateFromOptions,
   PopulatedDocument,
   PaginationOptions,
-  PaginationResult,
+  PaginationResultFor,
   ResolveOneOptions,
   ResolveOneResult,
-  TreeOptions,
-  ContentVariant,
-  VariantsOptions
+  SurroundOptions,
+  SurroundResult
 } from '../../types/query'
 import type { ContentQueryContext } from './context'
 import { resolveBacklinks } from './backlinks'
-import { resolveNeighbors, resolveTree } from './navigation'
+import { resolveNavigation, resolveSurround } from './navigation'
 import { resolvePagination } from './pagination'
-import { resolveVariants } from './variants'
 import { resolveDocument, resolveDocumentOnly, resolveManyDocuments } from './documents'
 
 export type { ContentQueryContext, ContentQueryEndpoint, RuntimeContentConfig } from './context'
@@ -108,6 +105,8 @@ export async function many<
 
 /**
  * Resolve one page of documents and preserve the query envelope metadata.
+ * The return type narrows to the exact offset/cursor discriminant when the
+ * caller's options literally name `mode` (VNEXT.md 10.2/26.1).
  */
 export async function paginate<
   const H extends ContentCollectionHandle | string,
@@ -116,8 +115,8 @@ export async function paginate<
   context: ContentQueryContext,
   handle: H,
   options: O
-): Promise<PaginationResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
-  return resolvePagination(context, one, handle, options)
+): Promise<PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
+  return resolvePagination(context, one, handle, options) as unknown as PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
 }
 
 /* -------------------------------------------------------------------------- */
@@ -140,61 +139,44 @@ export async function backlinks<
 }
 
 /* -------------------------------------------------------------------------- */
-/* variants                                                                   */
+/* navigation                                                                 */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Enumerate every locale variant of one document. Identifies the document by
- * either its stable `ref:` or its canonical/localized `path`.
- *
- * Each entry carries a `translated: boolean` flag — `true` when that locale
- * has its own variant on disk, `false` when the resolver fell back to another
- * locale's path. `fallback` names the source locale when `translated` is false.
- */
-export async function variants<H extends ContentCollectionHandle | string>(
-  context: ContentQueryContext,
-  handle: H,
-  options: VariantsOptions<H>
-): Promise<Array<ContentVariant<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>>> {
-  return resolveVariants(context, one, handle, options)
-}
-
-/* -------------------------------------------------------------------------- */
-/* tree                                                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Resolve the navigation tree for a collection. The shape mirrors
- * the provider navigation query but is a thin builder over the same transport.
+ * Resolve the navigation tree for a collection — the one tree concept,
+ * absorbing the deleted `tree()` operation (VNEXT.md 10.2/26.2). The shape
+ * mirrors the provider navigation query but is a thin builder over the same
+ * transport.
  *
  * Locale fallback is on-by-default: every doc appears in the tree even when
  * it has no variant in the requested locale (the resolver substitutes the
  * fallback locale's path). This matches legacy navigation semantics —
  * sidebars are inherently lossy when filtered too strictly.
  */
-export async function tree<
+export async function navigation<
   H extends ContentCollectionHandle | string,
-  Fields extends ReadonlyArray<string> | undefined = undefined
+  Select extends ReadonlyArray<string> | undefined = undefined
 >(
   context: ContentQueryContext,
   handle: H,
-  ...args: OptionsArg<H, Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }>
-): Promise<ContentTreeItem<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent, Fields>[]> {
-  const options = (args[0] ?? {}) as Omit<TreeOptions<H>, 'fields'> & { fields?: Fields }
-  return resolveTree(context, handle, options)
+  ...args: OptionsArg<H, Omit<NavigationOptions<H>, 'select'> & { select?: Select }>
+): Promise<ContentNavigationTreeItem<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent, Select>[]> {
+  const options = (args[0] ?? {}) as Omit<NavigationOptions<H>, 'select'> & { select?: Select }
+  return resolveNavigation(context, handle, options)
 }
 
 /* -------------------------------------------------------------------------- */
-/* neighbors                                                                  */
+/* surround                                                                   */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Return the previous/next navigation entries surrounding a document.
+ * Return the previous/next navigation entries surrounding a document —
+ * replacing the deleted `neighbors()` operation (VNEXT.md 10.2/26.2).
  */
-export async function neighbors<H extends ContentCollectionHandle | string>(
+export async function surround<H extends ContentCollectionHandle | string>(
   context: ContentQueryContext,
   handle: H,
-  options: NeighborsOptions<H>
-): Promise<NeighborsResult<H extends { __schema: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
-  return resolveNeighbors(context, one, tree, handle, options)
+  options: SurroundOptions<H>
+): Promise<SurroundResult<H extends { [__ginkoSchemaBrand]: { _output: infer O } } ? O & ParsedContent : ParsedContent>> {
+  return resolveSurround(context, one, navigation, handle, options)
 }

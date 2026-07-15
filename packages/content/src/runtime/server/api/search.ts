@@ -1,9 +1,12 @@
 import { defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import { buildSearchIndex, searchRecords } from '../search'
+import { buildSearchIndex } from '../search'
+import { createMiniSearchIndex } from '../../shared/search'
 import { getContentProvider } from '../providers'
 import { createContentProviderError } from '../../../public/provider-errors'
 import type { ContentSearchResult } from '../../../types/search'
+import { projectProviderSearchResults } from '../provider-route-facts'
+import { getContentRuntimeConfig } from '../runtime-config'
 
 const normalizeSearchResults = (results: ContentSearchResult[] = []): ContentSearchResult[] =>
   results.map(result => ({
@@ -26,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const term = typeof rawTerm === 'string' ? rawTerm.slice(0, 200) : ''
   const locale = typeof query.locale === 'string' ? query.locale : undefined
 
-  if (searchConfig.engine === 'cms') {
+  if (searchConfig.engine === 'provider') {
     const provider = await getContentProvider(event)
     if (typeof provider.search !== 'function') {
       throw createContentProviderError('unsupported_provider_search', `${provider.name} does not support provider-backed search`, {
@@ -34,11 +37,15 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return normalizeSearchResults(await provider.search(event, {
-      term,
-      locale,
-      collections: searchConfig.collections
-    }))
+    return normalizeSearchResults(projectProviderSearchResults(
+      await provider.search(event, {
+        term,
+        locale,
+        collections: searchConfig.collections
+      }),
+      provider.name,
+      getContentRuntimeConfig().content
+    ))
   }
 
   const records = await buildSearchIndex(event, {
@@ -50,5 +57,5 @@ export default defineEventHandler(async (event) => {
     allLocales: !locale
   })
 
-  return searchRecords(records, term, locale, searchConfig.minisearch)
+  return createMiniSearchIndex(records, searchConfig.minisearch).search(term, { locale })
 })

@@ -1,7 +1,53 @@
 # Changelog
 
-## Unreleased
+## v0.3.0-rc.2
 
+- Export `findFirstNavigationPage()` from the client and server entry points for
+  resolving collection and section entry pages through structural navigation
+  groups. `ContentNavigationTreeItem.path` is now correctly optional; consumers
+  that access arbitrary navigation paths must guard structural nodes first.
+
+## v0.3.0-rc.1
+
+This release candidate combines the previously unpublished content-engine work
+and the data-source/portability work into one release from `v0.2.1`. It is a
+coordinated pre-1.0 hard cutover; no intermediate `0.3` or `0.4` package is
+required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
+
+### Breaking changes
+
+- Require Node.js 22 or newer.
+- Replace the broad composable surface with `useContentPage` and
+  `useContentSearch`. Use the pure client query functions with `useAsyncData` for
+  lists, navigation, pagination, backlinks, surroundings, and direct reads.
+- Return canonical `route` and `resolution` facts on documents instead of the
+  former top-level `path`, `localePaths`, and `variants` fields.
+- Remove `@lupinum/ginko-content/cms-import`. Use the runtime-neutral
+  `@lupinum/ginko-content/portability` codecs and the bounded
+  `@lupinum/ginko-content/portability/node` directory helpers.
+
+### Added and improved
+
+- Add the bounded `ContentDataSource` contract, its Nuxt/H3 binder, canonical
+  contract hashing, portable documents, deterministic codecs, structural
+  references/assets, and reusable conformance tests.
+
+- Add build-owned content validation for internal links, heading anchors, quick
+  links, Nuxt route names, and local assets. Builds persist a versioned report;
+  `content.validation: 'error'` blocks invalid snapshots, while the default
+  `'report'` mode remains diagnostic. `ginko-content validate` reads that exact
+  report from Nuxt's configured build directory.
+- Improve the normalized search experience with contextual plain-text
+  MiniSearch excerpts and explicit immutable index ownership. Pagefind now emits
+  one index per locale plus a versioned locale manifest, supports selected- and
+  all-language queries, limits before detail loading, and returns plain excerpts.
+  Existing Pagefind sites should rebuild their generated index.
+- Add a reproducible MiniSearch/Orama benchmark over Ginko-generated docs and
+  localized content. MiniSearch remains the JSON engine; Orama is benchmark-only
+  and is not a new runtime backend.
+- Document consumer-owned search previews, all-language toggles, collection
+  categories, and agent-readable copy actions, and add docs semantic-structure
+  and compressed-asset budget gates.
 - Raise the supported Node.js runtime from the now end-of-life Node 20 line to
   Node 22 or newer, and verify the full release on Node 24 LTS.
 - Bound Nuxt and optional Vitest peer support to their current major lines so
@@ -9,6 +55,28 @@
 - Add real static-generation manifests, generated-link integrity, broader
   hydration checks, exact-tarball pnpm/npm consumers, and scheduled dependency
   compatibility canaries.
+- Fix hash-addressed `file:` installs by inlining Ginko Content's complete
+  server implementation into Nitro instead of leaving package-internal files
+  as absolute filesystem imports.
+- Known issue: Nuxt 4.4.7–4.4.8 production builds can fail during Nitro
+  prerendering on Windows when Nuxt's cache-driver file URL is externalized as
+  a raw drive-letter import. Build release artifacts on Linux or macOS until
+  the upstream Nuxt/Nitro path handling is corrected.
+
+### Migrating from 0.2.1
+
+1. Move deployments to Node.js 22 or newer.
+2. Replace deleted composables with the pure query functions documented in the
+   migration guide; keep `useContentPage` and `useContentSearch` for their
+   route/search state ownership.
+3. Read public route and locale resolution from `document.route` and
+   `document.resolution`.
+4. Move CMS import/export code to the portability subpaths and delete duplicated
+   filesystem-to-CMS mapping.
+5. Rebuild generated search indexes. Enable strict content validation explicitly
+   with `content.validation: 'error'` after resolving the diagnostic report.
+6. Run provider/data-source contract tests and certify Ginko CMS against the
+   exact `0.3.0-rc.1` tarball before promoting `0.3.0`.
 
 ## v0.2.1
 

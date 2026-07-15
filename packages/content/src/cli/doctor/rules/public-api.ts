@@ -21,27 +21,41 @@ export async function inspectPublicApiUsage(rootDir: string): Promise<DoctorFind
     {
       pattern: /\bqueryCollectionSearchSections\s*\(/,
       message: 'Nuxt Content v3 search sections helper found.',
-      suggestion: 'Use useContentSearchData(\'docs\') for UI search data.'
+      suggestion: 'Use useContentSearch({ collection: docs }) for UI search data.'
     },
     {
       pattern: /\bqueryCollectionNavigation\s*\(/,
       message: 'Nuxt Content v3 navigation helper found.',
-      suggestion: 'Use useContentNavigation(\'docs\') for layout navigation.'
+      suggestion: 'Use navigation(\'docs\', options) from @lupinum/ginko-content/client inside useAsyncData for layout navigation.'
     },
     {
       pattern: /\bqueryCollection\s*\(/,
       message: 'Removed collection query helper found.',
-      suggestion: 'Use one(\'docs\', options), many(\'docs\', options), paginate(\'docs\', options), or the matching useContent* composable.'
+      suggestion: 'Use one(\'docs\', options), many(\'docs\', options), or paginate(\'docs\', options) from @lupinum/ginko-content/client inside useAsyncData.'
     },
     {
       pattern: /\buseContentList\s*\(/,
       message: 'Removed content list composable found.',
-      suggestion: 'Use useContentMany(\'docs\', options) or many(\'docs\', options).'
+      suggestion: 'Use many(\'docs\', options) from @lupinum/ginko-content/client inside useAsyncData.'
     },
     {
-      pattern: /\bcontent\.(database|preview|build)\b/,
+      pattern: /\bcontent\.(database|build)\b/,
       message: 'Nuxt Content v3 runtime config key found.',
-      suggestion: 'Remove content.database/content.preview/content.build and configure Ginko runtime options instead.'
+      suggestion: 'Remove content.database/content.build and configure Ginko runtime options instead.'
+    },
+    {
+      // `content.preview` is a real Ginko option (ContentPreviewOptions), unlike
+      // `content.database`/`content.build`, so it is not flagged as a v3
+      // leftover. This rule only reminds authors of its actual scope: the
+      // filesystem provider always shows drafts/partials in development, and a
+      // configured token additionally unlocks visibility for files already
+      // present in a deployed filesystem checkout. It does not fetch
+      // not-yet-published content — that kind of production preview workflow
+      // is owned by a CMS provider, not the filesystem provider.
+      pattern: /\bcontent\.preview\b/,
+      message: 'content.preview configuration found.',
+      suggestion: 'content.preview only gates draft/partial visibility for the filesystem provider; it always applies in development. In production it unlocks drafts already present in the deployed content directory — it is not a substitute for a provider-owned preview workflow that fetches unpublished content.',
+      severity: 'info'
     },
     {
       pattern: /\.editor\s*\(/,

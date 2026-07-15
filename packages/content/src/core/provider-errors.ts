@@ -17,6 +17,7 @@ export type ContentProviderErrorCode =
   | 'unsupported_provider_search'
   | 'unsupported_provider_site_data'
   | 'unsupported_provider_prerender'
+  | 'unsupported_filesystem_preview'
 
 export const statusForProviderError: Record<ContentProviderErrorCode, number> = {
   unknown_provider: 400,
@@ -36,7 +37,8 @@ export const statusForProviderError: Record<ContentProviderErrorCode, number> = 
   unsupported_provider_search_index: 400,
   unsupported_provider_search: 400,
   unsupported_provider_site_data: 400,
-  unsupported_provider_prerender: 400
+  unsupported_provider_prerender: 400,
+  unsupported_filesystem_preview: 400
 }
 
 export interface ContentProviderError extends Error {

@@ -6,8 +6,8 @@ Use this guide when changing `ContentRenderer`, markdown rendering, Prose compon
 
 - `src/runtime/app/components/ContentRenderer*.vue` owns document rendering.
 - `src/runtime/app/components/internal/` owns renderer internals.
-- `src/runtime/app/composables/head.ts` owns content head metadata.
-- `src/runtime/app/composables/use-content*.ts` owns app-facing content loading wrappers.
+- `src/runtime/app/composables/use-content-page.ts` owns the sole route-page composable. There is no dedicated head composable — apps call `useSeoMeta()`/`useHead()` themselves from the resolved document (VNEXT.md 10.4, hard-cut deletion of `useContentHead`).
+- `src/runtime/app/composables/search.ts` owns the sole search composable (`useContentSearch`).
 - `src/integrations/vue/` owns component discovery, HTML tag handling, and markdown refs.
 - `src/parsers/markdown.ts` and markdown plugins own parsed markdown shape.
 
@@ -26,14 +26,13 @@ Rendering changes can affect:
 - `ContentRenderer`
 - `ContentRendererInline`
 - `useContentPage`
-- `useContentHead`
 - generated component web types.
 
 Update docs and docs-drift tests when public examples change.
 
 ## Provider Impact
 
-Provider-backed documents must still produce the document shape expected by renderers: route-safe `path`, parsed `body`, title/excerpt/head metadata, and localized `resolved.*` metadata when applicable.
+Provider-backed documents must still produce the document shape expected by renderers: a `route` (`resolvedPath`, `alternates`), parsed `body`, title/excerpt/head metadata, and a `resolution` (`requested.locale`, `resolved.locale`, `usedFallback`) when applicable.
 
 ## Focused Tests
 

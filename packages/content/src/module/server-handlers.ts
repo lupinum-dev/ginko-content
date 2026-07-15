@@ -127,7 +127,7 @@ export const registerContentSearchServerHandlers = (
     route: searchBaseURL,
     handler: resolveRuntimeModule('./server/api/search.js')
   })
-  if (search.engine !== 'cms') {
+  if (search.engine !== 'provider') {
     addServerHandler({
       method: 'get',
       route: indexURL,

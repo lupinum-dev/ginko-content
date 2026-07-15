@@ -3,6 +3,8 @@ import { getContentQuery } from '../../utils/query'
 import { getContentProvider } from '../providers'
 import { createProviderNavigationQuery } from '../provider-query'
 import { createContentProviderError } from '../../../public/provider-errors'
+import { projectProviderNavigation } from '../provider-route-facts'
+import { getContentRuntimeConfig } from '../runtime-config'
 
 export default defineEventHandler(async (event) => {
   const query = getContentQuery(event)
@@ -14,11 +16,16 @@ export default defineEventHandler(async (event) => {
     query.resolveLocale = { locale: params.locale }
   }
   const provider = await getContentProvider(event)
-  if (!provider.navigationQuery) {
+  if (!provider.navigation) {
     throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support navigation queries`, {
       provider: provider.name
     })
   }
   const { query: providerQuery, options } = createProviderNavigationQuery(query)
-  return await provider.navigationQuery(event, providerQuery, options)
+  return projectProviderNavigation(
+    await provider.navigation(event, providerQuery, options),
+    provider.name,
+    getContentRuntimeConfig().content,
+    options.locale
+  )
 })

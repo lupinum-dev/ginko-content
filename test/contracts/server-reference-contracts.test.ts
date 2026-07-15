@@ -165,15 +165,6 @@ describe('server reference contracts', () => {
         }
       })
     }))
-    vi.doMock('../../packages/content/src/storage/cache', async () => {
-      const actual = await vi.importActual<any>('../../packages/content/src/storage/cache')
-      return {
-        ...actual,
-        cleanCachedContents: vi.fn(),
-        getCachedContents: () => undefined,
-        setCachedContents: vi.fn()
-      }
-    })
     vi.doMock('../../packages/content/src/integrations/nitro/ingest', () => ({
       parseContentVariants: vi.fn(async (id: string) => docs.filter(doc => doc.id === id)),
       parseContent: vi.fn()

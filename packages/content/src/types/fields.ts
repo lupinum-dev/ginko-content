@@ -2,6 +2,67 @@ import { z, type ZodTypeAny } from 'zod'
 
 import { CONTENT_REFERENCE_PREFIX } from './reference'
 
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * `Date.UTC` normalizes out-of-range components (month 13, day 32, ...), so a
+ * calendar date is only real when re-reading the constructed UTC date yields
+ * back the same year/month/day.
+ */
+const isValidCalendarDateString = (value: string): boolean => {
+  if (!DATE_ONLY_PATTERN.test(value)) {
+    return false
+  }
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+/**
+ * Parse-boundary normalization for `fields.date()`: YAML frontmatter parsers
+ * may still hand back a `Date` instance for a bare `date: 2026-01-01` scalar.
+ * Convert that (and any other date-like input) to its `YYYY-MM-DD` text
+ * before the calendar-validity refinement runs — the schema output is always
+ * a string, never a `Date`.
+ */
+const toDateOnlyInput = (value: unknown): unknown => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? value : value.toISOString().slice(0, 10)
+  }
+  return value
+}
+
+const dateOnlySchema = z.preprocess(
+  toDateOnlyInput,
+  z.string().refine(isValidCalendarDateString, {
+    message: 'must be a valid calendar date in YYYY-MM-DD form'
+  })
+)
+
+/**
+ * Parse-boundary normalization for `fields.datetime()`: accept a `Date`
+ * instance or any date-like string/number and normalize to
+ * `new Date(value).toISOString()`. The schema output is always a string,
+ * never a `Date`.
+ */
+const toIsoDateTimeInput = (value: unknown): unknown => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? value : value.toISOString()
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toISOString()
+  }
+  return value
+}
+
+const datetimeSchema = z.preprocess(
+  toIsoDateTimeInput,
+  z.string().refine(value => !Number.isNaN(new Date(value).getTime()), {
+    message: 'must be a valid date/time value convertible to a UTC ISO 8601 string'
+  })
+)
+
 export const CONTENT_FIELD_METADATA_KEY = Symbol.for('lupinum.ginko-content.field-metadata')
 
 export type ContentFieldMetadata = {
@@ -168,21 +229,16 @@ export const fields = {
   text: () => textLike('text'),
   textarea: () => textLike('textarea'),
   richtext: () => textLike('richtext'),
-  markdown: () => textLike('richtext'),
   slug: (options: { from?: string } = {}) =>
     optionalField(z.string(), { type: 'slug', slugFrom: options.from ?? null }),
   email: () => optionalField(z.string().email(), { type: 'email' }),
   url: () => optionalField(z.string().url(), { type: 'url' }),
   number: () => optionalField(z.number(), { type: 'number', localized: false }),
   boolean: () => optionalField(z.boolean(), { type: 'boolean', localized: false }),
-  toggle: () => optionalField(z.boolean(), { type: 'boolean', localized: false }),
-  date: () => optionalField(z.coerce.date(), { type: 'date', localized: false }),
-  datetime: () => optionalField(z.coerce.date(), { type: 'datetime', localized: false }),
+  date: () => optionalField(dateOnlySchema, { type: 'date', localized: false }),
+  datetime: () => optionalField(datetimeSchema, { type: 'datetime', localized: false }),
   select<const Values extends readonly [string, ...string[]]> (values: Values) {
     return optionalField(z.enum(values), { type: 'select', options: [...values] })
-  },
-  enum<const Values extends readonly [string, ...string[]]> (values: Values) {
-    return fields.select(values)
   },
   json: () => optionalField(z.unknown(), { type: 'json' }),
   icon: () => optionalField(z.string(), { type: 'icon' }),
@@ -234,11 +290,3 @@ export const fields = {
     })
   },
 }
-
-export const image = fields.image
-export const asset = fields.asset
-export const file = fields.file
-export const relation = fields.relation
-export const relations = fields.relations
-export const richtext = fields.richtext
-export const text = fields.text

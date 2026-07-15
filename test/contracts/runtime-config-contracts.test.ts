@@ -2,13 +2,11 @@ import { describe, expect, test } from 'vitest'
 
 import { applyContentRuntimeConfig } from '../../packages/content/src/module/runtime-config'
 import { contentModuleDefaults } from '../../packages/content/src/module/defaults'
-import { defaultMiniSearchOptions } from '../../packages/content/src/module/options'
+import { createPortabilityContractFixture } from '../../packages/content/src/testing/portability-contract'
 
 const createOptions = () => ({
   api: { baseURL: '/api/_content' },
   links: {},
-  experimental: { stripQueryParameters: false },
-  contentHead: true,
   respectPathCase: false
 })
 
@@ -31,7 +29,9 @@ const createContentContext = () => ({
     path: '/sitemap'
   },
   search: false,
-  navigation: { fields: [] }
+  navigation: { fields: [] },
+  collections: {},
+  contract: createPortabilityContractFixture()
 })
 
 const createNuxt = (site?: { url?: string }, siteUrl?: string) => ({
@@ -69,14 +69,8 @@ const applyRuntimeConfig = async (
 }
 
 describe('runtime config contracts', () => {
-  test('uses the shared MiniSearch defaults as the module default source of truth', () => {
-    expect(contentModuleDefaults.search.minisearch).toEqual({
-      fields: [...defaultMiniSearchOptions.fields],
-      storeFields: [...defaultMiniSearchOptions.storeFields],
-      boost: { ...defaultMiniSearchOptions.boost },
-      fuzzy: defaultMiniSearchOptions.fuzzy,
-      prefix: defaultMiniSearchOptions.prefix
-    })
+  test('keeps search disabled until an application opts in', () => {
+    expect(contentModuleDefaults.search).toBe(false)
   })
 
   test('exposes Nuxt site.url as runtimeConfig.public.content.siteUrl for runtime content features', async () => {
@@ -89,7 +83,10 @@ describe('runtime config contracts', () => {
   })
 
   test('uses explicit runtimeConfig.public.siteUrl as legacy input without writing a global output key', async () => {
-    const nuxt = createNuxt({ url: 'https://site-config.example.test' }, 'https://runtime.example.test')
+    const nuxt = createNuxt(
+      { url: 'https://site-config.example.test' },
+      'https://runtime.example.test'
+    )
 
     await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
 
@@ -234,7 +231,11 @@ describe('runtime config contracts', () => {
   test('keeps revalidation token in private runtime config only', async () => {
     const nuxt = createNuxt()
 
-    await applyRuntimeConfig(nuxt, { ...createOptions(), revalidate: { token: 'secret' } } as any, createContentContext())
+    await applyRuntimeConfig(
+      nuxt,
+      { ...createOptions(), revalidate: { token: 'secret' } } as any,
+      createContentContext()
+    )
 
     expect(nuxt.options.runtimeConfig.public.content.revalidate).toBeUndefined()
     expect(nuxt.options.runtimeConfig.content.revalidate).toEqual({
@@ -254,31 +255,26 @@ describe('runtime config contracts', () => {
   test('derives function-backed agent pages into serializable runtime markdown', async () => {
     const nuxt = createNuxt({ url: 'https://docs.example.test' })
 
-    await applyRuntimeConfig(
-      nuxt,
-      createOptions(),
-      createContentContext(),
-      {
-        agent: {
-          site: {
-            title: 'Docs',
-            description: 'Docs site',
-            defaultLocale: 'en',
-            locales: ['en', 'de']
-          },
-          pages: [
-            {
-              id: 'home',
-              route: { en: '/', de: '/de' },
-              section: 'business',
-              title: ({ locale }: { locale: string }) => locale === 'de' ? 'Startseite' : 'Home',
-              description: ({ locale }: { locale: string }) => locale === 'de' ? 'Deutsche Startseite' : 'English home',
-              render: ({ locale }: { locale: string }) => `# ${locale === 'de' ? 'Startseite' : 'Home'}`
-            }
-          ]
-        }
+    await applyRuntimeConfig(nuxt, createOptions(), createContentContext(), {
+      agent: {
+        site: {
+          title: 'Docs',
+          description: 'Docs site'
+        },
+        pages: [
+          {
+            id: 'home',
+            route: { en: '/', de: '/de' },
+            section: 'business',
+            title: ({ locale }: { locale: string }) => (locale === 'de' ? 'Startseite' : 'Home'),
+            description: ({ locale }: { locale: string }) =>
+              locale === 'de' ? 'Deutsche Startseite' : 'English home',
+            render: ({ locale }: { locale: string }) =>
+              `# ${locale === 'de' ? 'Startseite' : 'Home'}`
+          }
+        ]
       }
-    )
+    })
 
     const page = nuxt.options.runtimeConfig.content.agent.pages[0]
 

@@ -46,21 +46,28 @@ const runtimeContent = useRuntimeConfig().public?.content || {}
 const attrs = useAttrs()
 const { unwrap: unwrapRoot } = useUnwrap()
 const localePath = useLocalePath()
-const locale = computed(() => props.value.locale || props.value.resolved?.locale || props.value.locale)
-const linkLocale = computed(() => props.value.resolved?.requestedLocale || locale.value)
-const defaultLocale = computed(() => props.value.defaultLocale || runtimeContent.defaultLocale)
+// VNEXT.md 10.4: the canonical document envelope carries `locale` at the top
+// level (the resolved/served locale) and `resolution.requested.locale` (the
+// locale the caller actually asked for, before fallback) — there is no more
+// `resolved`/`variants` shape to read these off of.
+const locale = computed(() => props.value.locale)
+const linkLocale = computed(() => props.value.resolution?.requested?.locale || locale.value)
+const defaultLocale = computed(() => runtimeContent.defaultLocale)
 const locales = computed(() => {
-  const variantLocales = Array.isArray(props.value.variants)
-    ? props.value.variants
-        .map((variant: { locale?: string }) => variant.locale)
+  const alternateLocales = Array.isArray(props.value.route?.alternates)
+    ? props.value.route.alternates
+        .map((alternate: { locale?: string }) => alternate.locale)
         .filter((locale: string | undefined): locale is string => Boolean(locale))
     : []
 
   return Array.from(new Set([
     ...(runtimeContent.locales || []),
-    ...variantLocales
+    ...alternateLocales
   ]))
 })
+const renderPolicy = computed(() =>
+  runtimeContent.renderPolicies?.[props.value.collection] || { components: {} }
+)
 
 const body = computed(() => {
   let body = props.value.body || props.value
@@ -74,7 +81,7 @@ const body = computed(() => {
 
   const resolvedRefs = resolveMarkdownRenderRefs(
     body,
-    props.value.resolved?.resolvedRefs,
+    props.value.resolvedRefs,
     runtimeContent.links,
     route => localePath(route, linkLocale.value)
   )
@@ -128,6 +135,7 @@ const rendererAttrs = computed(() => {
     :default-locale="defaultLocale"
     :locales="locales"
     :components="resolvedComponents"
+    :render-policy="renderPolicy"
     :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"
   />

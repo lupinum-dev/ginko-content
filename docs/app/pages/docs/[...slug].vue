@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useContentPage } from '#imports'
 import { docs } from '../../../content.config'
 import { prefixDocsPath } from '../../utils/docs'
 
@@ -8,12 +9,13 @@ definePageMeta({
 
 const { toc, seo } = useAppConfig()
 
-const { page, surround } = await useContentPage(docs, {
+const { page, previous, next } = await useContentPage(docs, {
   surround: true
 })
 
 const surroundLinks = computed(() => {
-  const [prev, nextLink] = surround.value as Array<{ path?: string }>
+  const prev = previous.value as { path?: string } | null
+  const nextLink = next.value as { path?: string } | null
   return [
     prev?.path ? { ...prev, path: prefixDocsPath(prev.path) } : null,
     nextLink?.path ? { ...nextLink, path: prefixDocsPath(nextLink.path) } : null

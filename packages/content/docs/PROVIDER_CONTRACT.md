@@ -1,164 +1,163 @@
 # Provider Contract
 
-Use this guide when changing provider capabilities, provider return shapes, cache hints, provider errors, or provider-backed operations.
+Use this guide when changing provider capabilities, raw result shapes, cache
+hints, or provider-backed operations.
+
+For a framework-free backend adapter, start with the
+[data-source adapter author guide](./DATA_SOURCE_ADAPTER_GUIDE.md), then bind
+that pure source to this runtime provider boundary.
 
 ## Ownership
 
-- `src/public/provider.ts` owns the external provider interface.
-- `src/core/provider-errors.ts` owns provider error codes and framework-neutral status metadata.
-- `src/public/provider-errors.ts` adapts provider errors to H3.
-- `src/runtime/server/providers/index.ts` validates provider modules and enforces capabilities before dispatch.
-- `src/runtime/server/provider-result.ts` normalizes provider results and cache hints.
-- `src/testing/provider-contract.ts` and `src/testing/provider-fixture.ts` are the reusable provider test surface.
+- `src/public/provider.ts` is the external provider interface.
+- `src/runtime/server/providers/index.ts` validates providers and preflights
+  query capabilities before dispatch.
+- `src/runtime/server/provider-query.ts` turns raw provider documents into the
+  canonical public `route` and `resolution` envelope.
+- `src/runtime/server/provider-route-facts.ts` validates and projects raw route
+  facts for navigation, surround, search, routes, and sitemap consumers.
+- `src/testing/provider-contract.ts` is the executable author conformance suite.
 
-## Invariants
+## Provider shape
 
-- Every provider declares all capabilities explicitly.
-- Unsupported operations fail loudly with stable provider error codes.
-- Query operators are allowed only when advertised in `capabilities.query.operators`.
-- `ContentProvider.query()` returns only canonical `ContentQueryResponse<T>` envelopes:
-  `{ result: T[], skip, limit, total }` for list queries, `{ result: T | undefined }`
-  for first queries, and `{ result: number }` for count queries.
-- Raw arrays, raw documents, raw numbers, and `undefined` are invalid provider query results.
-- Provider result wrappers must have the provider result marker and exact data/cache shape.
-- Cache hints are normalized through `src/core/cache-hints.ts`.
-
-## Document Normalization Seam
-
-Third-party providers emit only the canonical envelope's required fields and let
-core derive everything else. The minimal input set is:
-
-- `collection`, `locale`, `path`, `body` (plus any frontmatter data)
-- `id`, `canonicalKey`, and `type` are optional and derived when omitted
-- `file` is optional and omitted for providers with no backing file (e.g.
-  CMS-backed documents).
-
-`shapeProviderDocument(document, options)` takes that minimal document and
-returns the canonical `ContentPageResult`, deriving the localized route `path`,
-`variants`, `localePaths` and the `resolved` envelope.
-`normalizeProviderDocument(document)` is the same seam without route shaping —
-it fills the derivable identity fields (`id`, `canonicalKey`, `type`) and returns
-the canonical document. Providers should never hand-build route/locale metadata.
-
-Provider packages should import these helpers from the Nitro-free provider
-subpath:
+Every provider implements `query`. Optional operation support is inferred from
+method presence; do not add boolean capability flags for operations.
 
 ```ts
-import {
-  normalizeProviderDocument,
-  shapeProviderDocument,
-  type ProviderDocumentInput,
-  type ShapeProviderDocumentOptions
-} from '@lupinum/ginko-content/provider'
+import type { ContentProvider } from '@lupinum/ginko-content/provider'
+
+export default {
+  name: 'custom',
+  capabilities: {
+    query: {
+      operators: ['$eq', '$in', '$contains'],
+      pagination: ['offset', 'cursor']
+    }
+  },
+  async query(event, query) {},
+  async navigation(event, query, options) {},
+  async surroundings(event, collection, contentPath, options) {},
+  async search(event, request) {},
+  async siteData(event, request) {},
+  async routes(event) {},
+  async invalidate(event, input) {}
+} satisfies ContentProvider
 ```
 
-Inside Nuxt server runtime files, `#content/server` also exposes them for
-convenience.
+`capabilities.query.operators` and `capabilities.query.pagination` are runtime
+truth. Unsupported operators, offset paging, cursor paging, and count queries
+are rejected before provider dispatch. Count requires `offset`; a plain limit
+does not require a pagination capability.
 
-`examples/advanced/cms-cache-contract/server/cms-provider.ts` is the reference
-provider tutorial and emits only this minimal set.
+## Query wire
 
-## Wire Restrictions
+Providers receive a versioned, JSON-pure `ContentProviderQuery` containing:
 
-The 0.2 provider boundary is the canonical wire contract. Providers must not
-emit 0.1 underscore envelope fields. `LEGACY_PROVIDER_ENVELOPE_FIELDS` is the
-canonical testing list for those removed fields.
+- the lowered immutable query plan;
+- the selected collection;
+- `visibility.includeDrafts`, resolved from the request environment and preview
+  authorization immediately before dispatch.
 
-Provider queries receive the public field names from `ContentProviderQuery`.
-Filter and sort keys are names such as `path`, `locale`, `draft`, and `partial`;
-providers should not expect internal underscore aliases.
+Providers must apply `visibility` to list, first, and count execution. Do not
+recreate environment or preview policy inside the provider.
 
-Provider input has no cursor. Offset-style pagination uses `skip` only when the
-provider advertises `capabilities.query.skip`. `count` is not portable unless
-the provider advertises `capabilities.query.count`; providers that declare it
-as unsupported must reject count plans with `unsupported_query_shape`.
+Return only canonical response envelopes:
 
-Projection applies to the returned result rows only. A projected row may not be
-a full route envelope, but it still must not contain legacy underscore envelope
-fields.
+- offset list: `{ result, skip, limit, total }`;
+- cursor list: `{ mode: 'cursor', result, limit, pageInfo }` with no total;
+- first: `{ result: document | undefined }`;
+- count: `{ result: number }`.
 
-## Reusable Test Assertions
+Raw arrays, documents, numbers, and `undefined` are invalid responses.
 
-The testing subpath exposes focused assertions for provider authors that want to
-verify their own fixtures without adopting the built-in fixture collections:
+## Raw documents
+
+Query rows cross the provider boundary as `ProviderDocumentInput`:
 
 ```ts
-import {
-  expectNoLegacyProviderEnvelopeFields,
-  expectProviderCapabilities,
-  expectProviderDocumentEnvelope,
-  expectUnsupportedProviderOperation,
-  expectUnsupportedProviderQueryShape,
-  unwrapProviderContractResult
-} from '@lupinum/ginko-content/testing/provider-contract'
+const document = {
+  collection: 'docs',
+  canonicalKey: 'docs:intro',
+  locale: 'de',
+  contentPath: '/dokumentation/einstieg',
+  routeVariants: [
+    { locale: 'en', contentPath: '/docs/intro' },
+    { locale: 'de', contentPath: '/dokumentation/einstieg' }
+  ],
+  body: { type: 'root', children: [] },
+  title: 'Einstieg'
+} satisfies ProviderDocumentInput
 ```
 
-- `expectProviderCapabilities(provider, expected)` checks declared capability
-  flags and query operator support.
-- `expectProviderDocumentEnvelope(page)` checks a complete shaped 0.2 document
-  envelope and scans for legacy fields.
-- `expectNoLegacyProviderEnvelopeFields(value)` deep-scans any provider result,
-  including projected query rows where a full-envelope assertion cannot apply.
-- `expectUnsupportedProviderOperation()` and
-  `expectUnsupportedProviderQueryShape()` assert the stable typed errors for
-  unsupported operations and unsupported query capabilities.
-- `unwrapProviderContractResult()` unwraps cache-marked provider results before
-  assertions.
+`contentPath` includes the locale-specific collection mount but not the Nuxt
+locale prefix. `routeVariants` contains concrete variants only. Core owns
+public URL projection, fallback alternates, and the final document envelope.
+Providers must not return top-level `path`, `variants`, `localePaths`,
+`resolved`, `route`, or `resolution` metadata.
 
-The fixture-bound `runProviderContractSuite()` remains the conformance suite for
-the built-in fixture model. External providers can compose the assertions above
-against their own collections, fixtures, and supported sort fields.
+`normalizeProviderDocument()` validates JSON purity and fills derivable `id`,
+`canonicalKey`, and `type` values. `file` remains optional for remote content.
 
-## Public API Impact
+## Raw route facts
 
-Provider changes affect external provider authors. Treat these as public:
+Every route-bearing optional operation returns a nested raw route fact:
 
-- `ContentProvider`
-- `ContentProviderCapabilities`
-- `ContentProviderResult`
-- `MaybeContentProviderResult`
-- cache hint types.
-- provider error codes.
-- testing provider contract assertions from
-  `@lupinum/ginko-content/testing/provider-contract`.
-- the wire surface mirrored on `./provider`: `ContentProviderQuery`,
-  `ContentProviderNavigationOptions`, `ContentQueryPlan`,
-  `PROVIDER_QUERY_VERSION`, `toContentProviderQuery`,
-  `toContentProviderNavigationQuery`, `withContentCache`,
-  `normalizeProviderDocument`, `shapeProviderDocument`,
-  `ProviderDocumentInput`, and `ShapeProviderDocumentOptions`.
+```ts
+{
+  collection: 'docs',
+  canonicalKey: 'docs:intro',
+  locale: 'de',
+  contentPath: '/dokumentation/einstieg'
+}
+```
 
-If these change, update `meta/public-surface.json`, provider docs, generated `#content/server` declarations if needed, and type fixtures.
+Navigation items use `{ title, route, children? }`; surroundings use
+`{ title, route }`; search results use `{ title, excerpt?, score, route }`.
+`routes()` returns route facts plus optional `draft` and `sitemap` metadata.
+Providers must never return projected `path`, `href`, `localePath`, or
+`alternates` fields. Core applies consumer policy and URL projection once.
 
-## Provider Impact
+## Cache-aware results
 
-When adding a capability:
+Wrap any provider result with `withContentCache(data, hint)`. The marker is
+private; use `isContentProviderResult()` when inspection is necessary.
+Runtime consumers receive `data`, while Ginko merges the cache hint into the
+request-local collector. Implement `invalidate()` when the provider owns a
+backend cache.
 
-- add it to `ContentProviderCapabilities`.
-- validate it in `src/runtime/server/providers/index.ts`.
-- make the filesystem provider advertise the correct value.
-- add conformance tests for supported and unsupported providers.
+## Executable conformance
 
-## Focused Tests
+`runProviderContractSuite()` requires one successful probe for every advertised
+operator and pagination mode. Advertisements without executable probes fail the
+suite.
 
-Run:
+```ts
+runProviderContractSuite({
+  name: 'custom provider',
+  expectedProviderName: 'custom',
+  loadProvider: async () => provider,
+  createEvent,
+  expectedCapabilities: provider.capabilities,
+  operatorProbes: {
+    $eq: { positive: toContentProviderQuery({ collection: 'docs', where: { title: { $eq: 'Intro' } } }) }
+  },
+  paginationProbes: {}
+})
+```
+
+The suite also validates raw `routes()` output and proves optional operation
+support comes from method presence.
+
+## Verification
+
+Run focused provider tests first, then the public gates:
 
 ```bash
-pnpm vitest run --config vitest.config.ts --project nuxt test/contracts/provider-fixture-conformance.test.ts test/contracts/filesystem-provider-conformance.test.ts
-pnpm vitest run test/contracts/provider-contracts.test.ts
-pnpm vitest run test/runtime/api-provider-boundary.test.ts test/contracts/sitemap-query-contracts.test.ts
-pnpm typecheck:source
+pnpm vitest run test/contracts/provider-contracts.test.ts test/contracts/provider-fixture-conformance.test.ts test/contracts/filesystem-provider-conformance.test.ts
+pnpm test
+pnpm typecheck
+pnpm lint
 ```
 
-Run the package/type fixture gate when provider public types change:
-
-```bash
-pnpm build:packages && pnpm --filter @lupinum/ginko-content-test-typecheck typecheck
-```
-
-## Do Not Touch
-
-- Do not add a generic provider adapter layer unless the provider contract cannot express the real requirement.
-- Do not silently coerce malformed provider results.
-- Do not let provider-specific storage models leak into `core`.
-- Do not document capabilities a provider does not advertise and test.
+Update `meta/public-surface.json`, provider docs, generated server declarations,
+and type fixtures whenever the public provider surface changes.

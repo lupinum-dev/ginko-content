@@ -1,5 +1,6 @@
 import type { MarkdownNode, ParsedContent } from '../../types/content'
 import type { AgentMetadataField, ContentCollectionConfig } from '../../types/config'
+import { isSafePublicMarkdownUrl } from '../../cms-contract/render-policy'
 
 export interface AgentMarkdownPublicSignals {
   search?: 'yes' | 'no'
@@ -140,21 +141,14 @@ export const escapeMarkdownLinkLabel = (value: string) =>
 const escapeMarkdownLinkHref = (value: string) =>
   value.replace(/\)/g, '%29').replace(/\s/g, '%20')
 
-const isSafeMarkdownHref = (href: string) => {
-  if (!href) return false
-  if (href.startsWith('//')) return false
-  if (href.startsWith('/') || href.startsWith('#') || href.startsWith('./') || href.startsWith('../')) return true
-  return /^(https?:|mailto:|tel:)/i.test(href)
-}
-
 export const linkMarkdown = (label: string, href: string) => {
   const resolvedLabel = label || href
-  if (!href || !isSafeMarkdownHref(href)) return escapeMarkdownLinkLabel(resolvedLabel)
+  if (!href || !isSafePublicMarkdownUrl(href)) return escapeMarkdownLinkLabel(resolvedLabel)
   return `[${escapeMarkdownLinkLabel(resolvedLabel)}](${escapeMarkdownLinkHref(href)})`
 }
 
 export const imageMarkdown = (alt: string, src: string) => {
-  if (!src || !isSafeMarkdownHref(src)) return escapeMarkdownLinkLabel(alt || src)
+  if (!src || !isSafePublicMarkdownUrl(src, 'asset')) return escapeMarkdownLinkLabel(alt || src)
   return `![${escapeMarkdownLinkLabel(alt)}](${escapeMarkdownLinkHref(src)})`
 }
 

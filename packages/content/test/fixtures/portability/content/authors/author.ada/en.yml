@@ -1,0 +1,65 @@
+ginko:
+  version: 1
+  collection: authors
+  canonicalKey: author.ada
+  locale: en
+  slug: ""
+  parentCanonicalKey: null
+  order: null
+  visibility:
+    navigation: false
+    search: false
+    sitemap: false
+fields:
+  name: "Ada Lovelace"
+  biography: "Mathematician and writer"
+  summary: "Portable rich text"
+  handle: "ada-lovelace"
+  email: "ada@example.test"
+  website: "https://example.test/ada"
+  aliases:
+    - "Augusta Ada King"
+  active: true
+  agreed: true
+  score: 42
+  rating: 9.5
+  role: "author"
+  status: "active"
+  born: "1815-12-10"
+  updated: "2026-07-13T12:30:00+02:00"
+  wakeTime: "08:30:00"
+  metadata:
+    nested: true
+  profile:
+    city: "London"
+    rank: 1
+  rows:
+    - label: "first"
+  blocks:
+    - label: "quote"
+  mentor:
+    collection: "authors"
+    canonicalKey: "author.ada"
+  friends:
+    - collection: "authors"
+      canonicalKey: "author.ada"
+  portrait:
+    kind: "local"
+    path: "/ginko-assets/431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460.png"
+    sha256: "431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460"
+    bytes: 68
+    mediaType: "image/png"
+    originalFilename: "ada.png"
+  gallery:
+    - kind: "local"
+      path: "/ginko-assets/431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460.png"
+      sha256: "431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460"
+      bytes: 68
+      mediaType: "image/png"
+      originalFilename: "duplicate.png"
+  attachment:
+    kind: "external"
+    url: "https://files.example.test/portrait.png"
+  icon: "i-lucide-pen"
+  snippet: "const portable = true"
+  accent: "#336699"

@@ -93,11 +93,11 @@ These are not requirements for every provider. A CMS provider should map its nat
 
 Ingest follows parse -> transform -> validate.
 
-- generic pipeline contracts: `src/core/pipeline`
+- fixed ingest sequence: `src/integrations/nitro/ingest.ts`
 - Nitro orchestration: `src/integrations/nitro/ingest.ts`
 - parser entrypoints: `src/parsers`
 - validation: `src/storage/validation.ts`
-- manifest and variant lookup: `src/storage/manifest.ts`
+- canonical graph and variant lookup: `src/storage/graph.ts`
 
 The storage layer answers "what content exists?" for the filesystem provider. It should not become a generic CMS data model.
 
@@ -112,7 +112,7 @@ Queries are immutable builders that lower to stable internal plans.
 - execution: `src/core/query/execute.ts`
 - operators: `src/core/query/operators.ts`
 
-Public app queries use collection handles with the unified API: `one(handle, options)`, `many(handle, options)`, `resolveOne(handle, options)`, `tree(handle, options)`, and `neighbors(handle, options)`. Server code uses the same verbs with the active H3 event as the first argument.
+Public app queries use collection handles with the unified API: `one(handle, options)`, `many(handle, options)`, `resolveOne(handle, options)`, `navigation(handle, options)`, and `surround(handle, options)`. Server code uses the same verbs with the active H3 event as the first argument.
 
 Provider-backed query behavior must respect declared capabilities. Unsupported operators or unsupported query shapes should fail with typed provider errors rather than silently degrading.
 
@@ -134,10 +134,10 @@ Rules:
 
 App code should prefer:
 
-- `useContentOne(handle, { by: { route } })` for route-backed page loading
-- `useContentTree(handle)` for collection navigation
-- `page.localePaths` for locale-aware route switching after resolving a document
-- `many(handle, options)` / `useContentMany(handle, options)` for explicit lists and filters
+- `useContentPage(handle)` for route-backed page loading
+- `navigation(handle)` for collection navigation
+- `page.route.alternates` for locale-aware route switching after resolving a document
+- `many(handle, options)` for explicit lists and filters
 
 Lower-level server collection helpers can exist internally, but the public package server surface stays intentionally small.
 
@@ -147,7 +147,7 @@ Ginko supports three search modes:
 
 - MiniSearch JSON index for small-to-medium static/runtime use
 - Pagefind for static, sharded search
-- CMS/provider-owned search via `engine: 'cms'`
+- provider-owned search via `engine: 'provider'`
 
 The built-in filesystem search path derives search sections from parsed content. Provider-owned search should not force non-filesystem data into local static indexes.
 
@@ -159,6 +159,12 @@ Ginko owns content-backed sitemap entries. `@nuxtjs/sitemap` owns XML output, hr
 
 The module registers a content sitemap source when sitemap support is enabled. Content collections are included unless config excludes them or the collection is data-only and not opted in.
 
+For localized sources, Ginko projects canonical variants into the Nuxt Sitemap v8
+source-entry contract: every entry carries its locale sitemap name in `_sitemap`
+and the complete reciprocal hreflang set, including `x-default` when a default
+variant exists. Nuxt Sitemap partitions those entries into locale child XML
+sitemaps. Docs layers and consumers must not reconstruct or filter that identity.
+
 ## Public Surface
 
 The package export map is a compatibility commitment:
@@ -167,10 +173,21 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/config`
 - `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/server`
+- `@lupinum/ginko-content/provider`
 - `@lupinum/ginko-content/agent`
+- `@lupinum/ginko-content/agent-paths`
+- `@lupinum/ginko-content/agent-registry`
+- `@lupinum/ginko-content/cms-contract`
+- `@lupinum/ginko-content/data-source`
+- `@lupinum/ginko-content/portability`
+- `@lupinum/ginko-content/portability/node`
+- `@lupinum/ginko-content/testing/provider-fixture`
+- `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
 
-Public docs must match these exports. Internal runtime, storage, manifest, renderer, and provider loader details should stay private unless deliberately promoted.
+This list is enforced against the package manifest by
+`test/contracts/package-exports-contracts.test.ts` and `meta/public-surface.json`
+— update all three together. Public docs must match these exports. Internal runtime, storage, manifest, renderer, and provider loader details should stay private unless deliberately promoted.
 
 ## Extension Rules
 

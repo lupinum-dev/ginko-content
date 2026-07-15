@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.2.1",
+  "version": "0.3.0-rc.2",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://ginko-content.nuxt.dev",
   "bugs": {
@@ -51,6 +51,11 @@
       "import": "./dist/public/provider.js",
       "default": "./dist/public/provider.js"
     },
+    "./data-source": {
+      "types": "./dist/public/data-source.d.ts",
+      "import": "./dist/public/data-source.js",
+      "default": "./dist/public/data-source.js"
+    },
     "./client": {
       "types": "./dist/public/client.d.ts",
       "import": "./dist/public/client.js",
@@ -61,15 +66,30 @@
       "import": "./dist/public/agent.js",
       "default": "./dist/public/agent.js"
     },
+    "./agent-registry": {
+      "types": "./dist/public/agent-registry.d.ts",
+      "import": "./dist/public/agent-registry.js",
+      "default": "./dist/public/agent-registry.js"
+    },
+    "./agent-paths": {
+      "types": "./dist/public/agent-paths.d.ts",
+      "import": "./dist/public/agent-paths.js",
+      "default": "./dist/public/agent-paths.js"
+    },
     "./cms-contract": {
       "types": "./dist/cms-contract/index.d.ts",
       "import": "./dist/cms-contract/index.js",
       "default": "./dist/cms-contract/index.js"
     },
-    "./cms-import": {
-      "types": "./dist/cms-import/index.d.ts",
-      "import": "./dist/cms-import/index.js",
-      "default": "./dist/cms-import/index.js"
+    "./portability": {
+      "types": "./dist/portability/index.d.ts",
+      "import": "./dist/portability/index.js",
+      "default": "./dist/portability/index.js"
+    },
+    "./portability/node": {
+      "types": "./dist/portability-node/index.d.ts",
+      "import": "./dist/portability-node/index.js",
+      "default": "./dist/portability-node/index.js"
     },
     "./testing/provider-fixture": {
       "types": "./dist/testing/provider-fixture.d.ts",
@@ -81,30 +101,20 @@
       "import": "./dist/testing/provider-contract.js",
       "default": "./dist/testing/provider-contract.js"
     },
+    "./testing/data-source-contract": {
+      "types": "./dist/testing/data-source-contract.d.ts",
+      "import": "./dist/testing/data-source-contract.js",
+      "default": "./dist/testing/data-source-contract.js"
+    },
+    "./testing/portability-contract": {
+      "types": "./dist/testing/portability-contract.d.ts",
+      "import": "./dist/testing/portability-contract.js",
+      "default": "./dist/testing/portability-contract.js"
+    },
     "./transformers": {
       "types": "./dist/runtime/transformers/define.d.ts",
       "import": "./dist/runtime/transformers/define.js",
       "default": "./dist/runtime/transformers/define.js"
-    },
-    "./transformers/markdown": {
-      "types": "./dist/runtime/transformers/markdown.d.ts",
-      "import": "./dist/runtime/transformers/markdown.js",
-      "default": "./dist/runtime/transformers/markdown.js"
-    },
-    "./transformers/yaml": {
-      "types": "./dist/runtime/transformers/yaml.d.ts",
-      "import": "./dist/runtime/transformers/yaml.js",
-      "default": "./dist/runtime/transformers/yaml.js"
-    },
-    "./transformers/json": {
-      "types": "./dist/runtime/transformers/json.d.ts",
-      "import": "./dist/runtime/transformers/json.js",
-      "default": "./dist/runtime/transformers/json.js"
-    },
-    "./transformers/csv": {
-      "types": "./dist/runtime/transformers/csv/index.d.ts",
-      "import": "./dist/runtime/transformers/csv/index.js",
-      "default": "./dist/runtime/transformers/csv/index.js"
     }
   },
   "web-types": "./dist/web-types.json",
@@ -122,7 +132,7 @@
   },
   "dependencies": {
     "@comark/vue": "^0.4.0",
-    "@nuxt/kit": "^4.4.7",
+    "@nuxt/kit": "^4.4.8",
     "@shikijs/transformers": "^4.2.0",
     "comark": "^0.4.0",
     "consola": "^3.4.2",
@@ -144,12 +154,13 @@
     "slugify": "^1.6.9",
     "ufo": "^1.6.4",
     "unstorage": "^1.17.5",
+    "vue-router": "^5.0.2",
     "ws": "^8.21.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@nuxt/module-builder": "1.0.2",
-    "nuxt": "4.4.7",
+    "nuxt": "4.4.8",
     "unbuild": "^3.6.1",
     "vue-docgen-web-types": "^0.1.8"
   },

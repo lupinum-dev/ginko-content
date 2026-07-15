@@ -3,12 +3,20 @@ import { createTestEvent } from '../harness/event'
 
 const mocks = vi.hoisted(() => ({
   buildSearchIndex: vi.fn(),
-  searchRecords: vi.fn(),
+  createMiniSearchIndex: vi.fn(),
+  miniSearch: vi.fn(),
   getContentProvider: vi.fn()
 }))
 
 const runtime = vi.hoisted(() => ({
   content: {
+    defaultLocale: 'en',
+    locales: ['en', 'de'],
+    collections: {
+      docs: {
+        i18n: { defaultLocale: 'en', locales: ['en', 'de'] }
+      }
+    },
     search: {
       engine: 'minisearch',
       collections: ['docs'],
@@ -29,8 +37,11 @@ const runtime = vi.hoisted(() => ({
 vi.stubGlobal('__ginkoTestRuntimeConfig', runtime)
 
 vi.mock('../../packages/content/src/runtime/server/search', () => ({
-  buildSearchIndex: mocks.buildSearchIndex,
-  searchRecords: mocks.searchRecords
+  buildSearchIndex: mocks.buildSearchIndex
+}))
+
+vi.mock('../../packages/content/src/runtime/shared/search', () => ({
+  createMiniSearchIndex: mocks.createMiniSearchIndex
 }))
 
 vi.mock('../../packages/content/src/runtime/server/providers', () => ({
@@ -40,7 +51,9 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
 describe('runtime search API boundaries', () => {
   beforeEach(() => {
     mocks.buildSearchIndex.mockReset()
-    mocks.searchRecords.mockReset()
+    mocks.createMiniSearchIndex.mockReset()
+    mocks.miniSearch.mockReset()
+    mocks.createMiniSearchIndex.mockReturnValue({ search: mocks.miniSearch })
     mocks.getContentProvider.mockReset()
     runtime.content.search = {
       engine: 'minisearch',
@@ -94,7 +107,7 @@ describe('runtime search API boundaries', () => {
     const records = [{ id: '/docs/fallback', collection: 'docs', title: 'Fallback Lab' }]
     const results = [{ collection: 'docs', path: '/docs/fallback', title: 'Fallback Lab', score: 42 }]
     mocks.buildSearchIndex.mockResolvedValue(records)
-    mocks.searchRecords.mockReturnValue(results)
+    mocks.miniSearch.mockReturnValue(results)
     const handler = (await import('../../packages/content/src/runtime/server/api/search')).default
     const longTerm = 'fallback'.repeat(40)
 
@@ -107,25 +120,31 @@ describe('runtime search API boundaries', () => {
       locale: 'de',
       allLocales: false
     })
-    expect(mocks.searchRecords).toHaveBeenCalledWith(records, longTerm.slice(0, 200), 'de', {
+    expect(mocks.createMiniSearchIndex).toHaveBeenCalledWith(records, {
       fields: ['title', 'content', 'tags'],
       storeFields: ['path', 'title', 'tags'],
       boost: { tags: 5, title: 1 },
       fuzzy: false,
       prefix: false
     })
+    expect(mocks.miniSearch).toHaveBeenCalledWith(longTerm.slice(0, 200), { locale: 'de' })
   })
 
   test('search API delegates provider-owned search and normalizes result collections', async () => {
     runtime.content.search = {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     } as never
     const providerSearch = vi.fn(async () => [
       {
-        path: '/de/dokumentation/provider-leitfaden',
         title: 'Provider Deutscher Leitfaden',
-        score: 1
+        score: 1,
+        route: {
+          collection: 'docs',
+          canonicalKey: 'docs:provider-guide',
+          locale: 'de',
+          contentPath: '/dokumentation/provider-leitfaden'
+        }
       }
     ])
     mocks.getContentProvider.mockResolvedValue({
@@ -137,7 +156,9 @@ describe('runtime search API boundaries', () => {
 
     await expect(handler(createTestEvent({ query: { q: longTerm, locale: 'de' } }))).resolves.toEqual([
       {
-        collection: '',
+        collection: 'docs',
+        excerpt: '',
+        locale: 'de',
         path: '/de/dokumentation/provider-leitfaden',
         title: 'Provider Deutscher Leitfaden',
         score: 1
@@ -149,12 +170,12 @@ describe('runtime search API boundaries', () => {
       collections: ['docs']
     })
     expect(mocks.buildSearchIndex).not.toHaveBeenCalled()
-    expect(mocks.searchRecords).not.toHaveBeenCalled()
+    expect(mocks.createMiniSearchIndex).not.toHaveBeenCalled()
   })
 
   test('search API fails loudly when provider-owned search is selected without provider support', async () => {
     runtime.content.search = {
-      engine: 'cms',
+      engine: 'provider',
       collections: ['docs']
     } as never
     mocks.getContentProvider.mockResolvedValue({
@@ -178,6 +199,6 @@ describe('runtime search API boundaries', () => {
     await expect(search(createTestEvent({ query: { q: 'fallback' } }))).resolves.toEqual([])
     await expect(searchIndex(createTestEvent())).resolves.toEqual([])
     expect(mocks.buildSearchIndex).not.toHaveBeenCalled()
-    expect(mocks.searchRecords).not.toHaveBeenCalled()
+    expect(mocks.createMiniSearchIndex).not.toHaveBeenCalled()
   })
 })

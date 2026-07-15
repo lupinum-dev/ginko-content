@@ -135,8 +135,8 @@ const sanitizeAgentConfig = async (
     return undefined
   }
 
-  const defaultLocale = agent.site?.defaultLocale || contentContext.defaultLocale || contentContext.locales?.[0] || 'en'
-  const locales = agent.site?.locales?.length ? agent.site.locales : (contentContext.locales?.length ? contentContext.locales : [defaultLocale])
+  const defaultLocale = contentContext.defaultLocale || contentContext.locales?.[0] || 'en'
+  const locales = contentContext.locales?.length ? contentContext.locales : [defaultLocale]
   const agentSiteUrl = siteUrl || agent.site?.url || 'http://localhost:3000'
   const pages = await Promise.all((agent.pages || []).map(async (page) => {
     const title: Record<string, string> = {}
@@ -202,11 +202,14 @@ export const applyContentRuntimeConfig = async (
     translatedSlugs: contentContext.translatedSlugs ?? false,
     strictTranslatedSlugs: contentContext.strictTranslatedSlugs ?? false,
     collections: runtimeCollections,
+    renderPolicies: Object.fromEntries(
+      Object.entries(contentContext.contract.collections).map(([id, collection]) => [
+        id,
+        collection.componentPolicy,
+      ]),
+    ),
     links: contentContext.links || {},
     integrity: buildIntegrity as number,
-    experimental: {
-      stripQueryParameters: options.experimental.stripQueryParameters
-    },
     respectPathCase: options.respectPathCase ?? false,
     api: {
       baseURL: options.api.baseURL
@@ -226,8 +229,7 @@ export const applyContentRuntimeConfig = async (
         }
       : false,
     search: searchRuntime,
-    navigation: contentContext.navigation as any,
-    contentHead: options.contentHead ?? true
+    navigation: contentContext.navigation as any
   })
 
   const runtimeAgent = await sanitizeAgentConfig(appContentConfig.agent, contentContext, siteUrl)

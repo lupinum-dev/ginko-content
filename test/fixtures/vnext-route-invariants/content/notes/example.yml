@@ -1,0 +1,6 @@
+title: Example Note
+body: A data-collection record. Never route-mounted.
+i18n:
+  de:
+    title: Beispielnotiz
+    body: Ein Datensatz. Wird nie zu einer Route.

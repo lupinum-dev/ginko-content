@@ -21,7 +21,10 @@ export default defineTransformer({
 
     const body = normalizeMarkdownBody({
       ...toMarkdownRoot(tree.nodes as any[]),
-      toc: tree.meta?.toc
+      // `undefined` is not a JSON-pure value (VNEXT §11): omit `toc`
+      // entirely when the document has none, instead of setting the key to
+      // `undefined`.
+      ...(tree.meta?.toc ? { toc: tree.meta.toc } : {})
     })
     const excerpt = Array.isArray(tree.meta?.summary)
       ? normalizeMarkdownBody({
@@ -32,7 +35,10 @@ export default defineTransformer({
     return <MarkdownParsedContent>{
       ...frontmatter,
       description: typeof frontmatter.description === 'string' ? frontmatter.description : '',
-      excerpt,
+      // Omit the key entirely rather than set it to `undefined`: the
+      // canonical JSON value model (VNEXT §11) rejects `undefined` values,
+      // and a document with no excerpt should simply not carry the field.
+      ...(excerpt ? { excerpt } : {}),
       body,
       type: 'markdown',
       id

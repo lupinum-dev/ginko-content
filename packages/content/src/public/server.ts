@@ -11,23 +11,19 @@ export {
   paginate,
   backlinks,
   resolveOne,
-  variants,
-  tree,
-  neighbors,
-  createServerContentQueryContext
+  surround,
+  navigation
 } from '../runtime/server/query-api.js'
 
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
+export { findFirstNavigationPage } from '../features/navigation/resolve.js'
 
 export type {
   QueryWhere,
   QueryOperators,
   ContentSelector,
-  ContentPageResult,
-  ContentRouteMeta,
   ContentSearchSection,
-  ContentResolvedMeta,
   ContentSitemapEntry,
   BacklinkFields,
   BacklinkSource,
@@ -45,13 +41,23 @@ export type {
   ResolveOneResult,
   LocalizedDoc,
   LocalizedContentDocument,
-  LocalePathEntry,
-  NeighborsOptions,
-  NeighborsResult,
+  ResolutionEnvelope,
   SortSpec,
-  TreeOptions,
-  VariantsOptions,
-  ContentVariant
+  ContentAlternate,
+  ContentDocumentRoute,
+  ContentDocumentResolution,
+  ContentNavigationItem,
+  ContentCollectionName,
+  ContentCollectionStringName,
+  ContentCollectionTarget,
+  SurroundOptions,
+  SurroundResult,
+  NavigationOptions,
+  ContentNavigationTreeItem,
+  ResolvedContentNavigationItem,
+  PaginationMode,
+  OffsetPaginationResult,
+  CursorPaginationResult
 } from '../types/query.js'
 
 export type { ContentQueryResponse } from '../types/api.js'
@@ -61,19 +67,13 @@ export const queryCollectionsSitemapEntries: typeof import('../runtime/server/si
   return await queryCollectionsSitemapEntries(...args)
 }
 
-export { createContentProviderError } from './provider-errors.js'
 export {
   contentCacheHeaders,
   noopContentCache,
-  vercelContentCache,
-  headersContentCache,
-  type VercelContentCacheOptions
+  headersContentCache
 } from '../runtime/server/cache-adapters.js'
 export {
   clearContentCacheHint,
   collectContentCacheHint,
   getContentCacheHint
 } from '../runtime/server/cache-hints.js'
-export { PROVIDER_QUERY_VERSION, toContentProviderNavigationQuery, toContentProviderQuery, withContentCache } from './provider.js'
-export { normalizeProviderDocument, shapeProviderDocument } from '../runtime/server/provider-document.js'
-export type { ProviderDocumentInput, ShapeProviderDocumentOptions } from '../runtime/server/provider-document.js'

@@ -2,23 +2,18 @@ import type { MarkdownOptions, MarkdownPluginDescriptor } from './content'
 import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentQueryBuilderWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
+import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
+import type { ResolvedContentContractV1 } from '../cms-contract/types'
+import type { PortableComponentPolicyV1 } from './component-policy'
 
 export type MountOptions = {
-  driver: 'fs' | 'http' | string
+  driver: string
   name?: string
   prefix?: string
   [options: string]: unknown
 }
 
 export interface ContentI18nOptions {
-  /**
-   * Enable locale-aware content behavior.
-   *
-   * `true` means "detect from Nuxt I18n and/or content.config".
-   *
-   * @default true
-   */
-  enabled?: boolean
   /**
    * List of locale codes used by content.
    *
@@ -210,7 +205,7 @@ export interface ContentSearchOptions {
    */
   apiBaseURL?: string
   /**
-   * Search engine used by `useContentSearchResults`.
+   * Search engine used by `useContentSearch`.
    *
    * @default 'minisearch'
    */
@@ -224,7 +219,11 @@ export interface ContentSearchOptions {
   /**
    * Query predicate applied before records are indexed.
    *
-   * @default { draft: false, partial: false }
+   * Draft visibility is NOT part of this predicate: it follows the one core
+   * environment/preview-aware decision applied at the query layer, the same
+   * as navigation, sitemap, and the public query API.
+   *
+   * @default { partial: false }
    */
   filterQuery?: ContentQueryBuilderWhere
   /**
@@ -290,6 +289,13 @@ export interface ContentLinkRouteTarget {
 
 export type ContentLinksOptions = Record<string, Record<string, ContentLinkRouteTarget>>
 
+export interface ContentValidationRouteFacts {
+  /** Vue Router matcher expressions for concrete, non-catch-all app routes. */
+  patterns: Array<{ source: string, flags: string }>
+  /** Required parameter names for every resolved named route. */
+  named: Record<string, { requiredParams: string[] }>
+}
+
 export interface ContentAgentRouteOptions {
   routes?: boolean
   linkHeaders?: boolean
@@ -307,6 +313,14 @@ export interface ModuleOptions {
     baseURL: string
   }
   /**
+   * Closed allowlist for custom MDC components and their render-safe props.
+   * The resolved content contract is the canonical runtime and portability
+   * representation of this policy.
+   *
+   * @default { components: {} }
+   */
+  componentPolicy?: PortableComponentPolicyV1
+  /**
    * Locale-aware content behavior.
    */
   i18n: boolean | ContentI18nOptions
@@ -321,11 +335,16 @@ export interface ModuleOptions {
    * Built-in full-text search configuration.
    *
    * When enabled, Ginko exposes JSON/Pagefind search endpoints under
-   * the content api base route. `useContentSearchData()` and
-   * `useContentSearchResults()` are auto-imported; import the headless
-   * `useContentSearch()` helper from `@lupinum/ginko-content/client`.
+   * the content api base route. `useGinkoContentSearch()` is auto-imported;
+   * explicit package imports keep the `useContentSearch()` name.
    */
   search: false | ContentSearchOptions
+  /**
+   * Build-owned authored-link validation behavior.
+   * `report` writes diagnostics without blocking; `error` also fails the build.
+   * @default 'report'
+   */
+  validation?: 'report' | 'error'
   /**
    * Preview storage access configuration.
    *
@@ -451,40 +470,22 @@ export interface ModuleOptions {
     fields: Array<string>
   }
   /**
-   * Typed collection definitions loaded from `content.config.*`.
+   * Custom transformer modules, each resolved as an import specifier and
+   * default-exporting a `ContentTransformer` (see `defineTransformer` from
+   * `@lupinum/ginko-content/transformers`). Transformers run inside the real
+   * ingest pipeline alongside the built-in markdown/yaml/csv/json
+   * transformers, so their effects reach query results, navigation, search,
+   * and generated routes identically (VNEXT.md §14.4, §20.1).
    *
-   * Globs are relative to the content source root.
-   *
-   * @default {}
+   * @default []
    */
-  collections?: Record<string, ContentCollectionConfig>
-  /**
-   * Backing implementation for public content reads.
-   *
-   * `filesystem` is the default. Provider modules can register named
-   * implementations, for example `cms`.
-   */
-  provider?: ContentProviderName
-  /**
-   * External provider modules keyed by provider name. First-party provider
-   * modules register themselves, so app configs usually do not need this.
-   */
-  providers?: Record<string, string>
-  /**
-   * Enable automatic usage of `useContentHead`
-   *
-   * @default true
-   */
-  contentHead?: boolean
+  transformers?: Array<string>
   /**
    * Enable to keep uppercase characters in the generated routes.
    *
    * @default false
    */
   respectPathCase: boolean
-  experimental: {
-    stripQueryParameters?: boolean
-  }
 }
 
 
@@ -497,13 +498,30 @@ export interface ResolvedContentI18nOptions {
 }
 
 export interface ContentContext extends ModuleOptions {
+  collections: Record<string, ContentCollectionConfig>
+  provider: ContentProviderName
+  providers: Record<string, string>
   transformers: Array<string>
   sitemap: false | ContentSitemapOptions
+  validation: 'report' | 'error'
   locales: string[]
   defaultLocale?: string
   localeFallback: Record<string, string[]>
   translatedSlugs: boolean
   strictTranslatedSlugs: boolean
+  /** Resolved, serializable Nuxt route facts used only by the build validator. */
+  validationRouteFacts?: ContentValidationRouteFacts
+  /** Root-relative files from Nuxt's resolved public directories. */
+  validationPublicAssets?: string[]
+  /**
+   * The single immutable, per-collection locale policy resolved once at
+   * setup (VNEXT.md §12.1, §22). Downstream route/navigation/search/sitemap/
+   * prerender/agent code consumes this rather than reconstructing locale
+   * facts from loose fields.
+   */
+  localePolicy: ResolvedLocalePolicy
+  contract: ResolvedContentContractV1
+  contractSha256: string
 }
 
 export type ResolvedContentContext = Omit<ContentContext, 'markdown'> & {

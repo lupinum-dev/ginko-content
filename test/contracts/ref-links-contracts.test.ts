@@ -3,6 +3,7 @@ import { createEvent, doc } from './_utils'
 
 const resolveCanonicalKey = vi.fn()
 const resolveVariant = vi.fn()
+const getContentGraph = vi.fn()
 const contentLinks = vi.hoisted(() => ({
   value: {} as Record<string, Record<string, { route: string }>>
 }))
@@ -10,11 +11,16 @@ const contentLinks = vi.hoisted(() => ({
 vi.mock('../../packages/content/src/storage/driver', () => ({
   contentConfig: () => ({
     defaultLocale: 'en',
+    locales: ['en', 'de'],
+    collections: {
+      docs: { route: { en: '/guide', de: '/leitfaden' } }
+    },
     links: contentLinks.value
   })
 }))
 
-vi.mock('../../packages/content/src/storage/manifest', () => ({
+vi.mock('../../packages/content/src/storage/graph', () => ({
+  getContentGraph,
   resolveCanonicalKey,
   resolveVariant
 }))
@@ -23,6 +29,8 @@ describe('ref link contracts', () => {
   beforeEach(() => {
     resolveCanonicalKey.mockReset()
     resolveVariant.mockReset()
+    getContentGraph.mockReset()
+    getContentGraph.mockResolvedValue({ byId: {} })
     contentLinks.value = {}
   })
 
@@ -117,9 +125,15 @@ describe('ref link contracts', () => {
     resolveCanonicalKey.mockResolvedValue('docs/advanced')
     resolveVariant.mockResolvedValue({
       canonicalKey: 'docs/advanced',
+      contentId: 'content:docs:advanced',
       resolvedLocale: 'en',
       path: '/guide/advanced',
       fallback: true
+    })
+    getContentGraph.mockResolvedValue({
+      byId: {
+        'content:docs:advanced': { collection: 'docs' }
+      }
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
@@ -139,7 +153,7 @@ describe('ref link contracts', () => {
     }), 'de')).resolves.toMatchObject({
       resolved: {
         resolvedRefs: {
-          '$guide/advanced#deep-dive': '/de/guide/advanced#deep-dive'
+          '$guide/advanced#deep-dive': '/de/leitfaden/advanced#deep-dive'
         }
       }
     })

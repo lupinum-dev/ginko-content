@@ -73,14 +73,17 @@ Avoid raw path-string coupling when the goal is a stable content relationship.
 
 Use collection handles exported from `content.config.ts` with the ADR-0016 helpers for lists, dashboards, search-adjacent views, and non-route-backed lookups.
 
-Common helpers:
+Common helpers (pair with `useAsyncData` and an explicit, stable key when calling from a component):
 
 - `many(handle, options)` for lists.
 - `one(handle, options)` for nullable single-document reads.
 - `resolveOne(handle, options)` for diagnostic single-document reads.
-- `tree(handle, options)` for navigation.
-- `neighbors(handle, options)` for previous/next entries.
-- `variants(handle, options)` for locale variants.
+- `navigation(handle, options)` for navigation trees.
+- `surround(handle, options)` for previous/next entries.
+- `paginate(handle, options)` for paged lists.
+- `backlinks(handle, options)` for reverse-reference lookups.
+
+Locale variants are not a separate query — read `route.alternates` off any resolved document.
 
 ```ts
 import { blog } from '~/content.config'
@@ -92,7 +95,7 @@ const posts = await many(blog, {
 })
 ```
 
-For route-backed pages, prefer `useContentOne(handle, { by: { route } })` over manually querying by path.
+For route-backed pages, prefer `useContentPage(handle, options)` over manually querying by path.
 
 ## Server Query Helpers
 

@@ -2,6 +2,22 @@ import { z, type ZodType } from 'zod'
 import { CONTENT_REFERENCE_PREFIX } from './reference'
 
 /**
+ * Internal type-machinery symbols used to carry phantom schema/i18n
+ * information on `ContentCollectionHandle` for conditional-type inference.
+ *
+ * These are exported only because TypeScript's declaration-emit mechanics
+ * require importable symbol identity across files/packages for `unique
+ * symbol`-keyed properties to be structurally comparable. They are not
+ * documented application API, carry no runtime property on collection
+ * handles, and must not be read directly by application code.
+ *
+ * @internal
+ */
+export const __ginkoSchemaBrand: unique symbol = Symbol('ginko-content:schema')
+/** @internal */
+export const __ginkoI18nBrand: unique symbol = Symbol('ginko-content:i18n')
+
+/**
  * Locale settings for a collection that ships translated variants.
  */
 export interface ContentCollectionI18nConfig {
@@ -101,6 +117,8 @@ export interface ContentCmsCollectionConfig {
     slugMode?: 'shared' | 'localized' | 'stable' | 'localizedStable'
     rootSlug?: string | null
     singleton?: boolean
+    /** Whether a tree collection may contain more than one root entry. */
+    allowMultipleRoots?: boolean
   }
   fields?: Record<string, ContentCmsFieldConfig>
   settings?: unknown
@@ -149,8 +167,6 @@ export interface ContentAgentSiteConfig {
   title: ContentAgentLocalizedValue
   description: ContentAgentLocalizedValue
   url?: string
-  defaultLocale?: string
-  locales?: string[]
   profile?: string
   contentSignals?: {
     search?: boolean
@@ -263,14 +279,6 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
    */
   route?: ContentCollectionRouteConfig
   /**
-   * Opt-in to fully translated path segments per locale (ADR-0008). When `true`,
-   * the content graph pairs locale variants by numeric prefix on filenames so
-   * each locale can carry its own slug text, e.g. `1.guide/` ↔ `1.documentation/`.
-   *
-   * @default false
-   */
-  translatedSlugs?: boolean
-  /**
    * Include this collection in content-owned sitemap output and prerender route
    * discovery. Route-backed collections are included by default; data-only or
    * app-internal collections should opt out with `false`.
@@ -364,7 +372,7 @@ export interface ContentReferenceSchema extends z.ZodString {
 /**
  * Typed handle returned by `defineCollection`. Carries the collection's name
  * and i18n discriminator at the type level so the unified query API
- * (`one`, `many`, `useContentOne`, ...) can require `locale` only when the
+ * (`one`, `many`, `useContentPage`, ...) can require `locale` only when the
  * collection is internationalized.
  *
  * The handle extends `ContentCollectionConfig` so it can be stored directly
@@ -383,16 +391,24 @@ export interface ContentCollectionHandle<
    * Phantom flag — `true` when the collection ships translated variants.
    * Used by the type system to make `locale` required on i18n queries.
    *
+   * Carried under a private symbol key: it does not exist as a readable
+   * runtime property, so `Object.keys()`/`JSON.stringify()`/spreads never
+   * surface it. Use type-level narrowing (e.g. `DocumentFromHandle`) rather
+   * than reading this key directly.
+   *
    * @internal
    */
-  readonly __i18n: TI18n
+  readonly [__ginkoI18nBrand]: TI18n
   /**
    * Phantom marker — Zod schema bound at definition time. Used to infer the
    * returned document shape at query time.
    *
+   * Carried under a private symbol key; see `__i18n` brand above for the
+   * same no-runtime-property guarantee.
+   *
    * @internal
    */
-  readonly __schema: TSchema
+  readonly [__ginkoSchemaBrand]: TSchema
 }
 
 type IsI18nConfig<TConfig> = TConfig extends { i18n: true | ContentCollectionI18nConfig }
@@ -406,13 +422,13 @@ type CollectionNameFromConfigKey<Key extends string, TCollection> =
 
 type NamedContentCollection<Key extends string, TCollection> =
   TCollection extends ContentCollectionHandle<infer Name, infer TSchema, infer TI18n>
-    ? Omit<TCollection, 'name' | '__schema' | '__i18n'> & ContentCollectionHandle<
+    ? Omit<TCollection, 'name' | typeof __ginkoSchemaBrand | typeof __ginkoI18nBrand> & ContentCollectionHandle<
       [Name] extends [never] ? Key : Name,
       TSchema,
       TI18n
     >
     : TCollection extends ContentCollectionConfig<infer TSchema>
-    ? Omit<TCollection, 'name' | '__schema' | '__i18n'> & ContentCollectionHandle<
+    ? Omit<TCollection, 'name' | typeof __ginkoSchemaBrand | typeof __ginkoI18nBrand> & ContentCollectionHandle<
       CollectionNameFromConfigKey<Key, TCollection>,
       TSchema,
       IsI18nConfig<TCollection>

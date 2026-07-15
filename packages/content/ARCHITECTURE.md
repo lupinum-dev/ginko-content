@@ -6,7 +6,7 @@ The source layout is layered by **framework coupling** and **dependency directio
 
 ## Source tree (every top-level directory)
 
-`packages/content/src/` has fifteen top-level homes. Each row states what lives there and which other top-level homes it may import from.
+`packages/content/src/` has sixteen top-level homes. Each row states what lives there and which other top-level homes it may import from.
 
 | Directory | What lives here | May import from |
 |---|---|---|
@@ -21,9 +21,10 @@ The source layout is layered by **framework coupling** and **dependency directio
 | `runtime/` | Thin Nuxt/Nitro/Vue entrypoints: app composables, server API handlers, middleware, markdown/transformer runtime, virtual bindings. Should stay thin — accumulating logic here is a smell. | all internal layers + `public` |
 | `public/` | Export-facing facades for the `@lupinum/ginko-content/*` package subpaths (`client`, `server`, `provider`, `provider-query`, `provider-errors`). Provider types live here for external providers to implement. | `runtime`, `features`, `core`, `types` |
 | `config.ts` | Source of the `@lupinum/ginko-content/config` subpath: authoring/schema exports (`defineCollection`, `defineContentConfig`, field builders, `slugifyUrlSegment`). | `core`, `types` |
-| `cms-contract/` | The CMS-facing contract surface: `buildCmsContract`, schema, mdc, path, and contract types. | `core`, `types` |
-| `cms-import/` | The CMS import surface. | `core`, `parsers`, `types` |
-| `cli/` | The `doctor` CLI. | `core`, `parsers`, `types` |
+| `cms-contract/` | The runtime-safe resolved content contract, canonical JSON/SHA-256, schema helpers, MDC, and path surface shared by portability and CMS. | `core`, `types` |
+| `portability/` | Pure portable documents, codecs, manifests, references, assets, and semantic equality. | `cms-contract` |
+| `portability-node/` | Safe bounded Node directory reads, writes, and verification. | `portability`, `cms-contract` |
+| `cli/` | The `doctor` and build-report `validate` commands. | `core`, `features`, `parsers`, `types` |
 | `testing/` | The provider conformance suite and the default provider fixture (`testing/provider-fixture`, `testing/provider-contract`). | `core`, `features`, `public`, `runtime`, `types` |
 
 `cli.ts`, `module.ts`, `utils.ts`, and `config.ts` at the root of `src/` are thin barrels/entrypoints over the like-named directories (or, for `config.ts`, the standalone subpath entry).
@@ -43,7 +44,7 @@ The remaining edges are conventional (not machine-checked) but hold in the tree:
 - `runtime` sits at the top: it may import every internal layer and `public`.
 - `module` composes `core`, `features`, `parsers`, `utils`, and `types` at build time, plus one narrow `runtime` sitemap-source helper.
 - `public` composes `runtime`, `features`, `core`, `types` into export facades.
-- `cms-contract` → `core`, `types`; `cms-import` → `core`, `parsers`, `types`; `cli` → `core`, `parsers`, `types`; `config.ts` → `core`, `types`.
+- `cms-contract` → `core`, `types`; `portability` → `cms-contract`; `portability-node` → `portability`, `cms-contract`; `cli` → `core`, `parsers`, `types`; `config.ts` → `core`, `types`.
 - `testing` may reach `core`, `features`, `public`, `runtime`, `types` (it exercises the public seam).
 
 Disallowed, always:
@@ -83,6 +84,10 @@ The LLM markdown output feature (`/raw/*.md`, `/llms.txt`, `/llms-full.txt`, and
 
 The code identifiers stay `agent` (the shipped module option is `agent: {...}`); "LLM markdown output" is the prose name for the same feature.
 
+Agent output does not own a parallel locale configuration. All localized
+agent pages and routes derive from the resolved content locale policy;
+`agent.site` contains presentation and identity fields only.
+
 ## Request Context
 
 Request-scoped runtime state lives in `src/integrations/nitro/context.ts`.
@@ -94,6 +99,12 @@ It owns:
 
 Nothing else should create parallel request caches.
 
+Client query contexts follow the same ownership rule. Nuxt-bound request
+capabilities (`useRequestFetch` and the preview cookie token) are captured once
+when the context is created. Nested operations such as reference population
+reuse those captured values; they must not call Nuxt composables after an async
+boundary, where Vue setup context is no longer guaranteed.
+
 ## Public Surface
 
 Public package exports are the compatibility seam. Current subpaths:
@@ -103,15 +114,15 @@ Public package exports are the compatibility seam. Current subpaths:
 - `@lupinum/ginko-content/provider`
 - `@lupinum/ginko-content/client`
 - `@lupinum/ginko-content/agent`
+- `@lupinum/ginko-content/agent-paths`
+- `@lupinum/ginko-content/agent-registry`
 - `@lupinum/ginko-content/cms-contract`
-- `@lupinum/ginko-content/cms-import`
+- `@lupinum/ginko-content/data-source`
+- `@lupinum/ginko-content/portability`
+- `@lupinum/ginko-content/portability/node`
 - `@lupinum/ginko-content/testing/provider-fixture`
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
-- `@lupinum/ginko-content/transformers/markdown`
-- `@lupinum/ginko-content/transformers/yaml`
-- `@lupinum/ginko-content/transformers/json`
-- `@lupinum/ginko-content/transformers/csv`
 
 Internal source layout should optimize for clarity, not mirror the export map.
 `meta/public-surface.json` classifies every committed package subpath,
@@ -123,7 +134,54 @@ audience, and docs target.
 Collection search-section generation remains in this package under `src/features/search`.
 Full-text search transport, indexing, and runtime bindings also live in this package under `src/runtime`.
 
-MiniSearch and Pagefind are filesystem/default-provider search paths. Provider-owned search is selected through the `cms` search engine and delegates to the active provider.
+MiniSearch and Pagefind are filesystem/default-provider search paths. Provider-owned search is selected through the `provider` search engine and delegates to the active provider.
+
+MiniSearch indexes have an explicit owner and immutable record snapshot; there
+is no process-global identity cache. Pagefind locale indexes and the locale
+manifest are derived build artifacts. Both paths return plain-text excerpts;
+highlighting remains consumer-owned.
+
+## Authored-link validation
+
+Validation consumes the canonical graph, projected content routes, resolved
+Nuxt pages, configured references, and filesystem source provenance during the
+build. It must not parse page filenames or guess cache paths. The versioned
+`content-cache/validation.json` report is derived and rebuildable. In strict
+mode it is persisted before the invalid snapshot is rejected; the CLI only reads
+and validates this report rather than creating a parallel validator.
+
+The normalized `ContentSearchResult` envelope is the primary consumer contract.
+Consumers own result rendering, highlighting, preview panes, keyboard shortcuts,
+recent searches, persistence, analytics, and provider branding. The existing
+`files` and `searchNavigation` outputs on `useContentSearch()` remain as a
+compatibility seam for Nuxt UI consumers, but are frozen: do not add more
+UI-shaped search state to this package. Reconsidering those two outputs requires
+real consumer evidence and a breaking-release migration plan.
+
+Before admitting another search capability, answer all of these:
+
+1. Does it normalize content facts or search results rather than render UI?
+2. Can MiniSearch, Pagefind, and provider-owned search expose it honestly?
+3. Does it reuse canonical route, locale, collection, and visibility facts?
+4. Can a consumer implement it without Ginko owning browser state or vendor code?
+5. Is there a focused acceptance test proving a current consumer needs it?
+
+A "no" keeps the capability in the consumer or provider integration. Do not add
+a fourth permanent search backend, hosted credentials, model calls, vector
+storage, generic facets, or another search manifest to core.
+
+## Product admission rule
+
+Ginko Content provides plumbing for content sites: normalized content, canonical
+identity and routes, i18n projection, provider-neutral queries and search,
+validation facts, sitemap facts, and agent-readable text output. Consumers own
+all visual components and product workflows. Hosted services, CMS workflow,
+Studio, MCP, authentication, and vendor SDKs stay outside this repository.
+
+New capabilities must reuse an existing source of truth. Derived output is
+admissible only when it is rebuildable from canonical content and protected by
+an invariant test. Prefer one direct function or command over adapters,
+projections, caches, or configuration that exist only for possible future use.
 
 ## Providers
 

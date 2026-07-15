@@ -28,6 +28,7 @@ ADR that supersedes the old one; do not rewrite history.
 | 0016  | [Unified query API](./0016-unified-query-api.md)                                                       | active |
 | 0017  | [CMS cache invalidation boundary](./0017-cms-cache-invalidation-boundary.md)                           | active |
 | 0018  | [Classify public surfaces by audience](./0018-public-surface-classification.md)                        | active |
+| 0019  | [Keep MiniSearch after the Orama benchmark](./0019-keep-minisearch-after-orama-benchmark.md)             | active |
 
 ## Format
 

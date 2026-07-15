@@ -1,5 +1,4 @@
 import type { ModuleOptions } from '../types/module'
-import { defaultMiniSearchOptions } from './options'
 
 export const contentModuleDefaults = {
   api: {
@@ -7,24 +6,12 @@ export const contentModuleDefaults = {
   },
   i18n: true,
   sitemap: true,
-  search: {
-    engine: 'minisearch',
-    ignoredTags: ['script', 'style', 'pre'],
-    filterQuery: { draft: false, partial: false },
-    extraFields: [],
-    minisearch: {
-      fields: [...defaultMiniSearchOptions.fields],
-      storeFields: [...defaultMiniSearchOptions.storeFields],
-      boost: { ...defaultMiniSearchOptions.boost },
-      fuzzy: defaultMiniSearchOptions.fuzzy,
-      prefix: defaultMiniSearchOptions.prefix
-    }
-  },
+  search: false,
+  validation: 'report',
   watch: true,
   sources: {},
   ignores: [],
   links: {},
-  collections: {},
   markdown: {
     plugins: [],
     tags: {
@@ -52,9 +39,5 @@ export const contentModuleDefaults = {
     markdownNegotiation: true,
     prerender: true
   },
-  contentHead: true,
-  respectPathCase: false,
-  experimental: {
-    stripQueryParameters: false
-  }
+  respectPathCase: false
 } satisfies ModuleOptions

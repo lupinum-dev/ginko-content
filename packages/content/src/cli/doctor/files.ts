@@ -28,7 +28,7 @@ const sourceExtensions = new Set([
   '.yaml'
 ])
 
-export const toRelativePath = (rootDir: string, file: string) => relative(rootDir, file) || '.'
+export const toRelativePath = (rootDir: string, file: string) => relative(rootDir, file).replace(/\\/g, '/') || '.'
 
 export async function collectFiles(dir: string, rootDir: string, files: string[] = []): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })

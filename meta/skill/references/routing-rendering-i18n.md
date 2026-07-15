@@ -4,17 +4,20 @@ Use this for route-backed pages, locale behavior, translated slugs, language swi
 
 ## Preferred Page API
 
-Use `useContentOne(handle, { by: { route } })` for route-backed pages. It resolves the active route, locale, fallback state, page data, and route metadata through the unified query workflow.
+Use `useContentPage(handle, options)` for route-backed pages. It resolves the active route, locale, and fallback state through the unified query workflow, owns SSR payload integration, route watching, stable keying, and stale-page flash suppression. It does not throw a default 404, does not mutate `<head>`, and does not execute redirects — the app decides that policy from `route.requestedPath`/`route.resolvedPath`.
 
 ```vue
 <script setup lang="ts">
+import { createError, useContentPage } from '#imports'
 import { docs } from '~/content.config'
 
-const route = useRoute()
-const { data: page, status, error } = await useContentOne(docs, {
-  by: { route: route.path },
+const { page, status, error } = await useContentPage(docs, {
   fallback: true
 })
+
+if (import.meta.server && !page.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Document not found' })
+}
 </script>
 
 <template>
@@ -22,25 +25,27 @@ const { data: page, status, error } = await useContentOne(docs, {
 </template>
 ```
 
-Use lower-level query APIs only when the page is not route-backed or the UI is intentionally listing/filtering content.
+Use lower-level query functions (`one`, `many`, `paginate`, `resolveOne`, `surround`, `backlinks`, `navigation`) paired with `useAsyncData` when the page is not route-backed or the UI is intentionally listing/filtering content.
 
 ## Route And Locale Helpers
 
-- `page.localePaths`: public content locale-switch contract for resolved route-backed documents.
-- `useContentTree(handle, options?)`: normalized navigation tree for a collection.
-- `useContentNeighbors(handle, options)`: previous/next entries around a route-backed document.
+- `page.route.alternates`: labeled locale-switch contract (`source: 'variant' | 'fallback'`, with `resolvedLocale` on fallback entries) for resolved route-backed documents — the replacement for the deleted `useContentSwitchLocalePath`.
+- `navigation(handle, options)` (with `useAsyncData`): normalized navigation tree for a collection.
+- `useContentPage(handle, { surround: true })` or `surround(handle, options)`: previous/next entries around a route-backed document.
 - `querySiteData(options?)`: site-level content data.
-- `useContentToc` / `extractContentToc`: table of contents helpers.
+- `extractContentToc`: table of contents helper (pure function; no composable wrapper).
 
 ## Locale Source Of Truth
 
-When `@nuxtjs/i18n` is installed, Nuxt i18n is the locale source of truth. Ginko adds content-specific behavior:
+When `@nuxtjs/i18n` is installed, Nuxt i18n is the locale source of truth for locales, default locale, and route strategy. Ginko adds content-specific behavior on top:
 
 - fallback chains
 - translated slug mode
 - strict translated-slug validation
 - collection-level i18n opt-in
 - canonical identity for variant matching
+
+Content-only localization (no `@nuxtjs/i18n` installed) is a supported mode, not a degraded fallback: declare locales, a default locale, and per-collection `i18n` entirely through `content.i18n` in `nuxt.config.ts`. See ADR-0007.
 
 Do not implement language switching by string prefix replacement. Use canonical identity and the public route helpers.
 
@@ -82,7 +87,6 @@ Apps should consume normalized navigation, not provider-native metadata.
 ## Where To Verify
 
 - `test/contracts/use-content-page-contracts.test.ts`
-- `test/contracts/content-route-contracts.test.ts`
 - `test/contracts/navigation-contracts.test.ts`
 - `test/contracts/navigation-tree-contracts.test.ts`
 - `test/contracts/locale-manifest.test.ts`

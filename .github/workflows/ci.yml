@@ -93,7 +93,7 @@ jobs:
       - name: Assert clean exact-SHA artifact provenance
         run: >-
           node -e "const m=require('./.pack/release-artifact.json');
-          if (m.commit !== process.env.GITHUB_SHA || m.worktreeDirty || !m.releaseEligible)
+          if (m.commit !== process.env.GITHUB_SHA || m.worktreeDirty || !m.releaseEligible || m.reproduciblePacks !== 2)
           throw new Error('Release artifact is not eligible for '+process.env.GITHUB_SHA)"
 
       - name: Record exact release artifact
@@ -130,3 +130,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm test:minimum-runtime
+
+  windows-portability:
+    name: Windows portability and packed consumer
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm vitest run --config vitest.config.ts --project contracts-node test/contracts/portability-directory-contracts.test.ts
+
+      - run: pnpm release:pack
+
+      # Keep the upstream Nuxt 4.4.7–4.4.8 Windows drive-letter prerender
+      # failure visible without blocking this release candidate. Portability
+      # contracts above remain required.
+      - continue-on-error: true
+        run: node scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack

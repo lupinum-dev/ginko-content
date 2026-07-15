@@ -39,7 +39,6 @@ High-value contract tests:
 - query lowering: `test/contracts/query-plan-contracts.test.ts`
 - client query usage: `test/contracts/app-query-contracts.test.ts`
 - page loading: `test/contracts/use-content-page-contracts.test.ts`
-- content routes: `test/contracts/content-route-contracts.test.ts`
 - navigation: `test/contracts/navigation-contracts.test.ts`
 - provider behavior: `test/contracts/provider-contracts.test.ts`
 - filesystem conformance: `test/contracts/filesystem-provider-conformance.test.ts`
@@ -85,8 +84,8 @@ pnpm example <group>/<name>
 
 - Use `@lupinum/ginko-content`, not old package names.
 - Use `content.config.ts` for collections and schemas.
-- Use `useContentOne(handle, { by: { route } })` for route-backed page examples.
-- Use `many(handle, options)` / `useContentMany(handle, options)` for list/query examples.
+- Use `useContentPage(handle, options)` for route-backed page examples.
+- Use `many(handle, options)` (paired with `useAsyncData`) for list/query examples.
 - Use `one(event, handle, options)` / `many(event, handle, options)` for server examples.
 - Explain i18n and sitemap ownership accurately.
 - Avoid documenting internal runtime paths as app APIs.

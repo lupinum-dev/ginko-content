@@ -1,172 +1,153 @@
-import type { ContentProvider, ContentProviderQuery } from '../../packages/content/src/public/provider'
-import { toContentProviderQuery } from '../../packages/content/src/public/provider'
-import type { ContentQueryResponse } from '../../packages/content/src/types/api'
-import type { NavItem, ParsedContent } from '../../packages/content/src/types/content'
-import type { ContentQueryBuilderParams } from '../../packages/content/src/types/query'
-import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
+import type { H3Event } from 'h3'
+import type {
+  ContentProvider,
+  ContentProviderQuery,
+  ProviderDocumentInput
+} from '../../packages/content/src/public/provider'
 import { SUPPORTED_QUERY_OPERATORS } from '../../packages/content/src/core/query/operators'
-import { normalizeRouteMounts, projectContentPathToLocale } from '../../packages/content/src/features/localization/path'
-import { createRouteMeta, localizePageResult } from '../../packages/content/src/features/localization/results'
+import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
+import { normalizeContentPath } from '../../packages/content/src/core/content/path'
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
+import type { ParsedContent } from '../../packages/content/src/types/content'
+import type { ContentQueryResponse } from '../../packages/content/src/types/api'
 import type { ContentScenario } from './content-scenario'
-
-const unwrapResponseResult = <T>(response: ContentQueryResponse<T>): T | T[] | number | undefined =>
-  response.result as T | T[] | number | undefined
-
-const routeMountsFor = (scenario: ContentScenario, collection: string) => {
-  const config = scenario.collections[collection]
-  const collectionI18n = config?.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
-  return normalizeRouteMounts(
-    config?.route,
-    collectionI18n?.locales || scenario.locales,
-    collectionI18n?.defaultLocale || scenario.defaultLocale
-  )
-}
-
-const localizePath = (scenario: ContentScenario, collection: string, path: string, locale?: string) => {
-  const config = scenario.collections[collection]
-  const collectionI18n = config?.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
-  return projectContentPathToLocale(
-    path,
-    locale,
-    collectionI18n?.defaultLocale || scenario.defaultLocale,
-    routeMountsFor(scenario, collection)
-  )
-}
 
 const normalizeQueryResult = <T>(value: T | T[] | number | undefined): T[] => {
   if (Array.isArray(value)) return value
   return value && typeof value === 'object' ? [value] : []
 }
 
+/**
+ * Small final-contract provider used by runtime and public-consumer tests.
+ * It deliberately returns the same raw document and route facts a remote CMS
+ * would return; production shaping remains exercised in Ginko core.
+ */
 export const createInMemoryProvider = (scenario: ContentScenario, name = 'in-memory'): ContentProvider => {
-  const assertCollection = (collection?: string) => {
+  const assertCollection = (collection?: string | null) => {
     if (collection && !scenario.collections[collection]) {
       throw createContentProviderError('unknown_collection', `Unknown collection: ${collection}`, { collection })
     }
   }
 
-  const query: ContentProvider['query'] = async (_event, providerQuery: ContentProviderQuery) => {
+  const execute = (providerQuery: ContentProviderQuery) => {
     assertCollection(providerQuery.plan.collection)
-
-    return executeQueryPlan(
-      scenario.graph,
-      providerQuery.plan,
-      scenario.runtime
-    )
+    const plan = {
+      ...providerQuery.plan,
+      projection: {
+        only: providerQuery.plan.projection.only.length
+          ? [...new Set([
+              ...providerQuery.plan.projection.only,
+              'id', 'collection', 'canonicalKey', 'locale', 'path', 'resolved',
+              'type', 'body', 'file'
+            ])]
+          : [],
+        without: providerQuery.plan.projection.only.length ? [] : providerQuery.plan.projection.without
+      }
+    }
+    return executeQueryPlan<ParsedContent>(scenario.graph, plan, scenario.runtime)
   }
 
-  const queryWithParams = <T = ParsedContent>(event: any, params: ContentQueryBuilderParams) =>
-    query<T>(event, toContentProviderQuery(params))
+  const routeVariantsFor = (document: ParsedContent) => scenario.documents
+    .filter(candidate => candidate.canonicalKey === document.canonicalKey && candidate.path && candidate.locale)
+    .map(candidate => ({
+      locale: candidate.locale!,
+      contentPath: normalizeContentPath(candidate.path!)
+    }))
 
-const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) => {
-    const response = await queryWithParams<ParsedContent>(event, params)
-    return normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-      .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
+  const routeFact = (document: ParsedContent) => ({
+    collection: document.collection || '',
+    canonicalKey: document.canonicalKey || '',
+    locale: document.locale || '',
+    contentPath: normalizeContentPath(document.path || '/')
+  })
+
+  const toRawDocument = (document: ParsedContent): ProviderDocumentInput => {
+    const { path, resolved, route, resolution, ...data } = document as ParsedContent & Record<string, unknown>
+    void route
+    void resolution
+    return {
+      ...data,
+      id: document.id,
+      collection: document.collection || '',
+      canonicalKey: document.canonicalKey || '',
+      locale: document.locale || '',
+      contentPath: normalizeContentPath(path || '/'),
+      routeVariants: routeVariantsFor(document),
+      type: document.type,
+      body: document.body ?? null,
+      ...(document.file ? { file: document.file } : {}),
+      ...(resolved ? { _fixtureResolution: resolved } : {})
+    }
   }
 
-  const provider: ContentProvider = {
+  const mapQueryResponse = (response: ReturnType<typeof executeQueryPlan>) => {
+    if (typeof response.result === 'number') return response
+    if (Array.isArray(response.result)) {
+      return { ...response, result: response.result.map(toRawDocument) }
+    }
+    return {
+      ...response,
+      result: response.result ? toRawDocument(response.result as ParsedContent) : response.result
+    }
+  }
+
+  const documentsForNavigation = (providerQuery: ContentProviderQuery) => {
+    const response = execute({
+      ...providerQuery,
+      plan: {
+        ...providerQuery.plan,
+        projection: { only: [], without: [] }
+      }
+    })
+    return normalizeQueryResult(response.result as ParsedContent | ParsedContent[] | number | undefined)
+      .filter(document => !document.partial && !document.navigationFile && document.navigation !== false && document.path)
+  }
+
+  return {
     name: name as ContentProvider['name'],
     capabilities: {
-      routeBackedCollections: true,
-      dataCollections: true,
-      localizedRoutes: true,
-      translatedSlugs: true,
-      navigation: true,
-      surroundings: true,
-      searchSections: true,
-      sitemap: true,
       query: {
-        operators: [...SUPPORTED_QUERY_OPERATORS],
-        limit: true,
-        skip: true,
-        count: true
+        operators: [
+          ...SUPPORTED_QUERY_OPERATORS.filter(operator => operator !== '$options'),
+          '$and',
+          '$or'
+        ],
+        pagination: ['offset', 'cursor']
       }
     },
-    query,
-    navigationQuery: async (event, providerQuery, navigationOptions = {}) => {
-      const response = await query<ParsedContent>(event, providerQuery)
-      const docs = normalizeQueryResult<ParsedContent>(unwrapResponseResult(response))
-        .filter(doc => !doc.draft && !doc.partial && !doc._navigation && doc.navigation !== false && doc.path)
-      const collection = providerQuery.collection ?? undefined
-      const queryLocale = navigationOptions.resolveLocale?.locale
-      return docs.map(doc => ({
-        title: doc.title,
-        path: localizePath(scenario, doc.collection || collection || '', doc.path || '/', queryLocale || doc.resolved?.requestedLocale || doc.locale),
-        locale: doc.locale
-      })) as NavItem[]
-    },
-    navigation: async (event, collection, options = {}) => {
+    query: async <T>(_event: H3Event, providerQuery: ContentProviderQuery) =>
+      mapQueryResponse(execute(providerQuery)) as unknown as ContentQueryResponse<T>,
+    navigation: async (_event, providerQuery) => documentsForNavigation(providerQuery).map(document => ({
+      title: String(document.title || ''),
+      ...Object.fromEntries(providerQuery.plan.projection.only
+        .filter(field => !['path', 'href', 'localePath', 'alternates', 'route', 'resolution'].includes(field) && field in document)
+        .map(field => [field, (document as Record<string, unknown>)[field]])),
+      route: routeFact(document)
+    })),
+    surroundings: async (_event, collection, contentPath, options = {}) => {
       assertCollection(collection)
-      const locale = typeof options === 'object' && !Array.isArray(options) ? options.locale : undefined
-      const docs = await docsForNavigation(event, {
-        collection,
-        resolveLocale: locale
-          ? {
-              locale,
-              fallback: scenario.localeFallback[locale] || [scenario.defaultLocale]
-            }
-          : undefined,
-        sort: [{ path: 1 }]
-      })
-      return docs.map(doc => ({
-        title: doc.title,
-        path: localizePath(scenario, collection, doc.path || '/', locale || doc.locale),
-        locale: doc.locale
-      })) as NavItem[]
-    },
-    surroundings: async (event, collection, path, options = {}) => {
-      assertCollection(collection)
-      const locale = options.locale
-      const docs = await docsForNavigation(event, {
-        collection,
-        resolveLocale: locale
-          ? {
-              locale,
-              fallback: scenario.localeFallback[locale] || [scenario.defaultLocale]
-            }
-          : undefined,
-        sort: [{ path: 1 }]
-      })
-      const index = docs.findIndex(doc => doc.path === path || localizePath(scenario, collection, doc.path || '/', locale || doc.locale) === path)
+      const documents = scenario.documents
+        .filter(document => document.collection === collection && !document.draft && !document.partial && !document.navigationFile && document.path)
+        .filter(document => !options.locale || document.locale === options.locale)
+        .sort((left, right) => String(left.path).localeCompare(String(right.path)))
+      const index = documents.findIndex(document => normalizeContentPath(document.path || '/') === normalizeContentPath(contentPath))
       if (index === -1) return [null, null]
-      return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
-        ? {
-            title: doc.title,
-            path: localizePath(scenario, collection, doc.path || '/', locale || doc.locale)
-          }
-        : null) as Array<NavItem | null>
-    },
-    searchSections: async (event, collection, options = {}) => {
-      assertCollection(collection)
-      const docs = await docsForNavigation(event, {
-        collection,
-        resolveLocale: options.locale
-          ? {
-              locale: options.locale,
-              fallback: scenario.localeFallback[options.locale] || [scenario.defaultLocale]
-            }
-          : undefined
-      })
-      return docs.map(doc => ({
-        id: localizePath(scenario, collection, doc.path || '/', options.locale || doc.locale),
-        title: doc.title || '',
-        titles: [doc.title || ''],
-        content: String(doc.description || doc.title || '')
-      }))
+      return [documents[index - 1] || null, documents[index + 1] || null].map(document => document
+        ? { title: String(document.title || ''), route: routeFact(document) }
+        : null)
     },
     search: async (_event, request) => {
       const term = request.term.toLocaleLowerCase()
       return scenario.documents
-        .filter(doc => !request.locale || doc.locale === request.locale)
-        .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
-        .map(doc => ({
+        .filter(document => !document.draft)
+        .filter(document => !request.collections?.length || request.collections.includes(document.collection || ''))
+        .filter(document => !request.locale || document.locale === request.locale)
+        .filter(document => String(document.title || '').toLocaleLowerCase().includes(term))
+        .map(document => ({
           score: 1,
-          collection: doc.collection || '',
-          title: doc.title || '',
-          excerpt: String(doc.description || ''),
-          path: doc.path || '/',
-          locale: doc.locale
+          title: document.title || '',
+          excerpt: String(document.description || ''),
+          route: routeFact(document)
         }))
     },
     siteData: async (_event, request) => ({
@@ -174,54 +155,13 @@ const docsForNavigation = async (event: any, params: ContentQueryBuilderParams) 
       locale: request.locale,
       data: null
     }),
-    page: async (event, collection, routeOrPath = '/', options = {}) => {
-      assertCollection(collection)
-      if (scenario.collections[collection]?.type === 'data') {
-        throw createContentProviderError('data_collection_route_access', `${collection} is a data collection.`, { collection })
-      }
-      const response = await queryWithParams<ParsedContent>(event, {
-        collection,
-        first: true,
-        resolveVariant: {
-          route: routeOrPath,
-          locale: options.locale,
-          fallback: options.fallback === false ? [] : scenario.localeFallback[options.locale || ''] || [scenario.defaultLocale],
-          exact: options.exact
-        }
-      } as ContentQueryBuilderParams)
-      const doc = unwrapResponseResult<ParsedContent>(response) as ParsedContent | undefined
-      if (!doc) return null
-      return localizePageResult(
-        doc,
-        options.locale || doc.resolved?.locale || doc.locale,
-        scenario.defaultLocale,
-        scenario.locales,
-        routeMountsFor(scenario, collection)
-      )
-    },
-    routeMeta: async (event, collection, routeOrPath = '/', options = {}) => {
-      const page = await provider.page(event, collection, routeOrPath, options)
-      return page
-        ? createRouteMeta(page, options.locale || page.locale, scenario.defaultLocale, scenario.locales, routeMountsFor(scenario, collection))
-        : null
-    },
-    sitemapEntries: async (_event, options = {}) => {
-      const include = options.include?.length ? options.include : Object.keys(scenario.collections)
-      const entries = []
-      for (const collection of include) {
-        assertCollection(collection)
-        if (scenario.collections[collection]?.type === 'data' || scenario.collections[collection]?.sitemap === false) {
-          throw createContentProviderError('data_collection_sitemap_access', `${collection} cannot be listed in the sitemap.`, { collection })
-        }
-        for (const doc of scenario.documents.filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc._navigation)) {
-          entries.push({
-            loc: localizePath(scenario, collection, doc.path || '/', doc.locale)
-          })
-        }
-      }
-      return entries
-    }
+    routes: async () => scenario.documents
+      .filter(document => scenario.collections[document.collection || '']?.type !== 'data')
+      .filter(document => !document.partial && !document.navigationFile && document.path)
+      .map(document => ({
+        ...routeFact(document),
+        ...(document.draft ? { draft: true } : {}),
+        ...(document.sitemap === false ? { sitemap: false as const } : {})
+      }))
   }
-
-  return provider
 }

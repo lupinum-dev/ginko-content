@@ -3,6 +3,7 @@ import type { addTemplate } from '@nuxt/kit'
 import { genImport, genSafeVariableName } from 'knitwork'
 import { hash } from 'ohash'
 import { relative } from 'pathe'
+import { fileURLToPath } from 'node:url'
 
 import type { ContentContext } from '../types/module'
 
@@ -59,19 +60,21 @@ export const createVirtualContentTemplates = (
     write: true,
     getContents: () => {
       const providers = Object.entries(contentContext.providers || {})
-      const cases = providers.map(([name, specifier]) => {
-        return `case ${JSON.stringify(name)}: return import(${JSON.stringify(specifier)}).then(resolveProviderModule)`
+      const imports = providers.map(([, specifier], index) => {
+        const importPath = specifier.startsWith('file:') ? fileURLToPath(specifier) : specifier
+        return `import * as provider${index} from ${JSON.stringify(importPath)}`
       })
+      const entries = providers.map(
+        ([name], index) => `${JSON.stringify(name)}: resolveProviderModule(provider${index})`
+      )
 
       return [
+        ...imports,
         'const resolveProviderModule = (mod) => mod.default || mod.contentProvider || mod.provider',
-        'export const externalContentProviderNames = ' + JSON.stringify(providers.map(([name]) => name)),
-        'export const loadExternalContentProvider = (name) => {',
-        '  switch (name) {',
-        ...cases.map(item => `    ${item}`),
-        '    default: return undefined',
-        '  }',
-        '}',
+        `const providers = { ${entries.join(', ')} }`,
+        'export const externalContentProviderNames = ' +
+          JSON.stringify(providers.map(([name]) => name)),
+        'export const loadExternalContentProvider = async name => providers[name]',
         'export default {}'
       ].join('\n')
     }

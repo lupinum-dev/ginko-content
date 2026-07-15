@@ -34,7 +34,6 @@ Large setup concerns belong under `packages/content/src/module/*`, not inline in
 - sources
 - provider selection
 - navigation fields
-- content head behavior
 - path case behavior
 
 Keep examples clear about this split.
@@ -53,41 +52,29 @@ Current module defaults include:
 - `ignores: []`
 - `collections: {}`
 - `navigation.fields: []`
-- `contentHead: true`
 - `respectPathCase: false`
 
 Check `module.ts` before documenting defaults; these are easy to drift.
 
 ## Runtime Imports
 
-Client auto-imports:
+Client (app) auto-imports — exactly two, the final hard-cut surface (VNEXT.md 10.5, 10.8):
 
-- `getCollectionPath`
-- `useContentHead`
-- `useContentOne`
-- `useContentMany`
 - `useContentPage`
-- `useContentPagination`
-- `useContentBacklinks`
-- `useContentResolveOne`
-- `useContentVariants`
-- `useContentTree`
-- `useContentNavigation`
-- `useContentNeighbors`
-- `useContentSearchData`
-- `useContentSearchResults`
-- `querySiteData`
+- `useContentSearch`
 
-Low-level pure query functions such as `one`, `many`, `resolveOne`, `variants`, `tree`, and `neighbors` are client facade exports from `@lupinum/ginko-content/client`, but they are not app auto-imports. Import them explicitly when needed.
+Everything else is a pure `/client` facade export (`one`, `many`, `paginate`, `resolveOne`, `surround`, `backlinks`, `navigation`, `getCollectionPath`, `querySiteData`, `extractContentToc`) that app code imports explicitly and pairs with `useAsyncData` — it is never auto-imported. See `packages/content/src/module/runtime-assets.ts`'s `runtimeAppImportSpecs`.
 
 Server auto-imports:
 
 - `one`
 - `many`
+- `paginate`
 - `resolveOne`
-- `variants`
-- `tree`
-- `neighbors`
+- `surround`
+- `backlinks`
+- `navigation`
+- `getCollectionPath`
 - `queryCollectionsSitemapEntries`
 
 If adding public runtime helpers, update facade exports, runtime imports, docs, and contract tests together.

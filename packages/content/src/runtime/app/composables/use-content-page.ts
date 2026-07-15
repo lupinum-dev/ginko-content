@@ -1,30 +1,27 @@
 import { computed, shallowRef, toValue, watch } from 'vue'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
-import { createError, useRoute } from '#imports'
+import { useAsyncData, useRoute } from '#imports'
 import type {
   ContentCollectionTarget,
-  ContentRouteMeta,
-  ContentTreeItem,
   DocumentFromHandle,
   LocaleFallback,
   LocalizedDoc,
-  NeighborsOptions,
   OneOptions,
   PopulateSpec,
-  PopulatedDocument
+  PopulatedDocument,
+  ResolvedContentNavigationItem,
+  SurroundOptions
 } from '../../../types/query'
 import { resolveCollectionI18n } from '../../../features/localization/path'
-import { useContentRoute } from './route'
+import { one, surround } from './query-api'
 import { getContentRuntime } from './runtime'
-import { contentCollectionName, resolveLocaleFromRoutePath, type Reactive } from './use-content-shared'
-import { useContentOne } from './use-content-document'
-import { useContentNeighbors } from './use-content-navigation'
+import { contentCollectionName, resolveLocaleFromRoutePath, resolveOptions, stableKey, type Reactive } from './use-content-shared'
 
 type DocFromHandle<H> = DocumentFromHandle<H>
 
 type ContentPageSurroundOptions<H> =
   | boolean
-  | Omit<NeighborsOptions<H>, 'by' | 'locale' | 'fallback'>
+  | Omit<SurroundOptions<H>, 'by' | 'locale' | 'fallback'>
 
 type ContentPageOneOptions<
   H,
@@ -44,47 +41,22 @@ export type UseContentPageOptions<
   P extends PopulateSpec | undefined = undefined
 > = Reactive<ContentPageOneOptions<H, P>> & {
   /**
-   * Load previous/next items alongside the page.
+   * Load previous/next items alongside the page via the `surround()` verb.
    *
-   * Pass `true` for the default surround query, or an options object to choose
-   * fields. The page query remains one request unless this is enabled.
+   * Pass `true` for the default surround projection, or an options object to
+   * choose a `select` projection. Omitting `surround` performs one request;
+   * enabling it performs one documented extra request (VNEXT.md 27.1).
    */
   surround?: ContentPageSurroundOptions<H>
-  /**
-   * Override the error raised when the current route does not resolve to a
-   * content page. Set `false` to render a local empty/not-found state.
-   */
-  notFound?: false | (() => Parameters<typeof createError>[0])
 }
 
 interface UseContentPageReturn<T> {
-  data: ComputedRef<LocalizedDoc<T> | undefined>
   page: ComputedRef<LocalizedDoc<T> | undefined>
-  previous: ComputedRef<ContentTreeItem<T> | null>
-  next: ComputedRef<ContentTreeItem<T> | null>
-  surround: ComputedRef<Array<ContentTreeItem<T>>>
-  pending: ComputedRef<boolean>
+  previous: ComputedRef<ResolvedContentNavigationItem<T> | null>
+  next: ComputedRef<ResolvedContentNavigationItem<T> | null>
   status: ComputedRef<string>
   error: ComputedRef<unknown>
   refresh: () => Promise<void>
-}
-
-const defaultPageNotFound = () => createError({
-  statusCode: 404,
-  statusMessage: 'Page not found',
-  fatal: true
-})
-
-const normalizePageNotFound = (
-  notFound: UseContentPageOptions['notFound']
-) => {
-  if (notFound === false) return undefined
-  return createError(notFound ? notFound() : defaultPageNotFound())
-}
-
-const normalizePageSurround = <H>(surround: ContentPageSurroundOptions<H> | undefined) => {
-  if (!surround) return undefined
-  return surround === true ? {} : surround
 }
 
 const normalizeRoutePath = (path: unknown) => {
@@ -93,34 +65,43 @@ const normalizeRoutePath = (path: unknown) => {
   return normalized || '/'
 }
 
-const localePathMatches = (entry: unknown, path: string) => {
-  const normalizedPath = normalizeRoutePath(path)
-  if (typeof entry === 'string') return normalizeRoutePath(entry) === normalizedPath
-  return Boolean(entry && typeof entry === 'object' && 'path' in entry && normalizeRoutePath((entry as { path?: unknown }).path) === normalizedPath)
-}
-
-const routeMetaMatchesPath = (value: ContentRouteMeta | null | undefined, path: string) => {
-  if (!value) return false
-  const normalizedPath = normalizeRoutePath(path)
-  const resolved = (value as {
-    resolved?: { requestedPath?: unknown, requestedRoute?: unknown }
-  }).resolved
-  if (
-    normalizeRoutePath(value.path) === normalizedPath ||
-    normalizeRoutePath(resolved?.requestedPath) === normalizedPath ||
-    normalizeRoutePath(resolved?.requestedRoute) === normalizedPath
-  ) return true
-  const requestedRoute = resolved?.requestedRoute
-  return normalizeRoutePath(value.path) === normalizedPath ||
-    normalizeRoutePath(value.unprefixedPath) === normalizedPath ||
-    normalizeRoutePath(requestedRoute) === normalizedPath ||
-    Object.values(value.localePaths || {}).some(entry => localePathMatches(entry, path))
+const normalizePageSurround = <H>(surroundOption: ContentPageSurroundOptions<H> | undefined) => {
+  if (!surroundOption) return undefined
+  return surroundOption === true ? {} : surroundOption
 }
 
 /**
- * Ergonomic route-page helper. This is the product-level default for Nuxt page
- * components; the explicit `useContentOne` selector remains the lower-level
- * primitive for custom reads.
+ * A resolved page "matches" the current route when either the exact
+ * selector the app queried with (`route.requestedPath`) or the document's
+ * own canonical public path (`route.resolvedPath`) equals the current route
+ * — the first covers a provider/alias match whose canonical path differs
+ * from the requested one (VNEXT.md 27.1's route-normalization case), the
+ * second covers static/prerendered routes served under a normalized path.
+ */
+const pageMatchesRoute = (
+  doc: { route?: { requestedPath?: string, resolvedPath?: string } } | null | undefined,
+  path: string
+) => {
+  if (!doc?.route) return false
+  const normalizedPath = normalizeRoutePath(path)
+  return normalizeRoutePath(doc.route.requestedPath) === normalizedPath ||
+    normalizeRoutePath(doc.route.resolvedPath) === normalizedPath
+}
+
+/**
+ * The route-aware Nuxt application workflow (VNEXT.md 10.5, 27.1). It owns:
+ *
+ * - current route and locale tracking;
+ * - SSR payload integration and stable async-data keying;
+ * - route-watch behavior;
+ * - suppression of stale-page flashes during client-side navigation;
+ * - returning the resolved page facts (`page.value.route`/`.resolution`).
+ *
+ * It does not throw a default 404, has no `notFound` option, does not
+ * mutate head tags, and does not choose redirect or fallback-indexing
+ * policy — the application decides those by reading
+ * `page.value.route.requestedPath`/`.resolvedPath` and
+ * `page.value.resolution.usedFallback` (VNEXT.md 10.7).
  */
 export async function useContentPage<
   const H extends ContentCollectionTarget,
@@ -130,8 +111,7 @@ export async function useContentPage<
   options: UseContentPageOptions<H, P> = {} as UseContentPageOptions<H, P>
 ): Promise<UseContentPageReturn<PopulatedDocument<DocFromHandle<H>, P>>> {
   const route = useRoute()
-  const isBrowser = import.meta.client && typeof window !== 'undefined'
-  const { notFound, surround, ...oneOptions } = options as UseContentPageOptions<H, P> & Record<string, unknown>
+  const { surround: surroundOption, ...oneOptions } = options as UseContentPageOptions<H, P> & Record<string, unknown>
   const routeSelector = { route: () => normalizeRoutePath(route.path) }
   const runtime = getContentRuntime()
   const collectionI18n = resolveCollectionI18n(contentCollectionName(handle), runtime)
@@ -148,100 +128,74 @@ export async function useContentPage<
 
     return resolveLocaleFromRoutePath(route.path, locales, defaultLocale)
   })
-  const rawPage = shallowRef<LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null>(null)
-  const resolvingRoute = shallowRef(false)
-  const sawRouteQueryPending = shallowRef(false)
+
+  type Doc = PopulatedDocument<DocFromHandle<H>, P>
+
+  const resolvedPageOptions = computed(() => resolveOptions({
+    ...oneOptions,
+    locale: activeLocale.value,
+    by: routeSelector
+  } as Reactive<Record<string, unknown>>) as unknown as OneOptions<H, P>)
+  const pageKey = computed(() => stableKey('content-page', contentCollectionName(handle), resolvedPageOptions.value))
+  const pageAsyncPromise = useAsyncData<LocalizedDoc<Doc> | null>(
+    pageKey,
+    () => one(handle, resolvedPageOptions.value) as Promise<LocalizedDoc<Doc> | null>,
+    { watch: [resolvedPageOptions], default: () => null }
+  )
+
+  const surroundNormalized = normalizePageSurround(surroundOption)
+  const resolvedSurroundOptions = computed(() => resolveOptions({
+    ...(surroundNormalized || {}),
+    locale: activeLocale.value,
+    ...('fallback' in oneOptions ? { fallback: oneOptions.fallback as LocaleFallback } : {}),
+    by: routeSelector
+  } as Reactive<Record<string, unknown>>) as unknown as SurroundOptions<H>)
+  const surroundKey = computed(() => stableKey('content-page-surround', contentCollectionName(handle), resolvedSurroundOptions.value))
+  const surroundAsyncPromise = surroundNormalized
+    ? useAsyncData(
+        surroundKey,
+        () => surround(handle, resolvedSurroundOptions.value),
+        { watch: [resolvedSurroundOptions], default: () => ({ previous: null, next: null }) }
+      )
+    : undefined
+
+  const pageAsync = await pageAsyncPromise
+  const surroundAsync = surroundAsyncPromise ? await surroundAsyncPromise : undefined
+
+  // A single reactive snapshot of the last-fetched document, kept in sync
+  // with the underlying async-data ref. Stale-page flash suppression
+  // (VNEXT.md 27.1/27.5) falls straight out of the `page` computed below: a
+  // snapshot that does not match the CURRENT route (because a route change
+  // has outrun its refetch, on first hydration or client navigation alike)
+  // is never shown, with no separate "is resolving" flag required.
+  const rawPage = shallowRef<LocalizedDoc<Doc> | null>(pageAsync.data.value)
+  watch(pageAsync.data, (value) => {
+    rawPage.value = value
+  })
+
   const page = computed(() => {
     const current = rawPage.value
-    return routeMetaMatchesPath(current, route.path)
-      ? current as LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>>
-      : undefined
+    return pageMatchesRoute(current, route.path) ? (current as LocalizedDoc<Doc>) : undefined
   })
-
-  useContentRoute(page)
-
-  const pageResultPromise = useContentOne(handle, {
-    ...oneOptions,
-    locale: () => activeLocale.value,
-    by: routeSelector
-  } as Reactive<OneOptions<H, P>>)
-  const surroundOptions = normalizePageSurround(surround)
-  const surroundResultPromise = surroundOptions
-    ? useContentNeighbors(handle, {
-        ...surroundOptions,
-        locale: () => activeLocale.value,
-        ...('fallback' in oneOptions ? { fallback: oneOptions.fallback as LocaleFallback } : {}),
-        by: routeSelector
-      } as Reactive<NeighborsOptions<H>>)
-    : undefined
-  const pageResult = await pageResultPromise
-  rawPage.value = pageResult.data.value as LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null
-  if (isBrowser && rawPage.value && !routeMetaMatchesPath(rawPage.value, route.path)) {
-    resolvingRoute.value = true
-  }
-
-  watch(() => route.path, () => {
-    resolvingRoute.value = true
-    sawRouteQueryPending.value = false
-  }, { flush: 'sync' })
-
-  watch(pageResult.data, (value) => {
-    rawPage.value = value as LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null
-    const resolved = value as LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null
-    if (resolved && routeMetaMatchesPath(resolved, route.path)) {
-      resolvingRoute.value = false
-    }
-  })
-  watch(() => pageResult.pending.value, (pending) => {
-    if (pending) {
-      sawRouteQueryPending.value = true
-      return
-    }
-    if (sawRouteQueryPending.value) {
-      const resolved = pageResult.data.value as LocalizedDoc<PopulatedDocument<DocFromHandle<H>, P>> | null
-      if (!resolved || routeMetaMatchesPath(resolved, route.path)) {
-        resolvingRoute.value = false
-      }
-    }
-  })
-  const surroundResult = surroundResultPromise ? await surroundResultPromise : undefined
-
-  const pending = computed(() => pageResult.pending.value || Boolean(surroundResult?.pending.value))
-  const pageError = computed(() => {
-    if (pageResult.error.value) return pageResult.error.value
-    if (surroundResult?.error.value) return surroundResult.error.value
-    if (pending.value || resolvingRoute.value || page.value || notFound === false) return undefined
-    return normalizePageNotFound(notFound)
-  })
-
-  if (!isBrowser && pageError.value) {
-    throw pageError.value
-  }
 
   const previous = computed(() => {
-    if (!page.value || !surroundResult) return null
-    return surroundResult.data.value.prev as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
+    if (!page.value || !surroundAsync) return null
+    return (surroundAsync.data.value?.previous ?? null) as ResolvedContentNavigationItem<Doc> | null
   })
   const next = computed(() => {
-    if (!page.value || !surroundResult) return null
-    return surroundResult.data.value.next as ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> | null
-  })
-  const pageSurround = computed(() => {
-    return [previous.value, next.value].filter((item): item is ContentTreeItem<PopulatedDocument<DocFromHandle<H>, P>> => Boolean(item))
+    if (!page.value || !surroundAsync) return null
+    return (surroundAsync.data.value?.next ?? null) as ResolvedContentNavigationItem<Doc> | null
   })
 
   return {
-    data: page,
     page,
-    surround: pageSurround,
     previous,
     next,
-    pending,
-    status: computed(() => pageResult.status.value),
-    error: pageError,
+    status: computed(() => pageAsync.status.value),
+    error: computed(() => pageAsync.error.value ?? surroundAsync?.error.value ?? undefined),
     refresh: async () => {
-      await pageResult.refresh()
-      if (surroundResult) await surroundResult.refresh()
+      await pageAsync.refresh()
+      if (surroundAsync) await surroundAsync.refresh()
     }
   }
 }
