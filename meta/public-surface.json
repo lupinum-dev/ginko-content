@@ -38,7 +38,7 @@
     "./client": {
       "category": "app-runtime",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "./agent": {
       "category": "advanced-agent-subpath",
@@ -255,17 +255,17 @@
     "extractContentToc": {
       "category": "stable-toc-helper",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "findFirstNavigationPage": {
       "category": "stable-route-helper",
       "audience": "app-developer",
-      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+      "docs": "docs/content/docs/4.guides/3.discovery/1.navigation.md"
     },
     "getCollectionPath": {
       "category": "stable-route-helper",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "many": {
       "category": "stable-query-primitive",
@@ -305,12 +305,12 @@
     "useContentPage": {
       "category": "stable-app-composable",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "useContentSearch": {
       "category": "stable-search-composable",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     }
   },
   "clientTypeExports": {
@@ -337,7 +337,7 @@
     "CollectionPathOptions": {
       "category": "stable-route-helper-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "ContentAlternate": {
       "category": "stable-query-type",
@@ -392,12 +392,12 @@
     "ContentSeoImage": {
       "category": "stable-content-rendering-type",
       "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "ContentSeoMeta": {
       "category": "stable-content-rendering-type",
       "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "ContentSiteDataResponse": {
       "category": "stable-site-data-type",
@@ -407,7 +407,7 @@
     "ContentTocOptions": {
       "category": "stable-toc-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "CursorPaginationResult": {
       "category": "stable-query-type",
@@ -502,7 +502,7 @@
     "ResolvedContentNavigationItem": {
       "category": "stable-route-helper-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+      "docs": "docs/content/docs/4.guides/3.discovery/1.navigation.md"
     },
     "ResolveOneOptions": {
       "category": "stable-query-type",
@@ -532,27 +532,27 @@
     "Toc": {
       "category": "stable-toc-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "TocLink": {
       "category": "stable-toc-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "UseContentPageOptions": {
       "category": "stable-app-composable-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "UseContentSearchOptions": {
       "category": "stable-search-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "UseContentSearchResult": {
       "category": "stable-search-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     }
   },
   "serverValueExports": {
@@ -594,12 +594,12 @@
     "findFirstNavigationPage": {
       "category": "stable-route-helper",
       "audience": "server-runtime-author",
-      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+      "docs": "docs/content/docs/4.guides/3.discovery/1.navigation.md"
     },
     "getCollectionPath": {
       "category": "stable-route-helper",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "queryCollectionsSitemapEntries": {
       "category": "stable-sitemap-helper",
@@ -661,7 +661,7 @@
     "CollectionPathOptions": {
       "category": "stable-route-helper-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "ContentNavigationTreeItem": {
       "category": "stable-query-type",
@@ -801,7 +801,7 @@
     "ResolvedContentNavigationItem": {
       "category": "stable-route-helper-type",
       "audience": "server-runtime-author",
-      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+      "docs": "docs/content/docs/4.guides/3.discovery/1.navigation.md"
     },
     "ContentAlternate": {
       "category": "stable-query-type",
@@ -1215,36 +1215,36 @@
     "useContentPage": {
       "category": "stable-app-composable",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "useContentSearch": {
       "category": "stable-search-composable",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     }
   },
   "rootValueExports": {
     "defineCollection": {
       "category": "content-config-author",
       "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+      "docs": "docs/content/docs/5.reference/2.content-config.md"
     },
     "defineContentConfig": {
       "category": "content-config-author",
       "audience": "content-author",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+      "docs": "docs/content/docs/5.reference/2.content-config.md"
     },
     "reference": {
       "category": "content-config-author",
       "audience": "content-author",
-      "docs": "docs/content/docs/3.collections/3.references.md"
+      "docs": "docs/content/docs/4.guides/1.authoring/5.references.md"
     }
   },
   "rootTypeExports": {
     "ContentCollectionHandle": {
       "category": "stable-query-type",
       "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/4.content-config.md"
+      "docs": "docs/content/docs/5.reference/2.content-config.md"
     },
     "ContentCollectionI18nMap": {
       "category": "stable-query-type",
@@ -1264,12 +1264,12 @@
     "ModuleOptions": {
       "category": "nuxt-module-entry",
       "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/3.module-options.md"
+      "docs": "docs/content/docs/5.reference/3.module-options.md"
     },
     "ModuleHooks": {
       "category": "nuxt-module-entry",
       "audience": "library-user",
-      "docs": "docs/content/docs/9.api-reference/3.module-options.md"
+      "docs": "docs/content/docs/5.reference/3.module-options.md"
     },
     "NavItem": {
       "category": "stable-query-type",
@@ -1289,12 +1289,12 @@
     "Toc": {
       "category": "stable-toc-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     },
     "TocLink": {
       "category": "stable-toc-type",
       "audience": "app-developer",
-      "docs": "docs/content/docs/9.api-reference/1.composables.md"
+      "docs": "docs/content/docs/5.reference/5.composables.md"
     }
   }
 }
