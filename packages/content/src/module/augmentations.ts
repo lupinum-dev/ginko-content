@@ -82,7 +82,7 @@ declare module '@nuxt/schema' {
   }
 }
 
-// Keep sync with src/runtime/server/storage.ts
+// Keep in sync with src/storage/contents.ts
 declare module 'nitropack' {
   interface NitroRuntimeHooks {
     'content:file:beforeParse': (file: { id: string; body: StorageValue }) => void;

@@ -18,10 +18,10 @@ import type {
   QueryOperators,
   SortSpec
 } from '../../types/query'
-import { assertSupportedQueryOperators, SUPPORTED_QUERY_OPERATORS } from './operators'
+import { assertSupportedQueryOperators, PROVIDER_QUERY_OPERATORS } from './operators'
 import { normalizeContentPath } from '../content/path'
 
-const FIELD_OPERATOR_KEYS = new Set([...SUPPORTED_QUERY_OPERATORS, '$nin'])
+const FIELD_OPERATOR_KEYS = new Set([...PROVIDER_QUERY_OPERATORS, '$nin'])
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof RegExp) && !(value instanceof Date)

@@ -25,7 +25,7 @@ export default defineTransformer({
       ...content,
       // Every system-computed field below is conditionally spread rather than
       // assigned `undefined` directly: the canonical JSON value model
-      // (VNEXT §11) rejects `undefined` values, and both `collection`
+      // rejects `undefined` values, and both `collection`
       // (no matching collection glob) and `title` (navigation files) are
       // legitimately absent for large classes of documents.
       ...(typeof title !== 'undefined' ? { title } : {}),

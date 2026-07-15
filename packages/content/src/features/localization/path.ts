@@ -47,11 +47,9 @@ const toLocalePolicy = (
 /**
  * Project a content path into its localized public path.
  *
- * `path` is ordinarily the mount-agnostic canonical content path (VNEXT.md
- * section 12.2), in which case this is a straight delegation to the
+ * `path` is ordinarily the mount-agnostic canonical content path, in which case this is a straight delegation to the
  * canonical projector. It may also be an already-projected path for a
- * DIFFERENT locale (e.g. `decorateLocalePathsWithFallbacks` re-projecting a
- * fallback locale's public path onto another locale) - the mount-detection
+ * different locale. The mount-detection
  * step below strips that locale's mount back off first so the projector
  * still receives a mount-agnostic content path.
  */
@@ -182,7 +180,7 @@ export const localizePath = (
 
   // No route-mount concept for link-like strings - an empty mount map makes
   // `projectContentRoute` a pure locale-prefixer, identical to the old
-  // direct `prefixPathWithLocale` call (VNEXT.md section 12.2).
+  // direct `prefixPathWithLocale` call.
   const projected = projectContentRoute(
     { contentPath: pathname, locale: locale ?? '' },
     toLocalePolicy(defaultLocale, {})

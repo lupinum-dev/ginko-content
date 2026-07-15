@@ -5,7 +5,7 @@ import type { addTemplate } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
 /**
- * The final app function auto-import list (VNEXT.md 10.5, 10.8): exactly
+ * The final app function auto-import list: exactly
  * `useContentPage` and the collision-safe `useGinkoContentSearch` alias.
  * The package export remains `useContentSearch`; every deleted wrapper and
  * pure query helper is imported explicitly from `/client` instead.

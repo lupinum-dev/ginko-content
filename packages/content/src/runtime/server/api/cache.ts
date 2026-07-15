@@ -68,7 +68,7 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
 }
 
 /**
- * The canonical Nitro-side content build endpoint (VNEXT.md §14, §25.1).
+ * The canonical Nitro-side content build endpoint.
  *
  * Runs the real ingest pipeline end to end and validates every document,
  * the graph, routes, and alternates BEFORE anything is persisted
@@ -77,7 +77,7 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
  * If `buildContentResult` throws — a parse, schema, JSON-purity, graph, or
  * route/alternate failure — this handler never reaches the write, so a
  * failed build can never leave a partial or stale snapshot behind
- * (VNEXT §20.2, §25.5).
+ *.
  *
  * This route is unshifted to the front of `nitro.prerender.routes`
  * (`module/nitro-config.ts`) so it is one of the very first routes Nitro's
@@ -88,14 +88,14 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
  * `extractLinks`/`crawlLinks`, verified against `runParallel`'s live `Set`
  * consumption in `nitropack/dist/_chunks/parallel.mjs` — added entries are
  * picked up as long as the queue has not yet drained). This is the "Nitro
- * route injection" VNEXT §14.4/§25.6 requires in place of the deleted
+ * route injection requires in place of the deleted
  * module-time `module/derived-route-discovery.ts` reparser: prerender
  * routes now come from THIS build result instead of a second parse of the
  * content directory.
  *
  * Outside prerendering the response stays small JSON — counts and the
  * canonical public route paths, never the full document/snapshot payload
- * (VNEXT §25.1 step 5: this must not become a new public API). Non-static
+ *. Non-static
  * (`nuxi build`) hybrid builds cannot rely on the HTML/crawl-links seed above
  * (their main Nitro instance never crawls its own compiled bundle by
  * default), so `module/integration-hooks.ts`'s `compiled` hook instead calls

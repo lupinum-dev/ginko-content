@@ -1,5 +1,5 @@
 /**
- * The canonical Nitro-side content build (VNEXT.md §14-15, §25).
+ * The canonical Nitro-side content build.
  *
  * `buildContentResult(event)` is the ONE producer of `ContentBuildResult`: it
  * runs the real ingest pipeline (mounted storage, the virtual transformer
@@ -47,6 +47,7 @@ import { buildCanonicalNavigation } from '../../features/navigation/build'
 import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
 import { normalizeRouteMounts } from '../../core/content/path'
 import { countSitemapRoutes, resolveSitemapCollections } from '../../features/sitemap/counts'
+import { extractSitemapMetadata } from '../../features/sitemap/metadata'
 import { chunksFromArray, loadContentVariants } from '../../storage/contents'
 import { getContentRuntimeConfig } from './runtime-config'
 import { cacheStorage, contentConfig, getSourceContentIds, sourceStorage } from './storage'
@@ -71,8 +72,7 @@ export interface ContentBuildResult {
 
 /**
  * A source id that produced no snapshot document is always a hard failure:
- * every mounted source must parse into at least one real document (VNEXT
- * §14.3 step 6 — "validate source completeness"). Unlike the pre-vNext
+ * every mounted source must parse into at least one real document. Unlike the legacy
  * check this replaced, "produced no route path" is NOT a completeness
  * failure on its own: a valid `type: 'data'` document legitimately has no
  * route, and belongs in the snapshot/graph anyway (§14.3: "do not use 'has a
@@ -89,9 +89,7 @@ const resolveRouteCollections = (collections: Record<string, ContentCollectionCo
 /**
  * One immutable, locale-prefix-only policy per collection. Mirrors the
  * former `derived-route-discovery.ts` choice deliberately: no collection
- * route mount is threaded through here (VNEXT §12.2 mounts are a
- * projection-layer concern the query/navigation/sitemap consumers apply
- * themselves), so this stays a pure `{locale}` -> content-path projection,
+ * route mount is threaded through here, so this stays a pure `{locale}` -> content-path projection,
  * byte-identical to the route sets those consumers already produce from the
  * same graph.
  */
@@ -135,13 +133,15 @@ const collectRouteFacts = (graph: ContentGraph, collection: string): ContentProv
       if (!variant.path) {
         continue
       }
+      const sitemapMetadata = extractSitemapMetadata(variant.document || {})
       facts.push({
         collection,
         canonicalKey: document.canonicalKey,
         locale,
         contentPath: variant.path,
         draft: Boolean(variant.document?.draft),
-        sitemap: variant.document?.sitemap !== false
+        sitemap: sitemapMetadata !== false,
+        ...(sitemapMetadata && typeof sitemapMetadata === 'object' ? { sitemapMetadata } : {})
       })
     }
   }
@@ -185,8 +185,7 @@ const createValidationReport = async (
 /**
  * Validate that every alternate synthesized for a canonical document
  * round-trips back through the route index to the SAME canonical key
- * (VNEXT §12.3 step 4, §20.3, §25.1 step "validate route uniqueness and
- * alternate round trips"). A mismatch means the projector/resolver pair is
+ *. A mismatch means the projector/resolver pair is
  * not a true inverse for this collection's policy — a build-breaking defect,
  * not a per-request condition to degrade gracefully.
  */
@@ -211,7 +210,7 @@ const assertAlternateRoundTrips = (
   }
 }
 
-/** One navigation tree per `{collection, locale}` from the in-memory document set — no HTTP round trip, no persisted cache (VNEXT §15.4, §15.7). */
+/** One navigation tree per `{collection, locale}` from the in-memory document set — no HTTP round trip, no persisted cache. */
 const deriveNavigation = (
   documents: ParsedContent[],
   contentContext: ResolvedContentContext
@@ -258,7 +257,7 @@ const deriveNavigation = (
  * Build the canonical `ContentBuildResult` in memory. Throws (never returns
  * a partial result) on any ingest, schema, JSON-purity, completeness, graph,
  * route, or alternate-round-trip failure — the caller must not persist
- * anything when this throws (VNEXT §14.3 steps 1-12, §20.2).
+ * anything when this throws.
  */
 export const buildContentResult = async (event: H3Event): Promise<ContentBuildResult> => {
   const now = Date.now()
@@ -271,7 +270,7 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   // build/dev-time-only concept and is never part of the final `storage`
   // config a real deployed node-server ships with (by design: production
   // reads are meant to come from the durable, already-published snapshot via
-  // `getProcessDocuments`/`usesProcessSnapshot` — VNEXT §14.3/§25). This
+  // `getProcessDocuments`/`usesProcessSnapshot`). This
   // route is unshifted into the prerender crawl queue purely to seed that
   // crawl (`module/nitro-config.ts`), and its 'compiled'-hook-driven,
   // post-build JSON fetch (`module/integration-hooks.ts#fetchSitemapCollectionCounts`)

@@ -296,7 +296,7 @@ export const createSitemapAssertionTargetsFromPrerenderedSitemaps = (sitemaps: G
  * (`runtime/server/api/cache.ts`) — has already completed, so by this point
  * `<buildDir>/content-cache/snapshot.json` exists on disk. Reading it back
  * and re-deriving counts through `computeSitemapCollectionCounts` is a
- * rebuildable view over the canonical persisted snapshot (VNEXT §14.2), not
+ * rebuildable view over the canonical persisted snapshot, not
  * a second content-file parse — replaces the deleted module-time
  * `module/derived-route-discovery.ts#collectSitemapCollectionRouteCounts`.
  *

@@ -88,7 +88,7 @@ const andPlanFilters = (base: FilterExpr, ...extra: FilterExpr[]): FilterExpr =>
  * receives: require a collection target, reject untrusted regex, clamp
  * limit/skip to the public ceilings, and enforce the one core
  * publication-visibility decision (draft) plus structural eligibility
- * (partial, navigationFile — VNEXT.md 13.6/24.2).
+ * (`partial` and `navigationFile`).
  *
  * This enforcement is unconditional (AND-combined with whatever the caller's
  * own filter already says), not skipped when the caller already filters on
@@ -131,8 +131,7 @@ const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): Con
 }
 
 export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputPlan: ContentQueryPlan): Promise<ContentQueryResponse<T>> => {
-  // Fail before any query dispatch touches the sealed snapshot (VNEXT.md
-  // 15.8/24.3). `getContentGraph` enforces this same guard for every other
+  // Fail before any query dispatch touches the sealed snapshot. `getContentGraph` enforces this same guard for every other
   // filesystem-backed consumer (navigation, sitemap, search, agent output);
   // asserting it here too keeps the untrusted HTTP boundary's failure
   // directly attributable to query dispatch, not to a graph-loading detail.

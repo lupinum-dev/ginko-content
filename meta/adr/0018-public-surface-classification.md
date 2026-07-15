@@ -2,7 +2,7 @@
 type: ADR
 id: "0018"
 title: "Classify public surfaces by audience"
-status: active
+status: superseded
 date: 2026-06-07
 ---
 
@@ -35,31 +35,21 @@ Implicit public surface makes maintenance harder:
 
 ## Decision
 
-Ginko Content classifies committed public surfaces by audience in
-`meta/public-surface.json`.
+Ginko Content originally classified committed public surfaces in a separate
+machine-readable inventory.
 
-Contract tests compare that classification to:
-
-- `packages/content/package.json` export subpaths.
-- `packages/content/src/public/client.ts` value exports.
-- `packages/content/src/public/client.ts` type exports.
-- `packages/content/src/public/server.ts` value exports.
-- `packages/content/src/public/server.ts` type exports.
-
-Adding, removing, or moving a public export requires updating the classification
-with an intended audience category. Tests should fail when a facade grows
-without a classification.
-
-For now, `@lupinum/ginko-content/server` remains the compatibility facade for
-server queries, provider helpers, cache helpers, and agent markdown helpers.
-Agent/cache helpers are classified as advanced surfaces. They should not appear
-in beginner docs. A future pre-1.0 cleanup may move them to explicit agent/cache
-subpaths, but only with an intentional release/migration decision.
+That inventory compared package subpaths and client/server facade symbols and
+required an audience category for every name. It was useful during the initial
+facade split, but duplicated sources that already had executable contracts.
 
 2026-07-08 update: the agent markdown surface now has an explicit
 `@lupinum/ginko-content/agent` subpath. `@lupinum/ginko-content/server` no
-longer re-exports agent helpers; `meta/public-surface.json` is the source of
-truth for the current subpath and symbol classification.
+longer re-exports agent helpers.
+
+2026-07-15 update: the inventory was removed after it drifted from the package
+and documentation. The package export map now owns subpaths, explicit facade
+modules own named exports, and generated docs plus executable package contracts
+verify those sources directly. Audience guidance remains in the owning guides.
 
 ## Alternatives considered
 

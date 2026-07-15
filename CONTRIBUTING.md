@@ -52,9 +52,8 @@ browser test.
 
 ## Change Guidelines
 
-- Public API changes belong in `packages/content/src/public/*`,
-  `packages/content/package.json`, `meta/public-surface.json`, docs, and tests
-  together.
+- Public API changes belong in `packages/content/src/public/*`, the package
+  export map, generated API docs, type fixtures, and package contracts together.
 - Provider behavior changes must update provider capabilities, public query
   types, provider conformance tests, and docs together.
 - Generated assets are product artifacts. If search, sitemap, agent markdown,
@@ -102,9 +101,8 @@ integration, localized alternates, generated XML shape, or local-origin leaks.
 Inspect `test/e2e/sitemap-static.test.ts` and
 `test/helpers/sitemap-artifacts.ts`.
 
-Docs drift failures are intentional guardrails. Update docs, examples,
-public-surface metadata, and package exports together instead of weakening the
-drift test.
+Docs drift failures are intentional guardrails. Update docs, examples, public
+facades, and package exports together instead of weakening the drift test.
 
 Known Nuxt/Vite sourcemap and chunk-size warnings are not automatically Ginko
 product failures. Treat new content API errors, hydration errors, local-origin

@@ -27,7 +27,7 @@ const mkdistEntries = [
   ['src/portability-node/', 'dist/portability-node']
 ]
 
-const runtimeExternalPlaceholders = new Set<string>()
+const runtimeExternalPlaceholders = new Map<string, string>()
 
 const exists = async (path: string) => {
   try {
@@ -74,10 +74,14 @@ const ensureRuntimeExternalPlaceholders = async () => {
 
     await Promise.all(
       files.map(async file => {
-        const output = `${outDir}/${relative(input, file).replace(/\.(ts|vue)$/, '')}`
+        // Keep the Rollup placeholder extensionless so it cannot shadow the
+        // real `.js` file emitted by mkdist for the same TypeScript source.
+        const output = `${outDir}/${relative(input, file).replace(/\.ts$/, '')}`
+        const placeholder = `export * from './${basename(output)}.js'\n`
+        if (await exists(output)) return
         await mkdir(dirname(output), { recursive: true })
-        await writeFile(output, `export * from './${basename(output)}.js'\n`, 'utf8')
-        runtimeExternalPlaceholders.add(output)
+        await writeFile(output, placeholder, 'utf8')
+        runtimeExternalPlaceholders.set(output, placeholder)
       })
     )
   }
@@ -113,7 +117,11 @@ export default defineBuildConfig({
     },
     async 'build:done'() {
       await rewritePublishedRelativeImports()
-      await Promise.all([...runtimeExternalPlaceholders].map(file => rm(file, { force: true })))
+      await Promise.all([...runtimeExternalPlaceholders].map(async ([file, placeholder]) => {
+        if (await exists(file) && await readFile(file, 'utf8') === placeholder) {
+          await rm(file, { force: true })
+        }
+      }))
       runtimeExternalPlaceholders.clear()
     }
   }

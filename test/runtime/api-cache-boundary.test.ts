@@ -4,7 +4,7 @@ import { doc } from '../contracts/_utils'
 import { ContentError } from '../../packages/content/src/core/errors'
 import { fail, ok } from '../../packages/content/src/core/result'
 
-// VNEXT.md §14.3, §20.2, §25.1: `runtime/server/api/cache.ts` is the ONE
+// `runtime/server/api/cache.ts` is the single
 // producer of the canonical content build result and the ONE place
 // `snapshot.json` is written. `buildContentResult` (integrations/nitro/build.ts)
 // validates documents, the graph, routes, and alternates entirely in memory
@@ -70,7 +70,7 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
   getContentProvider: mocks.getContentProvider
 }))
 
-describe('runtime cache API boundary (atomic publication, VNEXT §20.2)', () => {
+describe('runtime cache API boundary (atomic publication)', () => {
   beforeEach(() => {
     mocks.getSourceContentIds.mockReset()
     mocks.loadContentVariants.mockReset()

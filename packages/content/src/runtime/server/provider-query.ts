@@ -11,7 +11,7 @@ import type {
 } from '../../types/query'
 import { createQuery, wrapQueryBuilder } from '../../core/query/builder'
 import { normalizeContentQueryParams } from '../../core/query/params'
-import { containsStandaloneRegexOptions, findUnsupportedQueryOperator } from '../../core/query/operators'
+import { containsStandaloneRegexOptions, findUnsupportedPublicQueryOperator } from '../../core/query/operators'
 import { normalizeI18nConfig, resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 import { sortLocalesCanonically } from '../../core/content/locale'
 import { resolveLocaleChain } from '../../core/content/graph'
@@ -32,7 +32,7 @@ export { toContentProviderNavigationQuery as createProviderNavigationQuery } fro
 /**
  * Build the `ResolvedCollectionLocalePolicy` the canonical route projector
  * needs from the plain runtime content config already resolved at request
- * time (VNEXT.md 12.1/13.1) — same reshaping pattern as
+ * time — same reshaping pattern as
  * `features/query/routes.ts#getCollectionPath`.
  */
 const collectionLocalePolicyFor = (
@@ -57,7 +57,7 @@ const collectionLocalePolicyFor = (
 
 /**
  * Close a plan's `route`/`ref` variant resolution into the honest provider
- * wire selector (VNEXT.md 13.1): an ordered, exact `{ locale, contentPath }`
+ * wire selector: an ordered, exact `{ locale, contentPath }`
  * candidate list for `route` (via the canonical route projector), or the
  * resolved locale fallback chain for `ref`. Leaves the plan untouched when
  * there is no `route`/`ref` selector to close (plain `path` lookups keep
@@ -124,18 +124,18 @@ const closeProviderVariantSelector = (query: ContentProviderQuery): ContentProvi
  * It deliberately does NOT inject draft/structural visibility filters here:
  * an arbitrary third-party provider may advertise a minimal operator set
  * (conformance only requires it to execute the operators it advertises —
- * VNEXT.md 13.7), so unconditionally adding a `$ne` clause on `draft`, or on
+ * the provider contract), so unconditionally adding a `$ne` clause on `draft`, or on
  * a field the provider may not even carry, can make an otherwise-valid query
  * fail with `unsupported_query_operator` for a provider that never claimed to
  * support it. Ginko's own core visibility decision is enforced at the
  * filesystem-only untrusted HTTP boundary (`query-executor.ts`, where the
  * operator surface is known and controlled) and by each trusted internal
  * composable that needs it, not injected blindly into every provider's wire
- * query. See VNEXT.md 13.6/24.2 and the Phase 2D report's provider-fact
+ * query. The provider-fact
  * normalization note for the generic-provider follow-up this implies.
  */
 export const createProviderQuery = (params: ContentQueryBuilderParams): ContentProviderQuery => {
-  const unsupported = findUnsupportedQueryOperator(params.where)
+  const unsupported = findUnsupportedPublicQueryOperator(params.where)
   if (unsupported) {
     throw createContentProviderError('unsupported_query_operator', `Unsupported query operator: ${unsupported}`, {
       operator: unsupported
@@ -178,7 +178,7 @@ const isProviderCursorFindResponse = (response: Record<string, unknown>): boolea
   (response.pageInfo.endCursor === null || typeof response.pageInfo.endCursor === 'string') &&
   typeof response.pageInfo.hasNext === 'boolean'
 
-/** Closed, discriminated list response — see `ContentQueryFindResponse` (VNEXT.md 10.2/13.1). */
+/** Closed, discriminated list response — see `ContentQueryFindResponse`. */
 const isProviderFindResponse = <T>(response: unknown): response is ContentQueryFindResponse<T> =>
   isObject(response) && (isProviderOffsetFindResponse(response) || isProviderCursorFindResponse(response))
 
@@ -230,6 +230,31 @@ const isProviderDocumentInput = (value: unknown): value is ProviderDocumentInput
   && typeof value.contentPath === 'string'
   && typeof value.canonicalKey === 'string'
   && 'body' in value
+
+const normalizeRawProviderDocuments = (
+  params: ContentQueryBuilderParams,
+  response: unknown,
+  providerName: string
+): ParsedContent[] => {
+  if (!isProviderFindResponse<unknown>(response)) {
+    return invalidProviderQueryResult(
+      params,
+      'Provider variant queries must return a list envelope.',
+      response,
+      providerName
+    )
+  }
+  return response.result.map((value) => {
+    if (!isProviderDocumentInput(value)) {
+      throw createContentProviderError(
+        'provider_result_invalid',
+        `${providerName} returned an invalid document while resolving variants.`,
+        { provider: providerName, collection: params.collection, operation: 'query', field: 'result' }
+      )
+    }
+    return normalizeProviderDocument(value)
+  })
+}
 
 const shapeProviderQueryDocument = (
   value: unknown,
@@ -386,17 +411,19 @@ export const resolveProviderContentVariants = async (
         await Promise.all(
           localesToQuery.map(async (locale) => {
             const localeQuery = { ...baseQuery, resolveLocale: { locale, exact: true } }
-            return normalizeProviderQueryResult(
-              normalizeProviderQueryResponse<ParsedContent>(
-                localeQuery,
-                await provider.query<ParsedContent>(event, createProviderQuery(localeQuery)),
-                provider.name,
-              ),
+            return normalizeRawProviderDocuments(
+              localeQuery,
+              await provider.query<ParsedContent>(event, createProviderQuery(localeQuery)),
+              provider.name
             )
           }),
         )
       ).flat()
-    : normalizeProviderQueryResult(normalizeProviderQueryResponse<ParsedContent>(baseQuery, await provider.query<ParsedContent>(event, createProviderQuery(baseQuery)), provider.name))
+    : normalizeRawProviderDocuments(
+        baseQuery,
+        await provider.query<ParsedContent>(event, createProviderQuery(baseQuery)),
+        provider.name
+      )
   const matched = documents.find(document => identityMatchesDocument(document, normalizedReference))
   const canonicalKey = matched?.canonicalKey
   if (!canonicalKey) {

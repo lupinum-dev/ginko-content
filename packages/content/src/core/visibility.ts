@@ -1,5 +1,5 @@
 /**
- * The one core publication-visibility decision (VNEXT.md 13.6, 24).
+ * The one core publication-visibility decision.
  *
  * Providers return content plus facts (a `draft` flag, publication state).
  * This module owns the single app-facing decision of whether draft content
@@ -89,7 +89,7 @@ export const isPublicationVisible = (
 
 /**
  * The filesystem provider serves an immutable, sealed snapshot in
- * production (VNEXT.md 15.8): it cannot overlay draft/preview content
+ * production: it cannot overlay draft/preview content
  * without rebuilding, so an authenticated preview request against it in
  * production is not a smaller/degraded feature — it is unsupported and must
  * fail before any query dispatch touches the sealed graph, rather than

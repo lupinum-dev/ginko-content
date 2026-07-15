@@ -1,4 +1,3 @@
-import type { ParsedContentMeta } from '../content'
 import type { ContentQueryBuilderWhere } from './transport'
 
 export interface ContentCollectionNavigationOptions<TField extends string = string> {
@@ -45,55 +44,11 @@ export interface ContentLocaleEntry {
   path?: string
 }
 
-export interface ContentLocaleRoute {
-  locale: string
-  path: string
-  /** the resolved variant's route path before locale prefixing */
-  unprefixedPath: string
-}
-
-export interface LocalePathEntry {
-  path: string
-  translated: boolean
-  fallback?: string
-}
-
-export interface ContentResolvedMeta {
-  locale: string
-  requestedLocale?: string
-  fallback: boolean
-  fallbackLocale?: string
-  path: string
-  requestedPath?: string
-  requestedRoute?: string
-  requestedRef?: string
-  availableLocales: string[]
-  /** Resolved markdown `$ref` links for the current runtime locale. */
-  resolvedRefs?: Record<string, string>
-}
-
-export interface ContentRouteMeta {
-  locale: string
-  defaultLocale: string
-  path: string
-  /** the resolved variant's route path before locale prefixing */
-  unprefixedPath: string
-  variants: ContentLocaleRoute[]
-  localePaths: Record<string, LocalePathEntry>
-  resolved: ContentResolvedMeta
-}
-
-export type ContentPageResult<T = ParsedContentMeta> = T & ContentRouteMeta & {
-  stem: string
-  extension?: string
-}
-
 /**
- * The canonical document-facts envelope (VNEXT.md 10.4), returned by the
+ * The canonical document-facts envelope, returned by the
  * unified query API (`one`/`many`/`resolveOne().doc`/`surround`/`backlinks`)
- * and consumed by `useContentPage`. This is a hard cut from the legacy
- * `ContentRouteMeta`/`ContentResolvedMeta` shape above: no `canonicalPath`,
- * no caller-selector echo, no indistinguishable synthesized paths.
+ * and consumed by `useContentPage`. There is no caller-selector echo and no
+ * indistinguishable synthesized path.
  *
  * `requestedPath` is present only when the caller resolved the document
  * through a route/path selector; `resolvedPath` is always the document's

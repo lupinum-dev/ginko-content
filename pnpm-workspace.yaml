@@ -6,6 +6,7 @@ packages:
   - examples/*/*
   - test/fixtures/*
 minimumReleaseAge: 1440
+linkWorkspacePackages: deep
 onlyBuiltDependencies:
   - esbuild
   - vue-demi

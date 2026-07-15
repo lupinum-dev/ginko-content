@@ -49,13 +49,11 @@ export interface ContentFileMeta {
 /**
  * Per-request locale/reference resolution carrier.
  *
- * Folded from the legacy underscore resolution meta into one object. It is the
- * pre-shaping route-resolution form attached by the query pipeline. Field
- * names mirror `ContentResolvedMeta` so internal consumers can read the same
- * resolution facts before the public document envelope is built.
+ * This is the pre-shaping route-resolution form attached by the query
+ * pipeline, before the public document envelope is built.
  *
  * Not to be confused with the public `ContentDocumentResolution` envelope
- * type (VNEXT.md 10.4, `types/query-parts/results.ts`) returned by the
+ * type returned by the
  * unified query API (`one`/`many`/`resolveOne`/`surround`/`backlinks`) and
  * `useContentPage` — that is a distinct, much smaller shape. This internal
  * carrier is named `ContentResolutionCarrier` to avoid colliding with it.

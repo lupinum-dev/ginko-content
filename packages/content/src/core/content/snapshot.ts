@@ -2,7 +2,7 @@ import { splitInlineLocaleVariantId } from './locale'
 import type { ParsedContent } from '../../types/content'
 import { collectJsonPurityViolations } from '../json-value'
 
-// Bumped for VNEXT §11/§21: the snapshot's value model tightened from
+// Bumped when the snapshot value model tightened from
 // "JSON.stringify-representable" (which admitted `Date` and `undefined`) to
 // strict JSON purity, matching the gate that already runs before graph
 // insertion. A pre-0.3 snapshot on disk is not compatible with this reader.
@@ -36,7 +36,7 @@ const documentSourceIdOf = (document: ParsedContent) =>
   splitInlineLocaleVariantId(documentIdOf(document)).sourceId
 
 /**
- * A cheap defensive re-assertion, not a normalization pass (VNEXT §11.3): by
+ * A cheap defensive re-assertion, not a normalization pass: by
  * the time a document reaches the snapshot builder it already passed the
  * canonical JSON-purity gate (`storage/validation.ts`'s
  * `validateDocumentJsonPurity`, run right after schema parsing and before

@@ -6,7 +6,7 @@ Use this guide when changing `ContentRenderer`, markdown rendering, Prose compon
 
 - `src/runtime/app/components/ContentRenderer*.vue` owns document rendering.
 - `src/runtime/app/components/internal/` owns renderer internals.
-- `src/runtime/app/composables/use-content-page.ts` owns the sole route-page composable. There is no dedicated head composable — apps call `useSeoMeta()`/`useHead()` themselves from the resolved document (VNEXT.md 10.4, hard-cut deletion of `useContentHead`).
+- `src/runtime/app/composables/use-content-page.ts` owns the sole route-page composable. There is no dedicated head composable — apps call `useSeoMeta()`/`useHead()` themselves from the resolved document.
 - `src/runtime/app/composables/search.ts` owns the sole search composable (`useContentSearch`).
 - `src/integrations/vue/` owns component discovery, HTML tag handling, and markdown refs.
 - `src/parsers/markdown.ts` and markdown plugins own parsed markdown shape.

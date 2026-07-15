@@ -156,7 +156,7 @@ describe('locale and manifest contracts', () => {
     const event = createEvent()
     // `getContentGraph(event).manifest` replaces the deleted persisted
     // `_manifest.json` cache (`storage/manifest.ts#getContentManifest`,
-    // VNEXT.md 15.7, 25.4): the graph's manifest is the same data, computed
+    // The graph's manifest is the same data, computed
     // fresh (dev) or from the one process-cached graph (production) instead
     // of a second revisionless cache.
     const manifest = (await getContentGraph(event)).manifest

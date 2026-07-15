@@ -475,7 +475,7 @@ export interface ModuleOptions {
    * `@lupinum/ginko-content/transformers`). Transformers run inside the real
    * ingest pipeline alongside the built-in markdown/yaml/csv/json
    * transformers, so their effects reach query results, navigation, search,
-   * and generated routes identically (VNEXT.md §14.4, §20.1).
+   * and generated routes identically.
    *
    * @default []
    */
@@ -515,7 +515,7 @@ export interface ContentContext extends ModuleOptions {
   validationPublicAssets?: string[]
   /**
    * The single immutable, per-collection locale policy resolved once at
-   * setup (VNEXT.md §12.1, §22). Downstream route/navigation/search/sitemap/
+   * setup. Downstream route/navigation/search/sitemap/
    * prerender/agent code consumes this rather than reconstructing locale
    * facts from loose fields.
    */

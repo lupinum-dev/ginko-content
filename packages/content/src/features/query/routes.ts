@@ -63,7 +63,7 @@ export const getCollectionPath = (
 
   // `canonical: true` asks for the mounted-but-unprefixed path. Feeding the
   // projector a policy whose `defaultLocale` equals the requested locale
-  // reproduces that exactly (VNEXT.md §12.2): the mount is still applied,
+  // reproduces that exactly: the mount is still applied,
   // but `prefixPathWithLocale` never adds a prefix when locale === defaultLocale.
   const policy: ResolvedCollectionLocalePolicy = {
     localized: locales.length > 0,

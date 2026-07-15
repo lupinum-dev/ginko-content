@@ -9,7 +9,6 @@ const runtimeConfig = {
 
 const cache = createStorage()
 const createServerContentQuery = vi.fn()
-const serverQueryCollection = vi.fn()
 const getContent = vi.fn()
 const resolveLocaleChain = vi.fn()
 const resolveVariant = vi.fn()
@@ -20,7 +19,6 @@ describe('navigation contracts', () => {
     vi.resetModules()
     cache._state.clear()
     createServerContentQuery.mockReset()
-    serverQueryCollection.mockReset()
     getContent.mockReset()
     resolveLocaleChain.mockReset()
     resolveVariant.mockReset()
@@ -31,10 +29,13 @@ describe('navigation contracts', () => {
     vi.doMock('../../packages/content/src/runtime/server/runtime-config', () => ({
       getContentRuntimeConfig: () => runtimeConfig
     }))
-    vi.doMock('../../packages/content/src/runtime/server/storage', () => ({
-      createServerContentQuery,
-      serverQueryCollection
-    }))
+    vi.doMock('../../packages/content/src/runtime/server/provider-query', async () => {
+      const actual = await vi.importActual<any>('../../packages/content/src/runtime/server/provider-query')
+      return {
+        ...actual,
+        createServerContentQuery
+      }
+    })
     vi.doMock('../../packages/content/src/storage/contents', () => ({
       getContent
     }))
@@ -441,6 +442,43 @@ describe('navigation contracts', () => {
         }
       ]
     })
+    expect(createServerContentQuery.mock.calls[1]?.[1]).toEqual({ collection: 'docs' })
+  })
+
+  test('provider navigation derives builder paths from the canonical route envelope', async () => {
+    let queryIndex = 0
+    createServerContentQuery.mockImplementation(() => {
+      const index = queryIndex++
+      return {
+        where() {
+          return this
+        },
+        all: async () => index === 0
+          ? [{
+              id: 'content:en:docs:install.md',
+              title: 'Install',
+              locale: 'en',
+              canonicalKey: 'docs/install',
+              file: { path: 'docs/install.md' },
+              route: { resolvedPath: '/docs/install', alternates: [] }
+            }]
+          : [],
+        find() {
+          return this.all()
+        }
+      }
+    })
+    resolveLocaleChain.mockReturnValue(['en'])
+
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({
+      collection: 'docs',
+      resolveLocale: { locale: 'en', exact: true }
+    })
+
+    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+      expect.objectContaining({ path: '/docs/install', title: 'Install' })
+    ])
   })
 
   test('resolveContentNavigation merges synthetic translated folder roots before collection unwrapping', async () => {
@@ -584,7 +622,7 @@ describe('navigation contracts', () => {
   })
 
   test('resolveContentNavigation always derives fresh — no persisted _nav.json cache is consulted', async () => {
-    // VNEXT.md 15.4, 15.7, 25.4: the single-entry `_nav.json` cache is
+    // The single-entry `_nav.json` cache is
     // deleted. A stale entry sitting in cache storage must never leak into a
     // navigation response — `resolveContentNavigation` has to query fresh
     // every time regardless of what (if anything) cache storage holds.
@@ -655,99 +693,4 @@ describe('navigation contracts', () => {
     ])
   })
 
-  test('server queryCollectionNavigation unwraps a synthetic collection root by default', async () => {
-    const event = createEvent()
-    serverQueryCollection.mockImplementation(() => ({
-      select() {
-        return this
-      },
-      async all() {
-        return []
-      },
-      find() {
-        return this.all()
-      }
-    }))
-    const resolveContentNavigation = vi.fn(async () => [
-      { title: 'Guide', path: '/guide' }
-    ])
-    vi.doMock('../../packages/content/src/runtime/server/navigation-query', () => ({
-      resolveContentNavigation
-    }))
-
-    const { queryCollectionNavigation } = await import('../../packages/content/src/runtime/server/collection-helpers')
-    const nav = await queryCollectionNavigation(event, 'docs')
-
-    expect(nav).toEqual([
-      expect.objectContaining({
-        title: 'Guide',
-        path: '/guide'
-      })
-    ])
-    expect(resolveContentNavigation).toHaveBeenCalledWith(
-      event,
-      expect.objectContaining({ v: 2, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
-      expect.any(Object)
-    )
-  })
-
-  test('server queryCollectionItemSurroundings forwards locale and canonical options to navigation loading', async () => {
-    vi.resetModules()
-    const resolveCollectionNavigationData = vi.fn(async (collection, _runtime, options) => options)
-    const resolveCollectionItemSurroundingsData = vi.fn(async (collection, path, _runtime, options) => {
-      return await options.loadNavigation({
-        fields: ['badge'],
-        locale: 'de',
-        canonical: true
-      })
-    })
-
-    vi.doMock('../../packages/content/src/features/collections/resolve', () => ({
-      resolveCollectionNavigationData,
-      resolveCollectionItemSurroundingsData,
-      resolveCollectionPageData: vi.fn(),
-      resolveCollectionRouteMetaData: vi.fn(),
-      resolveCollectionSearchSectionsData: vi.fn()
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/navigation-query', () => ({
-      resolveContentNavigation: vi.fn(async () => [])
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/storage', () => ({
-      serverQueryCollection: vi.fn(() => ({
-        select() {
-          return this
-        },
-        async all() {
-          return []
-        },
-        find() {
-          return this.all()
-        }
-      }))
-    }))
-    vi.doMock('../../packages/content/src/integrations/nitro/storage', () => ({
-      contentConfig: () => ({
-        locales: ['en', 'de'],
-        defaultLocale: 'en',
-        localeFallback: { de: ['en'] },
-        translatedSlugs: false
-      })
-    }))
-
-    const { queryCollectionItemSurroundings } = await import('../../packages/content/src/runtime/server/collection-helpers')
-
-    const forwarded = await queryCollectionItemSurroundings(createEvent(), 'docs', '/de/leitfaden/einstieg', {
-      fields: ['badge'],
-      locale: 'de',
-      canonical: true
-    })
-
-    expect(resolveCollectionItemSurroundingsData).toHaveBeenCalledTimes(1)
-    expect(resolveCollectionNavigationData).toHaveBeenCalledTimes(1)
-    expect(forwarded).toMatchObject({
-      fields: ['badge'],
-      locale: 'de',
-      canonical: true
-    })
-  })
 })

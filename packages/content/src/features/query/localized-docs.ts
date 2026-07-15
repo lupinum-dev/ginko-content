@@ -26,7 +26,7 @@ const collectionLocaleConfig = (
 
 /**
  * Decorate a raw parsed document with the canonical `route`/`resolution`
- * envelope (VNEXT.md 10.4) the unified query API and `useContentPage` return.
+ * envelope the unified query API and `useContentPage` return.
  */
 export const decorateLocalizedDocument = <T extends ParsedContent & Record<string, unknown>>(
   doc: T | null,

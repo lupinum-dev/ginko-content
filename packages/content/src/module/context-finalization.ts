@@ -51,7 +51,7 @@ export const registerContentContextFinalization = ({
     // provider recursively assigns onto every object it walks, which throws
     // on a frozen object. Freezing must therefore never reach that shared
     // reference. Give `content:context` observers a distinct shallow-frozen
-    // top-level clone instead (VNEXT.md §17.4): dev-mode exposes accidental
+    // top-level clone instead: dev-mode exposes accidental
     // top-level mutation from observers without touching the object Nitro
     // still needs to write into.
     onResolved(resolvedContentContext)
@@ -59,7 +59,7 @@ export const registerContentContextFinalization = ({
       ? Object.freeze({ ...resolvedContentContext })
       : resolvedContentContext
     // `content:context` is a read-only notification called only after the
-    // content context is fully resolved (VNEXT.md §17.4). Observers may
+    // content context is fully resolved. Observers may
     // validate or derive their own artifacts from it; they may not mutate
     // collections, locales, provider selection, or routing policy.
     await nuxt.callHook('content:context', contextForObservers)

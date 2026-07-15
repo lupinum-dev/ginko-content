@@ -1,11 +1,8 @@
 import type { ParsedContent } from '../../types/content'
-import type { ContentPageResult, ContentRouteMeta } from '../../types/query'
 import { createCollectionSurroundings } from '../navigation/tree'
 import { createSearchSections, type GenerateSearchSectionsOptions } from '../search/sections'
 import type { RuntimeContentI18nInput } from '../localization/config'
-import { normalizeContentPath, resolveCollectionI18n, resolveRouteContent } from '../localization/path'
-import { createRouteMeta, localizePageResult, localizeSearchSections } from '../localization/results'
-import { sortLocalesCanonically } from '../../core/content/locale'
+import { localizePath, normalizeContentPath, resolveCollectionI18n, resolveRouteContent } from '../localization/path'
 
 export interface CollectionResolveRuntime extends RuntimeContentI18nInput {
   localeFallback?: Record<string, string[]>
@@ -62,87 +59,10 @@ export const resolveCollectionSearchSectionsData = async (
   const locale = options.locale || options.activeLocale || defaultLocale
   const pages = await options.loadPages(options.extraFields || [])
   const sections = createSearchSections(pages, options)
-  return options.canonical ? sections : localizeSearchSections(sections, locale, defaultLocale, locales)
-}
-
-export const resolveCollectionPageData = async <T = ParsedContent> (
-  collection: string,
-  routeOrPath: string | undefined,
-  runtime: CollectionResolveRuntime,
-  options: {
-    locale?: string
-    fallback?: string[] | boolean
-    canonical?: boolean
-    fallbackRoute?: string
-    loadVariantPage: (input: { path: string, locale?: string, fallback?: string[] | boolean }) => Promise<(T & ParsedContent) | null>
-    loadPathPage: (path: string) => Promise<(T & ParsedContent) | null>
-  }
-): Promise<ContentPageResult<T> | null> => {
-  const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)
-  const targetPath = routeOrPath || options.fallbackRoute || '/'
-  const resolved = resolveRouteContent(targetPath, locales, defaultLocale, options.locale)
-  const shouldResolveVariant = Boolean(locales.length || runtime.translatedSlugs || Object.keys(runtime.localeFallback || {}).length)
-  const page = shouldResolveVariant
-    ? await options.loadVariantPage({
-        path: resolved.path,
-        locale: resolved.locale,
-        fallback: options.fallback ?? ((resolved.locale && runtime.localeFallback?.[resolved.locale]) || [])
-      })
-    : await options.loadPathPage(resolved.path)
-
-  if (!page) {
-    return null
-  }
-
-  if (options.canonical) {
-    const resolution = page.resolved
-    const unprefixedPath = normalizeContentPath(page.path || '/')
-    const resolvedLocale = resolution?.locale || page.locale || resolved.locale || defaultLocale || ''
-    const requestedLocale = resolution?.requestedLocale || resolved.locale
-    const fallback = Boolean(resolution?.fallback || (requestedLocale && resolvedLocale && requestedLocale !== resolvedLocale))
-    return {
-      ...page,
-      path: unprefixedPath,
-      unprefixedPath,
-      locale: resolved.locale || resolvedLocale,
-      defaultLocale: defaultLocale || '',
-      variants: [],
-      localePaths: {},
-      resolved: {
-        locale: resolvedLocale,
-        ...(requestedLocale ? { requestedLocale } : {}),
-        fallback,
-        ...(fallback ? { fallbackLocale: resolvedLocale } : {}),
-        path: unprefixedPath,
-        ...(resolution?.requestedPath ? { requestedPath: resolution.requestedPath } : {}),
-        ...(resolution?.requestedRoute ? { requestedRoute: resolution.requestedRoute } : {}),
-        ...(resolution?.requestedRef ? { requestedRef: resolution.requestedRef } : {}),
-        availableLocales: resolution?.availableLocales || sortLocalesCanonically(Object.keys(resolution?.variantPaths || {}), { defaultLocale, locales }),
-        ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
-      },
-      stem: unprefixedPath.replace(/^\/+/, '') || 'index',
-      extension: page.file?.extension
-    } as ContentPageResult<T>
-  }
-
-  return localizePageResult(page, resolved.locale, defaultLocale, locales)
-}
-
-export const resolveCollectionRouteMetaData = async (
-  collection: string,
-  runtime: CollectionResolveRuntime,
-  options: {
-    routeOrPath?: string
-    locale?: string
-    fallback?: string[] | boolean
-    loadPage: (routeOrPath?: string, options?: { locale?: string, fallback?: string[] | boolean, canonical?: boolean }) => Promise<ContentPageResult<any> | null>
-  }
-): Promise<ContentRouteMeta | null> => {
-  const page = await options.loadPage(options.routeOrPath, { locale: options.locale, fallback: options.fallback })
-  if (!page) {
-    return null
-  }
-
-  const { defaultLocale, locales } = resolveCollectionI18n(collection, runtime)
-  return createRouteMeta(page, page.locale, defaultLocale, locales)
+  return options.canonical
+    ? sections
+    : sections.map(section => ({
+        ...section,
+        id: localizePath(section.id, locale, defaultLocale, locales) || section.id
+      }))
 }

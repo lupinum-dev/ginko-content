@@ -72,8 +72,7 @@ export const registerContentNitroConfig = ({
       nitroConfig.prerender.routes.unshift(cacheRoute)
       // The cache/build route's HTML response (see
       // `runtime/server/api/cache.ts`) seeds content-route prerender
-      // injection via Nitro's own crawl-links mechanism (VNEXT §14.4,
-      // §25.2, deleted module-time `module/derived-route-discovery.ts`).
+      // injection via Nitro's own crawl-links mechanism.
       // This is the only viable injection point for BOTH static (`nuxi
       // generate`) and non-static (`nuxi build`) presets: Nitro's own
       // `prerender()` finalizes its crawl queue from
@@ -92,7 +91,7 @@ export const registerContentNitroConfig = ({
         // warn loudly: without crawling, filesystem content routes never reach the
         // prerender queue and the build will ship without them.
         logger.warn(
-          'content module needs `nitro.prerender.crawlLinks` to inject provider content routes into the prerender queue (see VNEXT §14.4, §25.2), but it is explicitly set to `false` in your nuxt.config. Content routes will NOT be prerendered until you remove `crawlLinks: false`.'
+          'content module needs `nitro.prerender.crawlLinks` to inject provider content routes into the prerender queue, but it is explicitly set to `false` in your nuxt.config. Content routes will NOT be prerendered until you remove `crawlLinks: false`.'
         )
       }
       nitroConfig.prerender.crawlLinks = nitroConfig.prerender.crawlLinks ?? true

@@ -16,7 +16,7 @@ const setRuntimeSearch = (search: unknown) => {
   }
 }
 
-describe('public search composable (VNEXT.md 10.5, 27.2)', () => {
+describe('public search composable', () => {
   beforeEach(() => {
     vi.resetModules()
     fetchCalls.length = 0

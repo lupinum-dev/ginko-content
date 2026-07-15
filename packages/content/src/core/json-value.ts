@@ -1,5 +1,5 @@
 /**
- * The canonical JSON value model (VNEXT §11).
+ * The canonical JSON value model.
  *
  * Every post-schema document value — from every provider, in dev and in
  * build — must be one of the values below. This is the single recursive

@@ -73,8 +73,7 @@ const resolveSiteUrl = (event?: H3Event) => {
 const joinUrl = (base: string, path: string) => new URL(normalizeAgentRoutePath(path), base).toString()
 
 /**
- * Empty-`routeMounts` policy pattern (VNEXT.md §12.2, matching
- * `features/query/routes.ts#getCollectionPath`): the agent mirror has no
+ * Empty-`routeMounts` policy pattern: the agent mirror has no
  * per-collection mount to apply, only locale prefixing, so it hands
  * `projectContentRoute` a policy whose `routeMounts` is `{}` and lets the
  * canonical projector own the prefix decision instead of hand-assembling it.

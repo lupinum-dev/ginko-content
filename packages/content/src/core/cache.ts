@@ -20,7 +20,7 @@ export interface SingleFlightMap<T> {
 /**
  * Request-scoped content cache. Holds the single-flight map that prevents
  * two concurrent parses of the same `(storageId, hash)` inside one request
- * (VNEXT.md 15.7). The complete contents-list load is deduplicated by the
+ *. The complete contents-list load is deduplicated by the
  * caller's own `memoizeRuntimeValue(event, key, ...)` instead of a second,
  * request-scoped list cache/single-flight pair here — that second layer had
  * no invalidation source independent of the memo it duplicated, so it is

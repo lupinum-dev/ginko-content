@@ -1,6 +1,6 @@
 /**
  * Response envelope returned when a query resolves to a list using offset
- * pagination — an exact `total`/`skip` page (VNEXT.md 10.2/13.1). `mode` is
+ * pagination — an exact `total`/`skip` page. `mode` is
  * optional here (rather than a required literal) so a plain, non-paginating
  * `many()` response — which carries no explicit pagination-mode contract —
  * remains a valid, unchanged instance of this shape.
@@ -28,7 +28,7 @@ export interface ContentQueryOffsetFindResponse<T> {
 /**
  * Response envelope returned when a query resolves to a list using forward
  * cursor pagination. Deliberately has no `total`, `skip`, or `page` — a
- * bounded cursor-only provider cannot honestly produce those (VNEXT.md 10.2).
+ * bounded cursor-only provider cannot honestly produce those.
  */
 export interface ContentQueryCursorFindResponse<T> {
   mode: 'cursor'

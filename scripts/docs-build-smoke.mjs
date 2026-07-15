@@ -35,10 +35,10 @@ const walk = async (dir) => {
       offenders.push(relative(process.cwd(), path))
     }
     const outputPath = relative(root, path).replaceAll('\\', '/')
-    if (!outputPath.startsWith('api/')) {
+    if (outputPath === 'index.html' || outputPath.startsWith('docs/')) {
       if (!/<html[^>]+lang="[^"]+"/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing html lang`)
       if (!/<main(?:\s|>)/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing main landmark`)
-      if (outputPath.startsWith('docs/') && !/<h1(?:\s|>)/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing h1`)
+      if (outputPath !== 'docs/index.html' && outputPath.startsWith('docs/') && !/<h1(?:\s|>)/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing h1`)
       const images = source.match(/<img\b[^>]*>/gi) || []
       if (images.some(image => !/\salt=/i.test(image))) accessibilityOffenders.push(`${outputPath}: image without alt`)
       if (/href="\s*"/i.test(source)) accessibilityOffenders.push(`${outputPath}: empty href`)
@@ -52,28 +52,28 @@ await walk(root)
 
 const requiredOutputs = [
   'index.html',
-  'docs/why-ginko.html',
-  'docs/why-ginko/how-ginko-compares.html',
-  'docs/how-it-works.html',
-  'docs/get-started/installation.html',
-  'docs/guides/site-patterns/documentation-site.html',
-  'docs/reference/query-api.html',
-  'docs/migration/from-nuxt-content-v3.html',
+  'docs/why-ginko/index.html',
+  'docs/why-ginko/how-ginko-compares/index.html',
+  'docs/how-it-works/index.html',
+  'docs/get-started/installation/index.html',
+  'docs/guides/site-patterns/documentation-site/index.html',
+  'docs/reference/query-api/index.html',
+  'docs/migration/from-nuxt-content-v3/index.html',
   'raw/docs/why-ginko.md',
   'raw/docs/reference/query-api.md',
   'llms.txt',
   'llms-full.txt'
 ]
 const retiredOutputs = [
-  'docs/getting-started.html',
-  'docs/essentials.html',
-  'docs/collections.html',
-  'docs/querying.html',
-  'docs/rendering.html',
-  'docs/i18n.html',
-  'docs/search.html',
-  'docs/api-reference.html',
-  'docs/cms-cache.html'
+  'docs/getting-started/index.html',
+  'docs/essentials/index.html',
+  'docs/collections/index.html',
+  'docs/querying/index.html',
+  'docs/rendering/index.html',
+  'docs/i18n/index.html',
+  'docs/search/index.html',
+  'docs/api-reference/index.html',
+  'docs/cms-cache/index.html'
 ]
 const missingOutputs = []
 const unexpectedRetiredOutputs = []

@@ -52,7 +52,7 @@ const nodeContractTests = [
   'test/contracts/runtime-assets-contracts.test.ts',
   'test/contracts/server-handlers-contracts.test.ts',
   'test/contracts/transformers-contracts.test.ts',
-  'test/contracts/vnext-golden-demo.test.ts'
+  'test/contracts/provider-route-golden.test.ts'
 ]
 
 export default defineConfig({

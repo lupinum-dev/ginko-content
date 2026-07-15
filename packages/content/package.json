@@ -119,7 +119,6 @@
   },
   "web-types": "./dist/web-types.json",
   "files": [
-    "compatibility.json",
     "dist",
     "README.md",
     "LICENSE"
@@ -151,11 +150,9 @@
     "picomatch": "^4.0.4",
     "scule": "^1.3.0",
     "shiki": "^4.2.0",
-    "slugify": "^1.6.9",
     "ufo": "^1.6.4",
     "unstorage": "^1.17.5",
     "vue-router": "^5.0.2",
-    "ws": "^8.21.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

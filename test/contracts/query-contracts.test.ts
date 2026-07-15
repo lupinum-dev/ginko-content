@@ -18,12 +18,6 @@ vi.mock('#imports', () => ({
 
 const getContentsList = vi.fn()
 const getContent = vi.fn()
-const createServerContentQuery = vi.fn()
-
-vi.mock('../../packages/content/src/runtime/server/storage', () => ({
-  createServerContentQuery
-}))
-
 vi.mock('../../packages/content/src/storage/contents', () => ({
   getContentsList,
   getContent
@@ -39,10 +33,9 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
 
 // Assert an envelope carries no module-owned `_`-prefixed key. Underscore keys
 // are reserved for internal metadata and must never survive into the wire
-// envelope. This walks the *module-owned* containers of a result — the item
-// envelope itself, its `resolved` block, and the localization sub-envelopes
-// `variants[]` / `localePaths` entries / `navigation` + `surround` items (and
-// nested navigation `children`) — but deliberately does NOT descend into user
+// envelope. This walks the module-owned `route`, `resolution`, `navigation`,
+// and `surround` containers (including alternates and nested navigation
+// children), but deliberately does not descend into user
 // content (`body`, frontmatter `data`, or the directory `dir` config), where
 // authored `_`-prefixed fields are legal.
 const assertNoModuleOwnedUnderscoreKeys = (value: unknown, where: string) => {
@@ -63,23 +56,20 @@ const assertNoModuleOwnedUnderscoreKeys = (value: unknown, where: string) => {
     }
   }
 
+  descend(container.route, `${where}.route`)
+  descend(container.resolution, `${where}.resolution`)
+  descend(container.requested, `${where}.requested`)
   descend(container.resolved, `${where}.resolved`)
-  descendEach(container.variants, `${where}.variants`)
+  descendEach(container.alternates, `${where}.alternates`)
   descendEach(container.navigation, `${where}.navigation`)
   descendEach(container.surround, `${where}.surround`)
   descendEach(container.children, `${where}.children`)
-  if (container.localePaths && typeof container.localePaths === 'object' && !Array.isArray(container.localePaths)) {
-    for (const [locale, entry] of Object.entries(container.localePaths as Record<string, unknown>)) {
-      descend(entry, `${where}.localePaths.${locale}`)
-    }
-  }
 }
 
 describe('query execution contracts', () => {
   beforeEach(() => {
     getContentsList.mockReset()
     getContent.mockReset()
-    createServerContentQuery.mockReset()
   })
 
   afterEach(() => {
@@ -252,7 +242,6 @@ describe('query execution contracts', () => {
     ]
     const { buildContentGraph } = await import('../../packages/content/src/core/content/graph')
     const { executeQueryPlan } = await import('../../packages/content/src/core/query/execute')
-    const { localizePageResult } = await import('../../packages/content/src/features/localization/results')
 
     const plan = createProviderQuery({
       collection: 'docs',
@@ -274,25 +263,8 @@ describe('query execution contracts', () => {
 
     expect(list.result.resolved.availableLocales).toEqual(['en', 'de'])
 
-    const shaped = localizePageResult({
-      path: '/leitfaden/einstieg',
-      locale: 'de',
-      resolved: {
-        locale: 'de',
-        variantPaths: {
-          de: '/leitfaden/einstieg',
-          en: '/guide/intro'
-        }
-      }
-    } as any, 'de', 'en', ['en', 'de'])
-
-    expect(shaped.variants.map(variant => variant.locale)).toEqual(['en', 'de'])
-    expect(shaped.resolved.availableLocales).toEqual(['en', 'de'])
-
-    // Reverse insertion direction: feed the graph the same variants en-first,
-    // and shape with the variant-path map en-first. Canonical ordering must be
-    // identical (default-locale first), proving the result is independent of
-    // graph-insertion / object-key order — not merely echoing the input.
+    // Reverse insertion direction. Canonical ordering must be identical
+    // (default-locale first), proving it is independent of graph insertion.
     const reversedList = executeQueryPlan(buildContentGraph([...documents].reverse()), plan, {
       defaultLocale: 'en',
       collections: {
@@ -307,20 +279,6 @@ describe('query execution contracts', () => {
 
     expect(reversedList.result.resolved.availableLocales).toEqual(['en', 'de'])
 
-    const reversedShaped = localizePageResult({
-      path: '/guide/intro',
-      locale: 'en',
-      resolved: {
-        locale: 'en',
-        variantPaths: {
-          en: '/guide/intro',
-          de: '/leitfaden/einstieg'
-        }
-      }
-    } as any, 'en', 'en', ['en', 'de'])
-
-    expect(reversedShaped.variants.map(variant => variant.locale)).toEqual(['en', 'de'])
-    expect(reversedShaped.resolved.availableLocales).toEqual(['en', 'de'])
   })
 
   test('executeContentQuery resolves route variants and returns variant paths', async () => {
@@ -407,7 +365,7 @@ describe('query execution contracts', () => {
     ])
   })
 
-  // VNEXT.md 13.6/24.2/24.4: one core visibility decision, applied at the
+  // One core visibility decision, applied at the
   // untrusted public query boundary. Structural eligibility (partial,
   // navigationFile) is unconditional — never a route, in any environment —
   // while draft is the one environment-aware publication-visibility fact.
@@ -458,18 +416,18 @@ describe('query execution contracts', () => {
     // The executor now takes a lowered plan (CS-5); lower builder params here.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
-    await expect(executeContentQuery(createEvent(), {
+    await expect(Promise.resolve().then(() => executeContentQuery(createEvent(), {
       collection: 'docs',
       where: [{ title: { $regex: 'intro' } }]
-    } as any)).rejects.toMatchObject({
+    } as any))).rejects.toMatchObject({
       statusCode: 400,
-      statusMessage: 'Invalid content query'
+      statusMessage: 'unsupported_query_operator'
     })
 
-    await expect(executeContentQuery(createEvent(), {
+    await expect(Promise.resolve().then(() => executeContentQuery(createEvent(), {
       collection: 'docs',
       where: [{ title: /intro/ }]
-    } as any)).rejects.toMatchObject({
+    } as any))).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Invalid content query'
     })
@@ -572,18 +530,14 @@ describe('query execution contracts', () => {
     })
   })
 
-  test('module-owned envelope walk covers navigation results and rejects nested underscore metadata', async () => {
-    const { localizeNavigation, localizeSurround } = await import('../../packages/content/src/features/localization/results')
-
-    // Real navigation/surround shaping produces the `navigation`/`surround`
-    // sub-envelopes (with nested `children`) attached to a navigation result.
-    const navigation = localizeNavigation([
-      { title: 'Guide', path: '/guide', children: [{ title: 'Intro', path: '/guide/intro' }] } as any
-    ], 'en', 'en', ['en', 'de'])
-    const surround = localizeSurround([
+  test('module-owned envelope walk covers current query result shapes and rejects nested underscore metadata', () => {
+    const navigation = [
+      { title: 'Guide', path: '/guide', children: [{ title: 'Intro', path: '/guide/intro' }] }
+    ]
+    const surround = [
       { title: 'Prev', path: '/guide/a' },
       { title: 'Next', path: '/guide/b' }
-    ] as any, 'en', 'en', ['en', 'de'])
+    ]
 
     const navigationResult = { result: navigation, navigation, surround }
     // A single walk descends into navigation[], surround[], and nested children.
@@ -591,30 +545,22 @@ describe('query execution contracts', () => {
 
     // Depth proof (both directions): a `_`-prefixed key nested inside an
     // envelope sub-container must be rejected. A shallow top-level-only check
-    // would pass these (their top-level keys are `resolved` / `variants` /
-    // `navigation`, none underscore) — only the deepened walk catches the leak.
+    // would pass these because the underscore is nested.
     expect(() => assertNoModuleOwnedUnderscoreKeys({
-      path: '/guide',
-      resolved: { locale: 'en', _leak: true }
-    }, 'nestedResolvedLeak')).toThrow()
-    expect(() => assertNoModuleOwnedUnderscoreKeys({
-      path: '/guide',
-      variants: [{ locale: 'en', path: '/guide', _leak: true }]
-    }, 'nestedVariantLeak')).toThrow()
+      route: { resolvedPath: '/guide', alternates: [{ locale: 'en', path: '/guide', source: 'variant', _leak: true }] }
+    }, 'nestedRouteLeak')).toThrow()
     expect(() => assertNoModuleOwnedUnderscoreKeys({
       navigation: [{ title: 'Guide', path: '/guide', children: [{ title: 'Intro', path: '/guide/intro', _leak: true }] }]
     }, 'nestedNavigationChildLeak')).toThrow()
     expect(() => assertNoModuleOwnedUnderscoreKeys({
-      localePaths: { en: { path: '/guide', translated: true, _leak: true } }
-    }, 'nestedLocalePathLeak')).toThrow()
+      resolution: { requested: {}, resolved: { locale: 'en', _leak: true }, usedFallback: false }
+    }, 'nestedResolutionLeak')).toThrow()
 
     // Control: the same shapes without the nested leak pass, proving the walk
     // does not spuriously reject clean nested envelopes.
     expect(() => assertNoModuleOwnedUnderscoreKeys({
-      path: '/guide',
-      resolved: { locale: 'en' },
-      variants: [{ locale: 'en', path: '/guide' }],
-      localePaths: { en: { path: '/guide', translated: true } }
+      route: { resolvedPath: '/guide', alternates: [{ locale: 'en', path: '/guide', source: 'variant' }] },
+      resolution: { requested: {}, resolved: { locale: 'en' }, usedFallback: false }
     }, 'cleanEnvelope')).not.toThrow()
   })
 })

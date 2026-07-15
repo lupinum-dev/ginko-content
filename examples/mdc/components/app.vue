@@ -1,0 +1,14 @@
+<script setup lang="ts">
+import { one } from '@lupinum/ginko-content/client'
+import { pages } from './content.config'
+
+const page = await one(pages, {
+  by: { path: '/' }
+})
+</script>
+
+<template>
+  <main>
+    <ContentRenderer v-if="page" :value="page" class="prose text-left" />
+  </main>
+</template>

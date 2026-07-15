@@ -3,7 +3,7 @@
  *
  * Context-explicit async functions: `one`, `many`, `resolveOne`, `paginate`,
  * `backlinks`, `surround`, `navigation` — the exact six verbs plus
- * `navigation()` (VNEXT.md 10.2). Each accepts a typed collection handle
+ * `navigation()`. Each accepts a typed collection handle
  * (from `defineCollection`) plus an options object. Locale is type-required
  * when the handle declares i18n.
  *
@@ -12,9 +12,8 @@
  * dispatch through the explicit `ContentQueryContext` transport provided by
  * the client or server entrypoint.
  *
- * Documents are post-processed by `localizePageResult` to attach `path`,
- * `locale`, `localePaths`, and `variants` — the route metadata that powers
- * locale switching with zero extra round trips.
+ * Documents are decorated with the canonical `route` and `resolution`
+ * envelopes, including locale alternates for zero-round-trip switching.
  */
 import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionHandle, __ginkoSchemaBrand } from '../../types/config'
@@ -106,7 +105,7 @@ export async function many<
 /**
  * Resolve one page of documents and preserve the query envelope metadata.
  * The return type narrows to the exact offset/cursor discriminant when the
- * caller's options literally name `mode` (VNEXT.md 10.2/26.1).
+ * caller's options literally name `mode`.
  */
 export async function paginate<
   const H extends ContentCollectionHandle | string,
@@ -144,7 +143,7 @@ export async function backlinks<
 
 /**
  * Resolve the navigation tree for a collection — the one tree concept,
- * absorbing the deleted `tree()` operation (VNEXT.md 10.2/26.2). The shape
+ * absorbing the deleted `tree()` operation. The shape
  * mirrors the provider navigation query but is a thin builder over the same
  * transport.
  *
@@ -171,7 +170,7 @@ export async function navigation<
 
 /**
  * Return the previous/next navigation entries surrounding a document —
- * replacing the deleted `neighbors()` operation (VNEXT.md 10.2/26.2).
+ * replacing the deleted `neighbors()` operation.
  */
 export async function surround<H extends ContentCollectionHandle | string>(
   context: ContentQueryContext,

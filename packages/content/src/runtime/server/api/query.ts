@@ -5,7 +5,7 @@ import { createProviderQuery, normalizeProviderQueryResponse } from '../provider
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
 
 /**
- * Typed 400 for a closed-boundary rejection (VNEXT.md 16.4). No internal
+ * Typed 400 for a closed-boundary rejection. No internal
  * stack trace or echo of the full untrusted request — just the offending
  * path and reason.
  */
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   // This endpoint is GET with the payload embedded in the URL path segment
   // (there is no request body to measure) — the encoded segment is the
   // transport-safety equivalent of a request body and is bounded the same
-  // way (VNEXT.md 16.2).
+  // way.
   const encoded = event.context.params?.params
   if (typeof encoded === 'string' && isOversizedQueryRequestBody(encoded)) {
     throw invalidContentQueryRequest('$', 'Request payload is too large.')

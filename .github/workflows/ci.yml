@@ -15,26 +15,115 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Fast PR verification
+  static-quality:
+    name: Static quality
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
+      - name: Initialize timing summary
+        run: |
+          echo "## Static quality" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check documentation drift
+        run: node scripts/timed-command.mjs docs-drift pnpm docs-drift
+      - name: Check repository policies
+        run: node scripts/timed-command.mjs repository-policy pnpm check:repo-policies
+      - name: Check test selection
+        run: node scripts/timed-command.mjs test-selection pnpm check:test-selection
+      - name: Check generated API documentation
+        run: node scripts/timed-command.mjs api-docs pnpm api-docs:check
+      - name: Run ESLint
+        run: node scripts/timed-command.mjs eslint pnpm format:check
 
-      - run: pnpm docs-drift
+  core-contracts:
+    name: Core contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-      - run: pnpm verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize timing summary
+        run: |
+          echo "## Core contracts" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build package
+        run: node scripts/timed-command.mjs package-build pnpm build:packages
+      - name: Prepare contract fixtures
+        run: node scripts/timed-command.mjs fixture-prepare pnpm prepare:contracts
+      - name: Run unit, provider, runtime, client, and Nuxt contracts
+        run: node scripts/timed-command.mjs core-tests pnpm test:prepared
+      - name: Typecheck source and fixture contracts
+        run: node scripts/timed-command.mjs typecheck pnpm typecheck:prepared
+      - name: Verify the prepared quickstart
+        run: node scripts/timed-command.mjs quickstart pnpm test:quickstart:prepared
+
+  docs-examples:
+    name: Docs and examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize timing summary
+        run: |
+          echo "## Docs and examples" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build package
+        run: node scripts/timed-command.mjs package-build pnpm build:packages
+      - name: Build documentation
+        run: node scripts/timed-command.mjs docs-build pnpm docs:build
+      - name: Smoke-test documentation output
+        run: node scripts/timed-command.mjs docs-smoke pnpm docs:smoke
+      - name: Build every maintained example
+        run: node scripts/timed-command.mjs examples pnpm examples:build
+      - name: Typecheck the dedicated example contract
+        run: node scripts/timed-command.mjs example-typecheck pnpm typecheck:examples
+
+  server-e2e:
+    name: Server e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize timing summary
+        run: |
+          echo "## Server e2e" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build package
+        run: node scripts/timed-command.mjs package-build pnpm build:packages
+      - name: Run complete production server e2e project
+        run: node scripts/timed-command.mjs server-e2e pnpm verify:e2e
 
   pr-e2e-smoke:
     name: PR e2e smoke
@@ -44,64 +133,122 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
+      - name: Build package
+        run: node scripts/timed-command.mjs package-build pnpm build:packages
+      - name: Build, boot, and smoke-test the basic production fixture
+        run: node scripts/timed-command.mjs production-smoke pnpm test:pr-e2e-smoke:prepared
 
-      # Slim early signal: builds playground/ginko-basic, boots the prod server, and
-      # asserts `/`, one nested route, and the search index respond 200 with
-      # expected content while the full PR gate runs independently. Target wall time <3 min; the
-      # 15 min ceiling is a safety net for cold CI caches.
-      - run: node scripts/pr-e2e-smoke.mjs
-
-  release-verify:
-    name: Release verification
+  pr-authorization:
+    name: PR verification
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    needs:
+      - static-quality
+      - core-contracts
+      - docs-examples
+      - server-e2e
+      - pr-e2e-smoke
+
+    steps:
+      - run: echo "All required PR verification lanes passed."
+
+  release-browser:
+    name: Browser e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - uses: browser-actions/setup-chrome@v1
         id: chrome
-
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
-
-      - name: Initialize release summary
+      - name: Initialize timing summary
         run: |
-          echo "## Release verification" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Browser e2e" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
-
-      - run: pnpm run release:verify
+      - name: Build package
+        run: node scripts/timed-command.mjs package-build pnpm build:packages
+      - name: Run browser behavior contracts
+        run: node scripts/timed-command.mjs browser-e2e pnpm test:e2e:browser:prepared
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
 
+  release-generate:
+    name: Static generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize timing summary
+        run: |
+          echo "## Static generation" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build package
+        run: node scripts/timed-command.mjs package-build pnpm build:packages
+      - name: Generate and inspect basic and i18n output
+        run: node scripts/timed-command.mjs generate pnpm test:generate:static:prepared
+
+  release-artifact:
+    name: Exact release artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize release summary
+        run: |
+          echo "## Exact release artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status | Duration | Command |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+      - name: Audit production dependencies
+        run: node scripts/timed-command.mjs audit:prod pnpm audit:prod
+      - name: Build two reproducible packs
+        run: node scripts/timed-command.mjs release:pack pnpm release:pack
       - name: Assert clean exact-SHA artifact provenance
         run: >-
           node -e "const m=require('./.pack/release-artifact.json');
           if (m.commit !== process.env.GITHUB_SHA || m.worktreeDirty || !m.releaseEligible || m.reproduciblePacks !== 2)
           throw new Error('Release artifact is not eligible for '+process.env.GITHUB_SHA)"
-
+      - name: Test pure runtimes
+        run: node scripts/timed-command.mjs pure-runtimes pnpm test:pure-runtimes
+      - name: Test exact tarball with pnpm
+        run: node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer
+      - name: Test exact tarball with npm
+        run: node scripts/timed-command.mjs consumer:npm pnpm test:package-consumer:npm
       - name: Record exact release artifact
         run: |
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat .pack/release-artifact.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-
       - uses: actions/upload-artifact@v4
         with:
           name: ginko-content-release
@@ -120,39 +267,69 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
-
-      - run: pnpm test:minimum-runtime
+      - name: Verify the minimum supported runtime
+        run: pnpm test:minimum-runtime
 
   windows-portability:
     name: Windows portability and packed consumer
     runs-on: windows-latest
     timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
-
-      - run: pnpm vitest run --config vitest.config.ts --project contracts-node test/contracts/portability-directory-contracts.test.ts
-
-      - run: pnpm release:pack
-
-      # Keep the upstream Nuxt 4.4.7–4.4.8 Windows drive-letter prerender
-      # failure visible without blocking this release candidate. Portability
-      # contracts above remain required.
-      - continue-on-error: true
+      - name: Run required Windows portability contracts
+        run: pnpm vitest run --config vitest.config.ts --project contracts-node test/contracts/portability-directory-contracts.test.ts
+      - name: Build the Windows canary pack
+        run: pnpm release:pack
+      - name: Observe the upstream Windows packed-consumer limitation
+        continue-on-error: true
         run: node scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack
+
+  release-authorization:
+    name: Release authorization
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs:
+      - static-quality
+      - core-contracts
+      - docs-examples
+      - server-e2e
+      - release-browser
+      - release-generate
+      - release-artifact
+      - minimum-runtime
+      - windows-portability
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ginko-content-release
+          path: .pack
+      - name: Verify downloaded exact-SHA artifact
+        run: >-
+          node -e "const fs=require('node:fs');const crypto=require('node:crypto');const path=require('node:path');
+          const files=fs.readdirSync('.pack');const tarballs=files.filter(file=>file.endsWith('.tgz'));
+          if(tarballs.length!==1||files.filter(file=>file==='release-artifact.json').length!==1)throw new Error('Expected one tarball and one provenance manifest');
+          const m=require('./.pack/release-artifact.json');const tarball=tarballs[0];
+          const digest=crypto.createHash('sha256').update(fs.readFileSync(path.join('.pack',tarball))).digest('hex');
+          if(m.commit!==process.env.GITHUB_SHA||m.worktreeDirty||!m.releaseEligible||m.reproduciblePacks!==2||m.tarball!==tarball||m.sha256!==digest)
+          throw new Error('Downloaded release artifact failed exact-SHA provenance validation')"
+      - name: Record release authorization
+        run: |
+          echo "## Release authorization" >> "$GITHUB_STEP_SUMMARY"
+          echo "All required lanes passed for commit \`${GITHUB_SHA}\`." >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat .pack/release-artifact.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

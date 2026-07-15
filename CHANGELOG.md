@@ -2,6 +2,9 @@
 
 ## v0.3.0-rc.2
 
+- Stop shipping the unexported `compatibility.json` release-stack snapshot.
+  Package manifests and executable compatibility lanes are the maintained
+  sources of truth.
 - Export `findFirstNavigationPage()` from the client and server entry points for
   resolving collection and section entry pages through structural navigation
   groups. `ContentNavigationTreeItem.path` is now correctly optional; consumers

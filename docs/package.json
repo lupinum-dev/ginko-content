@@ -10,27 +10,8 @@
     "preview": "nuxi preview"
   },
   "dependencies": {
-    "@iconify-json/heroicons": "^1.2.3",
-    "@iconify-json/logos": "^1.2.11",
-    "@iconify-json/lucide": "^1.2.107",
-    "@iconify-json/ph": "^1.2.2",
-    "@iconify-json/simple-icons": "^1.2.82",
-    "@iconify-json/vscode-icons": "^1.2.49",
     "@lupinum/ginko-content": "workspace:*",
-    "@nuxt/fonts": "^0.14.0",
-    "@nuxt/image": "^2.0.0",
-    "@nuxt/scripts": "^1.1.0",
-    "@nuxt/ui": "^4.9.0",
-    "@nuxtjs/mdc": "^0.22.0",
-    "@tsparticles/engine": "^3.9.1",
-    "@tsparticles/slim": "^3.9.1",
-    "@vueuse/core": "^14.3.0",
-    "feed": "^5.2.1",
-    "nuxt": "^4.4.8",
-    "nuxt-og-image": "^6.5.0",
-    "nuxt-site-config": "4.0.8",
-    "satori": "^0.26.0",
-    "tailwindcss": "^4.3.0",
-    "zod": "^4.4.3"
+    "@lupinum/ginko-docs": "file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz",
+    "nuxt": "^4.4.8"
   }
 }

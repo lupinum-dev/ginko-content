@@ -1,7 +1,9 @@
 import type { H3Event } from 'h3'
 
 import type { ContentCacheHintInput } from '../core/cache-hints'
+import { withContentCache } from '../core/provider-result'
 import type { ContentProviderSearchRequest } from '../types/search'
+import type { ContentProviderNavigationOptions } from './provider-query'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
   type BoundedContentProviderQuery,
@@ -10,11 +12,9 @@ import {
   type ContentDataSourceControl,
 } from './data-source'
 import {
-  withContentCache,
   type ContentProvider,
-  type ContentProviderNavigationOptions,
   type ContentProviderSurroundingsOptions,
-} from './provider'
+} from './provider-contract'
 
 const contexts = new WeakMap<object, Map<object, Promise<unknown>>>()
 class ContentDataSourceControlError extends Error {

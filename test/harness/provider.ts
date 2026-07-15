@@ -4,7 +4,7 @@ import type {
   ContentProviderQuery,
   ProviderDocumentInput
 } from '../../packages/content/src/public/provider'
-import { SUPPORTED_QUERY_OPERATORS } from '../../packages/content/src/core/query/operators'
+import { PROVIDER_QUERY_OPERATORS } from '../../packages/content/src/core/query/operators'
 import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
 import { normalizeContentPath } from '../../packages/content/src/core/content/path'
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
@@ -108,7 +108,7 @@ export const createInMemoryProvider = (scenario: ContentScenario, name = 'in-mem
     capabilities: {
       query: {
         operators: [
-          ...SUPPORTED_QUERY_OPERATORS.filter(operator => operator !== '$options'),
+          ...PROVIDER_QUERY_OPERATORS.filter(operator => operator !== '$options'),
           '$and',
           '$or'
         ],

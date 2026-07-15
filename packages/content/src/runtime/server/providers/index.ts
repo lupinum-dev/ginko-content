@@ -119,7 +119,7 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
     }
   }
 
-  // Pagination-mode capability preflight (VNEXT.md 10.2/13.1) — this runs
+  // Pagination-mode capability preflight — this runs
   // BEFORE `provider.query()` is ever invoked (see `enforceProviderCapabilities`
   // below), so an unsupported paging request never reaches provider dispatch.
   // `limit` alone needs no capability: bounding a provider's natural result

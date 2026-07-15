@@ -9,7 +9,7 @@ import { buildCanonicalNavigation } from '../../features/navigation/build'
 import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
 import { normalizeRouteMounts } from '../../features/localization/path'
 import { getContentRuntimeConfig } from './runtime-config'
-import { createServerContentQuery } from './storage'
+import { createServerContentQuery } from './provider-query'
 import { resolveLocaleChain } from '../../storage/graph'
 
 const reviveFilterValue = (value: unknown): unknown =>
@@ -128,7 +128,9 @@ export async function resolveContentNavigation (
         contentsQuery = contentsQuery.where('locale', '=', locale)
       }
 
-      let dirConfigsQuery = createServerContentQuery(event)
+      let dirConfigsQuery = createServerContentQuery(event, inputQuery.collection
+        ? { collection: inputQuery.collection }
+        : {})
         .where('navigationFile', '=', true)
         .where('partial', '=', true)
 
@@ -136,8 +138,14 @@ export async function resolveContentNavigation (
         dirConfigsQuery = dirConfigsQuery.where('locale', '=', locale)
       }
 
-      const contents = await contentsQuery.all()
-      const dirConfigs = await dirConfigsQuery.all()
+      const contents = (await contentsQuery.all()).map(content => ({
+        ...content,
+        path: (content as ParsedContentMeta & { route?: { resolvedPath?: string } }).route?.resolvedPath || content.path
+      }))
+      const dirConfigs = (await dirConfigsQuery.all()).map(config => ({
+        ...config,
+        path: (config as ParsedContentMeta & { route?: { resolvedPath?: string } }).route?.resolvedPath || config.path
+      }))
       const configs = dirConfigs.reduce((accumulator, config) => {
         accumulator[config.path || '/'] = {
           ...config,

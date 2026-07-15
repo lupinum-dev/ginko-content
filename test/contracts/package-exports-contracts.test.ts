@@ -2,50 +2,6 @@ import { access, readdir, readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
-type PublicSurface = {
-  packageExportSubpaths: Record<string, PublicSurfaceEntry>
-  dataSourceValueExports: string[]
-  dataSourceTypeExports: string[]
-  cmsContractValueExports: string[]
-  cmsContractTypeExports: string[]
-  portabilityValueExports: string[]
-  portabilityTypeExports: string[]
-  portabilityNodeValueExports: string[]
-  portabilityNodeTypeExports: string[]
-  clientValueExports: Record<string, PublicSurfaceEntry>
-  clientTypeExports: Record<string, PublicSurfaceEntry>
-  serverValueExports: Record<string, PublicSurfaceEntry>
-  serverTypeExports: Record<string, PublicSurfaceEntry>
-  providerValueExports: Record<string, PublicSurfaceEntry>
-  providerTypeExports: Record<string, PublicSurfaceEntry>
-  providerContractValueExports: Record<string, PublicSurfaceEntry>
-  providerContractTypeExports: Record<string, PublicSurfaceEntry>
-  agentValueExports: Record<string, PublicSurfaceEntry>
-  agentTypeExports: Record<string, PublicSurfaceEntry>
-  rootValueExports: Record<string, PublicSurfaceEntry>
-  rootTypeExports: Record<string, PublicSurfaceEntry>
-  runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
-}
-
-type PublicSurfaceEntry = {
-  category: string
-  audience: string
-  docs: string
-}
-
-const readPublicSurface = async (): Promise<PublicSurface> =>
-  JSON.parse(await readFile('meta/public-surface.json', 'utf8')) as PublicSurface
-
-const collectMarkdownFiles = async (root: string): Promise<string[]> => {
-  const entries = await readdir(root, { withFileTypes: true })
-  const nested = await Promise.all(entries.map(async (entry) => {
-    const path = join(root, entry.name)
-    if (entry.isDirectory()) return collectMarkdownFiles(path)
-    return entry.name.endsWith('.md') ? [path] : []
-  }))
-  return nested.flat()
-}
-
 const collectJavaScriptFiles = async (root: string): Promise<string[]> => {
   const entries = await readdir(root, { withFileTypes: true })
   const nested = await Promise.all(
@@ -56,38 +12,6 @@ const collectJavaScriptFiles = async (root: string): Promise<string[]> => {
     })
   )
   return nested.flat()
-}
-
-const readPublicDocsCorpus = async () => {
-  const files = await Promise.all([
-    collectMarkdownFiles('docs/content'),
-    collectMarkdownFiles('packages/content/docs'),
-    collectMarkdownFiles('meta/skill')
-  ])
-  const source = await Promise.all(files.flat().map(file => readFile(file, 'utf8')))
-  return source.join('\n')
-}
-
-const extractValueExports = (source: string) => {
-  const names = new Set<string>()
-  const exportBlockPattern = /export\s*\{([\s\S]*?)\}\s*from/g
-  for (const match of source.matchAll(exportBlockPattern)) {
-    const entries = match[1]
-      .split(',')
-      .map(entry => entry.trim())
-      .filter(Boolean)
-
-    for (const entry of entries) {
-      if (entry.startsWith('type ')) continue
-      names.add(entry.split(/\s+as\s+/)[0]!.trim())
-    }
-  }
-
-  for (const match of source.matchAll(/export\s+const\s+([A-Za-z0-9_]+)/g)) {
-    names.add(match[1]!)
-  }
-
-  return [...names].sort()
 }
 
 const extractTypeExports = (source: string) => {
@@ -129,61 +53,6 @@ const extractTypeExports = (source: string) => {
 }
 
 describe('package export contracts', () => {
-  test.each([
-    ['dataSource', 'packages/content/src/public/data-source.ts'],
-    ['cmsContract', 'packages/content/src/cms-contract/index.ts'],
-    ['portability', 'packages/content/src/portability/index.ts'],
-    ['portabilityNode', 'packages/content/src/portability-node/index.ts'],
-  ] as const)('source %s facade exports stay intentionally curated', async (surface, path) => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile(path, 'utf8')
-
-    expect(extractValueExports(source)).toEqual(publicSurface[`${surface}ValueExports`].sort())
-    expect(extractTypeExports(source)).toEqual(publicSurface[`${surface}TypeExports`].sort())
-  })
-
-  test('source agent facade value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.agentValueExports).sort())
-  })
-
-  test('source agent facade type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/agent.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.agentTypeExports).sort())
-  })
-
-  test('source client facade value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.clientValueExports).sort())
-  })
-
-  test('source client facade type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/client.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.clientTypeExports).sort())
-  })
-
-  test('source server facade value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.serverValueExports).sort())
-  })
-
-  test('source server facade type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/server.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.serverTypeExports).sort())
-  })
-
   test('server facade no longer re-exports agent or provider types', async () => {
     const source = await readFile('packages/content/src/public/server.ts', 'utf8')
 
@@ -195,155 +64,20 @@ describe('package export contracts', () => {
     expect(extractTypeExports(source)).not.toContain('ContentProviderQuery')
   })
 
-  test('source provider facade value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/provider.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.providerValueExports).sort())
-  })
-
-  test('source provider facade type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/public/provider.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.providerTypeExports).sort())
-  })
-
-  test('source provider contract value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/testing/provider-contract.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.providerContractValueExports).sort())
-  })
-
-  test('source provider contract type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/testing/provider-contract.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.providerContractTypeExports).sort())
-  })
-
-  test('source root entry value exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/module.ts', 'utf8')
-
-    expect(extractValueExports(source)).toEqual(Object.keys(publicSurface.rootValueExports).sort())
-  })
-
-  test('source root entry type exports stay intentionally curated', async () => {
-    const publicSurface = await readPublicSurface()
-    const source = await readFile('packages/content/src/module.ts', 'utf8')
-
-    expect(extractTypeExports(source)).toEqual(Object.keys(publicSurface.rootTypeExports).sort())
-  })
-
   test('root entry no longer wildcard-exports the internal type graph', async () => {
     const source = await readFile('packages/content/src/module.ts', 'utf8')
 
     expect(source).not.toMatch(/export\s+type\s*\*/)
   })
 
-  test('package export subpaths stay classified in the public surface manifest', async () => {
-    const publicSurface = await readPublicSurface()
-    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
-      exports: Record<string, unknown>
-    }
-
-    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(publicSurface.packageExportSubpaths).sort())
-  })
-
-  test('app-facing runtime imports are documented by name', async () => {
-    const publicSurface = await readPublicSurface()
-    const docsCorpus = await readPublicDocsCorpus()
-
-    for (const name of Object.keys(publicSurface.runtimeAppAutoImports)) {
-      expect(docsCorpus, name).toContain(name)
-    }
-  })
-
-  test('public surface classification uses known audience categories and docs targets', async () => {
-    const publicSurface = await readPublicSurface()
-    const knownCategories = new Set([
-      'nuxt-module-entry',
-      'content-config-author',
-      'server-runtime-and-provider-author',
-      'app-runtime',
-      'advanced-agent-subpath',
-      'advanced-cms-contract',
-      'advanced-portability-node',
-      'pure-provider-contract',
-      'pure-portability-contract',
-      'testing-only-provider-fixture',
-      'testing-only-provider-contract',
-      'testing-only-data-source-contract',
-      'testing-only-portability-contract',
-      'markdown-transformer-extension',
-      'stable-query-primitive',
-      'stable-route-helper',
-      'advanced-agent-path-helper',
-      'stable-app-composable',
-      'compatibility-app-composable',
-      'stable-search-composable',
-      'stable-site-data-helper',
-      'stable-toc-helper',
-      'stable-server-query',
-      'advanced-server-query-context',
-      'advanced-agent-markdown-extension',
-      'advanced-agent-site-generation',
-      'stable-sitemap-helper',
-      'stable-provider-author-helper',
-      'stable-provider-cache-helper',
-      'stable-route-helper-type',
-      'stable-app-composable-type',
-      'stable-query-type',
-      'stable-search-type',
-      'stable-site-data-type',
-      'stable-toc-type',
-      'stable-content-rendering-type',
-      'advanced-agent-markdown-type',
-      'advanced-agent-site-type',
-      'stable-sitemap-type',
-      'transport-query-type',
-      'stable-provider-cache-type',
-      'stable-provider-author-type'
-    ])
-
-    const entries = [
-      ...Object.values(publicSurface.packageExportSubpaths),
-      ...Object.values(publicSurface.clientValueExports),
-      ...Object.values(publicSurface.clientTypeExports),
-      ...Object.values(publicSurface.serverValueExports),
-      ...Object.values(publicSurface.serverTypeExports),
-      ...Object.values(publicSurface.providerValueExports),
-      ...Object.values(publicSurface.providerTypeExports),
-      ...Object.values(publicSurface.providerContractValueExports),
-      ...Object.values(publicSurface.providerContractTypeExports),
-      ...Object.values(publicSurface.agentValueExports),
-      ...Object.values(publicSurface.agentTypeExports),
-      ...Object.values(publicSurface.rootValueExports),
-      ...Object.values(publicSurface.rootTypeExports),
-      ...Object.values(publicSurface.runtimeAppAutoImports)
-    ]
-
-    for (const entry of entries) {
-      expect([...knownCategories], entry.category).toContain(entry.category)
-      expect(entry.audience).toMatch(/^[a-z][a-z-]+$/)
-      expect(entry.docs).toMatch(/^(docs|packages|meta)\//)
-      await expect(readFile(entry.docs, 'utf8'), entry.docs).resolves.toBeTypeOf('string')
-    }
-  })
-
   test('premature locale-switch helpers are not part of the public surface', async () => {
-    const publicSurface = await readPublicSurface()
     const runtimeAssets = await readFile('packages/content/src/module/runtime-assets.ts', 'utf8')
     const clientSource = await readFile('packages/content/src/public/client.ts', 'utf8')
 
     // `useContentLocaleSwitch` never shipped; `useContentSwitchLocalePath` is
-    // a hard-cut deletion (VNEXT.md 10.4, 10.6) — locale switching now reads
-    // `page.route.alternates` directly (VNEXT.md 27.4).
+    // a hard-cut deletion — locale switching now reads
+    // `page.route.alternates` directly.
     for (const removed of ['useContentLocaleSwitch', 'useContentSwitchLocalePath']) {
-      expect(publicSurface.clientValueExports).not.toHaveProperty(removed)
-      expect(publicSurface.runtimeAppAutoImports).not.toHaveProperty(removed)
       expect(runtimeAssets).not.toContain(removed)
       expect(clientSource).not.toContain(removed)
     }
@@ -395,7 +129,7 @@ describe('package export contracts', () => {
     expect(client.findFirstNavigationPage).toBeTypeOf('function')
     expect(client.getCollectionPath).toBeTypeOf('function')
     // The public composable surface is exactly `useContentPage` and
-    // `useContentSearch` (VNEXT.md 10.5, 10.8) — every other wrapper is a
+    // `useContentSearch` — every other wrapper is a
     // hard-cut deletion, replaced by these pure operations + useAsyncData.
     expect(client.useContentPage).toBeTypeOf('function')
     expect(client.useContentSearch).toBeTypeOf('function')
@@ -518,13 +252,11 @@ describe('package export contracts', () => {
   })
 
   test('superseded CMS import mapping is absent from the package', async () => {
-    const publicSurface = await readPublicSurface()
     const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
       exports: Record<string, unknown>
     }
 
     expect(manifest.exports).not.toHaveProperty('./cms-import')
-    expect(publicSurface.packageExportSubpaths).not.toHaveProperty('./cms-import')
     await expect(access('packages/content/dist/cms-import')).rejects.toThrow()
   })
 

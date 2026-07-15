@@ -186,7 +186,7 @@ export const applyQueryPlanProjection = <T>(items: T[], plan: ContentQueryPlan) 
 
 /**
  * Opaque forward-cursor encoding for the filesystem provider's `cursor`
- * pagination mode (VNEXT.md 10.2/13.1). The filesystem provider always has
+ * pagination mode. The filesystem provider always has
  * the full matched set in memory, so its cursor is internally just an
  * offset — but that encoding is a filesystem implementation detail, never a
  * public contract; applications and other providers must not parse it.

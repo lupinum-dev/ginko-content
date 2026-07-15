@@ -11,7 +11,7 @@
  */
 import type { ContentQueryBuilderParams, ContentQueryBuilderWhere, ContentQuerySortOptions } from '../../types/query'
 import type { CompareOperator, ContentProviderPaging, ContentQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
-import { assertSupportedQueryOperators, SUPPORTED_QUERY_OPERATORS } from './operators'
+import { assertSupportedQueryOperators, PROVIDER_QUERY_OPERATORS } from './operators'
 
 /**
  * Convert comparison operands into the JSON-pure wire shape. RegExp values are
@@ -120,7 +120,7 @@ const warnOnRemovedEnvelopeFields = (params: ContentQueryBuilderParams): void =>
   }
 }
 
-const COMPARISON_OPERATORS = new Set<string>(SUPPORTED_QUERY_OPERATORS)
+const COMPARISON_OPERATORS = new Set<string>(PROVIDER_QUERY_OPERATORS)
 
 /**
  * Flatten redundant wrappers so the plan is minimal and predictable:

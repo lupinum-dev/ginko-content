@@ -7,6 +7,7 @@ const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const ignoredDirs = new Set(['.git', '.nuxt', '.output', '.pack', 'dist', 'node_modules'])
 const scannedExtensions = new Set(['.js', '.json', '.md', '.mjs', '.ts', '.vue'])
 const privateConsumerPattern = /i18n-cms|\/_temp\/i18n-cms|\/Users\/matthias\/Git\/_temp/
+const absoluteFileDependencyPattern = /["']file:(?:\/|[A-Za-z]:[\\/])/
 const cmsRuntimeCouplingPattern = /@lupinum\/ginko-cms/
 const cmsNeutralRuntimeRoots = [
   'packages/content/src/core',
@@ -53,6 +54,9 @@ for (const filePath of collectFiles('.')) {
   const source = readFileSync(filePath, 'utf8')
   if (privateConsumerPattern.test(source)) {
     violations.push(`${relative(repoRoot, filePath)} references a private consumer app path/name`)
+  }
+  if ((filePath.endsWith('package.json') || filePath.endsWith('pnpm-lock.yaml')) && absoluteFileDependencyPattern.test(source)) {
+    violations.push(`${relative(repoRoot, filePath)} contains an absolute filesystem dependency`)
   }
 }
 

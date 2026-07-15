@@ -36,7 +36,7 @@ export interface ContentScenario {
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 
-export const createScenarioDocument = (
+const createScenarioDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
 ): ParsedContent => {
   const collection = String(input.collection || 'docs')

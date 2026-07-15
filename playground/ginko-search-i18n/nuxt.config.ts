@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   ],
   content: {
     // Nuxt I18n (configured below) is the sole locale/default-locale
-    // authority (VNEXT.md §12.1). Ginko content still owns translated-slug
+    // authority. Ginko content still owns translated-slug
     // policy.
     i18n: {
       translatedSlugs: true

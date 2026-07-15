@@ -28,7 +28,7 @@ Changes affect:
 - `@lupinum/ginko-content/agent` — extension points for component-to-markdown serializers and public index rendering. Route parsing, route collection, and site-generation orchestration remain internal.
 - provider authors that map CMS data into `ContentProvider` — the single home for provider types is `@lupinum/ginko-content/provider`.
 
-Update `meta/public-surface.json`, package export contracts, and docs when CMS subpath exports change.
+Update the package export map, package contracts, generated API docs, and CMS docs when a CMS subpath changes.
 
 ## Migration from the removed CMS importer
 

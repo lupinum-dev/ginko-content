@@ -255,7 +255,7 @@ describe('useContentPage contracts', () => {
 
     route.path = '/docs/missing'
     const state = await useContentPage('docs', {
-      // @ts-expect-error `notFound` is not part of `UseContentPageOptions` (VNEXT.md 27.1).
+      // @ts-expect-error `notFound` is not part of `UseContentPageOptions`.
       notFound: false
     })
 

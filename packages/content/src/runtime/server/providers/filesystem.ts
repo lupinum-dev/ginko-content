@@ -7,7 +7,7 @@ import type {
   ContentRouteRecord,
   ProviderDocumentInput
 } from '../../../public/provider'
-import { SUPPORTED_QUERY_OPERATORS } from '../../../core/query/operators'
+import { PROVIDER_QUERY_OPERATORS } from '../../../core/query/operators'
 import {
   longestMountForPath,
   normalizeContentPath,
@@ -144,7 +144,7 @@ export const filesystemProvider: ContentProvider = {
   capabilities: {
     query: {
       operators: [
-        ...SUPPORTED_QUERY_OPERATORS.filter(operator => operator !== '$options'),
+        ...PROVIDER_QUERY_OPERATORS.filter(operator => operator !== '$options'),
         '$and',
         '$or'
       ],
@@ -184,7 +184,7 @@ export const filesystemProvider: ContentProvider = {
         stripLocalePrefix(route.path, config.locales || [], config.defaultLocale, route.locale).path
       ),
       ...(route.draft ? { draft: true } : {}),
-      ...(route.sitemap ? {} : { sitemap: false })
+      ...(route.sitemap ? (route.sitemapMetadata ? { sitemap: route.sitemapMetadata } : {}) : { sitemap: false })
     }))
   }
 }

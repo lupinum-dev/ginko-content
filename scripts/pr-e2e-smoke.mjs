@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Slim PR e2e smoke (T6.3).
 //
-// The full browser-e2e / search-matrix / sitemap-static suites are heavy and
-// stay gated on the main-only `release-verify` job. This script is the fast
-// (<3 min) PR canary: it builds the `playground/ginko-basic` fixture, boots the
+// The full server e2e project runs in its own required PR lane, while browser
+// and static-generation contracts remain exact-main release lanes. This script
+// is the fast (<3 min) PR canary: it builds the `playground/ginko-basic` fixture, boots the
 // production Nitro server, and asserts that the three load-bearing surfaces
 // respond 200 with expected content:
 //   1. `/`                          — homepage renders content/index.md
@@ -11,7 +11,7 @@
 //   3. `/api/_content/search/index.json` — the search index endpoint
 //
 // It intentionally lives outside the vitest suite (nothing in test/ changes) so
-// the CI job is a single self-contained command. Exit 0 = smoke passed.
+// its package build is an explicit preceding step. Exit 0 = smoke passed.
 
 import { execSync, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
@@ -75,9 +75,6 @@ async function assertContains (baseURL, path, needle) {
 }
 
 async function main () {
-  console.log('[pr-e2e-smoke] building workspace packages...')
-  run('pnpm build:packages', workspaceRoot)
-
   console.log('[pr-e2e-smoke] building playground/ginko-basic...')
   run('pnpm exec nuxi build', fixtureDir)
 

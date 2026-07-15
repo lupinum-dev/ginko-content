@@ -100,12 +100,12 @@ describe('storage contracts', () => {
   })
 
   test('chunksFromArray splits boundaries correctly', async () => {
-    const { chunksFromArray } = await import('../../packages/content/src/runtime/server/storage')
+    const { chunksFromArray } = await import('../../packages/content/src/storage/contents')
     expect([...chunksFromArray([1, 2, 3, 4, 5], 2)]).toEqual([[1, 2], [3, 4], [5]])
   })
 
   test('getContentsList caches by config key and reuses event-local results', async () => {
-    const { getContentsList } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContentsList } = await import('../../packages/content/src/storage/contents')
 
     const first = await getContentsList(event)
     const second = await getContentsList(event)
@@ -127,7 +127,7 @@ describe('storage contracts', () => {
       ])
     }))
 
-    const { getContentsList } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContentsList } = await import('../../packages/content/src/storage/contents')
     const eventA = createEvent()
 
     const pending = Promise.all([getContentsList(eventA), getContentsList(eventA)])
@@ -155,7 +155,7 @@ describe('storage contracts', () => {
       }, 0)
     }))
 
-    const { getContentsList } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContentsList } = await import('../../packages/content/src/storage/contents')
 
     await Promise.all([getContentsList(createEvent()), getContentsList(createEvent())])
 
@@ -164,7 +164,7 @@ describe('storage contracts', () => {
 
   test('getContent selects inline locale variants and falls back to default', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContent } = await import('../../packages/content/src/storage/contents')
 
     await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=de')).resolves.toMatchObject({
       locale: 'de',
@@ -194,7 +194,7 @@ describe('storage contracts', () => {
       parsed: [doc({ id: 'content:guide:intro.md', path: '/guide/intro', file: { path: '/guide/intro.md' } })]
     })
 
-    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContent } = await import('../../packages/content/src/storage/contents')
     await getContent(createEvent(), 'content:guide:intro.md')
     expect(parseVariants).toHaveBeenCalledTimes(0)
 
@@ -202,7 +202,7 @@ describe('storage contracts', () => {
     sourceMeta.set('content:guide:intro.md', { mtime: 2, size: 10 })
 
     const otherEvent = createEvent()
-    const { getContentsList } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContentsList } = await import('../../packages/content/src/storage/contents')
     await getContentsList(otherEvent)
     expect(parseVariants).toHaveBeenCalledTimes(1)
   })
@@ -226,7 +226,7 @@ describe('storage contracts', () => {
       docs: { source: 'guide/**/*.md' }
     }
 
-    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContent } = await import('../../packages/content/src/storage/contents')
     await getContent(createEvent(), 'content:guide:intro.md')
 
     expect(parseVariants).toHaveBeenCalledTimes(1)
@@ -243,7 +243,7 @@ describe('storage contracts', () => {
         title: body
       })
     ])
-    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContent } = await import('../../packages/content/src/storage/contents')
 
     await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
       title: '# One'
@@ -261,7 +261,7 @@ describe('storage contracts', () => {
   test('malformed parsed cache artifacts are ignored and replaced', async () => {
     parsedCacheState.set('content:guide:intro.md', '# raw source is not a parsed artifact')
 
-    const { getContent } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContent } = await import('../../packages/content/src/storage/contents')
     await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
       path: '/guide/intro'
     })
@@ -308,7 +308,7 @@ describe('storage contracts', () => {
       }
     })
 
-    const { getContentsList } = await import('../../packages/content/src/runtime/server/storage')
+    const { getContentsList } = await import('../../packages/content/src/storage/contents')
     await expect(getContentsList(createEvent())).resolves.toEqual([])
   })
 

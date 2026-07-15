@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useContentPage } from '#imports'
 import { docs } from '../content.config'
 
-// This app's 404 policy (VNEXT.md 10.4/10.6): `useContentPage()` never throws
+// This app's 404 policy: `useContentPage()` never throws
 // a default 404 on its own, so an unmatched route (including `/internal/secret`
 // and its Nuxt-I18n-generated `/de/internal/secret` counterpart — see
 // nuxt.config.ts's `sitemap.exclude` comment) simply renders this fallback
@@ -12,9 +12,8 @@ import { docs } from '../content.config'
 // still gives every one of these routes a real link.
 const { page } = await useContentPage(docs, { fallback: true })
 
-// Content-aware locale switcher over `page.route.alternates` (VNEXT.md 10.4,
-// 27.4) — the documented replacement for the deleted
-// `useContentSwitchLocalePath` (VNEXT.md 10.6). This complements (does not
+// Content-aware locale switcher over `page.route.alternates` — the documented replacement for the deleted
+// `useContentSwitchLocalePath`. This complements (does not
 // replace) the layout's always-present route-only switcher: once a real
 // document resolves, this renders the precise canonical path per locale
 // (and labels genuine fallback locales), instead of a naive URL-prefix swap.

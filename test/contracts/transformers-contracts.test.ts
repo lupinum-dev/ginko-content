@@ -1,19 +1,10 @@
-import { describe, expect, test, vi } from 'vitest'
-import { fromCSV } from '../../packages/content/src/runtime/transformers/csv/from-csv'
-import { loadComponents, resolveContentComponents } from '../../packages/content/src/runtime/transformers/component-resolver'
-
-vi.mock('../../packages/content/src/runtime/utils/content-components', () => ({
-  globalComponents: [],
-  localComponents: ['ProseAlert', 'FancyCard'],
-  localComponentLoaders: {
-    ProseAlert: async () => 'ResolvedAlert',
-    FancyCard: async () => 'ResolvedFancyCard'
-  }
-}))
+import { describe, expect, test } from 'vitest'
+import { fromCSV } from '../../packages/content/src/parsers/from-csv'
+import { loadContentComponentEntries, resolveDocumentContentComponents } from '../../packages/content/src/integrations/vue/content-components'
 
 describe('transformer contracts', () => {
   test('path-meta keeps internal fields authoritative over user frontmatter', async () => {
-    const pathMeta = (await import('../../packages/content/src/runtime/transformers/path-meta')).default
+    const pathMeta = (await import('../../packages/content/src/parsers/path-meta')).default
 
     const transformed = await pathMeta.transform?.({
       id: 'content:en:guide:intro.md',
@@ -55,7 +46,7 @@ describe('transformer contracts', () => {
   })
 
   test('markdown strips derived localization fields from frontmatter', async () => {
-    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+    const markdown = (await import('../../packages/content/src/parsers/markdown')).default
 
     const parsed = await markdown.parse?.('content:guide/intro.md', [
       '---',
@@ -81,7 +72,7 @@ describe('transformer contracts', () => {
   })
 
   test('markdown normalizes relative links, preserves anchors, and leaves external links untouched', async () => {
-    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+    const markdown = (await import('../../packages/content/src/parsers/markdown')).default
 
     await expect(markdown.parse?.('content:test.md', [
       '[intro](./guide/getting-started.md#intro)',
@@ -103,7 +94,7 @@ describe('transformer contracts', () => {
   })
 
   test('markdown surfaces plugin loading failures explicitly', async () => {
-    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+    const markdown = (await import('../../packages/content/src/parsers/markdown')).default
 
     await expect(markdown.parse?.('content:test.md', '# Title', {
       plugins: [{ name: 'definitely-not-a-real-module', options: {} }]
@@ -111,7 +102,7 @@ describe('transformer contracts', () => {
   })
 
   test('markdown renders Comark footnotes plugin output', async () => {
-    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+    const markdown = (await import('../../packages/content/src/parsers/markdown')).default
 
     await expect(markdown.parse?.('content:test.md', [
       'A sentence with a note[^source].',
@@ -146,7 +137,7 @@ describe('transformer contracts', () => {
   })
 
   test('markdown restores Nitro-serialized official Shiki notation transformers', async () => {
-    const markdown = (await import('../../packages/content/src/runtime/transformers/markdown')).default
+    const markdown = (await import('../../packages/content/src/parsers/markdown')).default
 
     const parsed = await markdown.parse?.('content:test.md', [
       '```ts',
@@ -216,7 +207,7 @@ describe('transformer contracts', () => {
   })
 
   test('csv transformer parses rows without the unified runtime dependency', async () => {
-    const csv = (await import('../../packages/content/src/runtime/transformers/csv')).default
+    const csv = (await import('../../packages/content/src/parsers/csv')).default
 
     await expect(csv.parse?.('content:test.csv', 'name,role\nAda,admin', {
       json: true
@@ -251,12 +242,21 @@ describe('transformer contracts', () => {
       ]
     }
 
-    expect(loadComponents(body, { AlertBox: 'prose-alert' })).toEqual([
+    expect(loadContentComponentEntries(body, { AlertBox: 'prose-alert' })).toEqual([
       ['AlertBox', 'prose-alert'],
       ['FancyCard', 'FancyCard']
     ])
 
-    await expect(resolveContentComponents(body as any, { AlertBox: 'prose-alert' })).resolves.toEqual({
+    await expect(resolveDocumentContentComponents(body, {
+      tags: { AlertBox: 'prose-alert' },
+      catalog: {
+        localComponents: ['ProseAlert', 'FancyCard'],
+        localComponentLoaders: {
+          ProseAlert: async () => 'ResolvedAlert',
+          FancyCard: async () => 'ResolvedFancyCard'
+        }
+      }
+    })).resolves.toEqual({
       AlertBox: 'ResolvedAlert',
       FancyCard: 'ResolvedFancyCard'
     })

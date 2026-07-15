@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { z } from 'zod'
 import { parseContentVariants } from '../packages/content/src/integrations/nitro/ingest'
-import pathMeta from '../packages/content/src/runtime/transformers/path-meta'
+import pathMeta from '../packages/content/src/parsers/path-meta'
 import { validateCollectionDocument, validateContentGraph } from '../packages/content/src/runtime/server/validation'
 import { makeIgnored } from '../packages/content/src/core/content/ignore'
 import { resolveCollection } from '../packages/content/src/core/content/collection'
@@ -10,7 +10,6 @@ import { collectTopLevelReferenceFields, collectTopLevelReferenceFieldsByTarget 
 import { collectTranslatedSlugValidationIssues } from '../packages/content/src/features/localization/translated-slugs'
 import { resolveCollectionI18nConfig } from '../packages/content/src/features/localization/config'
 import { buildLocaleFallbackChain, expandDataLocaleVariants, splitInlineLocaleVariantId } from '../packages/content/src/core/content/locale'
-import { createRouteMeta, localizeNavigation, localizePageResult } from '../packages/content/src/features/localization/results'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { fields } from '../packages/content/src/types/fields'
 import { getCollectionPath } from '../packages/content/src/features/query/routes'
@@ -1026,141 +1025,4 @@ describe('Ginko metadata helpers', () => {
     expect(english.path).toBe('/authors/evan')
   })
 
-  test('localizes page links while leaving the page body immutable for render-time localization', () => {
-    const page = {
-      path: '/demarrage',
-      file: { path: 'fr/1.demarrage.md', extension: 'md' },
-      resolved: {
-        locale: 'fr',
-        variantPaths: {
-          en: '/getting-started',
-          fr: '/demarrage'
-        }
-      },
-      links: [
-        { to: '/demarrage/installation' }
-      ],
-      body: {
-        type: 'root',
-        children: [
-          {
-            type: 'element',
-            tag: 'u-page-cta',
-            props: {
-              ':links': '[{"to":"/demarrage/installation"},{"href":"/demarrage/usage"}]'
-            },
-            children: []
-          },
-          {
-            type: 'element',
-            tag: 'a',
-            props: {
-              href: '/demarrage/installation#manual'
-            },
-            children: []
-          }
-        ]
-      }
-    } as any
-
-    const localized = localizePageResult(page, 'fr', 'en', ['en', 'fr'])
-
-    expect(localized.path).toBe('/fr/demarrage')
-    expect(localized.resolved).toMatchObject({
-      locale: 'fr',
-      requestedLocale: 'fr',
-      fallback: false,
-      path: '/fr/demarrage',
-      availableLocales: ['en', 'fr']
-    })
-    expect(localized.links?.[0]).toMatchObject({ to: '/fr/demarrage/installation' })
-    expect(localized.body).toBe(page.body)
-    expect(localized.body.children[0].props[':links']).toBe('[{"to":"/demarrage/installation"},{"href":"/demarrage/usage"}]')
-    expect(localized.body.children[1].props.href).toBe('/demarrage/installation#manual')
-  })
-
-  test('exposes public resolution metadata for locale fallback results', () => {
-    const localized = localizePageResult({
-      path: '/docs/essentials/fallback-lab',
-      file: { path: 'en/1.docs/2.essentials/5.fallback-lab.md', extension: 'md' },
-      locale: 'en',
-      resolved: {
-        requestedLocale: 'de',
-        locale: 'en',
-        fallback: true,
-        requestedRoute: '/de/dokumentation/essentials/fallback-lab',
-        availableLocales: ['en'],
-        variantPaths: {
-          en: '/docs/essentials/fallback-lab'
-        }
-      },
-      body: null
-    } as any, 'de', 'en', ['en', 'de'])
-
-    expect(localized.path).toBe('/de/docs/essentials/fallback-lab')
-    expect(localized.resolved).toEqual({
-      locale: 'en',
-      requestedLocale: 'de',
-      fallback: true,
-      fallbackLocale: 'en',
-      path: '/de/docs/essentials/fallback-lab',
-      requestedRoute: '/de/dokumentation/essentials/fallback-lab',
-      availableLocales: ['en']
-    })
-  })
-
-  test('creates route metadata and localized navigation ready for rendering', () => {
-    const meta = createRouteMeta({
-      path: '/demarrage',
-      resolved: {
-        locale: 'fr',
-        variantPaths: {
-          en: '/getting-started',
-          fr: '/demarrage'
-        }
-      }
-    } as any, 'fr', 'en')
-
-    expect(meta).toMatchObject({
-      path: '/fr/demarrage',
-      unprefixedPath: '/demarrage',
-      locale: 'fr',
-      defaultLocale: 'en',
-      variants: [
-        {
-          locale: 'en',
-          path: '/getting-started',
-          unprefixedPath: '/getting-started'
-        },
-        {
-          locale: 'fr',
-          path: '/fr/demarrage',
-          unprefixedPath: '/demarrage'
-        }
-      ],
-      localePaths: {
-        en: { path: '/getting-started', translated: true },
-        fr: { path: '/fr/demarrage', translated: true }
-      },
-      resolved: {
-        locale: 'fr',
-        requestedLocale: 'fr',
-        fallback: false,
-        path: '/fr/demarrage',
-        availableLocales: ['en', 'fr']
-      }
-    })
-
-    expect(localizeNavigation([
-      {
-        title: 'Demarrage',
-        path: '/demarrage'
-      }
-    ], 'fr', 'en', ['en', 'fr'])).toEqual([
-      expect.objectContaining({
-        path: '/fr/demarrage',
-        unprefixedPath: '/demarrage'
-      })
-    ])
-  })
 })

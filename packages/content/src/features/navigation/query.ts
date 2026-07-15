@@ -4,8 +4,7 @@ import { buildLocaleFallbackChain } from '../../core/content/locale'
 import { mergeCanonicalNavigation, projectNavigationTree, type CanonicalNavigationItem } from './canonical'
 
 /**
- * Navigation always derives fresh from `loadLocaleNavigation` (VNEXT.md 15.4,
- * 15.7, 25.4): there is no persisted "single-entry" navigation cache here
+ * Navigation always derives fresh from `loadLocaleNavigation`: there is no persisted "single-entry" navigation cache here
  * (the deleted `_nav.json` artifact). `loadLocaleNavigation` itself reads
  * through `storage/graph.ts#getContentGraph`, which is already the one
  * process-cached graph in production and a per-request memo in dev, so

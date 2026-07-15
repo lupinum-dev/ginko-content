@@ -105,8 +105,7 @@ export const normalizeProviderDocument = (input: ProviderDocumentInput): ParsedC
     body: input.body
   } as ParsedContent
 
-  // Same canonical JSON-purity gate as the filesystem ingest path (VNEXT
-  // §11, §21): a provider document must be JSON-pure before it can reach
+  // Same canonical JSON-purity gate as the filesystem ingest path: a provider document must be JSON-pure before it can reach
   // graph insertion, in dev and in build alike.
   const violations = collectJsonPurityViolations(document)
   if (violations.length) {

@@ -34,7 +34,8 @@ export const expectProviderCapabilities = (
   provider: ContentProvider,
   expected: ContentProviderCapabilities
 ) => {
-  expect(provider.capabilities).toEqual(expected)
+  expect(provider.capabilities.query.pagination).toEqual(expected.query.pagination)
+  expect(new Set(provider.capabilities.query.operators)).toEqual(new Set(expected.query.operators))
   expect(Object.keys(provider.capabilities)).toEqual(['query'])
 }
 

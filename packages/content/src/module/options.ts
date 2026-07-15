@@ -85,7 +85,7 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
 
 /**
  * Resolve the immutable, site-wide locale policy for the whole content
- * context (VNEXT.md §12.1, §22). This is the sole place authority between
+ * context. This is the sole place authority between
  * Nuxt I18n and Ginko content config is decided:
  *
  * - when `@nuxtjs/i18n` is installed, it is the sole authority for
@@ -163,9 +163,6 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
   }
 
   const engine = (options.search as { engine?: unknown } | undefined)?.engine
-  if (engine === 'cms') {
-    throw new Error('content.search.engine "cms" was renamed to "provider". Update the search configuration before upgrading.')
-  }
   if (engine !== undefined && engine !== 'minisearch' && engine !== 'pagefind' && engine !== 'provider') {
     throw new Error(`Unsupported content.search.engine: ${String(engine)}. Expected "minisearch", "pagefind", or "provider".`)
   }

@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   // this is an unauthenticated public endpoint, and the only legitimate
   // override is the author's own module configuration. Draft visibility
   // otherwise follows the one core environment-aware decision (see
-  // `queryCollectionsSitemapEntriesData`).
+  // the provider-backed sitemap projection).
   const includeDrafts = runtimeSitemap?.includeDrafts
 
   return await queryCollectionsSitemapEntries(event, { include, exclude, includeDrafts })

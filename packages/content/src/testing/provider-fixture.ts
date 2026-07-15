@@ -4,7 +4,7 @@ import type { ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, ParsedContent } from '../types/content'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
-import { SUPPORTED_QUERY_OPERATORS } from '../core/query/operators'
+import { PROVIDER_QUERY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeContentPath } from '../features/localization/path'
 import { normalizeProviderDocument } from '../runtime/server/provider-document'
@@ -299,7 +299,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     capabilities: {
       query: {
         operators: [
-          ...SUPPORTED_QUERY_OPERATORS.filter(operator => operator !== '$options'),
+          ...PROVIDER_QUERY_OPERATORS.filter(operator => operator !== '$options'),
           '$and',
           '$or'
         ],

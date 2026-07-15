@@ -47,7 +47,7 @@ type NavigationResolver = <
 
 /**
  * Resolve the navigation tree for a collection — the public `navigation()`
- * verb (VNEXT.md 10.2), absorbing the deleted `tree()` operation.
+ * verb, absorbing the deleted `tree()` operation.
  */
 export async function resolveNavigation<
   H extends ContentCollectionHandle | string,
@@ -81,8 +81,8 @@ export async function resolveNavigation<
 
 /**
  * Return the previous/next navigation entries surrounding a document — the
- * public `surround()` verb (VNEXT.md 10.2), replacing `neighbors()`.
- * `previous`, never `prev` (VNEXT.md 10.2/26.2).
+ * public `surround()` verb, replacing `neighbors()`.
+ * `previous`, never `prev`.
  */
 export async function resolveSurround<H extends ContentCollectionHandle | string>(
   context: ContentQueryContext,

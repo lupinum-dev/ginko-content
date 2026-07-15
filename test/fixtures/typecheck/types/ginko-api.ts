@@ -1,6 +1,6 @@
 /**
  * Type-level tests for the unified query API (ADR-0016) and the composable
- * hard cut (VNEXT.md 10.4-10.7, 27).
+ * hard cut.
  *
  * Compiled by `pnpm typecheck`. Negative tests (`@ts-expect-error`) assert
  * that obvious misuses fail at the type level.
@@ -46,11 +46,11 @@ declare const portableManifest: PortableManifestV1
 void [parsePortableDocument, readPortableDirectory, writePortableDirectory, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest]
 
 // Structural source classification is module-private and never part of the
-// public/root document contract (VNEXT.md 18.4, deletion register §30).
+// public/root document contract.
 // @ts-expect-error navigation control files are consumed before public shaping.
 void publicDocument.navigationFile
 
-/* ── Deleted query verbs are absent from the public surface (VNEXT.md 26.2) ── */
+/* ── Deleted query verbs are absent from the public surface ── */
 // `tree`/`neighbors`/`variants` were hard-cut: `tree` folded into `navigation()`,
 // `neighbors` became `surround()`, and `variants` was deleted (alternates come
 // from `resolveOne()`). None may be imported as a public query verb.
@@ -61,10 +61,10 @@ void clientSurface.neighbors
 // @ts-expect-error the `variants` query verb was deleted; alternates come from resolveOne().
 void clientSurface.variants
 
-/* ── Deleted wrapper composables are absent from the public surface (VNEXT.md 10.6) ── */
+/* ── Deleted wrapper composables are absent from the public surface ── */
 // Every wrapper composable except `useContentPage`/`useContentSearch` is a
-// hard-cut deletion (VNEXT.md 10.4-10.6). Applications compose pure `/client`
-// operations with `useAsyncData` instead (VNEXT.md 10.6 recipe).
+// hard-cut deletion. Applications compose pure `/client`
+// operations with `useAsyncData` instead.
 // @ts-expect-error useContentOne was deleted; compose one() with useAsyncData instead.
 void clientSurface.useContentOne
 // @ts-expect-error useContentMany was deleted; compose many() with useAsyncData instead.
@@ -195,7 +195,7 @@ type _BlogSeoTitle = Expect<Equal<BlogDoc['seo'], { title?: string, description?
 /* ── 10.4 canonical document facts envelope ─────────────────────────────── */
 
 // The envelope is exactly `route`/`resolution` — no top-level `path`,
-// `variants`, `localePaths`, or `resolved` shape (VNEXT.md 10.4).
+// `variants`, `localePaths`, or `resolved` shape.
 type _BlogHasRoute = Expect<Equal<BlogDoc['route'], ContentDocumentRoute>>
 type _BlogHasResolution = Expect<Equal<BlogDoc['resolution'], ContentDocumentResolution>>
 type _BlogMatchesExplicitLocalizedAlias = Expect<Equal<BlogDoc['route'], LocalizedContentDocument['route']>>
@@ -247,7 +247,7 @@ if (stringDocsResult) {
 }
 
 // The documented replacement for the deleted `useContentMany`: a pure
-// operation composed with `useAsyncData` (VNEXT.md 10.6).
+// operation composed with `useAsyncData`.
 const manyPostsAsync = await useAsyncDataTypecheckOnly(
   'typecheck-many-posts',
   () => many(posts, {
@@ -391,7 +391,7 @@ if (mixedBacklink) {
   void title
 }
 
-/* ── useContentPage: the sole route-aware app composable (VNEXT.md 10.5, 27.1) ── */
+/* ── useContentPage: the sole route-aware app composable ── */
 
 // Route pages may omit locale even for typed i18n handles because the route is
 // the selector. Surround entries return navigation items, not full documents.
@@ -421,7 +421,7 @@ void routePageStatus
 void routePageError
 await routePage.refresh()
 
-// @ts-expect-error useContentPage has no `notFound` option (VNEXT.md 27.1) — the app decides.
+// @ts-expect-error useContentPage has no `notFound` option — the app decides.
 await useContentPage(docs, { notFound: false })
 
 // @ts-expect-error useContentPage has no `data` alias — `page` is the sole name.
@@ -441,7 +441,7 @@ const authorPath = getCollectionPath(authors, { slug: 'evan', locale: 'de', defa
 const typedAuthorPath: string = authorPath
 void typedAuthorPath
 
-/* ── useContentSearch: the sole public search composable (VNEXT.md 10.5, 27.2) ── */
+/* ── useContentSearch: the sole public search composable ── */
 
 const headlessSearch = await useContentSearch({ initialQuery: 'guide', limit: 5 })
 headlessSearch.setQuery('intro')
@@ -453,7 +453,7 @@ if (selectedSearchResult) {
   void searchPath
   void searchCollection
 }
-// `searchNavigation` is the sole name for search navigation data (VNEXT.md 27.2)
+// `searchNavigation` is the sole name for search navigation data
 // — there is no `navigation` compatibility alias.
 const searchNavItem = headlessSearch.searchNavigation.value[0]
 if (searchNavItem) {
@@ -471,7 +471,7 @@ if (searchFile) {
   void searchFileTitle
 }
 
-/* ── Auto-imported variants (VNEXT.md 10.8: exactly useContentPage/useContentSearch) ── */
+/* ── Auto-imported variants ── */
 
 const autoRoutePage = await autoUseContentPage(posts)
 void autoRoutePage
@@ -543,7 +543,7 @@ if (selectedPost) {
   void selectedPost.authors
 }
 
-// Populated fields survive even when not named in `select` (VNEXT.md 10.3).
+// Populated fields survive even when not named in `select`.
 const selectedPopulated = await one(posts, {
   by: { path: '/hello' },
   select: ['title'],
@@ -569,7 +569,7 @@ if (unselectedPost) {
   void fullAuthors
 }
 
-// `many` uses the same projection helper (VNEXT.md 10.3).
+// `many` uses the same projection helper.
 const selectedMany = await many(posts, { select: ['title'] })
 const selectedManyItem = selectedMany[0]
 if (selectedManyItem) {
@@ -604,7 +604,7 @@ if (selectedCursorItem) {
 // @ts-expect-error a cursor page has no `total`, even with a selection applied.
 void selectedCursorPage.total
 
-// `resolveOne().doc` uses the same projection helper (VNEXT.md 10.3).
+// `resolveOne().doc` uses the same projection helper.
 const selectedResolve = await resolveOne(posts, { by: { path: '/hello' }, select: ['title'] })
 if (selectedResolve.doc) {
   const selectedResolveTitle: string = selectedResolve.doc.title
@@ -690,7 +690,7 @@ void docsResult
 /**
  * Minimal stand-in for Nuxt's `useAsyncData` so this fixture can typecheck
  * the documented `useAsyncData(key, () => many(...))` migration recipe
- * (VNEXT.md 10.6) without depending on a live Nuxt app instance. Only the
+ * without depending on a live Nuxt app instance. Only the
  * type shape matters here — `pnpm typecheck` never executes this file.
  */
 declare function useAsyncDataTypecheckOnly<T>(key: string, handler: () => Promise<T>): Promise<{ data: { value: T | undefined } }>

@@ -54,8 +54,8 @@ export { defineCollection, defineContentConfig, reference } from './types/config
 // registries + `StrictParsedContent` stay because the generated app types
 // (registerGeneratedTypes) import `StrictParsedContent` from this specifier and
 // augment `ContentCollectionMap`/`ContentCollectionI18nMap` through it — dropping
-// them un-narrows string collection-name queries. Enforced against
-// `meta/public-surface.json` by `test/contracts/package-exports-contracts.test.ts`.
+// them un-narrows string collection-name queries. Package and type contracts
+// exercise this facade directly.
 export type {
   ContentCollectionHandle,
   ContentCollectionI18nMap,
@@ -305,7 +305,7 @@ export interface ModuleHooks {
   'content:providers'(providers: Record<string, string>): void | Promise<void>
   /**
    * Read-only notification called only after the content context is fully
-   * resolved (VNEXT.md §17.4). Observers may validate or derive their own
+   * resolved. Observers may validate or derive their own
    * artifacts from it; they may not mutate collections, locales, provider
    * selection, or routing policy.
    */

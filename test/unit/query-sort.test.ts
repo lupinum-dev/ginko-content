@@ -128,7 +128,7 @@ describe('query sort stability and tiebreaks', () => {
     ])
   })
 
-  // VNEXT §11.2/§21.3: the canonical document value model stores dates as
+  // The canonical document value model stores dates as
   // strings — `YYYY-MM-DD` for `fields.date()`, UTC ISO 8601 for
   // `fields.datetime()`. Both formats are safe to sort/compare lexically:
   // fixed-width date-only strings and UTC-normalized ISO strings preserve

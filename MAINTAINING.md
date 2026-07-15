@@ -22,9 +22,9 @@ pnpm verify
 pnpm run release:verify
 ```
 
-`verify` is the broad workspace gate. It prepares fixtures, runs repo policies,
-builds packages, builds docs and examples, runs unit/provider/runtime/client/Nuxt
-tests, runs e2e, and typechecks.
+`verify` is the broad workspace gate. It builds the package and prepares fixtures
+once, runs repo policies, builds docs and every maintained example, runs
+unit/provider/runtime/client/Nuxt tests and server e2e, and typechecks.
 
 `release:verify` runs `verify` once, production browser e2e, real static
 generation, production audit, two byte-identical release packs, and pnpm/npm
@@ -34,16 +34,17 @@ run a second time.
 
 ## Release gate
 
-A tag may only be cut from the exact commit SHA whose CI release workflow,
-including `release-verify`, minimum-runtime, and Windows portability contracts,
-is green. The Windows packed Nuxt consumer remains a visible non-blocking
+A tag may only be cut from the exact commit SHA whose CI `Release authorization`
+job is green. That job requires the static, core, docs/examples, server e2e,
+browser, generation, exact-artifact, minimum-runtime, and Windows portability
+lanes. The Windows packed Nuxt consumer remains a visible non-blocking
 canary while the Nuxt 4.4.7–4.4.8 drive-letter prerender issue documented in
 the 0.2-to-0.3 migration guide is open. Release metadata must be committed
 before that workflow runs. A local
 `pnpm run release:verify` is a useful pre-check, but it does not authorize a tag
 unless it ran from a clean tree at the exact tagged SHA and its environment and
-artifact evidence were retained durably. See `testing-harness-rfc.md` for the
-release-confidence model and acceptance gates.
+artifact evidence were retained durably. The required CI lanes above are the
+release-confidence model; only their final authorization job permits tagging.
 
 ## Release Runbook
 
@@ -83,7 +84,6 @@ An `E404` is expected for a new version. If npm returns a version, bump
 3. Update release metadata intentionally:
 
 - `packages/content/package.json`
-- `packages/content/compatibility.json` — GENERATED: run `node scripts/generate-compatibility.mjs` (never hand-edit; `release:verify` runs it with `--check`)
 - `CHANGELOG.md`
 - `README.md`
 - public docs and examples when public behavior changed
@@ -102,7 +102,7 @@ delete that output and keep the curated version section.
 4. Commit the release metadata, push `main`, and record the commit SHA:
 
 ```bash
-git add packages/content/package.json packages/content/compatibility.json CHANGELOG.md README.md MAINTAINING.md docs/release-checklist.md
+git add packages/content/package.json CHANGELOG.md README.md MAINTAINING.md
 git commit -m "chore: release ginko-content v$VERSION"
 git push origin main
 RELEASE_SHA=$(git rev-parse HEAD)
@@ -110,8 +110,8 @@ RELEASE_SHA=$(git rev-parse HEAD)
 
 Do not tag yet. The authoritative gate must run against `$RELEASE_SHA`.
 
-5. Wait for the `release-verify` job for `$RELEASE_SHA`, then download its exact
-release artifact:
+5. Wait for the `Release authorization` job for `$RELEASE_SHA`, then download
+the exact artifact it revalidated:
 
 ```bash
 RUN_ID=$(gh run list --workflow CI --commit "$RELEASE_SHA" --json databaseId,conclusion --jq 'map(select(.conclusion == "success"))[0].databaseId')
@@ -243,13 +243,10 @@ For later releases, prefer npm trusted publishing plus staged publishing:
 - If a dependency is only stale in the lockfile, check provenance before
   changing it. Do not blindly regenerate.
 
-## Compatibility Tuple
+## Compatibility Holds
 
-The supported dependency tuple is tracked in
-`packages/content/compatibility.json`. Release checks use that file to reject
-stale pins in examples, playgrounds, docs, and fixtures.
-
-Intentional holds:
+Dependency compatibility is declared by package manifests and exercised by the
+minimum-runtime, portability, fixture, and packed-consumer lanes. Intentional holds:
 
 - `h3@1.15.11` until h3 2 is stable and Nuxt ecosystem peers accept it.
 - CMS integration stays limited to contract/import subpaths; runtime content

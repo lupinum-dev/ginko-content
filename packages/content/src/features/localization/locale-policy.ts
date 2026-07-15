@@ -1,6 +1,6 @@
 /**
  * One pure, unit-testable resolver for the immutable per-collection locale
- * policy (VNEXT.md §12.1, §22).
+ * policy.
  *
  * This module owns:
  * - locale/default-locale authority (Nuxt I18n vs. Ginko content-only);
@@ -14,7 +14,7 @@
  */
 
 /**
- * Nuxt I18n routing strategies proven end-to-end for 0.3 (VNEXT.md §12.1).
+ * Nuxt I18n routing strategies proven end-to-end for 0.3.
  * Any other strategy must fail setup rather than project unverified paths.
  */
 import { normalizeRouteMounts } from '../../core/content/path'
@@ -63,7 +63,7 @@ export interface LocalePolicyInput {
 }
 
 /**
- * Conceptual internal type from VNEXT.md §12.1. Deliberately not exposed as a
+ * Internal locale authority. Deliberately not exposed as a
  * public application type — only the facts application code needs should be
  * exposed by higher-level consumers.
  */
@@ -75,7 +75,7 @@ export interface ResolvedCollectionLocalePolicy {
   translatedSlugs: boolean
   /**
    * Per-locale route mount for this collection. Localized collections carry
-   * one entry per resolved locale (VNEXT.md §22.2 step 7 / §23) so the
+   * one entry per resolved locale so the
    * canonical route projector never has to fall back to a single default
    * mount for a locale-aware collection. Non-localized collections carry a
    * single `default` entry.
@@ -169,7 +169,7 @@ export function validateLocaleFallback(
 /**
  * Resolve locale/default-locale authority. When Nuxt I18n is installed it is
  * the sole authority for `locales`/`defaultLocale` — Ginko does not union,
- * ignore, or silently prefer one source (VNEXT.md §12.1).
+ * ignore, or silently prefer one source.
  */
 function resolveAuthority(
   nuxtI18n: NuxtI18nAuthorityInput,
@@ -189,7 +189,7 @@ function resolveAuthority(
     if (strategy !== SUPPORTED_NUXT_I18N_STRATEGY) {
       throw new LocalePolicyError(
         `@lupinum/ginko-content: Nuxt I18n routing strategy "${strategy}" is not supported. `
-        + `Only "${SUPPORTED_NUXT_I18N_STRATEGY}" is proven for 0.3 (VNEXT.md §12.1).`
+        + `Only "${SUPPORTED_NUXT_I18N_STRATEGY}" is proven for 0.3.`
       )
     }
 
@@ -234,13 +234,13 @@ export function resolveLocalePolicy(input: LocalePolicyInput): ResolvedLocalePol
       throw new LocalePolicyError(
         `@lupinum/ginko-content: collection "${collection.name}" opts into localization ("i18n"), `
         + 'but no locales are configured. Localized collections require a usable default locale '
-        + '(VNEXT.md §22.3).'
+        + '.'
       )
     }
     if (localized && !defaultLocale) {
       throw new LocalePolicyError(
         `@lupinum/ginko-content: collection "${collection.name}" is localized, but no default locale is resolved. `
-        + 'Localized collections require a usable default locale (VNEXT.md §22.3).'
+        + 'Localized collections require a usable default locale.'
       )
     }
 
