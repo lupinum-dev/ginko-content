@@ -3,13 +3,13 @@ import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
 import type {
   ContentCollectionTarget,
-  ContentNavigationTreeItem,
   DocumentFromHandle,
   LocaleFallback,
   LocalizedDoc,
   OneOptions,
   PopulateSpec,
   PopulatedDocument,
+  ResolvedContentNavigationItem,
   SurroundOptions
 } from '../../../types/query'
 import { resolveCollectionI18n } from '../../../features/localization/path'
@@ -52,8 +52,8 @@ export type UseContentPageOptions<
 
 interface UseContentPageReturn<T> {
   page: ComputedRef<LocalizedDoc<T> | undefined>
-  previous: ComputedRef<ContentNavigationTreeItem<T> | null>
-  next: ComputedRef<ContentNavigationTreeItem<T> | null>
+  previous: ComputedRef<ResolvedContentNavigationItem<T> | null>
+  next: ComputedRef<ResolvedContentNavigationItem<T> | null>
   status: ComputedRef<string>
   error: ComputedRef<unknown>
   refresh: () => Promise<void>
@@ -180,11 +180,11 @@ export async function useContentPage<
 
   const previous = computed(() => {
     if (!page.value || !surroundAsync) return null
-    return (surroundAsync.data.value?.previous ?? null) as ContentNavigationTreeItem<Doc> | null
+    return (surroundAsync.data.value?.previous ?? null) as ResolvedContentNavigationItem<Doc> | null
   })
   const next = computed(() => {
     if (!page.value || !surroundAsync) return null
-    return (surroundAsync.data.value?.next ?? null) as ContentNavigationTreeItem<Doc> | null
+    return (surroundAsync.data.value?.next ?? null) as ResolvedContentNavigationItem<Doc> | null
   })
 
   return {

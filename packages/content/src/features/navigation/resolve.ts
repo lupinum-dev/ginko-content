@@ -1,13 +1,10 @@
-import type { ContentNavigationItem } from '../../types/content'
+import type { ContentNavigationItem, ParsedContentMeta } from '../../types/content'
+import type { ContentNavigationTreeItem, ResolvedContentNavigationItem } from '../../types/query'
 
 export type ContentNavigationMatch = {
   path?: string
   stem?: string
   title?: string
-}
-
-export type ResolvedContentNavigationItem = ContentNavigationItem & {
-  path: string
 }
 
 const normalizePath = (path: string) => path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path
@@ -63,11 +60,15 @@ export const matchesNavigationItem = (item: ContentNavigationItem, match: string
   return Boolean(match.path || match.stem || match.title)
 }
 
-export const findFirstNavigationPage = (items: ContentNavigationItem[] = []): ResolvedContentNavigationItem | null => {
+export const findFirstNavigationPage = <
+  T = ParsedContentMeta,
+  Select extends ReadonlyArray<keyof T | string> | undefined = undefined
+>(
+  items: ReadonlyArray<ContentNavigationTreeItem<T, Select>> | undefined = []
+): ResolvedContentNavigationItem<T, Select> | null => {
   for (const item of items) {
-    const resolved = resolveNavigationItem(item)
-    if (resolved) {
-      return resolved
+    if ((item as ContentNavigationItem).page !== false && typeof item.path === 'string' && item.path.length > 0) {
+      return item as ResolvedContentNavigationItem<T, Select>
     }
 
     const child = findFirstNavigationPage(item.children)

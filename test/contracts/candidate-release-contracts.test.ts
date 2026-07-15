@@ -6,7 +6,7 @@ async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, 'utf8')) as T
 }
 
-const releaseVersion = '0.3.0-rc.1'
+const releaseVersion = '0.3.0-rc.2'
 
 describe('Content 0.3 candidate release contract', () => {
   it('commits one coordinated RC identity', async () => {

@@ -263,6 +263,38 @@ describe('navigation contracts', () => {
     expect(resolveNavigationFirstChildren([])).toEqual([])
   })
 
+  test('findFirstNavigationPage resolves structural trees without mutating them', async () => {
+    const { findFirstNavigationPage } = await import('../../packages/content/src/features/navigation/resolve')
+    const navigation = [
+      {
+        title: 'Structural section',
+        page: false as const,
+        path: '/must-not-win',
+        children: [
+          {
+            title: 'Nested group',
+            children: [
+              { title: 'Deep page', path: '/docs/deep', badge: 'new' }
+            ]
+          }
+        ]
+      },
+      { title: 'Later page', path: '/docs/later' }
+    ]
+    const before = structuredClone(navigation)
+
+    expect(findFirstNavigationPage(navigation)).toEqual(expect.objectContaining({
+      title: 'Deep page',
+      path: '/docs/deep',
+      badge: 'new'
+    }))
+    expect(navigation).toEqual(before)
+    expect(findFirstNavigationPage([{ title: 'Section index', path: '/docs/section', children: [{ title: 'Child', path: '/docs/section/child' }] }])).toEqual(expect.objectContaining({ path: '/docs/section' }))
+    expect(findFirstNavigationPage([{ title: 'Empty path', path: '' }, { title: 'Page', path: '/docs/page' }])).toEqual(expect.objectContaining({ path: '/docs/page' }))
+    expect(findFirstNavigationPage([{ title: 'Group', children: [{ title: 'Nested group' }] }])).toBeNull()
+    expect(findFirstNavigationPage(undefined)).toBeNull()
+  })
+
   test('buildNavigation builds deterministic trees from index pages and folder metadata', async () => {
     const { buildNavigation } = await import('../../packages/content/src/features/navigation/build')
 

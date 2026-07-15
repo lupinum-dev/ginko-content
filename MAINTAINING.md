@@ -54,7 +54,7 @@ npm.
 Set the release version once and reuse it in the commands below:
 
 ```bash
-VERSION=0.3.0-rc.1
+VERSION=0.3.0-rc.2
 case "$VERSION" in
   *-*) NPM_TAG=next; GH_RELEASE_FLAG=--prerelease ;;
   *)   NPM_TAG=latest; GH_RELEASE_FLAG= ;;

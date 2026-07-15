@@ -19,6 +19,7 @@ export {
 
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
+export { findFirstNavigationPage } from '../features/navigation/resolve.js'
 
 export { useContentPage } from '../runtime/app/composables/use-content-page.js'
 export type { UseContentPageOptions } from '../runtime/app/composables/use-content-page.js'
@@ -57,6 +58,7 @@ export type {
   SurroundResult,
   NavigationOptions,
   ContentNavigationTreeItem,
+  ResolvedContentNavigationItem,
   PaginationMode,
   OffsetPaginationResult,
   CursorPaginationResult

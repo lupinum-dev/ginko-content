@@ -257,6 +257,11 @@
       "audience": "app-developer",
       "docs": "docs/content/docs/9.api-reference/1.composables.md"
     },
+    "findFirstNavigationPage": {
+      "category": "stable-route-helper",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+    },
     "getCollectionPath": {
       "category": "stable-route-helper",
       "audience": "app-developer",
@@ -494,6 +499,11 @@
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
     },
+    "ResolvedContentNavigationItem": {
+      "category": "stable-route-helper-type",
+      "audience": "app-developer",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
+    },
     "ResolveOneOptions": {
       "category": "stable-query-type",
       "audience": "library-user",
@@ -580,6 +590,11 @@
       "category": "stable-server-query",
       "audience": "server-runtime-author",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "findFirstNavigationPage": {
+      "category": "stable-route-helper",
+      "audience": "server-runtime-author",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
     },
     "getCollectionPath": {
       "category": "stable-route-helper",
@@ -782,6 +797,11 @@
       "category": "stable-query-type",
       "audience": "library-user",
       "docs": "packages/content/docs/QUERY_PIPELINE.md"
+    },
+    "ResolvedContentNavigationItem": {
+      "category": "stable-route-helper-type",
+      "audience": "server-runtime-author",
+      "docs": "docs/content/docs/5.rendering/2.navigation-component.md"
     },
     "ContentAlternate": {
       "category": "stable-query-type",

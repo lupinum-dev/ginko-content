@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.0-rc.2
+
+- Export `findFirstNavigationPage()` from the client and server entry points for
+  resolving collection and section entry pages through structural navigation
+  groups. `ContentNavigationTreeItem.path` is now correctly optional; consumers
+  that access arbitrary navigation paths must guard structural nodes first.
+
 ## v0.3.0-rc.1
 
 This release candidate combines the previously unpublished content-engine work

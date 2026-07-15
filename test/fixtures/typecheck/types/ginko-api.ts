@@ -8,6 +8,7 @@
 import type {} from '../.nuxt/types/content'
 import {
   backlinks,
+  findFirstNavigationPage,
   getCollectionPath,
   many,
   navigation,
@@ -21,11 +22,11 @@ import {
   type ContentCollectionName,
   type ContentDocumentResolution,
   type ContentDocumentRoute,
-  type ContentNavigationTreeItem,
   type DocumentFromHandle,
   type LocalizedContentDocument,
   type OneOptions,
-  type QueryWhere
+  type QueryWhere,
+  type ResolvedContentNavigationItem
 } from '@lupinum/ginko-content/client'
 import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
@@ -399,15 +400,19 @@ const routePageTitle: string | undefined = routePage.page.value?.title
 const routePreviousItem = routePage.previous.value
 if (routePreviousItem) {
   const routePreviousTitle: string = routePreviousItem.title
+  const routePreviousPath: string = routePreviousItem.path
   // @ts-expect-error route surround items are navigation entries, not full localized documents.
   const routePreviousLocale: string = routePreviousItem.locale
   void routePreviousTitle
+  void routePreviousPath
   void routePreviousLocale
 }
 const routeNextItem = routePage.next.value
 if (routeNextItem) {
   const routeNextTitle: string = routeNextItem.title
+  const routeNextPath: string = routeNextItem.path
   void routeNextTitle
+  void routeNextPath
 }
 void routePageTitle
 const routePageStatus: string = routePage.status.value
@@ -494,12 +499,25 @@ void fixtureEvent
 const navResult = await navigation(docs, { locale: 'de', select: ['title'] as const })
 type _NavItem = typeof navResult[number]
 type _NavTitleIsTyped = Expect<Equal<_NavItem['title'], string>>
+type _NavPathIsOptional = Expect<Equal<_NavItem['path'], string | undefined>>
+// @ts-expect-error structural navigation nodes require a path guard.
+const _unsafeNavPath: string = navResult[0]!.path
+void _unsafeNavPath
 void navResult
+
+const selectedNavResult = await navigation(docs, { locale: 'de', select: ['author'] as const })
+const selectedNavEntry = findFirstNavigationPage(selectedNavResult)
+if (selectedNavEntry) {
+  const selectedNavPath: string = selectedNavEntry.path
+  type _ResolvedNavigationType = Expect<Equal<typeof selectedNavEntry, ResolvedContentNavigationItem<DocsDoc, readonly ['author']>>>
+  type _SelectedNavigationFieldSurvives = Expect<Equal<typeof selectedNavEntry.author, DocsDoc['author']>>
+  void selectedNavPath
+}
 
 /* ── surround() takes by (not top-level ref/path) and returns previous/next ── */
 
 const surroundEntries = await surround(docs, { locale: 'de', by: { ref: 'guide.intro' } })
-type _SurroundPreviousIsTyped = Expect<Equal<typeof surroundEntries.previous, ContentNavigationTreeItem<DocsDoc> | null>>
+type _SurroundPreviousIsTyped = Expect<Equal<typeof surroundEntries.previous, ResolvedContentNavigationItem<DocsDoc> | null>>
 void surroundEntries
 
 /* ── 10.3 selection-aware return types (decision 24) ───────────────────── */

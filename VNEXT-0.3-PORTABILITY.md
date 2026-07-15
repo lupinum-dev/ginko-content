@@ -2,7 +2,7 @@
 
 Status: implementation candidate
 
-Target: `0.3.0-rc.1`, followed by `0.3.0`
+Target: `0.3.0-rc.2`, followed by `0.3.0`
 
 Baseline: Ginko Content `0.2.1`; this addendum and `VNEXT.md` ship together as
 one coordinated `0.3.0` release.

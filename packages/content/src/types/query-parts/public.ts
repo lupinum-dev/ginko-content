@@ -349,11 +349,19 @@ export type ContentNavigationTreeItem<
   Select extends ReadonlyArray<keyof T | string> | undefined = undefined
 > = {
   title: string
-  path: string
+  path?: string
   children?: Array<ContentNavigationTreeItem<T, Select>>
 } & (Select extends ReadonlyArray<infer K>
   ? Pick<T, Extract<K, keyof T>>
   : Record<never, never>)
+
+/** A route-bearing navigation page, narrowed from a possibly structural tree node. */
+export type ResolvedContentNavigationItem<
+  T = ParsedContentMeta,
+  Select extends ReadonlyArray<keyof T | string> | undefined = undefined
+> = ContentNavigationTreeItem<T, Select> & {
+  path: string
+}
 
 /** Options for the public `surround()` verb (VNEXT.md 10.2), replacing `neighbors()`. */
 export type SurroundOptions<H = unknown> = {
@@ -364,6 +372,6 @@ export type SurroundOptions<H = unknown> = {
 
 /** Result of the public `surround()` verb — `previous`, never `prev` (VNEXT.md 10.2). */
 export interface SurroundResult<T = ParsedContentMeta> {
-  previous: ContentNavigationTreeItem<T> | null
-  next: ContentNavigationTreeItem<T> | null
+  previous: ResolvedContentNavigationItem<T> | null
+  next: ResolvedContentNavigationItem<T> | null
 }

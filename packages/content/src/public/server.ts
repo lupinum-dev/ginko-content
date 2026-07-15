@@ -17,6 +17,7 @@ export {
 
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
+export { findFirstNavigationPage } from '../features/navigation/resolve.js'
 
 export type {
   QueryWhere,
@@ -53,6 +54,7 @@ export type {
   SurroundResult,
   NavigationOptions,
   ContentNavigationTreeItem,
+  ResolvedContentNavigationItem,
   PaginationMode,
   OffsetPaginationResult,
   CursorPaginationResult

@@ -369,6 +369,7 @@ describe('package export contracts', () => {
     expect(server.resolveOne).toBeTypeOf('function')
     expect(server.surround).toBeTypeOf('function')
     expect(server.navigation).toBeTypeOf('function')
+    expect(server.findFirstNavigationPage).toBeTypeOf('function')
     expect(server.getCollectionPath).toBeTypeOf('function')
     // Auxiliary / sitemap helpers preserved across the redesign.
     expect(server.queryCollectionsSitemapEntries).toBeTypeOf('function')
@@ -391,6 +392,7 @@ describe('package export contracts', () => {
     expect(client.resolveOne).toBeTypeOf('function')
     expect(client.surround).toBeTypeOf('function')
     expect(client.navigation).toBeTypeOf('function')
+    expect(client.findFirstNavigationPage).toBeTypeOf('function')
     expect(client.getCollectionPath).toBeTypeOf('function')
     // The public composable surface is exactly `useContentPage` and
     // `useContentSearch` (VNEXT.md 10.5, 10.8) — every other wrapper is a
