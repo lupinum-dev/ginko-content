@@ -1,6 +1,6 @@
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { readBenchmarkCorpus, resolveNuxtBuildArtifact, shapeBenchmarkResults } from '../../scripts/lib/search-benchmark.mjs'
 
@@ -11,7 +11,7 @@ describe('search benchmark corpus', () => {
       buildDir: '../generated/docs-nuxt'
     }))
 
-    expect(artifact).toBe('/project/generated/docs-nuxt/content-cache/snapshot.json')
+    expect(artifact).toBe(resolve(root, '../generated/docs-nuxt/content-cache/snapshot.json'))
   })
 
   it('fails with an actionable error when neither generated corpus exists', async () => {
