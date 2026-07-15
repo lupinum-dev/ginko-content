@@ -52,7 +52,7 @@
     "release:notes": "changelogen --output CHANGELOG.md",
     "release:publish": "node -e \"console.error('Direct publish scripts are disabled. Run release:verify and release:pack, inspect .pack, then follow MAINTAINING.md.'); process.exit(1)\"",
     "release": "pnpm run release:verify",
-    "audit:prod": "pnpm audit --prod --audit-level low",
+    "audit:prod": "node scripts/audit-production.mjs",
     "test:coverage": "vitest --coverage --project unit --project provider --project contracts-node --project runtime --project client --project nuxt",
     "test:e2e": "vitest run --config vitest.config.ts --project e2e",
     "test:e2e:browser": "vitest run --config vitest.config.ts --project browser-e2e",

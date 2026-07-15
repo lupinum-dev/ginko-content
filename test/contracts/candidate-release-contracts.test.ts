@@ -23,6 +23,7 @@ describe('Content 0.3 candidate release contract', () => {
       version: releaseVersion,
     })
     expect(workspace.scripts?.['release:pack']).toBe('node scripts/release-pack.mjs')
+    expect(workspace.scripts?.['audit:prod']).toBe('node scripts/audit-production.mjs')
     expect(workspace.scripts).not.toHaveProperty('candidate:pack')
     expect(compatibility.releaseStack).toMatchObject({
       '@lupinum/ginko-content': releaseVersion,
@@ -34,12 +35,16 @@ describe('Content 0.3 candidate release contract', () => {
 
   it('keeps one manifest-derived pack path', async () => {
     const releasePack = await readFile('scripts/release-pack.mjs', 'utf8')
+    const productionAudit = await readFile('scripts/audit-production.mjs', 'utf8')
     const workflow = await readFile('.github/workflows/ci.yml', 'utf8')
     const developmentPack = await readFile('scripts/dev-pack.mjs', 'utf8')
 
     expect(developmentPack).toContain("readFileSync(resolve(packageRoot, 'package.json'), 'utf8')")
     expect(developmentPack).not.toMatch(/INTENDED_VERSION\s*=\s*['"]\d+\.\d+\.\d+/)
     expect(releasePack).toContain('assertReproduciblePacks(first, second)')
+    expect(productionAudit).toContain("'--package-lock-only'")
+    expect(productionAudit).toContain("'--omit=dev'")
+    expect(productionAudit).not.toContain('--ignore-registry-errors')
     expect(workflow).toContain('m.reproduciblePacks !== 2')
     await expect(readFile('scripts/candidate-pack.mjs', 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   })
