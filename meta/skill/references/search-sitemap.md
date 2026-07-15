@@ -89,5 +89,5 @@ When modifying i18n sitemap behavior, read `internal/nuxt-integration-sitemap-i1
 - `test/contracts/provider-contracts.test.ts`
 - `test/contracts/use-content-page-contracts.test.ts`
 - `internal/nuxt-integration-sitemap-i18n.md`
-- `docs/content/docs/search/`
+- `docs/content/docs/4.guides/3.discovery/`
 - `docs/content/docs/sitemap/`

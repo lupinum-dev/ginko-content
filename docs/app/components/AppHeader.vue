@@ -15,7 +15,7 @@ const { data: navigation } = await useAsyncData('docs-navigation', async () => {
 const links = computed(() => [
   {
     label: 'Docs',
-    to: '/docs/getting-started',
+    to: '/docs/why-ginko',
     active: route.path.startsWith('/docs'),
     icon: 'i-lucide-book'
   }, {
@@ -49,7 +49,7 @@ const links = computed(() => [
 
       <div class="flex flex-col gap-y-2 mt-4">
         <USeparator class="mb-4" />
-        <UButton label="Get started" color="neutral" to="/docs/getting-started/installation" class="flex justify-center text-gray-900 bg-primary sm:hidden" />
+        <UButton label="Get started" color="neutral" to="/docs/get-started/installation" class="flex justify-center text-gray-900 bg-primary sm:hidden" />
       </div>
     </template>
   </UHeader>

@@ -3,7 +3,8 @@ import { describe, expect, test } from 'vitest'
 
 const guidePath = 'packages/content/docs/DATA_SOURCE_ADAPTER_GUIDE.md'
 const examplePath = 'test/fixtures/typecheck/types/data-source-adapter.ts'
-const apiReferencePath = 'docs/content/docs/9.api-reference/7.data-source.md'
+const apiReferencePath = 'docs/content/docs/5.reference/11.package-exports.md'
+const normalizeLineEndings = (value: string) => value.replace(/\r\n?/g, '\n')
 
 describe('data-source adapter documentation', () => {
   test('publishes one complete adapter-author guide', async () => {
@@ -28,7 +29,9 @@ describe('data-source adapter documentation', () => {
       expect(normalizedGuide, required).toContain(required)
     }
 
-    expect(guide).toContain(`\`\`\`ts [data-source-adapter.ts]\n${example.trim()}\n\`\`\``)
+    expect(normalizeLineEndings(guide)).toContain(
+      `\`\`\`ts [data-source-adapter.ts]\n${normalizeLineEndings(example).trim()}\n\`\`\``
+    )
   })
 
   test('classifies the guide as the data-source public-surface authority', async () => {

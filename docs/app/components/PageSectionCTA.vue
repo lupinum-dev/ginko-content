@@ -16,7 +16,7 @@ defineProps({
     :links="[
       {
         label: 'Get started',
-        to: '/docs/getting-started/installation',
+        to: '/docs/get-started/installation',
         trailingIcon: 'i-lucide-arrow-right'
       },
       {

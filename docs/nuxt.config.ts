@@ -99,8 +99,7 @@ export default defineNuxtConfig({
     '@lupinum/ginko-content',
     '@nuxt/image',
     '@nuxt/scripts',
-    'nuxt-og-image',
-    'nuxt-llms'
+    'nuxt-og-image'
   ],
   devtools: {
     enabled: true
@@ -124,6 +123,12 @@ export default defineNuxtConfig({
   },
   content: {
     componentPolicy,
+    agent: {
+      routes: true,
+      linkHeaders: true,
+      markdownNegotiation: true,
+      prerender: true
+    },
     search: {
       engine: 'minisearch'
     },
@@ -162,14 +167,5 @@ export default defineNuxtConfig({
   },
   typescript: {
     strict: false
-  },
-  llms: {
-    domain: 'https://ginko-content.nuxt.dev',
-    title: '@lupinum/ginko-content documentation for LLMs',
-    description: 'Ginko is a filesystem-first, provider-neutral content engine for Nuxt.',
-    full: {
-      title: '@lupinum/ginko-content complete documentation',
-      description: 'The complete documentation for Ginko.'
-    }
   }
 })

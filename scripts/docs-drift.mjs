@@ -166,7 +166,7 @@ const collectTextFiles = async (roots) => {
     .map(file => relative(process.cwd(), file))
 }
 
-const isMigrationDoc = file => file.split('\\').join('/').startsWith('docs/content/docs/8.migration/')
+const isMigrationDoc = file => file.split('\\').join('/').startsWith('docs/content/docs/6.migration/')
 
 const normalizePath = file => file.split('\\').join('/')
 
@@ -186,9 +186,9 @@ const isAdvancedSurfaceDoc = (file) => {
   const normalized = normalizePath(file)
   const lower = normalized.toLowerCase()
   return (
-    normalized.includes('/8.migration/') ||
-    normalized.includes('/9.api-reference/') ||
-    normalized.includes('/10.cms-cache/') ||
+    normalized.includes('/6.migration/') ||
+    normalized.includes('/5.reference/') ||
+    normalized.includes('/4.guides/5.providers/') ||
     lower.includes('/advanced/') ||
     lower.includes('agent') ||
     lower.includes('provider') ||
@@ -382,9 +382,12 @@ const findRawStringHandleFirstHelperLines = (file, source) => {
 const isFallbackAwareDoc = (file) => {
   const normalized = normalizePath(file)
   return (
-    normalized.includes('/6.i18n/') ||
-    normalized.includes('/8.migration/') ||
-    normalized.includes('/9.api-reference/') ||
+    normalized.includes('/2.how-it-works/6.localization-model') ||
+    normalized.includes('/4.guides/2.site-patterns/3.multilingual-site') ||
+    normalized.includes('/4.guides/4.routing-and-seo/2.translated-slugs') ||
+    normalized.includes('/4.guides/4.routing-and-seo/4.links-and-redirects') ||
+    normalized.includes('/6.migration/') ||
+    normalized.includes('/5.reference/') ||
     normalized.toLowerCase().includes('i18n') ||
     normalized.toLowerCase().includes('fallback') ||
     isAdrDoc(file)
@@ -695,7 +698,7 @@ const checks = [
   async () => {
     const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8'))
     const readme = await readFile('packages/content/README.md', 'utf8')
-    const installDoc = await readFile('docs/content/docs/1.getting-started/2.installation.md', 'utf8')
+    const installDoc = await readFile('docs/content/docs/3.get-started/1.installation.md', 'utf8')
     const requiredPeerLabels = Object.entries(manifest.peerDependencies)
       .filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional)
       .map(([name, range]) => peerRequirementLabel(name, range))
@@ -714,7 +717,7 @@ const checks = [
     }
     for (const label of requiredPeerLabels) {
       if (!readme.includes(label)) offenders.push(`packages/content/README.md missing peer requirement: ${label}`)
-      if (!installDoc.includes(label)) offenders.push(`docs/content/docs/1.getting-started/2.installation.md missing peer requirement: ${label}`)
+      if (!installDoc.includes(label)) offenders.push(`docs/content/docs/3.get-started/1.installation.md missing peer requirement: ${label}`)
     }
     return { name: 'README requirements match required package peer dependency floors', offenders }
   },
