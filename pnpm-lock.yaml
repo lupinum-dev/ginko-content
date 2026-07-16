@@ -373,6 +373,9 @@ importers:
       '@lupinum/ginko-content':
         specifier: workspace:*
         version: link:../../../packages/content
+      h3:
+        specifier: 1.15.11
+        version: 1.15.11
       nuxt:
         specifier: 4.4.8
         version: 4.4.8(@babel/plugin-proposal-decorators@7.29.0(@babel/core@7.29.6))(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.39)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4)(esbuild@0.28.1)(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.22)(terser@5.47.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0)
