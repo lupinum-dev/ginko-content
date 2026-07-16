@@ -151,6 +151,45 @@ describe('provider-backed sitemap contracts', () => {
     ])
   })
 
+  test('infers localization from provider-owned variants for an unconfigured collection', async () => {
+    state.routes.mockReturnValue([
+      {
+        collection: 'docs',
+        canonicalKey: 'provider-guide',
+        locale: 'en',
+        contentPath: '/docs/provider-guide'
+      },
+      {
+        collection: 'docs',
+        canonicalKey: 'provider-guide',
+        locale: 'de',
+        contentPath: '/de/dokumentation/provider-leitfaden'
+      }
+    ])
+
+    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
+    const entries = await queryCollectionsSitemapEntries(createEvent(), {
+      siteUrl: 'https://docs.example.test'
+    })
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        _sitemap: 'en-US',
+        alternatives: expect.arrayContaining([
+          { hreflang: 'en-US', href: 'https://docs.example.test/docs/provider-guide' },
+          { hreflang: 'de-DE', href: 'https://docs.example.test/de/dokumentation/provider-leitfaden' }
+        ])
+      }),
+      expect.objectContaining({
+        _sitemap: 'de-DE',
+        alternatives: expect.arrayContaining([
+          { hreflang: 'en-US', href: 'https://docs.example.test/docs/provider-guide' },
+          { hreflang: 'de-DE', href: 'https://docs.example.test/de/dokumentation/provider-leitfaden' }
+        ])
+      })
+    ])
+  })
+
   test('does not invent locale sitemap partitions for a non-localized collection', async () => {
     state.runtime.locales = []
     state.runtime.collections = { docs: {} }

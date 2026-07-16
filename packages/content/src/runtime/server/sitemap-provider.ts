@@ -82,7 +82,13 @@ export async function queryCollectionsSitemapEntries (
   return routes.map((route) => {
     const variants = byCanonical.get(`${route.collection}:${route.canonicalKey}`) || []
     const collectionI18n = runtime.collections?.[route.collection]?.i18n
-    const localized = Boolean(collectionI18n && typeof collectionI18n === 'object')
+    const hasConfiguredCollection = Object.prototype.hasOwnProperty.call(
+      runtime.collections || {},
+      route.collection
+    )
+    const localized = collectionI18n && typeof collectionI18n === 'object'
+      ? true
+      : !hasConfiguredCollection && new Set(variants.map(variant => variant.locale).filter(Boolean)).size > 1
     const projectedVariants = variants.map(variant => ({
       locale: localized ? variant.locale : '',
       path: projectProviderRouteFact(variant, runtime)
