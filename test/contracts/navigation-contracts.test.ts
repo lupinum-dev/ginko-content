@@ -435,7 +435,16 @@ describe('navigation contracts', () => {
 
     const navigation = await resolveContentNavigation(createEvent(), wire.query, wire.options)
 
-    expect(navigation.map(item => item.title)).toEqual(['High', 'Low'])
+    expect(navigation).toEqual([
+      expect.objectContaining({
+        title: 'Docs',
+        page: false,
+        children: [
+          expect.objectContaining({ title: 'High', path: '/docs/high' }),
+          expect.objectContaining({ title: 'Low', path: '/docs/low' })
+        ]
+      })
+    ])
     expect(createServerContentQuery).not.toHaveBeenCalled()
     expect(getContentGraph).toHaveBeenCalledTimes(1)
   })
@@ -459,7 +468,13 @@ describe('navigation contracts', () => {
     })
 
     await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
-      expect.objectContaining({ path: '/docs/install', title: 'Install' })
+      expect.objectContaining({
+        title: 'Docs',
+        page: false,
+        children: [
+          expect.objectContaining({ path: '/docs/install', title: 'Install' })
+        ]
+      })
     ])
   })
 
@@ -566,13 +581,23 @@ describe('navigation contracts', () => {
 
     resolveRuntimeEnvironment.mockReturnValue('production')
     await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
-      expect.objectContaining({ title: 'Public' })
+      expect.objectContaining({
+        title: 'Docs',
+        children: [
+          expect.objectContaining({ title: 'Public' })
+        ]
+      })
     ])
 
     resolveRuntimeEnvironment.mockReturnValue('development')
     await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
-      expect.objectContaining({ title: 'Draft' }),
-      expect.objectContaining({ title: 'Public' })
+      expect.objectContaining({
+        title: 'Docs',
+        children: [
+          expect.objectContaining({ title: 'Draft' }),
+          expect.objectContaining({ title: 'Public' })
+        ]
+      })
     ])
   })
 
