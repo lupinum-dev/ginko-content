@@ -232,6 +232,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: Initialize release summary
@@ -251,6 +253,8 @@ jobs:
           throw new Error('Release artifact is not eligible for '+process.env.GITHUB_SHA)"
       - name: Test pure runtimes
         run: node scripts/timed-command.mjs pure-runtimes pnpm test:pure-runtimes
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
       - name: Test exact tarball with pnpm
         run: node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer
       - name: Test exact tarball with npm
