@@ -151,7 +151,8 @@ describe('provider-backed sitemap contracts', () => {
     ])
   })
 
-  test('infers localization from provider-owned variants for an unconfigured collection', async () => {
+  test('infers localization from provider-owned variants independently of collection configuration', async () => {
+    state.runtime.collections = { docs: {} }
     state.routes.mockReturnValue([
       {
         collection: 'docs',
