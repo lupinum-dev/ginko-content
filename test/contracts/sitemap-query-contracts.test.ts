@@ -163,7 +163,7 @@ describe('provider-backed sitemap contracts', () => {
         collection: 'docs',
         canonicalKey: 'provider-guide',
         locale: 'de',
-        contentPath: '/de/dokumentation/provider-leitfaden'
+        contentPath: '/dokumentation/provider-leitfaden'
       }
     ])
 
