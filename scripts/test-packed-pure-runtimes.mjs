@@ -163,7 +163,11 @@ async function main() {
     mkdirSync(extractRoot)
     execFileSync('tar', ['-xzf', tarball, '-C', extractRoot], { stdio: 'pipe' })
     const packageRoot = resolve(extractRoot, 'package')
-    symlinkSync(resolve(repoRoot, 'node_modules'), resolve(packageRoot, 'node_modules'), 'junction')
+    symlinkSync(
+      resolve(repoRoot, 'packages/content/node_modules'),
+      resolve(packageRoot, 'node_modules'),
+      'junction',
+    )
 
     const nodeResult = await runPureRuntimeProbe(await loadPackedApi(packageRoot))
     const workerResult = await runWorkerProbe(packageRoot, tempRoot)
