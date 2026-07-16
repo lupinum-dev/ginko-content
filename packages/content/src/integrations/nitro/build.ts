@@ -43,7 +43,7 @@ import {
   type ContentProviderRouteFact,
   type ContentRouteRecord
 } from '../../features/localization/route-projector'
-import { buildCanonicalNavigation } from '../../features/navigation/build'
+import { buildCanonicalNavigation, requireNavigationDocumentPath } from '../../features/navigation/build'
 import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
 import { normalizeRouteMounts } from '../../core/content/path'
 import { countSitemapRoutes, resolveSitemapCollections } from '../../features/sitemap/counts'
@@ -239,11 +239,12 @@ const deriveNavigation = (
       const dirConfigs = documents
         .filter(document => isNavigationFile(document) && document.partial && (!locale || document.locale === locale))
         .reduce((accumulator, config) => {
-          accumulator[config.path || '/'] = { ...config, ...(config.body as unknown as Record<string, unknown> | undefined) }
+          requireNavigationDocumentPath(config, 'directory configuration')
+          accumulator[config.path] = { ...config, ...(config.body as unknown as Record<string, unknown> | undefined) }
           return accumulator
         }, {} as Record<string, ParsedContent>)
 
-      const tree = buildCanonicalNavigation(navDocs as ParsedContentMeta[], dirConfigs as Record<string, ParsedContentMeta>, configuredFields)
+      const tree = buildCanonicalNavigation(navDocs, dirConfigs as Record<string, ParsedContentMeta>, configuredFields)
       const marked = markCollectionNavigationRoot(tree as CanonicalNavigationItem[], name, { routeMounts })
       const items = projectNavigationTree(marked, { locale, defaultLocale, routeMounts, collection: name }) as NavItem[]
       results.push({ collection: name, ...(locale ? { locale } : {}), items })

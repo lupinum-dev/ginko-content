@@ -126,8 +126,8 @@ export async function resolveSurround<H extends ContentCollectionHandle | string
   const flat: Array<{ path: string, item: unknown }> = []
   const walk = (nodes: unknown[]) => {
     for (const node of nodes) {
-      const n = node as { path?: string, children?: unknown[] }
-      if (n.path) {
+      const n = node as { page?: boolean, path?: string, children?: unknown[] }
+      if (n.page !== false && n.path) {
         flat.push({ path: n.path || '', item: node })
       }
       if (Array.isArray(n.children)) walk(n.children)

@@ -21,7 +21,7 @@ import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visi
 import { lowerRouteToCandidates } from '../../features/localization/route-projector'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
 import { buildContentDocumentEnvelope } from '../../features/localization/results'
-import { normalizeProviderDocument, type ProviderDocumentInput } from './provider-document'
+import { normalizeProviderDocument, type NormalizedProviderDocument, type ProviderDocumentInput } from './provider-document'
 import { getContentRuntimeConfig } from './runtime-config'
 import { isPreview } from '../../integrations/nitro/preview'
 import { createContentProviderError } from '../../public/provider-errors'
@@ -235,7 +235,7 @@ const normalizeRawProviderDocuments = (
   params: ContentQueryBuilderParams,
   response: unknown,
   providerName: string
-): ParsedContent[] => {
+): NormalizedProviderDocument[] => {
   if (!isProviderFindResponse<unknown>(response)) {
     return invalidProviderQueryResult(
       params,

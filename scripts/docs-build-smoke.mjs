@@ -35,7 +35,12 @@ const walk = async (dir) => {
       offenders.push(relative(process.cwd(), path))
     }
     const outputPath = relative(root, path).replaceAll('\\', '/')
-    if (outputPath === 'index.html' || outputPath.startsWith('docs/')) {
+    const isMetaRefresh = /<meta\s+http-equiv=["']refresh["']/i.test(source)
+    const isDocsEntryRedirect = outputPath === 'docs/index.html' && isMetaRefresh
+    if (isDocsEntryRedirect && !/content=["'][^"']*url=\/docs\/why-ginko["']/i.test(source)) {
+      accessibilityOffenders.push(`${outputPath}: unexpected redirect target`)
+    }
+    if (!isDocsEntryRedirect && (outputPath === 'index.html' || outputPath.startsWith('docs/'))) {
       if (!/<html[^>]+lang="[^"]+"/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing html lang`)
       if (!/<main(?:\s|>)/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing main landmark`)
       if (outputPath !== 'docs/index.html' && outputPath.startsWith('docs/') && !/<h1(?:\s|>)/i.test(source)) accessibilityOffenders.push(`${outputPath}: missing h1`)

@@ -1,5 +1,7 @@
 import { createError, defineEventHandler, getQuery } from 'h3'
 import { resolveProviderContentVariants } from '../provider-query'
+import { projectProviderRouteFact } from '../provider-route-facts'
+import { getContentRuntimeConfig } from '../runtime-config'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -18,18 +20,21 @@ export default defineEventHandler(async (event) => {
     collection,
     exact: false
   })
+  const runtime = getContentRuntimeConfig().content
   const locales = resolved
     ? resolved.variants
         .filter((doc) => doc.canonicalKey === resolved.canonicalKey && typeof doc.locale === 'string')
         .sort((left, right) => String(left.locale).localeCompare(String(right.locale)))
-        .map((doc) => {
-          const route = doc.route as { resolvedPath?: unknown } | undefined
-          return {
+        .map((doc) => ({
+          canonicalKey: resolved.canonicalKey,
+          locale: String(doc.locale),
+          path: projectProviderRouteFact({
+            collection,
             canonicalKey: resolved.canonicalKey,
             locale: String(doc.locale),
-            ...(typeof route?.resolvedPath === 'string' ? { path: route.resolvedPath } : {})
-          }
-        })
+            contentPath: doc.path
+          }, runtime)
+        }))
     : []
   if (!locales.length) {
     throw createError({

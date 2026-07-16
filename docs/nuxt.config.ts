@@ -3,6 +3,10 @@ const siteUrl = 'https://ginko-content.nuxt.dev'
 export default defineNuxtConfig({
   extends: ['@lupinum/ginko-docs'],
   site: { url: siteUrl },
+  i18n: {
+    baseUrl: siteUrl,
+    locales: [{ code: 'en', language: 'en-US', name: 'English' }]
+  },
   components: [{ path: '~/components/mdc', global: true }],
   css: ['~/assets/main.css'],
   vite: {

@@ -27,10 +27,17 @@ if (!changelogSection.test(changelog)) {
 
 const tagName = `v${version}`
 try {
-  execFileSync('git', ['rev-parse', '--verify', `refs/tags/${tagName}`], {
+  const taggedCommit = execFileSync('git', ['rev-parse', '--verify', `refs/tags/${tagName}^{commit}`], {
     cwd: repoRoot,
-    stdio: 'ignore',
-  })
+    encoding: 'utf8',
+  }).trim()
+  const headCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }).trim()
+  if (taggedCommit !== headCommit) {
+    errors.push(`git tag ${tagName} points to ${taggedCommit}, not HEAD (${headCommit}).`)
+  }
 } catch {
   errors.push(`git tag ${tagName} is missing.`)
 }
@@ -43,4 +50,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`[release preflight] ${manifest.name}@${version}: changelog section and ${tagName} tag present.`)
+console.log(`[release preflight] ${manifest.name}@${version}: changelog section and ${tagName} tag at HEAD.`)

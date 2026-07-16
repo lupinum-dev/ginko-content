@@ -27,6 +27,22 @@ import { generateTitle } from '../../core/content/path'
 import { type CanonicalNavigationItem, projectNavigationTree } from './canonical'
 
 type PrivateNavItem = CanonicalNavigationItem
+type NavigationDocumentWithPath = ParsedContentMeta & { path: string }
+
+export function requireNavigationDocumentPath (
+  document: ParsedContentMeta,
+  kind = 'page'
+): asserts document is NavigationDocumentWithPath {
+  if (typeof document.path !== 'string' || !document.path) {
+    throw new Error(`Navigation ${kind} "${document.id}" is missing its canonical path.`)
+  }
+}
+
+function requireNavigationDocumentPaths (
+  contents: ParsedContentMeta[]
+): asserts contents is NavigationDocumentWithPath[] {
+  for (const content of contents) requireNavigationDocumentPath(content)
+}
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
@@ -80,6 +96,7 @@ export const buildCanonicalNavigation = (
   configs: Record<string, ParsedContentMeta>,
   fields: string[] = []
 ): CanonicalNavigationItem[] => {
+  requireNavigationDocumentPaths(contents)
   const pickNavigationFields = (content: ParsedContentMeta) => {
     const navigationFields = isObject(content?.navigation) ? content.navigation as Record<string, unknown> : {}
     return {
@@ -89,9 +106,9 @@ export const buildCanonicalNavigation = (
   }
 
   const navigation = contents
-    .sort((left, right) => left.path!.localeCompare(right.path!))
+    .sort((left, right) => left.path.localeCompare(right.path))
     .reduce((nav, content) => {
-      const parts = content.path!.substring(1).split('/')
+      const parts = content.path.substring(1).split('/')
       const idParts = content.id.split(':').slice(1)
       const isIndex = Boolean(idParts[idParts.length - 1]?.match(/([1-9][0-9]*\.)?index.md/g))
       const navItem: PrivateNavItem = {

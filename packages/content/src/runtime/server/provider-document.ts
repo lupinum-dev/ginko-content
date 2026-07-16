@@ -61,12 +61,19 @@ export interface ProviderDocumentInput extends Record<string, unknown> {
   file?: ContentFileMeta
 }
 
+export type NormalizedProviderDocument = ParsedContent & {
+  collection: string
+  locale: string
+  path: string
+  canonicalKey: string
+}
+
 /**
  * Normalize a provider's raw document into the canonical content envelope,
  * filling in the derivable identity fields (`id`, `canonicalKey`, `type`) while
  * leaving `file` absent unless the provider supplied it.
  */
-export const normalizeProviderDocument = (input: ProviderDocumentInput): ParsedContent => {
+export const normalizeProviderDocument = (input: ProviderDocumentInput): NormalizedProviderDocument => {
   const collection = input.collection
   const locale = input.locale
   const contentPath = normalizeContentPath(input.contentPath)
@@ -103,7 +110,7 @@ export const normalizeProviderDocument = (input: ProviderDocumentInput): ParsedC
     type,
     ...(input.file ? { file: input.file } : {}),
     body: input.body
-  } as ParsedContent
+  } as NormalizedProviderDocument
 
   // Same canonical JSON-purity gate as the filesystem ingest path: a provider document must be JSON-pure before it can reach
   // graph insertion, in dev and in build alike.

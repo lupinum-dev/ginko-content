@@ -16,6 +16,11 @@ import {
   stripLocalePrefix
 } from '../../../core/content/path'
 import { projectContentRoute } from '../../../features/localization/route-projector'
+import {
+  markCollectionNavigationRoot,
+  scopeNavigationTree,
+  type CanonicalNavigationItem
+} from '../../../features/navigation/canonical'
 import { buildContentResult } from '../../../integrations/nitro/build'
 import { executeFilesystemContentQuery } from '../query-executor'
 import { resolveContentNavigation } from '../navigation-query'
@@ -93,6 +98,21 @@ const mapQueryResult = <T>(response: Awaited<ReturnType<typeof executeFilesystem
   }
 }
 
+const routeFactFromCanonicalNavigationItem = (collection: string, item: CanonicalNavigationItem) => {
+  if (item.page === false || item.navigationKind === 'folder') return undefined
+  const contentPath = typeof item.navigationPath === 'string' ? item.navigationPath : item.path
+  if (!contentPath || !item.canonicalKey || !item.locale) return undefined
+  const itemCollection = typeof item.collection === 'string' ? item.collection : ''
+  const resolvedCollection = collection || itemCollection
+  if (!resolvedCollection) return undefined
+  return {
+    collection: resolvedCollection,
+    canonicalKey: item.canonicalKey,
+    locale: item.locale,
+    contentPath
+  }
+}
+
 const routeFactFromNavItem = (collection: string, item: NavItem) => {
   if (!item.path || !item.canonicalKey || !item.locale) return undefined
   const itemCollection = typeof item.collection === 'string' ? item.collection : ''
@@ -108,15 +128,33 @@ const routeFactFromNavItem = (collection: string, item: NavItem) => {
   }
 }
 
-const toProviderNavigation = (collection: string, items: NavItem[]): ContentProviderNavigationItem[] =>
+const toProviderNavigation = (collection: string, items: CanonicalNavigationItem[]): ContentProviderNavigationItem[] =>
   items.map((item) => {
-    const { path, unprefixedPath, variants, localePaths, resolved, children, ...fields } = item as NavItem & Record<string, unknown>
+    const {
+      path,
+      unprefixedPath,
+      variants,
+      localePaths,
+      resolved,
+      children,
+      file,
+      stem,
+      navigationKind,
+      navigationPath,
+      _collectionRoot,
+      ...fields
+    } = item
     void path
     void unprefixedPath
     void variants
     void localePaths
     void resolved
-    const route = routeFactFromNavItem(collection, item)
+    void file
+    void stem
+    void navigationKind
+    void navigationPath
+    void _collectionRoot
+    const route = routeFactFromCanonicalNavigationItem(collection, item)
     return {
       ...fields,
       title: String(item.title || ''),
@@ -167,8 +205,24 @@ export const filesystemProvider: ContentProvider = {
     }
     return mapQueryResult(await executeFilesystemContentQuery<T>(event, plan)) as unknown as import('../../../types/api').ContentQueryResponse<T>
   },
-  navigation: async (event, query, options) =>
-    toProviderNavigation(query.collection || '', await resolveContentNavigation(event, query, options)),
+  navigation: async (event, query, options) => {
+    const collection = query.collection || ''
+    const config = getContentRuntimeConfig().content || {}
+    const collectionI18n = collection ? config.collections?.[collection]?.i18n : undefined
+    const locales = collectionI18n && typeof collectionI18n === 'object' && collectionI18n.locales?.length
+      ? collectionI18n.locales
+      : (config.locales || [])
+    const defaultLocale = collectionI18n && typeof collectionI18n === 'object'
+      ? collectionI18n.defaultLocale || config.defaultLocale
+      : config.defaultLocale
+    const routeMounts = normalizeRouteMounts(config.collections?.[collection]?.route, locales, defaultLocale)
+    const canonical = await resolveContentNavigation(event, query, options)
+    const scoped = scopeNavigationTree(
+      markCollectionNavigationRoot(canonical, collection, { routeMounts }),
+      collection
+    )
+    return toProviderNavigation(collection, scoped)
+  },
   surroundings: async (event, collection, contentPath, options) =>
     toProviderSurround(collection, await queryFilesystemCollectionItemSurroundings(event, collection, contentPath, {
       locale: options?.locale

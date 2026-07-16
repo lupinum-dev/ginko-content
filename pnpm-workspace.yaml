@@ -6,6 +6,8 @@ packages:
   - examples/*/*
   - test/fixtures/*
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@lupinum/ginko-docs"
 linkWorkspacePackages: deep
 onlyBuiltDependencies:
   - esbuild
