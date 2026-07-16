@@ -1,7 +1,22 @@
 # Changelog
 
+## v0.3.0-rc.3
+
+- Fix filesystem-provider navigation after the provider hard cutover. Canonical
+  navigation now reads trusted graph documents and directory configuration
+  directly, while the public provider boundary continues to expose raw route
+  facts and reject structural documents. This prevents SSR navigation from
+  disappearing during client hydration in Ginko Docs consumers.
+- Project locale-switcher paths from canonical provider route facts instead of
+  relying on the removed public-document `path` field.
+- Require canonical paths at the trusted navigation-builder boundary and keep
+  `page: false` control nodes out of fallback surround results.
+
 ## v0.3.0-rc.2
 
+- Stop shipping the unexported `compatibility.json` release-stack snapshot.
+  Package manifests and executable compatibility lanes are the maintained
+  sources of truth.
 - Export `findFirstNavigationPage()` from the client and server entry points for
   resolving collection and section entry pages through structural navigation
   groups. `ContentNavigationTreeItem.path` is now correctly optional; consumers

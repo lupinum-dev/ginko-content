@@ -214,6 +214,11 @@ This ADR supersedes the public-API parts of ADR-0006/0007/0008. The
 identity model and translation infrastructure those ADRs introduced are
 preserved unchanged — only the user-facing call site changes.
 
+The internal fluent builder and builder-parameter IR remain implementation
+details behind the provider plan. Replacing them end to end with
+`ContentQueryPlan` is deliberately deferred as a separate breaking change;
+it is not required to keep the public unified query API coherent.
+
 ## Hard-cut query shape (2026-05)
 
 Review of the first unified-query draft showed that putting `path` /

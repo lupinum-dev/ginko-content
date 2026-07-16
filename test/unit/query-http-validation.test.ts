@@ -12,7 +12,7 @@ import {
 } from '../../packages/content/src/runtime/server/query-http-validation'
 
 /**
- * VNEXT.md 20.6/16: closed HTTP boundary validation. `validateContentQueryRequestBody`
+ * Closed HTTP boundary validation. `validateContentQueryRequestBody`
  * is a pure function — every case here runs without H3, a provider, or the
  * query lowerer, proving the boundary can reject before either ever runs.
  */

@@ -102,7 +102,7 @@ const waitForServerReady = async (child: ChildProcess, baseURL: string, timeoutM
 
 /**
  * Fetch the small `ContentBuildResult` summary (sitemap collection counts)
- * from the real Nitro-side build (VNEXT §14, §15.2, §25.3), by running the
+ * from the real Nitro-side build, by running the
  * just-compiled server bundle as a real short-lived process and calling the
  * content cache/build route over HTTP — the same approach
  * `test/helpers/production-fixture.ts` already uses to drive a built fixture
@@ -194,8 +194,7 @@ export const registerContentNitroIntegrationHooks = (
 
   // A non-static (`nuxi build`) hybrid build's prerender phase runs as a
   // SEPARATE `nitro-prerender`-preset sub-instance that shares the same
-  // `output.publicDir` with the eventual compiled main server (VNEXT
-  // §14.4/§25.2's crawl-links seeding relies on exactly this). Because the
+  // `output.publicDir` with the eventual compiled main server. Because the
   // cache/build route is unshifted onto `nitro.options.prerender.routes`
   // (`module/nitro-config.ts`) purely to seed that crawl -- only ever for a
   // filesystem-provider build -- Nitro's prerenderer still writes its real
@@ -266,8 +265,7 @@ export const registerContentNitroIntegrationHooks = (
   }
 
   // Content routes are injected via Nitro's crawl-links mechanism instead of
-  // this hook (VNEXT §14.4, §25.2, deleted module-time
-  // `module/derived-route-discovery.ts`): the content cache/build route is
+  // this hook: the content cache/build route is
   // unshifted to the front of `nitro.prerender.routes`
   // (`module/nitro-config.ts`, which also enables `crawlLinks` for the
   // filesystem provider) and, during prerendering, responds with HTML

@@ -46,7 +46,7 @@ const runtimeContent = useRuntimeConfig().public?.content || {}
 const attrs = useAttrs()
 const { unwrap: unwrapRoot } = useUnwrap()
 const localePath = useLocalePath()
-// VNEXT.md 10.4: the canonical document envelope carries `locale` at the top
+// The canonical document envelope carries `locale` at the top
 // level (the resolved/served locale) and `resolution.requested.locale` (the
 // locale the caller actually asked for, before fallback) — there is no more
 // `resolved`/`variants` shape to read these off of.

@@ -53,7 +53,7 @@ describe('content dev runtime', () => {
     await watchHandler?.('update', 'content:source:content:en/docs/intro.md')
 
     // `_manifest.json`/`_nav.json`/`_meta.json` are deleted derivatives
-    // (VNEXT.md §15.7, §25.4) — dev never persists them, so there is nothing
+    // — dev never persists them, so there is nothing
     // to invalidate for them anymore; only the per-source parsed cache entry
     // is invalidated.
     expect(removeItem).toHaveBeenCalledTimes(1)

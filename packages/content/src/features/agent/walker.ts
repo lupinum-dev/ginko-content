@@ -101,8 +101,7 @@ const isExternalHref = (href: string) =>
   /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')
 
 /**
- * Empty-`routeMounts` policy pattern (VNEXT.md §12.2, matching
- * `features/query/routes.ts#getCollectionPath`): only a locale prefix is
+ * Empty-`routeMounts` policy pattern: only a locale prefix is
  * needed for markdown links, so `projectContentRoute` gets a policy with an
  * empty `routeMounts` and owns the prefix decision instead of a
  * hand-assembled one.

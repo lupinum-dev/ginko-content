@@ -1,11 +1,8 @@
-import type { NavItem } from '../../types/content'
-import type { ContentQueryBuilderParams } from '../../types/query'
 import { buildLocaleFallbackChain } from '../../core/content/locale'
-import { mergeCanonicalNavigation, projectNavigationTree, type CanonicalNavigationItem } from './canonical'
+import { mergeCanonicalNavigation, type CanonicalNavigationItem } from './canonical'
 
 /**
- * Navigation always derives fresh from `loadLocaleNavigation` (VNEXT.md 15.4,
- * 15.7, 25.4): there is no persisted "single-entry" navigation cache here
+ * Navigation always derives fresh from `loadLocaleNavigation`: there is no persisted "single-entry" navigation cache here
  * (the deleted `_nav.json` artifact). `loadLocaleNavigation` itself reads
  * through `storage/graph.ts#getContentGraph`, which is already the one
  * process-cached graph in production and a per-request memo in dev, so
@@ -17,52 +14,43 @@ export interface ResolveNavigationRuntime {
   navigation: false | { fields: string[] }
 }
 
+export interface ResolveNavigationRequest {
+  locale?: string
+  fallback?: boolean | readonly string[]
+  exact?: boolean
+}
+
 export interface ResolveNavigationOptions {
-  query?: ContentQueryBuilderParams
-  loadLocaleNavigation: (locale?: string) => Promise<NavItem[]>
+  request?: ResolveNavigationRequest
+  loadLocaleNavigation: (locale?: string) => Promise<CanonicalNavigationItem[]>
   resolveLocaleChain: (
     requestedLocale?: string,
     defaultLocale?: string,
     fallback?: Record<string, string[]>
   ) => string[]
-  localizeNavigation?: (items: NavItem[], locale?: string, fallback?: string[], collection?: string, canonical?: boolean) => Promise<NavItem[]>
 }
 
 export const resolveContentNavigationData = async (
   runtime: ResolveNavigationRuntime,
   {
-    query: inputQuery = {},
+    request = {},
     loadLocaleNavigation,
-    resolveLocaleChain,
-    localizeNavigation
+    resolveLocaleChain
   }: ResolveNavigationOptions
 ) => {
-  const query = { ...inputQuery }
-  const resolveLocale = query.resolveLocale
-  if (resolveLocale) {
-    delete query.resolveLocale
-  }
-  const canonical = query.canonical === true
-  if ('canonical' in query) {
-    delete query.canonical
-  }
-  if ('navigationFields' in query) {
-    delete query.navigationFields
-  }
-
   if (runtime.navigation === false) {
     return []
   }
 
-  const requestedLocale = resolveLocale?.locale
-  const collection = typeof query.collection === 'string' ? query.collection : undefined
-  const fallback = requestedLocale && resolveLocale?.fallback === true
+  const requestedLocale = request.locale
+  const fallback = requestedLocale && request.fallback === true
     ? buildLocaleFallbackChain(requestedLocale, runtime.defaultLocale, runtime.localeFallback)
-    : Array.isArray(resolveLocale?.fallback)
-      ? resolveLocale.fallback
+    : Array.isArray(request.fallback)
+      ? Array.from(request.fallback)
       : []
-  const localeChain = resolveLocale
-    ? (resolveLocale.exact || resolveLocale.fallback === false
+  const resolvesLocale = Boolean(request.locale || request.fallback !== undefined || request.exact)
+  const localeChain = resolvesLocale
+    ? (request.exact || request.fallback === false
         ? [requestedLocale].filter(Boolean)
         : resolveLocaleChain(
             requestedLocale,
@@ -72,21 +60,16 @@ export const resolveContentNavigationData = async (
     : [requestedLocale].filter(Boolean)
 
   if (!localeChain.length) {
-    const navigation = await loadLocaleNavigation(requestedLocale)
-    return localizeNavigation
-      ? await localizeNavigation(navigation, requestedLocale, [], collection, canonical)
-      : projectNavigationTree(navigation as CanonicalNavigationItem[], { locale: requestedLocale, defaultLocale: runtime.defaultLocale, collection, canonical }) as NavItem[]
+    return await loadLocaleNavigation(requestedLocale)
   }
 
-  let mergedNavigation: NavItem[] = []
+  let mergedNavigation: CanonicalNavigationItem[] = []
   let first = true
   for (const locale of localeChain) {
     const navigation = await loadLocaleNavigation(locale)
-    mergedNavigation = first ? navigation : mergeCanonicalNavigation(mergedNavigation as CanonicalNavigationItem[], navigation as CanonicalNavigationItem[]) as NavItem[]
+    mergedNavigation = first ? navigation : mergeCanonicalNavigation(mergedNavigation, navigation)
     first = false
   }
 
-  return localizeNavigation
-    ? await localizeNavigation(mergedNavigation, requestedLocale, fallback, collection, canonical)
-    : projectNavigationTree(mergedNavigation as CanonicalNavigationItem[], { locale: requestedLocale, defaultLocale: runtime.defaultLocale, collection, canonical }) as NavItem[]
+  return mergedNavigation
 }

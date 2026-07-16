@@ -22,7 +22,7 @@ export function toMarkdownNode (node: ComarkTupleNode): MarkdownNode {
   const [tag, props = {}, ...children] = node
   return {
     type: 'element',
-    // `undefined` is not a JSON-pure value (VNEXT §11): omit `tag` entirely
+    // `undefined` is not a JSON-pure value: omit `tag` entirely
     // rather than set it to `undefined` when the tuple carries no tag.
     ...(tag ? { tag } : {}),
     props: { ...props },
@@ -49,7 +49,7 @@ export function mapMarkdownNode (
   node: MarkdownNode,
   mapNode: (node: MarkdownNode) => MarkdownNode
 ): MarkdownNode {
-  // `undefined` is not a JSON-pure value (VNEXT §11): a text node has neither
+  // `undefined` is not a JSON-pure value: a text node has neither
   // `props` nor `children`, so those keys must be omitted, not set to
   // `undefined`, when the source node doesn't carry them.
   const next: MarkdownNode = {

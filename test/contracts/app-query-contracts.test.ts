@@ -17,8 +17,7 @@ const runtime = {
       localeFallback: { de: ['en'] },
       integrity: 'abc123',
       // Disabled here so `useContentSearch` tests exercise only the
-      // collection-scoped `files`/`searchNavigation` loading (VNEXT.md
-      // 27.2), not the query-driven minisearch/pagefind/provider backend
+      // collection-scoped `files`/`searchNavigation` loading, not the query-driven minisearch/pagefind/provider backend
       // (already covered end-to-end in test/client/search-composables.test.ts).
       search: false
     }
@@ -164,7 +163,7 @@ describe('app query/composable contracts', () => {
     vi.clearAllMocks()
   })
 
-  test('client public API exports exactly useContentPage/useContentSearch plus the unified query API (VNEXT.md 10.5)', async () => {
+  test('client public API exports exactly useContentPage/useContentSearch plus the unified query API', async () => {
     const client = await import('../../packages/content/src/public/client')
 
     for (const name of [

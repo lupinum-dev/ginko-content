@@ -159,5 +159,5 @@ pnpm typecheck
 pnpm lint
 ```
 
-Update `meta/public-surface.json`, provider docs, generated server declarations,
-and type fixtures whenever the public provider surface changes.
+Update the provider facade, package contracts, provider docs, generated server
+declarations, and type fixtures whenever the public provider surface changes.

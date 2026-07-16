@@ -13,7 +13,10 @@ const expectations = [
   },
   {
     project: 'browser-e2e',
-    includes: ['test/browser-e2e/locale-search.test.ts'],
+    includes: [
+      'test/browser-e2e/locale-search.test.ts',
+      'test/browser-e2e/docs-navigation-hydration.test.ts'
+    ],
     excludes: []
   }
 ]

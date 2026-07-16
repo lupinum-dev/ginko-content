@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent, createStorage, doc, navDoc } from './_utils'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
+import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 
 const runtimeConfig = {
   public: { content: { navigation: { fields: ['icon', 'badge'] } } },
@@ -9,32 +10,39 @@ const runtimeConfig = {
 
 const cache = createStorage()
 const createServerContentQuery = vi.fn()
-const serverQueryCollection = vi.fn()
 const getContent = vi.fn()
+const getContentGraph = vi.fn()
 const resolveLocaleChain = vi.fn()
 const resolveVariant = vi.fn()
 const isPreview = vi.fn()
+const resolveRuntimeEnvironment = vi.fn()
 
 describe('navigation contracts', () => {
   beforeEach(() => {
     vi.resetModules()
     cache._state.clear()
     createServerContentQuery.mockReset()
-    serverQueryCollection.mockReset()
     getContent.mockReset()
+    getContentGraph.mockReset()
+    getContentGraph.mockResolvedValue(buildContentGraph([], { locales: [], defaultLocale: '' }))
     resolveLocaleChain.mockReset()
     resolveVariant.mockReset()
     isPreview.mockReset()
     isPreview.mockReturnValue(false)
+    resolveRuntimeEnvironment.mockReset()
+    resolveRuntimeEnvironment.mockReturnValue('development')
     delete (runtimeConfig.content as any).collections
 
     vi.doMock('../../packages/content/src/runtime/server/runtime-config', () => ({
       getContentRuntimeConfig: () => runtimeConfig
     }))
-    vi.doMock('../../packages/content/src/runtime/server/storage', () => ({
-      createServerContentQuery,
-      serverQueryCollection
-    }))
+    vi.doMock('../../packages/content/src/runtime/server/provider-query', async () => {
+      const actual = await vi.importActual<any>('../../packages/content/src/runtime/server/provider-query')
+      return {
+        ...actual,
+        createServerContentQuery
+      }
+    })
     vi.doMock('../../packages/content/src/storage/contents', () => ({
       getContent
     }))
@@ -51,18 +59,36 @@ describe('navigation contracts', () => {
         translatedSlugs: false
       })
     }))
-    vi.doMock('../../packages/content/src/storage/graph', () => ({
-      resolveLocaleChain,
-      resolveVariant
-    }))
+    vi.doMock('../../packages/content/src/storage/graph', async () => {
+      const actual = await vi.importActual<any>('../../packages/content/src/storage/graph')
+      return { ...actual, getContentGraph, resolveLocaleChain, resolveVariant }
+    })
     vi.doMock('../../packages/content/src/integrations/nitro/preview', () => ({
       isPreview
     }))
+    vi.doMock('../../packages/content/src/core/visibility', async () => {
+      const actual = await vi.importActual<any>('../../packages/content/src/core/visibility')
+      return { ...actual, resolveRuntimeEnvironment }
+    })
   })
 
   afterEach(() => {
     vi.clearAllMocks()
   })
+
+  const useGraph = (documents: any[]) => {
+    const normalized = documents.map(document => ({
+      partial: document.navigationFile ? true : false,
+      collection: document.collection || 'docs',
+      ...document
+    }))
+    const graph = buildContentGraph(normalized, {
+      locales: ['en', 'de', 'fr'],
+      defaultLocale: 'en'
+    })
+    getContentGraph.mockResolvedValue(graph)
+    return graph
+  }
 
   test('createContentSearchNavigation exposes parent pages as search leaves without mutating source navigation', async () => {
     const { createContentSearchNavigation } = await import('../../packages/content/src/features/search/navigation')
@@ -333,7 +359,15 @@ describe('navigation contracts', () => {
     ]))
   })
 
-  test('resolveContentNavigation merges locale fallbacks, localizes variants, and avoids duplicates', async () => {
+  test('navigation building fails clearly when a page lacks its canonical path', async () => {
+    const { buildNavigation } = await import('../../packages/content/src/features/navigation/build')
+
+    expect(() => buildNavigation([
+      doc({ id: 'content:en:docs:broken.md', path: undefined, title: 'Broken' })
+    ], {})).toThrow('Navigation page "content:en:docs:broken.md" is missing its canonical path.')
+  })
+
+  test('resolveContentNavigation merges canonical locale trees without projecting provider paths', async () => {
     const docsByLocale: Record<string, any[]> = {
       de: [
         navDoc({ id: 'content:de:guide:index.md', file: { path: '/de/guide/index.md' }, path: '/leitfaden', locale: 'de', canonicalKey: 'guide', title: 'Leitfaden' }),
@@ -345,28 +379,7 @@ describe('navigation contracts', () => {
         doc({ id: 'content:en:guide:advanced.md', file: { path: '/en/guide/advanced.md' }, path: '/guide/advanced', locale: 'en', canonicalKey: 'guide/advanced', title: 'Advanced' })
       ]
     }
-    const dirConfigsByLocale: Record<string, any[]> = {
-      de: [],
-      en: []
-    }
-
-    createServerContentQuery.mockImplementation((_event, _query = {}) => {
-      const wheres: any[] = []
-      return {
-        where(where: any, operator?: any, value?: any) {
-          wheres.push(operator ? { [where]: value } : where)
-          return this
-        },
-        all: async function () {
-          const locale = wheres.find(where => typeof where.locale !== 'undefined')?.locale
-          const navigationQuery = wheres.some(where => where._navigation)
-          return navigationQuery ? (dirConfigsByLocale[locale || 'en'] || []) : (docsByLocale[locale || 'en'] || [])
-        },
-        find() {
-          return this.all()
-        }
-      }
-    })
+    useGraph(Object.values(docsByLocale).flat())
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
@@ -384,21 +397,19 @@ describe('navigation contracts', () => {
     expect(nav).toEqual([
       expect.objectContaining({
         title: 'Leitfaden',
-        unprefixedPath: '/leitfaden',
+        path: '/leitfaden',
         id: 'content:de:guide:index.md',
         canonicalKey: 'guide',
         locale: 'de',
-        fallback: false,
         children: [
           expect.objectContaining({
             title: 'Einstieg',
-            unprefixedPath: '/leitfaden/einstieg',
-            locale: 'de',
-            fallback: false
+            path: '/leitfaden/einstieg',
+            locale: 'de'
           }),
           expect.objectContaining({
             title: 'Advanced',
-            path: '/de/guide/advanced',
+            path: '/guide/advanced',
             locale: 'en',
             fallback: true
           })
@@ -408,16 +419,12 @@ describe('navigation contracts', () => {
     expect(nav[0]!.children).toHaveLength(2)
   })
 
-  test('provider navigation wire keeps same-field bounds inside $not clauses', async () => {
-    createServerContentQuery.mockImplementation((_event, _query = {}) => ({
-      where() {
-        return this
-      },
-      all: async () => [],
-      find() {
-        return this.all()
-      }
-    }))
+  test('provider navigation executes same-field bounds inside $not clauses without public query recursion', async () => {
+    useGraph([
+      doc({ id: 'content:en:docs:low.md', path: '/docs/low', title: 'Low', views: 3 } as any),
+      doc({ id: 'content:en:docs:middle.md', path: '/docs/middle', title: 'Middle', views: 7 } as any),
+      doc({ id: 'content:en:docs:high.md', path: '/docs/high', title: 'High', views: 12 } as any)
+    ])
     resolveLocaleChain.mockReturnValue(['en'])
 
     const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
@@ -426,21 +433,172 @@ describe('navigation contracts', () => {
       where: [{ $not: { views: { $gt: 5, $lt: 10 } } }]
     } as any)
 
-    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+    const navigation = await resolveContentNavigation(createEvent(), wire.query, wire.options)
 
-    expect(createServerContentQuery.mock.calls[0]?.[1]).toMatchObject({
+    expect(navigation).toEqual([
+      expect.objectContaining({
+        title: 'Docs',
+        page: false,
+        children: [
+          expect.objectContaining({ title: 'High', path: '/docs/high' }),
+          expect.objectContaining({ title: 'Low', path: '/docs/low' })
+        ]
+      })
+    ])
+    expect(createServerContentQuery).not.toHaveBeenCalled()
+    expect(getContentGraph).toHaveBeenCalledTimes(1)
+  })
+
+  test('provider navigation builds from canonical internal paths rather than public route envelopes', async () => {
+    useGraph([doc({
+      id: 'content:en:docs:install.md',
+      title: 'Install',
+      locale: 'en',
+      canonicalKey: 'docs/install',
+      path: '/docs/install',
+      file: { path: 'docs/install.md' },
+      route: { resolvedPath: '/wrong-public-path', alternates: [] }
+    } as any)])
+    resolveLocaleChain.mockReturnValue(['en'])
+
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({
       collection: 'docs',
-      where: [
-        {
-          $not: {
-            $and: [
-              { views: { $gt: 5 } },
-              { views: { $lt: 10 } }
-            ]
-          }
-        }
-      ]
+      resolveLocale: { locale: 'en', exact: true }
     })
+
+    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+      expect.objectContaining({
+        title: 'Docs',
+        page: false,
+        children: [
+          expect.objectContaining({ path: '/docs/install', title: 'Install' })
+        ]
+      })
+    ])
+  })
+
+  test('filesystem navigation owns structural metadata internally and returns raw route facts', async () => {
+    ;(runtimeConfig.content as any).collections = { docs: { route: '/docs' }, blog: { route: '/blog' } }
+    const documents = [
+      doc({
+        id: 'content:en:docs:guide:intro.md',
+        collection: 'docs',
+        canonicalKey: 'guide/intro',
+        path: '/docs/guide/intro',
+        file: { path: '/docs/guide/intro.md' },
+        title: 'Intro'
+      }),
+      doc({
+        id: 'content:en:docs:hidden:secret.md',
+        collection: 'docs',
+        canonicalKey: 'hidden/secret',
+        path: '/docs/hidden/secret',
+        file: { path: '/docs/hidden/secret.md' },
+        title: 'Secret'
+      }),
+      doc({
+        id: 'content:en:blog:guide:post.md',
+        collection: 'blog',
+        canonicalKey: 'guide/post',
+        path: '/blog/guide/post',
+        file: { path: '/blog/guide/post.md' },
+        title: 'Blog post'
+      }),
+      doc({
+        id: 'content:en:docs:guide:.navigation.yml',
+        collection: 'docs',
+        canonicalKey: 'guide/.navigation',
+        navigationFile: true,
+        partial: true,
+        type: 'yaml',
+        path: '/docs/guide',
+        file: { path: '/docs/guide/.navigation.yml' },
+        body: { title: 'Guides', icon: 'book', badge: 'New', sidebar: 'section' }
+      } as any),
+      doc({
+        id: 'content:en:docs:hidden:.navigation.yml',
+        collection: 'docs',
+        canonicalKey: 'hidden/.navigation',
+        navigationFile: true,
+        partial: true,
+        type: 'yaml',
+        path: '/docs/hidden',
+        file: { path: '/docs/hidden/.navigation.yml' },
+        body: { navigation: false }
+      } as any)
+    ]
+    const before = structuredClone(documents)
+    useGraph(documents)
+
+    const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
+    const querySpy = vi.spyOn(filesystemProvider, 'query')
+    const wire = toContentProviderNavigationQuery({
+      collection: 'docs',
+      only: ['icon', 'badge', 'sidebar']
+    })
+    const raw = await filesystemProvider.navigation!(createEvent(), wire.query, wire.options)
+
+    expect(querySpy).not.toHaveBeenCalled()
+    expect(raw).toEqual([
+      expect.objectContaining({
+        title: 'Guides',
+        icon: 'book',
+        badge: 'New',
+        sidebar: 'section',
+        children: [
+          expect.objectContaining({
+            title: 'Intro',
+            route: expect.objectContaining({
+              collection: 'docs',
+              canonicalKey: 'guide/intro',
+              contentPath: '/docs/guide/intro'
+            })
+          })
+        ]
+      })
+    ])
+    expect(raw[0]).not.toHaveProperty('path')
+    expect(raw[0]).not.toHaveProperty('route')
+    expect(JSON.stringify(raw)).not.toContain('Secret')
+    expect(JSON.stringify(raw)).not.toContain('Blog post')
+
+    const { projectProviderNavigation } = await import('../../packages/content/src/runtime/server/provider-route-facts')
+    const projected = projectProviderNavigation(raw, filesystemProvider.name, runtimeConfig.content)
+    expect(projected[0]).not.toHaveProperty('path')
+    expect((projected[0]!.children as any[])[0]).toMatchObject({ path: '/docs/guide/intro' })
+    expect(documents).toEqual(before)
+    querySpy.mockRestore()
+  })
+
+  test('filesystem navigation hides drafts in production and exposes them in development', async () => {
+    useGraph([
+      doc({ id: 'content:en:docs:public.md', collection: 'docs', canonicalKey: 'public', path: '/docs/public', title: 'Public' }),
+      doc({ id: 'content:en:docs:draft.md', collection: 'docs', canonicalKey: 'draft', path: '/docs/draft', title: 'Draft', draft: true })
+    ])
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({ collection: 'docs' })
+
+    resolveRuntimeEnvironment.mockReturnValue('production')
+    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+      expect.objectContaining({
+        title: 'Docs',
+        children: [
+          expect.objectContaining({ title: 'Public' })
+        ]
+      })
+    ])
+
+    resolveRuntimeEnvironment.mockReturnValue('development')
+    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+      expect.objectContaining({
+        title: 'Docs',
+        children: [
+          expect.objectContaining({ title: 'Draft' }),
+          expect.objectContaining({ title: 'Public' })
+        ]
+      })
+    ])
   })
 
   test('resolveContentNavigation merges synthetic translated folder roots before collection unwrapping', async () => {
@@ -464,23 +622,7 @@ describe('navigation contracts', () => {
       ]
     }
 
-    createServerContentQuery.mockImplementation((_event, _query = {}) => {
-      const wheres: any[] = []
-      return {
-        where(field: any, operator?: any, value?: any) {
-          wheres.push(operator ? { [field]: value } : field)
-          return this
-        },
-        async all() {
-          const locale = wheres.find(where => typeof where.locale !== 'undefined')?.locale
-          const navigationQuery = wheres.some(where => where._navigation)
-          return navigationQuery ? [] : (docsByLocale[locale || 'en'] || [])
-        },
-        find() {
-          return this.all()
-        }
-      }
-    })
+    useGraph(Object.values(docsByLocale).flat())
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
@@ -494,43 +636,36 @@ describe('navigation contracts', () => {
       resolveLocale: { locale: 'de', fallback: true }
     })
 
-    expect(nav.map(item => item.title)).toEqual(['Einfuehrung', 'Grundlagen'])
-    expect(nav).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: 'Docs' }),
-      expect.objectContaining({ title: 'Introduction' }),
-      expect.objectContaining({ title: 'Essentials' })
-    ]))
-    expect(nav[0]!.children).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: 'Installation', locale: 'de', fallback: false }),
-      expect.objectContaining({ title: 'Usage', locale: 'en', fallback: true })
-    ]))
-    expect(nav[1]!.children).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: 'Markdown Syntax', locale: 'de', fallback: false }),
-      expect.objectContaining({ title: 'Fallback Lab', locale: 'en', fallback: true })
-    ]))
+    expect(nav).toEqual([
+      expect.objectContaining({
+        title: 'Dokumentation',
+        children: [
+          expect.objectContaining({
+            title: 'Einfuehrung',
+            children: expect.arrayContaining([
+              expect.objectContaining({ title: 'Installation', locale: 'de' }),
+              expect.objectContaining({ title: 'Usage', locale: 'en', fallback: true })
+            ])
+          }),
+          expect.objectContaining({
+            title: 'Grundlagen',
+            children: expect.arrayContaining([
+              expect.objectContaining({ title: 'Markdown Syntax', locale: 'de' }),
+              expect.objectContaining({ title: 'Fallback Lab', locale: 'en', fallback: true })
+            ])
+          })
+        ]
+      })
+    ])
 
     delete (runtimeConfig.content as any).collections
   })
 
   test('resolveContentNavigation does not derive fallback locale from grouped where clauses', async () => {
-    createServerContentQuery.mockImplementation((_event, _query = {}) => {
-      const wheres: any[] = []
-      return {
-        where(field: any, operator?: any, value?: any) {
-          wheres.push(operator ? { [field]: value } : field)
-          return this
-        },
-        async all() {
-          const locale = wheres.find(where => typeof where.locale !== 'undefined')?.locale
-          return locale === 'de'
-            ? [navDoc({ id: 'content:de:guide:index.md', file: { path: '/de/guide/index.md' }, path: '/leitfaden', locale: 'de', canonicalKey: 'guide', title: 'Leitfaden' })]
-            : [navDoc({ id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, path: '/guide', locale: 'en', canonicalKey: 'guide', title: 'Guide' })]
-        },
-        find() {
-          return this.all()
-        }
-      }
-    })
+    useGraph([
+      navDoc({ id: 'content:de:guide:index.md', file: { path: '/de/guide/index.md' }, path: '/leitfaden', locale: 'de', canonicalKey: 'guide', title: 'Leitfaden', featured: true } as any),
+      navDoc({ id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, path: '/guide', locale: 'en', canonicalKey: 'guide', title: 'Guide', featured: true } as any)
+    ])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     // resolveContentNavigation now takes the wire pair (CS-5); build it here.
@@ -545,27 +680,19 @@ describe('navigation contracts', () => {
     expect(resolveLocaleChain).not.toHaveBeenCalled()
     expect(nav).toEqual([
       expect.objectContaining({
-        title: 'Guide',
-        locale: 'en'
+        title: 'Leitfaden',
+        locale: 'de'
       })
     ])
   })
 
-  test('resolveContentNavigation preserves locale filters across immutable query-builder chains', async () => {
-    const allWheres: any[][] = []
-    const createBuilder = (wheres: any[] = []): any => ({
-      where(field: any, operator?: any, value?: any) {
-        return createBuilder([...wheres, operator ? { [field]: value } : field])
-      },
-      async all() {
-        allWheres.push(wheres)
-        return []
-      },
-      find() {
-        return this.all()
-      }
-    })
-    createServerContentQuery.mockImplementation(() => createBuilder())
+  test('resolveContentNavigation applies exact locale filters to pages and directory configs', async () => {
+    useGraph([
+      navDoc({ id: 'content:de:guide:index.md', path: '/leitfaden', locale: 'de', title: 'Leitfaden' }),
+      navDoc({ id: 'content:en:guide:index.md', path: '/guide', locale: 'en', title: 'Guide' }),
+      doc({ id: 'content:de:guide:.navigation.yml', type: 'yaml', navigationFile: true, partial: true, path: '/leitfaden', locale: 'de', body: { title: 'Deutsche Anleitung' } } as any),
+      doc({ id: 'content:en:guide:.navigation.yml', type: 'yaml', navigationFile: true, partial: true, path: '/guide', locale: 'en', body: { title: 'English Guide' } } as any)
+    ])
     resolveLocaleChain.mockReturnValue(['de'])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
@@ -574,32 +701,21 @@ describe('navigation contracts', () => {
       const { query, options } = toContentProviderNavigationQuery(params)
       return rawResolveContentNavigation(event, query, options)
     }
-    await resolveContentNavigation(createEvent(), {
+    const navigation = await resolveContentNavigation(createEvent(), {
       resolveLocale: { locale: 'de', exact: true }
     })
 
-    expect(allWheres).toHaveLength(2)
-    expect(allWheres[0]).toEqual(expect.arrayContaining([{ locale: 'de' }]))
-    expect(allWheres[1]).toEqual(expect.arrayContaining([{ locale: 'de' }]))
+    expect(navigation).toEqual([expect.objectContaining({ title: 'Deutsche Anleitung', locale: 'de' })])
+    expect(navigation).not.toEqual(expect.arrayContaining([expect.objectContaining({ locale: 'en' })]))
   })
 
   test('resolveContentNavigation always derives fresh — no persisted _nav.json cache is consulted', async () => {
-    // VNEXT.md 15.4, 15.7, 25.4: the single-entry `_nav.json` cache is
+    // The single-entry `_nav.json` cache is
     // deleted. A stale entry sitting in cache storage must never leak into a
     // navigation response — `resolveContentNavigation` has to query fresh
     // every time regardless of what (if anything) cache storage holds.
     cache._state.set('_nav.json', [{ title: 'Cached', path: '/cached' }] as any)
-    createServerContentQuery.mockImplementation(() => ({
-      where() {
-        return this
-      },
-      async all() {
-        return []
-      },
-      find() {
-        return this.all()
-      }
-    }))
+    useGraph([])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     // resolveContentNavigation now takes the wire pair (CS-5); build it here.
@@ -609,35 +725,18 @@ describe('navigation contracts', () => {
     }
 
     await expect(resolveContentNavigation(createEvent())).resolves.toEqual([])
-    expect(createServerContentQuery).toHaveBeenCalled()
+    expect(getContentGraph).toHaveBeenCalled()
 
-    createServerContentQuery.mockClear()
+    getContentGraph.mockClear()
     await resolveContentNavigation(createEvent(), { where: [{ locale: 'de' }] })
-    expect(createServerContentQuery).toHaveBeenCalled()
+    expect(getContentGraph).toHaveBeenCalled()
   })
 
-  test('resolveContentNavigation unwraps a synthetic collection root for collection-scoped queries', async () => {
-    createServerContentQuery.mockImplementation((_event, query = {}) => {
-      const isDirConfigQuery = query && Object.keys(query).length === 0
-      return {
-        where() {
-          return this
-        },
-        async all() {
-          if (isDirConfigQuery) {
-            return []
-          }
-
-          return [
-            navDoc({ id: 'content:docs:index.md', file: { path: '/docs/index.md' }, path: '/docs', title: 'Docs' }),
-            doc({ id: 'content:docs:getting-started:index.md', file: { path: '/docs/getting-started/index.md' }, path: '/docs/getting-started', title: 'Getting Started' })
-          ]
-        },
-        find() {
-          return this.all()
-        }
-      }
-    })
+  test('resolveContentNavigation preserves a canonical collection root until the provider boundary', async () => {
+    useGraph([
+      navDoc({ id: 'content:docs:index.md', collection: 'docs', file: { path: '/docs/index.md' }, path: '/docs', title: 'Docs' }),
+      doc({ id: 'content:docs:getting-started:index.md', collection: 'docs', file: { path: '/docs/getting-started/index.md' }, path: '/docs/getting-started', title: 'Getting Started' })
+    ])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     // resolveContentNavigation now takes the wire pair (CS-5); build it here.
@@ -649,105 +748,16 @@ describe('navigation contracts', () => {
 
     expect(nav).toEqual([
       expect.objectContaining({
-        title: 'Getting Started',
-        path: '/docs/getting-started'
+        title: 'Docs',
+        path: '/docs',
+        children: [
+          expect.objectContaining({
+            title: 'Getting Started',
+            path: '/docs/getting-started'
+          })
+        ]
       })
     ])
   })
 
-  test('server queryCollectionNavigation unwraps a synthetic collection root by default', async () => {
-    const event = createEvent()
-    serverQueryCollection.mockImplementation(() => ({
-      select() {
-        return this
-      },
-      async all() {
-        return []
-      },
-      find() {
-        return this.all()
-      }
-    }))
-    const resolveContentNavigation = vi.fn(async () => [
-      { title: 'Guide', path: '/guide' }
-    ])
-    vi.doMock('../../packages/content/src/runtime/server/navigation-query', () => ({
-      resolveContentNavigation
-    }))
-
-    const { queryCollectionNavigation } = await import('../../packages/content/src/runtime/server/collection-helpers')
-    const nav = await queryCollectionNavigation(event, 'docs')
-
-    expect(nav).toEqual([
-      expect.objectContaining({
-        title: 'Guide',
-        path: '/guide'
-      })
-    ])
-    expect(resolveContentNavigation).toHaveBeenCalledWith(
-      event,
-      expect.objectContaining({ v: 2, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
-      expect.any(Object)
-    )
-  })
-
-  test('server queryCollectionItemSurroundings forwards locale and canonical options to navigation loading', async () => {
-    vi.resetModules()
-    const resolveCollectionNavigationData = vi.fn(async (collection, _runtime, options) => options)
-    const resolveCollectionItemSurroundingsData = vi.fn(async (collection, path, _runtime, options) => {
-      return await options.loadNavigation({
-        fields: ['badge'],
-        locale: 'de',
-        canonical: true
-      })
-    })
-
-    vi.doMock('../../packages/content/src/features/collections/resolve', () => ({
-      resolveCollectionNavigationData,
-      resolveCollectionItemSurroundingsData,
-      resolveCollectionPageData: vi.fn(),
-      resolveCollectionRouteMetaData: vi.fn(),
-      resolveCollectionSearchSectionsData: vi.fn()
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/navigation-query', () => ({
-      resolveContentNavigation: vi.fn(async () => [])
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/storage', () => ({
-      serverQueryCollection: vi.fn(() => ({
-        select() {
-          return this
-        },
-        async all() {
-          return []
-        },
-        find() {
-          return this.all()
-        }
-      }))
-    }))
-    vi.doMock('../../packages/content/src/integrations/nitro/storage', () => ({
-      contentConfig: () => ({
-        locales: ['en', 'de'],
-        defaultLocale: 'en',
-        localeFallback: { de: ['en'] },
-        translatedSlugs: false
-      })
-    }))
-
-    const { queryCollectionItemSurroundings } = await import('../../packages/content/src/runtime/server/collection-helpers')
-
-    const forwarded = await queryCollectionItemSurroundings(createEvent(), 'docs', '/de/leitfaden/einstieg', {
-      fields: ['badge'],
-      locale: 'de',
-      canonical: true
-    })
-
-    expect(resolveCollectionItemSurroundingsData).toHaveBeenCalledTimes(1)
-    expect(resolveCollectionNavigationData).toHaveBeenCalledTimes(1)
-    expect(forwarded).toMatchObject({
-      fields: ['badge'],
-      locale: 'de',
-      canonical: true
-    })
-  })
 })

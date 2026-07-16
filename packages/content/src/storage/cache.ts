@@ -31,7 +31,7 @@ export const createSingleFlightMap = <T>(): SingleFlightMap<T> => {
 
 /**
  * Build a fresh content cache store. Holds only the per-source single-flight
- * map (VNEXT.md 15.7) — no request-scoped "contents list" map lives here,
+ * map — no request-scoped "contents list" map lives here,
  * since `storage/contents.ts#getContentsList` already deduplicates the
  * complete-list load through `memoizeRuntimeValue`. Tests should create one
  * store per test to stay isolated.

@@ -125,7 +125,7 @@ const markdownEnabledCollectionEntries = (collections?: string[]) =>
   })
 
 // Publication visibility (draft) is applied here through the one core
-// predicate (`isPublicationVisible`, VNEXT.md 13.6/24.2) rather than a
+// predicate (`isPublicationVisible`) rather than a
 // hardcoded `!page.draft` — a provider's raw query result can legitimately
 // carry drafts as facts (providers never decide Ginko's own visibility
 // policy), so agent output follows the same environment/preview-aware
@@ -228,8 +228,7 @@ const collectionDefaultLocale = (config: ContentCollectionConfig) => {
 }
 
 /**
- * Empty-`routeMounts` policy pattern (VNEXT.md §12.2, matching
- * `features/query/routes.ts#getCollectionPath`): only a locale prefix is
+ * Empty-`routeMounts` policy pattern: only a locale prefix is
  * needed here, so `projectContentRoute` gets a policy with an empty
  * `routeMounts` and owns the prefix decision instead of a hand-assembled one.
  */

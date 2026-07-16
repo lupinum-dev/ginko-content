@@ -21,11 +21,11 @@ import { assertGeneratedLinkIntegrity } from '../../scripts/lib/generated-link-i
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const basicFixtureDir = resolve(rootDir, 'playground/ginko-basic')
 const i18nFixtureDir = resolve(rootDir, 'playground/ginko-i18n')
-const routeInvariantsFixtureDir = resolve(rootDir, 'test/fixtures/vnext-route-invariants')
+const routeInvariantsFixtureDir = resolve(rootDir, 'test/fixtures/route-invariants')
 const siteUrl = 'https://ginko-content.example.test'
 const basicGolden = resolve(rootDir, 'test/golden/routes/ginko-basic.txt')
 const i18nGolden = resolve(rootDir, 'test/golden/routes/ginko-i18n.txt')
-const routeInvariantsGolden = resolve(rootDir, 'test/golden/routes/vnext-route-invariants.txt')
+const routeInvariantsGolden = resolve(rootDir, 'test/golden/routes/route-invariants.txt')
 
 // R-1: real `nuxi generate` runs for exactly these two fixtures. Reuses the same
 // generated-artifacts.ts assertions and leak sweeps as the `nuxi build` lane
@@ -125,15 +125,15 @@ describe('generate lane output (nuxi generate)', () => {
     expect(fixture.stdout).toMatch(/Content sitemap assertion passed for \d+ sitemaps?\./)
   }, 300000)
 
-  // VNEXT.md 20.1 (route/build invariant fixture) + 20.5 (content-only
-  // localization fixture, no @nuxtjs/i18n installed): real `nuxi generate`
+  // This route/build fixture also covers content-only localization without
+  // @nuxtjs/i18n. A real `nuxi generate`
   // run proving route mounts, translated numeric slugs, missing-translation
   // fallback, draft/partial/navigation-control/data-collection exclusion,
   // sitemap opt-out vs. prerender decoupling, and a `content:file:beforeParse`
   // hook effect appearing identically in query results and the generated
   // static route.
-  test('vnext-route-invariants: real generate proves route/build invariants and content-only localization', async () => {
-    await assertFixtureSourceSentinels(routeInvariantsFixtureDir, fixtureLeakSentinels.vnextRouteInvariants)
+  test('route-invariants: real generate proves route/build invariants and content-only localization', async () => {
+    await assertFixtureSourceSentinels(routeInvariantsFixtureDir, fixtureLeakSentinels.routeInvariants)
     const fixture = await generateStaticFixture(routeInvariantsFixtureDir)
     const outputPublicDir = fixture.publicDir
     const textArtifacts = await listGeneratedTextArtifacts(outputPublicDir)
@@ -146,7 +146,7 @@ describe('generate lane output (nuxi generate)', () => {
     expect(await readGeneratedArtifact(outputPublicDir, 'de/leitfaden/erste-schritte/index.html')).toContain('Einstieg')
 
     // A page with `sitemap: false` frontmatter remains in the prerendered
-    // static output (VNEXT 20.1: sitemap opt-out does not affect prerender).
+    // static output: sitemap opt-out does not affect prerender.
     expect(existsSync(resolve(outputPublicDir, 'guide/excluded-from-sitemap/index.html'))).toBe(true)
     expect(existsSync(resolve(outputPublicDir, 'de/leitfaden/excluded-from-sitemap/index.html'))).toBe(true)
 
@@ -176,7 +176,7 @@ describe('generate lane output (nuxi generate)', () => {
     // A real `content.transformers` registration (word-count.ts) stamps a
     // computed `wordCount` fact on every markdown document. Its effect must
     // appear IDENTICALLY in a direct query result (/nav) and in the
-    // transformed page's own generated route (VNEXT 14.4/20.1) — the same
+    // transformed page's own generated route — the same
     // parity invariant already proven above for `content:file:beforeParse`.
     const gettingStartedHtml = await readGeneratedArtifact(outputPublicDir, 'guide/getting-started/index.html')
     const pageWordCountMatch = /wordCount:\s*(\d+)/.exec(gettingStartedHtml)
@@ -186,7 +186,7 @@ describe('generate lane output (nuxi generate)', () => {
     expect(Number(pageWordCountMatch![1])).toBeGreaterThan(0)
     expect(navWordCountMatch![1]).toBe(pageWordCountMatch![1])
 
-    // VNEXT 20.1/24: per-surface exclusions are exact, proven against the
+    // Per-surface exclusions are exact, proven against the
     // real navigation feature (not a client-side `where` filter like /nav
     // above). `navigation: false` removes a page from navigation only — it
     // still has its own generated route (checked above) — and `sitemap:
@@ -218,11 +218,11 @@ describe('generate lane output (nuxi generate)', () => {
     expect(searchIndex.map((record: { title?: string }) => record.title)).toEqual(
       expect.arrayContaining(['Hidden From Navigation', 'Excluded From Sitemap'])
     )
-    for (const sentinel of fixtureLeakSentinels.vnextRouteInvariants) {
+    for (const sentinel of fixtureLeakSentinels.routeInvariants) {
       expect(JSON.stringify(searchIndex)).not.toContain(sentinel)
     }
 
-    // Cross-artifact golden (VNEXT §15.1, §25.6): query results, generated
+    // The cross-artifact golden proves query results, generated
     // routes, navigation output, and the sitemap-inclusion fact all share
     // the same document/route identity from the one canonical build and
     // apply only their own documented filter on top of it. This asserts the
@@ -259,19 +259,19 @@ describe('generate lane output (nuxi generate)', () => {
 
     assertNoLocalOrigins(textArtifacts)
     assertNoRepeatedLocalePrefixes(textArtifacts, ['de', 'en'])
-    assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.vnextRouteInvariants)
+    assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.routeInvariants)
     await assertRouteManifestMatchesGolden(outputPublicDir, routeInvariantsGolden, 'generate')
     await assertGeneratedLinkIntegrity(outputPublicDir)
   }, 300000)
 
-  // VNEXT 20.1: the "sitemap enabled/disabled" variant of the same fixture.
+  // The sitemap-enabled/disabled variant uses the same fixture.
   // Disabling the sitemap feature entirely at the module level must not
   // remove content routes from the static build. Content routes are
-  // sitemap-independent by construction (VNEXT §25.6): they are seeded from
+  // sitemap-independent by construction: they are seeded from
   // the real Nitro-side build result (`runtime/server/api/cache.ts`) via
   // Nitro's own crawl-links mechanism, never gated on `content.sitemap`.
-  test('vnext-route-invariants: disabling the sitemap feature does not remove content routes from static output', async () => {
-    const fixture = await generateStaticFixture(routeInvariantsFixtureDir, { VNEXT_SITEMAP_DISABLED: '1' })
+  test('route-invariants: disabling the sitemap feature does not remove content routes from static output', async () => {
+    const fixture = await generateStaticFixture(routeInvariantsFixtureDir, { ROUTE_INVARIANTS_SITEMAP_DISABLED: '1' })
     const outputPublicDir = fixture.publicDir
 
     expect(existsSync(resolve(outputPublicDir, 'guide/getting-started/index.html'))).toBe(true)

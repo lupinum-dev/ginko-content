@@ -1,10 +1,10 @@
 # Security Policy
 
-Report security issues through GitHub private vulnerability reporting for this
-repository. Do not open a public issue for suspected content injection, path
-traversal, cache poisoning, package compromise, token leaks, or provider
-capability bypasses. If private vulnerability reporting is not enabled yet,
-enable it before the first public release.
+Report security issues privately to [info@lupinum.com](mailto:info@lupinum.com).
+Do not open a public issue for suspected content injection, path traversal,
+cache poisoning, package compromise, token leaks, or provider capability
+bypasses. GitHub private vulnerability reporting may also be used when it is
+enabled for this repository.
 
 ## Maintained Versions
 

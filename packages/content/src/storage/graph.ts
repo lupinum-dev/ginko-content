@@ -28,7 +28,7 @@ export { resolveLocaleChain }
  * search, agent output, collection helpers). Asserting production-preview
  * support here — before the snapshot is loaded or read — guarantees the
  * guard covers all of them without duplicating it at each call site
- * (VNEXT.md 15.8, 24.3). `storage/snapshot-runtime.ts#getProcessSnapshotState`
+ *. `storage/snapshot-runtime.ts#getProcessSnapshotState`
  * asserts the same thing as a defense-in-depth backstop for the direct
  * `getProcessDocuments` callers in `storage/contents.ts`.
  */
@@ -55,7 +55,7 @@ export const getContentGraph = async (event: H3Event): Promise<ContentGraph> => 
  * Graph-backed variant/route/reference resolution helpers.
  *
  * These used to live behind a persisted `_manifest.json` cache
- * (`storage/manifest.ts`, deleted — VNEXT.md 15.7, 25.4): that cache was a
+ * (the deleted `storage/manifest.ts`): that cache was a
  * second, revisionless snapshot of `getContentGraph(event).manifest` with no
  * invalidation source of its own. `getContentGraph` already resolves to the
  * one process-cached graph in production (keyed by snapshot integrity) and a

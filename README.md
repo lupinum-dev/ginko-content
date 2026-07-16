@@ -101,10 +101,10 @@ slugs need correct sitemap alternates.
 
 ## Integration Dependencies
 
-MiniSearch, Pagefind, Shiki, and built-in Shiki transformer support are runtime
-dependencies of `@lupinum/ginko-content`. Apps that use Nuxt locale routing
-still install `@nuxtjs/i18n`; apps that publish sitemap XML still install
-`@nuxtjs/sitemap`.
+MiniSearch, Shiki, and built-in Shiki transformer support are runtime
+dependencies of `@lupinum/ginko-content`. Apps that use Pagefind install the
+optional `pagefind` peer. Apps that use Nuxt locale routing install
+`@nuxtjs/i18n`; apps that publish sitemap XML install `@nuxtjs/sitemap`.
 
 ## Scope
 
@@ -131,8 +131,9 @@ Development apps and fixtures also live in the workspace:
 
 ## Credits
 
-Ginko Content is its own implementation, with clear inspiration from the Nuxt
-content ecosystem. Credits to [Nuxt Content](https://content.nuxt.com/),
+Ginko Content is an independently maintained fork derived from
+[Nuxt Content](https://content.nuxt.com/). It has substantially diverged while
+retaining upstream-derived parser, MDC, and rendering foundations. Credits to
 [Nuxt UI](https://ui.nuxt.com/), and [Comark](https://comark.dev/), the
 successor to the previous MDC work.
 
@@ -150,7 +151,7 @@ successor to the previous MDC work.
 - Typecheck using `pnpm typecheck`
 - Run the full verification pipeline using `pnpm verify`
 - Run the release confidence gate using `pnpm run release:verify`
-- Before publishing or changing public API behavior, use [docs/release-checklist.md](./docs/release-checklist.md)
+- Before publishing or changing public API behavior, follow [MAINTAINING.md](./MAINTAINING.md)
 
 Run a specific example directly from the workspace with `pnpm --dir examples/<group>/<name> dev` or use `pnpm example <group>/<name>`.
 

@@ -5,7 +5,7 @@
  * (`module/sitemap-assert.ts`'s generate-mode assertion, which runs too late
  * in the Nuxt CLI process to reach the compiled Nitro app). Framework-free
  * on purpose (no `integrations/nitro/*` imports) so both call sites can use
- * it without pulling in Nitro-runtime-only modules (VNEXT.md §15.2, §25.3).
+ * it without pulling in Nitro-runtime-only modules.
  */
 import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionConfig } from '../../types/config'

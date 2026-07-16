@@ -4,6 +4,7 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 import type { ContentSitemapEntry } from '../../types/query'
 import type { QueryCollectionsSitemapEntriesOptions } from '../../features/sitemap/query'
 import { projectSitemapEntry } from '../../features/sitemap/query'
+import { absolutizeSitemapImages } from '../../features/sitemap/metadata'
 import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { createContentProviderError } from '../../public/provider-errors'
 import { getContentProvider } from './providers'
@@ -50,6 +51,11 @@ export async function queryCollectionsSitemapEntries (
   }
 
   const runtime = getContentRuntimeConfig().content
+  for (const collection of options.include || []) {
+    if (runtime.collections?.[collection]?.sitemap === false) {
+      throw createContentProviderError('data_collection_sitemap_access', `${collection} is not sitemap-backed.`, { collection })
+    }
+  }
   const include = options.include?.length ? new Set(options.include) : undefined
   const exclude = new Set(options.exclude || [])
   const includeDrafts = resolveIncludeDrafts({
@@ -59,6 +65,7 @@ export async function queryCollectionsSitemapEntries (
   const routes = normalizeProviderRoutes(await provider.routes(event), provider.name)
     .filter(route => (!include || include.has(route.collection)) && !exclude.has(route.collection))
     .filter(route => runtime.collections?.[route.collection]?.type !== 'data')
+    .filter(route => runtime.collections?.[route.collection]?.sitemap !== false)
     .filter(route => includeDrafts || !route.draft)
     .filter(route => route.sitemap !== false)
 
@@ -74,15 +81,18 @@ export async function queryCollectionsSitemapEntries (
 
   return routes.map((route) => {
     const variants = byCanonical.get(`${route.collection}:${route.canonicalKey}`) || []
+    const collectionI18n = runtime.collections?.[route.collection]?.i18n
+    const localized = collectionI18n && typeof collectionI18n === 'object'
+      ? true
+      : new Set(variants.map(variant => variant.locale).filter(Boolean)).size > 1
     const projectedVariants = variants.map(variant => ({
-      locale: variant.locale,
+      locale: localized ? variant.locale : '',
       path: projectProviderRouteFact(variant, runtime)
     }))
     const variant = {
-      locale: route.locale,
+      locale: localized ? route.locale : '',
       path: projectProviderRouteFact(route, runtime)
     }
-    const collectionI18n = runtime.collections?.[route.collection]?.i18n
     const defaultLocale =
       collectionI18n && typeof collectionI18n === 'object'
         ? collectionI18n.defaultLocale || runtime.defaultLocale || route.locale
@@ -95,7 +105,7 @@ export async function queryCollectionsSitemapEntries (
       variant,
       variants: projectedVariants,
       lastmod: metadata?.lastmod,
-      images: metadata?.images?.length ? [...metadata.images] : undefined
+      images: absolutizeSitemapImages(siteUrl, metadata?.images)
     })
   })
 }

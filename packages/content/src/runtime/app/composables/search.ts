@@ -32,7 +32,7 @@ export interface UseContentSearchOptions extends UseContentSearchResultsOptions 
   /**
    * Optional collection to additionally load that collection's search
    * sections and search-shaped navigation tree from — absorbs the deleted
-   * `useContentSearchData` (VNEXT.md 27.2). Omit to use only the
+   * `useContentSearchData`. Omit to use only the
    * query-driven `results` (minisearch/pagefind/provider backend); `files` and
    * `searchNavigation` stay empty and no extra request is issued.
    */
@@ -62,7 +62,7 @@ export interface UseContentSearchResult extends UseContentSearchResultsResult {
   files: ComputedRef<ContentSearchSection[]>
   /**
    * This collection's navigation tree, shaped for search UI (Nuxt UI
-   * `UContentSearch`) — the sole name for this data (VNEXT.md 27.2). Empty
+   * `UContentSearch`) — the sole name for this data. Empty
    * unless `options.collection` is set.
    */
   searchNavigation: ComputedRef<ContentNavigationItem[]>
@@ -189,7 +189,7 @@ const loadSearchSections = async (
       })
       // `createSearchSections` (shared with the legacy provider `page()`
       // pathway) reads the raw, pre-decoration `path` field. The unified
-      // query envelope (VNEXT.md 10.4) drops that internal field in favor of
+      // query envelope drops that internal field in favor of
       // `route.resolvedPath` — re-attach it under the name this shared
       // helper still expects rather than forking it.
       return items.map(item => ({
@@ -206,7 +206,7 @@ const collectionName = (collection: ContentCollectionHandle | string) =>
 /**
  * Load one collection's search sections and search-shaped navigation tree —
  * the index/navigation loading absorbed from the deleted
- * `useContentSearchData` (VNEXT.md 27.2). Internal to `useContentSearch`.
+ * `useContentSearchData`. Internal to `useContentSearch`.
  */
 const useContentSearchCollectionData = async (
   collection: ContentCollectionStringName | ContentCollectionHandle,
@@ -261,7 +261,7 @@ const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options
 }
 
 /**
- * The sole public search composable (VNEXT.md 10.5, 27.2). Consolidates the
+ * The sole public search composable. Consolidates the
  * reactive, backend-normalized query-driven search (minisearch/pagefind/provider)
  * with the opt-in per-collection search-section/navigation loading
  * previously split across the deleted `useContentSearchData` and

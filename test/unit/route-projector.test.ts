@@ -13,7 +13,7 @@ import {
 
 /**
  * Unit tests for the canonical route projector/resolver/alternate
- * synthesizer (VNEXT.md §12.2–§12.4, §23, §20.3). Pure functions — no Nuxt
+ * synthesizer. Pure functions — no Nuxt
  * instance, no filesystem.
  */
 

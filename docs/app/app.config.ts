@@ -1,45 +1,52 @@
-export default defineAppConfig({
-  ui: {
-    colors: {
-      primary: 'green',
-      neutral: 'slate',
-      warning: 'amber',
-      important: 'violet'
+export default {
+  ginkoDocs: {
+    site: {
+      url: 'https://ginko-content.nuxt.dev',
+      name: { en: 'Ginko Content' },
+      description: { en: 'Filesystem-first content for Nuxt 4.' },
+      logo: { light: '/icon.png', dark: '/icon.png' },
+      localeSwitcher: 'dropdown',
+      docsSidebarSwitcher: 'tabs'
     },
-    commandPalette: {
-      slots: {
-        itemLeadingIcon: 'size-4'
-      }
+    social: {
+      github: 'https://github.com/lupinum-dev/ginko-content'
     },
-    contentNavigation: {
-      slots: {
-        linkLeadingIcon: 'size-4',
-        listWithChildren: 'ms-4.5'
-      }
+    repository: {
+      url: 'https://github.com/lupinum-dev/ginko-content',
+      branch: 'main',
+      contentDirectory: 'docs/content'
     },
-    prose: {
-      codeIcon: {
-        deno: 'vscode-icons:file-type-deno',
-        auto: 'vscode-icons:file-type-js',
-        jsonc: 'i-vscode-icons-file-type-json'
+    landing: {
+      eyebrow: { en: 'Content infrastructure for Nuxt 4' },
+      title: { en: 'Define content once. Use it everywhere.' },
+      description: {
+        en: 'Typed collections power pages, server reads, navigation, localization, search, sitemaps, and agent-readable Markdown from one canonical model.'
       },
-      tabs: {
-        slots: {
-          root: 'rounded border border-default gap-0'
+      primary: {
+        label: { en: 'Get started' },
+        to: { en: '/docs/get-started/installation' }
+      },
+      secondary: {
+        label: { en: 'View on GitHub' },
+        to: { en: 'https://github.com/lupinum-dev/ginko-content' }
+      },
+      features: [
+        {
+          title: { en: 'One content model' },
+          description: { en: 'Collections remain the source of truth for identity, shape, routes, and derived output.' },
+          icon: 'lucide:boxes'
+        },
+        {
+          title: { en: 'Localized by design' },
+          description: { en: 'Translated slugs, fallbacks, alternates, search, and sitemaps follow one locale policy.' },
+          icon: 'lucide:languages'
+        },
+        {
+          title: { en: 'Agent ready' },
+          description: { en: 'Raw Markdown, LLM indexes, serializers, and MCP tools use the same resolved documents.' },
+          icon: 'lucide:bot'
         }
-      },
-      tabsItem: {
-        base: 'p-4'
-      }
-    }
-  },
-  seo: {
-    siteName: '@lupinum/ginko-content'
-  },
-  toc: {
-    title: 'On this page',
-    bottom: {
-      edit: 'https://github.com/lupinum-dev/ginko-content/edit/main/docs/content'
+      ]
     }
   }
-})
+}

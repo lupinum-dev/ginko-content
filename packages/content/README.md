@@ -116,7 +116,7 @@ Do not duplicate docs, blog, pricing, privacy, or translated locale paths in
 `@nuxtjs/sitemap >= 8.0.15 < 9` when translated static app slugs such as `/preise`
 and `/en/pricing` need cross-locale sitemap alternates.
 
-See the public guide: [Sitemap and prerender](../../docs/content/docs/6.i18n/4.sitemap-prerender.md).
+See the public guide: [Sitemap and prerender](../../docs/content/docs/4.guides/4.routing-and-seo/3.sitemap-and-prerender.md).
 
 ## Integration Dependencies
 
@@ -124,7 +124,7 @@ See the public guide: [Sitemap and prerender](../../docs/content/docs/6.i18n/4.s
 | --- | --- |
 | Markdown highlighting and built-in Shiki transformers | Included as runtime dependencies of `@lupinum/ginko-content`. |
 | MiniSearch backend | Included as a runtime dependency and used by the default search backend. |
-| Pagefind backend | Included as a runtime dependency and used when `content.search.engine` is `'pagefind'`. |
+| Pagefind backend | Install the optional `pagefind` peer when `content.search.engine` is `'pagefind'`. |
 | Provider-owned search | No extra package. The active content provider must advertise and implement `search`. |
 | Content i18n | Install and configure `@nuxtjs/i18n` 10.x when the app uses Nuxt locale routes. |
 | Sitemap XML output | Install and configure `@nuxtjs/sitemap`; Ginko contributes the content sitemap source. |
@@ -141,9 +141,11 @@ include a CMS UI, Studio, admin panel, or content editing workflow.
 
 ## Credits
 
-Ginko Content is its own implementation, with clear inspiration from
-[Nuxt Content](https://content.nuxt.com/), [Nuxt UI](https://ui.nuxt.com/), and
-[Comark](https://comark.dev/), the successor to the previous MDC work.
+Ginko Content is an independently maintained fork derived from
+[Nuxt Content](https://content.nuxt.com/). It has substantially diverged while
+retaining upstream-derived parser, MDC, and rendering foundations. Credits also
+go to [Nuxt UI](https://ui.nuxt.com/) and [Comark](https://comark.dev/), the
+successor to the previous MDC work.
 
 ## License
 

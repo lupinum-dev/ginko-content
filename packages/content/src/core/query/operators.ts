@@ -98,7 +98,7 @@ export const ensureArray = <T>(value: T) => {
 
 export const LOGICAL_QUERY_OPERATORS = new Set(['$and', '$or', '$not'])
 
-export const SUPPORTED_QUERY_OPERATORS = [
+export const PUBLIC_QUERY_OPERATORS = [
   '$eq',
   '$ne',
   '$gt',
@@ -112,10 +112,14 @@ export const SUPPORTED_QUERY_OPERATORS = [
   '$icontains',
   '$exists',
   '$type',
-  '$regex',
   '$prefix',
-  '$options',
   '$not'
+] as const
+
+export const PROVIDER_QUERY_OPERATORS = [
+  ...PUBLIC_QUERY_OPERATORS,
+  '$regex',
+  '$options'
 ] as const
 
 const isQueryOperatorRecord = (value: unknown): value is Record<string, unknown> => {
@@ -157,7 +161,7 @@ export const findUnsupportedQueryOperator = (value: unknown, extraOperators: rea
     if (
       key.startsWith('$') &&
       !LOGICAL_QUERY_OPERATORS.has(key) &&
-      !SUPPORTED_QUERY_OPERATORS.includes(key as typeof SUPPORTED_QUERY_OPERATORS[number]) &&
+      !PROVIDER_QUERY_OPERATORS.includes(key as typeof PROVIDER_QUERY_OPERATORS[number]) &&
       !extraOperators.includes(key)
     ) {
       return key
@@ -166,6 +170,27 @@ export const findUnsupportedQueryOperator = (value: unknown, extraOperators: rea
     const unsupported = findUnsupportedQueryOperator(nested, extraOperators)
     if (unsupported) return unsupported
   }
+}
+
+export const findUnsupportedPublicQueryOperator = (value: unknown): string | undefined => {
+  const providerOnlyOperators = PROVIDER_QUERY_OPERATORS.filter(operator =>
+    !PUBLIC_QUERY_OPERATORS.includes(operator as typeof PUBLIC_QUERY_OPERATORS[number])
+  )
+  const unsupportedProviderOperator = findUnsupportedQueryOperator(value)
+  if (unsupportedProviderOperator) return unsupportedProviderOperator
+
+  const findProviderOnly = (candidate: unknown): string | undefined => {
+    if (!candidate || candidate instanceof RegExp || candidate instanceof Date) return undefined
+    if (Array.isArray(candidate)) return candidate.map(findProviderOnly).find(Boolean)
+    if (!isQueryOperatorRecord(candidate)) return undefined
+    for (const [key, nested] of Object.entries(candidate)) {
+      if (providerOnlyOperators.includes(key as typeof providerOnlyOperators[number])) return key
+      const found = findProviderOnly(nested)
+      if (found) return found
+    }
+  }
+
+  return findProviderOnly(value)
 }
 
 export const assertSupportedQueryOperators = (value: unknown, extraOperators: readonly string[] = []): void => {

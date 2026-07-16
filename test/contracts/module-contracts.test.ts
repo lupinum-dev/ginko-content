@@ -596,7 +596,7 @@ describe('module contracts', () => {
     expect((nuxt.options.vite as any).ssr.noExternal).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
   })
 
-  // VNEXT.md §12.1/§22: Nuxt I18n is the sole locale/default-locale authority
+  // Nuxt I18n is the sole locale/default-locale authority
   // when installed. Ginko must fail setup rather than union or ignore
   // duplicate declarations. Paired with the resolver unit tests in
   // test/unit/locale-policy.test.ts.
@@ -618,7 +618,7 @@ describe('module contracts', () => {
     }), nuxt as any)).rejects.toThrow(/sole locale\/default-locale authority/)
   })
 
-  // VNEXT.md §17.4: `content:providers` remains the mutable setup registry
+  // `content:providers` remains the mutable setup registry
   // (fires before provider validation); `content:context` becomes a
   // read-only notification that only fires after the content context is
   // fully resolved, carrying finalized default locale, fallback,
@@ -672,7 +672,7 @@ describe('module contracts', () => {
       locales: ['en', 'de'],
       defaultLocale: 'en',
       // Localized collections carry a per-locale route mount map
-      // (VNEXT.md §22.2 step 7 / §23), not a single `default` mount.
+      //, not a single `default` mount.
       routeMounts: { en: '/docs', de: '/docs' }
     })
   })

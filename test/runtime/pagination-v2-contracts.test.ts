@@ -30,7 +30,7 @@ describe('provider query wire v2 — pagination and route candidates', () => {
     mocks.getContentProvider.mockResolvedValue(provider)
   })
 
-  test('the same query resolves as an honest offset page and an honest cursor page (VNEXT.md 10.2)', async () => {
+  test('the same query resolves as an honest offset page and an honest cursor page', async () => {
     const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
 
     const offsetEvent = createTestEvent({

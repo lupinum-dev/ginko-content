@@ -1,8 +1,7 @@
 import { execSync, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { fileURLToPath } from 'node:url'
 
 export interface ProductionFixtureBuild {
   rootDir: string
@@ -28,28 +27,9 @@ export interface GenerateStaticFixture {
 
 export type FixtureBuildMode = 'build' | 'generate'
 
-const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-let buildPackagesPromise: Promise<void> | undefined
 const buildPromises = new Map<string, Promise<ProductionFixtureBuild>>()
 const currentBuildKeyByFixture = new Map<string, string>()
 const activeBuildKeyByFixture = new Map<string, string>()
-
-async function ensureWorkspacePackagesBuilt () {
-  if (!buildPackagesPromise) {
-    buildPackagesPromise = Promise.resolve().then(() => {
-      execSync('pnpm build:packages', {
-        cwd: workspaceRoot,
-        env: {
-          ...globalThis.process.env,
-          NODE_ENV: 'production'
-        },
-        stdio: 'pipe'
-      })
-    })
-  }
-
-  await buildPackagesPromise
-}
 
 function normalizeFixtureEnv (env: Record<string, string>) {
   return Object.fromEntries(
@@ -140,8 +120,6 @@ async function runFixtureBuildCommand (
 
   const buildPromise = Promise.resolve().then(async () => {
     try {
-      await ensureWorkspacePackagesBuilt()
-
       let stdout = ''
       try {
         stdout = execSync(command, {

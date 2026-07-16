@@ -62,7 +62,7 @@ const temporaryRoot = mkdtempSync(join(tmpdir(), 'ginko-content-dev-pack-'))
 try {
   const stagingRoot = resolve(temporaryRoot, 'package')
   mkdirSync(stagingRoot)
-  for (const file of ['compatibility.json', 'README.md', 'LICENSE']) {
+  for (const file of ['README.md', 'LICENSE']) {
     copyFileSync(resolve(packageRoot, file), resolve(stagingRoot, file))
   }
   cpSync(resolve(packageRoot, 'dist'), resolve(stagingRoot, 'dist'), { recursive: true })

@@ -91,7 +91,7 @@ const loadContents = async (event: H3Event, prefix?: string) => {
 
   // Do not additionally require a truthy `document.path`: a valid `type:
   // 'data'` document legitimately has no route, and the production build
-  // (`integrations/nitro/build.ts`, VNEXT §14.3) keeps pathless documents in
+  // (`integrations/nitro/build.ts`) keeps pathless documents in
   // its snapshot rather than treating "has a route path" as the content-set
   // inclusion test. Dev must include the same document set as production.
   const filtered = contents.filter(isRealDocument)
@@ -133,8 +133,7 @@ export const getContentsList = (event: H3Event, prefix?: string) => {
     strictTranslatedSlugs: runtime.config.strictTranslatedSlugs
   })
 
-  // One request-scoped memo for the complete contents-list load (VNEXT.md
-  // 15.7). `memoizeRuntimeValue` already shares one in-flight promise across
+  // One request-scoped memo for the complete contents-list load. `memoizeRuntimeValue` already shares one in-flight promise across
   // concurrent callers within a request, so a second single-flight map plus a
   // separate "contents" map here would only duplicate this memoization with
   // no independent invalidation source.

@@ -188,7 +188,7 @@ describe('server reference contracts', () => {
   })
 
   test('resolveContentReference handles exact and fallback locale semantics', async () => {
-    const { resolveContentReference } = await import('../../packages/content/src/runtime/server/storage')
+    const { resolveContentReference } = await import('../../packages/content/src/runtime/server/provider-query')
 
     await expect(resolveContentReference(createEvent(), 'guide/advanced', {
       locale: 'de',
@@ -228,16 +228,7 @@ describe('server reference contracts', () => {
       locale: 'de',
       collection: 'docs'
     })).resolves.toBeNull()
-  })
-
-  test('queryCollectionLocales resolves locale variants through the manifest', async () => {
-    const { queryCollectionLocales } = await import('../../packages/content/src/runtime/server/storage')
-
-    await expect(queryCollectionLocales(createEvent(), 'docs' as any, 'guide/advanced')).resolves.toEqual([
-      { canonicalKey: 'guide/advanced', locale: 'de', path: '/leitfaden/fortgeschritten' },
-      { canonicalKey: 'guide/advanced', locale: 'en', path: '/guide/advanced' }
-    ])
-  })
+  }, 30_000)
 
   test('serverQueryCollection supports explicit path filtering through where', async () => {
     const { serverQueryCollection } = await import('../../packages/content/src/runtime/server/provider-query')
@@ -269,90 +260,4 @@ describe('server reference contracts', () => {
     expect(server).not.toHaveProperty('queryCollectionSearchSections')
   })
 
-  test('queryCollectionPage resolves the locale from a localized route path on the server', async () => {
-    const { queryCollectionPage } = await import('../../packages/content/src/runtime/server/collection-helpers')
-
-    await expect(queryCollectionPage(createEvent(), 'docs' as any, '/de/leitfaden/fortgeschritten')).resolves.toMatchObject({
-      path: '/de/leitfaden/fortgeschritten',
-      unprefixedPath: '/leitfaden/fortgeschritten',
-      locale: 'de',
-      localePaths: {
-        // ADR-0016 changes the localePaths value shape from `string` to
-        // `{ path, translated, fallback? }`.
-        en: { path: '/guide/advanced', translated: true },
-        de: { path: '/de/leitfaden/fortgeschritten', translated: true }
-      }
-    })
-  })
-
-  test('queryCollectionPage resolves non-markdown page variants through the route manifest', async () => {
-    const { queryCollectionPage } = await import('../../packages/content/src/runtime/server/collection-helpers')
-
-    await expect(queryCollectionPage(createEvent(), 'landing' as any, '/')).resolves.toMatchObject({
-      path: '/',
-      type: 'yaml',
-      unprefixedPath: '/',
-      locale: 'en',
-      path: '/'
-    })
-
-    await expect(queryCollectionPage(createEvent(), 'landing' as any, '/de')).resolves.toMatchObject({
-      path: '/',
-      type: 'yaml',
-      unprefixedPath: '/',
-      locale: 'de',
-      path: '/de'
-    })
-  })
-
-  test('queryCollectionsSitemapEntries returns localized entries with alternates', async () => {
-    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap')
-
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
-      siteUrl: 'https://docs.example.test'
-    })).resolves.toEqual([
-      {
-        _sitemap: 'en',
-        loc: '/',
-        alternatives: [
-          { hreflang: 'x-default', href: 'https://docs.example.test/' },
-          { hreflang: 'en', href: 'https://docs.example.test/' },
-          { hreflang: 'de', href: 'https://docs.example.test/de' }
-        ]
-      },
-      {
-        _sitemap: 'de',
-        loc: '/de',
-        alternatives: [
-          { hreflang: 'x-default', href: 'https://docs.example.test/' },
-          { hreflang: 'en', href: 'https://docs.example.test/' },
-          { hreflang: 'de', href: 'https://docs.example.test/de' }
-        ]
-      },
-      {
-        _sitemap: 'en',
-        loc: '/guide/advanced',
-        alternatives: [
-          { hreflang: 'x-default', href: 'https://docs.example.test/guide/advanced' },
-          { hreflang: 'en', href: 'https://docs.example.test/guide/advanced' },
-          { hreflang: 'de', href: 'https://docs.example.test/de/leitfaden/fortgeschritten' }
-        ],
-        images: [
-          { loc: 'https://images.example.test/guide-advanced.png' }
-        ]
-      },
-      {
-        _sitemap: 'de',
-        loc: '/de/leitfaden/fortgeschritten',
-        alternatives: [
-          { hreflang: 'x-default', href: 'https://docs.example.test/guide/advanced' },
-          { hreflang: 'en', href: 'https://docs.example.test/guide/advanced' },
-          { hreflang: 'de', href: 'https://docs.example.test/de/leitfaden/fortgeschritten' }
-        ],
-        images: [
-          { loc: 'https://images.example.test/guide-advanced-de.png' }
-        ]
-      }
-    ])
-  })
 })

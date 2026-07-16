@@ -7,7 +7,7 @@ import {
 import type { LocalePolicyInput } from '../../packages/content/src/features/localization/locale-policy'
 
 /**
- * Unit tests for the immutable locale-policy resolver (VNEXT.md §12.1, §22).
+ * Unit tests for the immutable locale-policy resolver.
  * Pure function — no Nuxt instance required.
  */
 
@@ -115,8 +115,7 @@ describe('resolveLocalePolicy — per-collection policy', () => {
       defaultLocale: 'en',
       fallback: { de: ['en'] },
       translatedSlugs: false,
-      // Localized collections carry a per-locale mount map (VNEXT.md §22.2
-      // step 7 / §23), not a single `default` mount — the canonical route
+      // Localized collections carry a per-locale mount map, not a single `default` mount — the canonical route
       // projector consumes this directly.
       routeMounts: { en: '/docs', de: '/docs' }
     })

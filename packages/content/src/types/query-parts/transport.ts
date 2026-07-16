@@ -13,9 +13,8 @@
  *   (`src/public/provider-query.ts`).
  *
  * Nothing in this file is exported from `#content/server` or `#content/client`.
- * Do not re-add these to `meta/public-surface.json`. A future full fluent+IR
- * cutover (retiring the string-operator API and this IR) is deferred post-0.2.0
- * — see `future-decisions.md`.
+ * Do not promote these through a public facade. Any future replacement must
+ * preserve the public query and provider boundaries described in ADR 0016.
  */
 import type { ContentQueryResponse } from '../api'
 import type { ParsedContentInternalMeta, ParsedContentMeta } from '../content'

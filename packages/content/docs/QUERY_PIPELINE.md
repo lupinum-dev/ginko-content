@@ -32,7 +32,7 @@ Changing query options or result shapes can affect:
 - app composables in `src/runtime/app/composables/use-content*.ts`
 - docs under `docs/content/docs/4.querying/` and `9.api-reference/`
 
-Update `meta/public-surface.json` only when an export changes, not for internal query helpers.
+Update public facades and package contracts only when an export changes, not for internal query helpers.
 
 ## Provider Impact
 

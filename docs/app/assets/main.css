@@ -1,37 +1,17 @@
-@import "tailwindcss";
-@import "@nuxt/ui";
-
-@source "../../content/**/*";
+:root {
+  --primary: oklch(0.64 0.17 151);
+  --primary-foreground: oklch(0.16 0.03 151);
+  --ring: oklch(0.64 0.17 151);
+  --radius: 0.5rem;
+}
 
 .dark {
-  /* --ui-bg: var(--ui-color-neutral-950); */
-  --ui-bg: rgb(2, 4, 32);
+  --background: oklch(0.145 0.018 159);
+  --primary: oklch(0.76 0.16 151);
+  --primary-foreground: oklch(0.13 0.025 151);
+  --ring: oklch(0.76 0.16 151);
 }
 
-@theme static {
-  --font-sans: 'Public Sans', sans-serif;
-  --font-display: 'Bungee', cursive;
-  --container-8xl: 90rem;
-  --breakpoint-3xl: 1920px;
-
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
-}
-
-:root {
-  --ui-container: var(--container-8xl);
-}
-
-.font-display {
-  font-family: var(--font-display);
-  letter-spacing: 0.02em;
+::selection {
+  background: color-mix(in oklab, var(--primary) 25%, transparent);
 }

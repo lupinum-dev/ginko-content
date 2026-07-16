@@ -24,7 +24,7 @@ export default defineNuxtConfig({
     // its smoke tests verify localized generated and runtime search results.
     search: {},
     // Nuxt I18n (configured below) is the sole locale/default-locale
-    // authority (VNEXT.md §12.1): content.i18n must not repeat "locales" or
+    // authority: content.i18n must not repeat "locales" or
     // "defaultLocale" once "@nuxtjs/i18n" is installed. Ginko content still
     // owns fallback and translated-slug policy.
     i18n: {
@@ -65,7 +65,7 @@ export default defineNuxtConfig({
 
   // Application-owned sitemap-surface policy (Ginko derives facts; the app
   // owns 404/redirect/head/SEO policy -- see AGENTS.md). `internal` is a
-  // route-mounted, sitemap-opted-out collection: VNEXT 20.1 requires it to
+  // Route-mounted, sitemap-opted-out collections must still
   // stay in the prerendered/static build (its route comes from the real
   // Nitro-side build result via crawl-links -- see
   // packages/content/src/runtime/server/api/cache.ts), but Nuxt Sitemap's

@@ -207,7 +207,7 @@ describe('query plan contracts', () => {
     ])
   })
 
-  // VNEXT §11.2/§21.3: the canonical document value model has no Date union —
+  // The canonical document value model has no Date union —
   // query comparison operates on canonical strings (UTC ISO 8601 for
   // `fields.datetime()`). This test pins the JSON-wire round-trip contract
   // using that canonical string shape instead of a raw `Date` operand.

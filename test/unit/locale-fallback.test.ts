@@ -2,8 +2,6 @@ import { describe, expect, test } from 'vitest'
 import { buildContentGraph, resolveLocaleChain } from '../../packages/content/src/core/content/graph'
 import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
-import { localizePageResult } from '../../packages/content/src/features/localization/results'
-import type { ContentPageResult } from '../../packages/content/src/types/query'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
 /**
@@ -11,8 +9,7 @@ import type { ParsedContent } from '../../packages/content/src/types/content'
  * graph built by `buildContentGraph` — `resolveLocaleChain` is NOT mocked here
  * (the query-contracts suite keeps its own mock for a different purpose). The
  * chain under test is `de-AT → de → en`, exercised through `executeQueryPlan`'s
- * variant resolver, plus the `resolved.variantPaths → variants/localePaths`
- * projection performed by `localizePageResult` (post-T3.1b field names).
+ * variant resolver.
  */
 
 const LOCALES = ['de-AT', 'de', 'en']
@@ -98,32 +95,4 @@ describe('locale fallback chain (unmocked, real graph)', () => {
     })
   })
 
-  test('resolved.variantPaths projects into variants + localePaths', () => {
-    const result = resolveVariant('/guide/intro', 'de-AT')
-    // The executor attaches the raw locale → path map for the canonical key.
-    expect(result?.resolved?.variantPaths).toEqual({
-      'de-AT': '/guide/intro',
-      de: '/guide/intro',
-      en: '/guide/intro'
-    })
-
-    const shaped = localizePageResult(
-      result as ParsedContent & Record<string, unknown>,
-      'de-AT',
-      DEFAULT_LOCALE,
-      LOCALES
-    ) as ContentPageResult<ParsedContent>
-
-    // variants: one entry per concrete locale, each carrying the unprefixed path.
-    expect(shaped.variants.map(v => v.locale).sort()).toEqual(['de', 'de-AT', 'en'])
-    for (const v of shaped.variants) {
-      expect(v.unprefixedPath).toBe('/guide/intro')
-    }
-
-    // localePaths: every concrete variant marked translated.
-    expect(Object.keys(shaped.localePaths).sort()).toEqual(['de', 'de-AT', 'en'])
-    expect(shaped.localePaths.de).toMatchObject({ translated: true })
-    expect(shaped.localePaths['de-AT']).toMatchObject({ translated: true })
-    expect(shaped.localePaths.en).toMatchObject({ translated: true })
-  })
 })

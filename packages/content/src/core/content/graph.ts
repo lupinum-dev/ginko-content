@@ -116,7 +116,7 @@ export const resolveLocaleChain = (
  *
  * The function is pure: given the same documents it returns equivalent
  * lookup tables. Callers memoize this per-request — see
- * `storage/content.ts:createServerQueryFetch` and
+ * the filesystem provider query path and
  * `memoizeRuntimeValue(event, 'graph', ...)`.
  *
  * INVARIANT: documents without `path` are still indexed by id (so refs can

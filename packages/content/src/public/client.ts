@@ -3,9 +3,9 @@
  *
  * The unified query API (ADR-0016) is the supported core read path. The
  * public composable surface is exactly `useContentPage` and
- * `useContentSearch` (VNEXT.md 10.5); every other application workflow is
+ * `useContentSearch`; every other application workflow is
  * ordinary Nuxt composition over the pure query operations below
- * (VNEXT.md 10.6).
+ *.
  */
 export {
   one,

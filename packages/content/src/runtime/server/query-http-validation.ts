@@ -1,5 +1,5 @@
 /**
- * Closed HTTP validation for the content query wire (VNEXT.md 16).
+ * Closed HTTP validation for the content query wire.
  *
  * The HTTP transport is internal to the client query API but is still an
  * untrusted runtime boundary — parsing JSON is not validation. This module is
@@ -9,17 +9,17 @@
  * all BEFORE lowering or provider dispatch ever run (see
  * `runtime/server/api/query.ts` for the thin H3 adapter).
  *
- * The source of truth for accepted operators is `SUPPORTED_QUERY_OPERATORS`
+ * The source of truth for accepted operators is `PUBLIC_QUERY_OPERATORS`
  * plus the logical `$and`/`$or` connectives — the exact same list the
  * filesystem provider advertises and the operator-parity test asserts
- * (VNEXT.md 20.7), so `$nin` (and any future operator) cannot drift between
+ *, so `$nin` (and any future operator) cannot drift between
  * the public type, the filesystem executor, and this boundary.
  */
 import type { ContentQueryBuilderParams } from '../../types/query'
-import { LOGICAL_QUERY_OPERATORS, SUPPORTED_QUERY_OPERATORS } from '../../core/query/operators'
+import { LOGICAL_QUERY_OPERATORS, PUBLIC_QUERY_OPERATORS } from '../../core/query/operators'
 import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../../features/query/public-limits'
 
-/** Transport safety limits (VNEXT.md 16.2) — NOT provider capabilities. */
+/** Transport safety limits — NOT provider capabilities. */
 export const MAX_QUERY_REQUEST_BYTES = 32_768
 export const MAX_FILTER_DEPTH = 8
 export const MAX_LOGICAL_GROUP_MEMBERS = 32
@@ -32,7 +32,7 @@ export const MAX_FIELD_PATH_LENGTH = 200
 export const MAX_COLLECTION_NAME_LENGTH = 200
 
 const KNOWN_OPERATOR_KEYS = new Set<string>([
-  ...SUPPORTED_QUERY_OPERATORS,
+  ...PUBLIC_QUERY_OPERATORS,
   ...LOGICAL_QUERY_OPERATORS
 ])
 
@@ -129,19 +129,7 @@ const validateFieldValue = (value: Record<string, unknown>, path: string, depth:
     return bad(path, `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.`)
   }
 
-  const hasRegex = '$regex' in value
-  if ('$options' in value && !hasRegex) {
-    return bad(`${path}.$options`, 'Operator $options requires $regex.')
-  }
-
   for (const [key, entry] of Object.entries(value)) {
-    if (key === '$options') {
-      if (typeof entry !== 'string') {
-        return bad(`${path}.$options`, '$options must be a string.')
-      }
-      continue
-    }
-
     if (key.startsWith('$')) {
       if (!KNOWN_OPERATOR_KEYS.has(key) || key === '$and' || key === '$or') {
         return bad(`${path}.${key}`, `Unknown query operator "${key}".`)
@@ -166,15 +154,6 @@ const validateFieldValue = (value: Record<string, unknown>, path: string, depth:
       if (key === '$type') {
         if (typeof entry !== 'string') {
           return bad(`${path}.$type`, '$type must be a string.')
-        }
-        continue
-      }
-
-      if (key === '$regex') {
-        if (typeof entry !== 'string') {
-          return bad(`${path}.$regex`, '$regex must be a string; live RegExp objects are not accepted over HTTP.')
-        } else if (entry.length > MAX_STRING_OPERAND_LENGTH) {
-          return bad(`${path}.$regex`, `$regex exceeds ${MAX_STRING_OPERAND_LENGTH} characters.`)
         }
         continue
       }
@@ -309,7 +288,7 @@ const validateSkipLimit = (params: Record<string, unknown>, path: string): void 
 }
 
 /**
- * Offset and cursor paging shapes are mutually exclusive (VNEXT.md 16.3): an
+ * Offset and cursor paging shapes are mutually exclusive: an
  * offset request may not carry `after`; a cursor request may not carry `page`
  * or `skip`. Structural closure only — whether the requested mode is
  * actually ADVERTISED by the provider is a capability-preflight concern
@@ -381,7 +360,7 @@ const validateResolveLocale = (value: unknown, path: string): void => {
 
 /**
  * `resolveVariant` names exactly one selector — `path` XOR `route` XOR `ref`
- * (VNEXT.md 16.1 "selector XOR shape"). Zero or more than one is malformed.
+ *. Zero or more than one is malformed.
  */
 const validateResolveVariant = (value: unknown, path: string): void => {
   if (value === undefined) return
@@ -427,7 +406,7 @@ const TOP_LEVEL_KEYS = new Set([
 
 /**
  * Validate a decoded content-query HTTP request body against the closed
- * `ContentQueryBuilderParams` wire shape (VNEXT.md 16). Pure — never touches
+ * `ContentQueryBuilderParams` wire shape. Pure — never touches
  * H3, the provider, or the lowerer. Returns a discriminated result instead of
  * throwing so the H3 adapter controls the exact 400 response shape.
  */
@@ -477,5 +456,5 @@ export const validateContentQueryRequestBody = (raw: unknown): QueryValidationRe
   }
 }
 
-/** Reject an oversized request body BEFORE it is even JSON-decoded (VNEXT.md 16.2/16.4). */
+/** Reject an oversized request body BEFORE it is even JSON-decoded. */
 export const isOversizedQueryRequestBody = (raw: string): boolean => byteLength(raw) > MAX_QUERY_REQUEST_BYTES

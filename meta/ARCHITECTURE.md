@@ -185,9 +185,10 @@ The package export map is a compatibility commitment:
 - `@lupinum/ginko-content/testing/provider-contract`
 - `@lupinum/ginko-content/transformers`
 
-This list is enforced against the package manifest by
-`test/contracts/package-exports-contracts.test.ts` and `meta/public-surface.json`
-— update all three together. Public docs must match these exports. Internal runtime, storage, manifest, renderer, and provider loader details should stay private unless deliberately promoted.
+The package manifest, explicit facade modules, generated API reference, and
+package contracts enforce this list without a duplicate symbol inventory.
+Public docs must match these exports. Internal runtime, storage, manifest,
+renderer, and provider loader details should stay private unless deliberately promoted.
 
 ## Extension Rules
 

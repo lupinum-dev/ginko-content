@@ -74,6 +74,46 @@ describe('production snapshot runtime', () => {
     expect(getItem).toHaveBeenCalledTimes(1)
   })
 
+  test('deduplicates concurrent production snapshot loads', async () => {
+    let release!: (value: ContentSnapshot) => void
+    const getItem = vi.fn(() => new Promise<ContentSnapshot>((resolve) => {
+      release = resolve
+    }))
+    stubRuntime(getItem)
+    const { getContentGraph } = await import('../../packages/content/src/storage/graph')
+
+    const firstPending = getContentGraph(createTestEvent())
+    const secondPending = getContentGraph(createTestEvent())
+    release(snapshot())
+
+    const [first, second] = await Promise.all([firstPending, secondPending])
+    expect(second).toBe(first)
+    expect(getItem).toHaveBeenCalledTimes(1)
+  })
+
+  test('reloads the production snapshot when cache integrity changes', async () => {
+    const contentConfig = { ...runtimeContent }
+    let storedSnapshot = snapshot()
+    const getItem = vi.fn(async () => storedSnapshot)
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubGlobal('__ginkoTestRuntimeConfig', { content: contentConfig })
+    vi.stubGlobal('__ginkoTestStorage', {
+      getItem,
+      setItem: vi.fn(),
+      getKeys: vi.fn(async () => []),
+      removeItem: vi.fn()
+    })
+    const { getContentGraph } = await import('../../packages/content/src/storage/graph')
+
+    const first = await getContentGraph(createTestEvent())
+    contentConfig.cacheIntegrity = 'integrity-v2'
+    storedSnapshot = snapshot({ integrity: 'integrity-v2' })
+    const second = await getContentGraph(createTestEvent())
+
+    expect(second).not.toBe(first)
+    expect(getItem).toHaveBeenCalledTimes(2)
+  })
+
   test('resets the process snapshot state after a failed first load', async () => {
     const getItem = vi.fn()
       .mockResolvedValueOnce(null)
@@ -98,7 +138,7 @@ describe('production snapshot runtime', () => {
     await expect(getContentGraph(createTestEvent())).rejects.toThrow('snapshot integrity mismatch')
   })
 
-  // VNEXT.md 15.8/24.3: filesystem production preview is unsupported and
+  // Filesystem production preview is unsupported and
   // must fail before the sealed snapshot is even read — not silently expose
   // it, and not silently ignore the preview token either.
   describe('production preview against the filesystem provider', () => {
@@ -167,7 +207,7 @@ describe('production snapshot runtime', () => {
   })
 
   // The same guard also protects the untrusted public HTTP query boundary
-  // directly (VNEXT.md 24.3: "before query dispatch"), independent of the
+  // directly, independent of the
   // `getContentGraph` guard exercised above.
   test('the public query executor rejects an authenticated production preview request before query dispatch', async () => {
     const getItem = vi.fn(async () => snapshot())

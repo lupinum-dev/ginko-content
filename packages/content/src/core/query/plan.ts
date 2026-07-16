@@ -135,7 +135,7 @@ export interface VariantResolution {
 }
 
 /**
- * Provider wire pagination semantics (CS-5 v2, VNEXT.md 13.1). Exactly one of
+ * Provider wire pagination semantics (CS-5 v2). Exactly one of
  * two honest modes: `offset` guarantees skip + an exact total; `cursor`
  * guarantees an opaque forward cursor with no synthetic total. Present on the
  * plan only when the caller made an explicit paging choice (`paginate()`, or
@@ -151,7 +151,7 @@ export type ContentProviderPaging =
   | { mode: 'cursor', after?: string | null, limit: number }
 
 /**
- * Closed provider-wire route/ref selector (VNEXT.md 13.1). Core resolves a
+ * Closed provider-wire route/ref selector. Core resolves a
  * public `by.route` through locale prefix and collection mounts (via the
  * canonical route projector, `lowerRouteToCandidates`) before dispatch, and
  * hands the provider an ordered, exact `{ locale, contentPath }` candidate

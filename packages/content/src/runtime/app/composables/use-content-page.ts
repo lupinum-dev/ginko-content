@@ -45,7 +45,7 @@ export type UseContentPageOptions<
    *
    * Pass `true` for the default surround projection, or an options object to
    * choose a `select` projection. Omitting `surround` performs one request;
-   * enabling it performs one documented extra request (VNEXT.md 27.1).
+   * enabling it performs one documented extra request.
    */
   surround?: ContentPageSurroundOptions<H>
 }
@@ -75,7 +75,7 @@ const normalizePageSurround = <H>(surroundOption: ContentPageSurroundOptions<H> 
  * selector the app queried with (`route.requestedPath`) or the document's
  * own canonical public path (`route.resolvedPath`) equals the current route
  * — the first covers a provider/alias match whose canonical path differs
- * from the requested one (VNEXT.md 27.1's route-normalization case), the
+ * from the requested one, the
  * second covers static/prerendered routes served under a normalized path.
  */
 const pageMatchesRoute = (
@@ -89,7 +89,7 @@ const pageMatchesRoute = (
 }
 
 /**
- * The route-aware Nuxt application workflow (VNEXT.md 10.5, 27.1). It owns:
+ * The route-aware Nuxt application workflow. It owns:
  *
  * - current route and locale tracking;
  * - SSR payload integration and stable async-data keying;
@@ -101,7 +101,7 @@ const pageMatchesRoute = (
  * mutate head tags, and does not choose redirect or fallback-indexing
  * policy — the application decides those by reading
  * `page.value.route.requestedPath`/`.resolvedPath` and
- * `page.value.resolution.usedFallback` (VNEXT.md 10.7).
+ * `page.value.resolution.usedFallback`.
  */
 export async function useContentPage<
   const H extends ContentCollectionTarget,
@@ -164,7 +164,7 @@ export async function useContentPage<
 
   // A single reactive snapshot of the last-fetched document, kept in sync
   // with the underlying async-data ref. Stale-page flash suppression
-  // (VNEXT.md 27.1/27.5) falls straight out of the `page` computed below: a
+  // falls straight out of the `page` computed below: a
   // snapshot that does not match the CURRENT route (because a route change
   // has outrun its refetch, on first hydration or client navigation alike)
   // is never shown, with no separate "is resolving" flag required.

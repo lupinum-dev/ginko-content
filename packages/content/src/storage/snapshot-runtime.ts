@@ -32,7 +32,7 @@ export const getProcessDocuments = async (event: H3Event): Promise<ParsedContent
 }
 
 const getProcessSnapshotState = (event: H3Event): Promise<ProcessSnapshotState> => {
-  // Defense-in-depth (VNEXT.md 15.8, 24.3): `storage/graph.ts#getContentGraph`
+  // Defense-in-depth: `storage/graph.ts#getContentGraph`
   // is the primary choke point that asserts filesystem production-preview is
   // unsupported before reaching the process snapshot, but `storage/contents.ts`
   // (`getContentsList`/`getContent`) reads the process snapshot through

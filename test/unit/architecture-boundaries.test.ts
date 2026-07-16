@@ -4,7 +4,6 @@ import ts from 'typescript'
 import { describe, expect, test } from 'vitest'
 
 const sourceRoot = 'packages/content/src'
-const publicSurfacePath = 'meta/public-surface.json'
 
 const sourceFiles = async (dir: string): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -101,21 +100,6 @@ const exportedIdentifiers = (source: string, file: string): string[] => {
   return identifiers
 }
 
-type PublicSurface = {
-  packageExportSubpaths: Record<string, PublicSurfaceEntry>
-  clientValueExports: Record<string, PublicSurfaceEntry>
-  clientTypeExports: Record<string, PublicSurfaceEntry>
-  serverValueExports: Record<string, PublicSurfaceEntry>
-  serverTypeExports: Record<string, PublicSurfaceEntry>
-  runtimeAppAutoImports: Record<string, PublicSurfaceEntry>
-}
-
-type PublicSurfaceEntry = {
-  category: string
-  audience: string
-  docs: string
-}
-
 describe('architecture boundaries', () => {
   test('core does not import runtime modules', async () => {
     await expect(importsFrom('core', importsSourceSegment('runtime'))).resolves.toEqual([])
@@ -157,7 +141,6 @@ describe('architecture boundaries', () => {
 
   test('public package surface does not expose CMS admin/editor/workflow/MCP behavior', async () => {
     const packageJson = await readJson<{ exports?: Record<string, unknown> }>('packages/content/package.json')
-    const publicSurface = await readJson<PublicSurface>(publicSurfacePath)
     const publicFiles = await sourceFiles(join(sourceRoot, 'public'))
     const publicSources = await Promise.all(publicFiles.map(async file => ({
       file: relative(process.cwd(), file),
@@ -167,12 +150,6 @@ describe('architecture boundaries', () => {
     const forbidden = /\b(?:mcp|admin|editor|workflow|studio|convex)\b/i
     const publicIdentifiers = [
       ...Object.keys(packageJson.exports ?? {}),
-      ...Object.keys(publicSurface.packageExportSubpaths),
-      ...Object.values(publicSurface.packageExportSubpaths).flatMap(entry => [
-        entry.category,
-        entry.audience,
-        entry.docs,
-      ]),
       ...publicSources.flatMap(({ file, source }) => [
         file,
         ...exportedIdentifiers(source, file),

@@ -47,7 +47,7 @@ type NavigationResolver = <
 
 /**
  * Resolve the navigation tree for a collection — the public `navigation()`
- * verb (VNEXT.md 10.2), absorbing the deleted `tree()` operation.
+ * verb, absorbing the deleted `tree()` operation.
  */
 export async function resolveNavigation<
   H extends ContentCollectionHandle | string,
@@ -81,8 +81,8 @@ export async function resolveNavigation<
 
 /**
  * Return the previous/next navigation entries surrounding a document — the
- * public `surround()` verb (VNEXT.md 10.2), replacing `neighbors()`.
- * `previous`, never `prev` (VNEXT.md 10.2/26.2).
+ * public `surround()` verb, replacing `neighbors()`.
+ * `previous`, never `prev`.
  */
 export async function resolveSurround<H extends ContentCollectionHandle | string>(
   context: ContentQueryContext,
@@ -126,8 +126,8 @@ export async function resolveSurround<H extends ContentCollectionHandle | string
   const flat: Array<{ path: string, item: unknown }> = []
   const walk = (nodes: unknown[]) => {
     for (const node of nodes) {
-      const n = node as { path?: string, children?: unknown[] }
-      if (n.path) {
+      const n = node as { page?: boolean, path?: string, children?: unknown[] }
+      if (n.page !== false && n.path) {
         flat.push({ path: n.path || '', item: node })
       }
       if (Array.isArray(n.children)) walk(n.children)

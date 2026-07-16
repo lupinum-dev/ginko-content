@@ -88,7 +88,7 @@ addendum records the current map without rewriting the original
 decision. The enforced invariants are unchanged; the coverage of
 directories is wider. The enforcement is
 `test/unit/architecture-boundaries.test.ts`, and
-`packages/content/ARCHITECTURE.md` carries the contributor-facing
+`meta/ARCHITECTURE.md` carries the contributor-facing
 version of this table.
 
 All fifteen `packages/content/src/` homes, with allowed dependency

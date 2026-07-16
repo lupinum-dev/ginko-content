@@ -4,8 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { registerContentNitroIntegrationHooks } from '../../packages/content/src/module/integration-hooks'
 
-// Content-route derivation moved out of this module entirely (VNEXT §14.4,
-// §25.2): the deleted `module/derived-route-discovery.ts` used to reparse
+// Content-route derivation moved out of this module entirely: the deleted `module/derived-route-discovery.ts` used to reparse
 // the content directory here and add routes straight into the
 // `prerender:routes` Set. The content cache/build route is unshifted to the
 // front of `nitro.prerender.routes` (`module/nitro-config.ts`, which also

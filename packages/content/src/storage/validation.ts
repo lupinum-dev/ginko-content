@@ -14,7 +14,7 @@ import { isNavigationFile } from '../core/content/structural'
  * Every function returns `Result<T, ContentError>` — expected failures carry a
  * specific `ContentErrorCode` so boundaries can decide how to react (404 vs
  * 500, warn vs fail-the-build). Nothing in this file throws; the boundary at
- * `storage/content.ts` and `integrations/nitro/ingest.ts` unwraps and throws
+ * Provider query execution and `integrations/nitro/ingest.ts` unwrap and throw
  * when the caller cannot handle a failure.
  */
 
@@ -252,7 +252,7 @@ export const validateCollectionDocument = (
 }
 
 /**
- * The canonical JSON-purity gate (VNEXT §11, §21).
+ * The canonical JSON-purity gate.
  *
  * Runs immediately after collection schema parsing and before graph
  * insertion for every document entering core — filesystem-parsed documents

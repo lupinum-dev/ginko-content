@@ -1,171 +1,50 @@
-import type { PortableComponentPolicyV1 } from '@lupinum/ginko-content/cms-contract'
+const siteUrl = 'https://ginko-content.nuxt.dev'
 
-const componentPolicy = {
-  components: {
-    'code-group': { kind: 'block', props: {}, slots: ['default'], media: null },
-    'landing-feature': {
-      kind: 'block',
-      props: {
-        title: { type: 'string', required: false },
-        description: { type: 'string', required: false },
-        icon: { type: 'string', required: false },
-        to: { type: 'string', required: false }
-      },
-      slots: ['default'],
-      media: null
-    },
-    'page-section-cta': { kind: 'block', props: {}, slots: ['default'], media: null },
-    step: {
-      kind: 'block',
-      props: { title: { type: 'string', required: false } },
-      slots: ['default'],
-      media: null
-    },
-    tabs: {
-      kind: 'block',
-      props: { class: { type: 'string', required: false } },
-      slots: ['default'],
-      media: null
-    },
-    'tabs-item': {
-      kind: 'block',
-      props: {
-        label: { type: 'string', required: false },
-        icon: { type: 'string', required: false }
-      },
-      slots: ['default'],
-      media: null
-    },
-    template: {
-      kind: 'block',
-      props: { name: { type: 'string', required: true } },
-      slots: ['default'],
-      media: null
-    },
-    'u-button': {
-      kind: 'inline',
-      props: {
-        size: { type: 'string', required: false },
-        to: { type: 'string', required: false },
-        variant: { type: 'string', required: false },
-        'trailing-icon': { type: 'string', required: false },
-        color: { type: 'string', required: false }
-      },
-      slots: ['default'],
-      media: null
-    },
-    'u-container': { kind: 'block', props: {}, slots: ['default'], media: null },
-    'u-input-copy': {
-      kind: 'inline',
-      props: {
-        value: { type: 'string', required: false },
-        class: { type: 'string', required: false }
-      },
-      slots: ['default'],
-      media: null
-    },
-    'u-page-grid': {
-      kind: 'block',
-      props: { class: { type: 'string', required: false } },
-      slots: ['default'],
-      media: null
-    },
-    'u-page-hero': {
-      kind: 'block',
-      props: {
-        orientation: { type: 'string', required: false },
-        ui: { type: 'json', required: false }
-      },
-      slots: ['default', 'headline', 'links', 'title'],
-      media: null
-    },
-    'u-page-section': {
-      kind: 'block',
-      props: {
-        orientation: { type: 'string', required: false },
-        ui: { type: 'json', required: false }
-      },
-      slots: ['default', 'description', 'features', 'headline', 'links', 'title'],
-      media: null
-    }
-  }
-} satisfies PortableComponentPolicyV1
-
-// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: [
-    '@nuxt/fonts',
-    '@nuxt/ui',
-    '@lupinum/ginko-content',
-    '@nuxt/image',
-    '@nuxt/scripts',
-    'nuxt-og-image'
-  ],
-  devtools: {
-    enabled: true
+  extends: ['@lupinum/ginko-docs'],
+  site: { url: siteUrl },
+  i18n: {
+    baseUrl: siteUrl,
+    locales: [{ code: 'en', language: 'en-US', name: 'English' }]
   },
+  components: [{ path: '~/components/mdc', global: true }],
   css: ['~/assets/main.css'],
-  fonts: {
-    families: [
-      { name: 'Public Sans', provider: 'google' },
-      { name: 'Bungee', provider: 'google' }
-    ]
-  },
-  site: {
-    name: '@lupinum/ginko-content',
-    url: 'https://ginko-content.nuxt.dev'
-  },
-  ogImage: {
-    buildCache: true,
-    security: {
-      renderTimeout: 60000
+  vite: {
+    resolve: {
+      // The packed docs layer depends on this workspace package too. Resolve
+      // both imports to one instance so layer subpath imports stay coherent.
+      dedupe: ['@lupinum/ginko-content']
     }
   },
   content: {
-    componentPolicy,
-    agent: {
-      routes: true,
-      linkHeaders: true,
-      markdownNegotiation: true,
-      prerender: true
-    },
-    search: {
-      engine: 'minisearch'
+    componentPolicy: {
+      components: {
+        'feature-panel': {
+          kind: 'block',
+          props: {
+            title: { type: 'string', required: false }
+          },
+          slots: ['default'],
+          media: null
+        }
+      }
     },
     markdown: {
-      plugins: [
-        ['highlight', {
-          langs: ['bash', 'diff', 'json', 'js', 'ts', 'html', 'css', 'vue', 'shell', 'mdc', 'md', 'yaml', 'sql', 'jsonc']
-        }],
-        ['toc', { depth: 2, searchDepth: 2 }],
-        'summary'
+      tags: {
+        'feature-panel': 'MdcFeaturePanel'
+      }
+    }
+  },
+  app: {
+    head: {
+      title: 'Ginko Content',
+      meta: [
+        {
+          name: 'description',
+          content: 'Filesystem-first content for Nuxt sites with coherent routes, types, localization, search, SEO, and agent output.'
+        }
       ]
     }
   },
-  ui: {
-    content: true,
-    theme: {
-      colors: ['primary', 'secondary', 'info', 'success', 'warning', 'error', 'important']
-    }
-  },
-  routeRules: {
-    '/': { prerender: true }
-  },
-  experimental: {
-    asyncContext: true
-  },
-  compatibilityDate: '2025-02-11',
-  nitro: {
-    prerender: {
-      crawlLinks: true,
-      routes: ['/'],
-      ignore: ['/_og/'],
-      concurrency: 4,
-      // For CF trailing slash issue
-      autoSubfolderIndex: false
-    }
-  },
-  typescript: {
-    strict: false
-  }
+  compatibilityDate: '2025-07-15'
 })

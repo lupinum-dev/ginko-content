@@ -1,5 +1,5 @@
 /**
- * Provider wire contract v2 (CS-5, VNEXT.md 13.1).
+ * Provider wire contract v2 (CS-5).
  *
  * The single query envelope crossing the `ContentProvider` boundary. It wraps
  * the executor-facing `ContentQueryPlan` (see `../core/query/plan.ts`) rather
@@ -40,7 +40,7 @@ export type {
 
 /**
  * Closed, discriminated list response for the provider `query` boundary — see
- * `ContentQueryFindResponse` (VNEXT.md 10.2/13.1). Re-exported under the
+ * `ContentQueryFindResponse`. Re-exported under the
  * provider-wire name so provider authors do not need to reach into
  * `types/api`.
  */

@@ -8,11 +8,11 @@ const localePath = useLocalePath()
 // content behind them, so it can only offer a route-only locale switch
 // (Nuxt I18n's own `useSwitchLocalePath()` — a plain URL-prefix swap, no
 // content query). Content-aware switching over `page.route.alternates`
-// (VNEXT.md 10.4, 27.4), which needs the resolved document, lives on the
+//, which needs the resolved document, lives on the
 // route page itself (`pages/[...slug].vue`) instead: a parent layout
 // unavoidably renders before a child page's async setup publishes anything
 // during SSR, so a layout-owned cross-component registry (the old
-// `useContentRoute`/`useContentSwitchLocalePath` mechanism, VNEXT.md 10.6
+// `useContentRoute`/`useContentSwitchLocalePath` mechanism
 // hard-cut) could only ever show stale/guessed links here. Both switchers
 // coexist: this one guarantees every page (including ones that bypass
 // `[...slug].vue`, like the debug pages under `pages/guide/`) always has a

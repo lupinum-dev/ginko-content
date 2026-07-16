@@ -56,7 +56,7 @@ const emptyCursorPage = (limit: number): CursorPaginationResult<never> => ({
 })
 
 /**
- * Resolve one honest pagination page (VNEXT.md 10.2). Two discriminated
+ * Resolve one honest pagination page. Two discriminated
  * modes: `offset` (exact `total`/`pageCount`) and `cursor` (opaque forward
  * cursor, no synthetic total). Omitting `mode` while supplying `page` means
  * `mode: 'offset'` — the source-compatible default.
@@ -74,7 +74,7 @@ export async function resolvePagination<
   const runtime = context.runtime
   validatePopulateSpec(handle, collection, runtime, options.populate)
   const fallback = resolveFallback(options.fallback, collection, runtime)
-  // Source compatibility (VNEXT.md 10.2): omitting `mode` always means
+  // Source compatibility: omitting `mode` always means
   // `mode: 'offset'`, even when `after` happens to be set — new code should
   // write `mode: 'cursor'` explicitly rather than relying on inference.
   const mode = options.mode ?? 'offset'

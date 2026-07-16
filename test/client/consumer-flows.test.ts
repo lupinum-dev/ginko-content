@@ -127,6 +127,27 @@ describe('public client query flows against an in-memory content scenario', () =
     })
   })
 
+  test('skips page:false control nodes in navigation-backed surroundings', async () => {
+    const { surround } = await import('../../packages/content/src/features/query/unified')
+
+    const result = await surround({
+      runtime: { collections: { docs: {} } },
+      transport: async (endpoint) => endpoint === 'navigation'
+        ? [
+            { title: 'Control', path: '/docs/control', page: false },
+            { title: 'Getting Started', path: '/docs/getting-started' }
+          ]
+        : { title: 'Docs', path: '/docs' }
+    }, 'docs', {
+      by: { route: '/docs' }
+    })
+
+    expect(result.next).toEqual(expect.objectContaining({
+      title: 'Getting Started',
+      path: '/docs/getting-started'
+    }))
+  })
+
   test('does not treat hidden non-root pages as collection roots', async () => {
     const { surround } = await import('../../packages/content/src/features/query/unified')
 

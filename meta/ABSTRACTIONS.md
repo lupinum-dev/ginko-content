@@ -145,6 +145,5 @@ Ginko produces content-backed sitemap entries. `@nuxtjs/sitemap` owns XML genera
 
 ## Public Surface
 
-`meta/public-surface.json` is the single source of truth for committed package
-subpaths and exported symbols; everything else is internal unless that file
-documents it as public.
+The package export map is the source of truth for public subpaths. Named exports
+come from their explicit facade modules; everything else is internal.

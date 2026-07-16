@@ -78,7 +78,7 @@ const validateVariants = (
       }
 
       // Canonical JSON-purity gate: runs after schema parsing, before this
-      // document can reach graph insertion (VNEXT §11, §21). Same validator
+      // document can reach graph insertion. Same validator
       // as the provider-document seam and the snapshot's defensive check.
       const jsonOutcome = validateDocumentJsonPurity(outcome.value)
       if (!jsonOutcome.ok) {

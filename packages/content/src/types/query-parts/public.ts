@@ -119,7 +119,7 @@ type BacklinksLocaleOption<Target, Source> = HandleIsI18n<Target> extends true
 export type LocaleFallback = false | true | 'default' | string | string[]
 
 /**
- * The canonical document envelope (VNEXT.md 10.4) attached to every document
+ * The canonical document envelope attached to every document
  * returned by the unified query API (`one`/`many`/`resolveOne().doc`/
  * `surround`/`backlinks`) and by `useContentPage`. `locale` is a convenience
  * top-level copy of `resolution.resolved.locale`; the route/resolution facts
@@ -140,7 +140,7 @@ export type LocalizedDoc<T = ParsedContentMeta> = LocalizedContentDocument<T>
 
 /**
  * Keys the runtime selection projector always preserves regardless of `select`
- * (VNEXT.md 10.3, decision 24): identity, plus the `route`/`resolution`
+ *: identity, plus the `route`/`resolution`
  * envelope. Identity fields survive because `selectWithPopulate` force-keeps
  * them; `route`/`resolution` (and the `stem`/`extension`/`resolvedRefs`
  * bookkeeping fields) survive because `decorateLocalizedDocument` re-attaches
@@ -161,7 +161,7 @@ type PopulatedKeys<O> = O extends { populate: infer P }
   : never
 
 /**
- * The one reusable selected-document helper (VNEXT.md 26.1). It projects the
+ * The one reusable selected-document helper. It projects the
  * raw pre-localized document so `LocalizedDoc` can re-attach the guaranteed
  * route/resolution envelope afterwards — mirroring the runtime order
  * (project → decorate). Without `select` the full document passes through; with
@@ -238,7 +238,7 @@ export type ManyOptions<
 } & LocaleOption<H> & PopulateOption<P>
 
 /**
- * Two honest pagination modes (VNEXT.md 10.2): `offset` returns an exact
+ * Two honest pagination modes: `offset` returns an exact
  * total/page count; `cursor` returns an opaque forward cursor with no
  * synthetic total. Omitting `mode` while supplying `page` means
  * `mode: 'offset'` (source compatibility) — new code should write the mode
@@ -285,7 +285,7 @@ export type PaginationResult<T = ParsedContentMeta> = OffsetPaginationResult<T> 
  * Narrow `paginate()`'s return type to the exact discriminant when the
  * caller's own options object literally names `mode: 'cursor'` — otherwise
  * (mode omitted, or explicitly `'offset'`) resolve to the offset shape,
- * matching the runtime source-compatibility default (VNEXT.md 10.2/26.1).
+ * matching the runtime source-compatibility default.
  */
 export type PaginationResultFor<O, Inner> = O extends { mode: 'cursor' }
   ? CursorPaginationResult<SelectedInnerDocument<Inner, O>>
@@ -332,7 +332,7 @@ export type BacklinksResult<
 
 export type { ContentNavigationItem }
 
-/** Options for the public `navigation()` verb (VNEXT.md 10.2), absorbing `tree()`. */
+/** Options for the public `navigation()` verb, absorbing `tree()`. */
 export type NavigationOptions<
   H = unknown,
   Select extends ReadonlyArray<keyof HandleSchema<H> | string> | undefined = undefined
@@ -363,14 +363,14 @@ export type ResolvedContentNavigationItem<
   path: string
 }
 
-/** Options for the public `surround()` verb (VNEXT.md 10.2), replacing `neighbors()`. */
+/** Options for the public `surround()` verb, replacing `neighbors()`. */
 export type SurroundOptions<H = unknown> = {
   by: ContentSelector
   fallback?: LocaleFallback
   select?: SelectFields<H>
 } & LocaleOption<H>
 
-/** Result of the public `surround()` verb — `previous`, never `prev` (VNEXT.md 10.2). */
+/** Result of the public `surround()` verb — `previous`, never `prev`. */
 export interface SurroundResult<T = ParsedContentMeta> {
   previous: ResolvedContentNavigationItem<T> | null
   next: ResolvedContentNavigationItem<T> | null

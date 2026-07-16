@@ -85,7 +85,7 @@ const isCursorFindResponseEnvelope = (response: unknown): response is {
   Array.isArray(response.result) &&
   isObject(response.pageInfo)
 
-/** Unwrap a `mode: 'cursor'` provider list response (VNEXT.md 10.2). Never invents a `total`. */
+/** Unwrap a `mode: 'cursor'` provider list response. Never invents a `total`. */
 export const unwrapCursorFindResponse = <T>(response: unknown): {
   result: T[]
   limit: number

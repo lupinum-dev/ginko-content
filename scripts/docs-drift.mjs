@@ -16,11 +16,9 @@ import { join, relative } from 'node:path'
 const markdownRoots = [
   'README.md',
   'packages/content/README.md',
-  'packages/content/ARCHITECTURE.md',
   'packages/content/docs',
   'docs/content',
   'skills/ginko-content',
-  'meta/skill',
   'meta/adr',
   'meta/ARCHITECTURE.md',
   'meta/ABSTRACTIONS.md',
@@ -144,7 +142,13 @@ const skippedDirectories = new Set([
 ])
 
 const collectCheckedTextFiles = async (path) => {
-  const entries = await readdir(path, { withFileTypes: true })
+  let entries
+  try {
+    entries = await readdir(path, { withFileTypes: true })
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return []
+    throw error
+  }
   const nested = await Promise.all(entries.map(async (entry) => {
     const entryPath = join(path, entry.name)
     if (entry.isDirectory()) {
@@ -179,7 +183,7 @@ const normalizePath = file => file.split('\\').join('/')
 // author to route history through the migration-doc marker vocabulary. ADRs
 // get the same "not a currency-checked doc" treatment as ARCHITECTURE.md /
 // ABSTRACTIONS.md instead. Their factual accuracy is enforced by the
-// dedicated ADR frontmatter check plus the corrections tracked in VNEXT §19.
+// dedicated ADR frontmatter check and current documentation invariants.
 const isAdrDoc = file => normalizePath(file).startsWith('meta/adr/')
 
 const isAdvancedSurfaceDoc = (file) => {

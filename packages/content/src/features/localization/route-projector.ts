@@ -1,6 +1,6 @@
 /**
  * The one canonical route projector, resolver, candidate-lowering function,
- * and alternate synthesizer (VNEXT.md section 12.2-12.4, section 23).
+ * and alternate synthesizer.
  *
  * This module is the sole place that turns canonical document facts plus a
  * resolved locale policy into a public route path, and the sole place that
@@ -33,8 +33,7 @@ export class RouteProjectionError extends Error {
 
 /**
  * One concrete graph variant fact: a document that exists, in one locale,
- * with its own content. Used as the input to alternate synthesis (VNEXT.md
- * section 12.3) and as the seed for `ContentProviderRouteFact` below.
+ * with its own content. Used as the input to alternate synthesis and as the seed for `ContentProviderRouteFact` below.
  */
 export interface ContentProviderVariantFact {
   collection: string
@@ -54,6 +53,7 @@ export interface ContentProviderVariantFact {
 export interface ContentProviderRouteFact extends ContentProviderVariantFact {
   navigationFile?: boolean
   sitemap?: boolean
+  sitemapMetadata?: import('../sitemap/metadata').ContentSitemapMetadata
 }
 
 /**
@@ -69,6 +69,7 @@ export interface ContentRouteRecord {
   path: string
   draft: boolean
   sitemap: boolean
+  sitemapMetadata?: import('../sitemap/metadata').ContentSitemapMetadata
 }
 
 /** One ordered candidate produced by lowering a public route to content paths. */
@@ -85,7 +86,7 @@ export interface RouteAlternate {
   source: 'variant' | 'fallback'
   /**
    * Present only on fallback alternates: the locale that actually owns the
-   * source content being served at this locale's URL (VNEXT.md section 12.3 step 8).
+   * source content being served at this locale's URL.
    */
   resolvedLocale?: string
 }
@@ -116,7 +117,7 @@ const mountsFor = (policy: ResolvedCollectionLocalePolicy, locale: string): Rout
  * Project one document variant's canonical content path into its public
  * route for the given locale, honoring per-locale route mounts and
  * default-locale prefix suppression. This is the ONE function that turns
- * graph facts into a public path (VNEXT.md section 12.2).
+ * graph facts into a public path.
  */
 export function projectContentRoute(
   fact: Pick<ContentProviderVariantFact, 'contentPath' | 'locale'>,
@@ -163,7 +164,7 @@ export function lowerRouteToCandidates(
 
   // `routeToContentPathCandidates` returns paths with the per-locale mount
   // still applied (its historical contract). This module's `contentPath` is
-  // mount-agnostic (VNEXT.md section 12.2/12.3), so strip each candidate's own
+  // mount-agnostic, so strip each candidate's own
   // mount back off to keep the two notions of "content path" consistent.
   return mounted.map(({ locale, path }) => {
     const mount = mounts[locale]
@@ -174,7 +175,7 @@ export function lowerRouteToCandidates(
 /**
  * In-memory index built once from concrete route records so alternate
  * synthesis and route resolution are local, deterministic round trips
- * (VNEXT.md section 23.4) - never per-call HTTP or provider lookups.
+ * - never per-call HTTP or provider lookups.
  */
 export interface RouteIndex {
   /** `"<locale> <path>"` -> the concrete record that owns that exact public path. */
@@ -192,7 +193,7 @@ export interface RouteIndex {
  * Build the canonical route records for a collection from its concrete
  * route facts, and the in-memory index the resolver uses for round trips.
  * Fails loudly on duplicate projected paths within the same locale - two
- * canonical keys may never own the same concrete route (VNEXT.md section 23.3).
+ * canonical keys may never own the same concrete route.
  */
 export function buildRouteRecords(
   facts: readonly ContentProviderRouteFact[],
@@ -233,7 +234,8 @@ export function buildRouteRecords(
       contentPath: fact.contentPath,
       path,
       draft: Boolean(fact.draft),
-      sitemap: fact.sitemap !== false
+      sitemap: fact.sitemap !== false,
+      ...(fact.sitemapMetadata ? { sitemapMetadata: fact.sitemapMetadata } : {})
     })
   }
 
@@ -252,7 +254,7 @@ export function buildRouteRecords(
  * lowering used by provider queries. Exact concrete routes take the fast
  * path. A synthesized fallback URL is then lowered into the requested locale
  * followed by its configured fallback chain until a concrete variant owns a
- * candidate. This is the round trip required by VNEXT.md section 12.3.
+ * candidate. This preserves the route projection round trip.
  */
 export function resolveContentRoute(
   path: string,
@@ -278,7 +280,7 @@ export function resolveContentRoute(
 
 /**
  * Synthesize alternates for one canonical document from its concrete graph
- * variants, following VNEXT.md section 12.3 exactly:
+ * variants:
  *
  * 1. emit one `variant` alternate per concrete variant;
  * 2. for locales without a concrete variant, walk the fallback chain

@@ -5,7 +5,7 @@ import { createTestEvent } from '../harness/event'
 import { encodeQueryParams } from '../../packages/content/src/runtime/utils/query'
 
 /**
- * VNEXT.md 20.6: the closed HTTP boundary must reject a malformed request
+ * The closed HTTP boundary must reject a malformed request
  * BEFORE either the provider or the lowering step (`createProviderQuery` /
  * `normalizeProviderQueryResponse`) ever runs. This mounts the real handler
  * with both seams spied so an invalid body proves a typed 400 AND that

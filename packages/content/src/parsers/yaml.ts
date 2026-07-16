@@ -6,7 +6,7 @@ import { stripReservedContentKeys } from './reserved'
 /**
  * js-yaml's default schema resolves bare timestamp-shaped scalars
  * (`date: 2026-01-01`, `date: 2026-01-01T10:00:00Z`) to `Date` instances.
- * The canonical JSON value model (VNEXT §11) never admits a `Date`, so this
+ * The canonical JSON value model never admits a `Date`, so this
  * normalizes every `Date` produced by the YAML parser to its UTC ISO 8601
  * string form *before* schema/graph — `fields.date()` further narrows an ISO
  * string down to `YYYY-MM-DD`, and untyped/data-only fields simply keep the

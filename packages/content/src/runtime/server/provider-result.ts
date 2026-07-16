@@ -11,11 +11,11 @@ import type {
   ContentProviderSiteDataResponse,
   ContentProviderSurroundItem,
   ContentProviderSurroundingsOptions,
-  ContentRouteRecord,
-  MaybeContentProviderResult
+  ContentRouteRecord
 } from '../../public/provider'
 import type { ContentProviderSearchRequest } from '../../types/search'
-import { isContentProviderResult } from '../../public/provider'
+import type { MaybeContentProviderResult } from '../../core/provider-result'
+import { isContentProviderResult } from '../../core/provider-result'
 import { collectContentCacheHint } from './cache-hints'
 
 export const unwrapContentProviderResult = <T>(
