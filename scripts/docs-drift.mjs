@@ -142,7 +142,13 @@ const skippedDirectories = new Set([
 ])
 
 const collectCheckedTextFiles = async (path) => {
-  const entries = await readdir(path, { withFileTypes: true })
+  let entries
+  try {
+    entries = await readdir(path, { withFileTypes: true })
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return []
+    throw error
+  }
   const nested = await Promise.all(entries.map(async (entry) => {
     const entryPath = join(path, entry.name)
     if (entry.isDirectory()) {
