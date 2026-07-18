@@ -9,7 +9,10 @@ const deGettingStarted = await one(docs, { by: { path: '/leitfaden/erste-schritt
 
 // This page has no `de` translation: requesting it in `de` must resolve
 // through the `de -> en` fallback rather than 404.
-const deFallback = await one(docs, { by: { path: '/guide/advanced-en-only', locale: 'de' } })
+const deFallback = await one(docs, {
+  by: { path: '/guide/advanced-en-only', locale: 'de' },
+  fallback: true
+})
 
 const allDocs = await many(docs, {
   where: { partial: { $ne: true }, navigationFile: { $ne: true }, draft: { $ne: true } }
