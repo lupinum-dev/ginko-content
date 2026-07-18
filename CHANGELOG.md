@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.0-rc.5
+
+- Add the runtime-free `@lupinum/ginko-content/navigation` entry with generic,
+  readonly tree traversal helpers for navigation consumers outside Nuxt.
+- Promote `sidebar: section | group` to shared navigation metadata and validate
+  invalid values in Markdown frontmatter and `.navigation.yml` sidecars.
+- Diagnose unknown navigation select fields and locale sidecars that match no
+  navigation tree during development and builds, with process-level warning
+  deduplication and no production-runtime failures.
+- Join collectionless `.navigation.yml` sidecars during navigation queries so
+  folder metadata reaches projected navigation trees without consumer patches.
+
 ## v0.3.0-rc.4
 
 - Harden the prerelease public query vocabulary: array-valued schema fields now
