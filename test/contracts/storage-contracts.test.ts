@@ -374,6 +374,73 @@ describe('storage contracts', () => {
 })
 
 describe('collection schema validation', () => {
+  test('validates core-owned sidebar metadata on navigation files and pages', () => {
+    const validNavigationFile = validateCollectionDocument(doc({
+      id: 'content:en:docs:.navigation.yml',
+      file: { path: '/en/docs/.navigation.yml' },
+      type: 'yaml',
+      navigationFile: true,
+      partial: true,
+      sidebar: 'section'
+    } as any))
+    const invalidNavigationFile = validateCollectionDocument(doc({
+      id: 'content:en:docs:.navigation.yml',
+      file: { path: '/en/docs/.navigation.yml' },
+      type: 'yaml',
+      navigationFile: true,
+      partial: true,
+      sidebar: 'sction'
+    } as any))
+    const invalidPage = validateCollectionDocument(doc({
+      id: 'content:en:docs:intro.md',
+      file: { path: '/en/docs/intro.md' },
+      type: 'markdown',
+      sidebar: 'sction'
+    } as any))
+    const validPage = validateCollectionDocument(doc({
+      id: 'content:en:docs:intro.md',
+      file: { path: '/en/docs/intro.md' },
+      type: 'markdown',
+      sidebar: 'group'
+    } as any))
+    const invalidNestedPage = validateCollectionDocument(doc({
+      id: 'content:en:docs:nested.md',
+      file: { path: '/en/docs/nested.md' },
+      type: 'markdown',
+      navigation: { sidebar: 'sction' }
+    } as any))
+    const structuredData = validateCollectionDocument(doc({
+      id: 'content:data:layout.yml',
+      type: 'yaml',
+      sidebar: 'application-specific-value'
+    } as any))
+
+    expect(validNavigationFile.ok).toBe(true)
+    expect(validPage.ok).toBe(true)
+    expect(structuredData.ok).toBe(true)
+    expect(invalidNavigationFile).toMatchObject({
+      ok: false,
+      error: {
+        code: 'INVALID_NAVIGATION_YAML',
+        message: expect.stringContaining('sidebar must be "section" or "group"')
+      }
+    })
+    expect(invalidPage).toMatchObject({
+      ok: false,
+      error: {
+        code: 'INVALID_NAVIGATION_METADATA',
+        message: expect.stringContaining('sidebar must be "section" or "group"')
+      }
+    })
+    expect(invalidNestedPage).toMatchObject({
+      ok: false,
+      error: {
+        code: 'INVALID_NAVIGATION_METADATA',
+        message: expect.stringContaining('navigation.sidebar must be "section" or "group"')
+      }
+    })
+  })
+
   test('validates strict collection schemas against user fields only', () => {
     const document = pathMeta.transform!(
       {

@@ -158,7 +158,7 @@ describe('package export contracts', () => {
   })
 
   test('built navigation export loads as runtime-free Node ESM', async () => {
-    const navigation = await import('../../packages/content/dist/public/navigation.js')
+    const navigation = await import('@lupinum/ginko-content/navigation')
 
     expect(Object.keys(navigation).sort()).toEqual([
       'findFirstNavigationChild',
@@ -195,11 +195,15 @@ describe('package export contracts', () => {
       await writeFile(join(root, 'package.json'), JSON.stringify({ type: 'module' }), 'utf8')
       await writeFile(join(root, 'index.ts'), `
         import { findFirstNavigationPage, normalizeNavigationPath } from '@lupinum/ginko-content/navigation'
+        import type { ContentNavigationTreeItem, NavigationSidebar } from '@lupinum/ginko-content/navigation'
         type Item = { title: string; path?: string; children: Item[] }
         const items: Item[] = [{ title: 'Docs', children: [{ title: 'Intro', path: '/docs/intro', children: [] }] }]
         const page = findFirstNavigationPage(items)
         const path: string | undefined = page?.path
+        const projected: ContentNavigationTreeItem = { title: 'Docs', sidebar: 'section' }
+        const sidebar: NavigationSidebar | undefined = projected.sidebar
         normalizeNavigationPath(path ?? '/')
+        void sidebar
       `, 'utf8')
 
       for (const [module, moduleResolution] of [['ESNext', 'Bundler'], ['Node16', 'Node16']]) {

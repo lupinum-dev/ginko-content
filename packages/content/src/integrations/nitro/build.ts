@@ -26,6 +26,7 @@ import { usesProcessSnapshot } from '../../storage/snapshot-runtime'
 import { resolveIncludeDrafts } from '../../core/visibility'
 import { isNavigationFile } from '../../core/content/structural'
 import { resolveCollectionI18n } from '../../features/localization/path'
+import { collectUnmatchedNavigationConfigDiagnostics, emitNavigationDiagnostics } from '../../features/navigation/diagnostics'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
 import {
   buildRouteRecords,
@@ -278,6 +279,11 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   const graphValidation = validateContentGraph(documents, contentContext)
   if (!graphValidation.ok) {
     throw graphValidation.error
+  }
+  if (contentContext.navigation !== false) {
+    emitNavigationDiagnostics(collectUnmatchedNavigationConfigDiagnostics(documents, {
+      defaultLocale: contentContext.defaultLocale
+    }))
   }
 
   // Steps 8-10: per-collection locale policy, canonical route records (the

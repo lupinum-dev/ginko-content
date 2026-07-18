@@ -16,6 +16,11 @@ export type {
 } from '../features/navigation/resolve.js'
 
 export type {
+  NavigationSidebar,
+  SharedNavigationMetadata
+} from '../types/navigation.js'
+
+export type {
   ContentNavigationItem,
   ContentNavigationTreeItem,
   ResolvedContentNavigationItem

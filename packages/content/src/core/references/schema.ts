@@ -38,6 +38,14 @@ export const getObjectShape = (schema: any): Record<string, any> => {
   return typeof shape === 'function' ? shape() : (shape || schema?.shape || {})
 }
 
+/** Serializable top-level field names derived from a collection's object schema. */
+export const collectTopLevelSchemaFields = (schema: unknown): string[] | null => {
+  const current = unwrapSchema(schema)
+  return getSchemaTypeName(current) === 'ZodObject'
+    ? Object.keys(getObjectShape(current))
+    : null
+}
+
 export const getReferenceDescriptor = (schema: any): { collection?: string } | null => {
   const base = unwrapSchema(schema)
   if (getSchemaTypeName(base) !== 'ZodString') {

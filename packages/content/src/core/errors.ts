@@ -24,6 +24,8 @@ export type ContentErrorCode =
   | 'INVALID_REF_VALUE'
   // Structured frontmatter/YAML that failed shape validation before Zod runs.
   | 'INVALID_NAVIGATION_YAML'
+  // Core-owned navigation metadata on a page has an invalid value.
+  | 'INVALID_NAVIGATION_METADATA'
   // A collection's Zod schema rejected the document (strict collection only;
   // non-strict collections warn and pass through).
   | 'SCHEMA_VALIDATION_FAILED'

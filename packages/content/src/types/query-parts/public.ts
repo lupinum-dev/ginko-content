@@ -1,5 +1,6 @@
 import type { ContentNavigationItem, ParsedContent, ParsedContentMeta, StrictParsedContent, StrictParsedContentMeta } from '../content'
 import type { __ginkoI18nBrand, __ginkoSchemaBrand } from '../config'
+import type { SharedNavigationMetadata } from '../navigation'
 import type { ContentCollectionI18nMap, ContentCollectionMap, ContentCollectionName, ContentCollectionTarget } from './collections'
 import type { ContentDocumentResolution, ContentDocumentRoute } from './results'
 
@@ -381,7 +382,7 @@ export type ContentNavigationTreeItem<
   title: string
   path?: string
   children?: Array<ContentNavigationTreeItem<T, Select>>
-} & (Select extends ReadonlyArray<infer K>
+} & SharedNavigationMetadata & (Select extends ReadonlyArray<infer K>
   ? Pick<T, Extract<K, keyof T>>
   : Record<never, never>)
 

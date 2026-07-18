@@ -7,6 +7,7 @@ import { ContentError, type ContentErrorCode } from '../core/errors'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { fail, ok, type Result } from '../core/result'
 import { isNavigationFile } from '../core/content/structural'
+import { isNavigationSidebar, NAVIGATION_SIDEBAR_VALUES } from '../types/navigation'
 
 /**
  * Graph- and document-level validators.
@@ -136,8 +137,45 @@ const internalDocumentFields = new Set([
 const toUserContentDocument = (document: ParsedContent) =>
   Object.fromEntries(Object.entries(document).filter(([key]) => !internalDocumentFields.has(key)))
 
-const validateNavigationDocument = (document: ParsedContent): Result<void, ContentError> => {
-  if (!isNavigationFile(document)) {
+const invalidNavigationSidebarPath = (document: ParsedContent): string | undefined => {
+  if (typeof document.sidebar !== 'undefined' && !isNavigationSidebar(document.sidebar)) {
+    return 'sidebar'
+  }
+
+  const navigation = document.navigation
+  if (navigation && typeof navigation === 'object' && !Array.isArray(navigation)) {
+    const sidebar = (navigation as Record<string, unknown>).sidebar
+    if (typeof sidebar !== 'undefined' && !isNavigationSidebar(sidebar)) {
+      return 'navigation.sidebar'
+    }
+  }
+
+  return undefined
+}
+
+const validateNavigationDocument = (
+  document: ParsedContent,
+  collections: Record<string, ContentCollectionConfig>
+): Result<void, ContentError> => {
+  const navigationFile = isNavigationFile(document)
+  const collection = document.collection ? collections[document.collection] : undefined
+  const pageDocument = document.type === 'markdown' && collection?.type !== 'data'
+  if (!navigationFile && !pageDocument) {
+    return ok(undefined)
+  }
+
+  const invalidSidebarPath = invalidNavigationSidebarPath(document)
+  if (invalidSidebarPath) {
+    const acceptedValues = NAVIGATION_SIDEBAR_VALUES.map(value => `"${value}"`).join(' or ')
+    return fail(createContentError(
+      navigationFile ? 'INVALID_NAVIGATION_YAML' : 'INVALID_NAVIGATION_METADATA',
+      document.file?.path || document.id,
+      navigationFile ? 'malformed .navigation.yml' : 'invalid navigation metadata',
+      `${invalidSidebarPath} must be ${acceptedValues}`
+    ))
+  }
+
+  if (!navigationFile) {
     return ok(undefined)
   }
 
@@ -153,9 +191,6 @@ const validateNavigationDocument = (document: ParsedContent): Result<void, Conte
   }
   if (typeof document.hidden !== 'undefined' && typeof document.hidden !== 'boolean') {
     invalidFields.push('hidden must be a boolean')
-  }
-  if (typeof document.sidebar !== 'undefined' && document.sidebar !== 'section' && document.sidebar !== 'group') {
-    invalidFields.push('sidebar must be "section" or "group"')
   }
   if (typeof document.navigation !== 'undefined' && typeof document.navigation !== 'boolean' && typeof document.navigation !== 'object') {
     invalidFields.push('navigation must be false or an object')
@@ -195,14 +230,15 @@ export const getCanonicalContentId = (document: ParsedContent, locales: string[]
  * - Strict collections (default): schema errors produce a `SCHEMA_VALIDATION_FAILED`
  *   failure.
  *
- * Also chains into `validateNavigationDocument` for `navigationFile: true` files,
- * which can fail with `INVALID_NAVIGATION_YAML`.
+ * Also validates core-owned navigation metadata on pages and navigation files.
+ * Invalid page metadata fails with `INVALID_NAVIGATION_METADATA`; malformed
+ * navigation files preserve the existing `INVALID_NAVIGATION_YAML` code.
  */
 export const validateCollectionDocument = (
   document: ParsedContent,
   collections: Record<string, ContentCollectionConfig> = {}
 ): Result<ParsedContent, ContentError> => {
-  const navigationResult = validateNavigationDocument(document)
+  const navigationResult = validateNavigationDocument(document, collections)
   if (!navigationResult.ok) {
     return navigationResult
   }

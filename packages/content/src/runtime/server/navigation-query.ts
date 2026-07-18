@@ -6,7 +6,13 @@ import { executeQueryPlan } from '../../core/query/execute'
 import { resolveContentNavigationData } from '../../features/navigation/query'
 import { buildCanonicalNavigation, requireNavigationDocumentPath } from '../../features/navigation/build'
 import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
-import { getObjectShape, getSchemaTypeName, unwrapSchema } from '../../core/references/schema'
+import {
+  collectUnknownNavigationSelectDiagnostics,
+  collectUnmatchedNavigationConfigDiagnostics,
+  emitNavigationDiagnostics,
+  shouldEmitNavigationRuntimeDiagnostics,
+  type NavigationDiagnosticCollections
+} from '../../features/navigation/diagnostics'
 import { getContentRuntimeConfig } from './runtime-config'
 import { resolveLocaleChain } from '../../core/content/locale'
 import { getContentGraph } from '../../storage/graph'
@@ -17,106 +23,6 @@ const andFilters = (...filters: FilterExpr[]): FilterExpr => {
   if (!clauses.length) return { type: 'true' }
   if (clauses.length === 1) return clauses[0]!
   return { type: 'and', clauses }
-}
-
-const navigationDiagnosticKeys = new Set<string>()
-const navigationSharedVocabulary = new Set([
-  'badge',
-  'description',
-  'hidden',
-  'icon',
-  'navigation',
-  'order',
-  'sidebar',
-  'title'
-])
-const navigationRequiredFields = new Set([
-  'id',
-  'path',
-  'file',
-  'canonicalKey',
-  'locale',
-  'draft',
-  'navigation',
-  'title'
-])
-
-const warnNavigationDiagnostic = (key: string, message: string) => {
-  if (navigationDiagnosticKeys.has(key)) {
-    return
-  }
-
-  navigationDiagnosticKeys.add(key)
-  console.warn(`[ginko-content] ${message}`)
-}
-
-const collectCollectionSchemaFields = (schema: unknown): Set<string> | null => {
-  const current = unwrapSchema(schema)
-  if (!current || getSchemaTypeName(current) !== 'ZodObject') {
-    return null
-  }
-
-  return new Set(Object.keys(getObjectShape(current)))
-}
-
-const warnUnknownNavigationSelectFields = (
-  fields: readonly string[],
-  collection: string | null,
-  collections: Record<string, { schema?: unknown }> | undefined
-) => {
-  if (!collection) {
-    return
-  }
-
-  const schemaFields = collectCollectionSchemaFields(collections?.[collection]?.schema)
-  if (!schemaFields) {
-    return
-  }
-
-  for (const field of fields) {
-    if (
-      navigationRequiredFields.has(field)
-      || navigationSharedVocabulary.has(field)
-      || schemaFields.has(field)
-    ) {
-      continue
-    }
-
-    warnNavigationDiagnostic(
-      `select:${collection}:${field}`,
-      `Navigation select field "${field}" is not declared in collection "${collection}" or the shared navigation vocabulary.`
-    )
-  }
-}
-
-const normalizeNavigationDiagnosticPath = (path: string) =>
-  path !== '/' && path.endsWith('/') ? path.replace(/\/+$/, '') : path
-
-const warnUnmatchedNavigationConfigs = (
-  configs: readonly ParsedContentMeta[],
-  contents: readonly ParsedContentMeta[],
-  locale?: string
-) => {
-  const contentPaths = contents
-    .map(content => typeof content.path === 'string' ? normalizeNavigationDiagnosticPath(content.path) : undefined)
-    .filter((path): path is string => Boolean(path))
-
-  for (const config of configs) {
-    if (typeof config.path !== 'string') {
-      continue
-    }
-
-    const configPath = normalizeNavigationDiagnosticPath(config.path)
-    const matchesContent = contentPaths.some(path => path === configPath || path.startsWith(`${configPath}/`))
-    if (matchesContent) {
-      continue
-    }
-
-    warnNavigationDiagnostic(
-      `config:${locale || '*'}:${config.file?.path || config.id}:${configPath}`,
-      `.navigation.yml "${config.file?.path || config.id}" does not match any navigation folder for locale "${locale || 'default'}".`
-    )
-  }
 }
 
 const trustedNavigationPlan = (
@@ -153,14 +59,14 @@ export async function resolveContentNavigation (
   const runtimeConfig = getContentRuntimeConfig()
   const environment = resolveRuntimeEnvironment()
   const requestedFields = query.plan.projection.only.map(String)
-  const diagnosticsEnabled = environment === 'development'
+  const diagnosticsEnabled = shouldEmitNavigationRuntimeDiagnostics(environment, Boolean(import.meta.prerender))
 
   if (diagnosticsEnabled) {
-    warnUnknownNavigationSelectFields(
+    emitNavigationDiagnostics(collectUnknownNavigationSelectDiagnostics(
       requestedFields,
       query.collection,
-      runtimeConfig.content.collections as Record<string, { schema?: unknown }> | undefined
-    )
+      runtimeConfig.content.collections as NavigationDiagnosticCollections | undefined
+    ))
   }
 
   return await resolveContentNavigationData({
@@ -215,7 +121,10 @@ export async function resolveContentNavigation (
       const contents = Array.isArray(contentsResult.result) ? contentsResult.result : []
       const dirConfigs = Array.isArray(configsResult.result) ? configsResult.result : []
       if (diagnosticsEnabled) {
-        warnUnmatchedNavigationConfigs(dirConfigs, contents, locale)
+        emitNavigationDiagnostics(collectUnmatchedNavigationConfigDiagnostics(graph.documents, {
+          locale,
+          defaultLocale: runtimeConfig.content.defaultLocale
+        }))
       }
       const configs = dirConfigs.reduce((accumulator, config) => {
         requireNavigationDocumentPath(config, 'directory configuration')

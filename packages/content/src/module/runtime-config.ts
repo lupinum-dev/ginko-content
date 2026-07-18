@@ -41,6 +41,8 @@ type RuntimeCollectionConfig = {
   cms?: ContentCollectionConfig['cms']
   agent?: ContentCollectionConfig['agent']
   references?: Record<string, string[]>
+  /** Top-level schema membership derived at build time for server diagnostics. */
+  schemaFields?: string[]
 }
 
 const sanitizePublicMarkdownPluginValue = (value: unknown): unknown => {

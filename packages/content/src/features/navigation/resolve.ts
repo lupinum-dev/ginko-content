@@ -7,13 +7,13 @@ export type ContentNavigationMatch = {
   title?: string
 }
 
-export type NavigationTreeNode = {
+export type NavigationTreeNode<TChild = unknown> = {
   path?: string
   page?: boolean
-  children?: readonly NavigationTreeNode[]
+  children?: readonly TChild[]
 }
 
-export type NavigationPageNode<T extends NavigationTreeNode> = T & {
+export type NavigationPageNode<T> = T & {
   path: string
 }
 
@@ -71,7 +71,7 @@ export const matchesNavigationItem = (item: ContentNavigationItem, match: string
 }
 
 export const findFirstNavigationPage = <
-  T extends NavigationTreeNode = ContentNavigationTreeItem<ParsedContentMeta>
+  T extends NavigationTreeNode<T> = ContentNavigationTreeItem<ParsedContentMeta>
 >(
   items: ReadonlyArray<T> | undefined = []
 ): NavigationPageNode<T> | null => {
@@ -80,7 +80,7 @@ export const findFirstNavigationPage = <
       return item as NavigationPageNode<T>
     }
 
-    const child = findFirstNavigationPage(item.children as readonly T[] | undefined)
+    const child = findFirstNavigationPage(item.children)
     if (child) {
       return child
     }
@@ -89,18 +89,18 @@ export const findFirstNavigationPage = <
   return null
 }
 
-export function navigationItemContainsPath<T extends NavigationTreeNode>(
+export function navigationItemContainsPath<T extends NavigationTreeNode<T>>(
   item: T,
   path: string
 ): boolean {
   const normalizedPath = normalizeNavigationPath(path)
   return (
     (item.page !== false && typeof item.path === 'string' && normalizeNavigationPath(item.path) === normalizedPath)
-    || Boolean(item.children?.some(child => navigationItemContainsPath(child as T, normalizedPath)))
+    || Boolean(item.children?.some(child => navigationItemContainsPath(child, normalizedPath)))
   )
 }
 
-export function findNavigationTrail<T extends NavigationTreeNode>(
+export function findNavigationTrail<T extends NavigationTreeNode<T>>(
   items: readonly T[] | undefined,
   path: string
 ): T[] {
@@ -111,7 +111,7 @@ export function findNavigationTrail<T extends NavigationTreeNode>(
       return [item]
     }
 
-    const childTrail = findNavigationTrail(item.children as readonly T[] | undefined, normalizedPath)
+    const childTrail = findNavigationTrail(item.children, normalizedPath)
     if (childTrail.length) {
       return [item, ...childTrail]
     }
@@ -124,21 +124,22 @@ export function findNavigationTrail<T extends NavigationTreeNode>(
  * Visit navigation items in depth-first pre-order. Returning `false` from the
  * visitor skips only the current item's children; it does not abort traversal.
  */
-export function walkNavigationTree<T extends NavigationTreeNode>(
+export function walkNavigationTree<T extends NavigationTreeNode<T>>(
   items: readonly T[] | undefined,
-  visit: (item: T) => false | undefined
+  visit: (item: T) => unknown
 ): void {
   for (const item of items || []) {
     const shouldDescend = visit(item)
     if (shouldDescend !== false) {
-      walkNavigationTree(item.children as readonly T[] | undefined, visit)
+      walkNavigationTree(item.children, visit)
     }
   }
 }
 
-export const findFirstNavigationChild = (item: ContentNavigationItem | null | undefined): ResolvedContentNavigationItem | null => {
-  return findFirstNavigationPage(item?.children || []) as ResolvedContentNavigationItem | null
-}
+export const findFirstNavigationChild = <
+  T extends NavigationTreeNode<T> = ContentNavigationItem
+>(item: T | null | undefined): NavigationPageNode<T> | null =>
+  findFirstNavigationPage(item?.children)
 
 export const findNavigationItem = (
   items: ContentNavigationItem[] = [],
@@ -179,6 +180,6 @@ export const resolveNavigationFirstPages = (items: ContentNavigationItem[] = [])
 
 export const resolveNavigationFirstChildren = (items: ContentNavigationItem[] = []): ResolvedContentNavigationItem[] => {
   return items
-    .map(item => findFirstNavigationChild(item))
+    .map(item => findFirstNavigationChild(item) as ResolvedContentNavigationItem | null)
     .filter((item): item is ResolvedContentNavigationItem => Boolean(item))
 }

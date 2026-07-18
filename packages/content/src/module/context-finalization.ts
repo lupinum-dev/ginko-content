@@ -3,7 +3,7 @@ import { hash } from 'ohash'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { ContentConfig } from '../types/config'
 import { processMarkdownOptions } from '../utils'
-import { collectTopLevelReferenceFieldsByTarget } from '../core/references/schema'
+import { collectTopLevelReferenceFieldsByTarget, collectTopLevelSchemaFields } from '../core/references/schema'
 import { applyContentRuntimeConfig } from './runtime-config'
 import { registerContentSearchServerHandlers } from './server-handlers'
 import { assertConfiguredProviderAvailable, validateBuiltinMarkdownPlugins } from './validation'
@@ -67,6 +67,7 @@ export const registerContentContextFinalization = ({
 
     const collectionEntries = Object.entries(contentContext.collections).map(([name, collection]) => {
       const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
+      const schemaFields = collectTopLevelSchemaFields(collection.schema)
       const runtimeCollection = {
         ...(collection.source ? { source: collection.source } : {}),
         ...(collection.exclude ? { exclude: collection.exclude } : {}),
@@ -81,12 +82,16 @@ export const registerContentContextFinalization = ({
         ...(collection.agent ? { agent: collection.agent } : {}),
         ...(Object.keys(references).length ? { references } : {})
       }
-      return [name, runtimeCollection, collection] as const
+      const privateRuntimeCollection = {
+        ...runtimeCollection,
+        ...(schemaFields ? { schemaFields } : {})
+      }
+      return [name, runtimeCollection, privateRuntimeCollection] as const
     })
     const runtimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection]) => [name, runtimeCollection]))
-    const privateRuntimeCollections = Object.fromEntries(collectionEntries.map(([name, runtimeCollection]) => [
+    const privateRuntimeCollections = Object.fromEntries(collectionEntries.map(([name, , privateRuntimeCollection]) => [
       name,
-      runtimeCollection
+      privateRuntimeCollection
     ]))
     const cacheIntegrity = hash({
       locales: resolvedContentContext.locales,
