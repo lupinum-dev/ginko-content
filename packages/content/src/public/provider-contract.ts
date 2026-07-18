@@ -1,16 +1,18 @@
 import type { H3Event } from 'h3'
 import type { ContentCacheHint } from '../core/cache-hints'
+import type { JsonValue } from '../core/json-value'
 import type { MaybeContentProviderResult } from '../core/provider-result'
 import type { ContentQueryResponse } from '../types/api'
-import type { ParsedContent } from '../types/content'
 import type { ContentProviderName } from '../types/config'
 import type { ContentProviderSearchRequest } from '../types/search'
 import type { ContentSitemapMetadata } from '../features/sitemap/metadata'
+import { isProviderCapabilityOperatorList, type ProviderCapabilityOperator } from '../core/query/operators'
 import type {
   ContentProviderNavigationOptions,
   ContentProviderPaginationMode,
   ContentProviderQuery
 } from './provider-query'
+import type { ProviderDocumentInput } from './provider-document'
 
 export interface ContentCacheInvalidateInput {
   tags?: string[]
@@ -28,19 +30,34 @@ export interface ContentProviderSiteDataRequest {
   locale?: string
 }
 
-export interface ContentProviderSiteDataResponse<T = unknown> {
-  key?: string
-  locale?: string
-  data?: T | null
+export interface ContentProviderSiteDataResponse {
+  data: JsonValue | null
   updatedAt?: number
 }
 
 export interface ContentProviderCapabilities {
   query: {
-    operators: readonly string[]
+    operators: readonly ProviderCapabilityOperator[]
     /** Pagination behavior the provider implements. */
     pagination: readonly ContentProviderPaginationMode[]
   }
+}
+
+export type { ProviderCapabilityOperator }
+
+export const isContentProviderOperatorCapabilities = (value: unknown): value is readonly ProviderCapabilityOperator[] =>
+  isProviderCapabilityOperatorList(value)
+
+export const isContentProviderPaginationCapabilities = (value: unknown): value is readonly ContentProviderPaginationMode[] =>
+  Array.isArray(value) &&
+  value.every(mode => mode === 'offset' || mode === 'cursor') &&
+  new Set(value).size === value.length
+
+export const isContentProviderQueryCapabilities = (value: unknown): value is ContentProviderCapabilities['query'] => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const query = value as Record<string, unknown>
+  return isContentProviderOperatorCapabilities(query.operators) &&
+    isContentProviderPaginationCapabilities(query.pagination)
 }
 
 /** Raw, pre-locale-prefix route identity returned by every provider surface. */
@@ -89,10 +106,10 @@ export interface ContentProviderSurroundingsOptions {
 export interface ContentProvider {
   name: ContentProviderName
   capabilities: ContentProviderCapabilities
-  query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promise<MaybeContentProviderResult<ContentQueryResponse<T>>>
+  query: (event: H3Event, query: ContentProviderQuery) => Promise<MaybeContentProviderResult<ContentQueryResponse<ProviderDocumentInput>>>
   navigation?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<MaybeContentProviderResult<ContentProviderNavigationItem[]>>
   surroundings?: (event: H3Event, collection: string, contentPath: string, options?: ContentProviderSurroundingsOptions) => Promise<MaybeContentProviderResult<Array<ContentProviderSurroundItem | null>>>
   search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<MaybeContentProviderResult<ContentProviderSearchResult[]>>
-  siteData?: <T = unknown>(event: H3Event, request: ContentProviderSiteDataRequest) => Promise<MaybeContentProviderResult<ContentProviderSiteDataResponse<T>>>
+  siteData?: (event: H3Event, request: ContentProviderSiteDataRequest) => Promise<MaybeContentProviderResult<ContentProviderSiteDataResponse>>
   routes?: (event: H3Event) => Promise<MaybeContentProviderResult<ContentRouteRecord[]>>
 }

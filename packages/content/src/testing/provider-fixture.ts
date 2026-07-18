@@ -1,13 +1,14 @@
 import type { ContentCacheHint, ContentProvider, ContentProviderQuery } from '../public/provider'
 import type { H3Event } from 'h3'
-import type { ContentQueryResponse } from '../types/api'
+import type { ContentQueryFindResponse, ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, ParsedContent } from '../types/content'
+import type { ProviderDocumentInput } from '../public/provider-document'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
-import { PROVIDER_QUERY_OPERATORS } from '../core/query/operators'
+import { PROVIDER_CAPABILITY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeContentPath } from '../features/localization/path'
-import { normalizeProviderDocument } from '../runtime/server/provider-document'
+import { normalizeProviderDocument } from '../public/provider-document'
 import { createContentProviderError } from '../public/provider-errors'
 
 export interface ProviderFixtureCollection {
@@ -116,9 +117,17 @@ const createProviderFixtureCacheState = (): ProviderFixtureCacheState => ({
 export const createProviderFixtureDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
 ): ParsedContent => {
+  const { path: inputPath, resolved, route, resolution, dir, variants, localePaths, unprefixedPath, ...data } = input
+  void resolved
+  void route
+  void resolution
+  void dir
+  void variants
+  void localePaths
+  void unprefixedPath
   const collection = String(input.collection || 'docs')
   const locale = String(input.locale || 'en')
-  const path = String(input.path || '/')
+  const path = String(inputPath || '/')
   const canonicalKey = String(input.canonicalKey || `${collection}:${trimSlashes(path) || 'index'}`)
   const type = (input.type || 'markdown') as ParsedContent['type']
   const extension = input.file?.extension || (input.type === 'yaml' ? 'yml' : 'md')
@@ -128,7 +137,7 @@ export const createProviderFixtureDocument = (
   // rely on. Identity fields are defaulted here (test ergonomics) and passed
   // through unchanged; `file`/`title`/`body` fixture defaults ride along.
   return normalizeProviderDocument({
-    ...input,
+    ...data,
     collection,
     locale,
     contentPath: path,
@@ -220,29 +229,40 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       fixture.graph,
       {
         ...providerQuery.plan,
-        projection: {
-          only: providerQuery.plan.projection.only.length
-            ? [...new Set([
-                ...providerQuery.plan.projection.only,
-                'id', 'collection', 'canonicalKey', 'locale', 'path', 'resolved',
-                'type', 'body', 'file'
-              ])]
-            : [],
-          without: providerQuery.plan.projection.only.length ? [] : providerQuery.plan.projection.without
-        }
+        filter: {
+          type: 'and',
+          clauses: [
+            providerQuery.plan.filter,
+            { type: 'compare', field: 'draft', operator: 'ne', value: true }
+          ]
+        },
+        // Preserve complete provider documents until the canonical response
+        // shaper applies the public projection after normalization.
+        projection: { only: [], without: [] }
       },
-      fixture.runtime
+      { ...fixture.runtime, includeDrafts: false }
     )
   }
 
   const routeVariantsFor = (doc: ParsedContent) => fixture.documents
-    .filter(candidate => candidate.canonicalKey === doc.canonicalKey && candidate.path && candidate.locale)
+    .filter(candidate =>
+      candidate.canonicalKey === doc.canonicalKey
+      && candidate.path
+      && candidate.locale
+      && candidate.draft !== true
+      && candidate.partial !== true
+      && candidate.navigationFile !== true
+    )
     .map(candidate => ({ locale: candidate.locale!, contentPath: normalizeContentPath(candidate.path!) }))
 
   const toRawDocument = (doc: ParsedContent) => {
-    const { path, resolved, route, resolution, ...data } = doc as ParsedContent & Record<string, unknown>
+    const { path, resolved, route, resolution, dir, variants, localePaths, unprefixedPath, ...data } = doc as ParsedContent & Record<string, unknown>
     void route
     void resolution
+    void dir
+    void variants
+    void localePaths
+    void unprefixedPath
     return {
       ...data,
       id: doc.id,
@@ -253,24 +273,33 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       routeVariants: routeVariantsFor(doc),
       type: doc.type,
       body: doc.body ?? null,
-      ...(doc.file ? { file: doc.file } : {}),
-      ...(resolved ? { _fixtureResolution: resolved } : {})
+      ...(doc.file ? { file: doc.file } : {})
     }
   }
 
-  const mapResponse = (response: ReturnType<typeof executeQueryPlan>) => {
-    if (typeof response.result === 'number') return response
+  const mapResponse = (response: ContentQueryResponse<ParsedContent>): ContentQueryResponse<ProviderDocumentInput> => {
+    if (typeof response.result === 'number') return { result: response.result }
     if (Array.isArray(response.result)) {
-      return { ...response, result: response.result.map(toRawDocument) }
+      const list = response as ContentQueryFindResponse<ParsedContent>
+      const result = response.result.map(toRawDocument)
+      return list.mode === 'cursor'
+        ? { mode: 'cursor', result, limit: list.limit, pageInfo: list.pageInfo }
+        : {
+            ...(list.mode === 'offset' ? { mode: 'offset' as const } : {}),
+            result,
+            skip: list.skip,
+            limit: list.limit,
+            total: list.total,
+          }
     }
-    return { ...response, result: response.result ? toRawDocument(response.result as unknown as ParsedContent) : response.result }
+    return { result: response.result ? toRawDocument(response.result) : undefined }
   }
 
-  const query: ContentProvider['query'] = async <T = ParsedContent>(event: H3Event, providerQuery: ContentProviderQuery) => {
+  const query: ContentProvider['query'] = async (event: H3Event, providerQuery: ContentProviderQuery) => {
     collectProviderFixtureCacheHint(event, {
       tags: providerQuery.collection ? [collectionTag(providerQuery.collection)] : []
     })
-    return mapResponse(execute(providerQuery)) as unknown as ContentQueryResponse<T>
+    return mapResponse(execute(providerQuery))
   }
 
   const navigationDocuments = (providerQuery: ContentProviderQuery) => {
@@ -284,7 +313,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       }
     })
     return normalizeQueryResult<ParsedContent>(response.result as ParsedContent | ParsedContent[] | number | undefined)
-      .filter(doc => !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
+      .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
   }
 
   const routeFact = (doc: ParsedContent) => ({
@@ -299,9 +328,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     capabilities: {
       query: {
         operators: [
-          ...PROVIDER_QUERY_OPERATORS.filter(operator => operator !== '$options'),
-          '$and',
-          '$or'
+          ...PROVIDER_CAPABILITY_OPERATORS
         ],
         pagination: ['offset', 'cursor']
       }
@@ -347,6 +374,7 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
     search: async (_event, request) => {
       const term = request.term.toLocaleLowerCase()
       return fixture.documents
+        .filter(doc => !doc.draft)
         .filter(doc => !request.collections?.length || request.collections.includes(doc.collection || ''))
         .filter(doc => !request.locale || doc.locale === request.locale)
         .filter(doc => String(doc.title || '').toLocaleLowerCase().includes(term))
@@ -362,8 +390,6 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         tags: [`site-data:${request.key}:${request.locale || fixture.defaultLocale}`]
       })
       return {
-        key: request.key,
-        locale: request.locale,
         data: null,
         updatedAt: 0
       }
@@ -421,6 +447,9 @@ export const createDefaultProviderFixture = () => createProviderFixture({
       ref: 'docs.getting-started',
       title: 'Getting Started',
       description: 'Start here',
+      tags: ['guide', 'start'],
+      featured: true,
+      rating: 5,
       order: 1
     },
     {

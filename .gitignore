@@ -81,4 +81,4 @@ cypress/screenshots
 fake
 .benchmarks
 
-.tgz
+*.tgz

@@ -26,6 +26,9 @@ export interface SitemapFile {
 export interface DetectedI18n {
   locales: string[]
   hasNuxtI18nModule: boolean
-  hasContentI18nConfig: boolean
   hasNuxtI18nDependency: boolean
+  nuxtI18nDeclaresLocales: boolean
+  nuxtI18nDeclaresDefaultLocale: boolean
+  contentI18nDeclaresLocales: boolean
+  contentI18nDeclaresDefaultLocale: boolean
 }

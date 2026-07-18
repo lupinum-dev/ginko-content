@@ -19,7 +19,7 @@ src/
   runtime/       Nuxt/Nitro runtime entrypoints
   public/        package export facades
   types/         shared type definitions
-  utils/         small cross-cutting helpers
+  utils.ts       small cross-cutting helpers
   config.ts      public config exports
   module.ts      Nuxt module entrypoint
 ```
@@ -103,9 +103,8 @@ The storage layer answers "what content exists?" for the filesystem provider. It
 
 ## Query Model
 
-Queries are immutable builders that lower to stable internal plans.
+Public query options compile through a params IR into stable internal plans.
 
-- builder: `src/core/query/builder.ts`
 - normalized params: `src/core/query/params.ts`
 - lowered plan: `src/core/query/plan.ts`
 - lowering: `src/core/query/lower.ts`

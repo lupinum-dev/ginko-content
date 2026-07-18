@@ -2,22 +2,22 @@
   {
     "term": "useContentSearch",
     "locale": "en",
-    "expectedPaths": ["/docs/api-reference/composables", "/docs/search"]
+    "expectedPaths": ["/docs/reference/composables", "/docs/get-started/add-search"]
   },
   {
     "term": "translated slug",
     "locale": "en",
-    "expectedPaths": ["/docs/i18n/strategies", "/docs/i18n"]
+    "expectedPaths": ["/docs/guides/routing-and-seo/translated-slugs", "/docs/how-it-works/localization-model"]
   },
   {
     "term": "provider capabilities",
     "locale": "en",
-    "expectedPaths": ["/docs/api-reference/providers", "/docs/search/choosing-a-search-backend"]
+    "expectedPaths": ["/docs/reference/provider-contract", "/docs/how-it-works/query-model"]
   },
   {
     "term": "llms-full.txt",
     "locale": "en",
-    "expectedPaths": ["/docs/api-reference/module-options", "/docs/migration/agent-migration-packet"]
+    "expectedPaths": ["/docs/reference/module-options", "/docs/resources/deployment"]
   },
   {
     "term": "stable pricing target",

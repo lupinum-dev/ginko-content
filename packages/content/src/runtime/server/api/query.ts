@@ -1,7 +1,11 @@
 import { createError, defineEventHandler } from 'h3'
 import { getContentQuery } from '../../utils/query'
 import { getContentProvider } from '../providers'
-import { createProviderQuery, normalizeProviderQueryResponse } from '../provider-query'
+import {
+  assertConfiguredProviderCollection,
+  createProviderQuery,
+  normalizeProviderQueryResponse
+} from '../provider-query'
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
 
 /**
@@ -37,6 +41,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = validated.value
+  if (!query.collection) {
+    throw invalidContentQueryRequest('$.collection', 'collection is required for the public query endpoint.')
+  }
+  try {
+    assertConfiguredProviderCollection(query.collection)
+  } catch {
+    throw invalidContentQueryRequest('$.collection', 'collection must name a configured content collection.')
+  }
   const provider = await getContentProvider(event)
-  return normalizeProviderQueryResponse(query, await provider.query(event, createProviderQuery(query)), provider.name)
+  const response = normalizeProviderQueryResponse(query, await provider.query(event, createProviderQuery(query)), provider.name)
+  // `undefined` object properties disappear during JSON serialization. Use a
+  // top-level null for a missing first result so the client cannot mistake an
+  // empty `{}` response for a document.
+  return query.first && response.result === undefined ? null : response
 })

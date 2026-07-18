@@ -116,7 +116,7 @@ export const registerContentServerHandlers = (
 
 export const registerContentSearchServerHandlers = (
   apiBaseURL: string,
-  search: ContentSearchOptions,
+  search: Pick<ContentSearchOptions, 'apiBaseURL' | 'engine'>,
   resolveRuntimeModule: (path: string) => string
 ) => {
   const searchBaseURL = search.apiBaseURL || `${apiBaseURL.replace(/\/$/, '')}/search`

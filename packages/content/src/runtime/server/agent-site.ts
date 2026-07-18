@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { getRequestURL } from 'h3'
 import type { AgentMarkdown, AgentMarkdownMeta } from './agent-markdown'
 import { linkMarkdown, queryMarkdownEnabledContent, resolveContentMarkdownByRoute } from './agent-markdown'
-import { agentMarkdownPathForRoute, agentRawPathForRoute, agentRoutePathFromIndexSlug, agentRoutePathFromRawSlug, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
+import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
 import { pathHasLocalePrefix, stripLocalePrefix } from '../../core/content/path'
 import { projectContentRoute } from '../../features/localization/route-projector'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
@@ -374,10 +374,6 @@ export const localeFromAgentPath = (path: string) => {
   const fallback = defaultLocale()
   return stripLocalePrefix(normalizeAgentRoutePath(path), getAgentLocales(), fallback).locale ?? fallback
 }
-
-export const routePathFromRawSlug = agentRoutePathFromRawSlug
-
-export const routePathFromIndexSlug = agentRoutePathFromIndexSlug
 
 export const collectAgentMarkdownPrerenderRoutes = async (event: H3Event) => {
   const routes = new Set<string>()

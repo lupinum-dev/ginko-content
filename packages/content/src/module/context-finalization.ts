@@ -31,7 +31,7 @@ export const registerContentContextFinalization = ({
 }: ContentContextFinalizationOptions) => {
   nuxt.hook('modules:done', async () => {
     // `content:providers` remains the mutable setup registry: it runs before
-    // provider selection is validated so integrations (e.g. Ginko CMS) can
+    // provider selection is validated so provider integrations can
     // register an implementation name before the check below runs.
     await nuxt.callHook('content:providers', contentContext.providers ||= {})
     assertConfiguredProviderAvailable(contentContext)
@@ -74,7 +74,9 @@ export const registerContentContextFinalization = ({
         strict: collection.strict ?? true,
         ...(collection.route ? { route: collection.route } : {}),
         ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
-        ...(collection.i18n && collection.i18n !== true ? { i18n: collection.i18n } : {}),
+        ...(collection.i18n === false || (collection.i18n && collection.i18n !== true)
+          ? { i18n: collection.i18n }
+          : {}),
         ...(collection.cms ? { cms: collection.cms } : {}),
         ...(collection.agent ? { agent: collection.agent } : {}),
         ...(Object.keys(references).length ? { references } : {})

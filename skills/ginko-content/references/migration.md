@@ -6,7 +6,7 @@ Use this when converting a Nuxt Content v2/v3 app to Ginko Content.
 
 ```bash
 pnpm remove @nuxt/content
-pnpm add @lupinum/ginko-content zod
+pnpm add @lupinum/ginko-content@next zod
 ```
 
 In `nuxt.config.ts`:

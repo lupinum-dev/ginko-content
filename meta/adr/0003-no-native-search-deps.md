@@ -27,8 +27,8 @@ performance win of a native engine is not worth the operational cost.
 Search uses two transports, both natively portable:
 
 - **JSON search index** — a static payload generated at build, consumed by
-  `useContentSearchData` / `useContentSearchResults` on the client. Powered
-  by [MiniSearch](https://github.com/lucaong/minisearch) under the hood.
+  `useContentSearch` on the client. Powered by
+  [MiniSearch](https://github.com/lucaong/minisearch) under the hood.
 - **Pagefind** — a static index with per-locale shards, generated at build,
   delivered as regular static assets.
 

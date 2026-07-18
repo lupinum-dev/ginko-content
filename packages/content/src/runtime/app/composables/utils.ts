@@ -1,7 +1,7 @@
 import { withBase } from 'ufo'
 import { hash } from 'ohash'
 import { useRequestEvent, useRequestFetch } from '#imports'
-import type { ContentQueryBuilderParams } from '../../../types/query'
+import type { ContentProviderQueryInput } from '../../../types/query'
 import { encodeQueryParams } from '../../utils/query'
 import { useContentPreview } from './preview'
 import { getContentRuntime } from './runtime'
@@ -73,7 +73,7 @@ export const getContentApiFetcher = (fetcher?: ContentApiFetcher): ContentApiFet
 
 export const buildContentApiPath = (
   endpoint: ContentApiEndpoint,
-  params: ContentQueryBuilderParams,
+  params: ContentProviderQueryInput,
   runtime?: ContentRuntimeShape
 ) => {
   const content = runtime || readContentRuntime()
@@ -88,7 +88,7 @@ export const isHtmlFallbackResponse = (data: unknown): data is string => {
 
 export async function fetchContentApi<T> (
   endpoint: ContentApiEndpoint,
-  params: ContentQueryBuilderParams,
+  params: ContentProviderQueryInput,
   options: {
     fetcher?: ContentApiFetcher
     runtime?: ContentRuntimeShape

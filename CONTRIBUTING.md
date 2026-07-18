@@ -26,18 +26,10 @@ module wiring.
 
 ## Release-Sensitive Checks
 
-Run the full release gate before publishing or when a change affects public
-behavior:
-
-```bash
-pnpm run release:verify
-```
-
-This command runs the workspace verification, packed fresh Nuxt consumer test,
-production browser e2e, search matrix, static sitemap checks, production audit,
-and release tarball packing/inspection. The packed consumer also verifies a
-fresh installed app can emit sitemap XML and agent markdown output from the
-packed package.
+Contributors should use `pnpm verify`. The authoritative `release:verify` gate
+runs in CI against the exact final release commit and produces the tarball that
+a maintainer inspects. Do not repeat that release-only gate during ordinary
+cleanup work.
 
 For browser e2e locally, either install a Chromium-compatible browser or point
 the test at one:

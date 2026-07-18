@@ -1,12 +1,12 @@
 /**
  * @lupinum/ginko-content/cms-contract
  *
- * Pure, runtime-safe surface that ginko-cms consumes. This subpath contains
+ * Pure, runtime-safe surface for CMS/provider consumers. This subpath contains
  * NO Node, Nuxt, h3, nitropack, filesystem, or @nuxt/kit dependencies. Every
- * module re-exported from here MUST be importable from a V8 isolate (Convex
- * component, Cloudflare Workers, browser).
+ * module re-exported from here MUST be importable from a V8 isolate, worker,
+ * or browser.
  *
- * The CMS uses this surface to:
+ * Consumers use this surface to:
  *  - normalize a host's `content.config.ts` into the one portable
  *    `ResolvedContentContractV1` artifact (`buildResolvedContentContract`),
  *  - produce RFC 8785 canonical JSON and incremental SHA-256 hashes without
@@ -18,7 +18,7 @@
  *  - parse MDC into the same AST the filesystem provider uses (`parseMdcBody`).
  *
  * If a future change introduces a Node/Nuxt dependency anywhere in this
- * tree, the CMS Convex build will break loudly. That's intentional.
+ * tree, isolate builds will break loudly. That's intentional.
  */
 
 export {

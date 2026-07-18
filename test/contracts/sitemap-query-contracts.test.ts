@@ -151,7 +151,7 @@ describe('provider-backed sitemap contracts', () => {
     ])
   })
 
-  test('infers localization from provider-owned variants independently of collection configuration', async () => {
+  test('inherits the global locale policy when the collection does not override it', async () => {
     state.runtime.collections = { docs: {} }
     state.routes.mockReturnValue([
       {
@@ -191,6 +191,37 @@ describe('provider-backed sitemap contracts', () => {
     ])
   })
 
+  test('does not infer localization from provider locale facts when the collection disables i18n', async () => {
+    state.runtime.collections = { docs: { i18n: false } }
+    state.routes.mockReturnValue([{
+      collection: 'docs',
+      canonicalKey: 'provider-guide',
+      locale: 'de',
+      contentPath: '/provider-guide'
+    }])
+
+    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
+    await expect(queryCollectionsSitemapEntries(createEvent(), {
+      siteUrl: 'https://docs.example.test'
+    })).resolves.toEqual([{ loc: '/provider-guide' }])
+  })
+
+  test('keeps collection and canonical identities distinct when either contains a colon', async () => {
+    state.runtime.collections = { 'a:b': {}, a: {} }
+    state.routes.mockReturnValue([
+      { collection: 'a:b', canonicalKey: 'c', locale: 'en', contentPath: '/first' },
+      { collection: 'a', canonicalKey: 'b:c', locale: 'de', contentPath: '/second' }
+    ])
+
+    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
+    await expect(queryCollectionsSitemapEntries(createEvent(), {
+      siteUrl: 'https://docs.example.test'
+    })).resolves.toEqual([
+      { _sitemap: 'en-US', loc: '/first' },
+      { _sitemap: 'de-DE', loc: '/de/second' }
+    ])
+  })
+
   test('does not invent locale sitemap partitions for a non-localized collection', async () => {
     state.runtime.locales = []
     state.runtime.collections = { docs: {} }
@@ -219,12 +250,30 @@ describe('provider-backed sitemap contracts', () => {
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
     await expect(queryCollectionsSitemapEntries(createEvent(), {
       siteUrl: 'https://docs.example.test'
-    })).resolves.toEqual([{ loc: '/public' }])
+    })).resolves.toEqual([{ _sitemap: 'en-US', loc: '/public' }])
     await expect(queryCollectionsSitemapEntries(createEvent(), {
       siteUrl: 'https://docs.example.test', includeDrafts: true, include: ['docs']
-    })).resolves.toEqual([{ loc: '/public' }, { loc: '/draft' }])
+    })).resolves.toEqual([
+      { _sitemap: 'en-US', loc: '/public' },
+      { _sitemap: 'en-US', loc: '/draft' }
+    ])
     await expect(queryCollectionsSitemapEntries(createEvent(), {
       siteUrl: 'https://docs.example.test', include: ['private']
     })).rejects.toMatchObject({ statusMessage: 'data_collection_sitemap_access' })
+  })
+
+  test('rejects provider routes for collections absent from runtime configuration', async () => {
+    state.runtime.collections = { docs: {} }
+    state.routes.mockReturnValue([
+      { collection: 'secret', canonicalKey: 'secret:leak', locale: 'en', contentPath: '/secret/leak' }
+    ])
+
+    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
+    await expect(queryCollectionsSitemapEntries(createEvent(), {
+      siteUrl: 'https://docs.example.test'
+    })).rejects.toMatchObject({
+      statusMessage: 'provider_result_invalid',
+      data: expect.objectContaining({ operation: 'routes', field: 'result[0].collection' })
+    })
   })
 })

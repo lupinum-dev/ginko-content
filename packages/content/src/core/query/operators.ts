@@ -3,19 +3,33 @@ import type { ContentQuerySortOptions, ContentQuerySortParams } from '../../type
 const isNullish = (value: unknown): value is null | undefined =>
   value === null || value === undefined
 
+const FORBIDDEN_QUERY_FIELD_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
+
+/** Query field paths are dotted own-property paths. */
+export const isValidQueryFieldPath = (path: unknown): path is string =>
+  typeof path === 'string' &&
+  path.length > 0 &&
+  path.split('.').every(segment => segment.length > 0 && !FORBIDDEN_QUERY_FIELD_PATH_SEGMENTS.has(segment))
+
+/** Locale identifier accepted by the platform collation implementation. */
+export const isValidQueryCollationLocale = (locale: unknown): locale is string => {
+  if (typeof locale !== 'string' || locale.length === 0) return false
+  try {
+    return Intl.getCanonicalLocales(locale).length === 1
+  }
+  catch {
+    return false
+  }
+}
+
 export const get = (obj: Record<string, unknown> | undefined, path: string): unknown =>
-  path.split('.').reduce<unknown>((acc, part) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[part] : undefined), obj)
+  path.split('.').reduce<unknown>((acc, part) =>
+    acc && typeof acc === 'object' && Object.prototype.hasOwnProperty.call(acc, part)
+      ? (acc as Record<string, unknown>)[part]
+      : undefined, obj)
 
 const pickObject = <T extends Record<string, unknown>>(obj: T, condition: (item: string) => boolean) =>
-  Object.keys(obj)
-    .filter(condition)
-    .reduce<Record<string, unknown>>((newObj, key) => Object.assign(newObj, { [key]: obj[key] }), {})
-
-export const omit = (keys?: string[]) => <T extends Record<string, unknown>>(obj: T) =>
-  keys && keys.length ? pickObject(obj, key => !keys.includes(key)) : obj
-
-export const apply = <TInput, TOutput>(fn: (d: TInput) => TOutput) => (data: TInput | TInput[]) =>
-  Array.isArray(data) ? data.map(item => fn(item)) : fn(data)
+  Object.fromEntries(Object.entries(obj).filter(([key]) => condition(key)))
 
 export const detectProperties = (keys: string[]) => {
   const prefixes = []
@@ -81,15 +95,6 @@ export const sortList = <T extends Record<string, unknown>>(data: T[], params: C
 }
 
 /**
- * Raise TypeError if value is not an array.
- */
-export function assertArray (value: unknown, message = 'Expected an array'): asserts value is unknown[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(message)
-  }
-}
-
-/**
  * Ensure result is an array
  */
 export const ensureArray = <T>(value: T) => {
@@ -112,8 +117,7 @@ export const PUBLIC_QUERY_OPERATORS = [
   '$icontains',
   '$exists',
   '$type',
-  '$prefix',
-  '$not'
+  '$prefix'
 ] as const
 
 export const PROVIDER_QUERY_OPERATORS = [
@@ -121,6 +125,26 @@ export const PROVIDER_QUERY_OPERATORS = [
   '$regex',
   '$options'
 ] as const
+
+/**
+ * Comparison operators a provider can execute after public syntax has been
+ * lowered to the query plan. `$options` is folded into the `$regex` operand
+ * and is not advertised as a comparison capability. Logical `$not` lowers to
+ * a structural plan node alongside `$and` and `$or`.
+ */
+export type ProviderCapabilityOperator = Exclude<(typeof PROVIDER_QUERY_OPERATORS)[number], '$options'>
+
+export const PROVIDER_CAPABILITY_OPERATORS: readonly ProviderCapabilityOperator[] =
+  PROVIDER_QUERY_OPERATORS.filter(
+    (operator): operator is ProviderCapabilityOperator => operator !== '$options'
+  )
+
+const PROVIDER_CAPABILITY_OPERATOR_SET = new Set<string>(PROVIDER_CAPABILITY_OPERATORS)
+
+export const isProviderCapabilityOperatorList = (value: unknown): value is readonly ProviderCapabilityOperator[] =>
+  Array.isArray(value) &&
+  value.every(operator => typeof operator === 'string' && PROVIDER_CAPABILITY_OPERATOR_SET.has(operator)) &&
+  new Set(value).size === value.length
 
 const isQueryOperatorRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && !(value instanceof RegExp) && !(value instanceof Date)

@@ -1,5 +1,6 @@
 import type { MarkdownNode, ParsedContent } from '../../types/content'
 import type { ContentCollectionSearchSectionsOptions, ContentSearchSection } from '../../types/query'
+import { isMarkdownRoot } from '../../core/markdown/tree'
 
 const HEADING = /^h([1-6])$/
 
@@ -70,7 +71,7 @@ function splitPageIntoSections (
     level: 1
   }]
 
-  if (!body?.children) {
+  if (!isMarkdownRoot(body)) {
     return sections
   }
 
@@ -152,10 +153,7 @@ function pick (fields: string[], page: Record<string, unknown>) {
     return {}
   }
 
-  return fields.reduce<Record<string, unknown>>((result, field) => {
-    if (typeof page[field] !== 'undefined') {
-      result[field] = page[field]
-    }
-    return result
-  }, {})
+  return Object.fromEntries(fields
+    .filter(field => Object.prototype.hasOwnProperty.call(page, field) && typeof page[field] !== 'undefined')
+    .map(field => [field, page[field]]))
 }

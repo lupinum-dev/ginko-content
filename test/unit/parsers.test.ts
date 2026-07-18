@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { transformContent } from '../../packages/content/src/parsers'
+import pathMeta from '../../packages/content/src/parsers/path-meta'
+import { makeIgnored } from '../../packages/content/src/core/content/ignore'
 
 describe('transformContent', () => {
   afterEach(() => {
@@ -46,4 +48,23 @@ describe('transformContent', () => {
     // The `id` warning points authors at `ref`.
     expect(messages.find(message => message.includes('"id"'))).toContain('ref')
   })
+})
+
+describe('content parsing metadata', () => {
+  test('does not ignore .navigation.yml files', () => {
+    const ignored = makeIgnored([])
+    expect(ignored('content:guide:.navigation.yml')).toBe(false)
+  })
+
+  test('marks .navigation.yml as folder metadata', () => {
+    const transformed = pathMeta.transform!(
+      { id: 'content:guide:.navigation.yml', body: {} as any },
+      { locales: [], defaultLocale: 'en' }
+    )
+
+    expect(transformed.navigationFile).toBe(true)
+    expect(transformed.partial).toBe(true)
+    expect(transformed.path).toBe('/guide')
+  })
+
 })

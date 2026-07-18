@@ -30,7 +30,6 @@
     "build:packages": "pnpm build",
     "benchmark:search": "pnpm build:packages && pnpm docs:build && pnpm --filter @lupinum/ginko-content-playground-i18n build && node --expose-gc scripts/benchmark-search.mjs",
     "examples:build": "pnpm --filter './examples/**' --workspace-concurrency=1 build",
-    "typecheck:examples": "pnpm --filter example-cms-cache-contract typecheck",
     "example": "node --input-type=module -e \"import { spawnSync } from 'node:child_process'; const target = process.argv[1]; if (!target) { console.error('Usage: pnpm example <group>/<name>'); process.exit(1); } const result = spawnSync('pnpm', ['--dir', `examples/${target}`, 'dev'], { stdio: 'inherit', shell: process.platform === 'win32' }); process.exit(result.status ?? 1);\"",
     "format": "eslint . --fix",
     "format:check": "eslint .",
@@ -38,7 +37,6 @@
     "docs-drift": "node scripts/docs-drift.mjs",
     "check:test-selection": "node scripts/check-test-selection.mjs",
     "lint": "pnpm run check:repo-policies && pnpm run check:test-selection && pnpm run api-docs:check && eslint .",
-    "pack:check": "pnpm build:packages && (cd packages/content && npm pack --dry-run --json) && tmpdir=$(mktemp -d) && pnpm --dir packages/content pack --pack-destination \"$tmpdir\" && tar -tzf \"$tmpdir\"/lupinum-ginko-content-*.tgz >/dev/null && rm -rf \"$tmpdir\"",
     "dev:pack": "node scripts/dev-pack.mjs",
     "release:verify": "node scripts/timed-command.mjs verify pnpm verify && node scripts/timed-command.mjs browser-e2e pnpm test:e2e:browser:prepared && node scripts/timed-command.mjs generate pnpm test:generate:static:prepared && node scripts/timed-command.mjs audit:prod pnpm audit:prod && node scripts/timed-command.mjs release:pack pnpm release:pack && node scripts/timed-command.mjs pure-runtimes pnpm test:pure-runtimes && node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer && node scripts/timed-command.mjs consumer:npm pnpm test:package-consumer:npm",
     "release:pack": "node scripts/release-pack.mjs",
@@ -75,7 +73,7 @@
     "verify:static": "pnpm docs-drift && pnpm lint",
     "verify:core:prepared": "pnpm test:prepared && pnpm typecheck:prepared && pnpm test:quickstart:prepared",
     "verify:core": "pnpm build:packages && pnpm prepare:contracts && pnpm verify:core:prepared",
-    "verify:docs-examples:prepared": "pnpm docs:build && pnpm docs:smoke && pnpm examples:build && pnpm typecheck:examples",
+    "verify:docs-examples:prepared": "pnpm docs:build && pnpm docs:smoke && pnpm examples:build",
     "verify:docs-examples": "pnpm build:packages && pnpm verify:docs-examples:prepared",
     "verify:e2e": "pnpm test:e2e:prepared",
     "verify": "pnpm dev:prepare && pnpm verify:static && pnpm verify:docs-examples:prepared && pnpm verify:core:prepared && pnpm verify:e2e"
@@ -85,12 +83,10 @@
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/schema": "4.4.8",
     "@nuxt/test-utils": "4.0.3",
-    "@nuxtjs/i18n": "10.3.0",
     "@orama/orama": "3.1.18",
     "changelogen": "^0.6.2",
     "eslint": "^10.3.0",
     "esbuild": "0.28.1",
-    "globby": "^16.2.0",
     "happy-dom": "^20.9.0",
     "minisearch": "^7.2.0",
     "nuxt": "4.4.8",
@@ -103,7 +99,7 @@
     "zod": "4.4.3"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
   },
   "packageManager": "pnpm@10.33.0"
 }

@@ -46,8 +46,8 @@ type NavigationResolver = <
 ) => Promise<unknown[]>
 
 /**
- * Resolve the navigation tree for a collection — the public `navigation()`
- * verb, absorbing the deleted `tree()` operation.
+ * Resolve the navigation tree for a collection through the public
+ * `navigation()` verb.
  */
 export async function resolveNavigation<
   H extends ContentCollectionHandle | string,
@@ -80,8 +80,8 @@ export async function resolveNavigation<
 }
 
 /**
- * Return the previous/next navigation entries surrounding a document — the
- * public `surround()` verb, replacing `neighbors()`.
+ * Return the previous/next navigation entries surrounding a document through
+ * the public `surround()` verb.
  * `previous`, never `prev`.
  */
 export async function resolveSurround<H extends ContentCollectionHandle | string>(

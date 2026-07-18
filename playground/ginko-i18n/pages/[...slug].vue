@@ -12,9 +12,8 @@ import { docs } from '../content.config'
 // still gives every one of these routes a real link.
 const { page } = await useContentPage(docs, { fallback: true })
 
-// Content-aware locale switcher over `page.route.alternates` — the documented replacement for the deleted
-// `useContentSwitchLocalePath`. This complements (does not
-// replace) the layout's always-present route-only switcher: once a real
+// This content-aware locale switcher complements the layout's always-present
+// route-only switcher: once a real
 // document resolves, this renders the precise canonical path per locale
 // (and labels genuine fallback locales), instead of a naive URL-prefix swap.
 const localeNames: Record<string, string> = { en: 'English', de: 'Deutsch' }

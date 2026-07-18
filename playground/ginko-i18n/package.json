@@ -13,7 +13,10 @@
     "@lupinum/ginko-content": "workspace:*",
     "@nuxtjs/i18n": "10.3.0",
     "@nuxtjs/sitemap": "8.0.15",
+    "h3": "1.15.11",
     "nuxt-site-config": "4.0.8",
-    "nuxt": "4.4.8"
+    "nuxt": "4.4.8",
+    "vue-i18n": "^11.4.2",
+    "zod": "4.4.3"
   }
 }

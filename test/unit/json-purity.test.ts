@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { z } from 'zod'
 import { collectJsonPurityViolations, formatJsonPurityViolations, isJsonPure } from '../../packages/content/src/core/json-value'
 import { validateDocumentJsonPurity } from '../../packages/content/src/storage/validation'
-import { normalizeProviderDocument } from '../../packages/content/src/runtime/server/provider-document'
+import { normalizeProviderDocument } from '../../packages/content/src/public/provider-document'
 import { parseContentVariants } from '../../packages/content/src/integrations/nitro/ingest'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
@@ -127,7 +127,7 @@ describe('provider-document: normalizeProviderDocument runs the same JSON-purity
     const document = normalizeProviderDocument({
       collection: 'blog',
       locale: 'en',
-      path: '/blog/hello',
+      contentPath: '/blog/hello',
       body,
       publishedAt: '2026-01-01'
     })
@@ -138,7 +138,7 @@ describe('provider-document: normalizeProviderDocument runs the same JSON-purity
     expect(() => normalizeProviderDocument({
       collection: 'blog',
       locale: 'en',
-      path: '/blog/hello',
+      contentPath: '/blog/hello',
       body,
       publishedAt: new Date('2026-01-01')
     })).toThrowError(expect.objectContaining({

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import type { ParsedContent } from '../../packages/content/src/types/content'
-import type { ContentRouteRecord } from '../../packages/content/src/features/localization/route-projector'
+import type { ProjectedContentRouteRecord } from '../../packages/content/src/features/localization/route-projector'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 import { runContentValidation } from '../../packages/content/src/cli/validate'
 import { validateContentLinks } from '../../packages/content/src/features/validation/links'
@@ -22,7 +22,7 @@ const document = (path: string, children: unknown[], file: string, locale = 'en'
 })
 
 const element = (tag: string, props: Record<string, unknown> = {}, children: unknown[] = []) => ({ type: 'element', tag, props, children })
-const route = (item: ParsedContent, path: string): ContentRouteRecord => ({
+const route = (item: ParsedContent, path: string): ProjectedContentRouteRecord => ({
   collection: item.collection!, canonicalKey: item.canonicalKey!, locale: item.locale!, contentPath: item.path!, path, draft: false, sitemap: true
 })
 

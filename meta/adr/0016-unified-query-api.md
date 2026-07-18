@@ -8,77 +8,34 @@ date: 2026-05-01
 
 ## Context
 
-Pre-redesign, the package shipped 13+ overlapping public query symbols:
+Content reads once exposed several overlapping builders, helpers, and
+composables. Callers had to choose among APIs with different locale and route
+semantics, and document selection was mixed with set filtering.
 
-- Fluent builders: `queryCollection`, `queryCollectionPage`,
-  `queryCollectionNavigation`, `queryCollectionRouteMeta`,
-  `queryCollectionSearchSections`, `serverQueryCollection`.
-- Composables: `useContentPage`, `useContentList`, `useContentNavigation`,
-  `useContentRoute`, `useContentSwitchLocalePath`.
-- Reference resolution: `resolveContentReference`.
-- Sundry: `querySiteData`.
-
-Three problems:
-
-1. **No single way in.** Three competing styles (chained builder, route-aware
-   composable, list helper) plus a dozen specializations. Agents and humans
-   struggle to pick the right one.
-2. **Locale resolution was implicit.** `.locale()` was optional; when omitted
-   the system reached for `useI18n().locale` or the route prefix. Type-safety
-   was impossible — a missing locale silently returned wrong-locale results.
-3. **`path`/`ref` resolution was buried** inside `useContentPage` and
-   `resolveContentReference`. The same identifier system used by markdown
-   `[link](ref:guide.intro)` had no first-class equivalent in TS code.
-
-The package is pre-release greenfield, so a hard break was acceptable.
+The public surface needs one vocabulary that works in browser, server, and
+script contexts while keeping provider transport details private.
 
 ## Decision
 
-Replace the entire surface with **one explicit content-query vocabulary**:
+Use collection handles with these pure asynchronous operations:
 
-- `by` identifies exactly one document by rendered `route`, content `path`, or
-  authored `ref`.
-- `where` filters result sets with a MongoDB-style field filter.
-- `locale` is type-required on i18n collection handles.
-- `fallback` is explicit and narrowly defined.
-- `resolveOne()` is the first-class diagnostic path.
+- `one()` for one selected document;
+- `many()` for a result set;
+- `paginate()` for explicit offset or cursor pagination;
+- `resolveOne()` for a selected document plus resolution diagnostics;
+- `navigation()` for a collection navigation tree;
+- `surround()` for previous and next entries;
+- `backlinks()` for inbound references.
 
-### Public surface
+Client and server exports use the same option and result shapes. Server calls
+take the active H3 event first. The only public Vue composables are
+`useContentPage()` for route-backed page loading and `useContentSearch()` for
+search state; other reactive workflows compose the pure operations with Nuxt's
+`useAsyncData()`.
 
-```ts
-// content.config.ts — handle carries the name and i18n flag at the type level
-export const docs = defineCollection({
-  type: 'page',
-  source: 'docs/**/*.md',
-  i18n: { locales: ['en', 'fr', 'de'], defaultLocale: 'en' },
-  translatedSlugs: true,
-})
-export const blog = defineCollection({ type: 'page', source: 'blog/**/*.md' })
+### Selection and filtering
 
-// Layer 1 — pure async (server, scripts, edge)
-one(docs, { locale: 'fr', by: { route: '/fr/documentation/pour-commencer' } })
-many(blog, {
-  where: { category: { $in: ['tech'] }, published: true },
-  sort: { date: 'desc' },
-  limit: 10,
-})
-resolveOne(docs, { locale: 'fr', by: { ref: 'guide.getting-started' } })
-variants(docs, { locale: 'fr', by: { ref: 'guide.getting-started' } })
-tree(docs, { locale: 'fr', fallback: 'default' })
-neighbors(docs, { locale: 'fr', by: { ref: 'guide.getting-started' } })
-
-// Layer 2 — Vue composables, identical option shape, MaybeRefOrGetter for every option
-useContentOne(docs, { locale, by: { route: () => route.path }, fallback: 'en' })
-useContentMany(blog, { where: { ... }, sort: { date: 'desc' }, limit: 10 })
-useContentResolveOne(docs, { locale, by: { ref: () => page.value?.ref || '' } })
-useContentVariants(docs, { locale, by: { ref: () => page.value?.ref || '' } })
-useContentTree(docs, { locale })
-useContentNeighbors(docs, { locale, by: { ref: () => page.value?.ref || '' } })
-```
-
-### `by` vs `where`
-
-`by` is an XOR selector:
+`by` identifies exactly one document and is an exclusive selector:
 
 ```ts
 type ContentSelector =
@@ -87,228 +44,88 @@ type ContentSelector =
   | { ref: string, route?: never, path?: never }
 ```
 
-`path` and `ref` route through the content graph:
-
-- `by: { route: '/x' }` — resolves the rendered route a visitor is on. For
-  localized collections this is the page-loading selector because it preserves
-  translated slug and fallback semantics.
-- `by: { path: '/x' }` — resolves the canonical content path. When locale or
-  fallback is set, becomes a
-  `resolveVariant` lookup against `byRoute` (locale-aware route
-  resolution). When neither is set, becomes a plain `_path` equality
-  so non-i18n collections work the same way.
-- `by: { ref: 'guide.intro' }` — routes through `byRef` /
-  `referenceTargets`, the same lookup tables markdown's
-  `[link](ref:guide.intro)` already uses.
-
-`where` is only for filtering result sets.
-
-MongoDB-style operator object replaces the old string-named operators
-(`'='`, `'IN'`, `'CONTAINS_ANY'`, `'REGEX'`, `'ICONTAINS'`, `'EXISTS'`,
-`'TYPE'`).
-
-| Old | New |
-|---|---|
-| `.where('cat', '=', 'tech')` | `where: { cat: 'tech' }` or `{ cat: { $eq: 'tech' } }` |
-| `.where('cat', 'IN', [...])` | `where: { cat: { $in: [...] } }` |
-| `.where('title', 'ICONTAINS', 'x')` | `where: { title: { $regex: 'x', $options: 'i' } }` |
-| `.where('field', 'EXISTS')` | `where: { field: { $exists: true } }` |
-| `.andWhere(...)` / `.orWhere(...)` | `where: { $and: [...] }` / `{ $or: [...] }` |
-
-`where.path` is a documented route-path filter for result sets. It
-compiles to internal `_path`, including prefix filters:
+`where` filters result sets with the documented field comparison operators and
+structural `$and`, `$or`, and `$not` nodes. Public callers cannot use the
+provider-only `$regex` transport operator.
 
 ```ts
-many(posts, { where: { path: { $prefix: '/blog/2026' } } })
+const post = await one(blog, { by: { route: '/blog/hello' } })
+
+const posts = await many(blog, {
+  where: { category: { $in: ['tech'] }, published: true },
+  sort: { date: 'desc' },
+  limit: 10
+})
 ```
 
-### Type-required locale
+### Locale requirements
 
-A collection handle from `defineContentConfig({ collections })` carries a
-phantom `__i18n: true | false` discriminator. The `OneOptions<H>`,
-`ManyOptions<H>`, `TreeOptions<H>`, `VariantsOptions<H>`, and `NeighborsOptions<H>` types
-make `locale` required when `H['__i18n']` is `true`:
+Collection handles carry whether the collection is localized. Options are
+type-required for localized handles and must name a locale; non-localized
+handles may omit them where the operation otherwise has no required option.
+Fallback is always explicit in direct query operations.
 
 ```ts
-one(docs, { by: { ref: 'guide.intro' } })                    // ❌ TS error
-one(docs, { locale: 'fr', by: { ref: 'guide.intro' } })      // ✅
-one(docs, { locale: 'fr', by: { route: '/fr/guide/intro' } })// ✅
-one(blog, { by: { path: '/hello' } })                        // ✅ (single locale)
+await many(docs, { locale: 'de' })
+await many(docs, { locale: 'de', fallback: ['en'] })
+await navigation(docs, { locale: 'de' })
 ```
 
-The type-level test suite at
-`test/fixtures/typecheck/types/ginko-api.ts` covers both positive and
-negative cases.
+Navigation deliberately fills missing locale entries through the configured
+fallback chain so sidebars remain complete, while ordinary list queries remain
+strict unless the caller requests fallback.
 
-### Localized doc shape
+### Document envelope
 
-Every document returned by `one` / `many` / `resolveOne().doc` carries route metadata
-plus a `localePaths` map populated for **every** configured locale:
+Every returned document carries one canonical route and resolution envelope:
 
 ```ts
 {
-  ...frontmatter,
-  locale: 'fr',
-  path: '/fr/documentation/pour-commencer',
-  ref: 'guide.getting-started',
-  localePaths: {
-    en: { path: '/en/guide/getting-started', translated: true },
-    fr: { path: '/fr/documentation/pour-commencer', translated: true },
-    de: { path: '/en/guide/getting-started', translated: false, fallback: 'en' },
+  locale: 'de',
+  route: {
+    requestedPath: '/de/dokumentation/einstieg',
+    resolvedPath: '/de/dokumentation/einstieg',
+    alternates: [
+      { locale: 'en', path: '/docs/getting-started', source: 'variant' },
+      { locale: 'de', path: '/de/dokumentation/einstieg', source: 'variant' }
+    ]
+  },
+  resolution: {
+    requested: { locale: 'de' },
+    resolved: { locale: 'de' },
+    usedFallback: false
   }
 }
 ```
 
-Locale switchers can render the full picture in five lines without a
-second query — and "translated from English" affordances are
-explicit, not silent.
+There are no parallel top-level path, locale-path, variant, or resolved aliases.
 
-### Strict-by-default locale semantics
+### Provider boundary
 
-`many(docs, { locale: 'de' })` defaults to **strict** locale matching
-(`exact: true` at the resolver level). Fallback is opt-in:
+Public options lower once into the versioned, JSON-pure provider query plan.
+Providers advertise executable comparison operators and pagination modes.
+Logical plan nodes are structural parts of the wire and are not separate
+capabilities. Unsupported comparison operators fail before provider dispatch.
 
-```ts
-many(docs, { locale: 'de' })                       // German variants only
-many(docs, { locale: 'de', fallback: true })       // configured chain
-many(docs, { locale: 'de', fallback: 'en' })       // explicit fallback
-many(docs, { locale: 'de', fallback: ['fr','en'] })// explicit chain
-```
+## Alternatives considered
 
-The old API exhibited the opposite: `.locale('de')` quietly fell back to
-the configured chain. Strict-by-default surfaces missing translations as
-empty results instead of cross-locale leaks.
-
-## Reused infrastructure (unchanged)
-
-- `resolveGraphVariant` / `resolveGraphRouteVariant` —
-  `packages/content/src/core/content/graph.ts:222,271`.
-- `localizePageResult`, `createLocalePaths` —
-  `packages/content/src/features/localization/results.ts:35,49`.
-- ADR-0008 numeric-prefix translation system —
-  `packages/content/src/features/localization/translated-slugs.ts`.
-- Nitro routes under `packages/content/src/runtime/server/api/`.
-- `fetchContentApi` transport —
-  `packages/content/src/runtime/app/composables/utils.ts`. (Reworked to
-  reach Nuxt-only auto-imports through `globalThis` lookups so the
-  module can be safely traversed from a pure-Nitro bundle.)
+- Keep specialized helpers for every read shape. Rejected because they create
+  overlapping semantics and duplicate documentation.
+- Infer locale from ambient client state in every operation. Rejected because
+  server and script callers would behave differently and localized omissions
+  would remain type-invisible.
+- Put selection fields inside `where`. Rejected because identity resolution and
+  set filtering have different fallback and diagnostic behavior.
+- Add compatibility aliases for removed query names or result fields. Rejected
+  because this was a pre-stable hard cutover and aliases would create a second
+  source of truth.
 
 ## Consequences
 
-- **One `query()` mental model** for users and agents alike. Same
-  options on the server, in scripts, in Nitro routes, and in Vue
-  components — only the wrapper composable differs.
-- **MongoDB filter literacy is portable.** Anyone who has used
-  Mongo or Mongoose recognises the operator vocabulary.
-- **`localePaths` is now object-shaped** (`{ path, translated, fallback? }`
-  instead of plain strings). Existing code that read these as strings
-  needs a one-line update — covered in the migration guide.
-- **`.locale()` no longer falls back silently.** Fallback is opt-in.
-  Callers that relied on the old loose semantics need to add
-  `fallback: true` (or an explicit chain).
-- **`useContentRoute` / `useContentSwitchLocalePath` are gone.** Pages
-  expose their own `localePaths` and the locale switcher composes:
-  `page.localePaths[locale]?.path ?? switchLocalePath(locale)`.
-
-This ADR supersedes the public-API parts of ADR-0006/0007/0008. The
-identity model and translation infrastructure those ADRs introduced are
-preserved unchanged — only the user-facing call site changes.
-
-The internal fluent builder and builder-parameter IR remain implementation
-details behind the provider plan. Replacing them end to end with
-`ContentQueryPlan` is deliberately deferred as a separate breaking change;
-it is not required to keep the public unified query API coherent.
-
-## Hard-cut query shape (2026-05)
-
-Review of the first unified-query draft showed that putting `path` /
-`ref` inside `filter` blurred two different concepts. The final public
-shape makes the distinction explicit:
-
-- **`by` identifies one document.** It is an XOR selector:
-  `{ route: string } | { path: string } | { ref: string }`.
-- **`where` filters result sets.** It is the MongoDB-style field filter
-  and rejects typo'd schema fields at compile time.
-- **`resolveOne()` is the diagnostic primitive.** It returns
-  `{ doc, explain }`; `one()` is the ergonomic `doc`-only view.
-- **`many()` replaces `find()`.** The API reads as content operations,
-  not database implementation details.
-- **`tree()` has typed field projection.** `fields: ['title'] as const`
-  preserves those fields in the returned navigation item type without
-  keeping an open index signature.
-- **`variants()` and `neighbors()` require `by`.** i18n handles also
-  require `locale`, including `variants()`, so the "i18n requires locale"
-  rule has no hole.
-- **Fallback policy is explicit.** Supported values are `false`, `true`,
-  `'default'`, a locale string, or a locale array. No hand-wavy
-  `'nearest'` mode exists.
-- **No hidden debug field.** The non-enumerable `_resolution` idea was
-  dropped. Call `resolveOne()` when diagnostics matter.
-
-Migration from the draft shape:
-
-```ts
-// Draft
-findOne(docs, { locale: 'de', filter: { path: route.path }, fallback: true })
-find(posts, { filter: { draft: { $ne: true } }, sort: { date: -1 } })
-neighbors(docs, { locale: 'de', filter: { ref: 'guide.intro' } })
-
-// Final
-one(docs, { locale: 'de', by: { path: route.path }, fallback: true })
-many(posts, { where: { draft: { $ne: true } }, sort: { date: 'desc' } })
-neighbors(docs, { locale: 'de', by: { ref: 'guide.intro' } })
-```
-
-For diagnostics:
-
-```ts
-const { doc, explain } = await resolveOne(docs, {
-  locale: 'de',
-  by: { path: route.path },
-  fallback: true
-})
-```
-
-Acceptable because the package is pre-release; playground, docs app,
-type tests, and integration coverage were updated in the same change.
-
-## Addendum (2026-07-08) — the "i18n requires locale" rule still has a hole (under repair in T5.5)
-
-This ADR twice claims the type-required-locale rule "has no hole" (see
-the Decision's "Type-required locale" section and the "Hard-cut query
-shape" note on `variants()`/`neighbors()`). At the Phase 3 checkpoint the
-rule was found to still have two holes: a verb called with a **missing
-options object** (e.g. `tree(docs)` on an i18n handle) skips the
-required-`locale` check, because `TreeOptions<H>` does not compose the
-`LocaleOption<H>` requirement onto a defaulted/absent options parameter.
-
-The claim above was therefore **aspirational, not yet true** when this
-addendum was first written, and was left in place as the design intent.
-
-### Resolution (2026-07-08) — T5.5 landed; the claim is now true
-
-Cornerstone CS-7 has been applied:
-
-- **Fix 1** — `TreeOptions<H>` now composes `& LocaleOption<H>` (dropping the
-  bare `locale?: string`), the same mechanism `OneOptions`/`ManyOptions`/
-  `VariantsOptions`/`NeighborsOptions` already use. `tree(docs, {})` on an
-  i18n handle now fails to compile (missing required `locale`).
-- **Fix 2** — the zero-argument hole is closed with a conditional variadic
-  tuple `OptionsArg<H, O>` (`HandleIsI18n<H> extends true ? [options: O] :
-  [options?: O]`) replacing the `options: O = {}` default on `many` and
-  `tree`, mirrored across the shared impl (`features/query/unified.ts`), the
-  server facade (`runtime/server/query-api.ts`), and the client composable
-  (`runtime/app/composables/query-api.ts` — the `/client` binding). `many(docs)`
-  on an i18n handle no longer compiles; `many(posts)` (non-i18n) still does.
-
-Negative type tests were added to `test/fixtures/typecheck/types/ginko-api.ts`
-and proven to fail (`TS2578` unused `@ts-expect-error`) when the fix is
-reverted. The "i18n requires locale has no hole" claim is now accurate.
-
-**Note on `tree()` fallback-by-default (orthogonal, intentional).** The
-`tree()` docstring documents locale fallback as on-by-default (a doc with no
-variant in the requested locale still appears, via the fallback locale's
-path). That is a *fallback* policy and is deliberately kept — it does not
-conflict with requiring the caller to name *which* locale's tree they want.
-Requiring the `locale` option (Fix 1) and filling gaps by fallback are
-independent concerns, so CS-7's `tree` composition stands as specified.
+- Public query behavior has one vocabulary across runtimes.
+- Localized calls make locale intent explicit and type-checkable.
+- Route switching uses `route.alternates`; diagnostics use `resolveOne()`.
+- Providers implement one closed plan rather than reconstructing app-level
+  options.
+- Changes to query grammar, provider capabilities, public types, contract tests,
+  and reference documentation must land together.

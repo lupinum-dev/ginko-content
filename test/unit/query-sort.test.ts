@@ -4,7 +4,7 @@ import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
 import type { ContentQuerySortOptions } from '../../packages/content/src/types/query'
 
 /**
- * Behavior suite (T6.2 #2): sort stability and tiebreaks through the plan
+ * Sort stability and tiebreaks run through the plan
  * executor. `executeQueryPlanOnDocuments` applies exactly the sort a real
  * query would; these tests pin the contract that
  *  - equal primary keys preserve input order (stable sort),

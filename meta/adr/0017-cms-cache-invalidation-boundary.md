@@ -18,14 +18,13 @@ capabilities. Some can purge tags directly. Others only support exact paths.
 ## Decision
 
 Ginko Content exposes provider-neutral cache hints, request-local hint
-collection, an authenticated revalidation endpoint, and a cache adapter
+collection, an authenticated revalidation endpoint, and one cache adapter
 interface.
 
-Providers may implement `invalidate()` for provider-owned caches and dependency
-state. That method does not purge host caches by itself.
-
-The configured cache adapter applies response caching and purges host/runtime
-caches. Path-only adapters must reject unresolved tag-only invalidation.
+Providers describe dependencies through cache hints. The configured
+`ContentCacheAdapter` is the single invalidation owner: it applies response
+caching and purges host/runtime caches. Path-only adapters must reject
+unresolved tag-only invalidation.
 
 CMS integrations are responsible for resolving changed content into canonical
 tags and, when required by the host adapter, exact affected paths before calling
@@ -47,5 +46,6 @@ Core stays provider-neutral and host-neutral.
 
 CMS providers must own dependency resolution and publish delivery.
 
-The revalidation endpoint can safely call both the provider and adapter, but
-success requires at least one layer to actually handle the request.
+The revalidation endpoint authenticates and normalizes tags and paths, then
+calls the configured cache adapter exactly once. It fails when no adapter can
+handle the request.

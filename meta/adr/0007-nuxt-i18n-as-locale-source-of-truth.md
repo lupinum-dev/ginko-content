@@ -8,107 +8,61 @@ date: 2026-04-24
 
 ## Context
 
-Localization cuts across the entire stack: routing, layouts, SEO,
-strings, and content. Nuxt already has a mature i18n module
-(`@nuxtjs/i18n`) that owns route strategy, locale detection, language
-switching, and translated page titles.
+Localization affects routing, application strings, content variants, fallback,
+search, and SEO. Re-declaring locale authority in both Nuxt I18n and Ginko would
+permit contradictory locale sets and defaults.
 
-A content module has two options:
-
-1. duplicate all that locale logic internally, and hope to stay in sync
-2. delegate to the existing i18n module and layer content-specific
-   behavior on top
-
-v3 effectively picks (1) by forcing per-locale collections and leaving
-the reconciliation to the user. The result is the common complaint that
-"translations in Nuxt Content are painful."
+Ginko must also support content-only localization for applications that do not
+need locale-aware application routing.
 
 ## Decision
 
-**When `@nuxtjs/i18n` is installed, it is the authoritative source of
-truth for locales.** Ginko reads the configured locales, default
-locale, and route strategy from `@nuxtjs/i18n` rather than re-declaring
-them.
+When `@nuxtjs/i18n` is installed, it is the sole authority for `locales`,
+`defaultLocale`, and route strategy. Ginko reads those values and rejects
+duplicate `content.i18n.locales` or `content.i18n.defaultLocale` declarations.
 
-`content.i18n` in `nuxt.config.ts` only declares **content-specific**
-extensions:
+`content.i18n` may still declare content-specific policy:
 
 ```ts
 export default defineNuxtConfig({
+  i18n: {
+    locales: ['en', 'de'],
+    defaultLocale: 'en',
+    strategy: 'prefix_except_default'
+  },
   content: {
     i18n: {
-      defaultLocale: 'en',
-      locales: ['en', 'de'],
       fallback: { de: ['en'] },
-      translatedSlugs: false
+      translatedSlugs: true
     }
   }
 })
 ```
 
-Rules:
+The supported Nuxt I18n route strategy for the 0.3 release line is
+`prefix_except_default`; unsupported strategies fail setup explicitly.
 
-- `translatedSlugs` defaults to off. See
-  [ADR-0008](./0008-translated-slugs-via-numeric-prefix.md).
-- Collection-local i18n opt-in exists — a collection can opt in/out of
-  the runtime locale system.
-- Route-aware helpers infer the active locale from the route by default.
-- Route-less contexts (server utilities, build scripts) have **no
-  ambient locale**. The caller passes locale explicitly or the system
-  uses `defaultLocale` without hidden route behavior.
-- Single-document reads are locale-aware with fallback by default.
-- List queries do **not** mix locales by default. Opt in via
-  `.locale('de', { fallback: true })`.
+Without `@nuxtjs/i18n`, `content.i18n` owns locales, the default locale,
+fallback, and translated-slug policy. Content reads, fallback, and collection
+localization remain supported, but Ginko does not become an application route
+localization framework.
+
+Route-less server and build contexts have no hidden ambient locale. Callers pass
+locale explicitly or use the configured default through the documented API.
 
 ## Alternatives considered
 
-- **Own locale config inside the content module.** Rejected. Duplicates
-  `@nuxtjs/i18n`'s role, forces users to declare locales twice and keep
-  them in sync.
-- **Make `@nuxtjs/i18n` a peer dependency (required).** Rejected.
-  Single-locale sites should not need it.
-- **Custom route strategy for content.** Rejected. Collides with
-  `@nuxtjs/i18n`'s strategies; surprises users who expect consistent URLs.
-- **Fallback-mixing list queries by default.** Rejected. Quietly merging
-  locales into list results is a frequent source of "why is German text
-  showing on the English page" bugs.
+- Merge two independently declared locale sets. Rejected because the result has
+  no clear authority and can hide configuration mistakes.
+- Require Nuxt I18n for every localized collection. Rejected because
+  content-only sites do not need application route translation.
+- Let Ginko own a second route strategy. Rejected because it would conflict
+  with Nuxt I18n and duplicate routing behavior.
 
 ## Consequences
 
-- Single-locale sites configure nothing extra.
-- Multi-locale sites configure `@nuxtjs/i18n` once and get content
-  behavior that matches their route strategy automatically.
-- We depend on `@nuxtjs/i18n` semantics and follow them upstream.
-- Content-specific fallback and translated-slug behavior stay in
-  `content.i18n` where they belong.
-- Agent/LLM output uses this same resolved locale policy. `agent.site`
-  owns presentation and site identity only; it cannot redeclare locales or
-  the default locale. Consequently rendered links, localized `llms.txt`
-  routes, app-owned agent pages, and prerender output cannot drift from the
-  content routes they describe.
-- **Content-only localization is a fully supported mode, not a
-  degraded fallback.** A site can declare multiple locales, a default
-  locale, and per-collection `i18n` config entirely through
-  `content.i18n` in `nuxt.config.ts` without installing `@nuxtjs/i18n`
-  at all. Single-document reads, list queries, and locale fallback all
-  work the same way; the only thing Ginko does not do on its own is own
-  route strategy/i18n routing (that remains `@nuxtjs/i18n`'s job when
-  present).
-
-## Status note (Phase 0, 2026-07)
-
-This ADR states two things at different levels of maturity:
-
-- **Already true today (0.2.x):** content-only localization (the bullet
-  above) builds and resolves without `@nuxtjs/i18n` installed, and when
-  `@nuxtjs/i18n` *is* installed, Ginko reads its `defaultLocale` and
-  `locales` into `content.i18n` resolution.
-- **Not yet enforced (target invariant, tracked separately, not part of
-  Phase 0):** the stronger rule that installing `@nuxtjs/i18n` *while
-  also* declaring conflicting Ginko-owned locale/default authority in
-  `content.i18n` must fail setup with an actionable error. Today the two
-  configurations are merged (Ginko's `content.i18n` values, `@nuxtjs/i18n`'s
-  `defaultLocale`/`locales`, deduplicated) rather than validated for
-  conflicts. Implementing the fail-setup behavior is a later-phase change,
-  not a Phase 0 truth correction — this note exists so the decision above
-  is not mistaken for current runtime behavior.
+- Integrated applications configure locale identity once in Nuxt I18n.
+- Ginko owns only content fallback and translated-slug behavior in that mode.
+- Duplicate authority and unsupported route strategies fail with actionable
+  setup errors.
+- Content-only localization remains a deliberate supported mode.

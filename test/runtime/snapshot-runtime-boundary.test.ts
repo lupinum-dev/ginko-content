@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createTestEvent } from '../harness/event'
 import { CONTENT_SNAPSHOT_VERSION, type ContentSnapshot } from '../../packages/content/src/core/content/snapshot'
 import type { ParsedContent } from '../../packages/content/src/types/content'
+import { encodeQueryParams } from '../../packages/content/src/runtime/utils/query'
 
 const runtimeContent = {
   sources: {},
@@ -231,5 +232,43 @@ describe('production snapshot runtime', () => {
       statusMessage: 'unsupported_filesystem_preview'
     })
     expect(getItem).not.toHaveBeenCalled()
+  })
+
+  test('the public query API surfaces malformed filesystem cursors as a typed 400 instead of restarting page one', async () => {
+    const getItem = vi.fn(async () => snapshot({
+      documents: [document({ collection: 'docs' })]
+    }))
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubGlobal('__ginkoTestRuntimeConfig', {
+      content: {
+        ...runtimeContent,
+        collections: { docs: {} }
+      }
+    })
+    vi.stubGlobal('__ginkoTestStorage', {
+      getItem,
+      setItem: vi.fn(),
+      getKeys: vi.fn(async () => []),
+      removeItem: vi.fn()
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
+    const event = createTestEvent({
+      params: {
+        params: `docs/${encodeQueryParams({
+          collection: 'docs',
+          paging: { mode: 'cursor', after: 'not-a-filesystem-cursor', limit: 1 }
+        } as never)}`
+      }
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'unsupported_query_shape',
+      data: expect.objectContaining({
+        code: 'unsupported_query_shape',
+        provider: 'filesystem',
+        field: 'paging.after'
+      })
+    })
   })
 })

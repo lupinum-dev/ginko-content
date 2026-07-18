@@ -48,6 +48,10 @@ export interface LocalePolicyCollectionInput {
   name: string
   /** Whether the collection opts into localization at all. */
   localized: boolean
+  /** Collection-specific locale set; omitted collections inherit site authority. */
+  locales?: string[]
+  /** Collection-specific default locale; omitted collections inherit site authority. */
+  defaultLocale?: string
   /**
    * Base route mount for the collection. A string applies to every locale
    * (subject to translated-slug/mount policy); a per-locale record carries
@@ -229,35 +233,50 @@ export function resolveLocalePolicy(input: LocalePolicyInput): ResolvedLocalePol
 
   const collections: Record<string, ResolvedCollectionLocalePolicy> = {}
   for (const collection of input.collections) {
-    const localized = collection.localized && locales.length > 0
-    if (collection.localized && locales.length === 0) {
+    const collectionLocales = normalizeLocales(collection.locales ?? locales)
+    const collectionDefaultLocale = collection.defaultLocale ?? defaultLocale
+    const localized = collection.localized && collectionLocales.length > 0
+    if (collection.localized && collectionLocales.length === 0) {
       throw new LocalePolicyError(
         `@lupinum/ginko-content: collection "${collection.name}" opts into localization ("i18n"), `
         + 'but no locales are configured. Localized collections require a usable default locale '
         + '.'
       )
     }
-    if (localized && !defaultLocale) {
+    if (localized && !collectionDefaultLocale) {
       throw new LocalePolicyError(
         `@lupinum/ginko-content: collection "${collection.name}" is localized, but no default locale is resolved. `
         + 'Localized collections require a usable default locale.'
       )
     }
+    if (collectionDefaultLocale && collectionLocales.length && !collectionLocales.includes(collectionDefaultLocale)) {
+      throw new LocalePolicyError(
+        `@lupinum/ginko-content: collection "${collection.name}" default locale "${collectionDefaultLocale}" `
+        + `is not present in its resolved locales list (${collectionLocales.join(', ')}).`
+      )
+    }
+
+    const collectionFallback = Object.fromEntries(
+      Object.entries(fallback)
+        .filter(([locale]) => collectionLocales.includes(locale))
+        .map(([locale, chain]) => [locale, chain.filter(target => collectionLocales.includes(target))])
+        .filter(([, chain]) => chain.length > 0)
+    )
 
     const fallbackMount = `/${collection.name}`
     const routeMounts = localized
-      ? (normalizeRouteMounts(collection.route ?? fallbackMount, locales, defaultLocale) ?? { default: fallbackMount })
+      ? (normalizeRouteMounts(collection.route ?? fallbackMount, collectionLocales, collectionDefaultLocale) ?? { default: fallbackMount })
       : {
           default: typeof collection.route === 'string'
             ? collection.route
-            : (collection.route?.default ?? collection.route?.[defaultLocale ?? ''] ?? fallbackMount)
+            : (collection.route?.default ?? collection.route?.[collectionDefaultLocale ?? ''] ?? fallbackMount)
         }
 
     collections[collection.name] = {
       localized,
-      locales: localized ? locales : [],
-      defaultLocale: localized ? defaultLocale : undefined,
-      fallback: localized ? fallback : {},
+      locales: localized ? collectionLocales : [],
+      defaultLocale: localized ? collectionDefaultLocale : undefined,
+      fallback: localized ? collectionFallback : {},
       translatedSlugs: localized ? translatedSlugs : false,
       routeMounts
     }

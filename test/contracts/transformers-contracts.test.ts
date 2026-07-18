@@ -218,6 +218,19 @@ describe('transformer contracts', () => {
     })
   })
 
+  test('csv transformer preserves an own __proto__ column without changing row prototypes', async () => {
+    const csv = (await import('../../packages/content/src/parsers/csv')).default
+    const result = await csv.parse?.('content:test.csv', '__proto__,name\nvalue,Ada', {
+      json: true
+    } as any) as { body: Array<Record<string, unknown>> }
+    const row = result.body[0]!
+
+    expect(Object.getPrototypeOf(row)).toBe(Object.prototype)
+    expect(Object.hasOwn(row, '__proto__')).toBe(true)
+    expect(row.__proto__).toBe('value')
+    expect(row.name).toBe('Ada')
+  })
+
   test('component resolver collects nested components and ignores html/text/binding nodes', async () => {
     const body = {
       type: 'root',

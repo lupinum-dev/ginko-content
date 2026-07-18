@@ -20,7 +20,7 @@ export type ContentProviderErrorCode =
   | 'unsupported_filesystem_preview'
 
 export const statusForProviderError: Record<ContentProviderErrorCode, number> = {
-  unknown_provider: 400,
+  unknown_provider: 500,
   unknown_collection: 400,
   unsupported_provider_operation: 400,
   unsupported_query_operator: 400,

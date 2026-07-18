@@ -18,9 +18,9 @@ const mkdistEntries = [
   // every imported type (OneOptions, QueryWhere, LocalizedDoc, ...) to `any`,
   // which collapses the entire ADR-0016 type-required-locale guarantee.
   ['src/types/', 'dist/types'],
-  // `src/cms-contract/` is the pure subpath ginko-cms imports from inside
-  // its Convex component. Must stay free of Node/Nuxt/h3/nitropack runtime
-  // deps; if a transitive import drags one in, the CMS build fails loudly.
+  // `src/cms-contract/` is the pure subpath provider consumers import inside
+  // isolate runtimes. It must stay free of Node/Nuxt/h3/nitropack dependencies;
+  // if a transitive import drags one in, the isolate build fails loudly.
   ['src/cms-contract/', 'dist/cms-contract'],
   // Pure portability codecs share the runtime-neutral contract/hash boundary.
   ['src/portability/', 'dist/portability'],

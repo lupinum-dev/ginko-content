@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { compileWhere } from '../../packages/content/src/core/query/filter'
 import {
+  PROVIDER_CAPABILITY_OPERATORS,
   PROVIDER_QUERY_OPERATORS,
   PUBLIC_QUERY_OPERATORS
 } from '../../packages/content/src/core/query/operators'
@@ -23,8 +24,7 @@ const publicOperands: Record<(typeof PUBLIC_QUERY_OPERATORS)[number], unknown> =
   $icontains: 'guide',
   $exists: true,
   $type: 'string',
-  $prefix: '/docs',
-  $not: { $eq: 'draft' }
+  $prefix: '/docs'
 }
 
 describe('query operator boundaries', () => {
@@ -40,8 +40,22 @@ describe('query operator boundaries', () => {
 
   test('compiles public $nin losslessly', () => {
     expect(compileWhere({ status: { $nin: ['draft', 'archived'] } })).toEqual({
-      status: { $not: { $in: ['draft', 'archived'] } }
+      status: { $nin: ['draft', 'archived'] }
     })
+  })
+
+  test('keeps $not logical and rejects it as a field operator', () => {
+    expect(compileWhere({ $not: { status: { $eq: 'draft' } } })).toEqual({
+      $not: { status: { $eq: 'draft' } }
+    })
+    expect(validateContentQueryRequestBody({
+      collection: 'docs',
+      where: [{ $not: { status: { $eq: 'draft' } } }]
+    })).toMatchObject({ ok: true })
+    expect(validateContentQueryRequestBody({
+      collection: 'docs',
+      where: [{ status: { $not: { $eq: 'draft' } } }]
+    })).toMatchObject({ ok: false })
   })
 
   test('HTTP validation accepts every public field operator and rejects provider-only regex syntax', () => {
@@ -63,11 +77,8 @@ describe('query operator boundaries', () => {
   })
 
   test('filesystem capabilities advertise the provider set without the regex modifier', () => {
-    expect(filesystemProvider.capabilities.query.operators).toEqual([
-      ...PROVIDER_QUERY_OPERATORS.filter(operator => operator !== '$options'),
-      '$and',
-      '$or'
-    ])
+    expect(filesystemProvider.capabilities.query.operators).toEqual(PROVIDER_CAPABILITY_OPERATORS)
+    expect(PROVIDER_CAPABILITY_OPERATORS).not.toContain('$not')
   })
 
   test('the public operator reference lists exactly the public field operators', () => {

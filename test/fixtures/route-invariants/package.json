@@ -12,6 +12,8 @@
   },
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
+    "@nuxt/kit": "4.4.8",
+    "nitropack": "2.13.4",
     "nuxt": "4.4.8"
   }
 }

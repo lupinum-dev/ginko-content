@@ -1,5 +1,12 @@
 /** Pure serializer registration surface for Nitro plugins and integrations. */
-export * from '../runtime/server/agent-registry.js'
+export {
+  clearAgentMarkdownSerializers,
+  getAgentMarkdownRegistry,
+  registerAgentMarkdownComponent,
+  registerAgentMarkdownComponents,
+  registerAgentMarkdownSerializer,
+  registerAgentMarkdownSerializers
+} from '../runtime/server/agent-registry.js'
 export {
   blockquoteMarkdown,
   createAgentMarkdownRegistry,

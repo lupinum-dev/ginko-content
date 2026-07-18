@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { ContentQueryResponse } from '../../types/api'
-import type { ParsedContent } from '../../types/content'
+import type { ProviderDocumentInput } from '../../public/provider-document'
 import type {
   ContentProvider,
   ContentProviderNavigationItem,
@@ -40,11 +40,11 @@ const wrapProviderMethod = <T extends ProviderMethod>(event: H3Event, method: T)
 }
 
 export interface RuntimeContentProvider extends Omit<ContentProvider, 'query' | 'navigation' | 'surroundings' | 'search' | 'siteData' | 'routes'> {
-  query: <T = ParsedContent>(event: H3Event, query: ContentProviderQuery) => Promise<ContentQueryResponse<T>>
+  query: (event: H3Event, query: ContentProviderQuery) => Promise<ContentQueryResponse<ProviderDocumentInput>>
   navigation?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<ContentProviderNavigationItem[]>
   surroundings?: (event: H3Event, collection: string, contentPath: string, options?: ContentProviderSurroundingsOptions) => Promise<Array<ContentProviderSurroundItem | null>>
   search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<ContentProviderSearchResult[]>
-  siteData?: <T = unknown>(event: H3Event, request: ContentProviderSiteDataRequest) => Promise<ContentProviderSiteDataResponse<T>>
+  siteData?: (event: H3Event, request: ContentProviderSiteDataRequest) => Promise<ContentProviderSiteDataResponse>
   routes?: (event: H3Event) => Promise<ContentRouteRecord[]>
 }
 

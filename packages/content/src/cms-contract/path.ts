@@ -1,10 +1,8 @@
 /**
  * Pure path helpers re-exported from `ginko-content`'s canonical path engine.
  *
- * The CMS uses these instead of duplicating its own path-generation logic.
- * Per Gate 0 of the refactor: ginko-content owns path semantics; ginko-cms
- * imports them. No more parallel implementations of `generatePath` /
- * `generateCanonicalKey` / `slugifyUrlSegment`.
+ * External CMS integrations use these instead of duplicating path-generation
+ * logic. Ginko Content remains the sole owner of public path semantics.
  *
  * All re-exports MUST be runtime-pure (no Node, no Nuxt, no h3). They are.
  */

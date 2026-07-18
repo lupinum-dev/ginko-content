@@ -4,24 +4,7 @@ import { createSearchSections, type GenerateSearchSectionsOptions } from '../sea
 import type { RuntimeContentI18nInput } from '../localization/config'
 import { localizePath, normalizeContentPath, resolveCollectionI18n, resolveRouteContent } from '../localization/path'
 
-export interface CollectionResolveRuntime extends RuntimeContentI18nInput {
-  localeFallback?: Record<string, string[]>
-  translatedSlugs?: boolean
-}
-
-export const resolveCollectionNavigationData = async (
-  collection: string,
-  _runtime: CollectionResolveRuntime,
-  options: {
-    fields?: string[]
-    locale?: string
-    canonical?: boolean
-    activeLocale?: string
-    loadNavigation: () => Promise<any[]>
-  }
-) => {
-  return await options.loadNavigation()
-}
+type CollectionResolveRuntime = RuntimeContentI18nInput
 
 export const resolveCollectionItemSurroundingsData = async (
   collection: string,
@@ -51,7 +34,7 @@ export const resolveCollectionItemSurroundingsData = async (
 export const resolveCollectionSearchSectionsData = async (
   collection: string,
   runtime: CollectionResolveRuntime,
-  options: (GenerateSearchSectionsOptions & { locale?: string, canonical?: boolean, activeLocale?: string }) & {
+  options: (GenerateSearchSectionsOptions & { locale?: string, activeLocale?: string }) & {
     loadPages: (extraFields: string[]) => Promise<Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>>
   }
 ) => {
@@ -59,10 +42,8 @@ export const resolveCollectionSearchSectionsData = async (
   const locale = options.locale || options.activeLocale || defaultLocale
   const pages = await options.loadPages(options.extraFields || [])
   const sections = createSearchSections(pages, options)
-  return options.canonical
-    ? sections
-    : sections.map(section => ({
-        ...section,
-        id: localizePath(section.id, locale, defaultLocale, locales) || section.id
-      }))
+  return sections.map(section => ({
+    ...section,
+    id: localizePath(section.id, locale, defaultLocale, locales) || section.id
+  }))
 }

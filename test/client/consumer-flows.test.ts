@@ -69,15 +69,17 @@ describe('public client query flows against an in-memory content scenario', () =
         }
       },
       transport: async () => ({
-        path: '/plain/about',
-        file: { path: 'plain/about.md' },
-        locale: 'en',
-        resolved: {
-          variantPaths: {
-            en: '/plain/about'
-          }
-        },
-        title: 'About'
+        result: {
+          path: '/plain/about',
+          file: { path: 'plain/about.md' },
+          locale: 'en',
+          resolved: {
+            variantPaths: {
+              en: '/plain/about'
+            }
+          },
+          title: 'About'
+        }
       })
     }, plain, {
       by: { route: '/plain/about' }
@@ -110,8 +112,10 @@ describe('public client query flows against an in-memory content scenario', () =
           ]
         }
         return {
-          title: 'Docs',
-          path: '/docs'
+          result: {
+            title: 'Docs',
+            path: '/docs'
+          }
         }
       }
     }, 'docs', {
@@ -137,7 +141,7 @@ describe('public client query flows against an in-memory content scenario', () =
             { title: 'Control', path: '/docs/control', page: false },
             { title: 'Getting Started', path: '/docs/getting-started' }
           ]
-        : { title: 'Docs', path: '/docs' }
+        : { result: { title: 'Docs', path: '/docs' } }
     }, 'docs', {
       by: { route: '/docs' }
     })
@@ -167,8 +171,10 @@ describe('public client query flows against an in-memory content scenario', () =
           ]
         }
         return {
-          title: 'Hidden',
-          path: '/docs/hidden'
+          result: {
+            title: 'Hidden',
+            path: '/docs/hidden'
+          }
         }
       }
     }, 'docs', {

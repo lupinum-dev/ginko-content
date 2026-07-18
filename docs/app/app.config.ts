@@ -43,7 +43,7 @@ export default {
         },
         {
           title: { en: 'Agent ready' },
-          description: { en: 'Raw Markdown, LLM indexes, serializers, and MCP tools use the same resolved documents.' },
+          description: { en: 'Raw Markdown, LLM indexes, and serializers use the same resolved documents.' },
           icon: 'lucide:bot'
         }
       ]

@@ -107,16 +107,17 @@ const doc = (path = '/docs/getting-started') => ({
   title: path.endsWith('advanced') ? 'Advanced' : (path.endsWith('canonical') ? 'Aliased' : 'Getting Started')
 })
 
-// The real `pageAsync.data` ref only ever holds the decorated `LocalizedDoc`
-// envelope `one()` returns. Tests that poke the mocked async-data ref
-// directly (to simulate a settled route-change refetch) must poke it with
-// this already-decorated shape, not the raw provider-shaped `doc()` fixture
-// the transport mock above returns.
-const decoratedDoc = (path: string) => ({
-  ...doc(path),
-  route: { requestedPath: path, resolvedPath: path, alternates: [] },
-  resolution: { requested: { locale: 'en' }, resolved: { locale: 'en' }, usedFallback: false }
-})
+// The HTTP query boundary returns the decorated public document inside the
+// canonical result envelope. Tests that poke the mocked async-data ref
+// directly (to simulate a settled route-change refetch) use that same shape.
+const decoratedDoc = (path: string, requestedPath = path) => {
+  const { path: _path, resolved: _resolved, ...document } = doc(path)
+  return {
+    ...document,
+    route: { requestedPath, resolvedPath: path, alternates: [] },
+    resolution: { requested: { locale: 'en' }, resolved: { locale: 'en' }, usedFallback: false }
+  }
+}
 
 describe('useContentPage contracts', () => {
   beforeEach(() => {
@@ -137,15 +138,13 @@ describe('useContentPage contracts', () => {
       }
       if (params.resolveVariant?.route === '/docs/alias') {
         return {
-          ...doc('/docs/canonical'),
-          resolved: {
-            ...doc('/docs/canonical').resolved,
-            requestedRoute: '/docs/alias'
-          },
-          title: 'Aliased'
+          result: {
+            ...decoratedDoc('/docs/canonical', '/docs/alias'),
+            title: 'Aliased'
+          }
         }
       }
-      return doc(params.resolveVariant?.route || '/docs/getting-started')
+      return { result: decoratedDoc(params.resolveVariant?.route || '/docs/getting-started') }
     })
   })
 

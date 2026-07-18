@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { hash as ohash } from 'ohash'
+import { z } from 'zod'
 import { createEvent, doc } from './_utils'
+import pathMeta from '../../packages/content/src/parsers/path-meta'
+import { validateCollectionDocument } from '../../packages/content/src/runtime/server/validation'
 
 describe('storage contracts', () => {
   const runtimeContent = {
@@ -365,6 +368,151 @@ describe('storage contracts', () => {
       error: {
         code: 'DUPLICATE_LOCALIZED_PATH',
         message: expect.stringMatching(/duplicate localized path/)
+      }
+    })
+  })
+})
+
+describe('collection schema validation', () => {
+  test('validates strict collection schemas against user fields only', () => {
+    const document = pathMeta.transform!(
+      {
+        id: 'content:en:guide:getting-started.md',
+        type: 'markdown',
+        body: {},
+        title: 'Getting Started'
+      } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    document.collection = 'docs'
+
+    const outcome = validateCollectionDocument(document, {
+      docs: {
+        source: 'guide/*.md',
+        schema: z.object({
+          title: z.string()
+        }).strict()
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      ok: true,
+      value: expect.objectContaining({
+        id: 'content:en:guide:getting-started.md',
+        path: '/guide/getting-started',
+        title: 'Getting Started'
+      })
+    })
+  })
+
+  test('passes own __proto__ content fields to schemas without changing the input prototype', () => {
+    const document = pathMeta.transform!(
+      {
+        id: 'content:en:guide:getting-started.md',
+        type: 'markdown',
+        body: {},
+        title: 'Getting Started'
+      } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    document.collection = 'docs'
+    Object.defineProperty(document, '__proto__', {
+      value: { source: 'frontmatter' },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+    let schemaInput: Record<string, unknown> | undefined
+
+    const outcome = validateCollectionDocument(document, {
+      docs: {
+        source: 'guide/*.md',
+        schema: {
+          safeParse: (input: Record<string, unknown>) => {
+            schemaInput = input
+            return { success: true as const, data: input }
+          }
+        } as any
+      }
+    })
+
+    expect(outcome.ok).toBe(true)
+    expect(Object.getPrototypeOf(schemaInput)).toBe(Object.prototype)
+    expect(Object.hasOwn(schemaInput!, '__proto__')).toBe(true)
+    expect(schemaInput!.__proto__).toEqual({ source: 'frontmatter' })
+  })
+
+  test('still fails strict schema validation for invalid user fields', () => {
+    const document = pathMeta.transform!(
+      {
+        id: 'content:en:guide:getting-started.md',
+        type: 'markdown',
+        body: {},
+        title: 123
+      } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    document.collection = 'docs'
+
+    const outcome = validateCollectionDocument(document, {
+      docs: {
+        source: 'guide/*.md',
+        schema: z.object({
+          title: z.string()
+        }).strict()
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'SCHEMA_VALIDATION_FAILED',
+        message: expect.stringContaining('title')
+      }
+    })
+  })
+
+  test('fails strict schema validation for missing nested required fields', () => {
+    const document = pathMeta.transform!(
+      {
+        id: 'content:en:pricing.yml',
+        type: 'yaml',
+        body: null,
+        plans: [
+          {
+            title: 'Starter',
+            price: {
+              month: '$9',
+              year: '$90'
+            }
+          }
+        ]
+      } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    document.collection = 'pricing'
+
+    const outcome = validateCollectionDocument(document, {
+      pricing: {
+        source: 'pricing.yml',
+        schema: z.object({
+          plans: z.array(z.object({
+            title: z.string(),
+            billing_period: z.string().nonempty(),
+            billing_cycle: z.string().nonempty()
+          }))
+        })
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'SCHEMA_VALIDATION_FAILED',
+        context: {
+          details: expect.stringContaining('plans.0.billing_period')
+        },
+        message: expect.stringContaining('plans.0.billing_cycle')
       }
     })
   })

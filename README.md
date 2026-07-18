@@ -1,4 +1,4 @@
-[![nuxt-content-social-card](./docs/public/social-card.png)](https://ginko-content.nuxt.dev)
+[![Ginko Content](./docs/public/social-card.png)](./packages/content/README.md)
 
 # Ginko Content
 
@@ -15,7 +15,9 @@ Use Ginko when you want content files to stay simple, but your Nuxt app still
 needs explicit APIs for route resolution, typed frontmatter, localized content,
 and server-side reads.
 
-- [Documentation](https://ginko-content.nuxt.dev)
+- Main currently documents the `0.3` prerelease on npm's `next` channel;
+  `latest` remains `0.2.1` until the stable cutover.
+- [Getting started](./docs/content/docs/3.get-started/1.installation.md)
 - [Package README](./packages/content/README.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Basic playground](./playground/ginko-basic)
@@ -27,7 +29,7 @@ and server-side reads.
 Install the module:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content
+npx nuxi module add @lupinum/ginko-content@next
 ```
 
 Define a collection:
@@ -81,9 +83,10 @@ const { page } = await useContentPage(pages)
   files.
 - Markdown and MDC rendering, plus YAML, JSON, and CSV ingestion.
 - Route-aware page loading with `useContentPage(handle)`.
-- Server reads through `one`, `many`, `paginate`, `resolveOne`, `tree`, and
-  `neighbors`.
-- Vue composables for the same read model.
+- Server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
+  and `surround`.
+- Route and search composables, plus pure client query functions for other
+  reads.
 - Locale-aware content routing with explicit fallback behavior.
 - Search helpers for MiniSearch, Pagefind, and provider-owned search.
 - Sitemap integration for public content routes.
@@ -150,7 +153,7 @@ successor to the previous MDC work.
 - Test using `pnpm test`
 - Typecheck using `pnpm typecheck`
 - Run the full verification pipeline using `pnpm verify`
-- Run the release confidence gate using `pnpm run release:verify`
+- Leave `pnpm run release:verify` to the exact final release SHA in CI
 - Before publishing or changing public API behavior, follow [MAINTAINING.md](./MAINTAINING.md)
 
 Run a specific example directly from the workspace with `pnpm --dir examples/<group>/<name> dev` or use `pnpm example <group>/<name>`.

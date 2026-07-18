@@ -1,12 +1,8 @@
 import { resolve } from 'pathe'
 import type { Nuxt } from '@nuxt/schema'
-import fsDriver from 'unstorage/drivers/fs'
-import { consola } from 'consola'
 
 import type { ModuleOptions, MountOptions } from './types'
 import type { MarkdownOptions, ResolvedMarkdownPlugin } from './types/content'
-
-export const logger = consola.withTag('@lupinum/ginko-content')
 
 /**
  * Internal version that represents cache format.
@@ -15,23 +11,6 @@ export const logger = consola.withTag('@lupinum/ginko-content')
 export const CACHE_VERSION = 3
 
 export const MOUNT_PREFIX = 'content:source:'
-
-const unstorageDrivers = {
-  fs: fsDriver
-}
-
-/**
- * Resolve driver of a mount.
- */
-export async function getMountDriver (mount: MountOptions) {
-  const dirverName = mount.driver as keyof typeof unstorageDrivers
-  if (unstorageDrivers[dirverName]) {
-    return unstorageDrivers[dirverName](mount as any)
-  }
-
-  const driver = (await import(mount.driver)).default
-  return driver(mount as Record<string, unknown>)
-}
 
 /**
  * Generate mounts for content storages

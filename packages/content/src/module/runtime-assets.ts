@@ -7,8 +7,8 @@ import type { Nuxt } from '@nuxt/schema'
 /**
  * The final app function auto-import list: exactly
  * `useContentPage` and the collision-safe `useGinkoContentSearch` alias.
- * The package export remains `useContentSearch`; every deleted wrapper and
- * pure query helper is imported explicitly from `/client` instead.
+ * The package export remains `useContentSearch`; pure query helpers are
+ * imported explicitly from `/client` instead.
  */
 export const runtimeAppImportSpecs = [
   { name: 'useContentPage', as: 'useContentPage', from: './app/composables/use-content-page.js' },

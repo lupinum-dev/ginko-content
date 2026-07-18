@@ -5,38 +5,42 @@ import {
   runProviderContractSuite,
   type ProviderQueryProbe
 } from '../../packages/content/src/testing/provider-contract'
+import { PROVIDER_CAPABILITY_OPERATORS } from '../../packages/content/src/core/query/operators'
+import { executeQueryPlanOnDocuments } from '../../packages/content/src/core/query/execute'
+import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import { createEvent } from './_utils'
 
-const document = {
-  id: 'content:de:docs:einstieg.md',
-  collection: 'docs',
-  canonicalKey: 'docs:einstieg',
-  locale: 'de',
-  path: '/dokumentation/einstieg',
-  title: 'Einstieg',
-  order: 1,
-  type: 'markdown',
-  body: { type: 'root', children: [] }
-}
+const documents = [
+  {
+    id: 'content:de:docs:einstieg.md',
+    collection: 'docs',
+    canonicalKey: 'docs:einstieg',
+    locale: 'de',
+    path: '/dokumentation/einstieg',
+    title: 'Einstieg',
+    tags: ['guide', 'start'],
+    featured: true,
+    rating: 5,
+    order: 1,
+    type: 'markdown',
+    body: { type: 'root', children: [] }
+  },
+  {
+    id: 'content:de:docs:zulu.md',
+    collection: 'docs',
+    canonicalKey: 'docs:zulu',
+    locale: 'de',
+    path: '/dokumentation/zulu',
+    title: 'Zulu',
+    order: 2,
+    type: 'markdown',
+    body: { type: 'root', children: [] }
+  }
+]
 
 vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
-  executeFilesystemContentQuery: vi.fn(async (_event, plan) => {
-    if (plan.mode === 'count') return { result: 1 }
-    if (plan.paging?.mode === 'cursor') {
-      return {
-        mode: 'cursor',
-        result: [document],
-        limit: plan.paging.limit,
-        pageInfo: { endCursor: null, hasNext: false }
-      }
-    }
-    return {
-      result: plan.mode === 'first' ? document : [document],
-      skip: plan.skip,
-      limit: plan.limit,
-      total: 1
-    }
-  })
+  executeFilesystemContentQuery: vi.fn(async (_event, plan) =>
+    executeQueryPlanOnDocuments(documents, plan))
 }))
 
 vi.mock('../../packages/content/src/runtime/server/navigation-query', () => ({
@@ -68,26 +72,39 @@ vi.mock('../../packages/content/src/integrations/nitro/build', () => ({
   }))
 }))
 
-const operators = [
-  '$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin',
-  '$contains', '$containsAny', '$icontains', '$exists', '$type',
-  '$regex', '$prefix', '$not', '$and', '$or'
-] as const
+const operators = PROVIDER_CAPABILITY_OPERATORS
 
 const capabilities: ContentProviderCapabilities = {
   query: { operators, pagination: ['offset', 'cursor'] }
 }
 
-const simpleWhere = (operator: string) => operator === '$and'
-  ? { $and: [{ title: { $exists: true } }] }
-  : operator === '$or'
-    ? { $or: [{ title: { $exists: true } }] }
-    : operator === '$not'
-      ? { $not: { title: { $eq: 'never' } } }
-      : { title: { [operator]: operator === '$exists' ? true : operator === '$type' ? 'string' : operator === '$in' || operator === '$nin' || operator === '$containsAny' ? ['Einstieg'] : 'Einstieg' } }
+const assertTitles = (expected: string[]) => (result: unknown) => {
+  const titles = (result as { result: Array<{ title: string }> }).result
+    .map(item => item.title)
+  expect(titles).toEqual(expected)
+}
+
+const operatorCases: Record<string, { where: Record<string, unknown>, titles: string[] }> = {
+  $eq: { where: { title: { $eq: 'Einstieg' } }, titles: ['Einstieg'] },
+  $ne: { where: { title: { $ne: 'Einstieg' } }, titles: ['Zulu'] },
+  $gt: { where: { order: { $gt: 1 } }, titles: ['Zulu'] },
+  $gte: { where: { order: { $gte: 2 } }, titles: ['Zulu'] },
+  $lt: { where: { order: { $lt: 2 } }, titles: ['Einstieg'] },
+  $lte: { where: { order: { $lte: 1 } }, titles: ['Einstieg'] },
+  $in: { where: { title: { $in: ['Einstieg'] } }, titles: ['Einstieg'] },
+  $nin: { where: { title: { $nin: ['Einstieg'] } }, titles: ['Zulu'] },
+  $contains: { where: { tags: { $contains: 'guide' } }, titles: ['Einstieg'] },
+  $containsAny: { where: { tags: { $containsAny: ['guide'] } }, titles: ['Einstieg'] },
+  $icontains: { where: { title: { $icontains: 'ein' } }, titles: ['Einstieg'] },
+  $exists: { where: { featured: { $exists: true } }, titles: ['Einstieg'] },
+  $type: { where: { rating: { $type: 'number' } }, titles: ['Einstieg'] },
+  $regex: { where: { title: { $regex: '^Ein' } }, titles: ['Einstieg'] },
+  $prefix: { where: { path: { $prefix: '/dokumentation/e' } }, titles: ['Einstieg'] }
+}
 
 const operatorProbes = Object.fromEntries(operators.map(operator => [operator, {
-  positive: toContentProviderQuery({ collection: 'docs', where: simpleWhere(operator) })
+  positive: toContentProviderQuery({ collection: 'docs', where: operatorCases[operator]!.where }),
+  assertResult: assertTitles(operatorCases[operator]!.titles)
 }])) as Record<string, ProviderQueryProbe>
 
 describe('filesystem provider conformance', () => {
@@ -101,15 +118,64 @@ describe('filesystem provider conformance', () => {
     createEvent,
     expectedCapabilities: capabilities,
     operatorProbes,
+    logicalProbes: {
+      and: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { $and: [{ title: { $eq: 'Einstieg' } }, { order: { $gte: 1 } }] }
+        }),
+        assertResult: assertTitles(['Einstieg'])
+      },
+      or: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { $or: [{ title: { $eq: 'missing' } }, { order: { $eq: 1 } }] }
+        }),
+        assertResult: assertTitles(['Einstieg'])
+      },
+      not: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          where: { $not: { title: { $eq: 'Einstieg' } } }
+        }),
+        assertResult: assertTitles(['Zulu'])
+      }
+    },
+    sortProbe: {
+      positive: toContentProviderQuery({
+        collection: 'docs',
+        sort: [{ order: -1 }]
+      }),
+      assertResult: assertTitles(['Zulu', 'Einstieg'])
+    },
+    terminalProbes: {
+      first: {
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          sort: [{ order: -1 }],
+          first: true
+        }),
+        assertResult: result => expect(result).toMatchObject({ result: { title: 'Zulu' } })
+      },
+      count: {
+        positive: toContentProviderQuery({ collection: 'docs', count: true }),
+        assertResult: result => expect(result).toEqual({ result: 2 })
+      }
+    },
     paginationProbes: {
       offset: {
-        positive: toContentProviderQuery({ collection: 'docs', skip: 1, limit: 1 })
+        positive: toContentProviderQuery({
+          collection: 'docs',
+          paging: { mode: 'offset', skip: 1, limit: 1 }
+        }),
+        assertResult: assertTitles(['Zulu'])
       },
       cursor: {
         positive: toContentProviderQuery({
           collection: 'docs',
           paging: { mode: 'cursor', after: null, limit: 1 }
-        })
+        }),
+        assertResult: assertTitles(['Einstieg'])
       }
     }
   })
@@ -127,6 +193,58 @@ describe('filesystem provider conformance', () => {
     }))
     expect(response.result[0]).not.toHaveProperty('route')
     expect(response.result[0]).not.toHaveProperty('resolution')
+  })
+
+  test.each([
+    { projection: { only: ['title'] }, retained: 'title' },
+    { projection: { without: ['collection', 'canonicalKey', 'locale'] }, retained: 'title' }
+  ])('keeps provider identity intact until canonical $retained projection', async ({ projection }) => {
+    const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
+    const params = { collection: 'docs', limit: 2, ...projection }
+    const raw = await filesystemProvider.query(createEvent(), toContentProviderQuery(params))
+    const rawDocuments = (raw as { result: Array<Record<string, unknown>> }).result
+
+    expect(rawDocuments).toHaveLength(2)
+    expect(rawDocuments[0]).toEqual(expect.objectContaining({
+      collection: 'docs',
+      canonicalKey: expect.any(String),
+      locale: 'de',
+      contentPath: expect.stringMatching(/^\//)
+    }))
+    expect(() => normalizeProviderQueryResponse(params, raw, 'filesystem')).not.toThrow()
+
+    const normalized = normalizeProviderQueryResponse<Record<string, unknown>>(params, raw, 'filesystem')
+    if ('only' in projection) {
+      expect(normalized.result[0]).toHaveProperty('title')
+      expect(normalized.result[0]).not.toHaveProperty('order')
+    } else {
+      expect(normalized.result[0]).not.toHaveProperty('collection')
+      expect(normalized.result[0]).not.toHaveProperty('canonicalKey')
+      expect(normalized.result[0]).not.toHaveProperty('locale')
+    }
+  })
+
+  test('does not strip a global locale prefix from an explicitly unlocalized collection route', async () => {
+    vi.stubGlobal('__ginkoTestRuntimeConfig', {
+      content: {
+        defaultLocale: 'en',
+        locales: ['en', 'de'],
+        collections: { docs: { i18n: false } }
+      }
+    })
+    const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
+
+    try {
+      await expect(filesystemProvider.routes!(createEvent())).resolves.toEqual([
+        expect.objectContaining({
+          collection: 'docs',
+          locale: 'de',
+          contentPath: '/de/dokumentation/einstieg'
+        })
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   test('rejects standalone regex options during wire lowering', () => {

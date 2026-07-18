@@ -4,15 +4,8 @@ import { buildSearchIndex } from '../search'
 import { createMiniSearchIndex } from '../../shared/search'
 import { getContentProvider } from '../providers'
 import { createContentProviderError } from '../../../public/provider-errors'
-import type { ContentSearchResult } from '../../../types/search'
 import { projectProviderSearchResults } from '../provider-route-facts'
 import { getContentRuntimeConfig } from '../runtime-config'
-
-const normalizeSearchResults = (results: ContentSearchResult[] = []): ContentSearchResult[] =>
-  results.map(result => ({
-    ...result,
-    collection: typeof result.collection === 'string' ? result.collection : ''
-  }))
 
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig(event)
@@ -37,15 +30,16 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return normalizeSearchResults(projectProviderSearchResults(
+    return projectProviderSearchResults(
       await provider.search(event, {
         term,
         locale,
         collections: searchConfig.collections
       }),
       provider.name,
-      getContentRuntimeConfig().content
-    ))
+      getContentRuntimeConfig().content,
+      searchConfig.collections
+    )
   }
 
   const records = await buildSearchIndex(event, {

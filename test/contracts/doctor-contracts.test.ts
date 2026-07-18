@@ -104,7 +104,8 @@ describe('ginko-content doctor contracts', () => {
       }),
       expect.objectContaining({
         severity: 'info',
-        message: 'content.preview configuration found.'
+        message: 'content.preview configuration found.',
+        suggestion: expect.stringContaining('authenticated filesystem preview is unsupported in production')
       })
     ]))
     expect(result.findings).not.toEqual(expect.arrayContaining([
@@ -314,8 +315,9 @@ describe('ginko-content doctor contracts', () => {
         },
         content: {
           i18n: {
-            defaultLocale: 'en',
-            locales: ['en', 'de']
+            fallback: {
+              de: ['en']
+            }
           }
         }
       })
@@ -381,7 +383,7 @@ describe('ginko-content doctor contracts', () => {
     expect(output).toContain('Ignore .output/public/sitemap.xml/')
   })
 
-  test('i18n mode reports collections and locale folders that are not wired for localization', async () => {
+  test('rejects duplicate locale authority when Nuxt I18n is registered', async () => {
     const root = createFixture()
     await writeFixtureFile(root, 'package.json', JSON.stringify({
       dependencies: {
@@ -401,6 +403,81 @@ describe('ginko-content doctor contracts', () => {
             defaultLocale: 'en',
             locales: ['en', 'de']
           }
+        }
+      })
+    `)
+    await writeFixtureFile(root, 'content.config.ts', `
+      export default defineContentConfig({ collections: {} })
+    `)
+    await writeFixtureFile(root, 'content/en/index.md', '# Home')
+    await writeFixtureFile(root, 'content/de/index.md', '# Startseite')
+
+    const result = await runDoctor({ rootDir: root, i18n: true })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        severity: 'error',
+        file: 'nuxt.config.ts',
+        message: 'Duplicate locale authority found in content.i18n.'
+      })
+    ])
+  })
+
+  test('accepts content-owned locale authority without Nuxt I18n', async () => {
+    const root = createFixture()
+    await writeFixtureFile(root, 'package.json', JSON.stringify({
+      dependencies: {
+        '@lupinum/ginko-content': '^2.13.4'
+      }
+    }))
+    await writeFixtureFile(root, 'nuxt.config.ts', `
+      export default defineNuxtConfig({
+        modules: ['@lupinum/ginko-content'],
+        content: {
+          i18n: {
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          }
+        }
+      })
+    `)
+    await writeFixtureFile(root, 'content.config.ts', `
+      import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
+
+      export default defineContentConfig({
+        collections: {
+          docs: defineCollection({
+            type: 'page',
+            source: 'docs/**/*.md',
+            i18n: true
+          })
+        }
+      })
+    `)
+    await writeFixtureFile(root, 'content/en/docs/index.md', '# Docs')
+    await writeFixtureFile(root, 'content/de/docs/index.md', '# Dokumentation')
+
+    const result = await runDoctor({ rootDir: root, i18n: true })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.findings).toEqual([])
+  })
+
+  test('i18n mode reports collections and locale folders that are not wired for localization', async () => {
+    const root = createFixture()
+    await writeFixtureFile(root, 'package.json', JSON.stringify({
+      dependencies: {
+        '@lupinum/ginko-content': '^2.13.4',
+        '@nuxtjs/i18n': '^10.3.0'
+      }
+    }))
+    await writeFixtureFile(root, 'nuxt.config.ts', `
+      export default defineNuxtConfig({
+        modules: ['@nuxtjs/i18n', '@lupinum/ginko-content'],
+        i18n: {
+          defaultLocale: 'en',
+          locales: ['en', 'de']
         }
       })
     `)
@@ -440,12 +517,6 @@ describe('ginko-content doctor contracts', () => {
         i18n: {
           defaultLocale: 'en',
           locales: ['en', 'de']
-        },
-        content: {
-          i18n: {
-            defaultLocale: 'en',
-            locales: ['en', 'de']
-          }
         }
       })
     `)
@@ -488,12 +559,6 @@ describe('ginko-content doctor contracts', () => {
         i18n: {
           defaultLocale: 'en',
           locales: ['en', 'de']
-        },
-        content: {
-          i18n: {
-            defaultLocale: 'en',
-            locales: ['en', 'de']
-          }
         }
       })
     `)
@@ -547,12 +612,6 @@ describe('ginko-content doctor contracts', () => {
         i18n: {
           defaultLocale: 'en',
           locales: ['en', 'de']
-        },
-        content: {
-          i18n: {
-            defaultLocale: 'en',
-            locales: ['en', 'de']
-          }
         }
       })
     `)
@@ -599,12 +658,6 @@ describe('ginko-content doctor contracts', () => {
         i18n: {
           defaultLocale: 'en',
           locales: ['en', 'de']
-        },
-        content: {
-          i18n: {
-            defaultLocale: 'en',
-            locales: ['en', 'de']
-          }
         }
       })
     `)

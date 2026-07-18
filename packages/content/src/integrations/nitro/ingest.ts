@@ -50,7 +50,10 @@ const expandLocaleVariants = async (document: ParsedContent, options: ParseConte
     const collection = document.collection && options.pathMeta?.collections
       ? options.pathMeta.collections[document.collection]
       : undefined
-    return expandDataLocaleVariants(document, collection?.i18n === true ? undefined : collection?.i18n)
+    return expandDataLocaleVariants(
+      document,
+      collection?.i18n && collection.i18n !== true ? collection.i18n : undefined
+    )
   } catch (cause) {
     throw new ContentError(
       'TRANSFORM_FAILED',

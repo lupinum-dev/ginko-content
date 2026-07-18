@@ -3,12 +3,13 @@ import type {
   ContentCollectionItemSurroundingsOptions,
   ContentCollectionNavigationOptions
 } from '../../types/query'
-import { resolveCollectionItemSurroundingsData, resolveCollectionNavigationData } from '../../features/collections/resolve'
+import { resolveCollectionItemSurroundingsData } from '../../features/collections/resolve'
 import { resolveContentNavigation } from './navigation-query'
-import { createProviderNavigationQuery } from './provider-query'
+import { toContentProviderNavigationQuery } from '../../public/provider-query'
 import { contentConfig } from './storage-access'
 import { markCollectionNavigationRoot, projectNavigationTree } from '../../features/navigation/canonical'
 import { normalizeRouteMounts } from '../../features/localization/path'
+import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 
 export async function queryFilesystemCollectionNavigation (
   event: H3Event,
@@ -17,34 +18,24 @@ export async function queryFilesystemCollectionNavigation (
 ) {
   const options = Array.isArray(fieldsOrOptions) ? { fields: fieldsOrOptions } : fieldsOrOptions
   const locale = options.locale
-  return await resolveCollectionNavigationData(collection, contentConfig(), {
-    ...options,
-    loadNavigation: async () => {
-      const { query, options: navigationOptions } = createProviderNavigationQuery({
-        collection,
-        ...(options.fields?.length ? { navigationFields: options.fields } : {}),
-        ...(typeof options.canonical === 'boolean' ? { canonical: options.canonical } : {}),
-        ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
-      })
-      const navigation = await resolveContentNavigation(event, query, navigationOptions)
-      const runtime = contentConfig()
-      const collectionI18n = runtime.collections?.[collection]?.i18n
-      const locales = collectionI18n && typeof collectionI18n === 'object' && collectionI18n.locales?.length
-        ? collectionI18n.locales
-        : (runtime.locales || [])
-      const defaultLocale = collectionI18n && typeof collectionI18n === 'object'
-        ? collectionI18n.defaultLocale || runtime.defaultLocale
-        : runtime.defaultLocale
-      const routeMounts = normalizeRouteMounts(runtime.collections?.[collection]?.route, locales, defaultLocale)
-      const marked = markCollectionNavigationRoot(navigation, collection, { routeMounts })
-      return projectNavigationTree(marked, {
-        locale,
-        defaultLocale,
-        routeMounts,
-        collection,
-        canonical: options.canonical
-      })
-    }
+  const { query, options: navigationOptions } = toContentProviderNavigationQuery({
+    collection,
+    ...(options.fields?.length ? { only: options.fields } : {}),
+    ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
+  })
+  const navigation = await resolveContentNavigation(event, query, navigationOptions)
+  const runtime = contentConfig()
+  const collectionI18n = resolveRuntimeCollectionI18nConfig(collection, runtime)
+  const locales = collectionI18n?.locales || []
+  const defaultLocale = collectionI18n?.defaultLocale
+  const routeMounts = normalizeRouteMounts(runtime.collections?.[collection]?.route, locales, defaultLocale)
+  const marked = markCollectionNavigationRoot(navigation, collection, { routeMounts })
+  return projectNavigationTree(marked, {
+    locale,
+    defaultLocale,
+    routeMounts,
+    collection,
+    canonical: options.canonical
   })
 }
 

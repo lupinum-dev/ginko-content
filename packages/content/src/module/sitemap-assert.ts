@@ -297,8 +297,7 @@ export const createSitemapAssertionTargetsFromPrerenderedSitemaps = (sitemaps: G
  * `<buildDir>/content-cache/snapshot.json` exists on disk. Reading it back
  * and re-deriving counts through `computeSitemapCollectionCounts` is a
  * rebuildable view over the canonical persisted snapshot, not
- * a second content-file parse — replaces the deleted module-time
- * `module/derived-route-discovery.ts#collectSitemapCollectionRouteCounts`.
+ * a second content-file parse.
  *
  * Returns an empty count map (rather than throwing) when the snapshot is
  * absent — e.g. an external provider build, or `content.sitemap.assert`

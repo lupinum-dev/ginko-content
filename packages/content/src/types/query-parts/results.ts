@@ -1,5 +1,3 @@
-import type { ContentQueryBuilderWhere } from './transport'
-
 export interface ContentCollectionNavigationOptions<TField extends string = string> {
   fields?: TField[]
   locale?: string
@@ -11,24 +9,8 @@ export type ContentCollectionItemSurroundingsOptions<TField extends string = str
 export interface ContentCollectionSearchSectionsOptions {
   ignoredTags?: string[]
   extraFields?: string[]
-  filterQuery?: ContentQueryBuilderWhere
   minHeading?: `h${1 | 2 | 3 | 4 | 5 | 6}`
   maxHeading?: `h${1 | 2 | 3 | 4 | 5 | 6}`
-  locale?: string
-  canonical?: boolean
-}
-
-export interface ContentCollectionPageOptions {
-  locale?: string
-  fallback?: string[] | boolean
-  exact?: boolean
-  canonical?: boolean
-}
-
-export interface ContentCollectionRouteMetaOptions {
-  locale?: string
-  fallback?: string[] | boolean
-  exact?: boolean
 }
 
 export interface ResolveContentReferenceOptions {
@@ -52,12 +34,12 @@ export interface ContentLocaleEntry {
  *
  * `requestedPath` is present only when the caller resolved the document
  * through a route/path selector; `resolvedPath` is always the document's
- * projected public path. `alternates` carries one entry per configured
- * locale that has a concrete variant (`source: 'variant'`) or a resolvable
- * fallback (`source: 'fallback'`, labeled with the `resolvedLocale` that
- * actually owns the served content) — the same distinction
- * `synthesizeAlternates` (features/localization/route-projector.ts) makes for
- * the canonical route index.
+ * projected public path. `alternates` carries every concrete variant the
+ * provider returned (`source: 'variant'`). When this query itself resolved a
+ * requested route through locale fallback, it also carries that proven route
+ * as `source: 'fallback'`, labeled with the `resolvedLocale` that owns the
+ * served content. It never guesses fallback URLs for unrequested locales from
+ * per-document facts.
  */
 export type ContentAlternate =
   | {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createEvent, createStorage, doc, navDoc } from './_utils'
+import { createEvent, doc, navDoc } from './_utils'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 
@@ -8,25 +8,19 @@ const runtimeConfig = {
   content: { defaultLocale: 'en', localeFallback: { de: ['fr'] } }
 }
 
-const cache = createStorage()
-const createServerContentQuery = vi.fn()
 const getContent = vi.fn()
 const getContentGraph = vi.fn()
 const resolveLocaleChain = vi.fn()
-const resolveVariant = vi.fn()
 const isPreview = vi.fn()
 const resolveRuntimeEnvironment = vi.fn()
 
 describe('navigation contracts', () => {
   beforeEach(() => {
     vi.resetModules()
-    cache._state.clear()
-    createServerContentQuery.mockReset()
     getContent.mockReset()
     getContentGraph.mockReset()
     getContentGraph.mockResolvedValue(buildContentGraph([], { locales: [], defaultLocale: '' }))
     resolveLocaleChain.mockReset()
-    resolveVariant.mockReset()
     isPreview.mockReset()
     isPreview.mockReturnValue(false)
     resolveRuntimeEnvironment.mockReset()
@@ -36,13 +30,6 @@ describe('navigation contracts', () => {
     vi.doMock('../../packages/content/src/runtime/server/runtime-config', () => ({
       getContentRuntimeConfig: () => runtimeConfig
     }))
-    vi.doMock('../../packages/content/src/runtime/server/provider-query', async () => {
-      const actual = await vi.importActual<any>('../../packages/content/src/runtime/server/provider-query')
-      return {
-        ...actual,
-        createServerContentQuery
-      }
-    })
     vi.doMock('../../packages/content/src/storage/contents', () => ({
       getContent
     }))
@@ -51,7 +38,6 @@ describe('navigation contracts', () => {
       parseContent: vi.fn()
     }))
     vi.doMock('../../packages/content/src/integrations/nitro/storage', () => ({
-      cacheStorage: () => cache,
       contentConfig: () => ({
         locales: [],
         defaultLocale: '',
@@ -61,7 +47,11 @@ describe('navigation contracts', () => {
     }))
     vi.doMock('../../packages/content/src/storage/graph', async () => {
       const actual = await vi.importActual<any>('../../packages/content/src/storage/graph')
-      return { ...actual, getContentGraph, resolveLocaleChain, resolveVariant }
+      return { ...actual, getContentGraph }
+    })
+    vi.doMock('../../packages/content/src/core/content/locale', async () => {
+      const actual = await vi.importActual<any>('../../packages/content/src/core/content/locale')
+      return { ...actual, resolveLocaleChain }
     })
     vi.doMock('../../packages/content/src/integrations/nitro/preview', () => ({
       isPreview
@@ -383,7 +373,7 @@ describe('navigation contracts', () => {
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    // Adapt builder parameters to the wire pair expected by this lower-level helper.
     const resolveContentNavigation = (event: any, params: any = {}) => {
       const { query, options } = toContentProviderNavigationQuery(params)
       return rawResolveContentNavigation(event, query, options)
@@ -445,7 +435,6 @@ describe('navigation contracts', () => {
         ]
       })
     ])
-    expect(createServerContentQuery).not.toHaveBeenCalled()
     expect(getContentGraph).toHaveBeenCalledTimes(1)
   })
 
@@ -626,7 +615,7 @@ describe('navigation contracts', () => {
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    // Adapt builder parameters to the wire pair expected by this lower-level helper.
     const resolveContentNavigation = (event: any, params: any = {}) => {
       const { query, options } = toContentProviderNavigationQuery(params)
       return rawResolveContentNavigation(event, query, options)
@@ -668,7 +657,7 @@ describe('navigation contracts', () => {
     ])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    // Adapt builder parameters to the wire pair expected by this lower-level helper.
     const resolveContentNavigation = (event: any, params: any = {}) => {
       const { query, options } = toContentProviderNavigationQuery(params)
       return rawResolveContentNavigation(event, query, options)
@@ -696,7 +685,7 @@ describe('navigation contracts', () => {
     resolveLocaleChain.mockReturnValue(['de'])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    // Adapt builder parameters to the wire pair expected by this lower-level helper.
     const resolveContentNavigation = (event: any, params: any = {}) => {
       const { query, options } = toContentProviderNavigationQuery(params)
       return rawResolveContentNavigation(event, query, options)
@@ -709,29 +698,6 @@ describe('navigation contracts', () => {
     expect(navigation).not.toEqual(expect.arrayContaining([expect.objectContaining({ locale: 'en' })]))
   })
 
-  test('resolveContentNavigation always derives fresh — no persisted _nav.json cache is consulted', async () => {
-    // The single-entry `_nav.json` cache is
-    // deleted. A stale entry sitting in cache storage must never leak into a
-    // navigation response — `resolveContentNavigation` has to query fresh
-    // every time regardless of what (if anything) cache storage holds.
-    cache._state.set('_nav.json', [{ title: 'Cached', path: '/cached' }] as any)
-    useGraph([])
-
-    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
-    const resolveContentNavigation = (event: any, params: any = {}) => {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return rawResolveContentNavigation(event, query, options)
-    }
-
-    await expect(resolveContentNavigation(createEvent())).resolves.toEqual([])
-    expect(getContentGraph).toHaveBeenCalled()
-
-    getContentGraph.mockClear()
-    await resolveContentNavigation(createEvent(), { where: [{ locale: 'de' }] })
-    expect(getContentGraph).toHaveBeenCalled()
-  })
-
   test('resolveContentNavigation preserves a canonical collection root until the provider boundary', async () => {
     useGraph([
       navDoc({ id: 'content:docs:index.md', collection: 'docs', file: { path: '/docs/index.md' }, path: '/docs', title: 'Docs' }),
@@ -739,7 +705,7 @@ describe('navigation contracts', () => {
     ])
 
     const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // resolveContentNavigation now takes the wire pair (CS-5); build it here.
+    // Adapt builder parameters to the wire pair expected by this lower-level helper.
     const resolveContentNavigation = (event: any, params: any = {}) => {
       const { query, options } = toContentProviderNavigationQuery(params)
       return rawResolveContentNavigation(event, query, options)

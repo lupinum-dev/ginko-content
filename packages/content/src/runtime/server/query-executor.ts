@@ -9,7 +9,6 @@ import { withResolvedRefs, withResolvedRefsList } from '../../storage/references
 import { getContentGraph } from '../../storage/graph'
 import { getContentRuntimeConfig } from './runtime-config'
 import { isPreview } from '../../integrations/nitro/preview'
-import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../../features/query/public-limits'
 
 const notFound = (plan: ContentQueryPlan, description = 'Could not find document for the given query.') => {
   throw createError({
@@ -100,7 +99,7 @@ const andPlanFilters = (base: FilterExpr, ...extra: FilterExpr[]): FilterExpr =>
  * it, applied here because the filesystem operator surface is fully known
  * (a generic third-party provider is not — see `createProviderQuery`).
  */
-const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): ContentQueryPlan => {
+const applyFilesystemQueryPolicy = (plan: ContentQueryPlan, includeDrafts: boolean): ContentQueryPlan => {
   if (!plan.collection) {
     badQuery('Public content queries must target a collection.')
   }
@@ -109,10 +108,6 @@ const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): Con
     badQuery('Public content queries do not accept RegExp filters.')
   }
 
-  const includeDrafts = resolveIncludeDrafts({
-    environment: resolveRuntimeEnvironment(),
-    previewAuthorized: isPreview(event)
-  })
   const visibilityClauses: FilterExpr[] = [
     { type: 'compare', field: 'partial', operator: 'ne', value: true },
     { type: 'compare', field: 'navigationFile', operator: 'ne', value: true }
@@ -124,9 +119,7 @@ const applyFilesystemQueryPolicy = (event: H3Event, plan: ContentQueryPlan): Con
 
   return {
     ...plan,
-    filter,
-    limit: typeof plan.limit === 'number' ? Math.max(0, Math.min(plan.limit, MAX_PUBLIC_QUERY_LIMIT)) : plan.limit,
-    skip: Math.max(0, Math.min(plan.skip, MAX_PUBLIC_QUERY_SKIP))
+    filter
   }
 }
 
@@ -141,7 +134,11 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
   })
 
   const config = getContentRuntimeConfig().content || {}
-  const plan = applyFilesystemQueryPolicy(event, inputPlan)
+  const includeDrafts = resolveIncludeDrafts({
+    environment: resolveRuntimeEnvironment(),
+    previewAuthorized: isPreview(event)
+  })
+  const plan = applyFilesystemQueryPolicy(inputPlan, includeDrafts)
   let graph
   try {
     graph = await getContentGraph(event)
@@ -154,7 +151,8 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
   const response = executeQueryPlan(graph, plan, {
     defaultLocale: config.defaultLocale,
     localeFallback: config.localeFallback,
-    collections: config.collections
+    collections: config.collections,
+    includeDrafts
   })
 
   if (plan.mode === 'count') {
@@ -180,5 +178,3 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
     result: await withResolvedRefsList(event, Array.isArray(response.result) ? response.result : [], requestedLocale) as T[]
   }
 }
-
-export const executeContentQuery = executeFilesystemContentQuery

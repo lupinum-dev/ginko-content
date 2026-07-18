@@ -9,13 +9,14 @@ function toJsonObject (tree: CsvRootNode) {
   const columns = (header?.children || []).map(column => cellValue(column))
 
   return rows.map((row: CsvRowNode) => {
-    return row.children.reduce((record: Record<string, string | undefined>, column: CsvColumnNode, index: number) => {
+    const entries: Array<[string, string | undefined]> = []
+    row.children.forEach((column: CsvColumnNode, index: number) => {
       const key = columns[index]
       if (typeof key === 'string') {
-        record[key] = cellValue(column)
+        entries.push([key, cellValue(column)])
       }
-      return record
-    }, {})
+    })
+    return Object.fromEntries(entries)
   })
 }
 

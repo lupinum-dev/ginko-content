@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 // Documentation-drift linter.
 //
-// Moved out of test/unit/docs-drift.test.ts (T6.1): the detector logic used to
-// live in a vitest suite that also self-tested its own regexes. The detectors
-// are the load-bearing part — they scan the shipped docs/examples corpus for
+// Scans the shipped docs and examples for
 // stale/removed public APIs, private metadata leaks, unsupported query
-// operators, incomplete config snippets and non-public imports. They now run as
-// a standalone script wired into CI (the `verify` job) and `release:verify`.
+// operators, incomplete config snippets, and non-public imports. It runs in CI
+// through `verify` and `release:verify`.
 //
 // Exit code 0 = clean; 1 = drift found (offenders printed to stderr).
 
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import { LOGICAL_QUERY_OPERATORS, PUBLIC_QUERY_OPERATORS } from '../packages/content/src/core/query/operators.ts'
 
 const markdownRoots = [
   'README.md',
@@ -37,15 +36,13 @@ const exampleImportRoots = [
   'test/fixtures'
 ]
 
-// Maintained type-level fixture compiled by `pnpm typecheck` (see
-// test/fixtures/typecheck/types/ginko-api.ts). Scanned alongside docs/examples
-// so stale-API and public-surface detectors also cover the fixture that
-// exercises the public query API surface at the type level. Deliberately
-// excludes `test/fixtures/quickstart`, which is a maintained e2e fixture owned
-// and actively edited by a concurrent workstream — including it here would
-// make this linter's pass/fail depend on that workstream's in-flight state.
+// Maintained public-contract fixtures. Scanned alongside docs/examples by
+// contract-oriented detectors, but excluded from beginner-documentation
+// placement checks because they are executable fixtures rather than teaching
+// material.
 const maintainedFixtureRoots = [
-  'test/fixtures/typecheck'
+  'test/fixtures/typecheck',
+  'test/fixtures/quickstart'
 ]
 
 const sourceExampleFiles = [
@@ -103,23 +100,8 @@ const namedDefineCollectionPattern = /\bdefineCollection\s*\(\s*['"][^'"]+['"]/
 const rawStringHandleFirstHelperPattern = /\b(?:useContentPage|useContentNavigation|useContentSearchData)\s*\(\s*['"][^'"]+['"]/
 
 const publicQueryOperators = new Set([
-  '$eq',
-  '$ne',
-  '$gt',
-  '$gte',
-  '$lt',
-  '$lte',
-  '$in',
-  '$nin',
-  '$contains',
-  '$containsAny',
-  '$icontains',
-  '$exists',
-  '$type',
-  '$prefix',
-  '$and',
-  '$or',
-  '$not'
+  ...PUBLIC_QUERY_OPERATORS,
+  ...LOGICAL_QUERY_OPERATORS
 ])
 
 const nonQueryDollarNames = new Set([
@@ -498,8 +480,22 @@ const peerRequirementLabel = (name, range) => {
   if (name === 'nuxt') return range.includes('<5')
     ? `Nuxt ${version} through Nuxt 4.x`
     : `Nuxt ${version} or later`
-  if (name === 'vue') return `Vue ${version.replace(/\.0$/, '')} or later`
+  if (name === 'vue') return range.startsWith('^')
+    ? `Vue ${version} through Vue ${version.split('.')[0]}.x`
+    : `Vue ${version} or later`
   return null
+}
+
+const nodeRequirementLabel = (range) => {
+  const bounded = [...range.matchAll(/\^(\d+)\.(\d+)\.\d+/g)]
+    .map(match => `${match[1]}.${match[2]}–${match[1]}.x`)
+  const open = range.match(/>=(\d+)(?:\.\d+){2}/)?.[1]
+  const parts = [...bounded, ...(open ? [`${open}+`] : [])]
+  if (!parts.length) return null
+  const joined = parts.length === 1
+    ? parts[0]
+    : `${parts.slice(0, -1).join(', ')}, or ${parts.at(-1)}`
+  return `Node.js ${joined}`
 }
 
 const isContentConfigCodeBlock = info => /\bcontent\.config\.ts\b/.test(info)
@@ -574,7 +570,7 @@ const findAdrIndexDriftOffenders = async () => {
 // Every regex-backed detector is self-tested against `positive-controls.md`:
 // each pattern must still match a known-bad fixture line, so a regex regression
 // (e.g. a broken escape) fails loudly instead of silently passing every doc.
-// This includes the single-pattern detectors, which used to lack coverage. The
+// This includes every single-pattern detector. The
 // remaining checks are heuristic (context windows, relational import/export
 // matching, code-block completeness, peer-version labels) rather than a fixed
 // pattern.test over one line, so they cannot be fixture-tested this way.
@@ -622,7 +618,7 @@ const checks = [
   },
   async () => {
     const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...maintainedFixtureRoots])) {
+    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
       offenders.push(...findAdvancedSurfaceLinesOutsideAdvancedDocs(file, await readFile(file, 'utf8')))
     }
     return { name: 'beginner docs do not teach advanced provider cache or agent surfaces', offenders }
@@ -700,24 +696,31 @@ const checks = [
     return { name: 'examples do not import Nuxt Content directly', offenders }
   },
   async () => {
-    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8'))
+    const [manifestSource, workspaceManifestSource] = await Promise.all([
+      readFile('packages/content/package.json', 'utf8'),
+      readFile('package.json', 'utf8')
+    ])
+    const manifest = JSON.parse(manifestSource)
+    const workspaceManifest = JSON.parse(workspaceManifestSource)
     const readme = await readFile('packages/content/README.md', 'utf8')
     const installDoc = await readFile('docs/content/docs/3.get-started/1.installation.md', 'utf8')
-    const requiredPeerLabels = Object.entries(manifest.peerDependencies)
+    const requiredPeers = Object.entries(manifest.peerDependencies)
       .filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional)
+    const requiredPeerLabels = requiredPeers
       .map(([name, range]) => peerRequirementLabel(name, range))
       .filter(label => Boolean(label))
 
     const offenders = []
-    const nodeRequirement = 'Node.js 22 or later'
-    if (manifest.engines?.node !== '>=22.0.0') {
-      offenders.push(`package engines.node drifted: expected >=22.0.0, got ${manifest.engines?.node}`)
+    const nodeRange = manifest.engines?.node
+    const nodeRequirement = typeof nodeRange === 'string' ? nodeRequirementLabel(nodeRange) : null
+    if (!nodeRequirement) offenders.push(`package engines.node is missing or cannot be rendered: ${nodeRange}`)
+    if (workspaceManifest.engines?.node !== nodeRange) {
+      offenders.push(`workspace engines.node drifted: expected ${nodeRange}, got ${workspaceManifest.engines?.node}`)
     }
-    if (!readme.includes(nodeRequirement)) offenders.push(`packages/content/README.md missing runtime requirement: ${nodeRequirement}`)
-    if (!installDoc.includes(nodeRequirement)) offenders.push(`installation docs missing runtime requirement: ${nodeRequirement}`)
-    const expected = ['Nuxt 4.4.7 through Nuxt 4.x', 'Vue 3.5 or later']
-    if (JSON.stringify(requiredPeerLabels) !== JSON.stringify(expected)) {
-      offenders.push(`required peer labels drifted: expected ${JSON.stringify(expected)}, got ${JSON.stringify(requiredPeerLabels)}`)
+    if (nodeRequirement && !readme.includes(nodeRequirement)) offenders.push(`packages/content/README.md missing runtime requirement: ${nodeRequirement}`)
+    if (nodeRequirement && !installDoc.includes(nodeRequirement)) offenders.push(`installation docs missing runtime requirement: ${nodeRequirement}`)
+    if (requiredPeerLabels.length !== requiredPeers.length) {
+      offenders.push(`required peer ranges cannot all be rendered: ${JSON.stringify(requiredPeers)}`)
     }
     for (const label of requiredPeerLabels) {
       if (!readme.includes(label)) offenders.push(`packages/content/README.md missing peer requirement: ${label}`)

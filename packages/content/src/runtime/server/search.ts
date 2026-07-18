@@ -1,11 +1,12 @@
 import type { H3Event } from 'h3'
 import type { ParsedContent } from '../../types/content'
-import type { ContentQueryBuilderWhere } from '../../types/query'
+import type { ContentProviderQueryInput, ContentProviderQueryWhere } from '../../types/query'
 import { useRuntimeConfig } from 'nitropack/runtime'
 import { createSearchSections } from '../../features/search/sections'
 import { toSearchIndexRecord } from '../../features/search/records'
 import { resolveCollectionI18n } from '../../features/localization/path'
-import { serverQueryCollection } from './provider-query'
+import { unwrapListResponse } from '../../features/query/responses'
+import { createServerContentQueryContext } from './query-api'
 
 type SearchablePage = Pick<ParsedContent, 'path' | 'locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
@@ -54,10 +55,10 @@ export const resolveSearchCollections = (
 }
 
 const mergeSearchFilter = (
-  filterQuery?: ContentQueryBuilderWhere,
+  filterQuery?: ContentProviderQueryWhere,
   locale?: string
-): ContentQueryBuilderWhere | undefined => {
-  const localeFilter: ContentQueryBuilderWhere | undefined = locale ? { locale: locale } : undefined
+): ContentProviderQueryWhere | undefined => {
+  const localeFilter: ContentProviderQueryWhere | undefined = locale ? { locale: locale } : undefined
 
   if (filterQuery && localeFilter) {
     return { $and: [filterQuery, localeFilter] }
@@ -68,7 +69,7 @@ const mergeSearchFilter = (
 
 async function loadSearchDocuments (
   event: H3Event,
-  filterQuery?: ContentQueryBuilderWhere,
+  filterQuery?: ContentProviderQueryWhere,
   locale?: string,
   collectionsOverride?: string[],
   opts: {
@@ -78,17 +79,18 @@ async function loadSearchDocuments (
 ): Promise<SearchablePage[]> {
   const runtimeConfig = useRuntimeConfig(event)
   const collections = resolveSearchCollections(runtimeConfig.content, collectionsOverride)
+  const context = await createServerContentQueryContext(event)
 
   const results = await Promise.all(collections.map(async (collection) => {
     const loadPages = async (queryLocale?: string) => {
-      const query = serverQueryCollection(event, collection)
-        .select('path', 'locale', 'title', 'description', 'body', ...(opts.extraFields || []))
       const mergedFilter = mergeSearchFilter(filterQuery, queryLocale)
-
-      const pages = mergedFilter
-        ? await (query as any).where(mergedFilter).find()
-        : await (query as any).find()
-      return (pages as Array<Record<string, unknown>>).map(page => ({
+      const params: ContentProviderQueryInput = {
+        collection,
+        only: ['path', 'locale', 'title', 'description', 'body', ...(opts.extraFields || [])],
+        ...(mergedFilter ? { where: [mergedFilter] } : {})
+      }
+      const pages = unwrapListResponse<Record<string, unknown>>(await context.transport('query', params))
+      return pages.map(page => ({
         ...page,
         path: typeof page.path === 'string'
           ? page.path
@@ -121,7 +123,7 @@ export async function buildSearchIndex (
     collections?: string[]
     ignoredTags?: string[]
     extraFields?: string[]
-    filterQuery?: ContentQueryBuilderWhere
+    filterQuery?: ContentProviderQueryWhere
     locale?: string
     allLocales?: boolean
   } = {}

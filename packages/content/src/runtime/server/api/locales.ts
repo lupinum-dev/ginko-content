@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getQuery } from 'h3'
-import { resolveProviderContentVariants } from '../provider-query'
+import { assertConfiguredProviderCollection, resolveProviderContentVariants } from '../provider-query'
 import { projectProviderRouteFact } from '../provider-route-facts'
 import { getContentRuntimeConfig } from '../runtime-config'
 
@@ -13,6 +13,21 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       statusMessage: 'Missing collection or identity'
+    })
+  }
+
+  try {
+    assertConfiguredProviderCollection(collection)
+  } catch {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'invalid_content_query_request',
+      message: 'Invalid content query request at $.collection: collection must name a configured content collection.',
+      data: {
+        code: 'invalid_content_query_request',
+        path: '$.collection',
+        reason: 'collection must name a configured content collection.'
+      }
     })
   }
 

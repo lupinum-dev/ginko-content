@@ -41,8 +41,3 @@ export const agentRoutePathFromRawSlug = (slug: string | string[] | undefined) =
   if (withoutExtension === 'index') return '/'
   return normalizeAgentRoutePath(withoutExtension.replace(/\/index$/i, '') || '/')
 }
-
-export const agentRoutePathFromIndexSlug = (slug: string | string[] | undefined) => {
-  const joined = Array.isArray(slug) ? slug.join('/') : (slug || '')
-  return normalizeAgentRoutePath(joined || '/')
-}

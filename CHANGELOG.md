@@ -1,5 +1,116 @@
 # Changelog
 
+## v0.3.0-rc.4
+
+- Harden the prerelease public query vocabulary: array-valued schema fields now
+  infer element operands for `$in`, `$nin`, `$contains`, and `$containsAny`;
+  fallback accepts booleans, `'default'`, or an exact readonly locale chain;
+  logical `$not` is the only negation form; and public sorts use only `asc` or
+  `desc`. Provider wire v3 remains unchanged.
+- Tighten site data so in-process providers return required `data` plus an
+  optional timestamp while request key and locale remain canonical. Remote
+  data sources continue echoing identity for binder validation. Remove the
+  public `LocalizedDoc` and `ContentCollectionStringName` type aliases.
+- Treat an unknown configured provider as a server error while preserving the
+  separate runtime-neutral and H3-aware provider-error constructors.
+
+- Correct the supported runtime floors to the versions required by the current
+  Nuxt dependency graph: Node.js 22.18–22.x, 24.11–24.x, or 26+, and Vue
+  3.5.35–3.x. The exact minimum Node runtime is now exercised in CI.
+- Normalize locale fallback once for both locale and variant queries. Explicit
+  fallback chains now override configured policy consistently for list, path,
+  route, and reference selectors; an empty fallback list and `fallback: false`
+  both mean exact resolution; and the `default` shorthand resolves to the
+  collection default rather than the site-wide default.
+- Harden the public data-source binder so arbitrary backend status and code
+  fields cannot escape as trusted public errors. Enforce byte limits against
+  the actual UTF-8 payload while retaining explicit NFC requirements for cache
+  tags and paths.
+- Refuse publication from the source package directory and keep the inspected
+  release tarball as the only supported publication input. Remove release-only
+  preflight residue and redundant workspace dependencies.
+- Hard-cut the prerelease provider query wire from v2 to v3 and keep `$nin` as
+  a first-class provider-plan comparison operator. There is no v2 dispatch or
+  compatibility adapter. Providers
+  that relied on `$nin` lowering to `$in` under a negation must advertise and
+  execute `$nin` directly. Logical `$and`, `$or`, and `$not` plan nodes remain
+  structural parts of the v3 wire and are not advertised capabilities. The
+  exported provider conformance suite now requires result-asserting probes for
+  all three mandatory logical nodes.
+- Apply public `only` and `without` projection after provider-document
+  validation. Filesystem and fixture providers now keep complete identity and
+  route facts across the raw provider seam instead of maintaining a fragile
+  projection allowlist.
+- Validate one site-relative `contentPath` contract for provider query
+  documents and auxiliary route facts before public route projection.
+- Reject provider-only `$regex` and `$options` syntax from public queries, and
+  validate public HTTP operator operands, field paths, sort locales, terminal
+  modes, and pagination shapes against the documented query grammar before
+  provider dispatch.
+- Delete the obsolete regex-sentinel query transport and keep regex-like
+  strings inert. Encode browser query parameters as UTF-8 so non-Latin content
+  survives the Buffer-free transport path.
+- Make provider query wire validation unconditional and JSON-strict, reject
+  undeclared runtime collections before provider dispatch, and require
+  capability declarations to contain only supported, unique operators and
+  pagination modes.
+- Align the public provider types with the enforced raw boundary: `query()` now
+  returns `ProviderDocumentInput` envelopes rather than a caller-selected
+  generic, and `siteData()` returns JSON-pure data rather than a caller-selected
+  generic. Provider implementations using those type parameters must remove
+  them when upgrading to this prerelease.
+- Tighten validation of the documented provider query envelopes. Offset
+  responses must echo the exact requested `skip` and `limit`, counts must be
+  non-negative safe integers, and a missing provider `first` result uses
+  `undefined`. Public single-result HTTP responses continue to use top-level
+  `null` when no document exists.
+- Treat explicit `paging` as the only pagination authority when present,
+  require positive page sizes, and reject malformed filesystem cursors instead
+  of silently restarting at the first page. Third-party provider cursors remain
+  opaque to Ginko.
+- Reject malformed, sparse, or non-JSON provider query, navigation,
+  surroundings, search, route, sitemap, site-data, and data-source results at
+  their boundaries with structured provider errors. The exported provider and
+  data-source conformance suites now validate canonical query envelopes.
+- Support structured JSON/YAML/CSV bodies and arbitrary custom-transformer file
+  extensions in the public document types. Preserve released
+  `normalizeProviderDocument()` output as valid provider input when its derived
+  `path` exactly matches `contentPath`.
+- Reject malformed, traversal-bearing, or separator-encoded provider content
+  paths before route projection while retaining valid percent-encoded content.
+- Bound cache-revalidation request bodies and target lists before signature
+  verification or adapter dispatch, authenticate the exact request bytes,
+  reject malformed UTF-8, and accept only the documented `tags` and `paths`
+  fields.
+- Keep cache invalidation single-owned by `ContentCacheAdapter`; remove stale
+  provider-level invalidation guidance and delete the CMS workflow demo that
+  duplicated behavior already covered by the provider contract and public
+  caching guide.
+- Keep runtime collection i18n configuration as the single locale-policy
+  source, including explicit `i18n: false`, and prevent sitemap locale-key
+  collisions for collection and canonical identities containing punctuation.
+- Stop inventing per-document fallback alternates from incomplete route facts.
+  Query results now include every concrete provider variant plus only the
+  fallback route proven by the current resolution; whole-collection sitemap
+  alternates continue to use the canonical route index.
+- Make `createFixtureContentProvider()` follow production visibility rules by
+  excluding drafts from query results, document variants, navigation, and
+  provider-owned search while retaining draft route facts for consumer-side
+  sitemap and route policy tests.
+- Remove the runtime special case for Nuxt Content v2's sitemap source. Running
+  Nuxt Content and Ginko together is unsupported; Ginko now deduplicates only
+  the sitemap source it owns.
+- Remove the filesystem-specific implicit `file.stem` sort from provider query
+  normalization. Unsorted results now use provider order; callers requiring
+  deterministic pagination must specify a sort. Provider conformance now proves
+  sort, first, and supported count semantics in addition to advertised filters
+  and pagination.
+- Export the low-level `ContentProviderQueryInput` from the provider subpath for
+  the existing provider-lowering helpers. Programmatic and HTTP lowering now
+  share one closed key vocabulary and reject unknown keys, scalar or empty
+  filters, contradictory terminals, malformed selectors, and invalid paging
+  before a broader query can reach a provider.
+
 ## v0.3.0-rc.3
 
 - Fix filesystem-provider navigation after the provider hard cutover. Canonical
@@ -27,7 +138,8 @@
 This release candidate combines the previously unpublished content-engine work
 and the data-source/portability work into one release from `v0.2.1`. It is a
 coordinated pre-1.0 hard cutover; no intermediate `0.3` or `0.4` package is
-required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
+required. See
+[Migrating from 0.2.1 to 0.3](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/6.migration/4.ginko-version-upgrades.md).
 
 ### Breaking changes
 
@@ -112,8 +224,7 @@ required. See [Migrating from 0.2.1 to 0.3](/docs/migration/from-0-2-to-0-3).
 > document envelope, the provider wire contract, the public export map, and
 > production loading. This section is the complete migration guide; a provider
 > author or CMS integrator should be able to migrate using only what is written
-> below. Read it top to bottom before upgrading. The primary consumer is
-> ginko-cms — its per-item cutover checklist is at the end.
+> below. Read it top to bottom before upgrading.
 
 ### Migrating a provider — the short version
 
@@ -486,41 +597,6 @@ silently dropped by `JSON.stringify`, including symbol keys carried on arrays)
 instead of admitting a lossy round-trip. Aggregated snapshot errors now carry
 per-document `docId:$.path` detail (e.g. `docs/en/guide:$.data.when`) so the
 offending value is locatable.
-
----
-
-### ginko-cms cutover checklist
-
-ginko-cms hard-cuts to 0.2 (no dual-contract layer). In one gated commit:
-
-1. Rewrite `packages/cms/src/nuxt-provider.mjs` in TS, importing `ContentProvider`
-   from `@lupinum/ginko-content/provider`; accept `ContentProviderQuery` + the
-   typed navigation options; emit the minimal `ProviderDocumentInput` and let
-   `shapeProviderDocument` derive the envelope (stop building `_id`/`_source`/
-   `_collection`/`_type`/`_path`/`_locale`/`_canonicalKey`/`_variantPaths` and the
-   `variants`/`localePaths`/`resolved` state by hand). Import cache-tag vocabulary
-   from `@lupinum/ginko-cms-contract`.
-2. Rename the provider's internal `canonicalPath` derivation to `unprefixedPath`;
-   never expose `canonicalPath` as a contract field.
-3. Replace the provider-contract shadow test with the real ginko-content types +
-   `runProviderContractSuite` against the packed provider.
-4. Re-sync the vendored `/cms-contract` (`describeId` now returns de-underscored
-   keys `source`/`path`/`extension`/`file`/`basename`).
-5. Update migration/import readers (`_canonicalKey`/`_locale`/`_id`/`_file` →
-   `canonicalKey`/`locale`/`id`/`file.*`) and assert migration output never emits
-   reserved frontmatter keys (`id`, `collection`, `locale`, `path`,
-   `canonicalKey`, `type`, `file`, `resolved`, `variants`, `localePaths`,
-   `unprefixedPath`, `dir`); anything that emitted `id` uses `ref`.
-6. Move the studio `slugifyUrlSegment` import from `/config` to `/cms-contract`.
-7. Update docs/skills that list `_draft`/`_partial`/`_locale`/`_path`/`_stem` as
-   provider query fields to the new names (or drop them — `ContentProviderQuery`
-   makes them implementation details).
-8. Bump the `@lupinum/ginko-content` peer to `^0.2.0`; regenerate
-   `compatibility.json`.
-9. Gate `contract.contractVersion` against the exported `CMS_CONTRACT_VERSION`
-   before `collectionFromContract`.
-10. Pass explicit `cms.type` for tree collections and adopt the `editor`
-    passthrough for layout fields.
 
 ## v0.1.7
 

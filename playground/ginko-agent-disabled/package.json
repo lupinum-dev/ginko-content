@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
-    "nuxt": "4.4.8"
+    "nuxt": "4.4.8",
+    "zod": "4.4.3"
   }
 }

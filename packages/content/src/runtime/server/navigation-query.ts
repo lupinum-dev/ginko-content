@@ -7,7 +7,8 @@ import { resolveContentNavigationData } from '../../features/navigation/query'
 import { buildCanonicalNavigation, requireNavigationDocumentPath } from '../../features/navigation/build'
 import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { getContentRuntimeConfig } from './runtime-config'
-import { getContentGraph, resolveLocaleChain } from '../../storage/graph'
+import { resolveLocaleChain } from '../../core/content/locale'
+import { getContentGraph } from '../../storage/graph'
 import { isPreview } from '../../integrations/nitro/preview'
 
 const andFilters = (...filters: FilterExpr[]): FilterExpr => {
@@ -90,7 +91,8 @@ export async function resolveContentNavigation (
       const queryOptions = {
         defaultLocale: runtimeConfig.content.defaultLocale,
         localeFallback: runtimeConfig.content.localeFallback,
-        collections: runtimeConfig.content.collections
+        collections: runtimeConfig.content.collections,
+        includeDrafts
       }
       const contentsResult = executeQueryPlan<ParsedContentMeta>(graph, contentsPlan, queryOptions)
       const configsResult = executeQueryPlan<ParsedContentMeta>(graph, configsPlan, queryOptions)

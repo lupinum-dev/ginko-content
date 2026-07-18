@@ -19,18 +19,18 @@ Use these commands while working:
 
 ```bash
 pnpm verify
-pnpm run release:verify
 ```
 
 `verify` is the broad workspace gate. It builds the package and prepares fixtures
 once, runs repo policies, builds docs and every maintained example, runs
 unit/provider/runtime/client/Nuxt tests and server e2e, and typechecks.
 
-`release:verify` runs `verify` once, production browser e2e, real static
-generation, production audit, two byte-identical release packs, and pnpm/npm
-consumers against the exact verified tarball left in `.pack/`. Search and
-sitemap checks already belong to the e2e project inside `verify`; they are not
-run a second time.
+On the exact final release SHA, the release-authorization job graph provides
+the equivalent of `release:verify`: it runs `verify` once, production browser
+e2e, real static generation, production audit, two byte-identical release
+packs, and pnpm/npm consumers against the exact verified tarball left in
+`.pack/`. Search and sitemap checks already belong to the e2e project inside
+`verify`; they are not run a second time.
 
 ## Release gate
 
@@ -41,21 +41,21 @@ lanes. The Windows packed Nuxt consumer remains a visible non-blocking
 canary while the Nuxt 4.4.7–4.4.8 drive-letter prerender issue documented in
 the 0.2-to-0.3 migration guide is open. Release metadata must be committed
 before that workflow runs. A local
-`pnpm run release:verify` is a useful pre-check, but it does not authorize a tag
-unless it ran from a clean tree at the exact tagged SHA and its environment and
-artifact evidence were retained durably. The required CI lanes above are the
-release-confidence model; only their final authorization job permits tagging.
+`pnpm run release:verify` must not be treated as an iterative local cleanup
+command. The required CI lanes above are the release-confidence model; only
+their final authorization job on the exact release SHA permits tagging.
 
 ## Release Runbook
 
-Publishing is intentionally manual. The `release:publish` script exits with a
-failure message so nobody, human or agent, can accidentally push packages to
-npm.
+Publishing is intentionally manual. The `release:publish` script and the
+package's `prepublishOnly` hook both reject source-directory publication. npm
+does not run that directory lifecycle hook when publishing an explicit tarball,
+so the inspected CI tarball in step 9 is the only supported publication input.
 
 Set the release version once and reuse it in the commands below:
 
 ```bash
-VERSION=0.3.0-rc.2
+VERSION=$(node -p "require('./packages/content/package.json').version")
 case "$VERSION" in
   *-*) NPM_TAG=next; GH_RELEASE_FLAG=--prerelease ;;
   *)   NPM_TAG=latest; GH_RELEASE_FLAG= ;;
@@ -80,6 +80,10 @@ npm view @lupinum/ginko-content@$VERSION version --registry=https://registry.npm
 
 An `E404` is expected for a new version. If npm returns a version, bump
 `packages/content/package.json` and update the changelog before continuing.
+This remains an owner-run check because release authorization runs for every
+`main` commit: requiring an unpublished manifest version or registry access for
+ordinary maintenance CI would make that gate both misleading and brittle.
+Repeat this check immediately before publishing if time has elapsed.
 
 3. Update release metadata intentionally:
 
@@ -102,11 +106,20 @@ delete that output and keep the curated version section.
 4. Commit the release metadata, push `main`, and record the commit SHA:
 
 ```bash
-git add packages/content/package.json CHANGELOG.md README.md MAINTAINING.md
+git status --short
+git add -A
+git diff --cached --check
+git diff --cached --stat
 git commit -m "chore: release ginko-content v$VERSION"
+test -z "$(git status --short)"
 git push origin main
 RELEASE_SHA=$(git rev-parse HEAD)
 ```
+
+Stage only after the worktree contains release-intended changes. Review the
+staged diff, not only its summary, before committing; `git add -A` is used here
+so changed public docs, examples, or newly added release metadata cannot be
+silently omitted.
 
 Do not tag yet. The authoritative gate must run against `$RELEASE_SHA`.
 
@@ -181,9 +194,9 @@ npm access get status @lupinum/ginko-content --registry=https://registry.npmjs.o
 npm view @lupinum/ginko-content@$VERSION version --registry=https://registry.npmjs.org/
 ```
 
-For a first public publish, `npm view` can briefly return `E404` while registry
-metadata propagates. If access lists the package and status is `public`, wait a
-minute and retry before assuming the publish failed.
+Registry metadata can take a short time to propagate. If access lists the
+package and status is `public`, wait a minute and retry before assuming the
+publish failed.
 
 11. Create the GitHub release with the same tarball:
 
@@ -192,7 +205,7 @@ gh release create v$VERSION \
   .pack/lupinum-ginko-content-$VERSION.tgz \
   --title "v$VERSION" \
   $GH_RELEASE_FLAG \
-  --notes "$(awk -v version="v$VERSION" '$0 == "## " version { flag=1 } flag' CHANGELOG.md)"
+  --notes "$(awk -v version="v$VERSION" '$0 == "## " version { capture=1 } capture && /^## / && $0 != "## " version { exit } capture' CHANGELOG.md)"
 ```
 
 If the release already exists, update it instead:
@@ -219,14 +232,12 @@ rm -rf .pack
 git status --short --branch
 ```
 
-For the first public release of a package, npm staged publishing cannot be used
-because staged publishing requires the package to already exist on the registry.
-Use an owner-controlled manual publish with 2FA.
-
-For later releases, prefer npm trusted publishing plus staged publishing:
+When npm trusted publishing and staged publishing are configured, prefer them
+over the manual publish step above:
 
 - GitHub Actions must use a protected environment with human approval.
-- The release job must use Node 24 or newer and npm 11.15 or newer.
+- The release job must use Node 24.11 or newer on the Node 24 LTS line and npm
+  11.15 or newer.
 - Do not use package-manager caches in release jobs.
 - Use OIDC trusted publishing instead of long-lived npm publish tokens.
 - Configure npm package settings to require 2FA and disallow traditional tokens.
@@ -264,7 +275,7 @@ Before changing query operators, update these together:
 - `packages/content/src/runtime/server/providers/filesystem.ts`
 - `packages/content/src/types/query.ts`
 - provider contract tests under `test/contracts/`
-- docs under `docs/content/docs/4.querying/` and `docs/content/docs/9.api-reference/`
+- docs under `docs/content/docs/5.reference/`
 
 ## Ownership Boundary
 

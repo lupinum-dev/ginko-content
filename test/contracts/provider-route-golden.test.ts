@@ -147,4 +147,101 @@ describe('provider route golden contract', () => {
       targets
     })).resolves.toBeUndefined()
   })
+
+  test('publishes only route alternates proven by the selected provider document', async () => {
+    const fixture = createProviderFixture({
+      name: 'provider-route-proof',
+      providerName: 'fixture',
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      localeFallback: { de: ['en'] },
+      collections: {
+        docs: {
+          type: 'page',
+          i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+          route: { en: '/docs', de: '/dokumentation' }
+        }
+      },
+      documents: [
+        { collection: 'docs', canonicalKey: 'docs:a', locale: 'en', path: '/docs/setup', ref: 'docs.a', title: 'A' },
+        { collection: 'docs', canonicalKey: 'docs:b', locale: 'de', path: '/dokumentation/setup', ref: 'docs.b', title: 'B' },
+        { collection: 'docs', canonicalKey: 'docs:draft', locale: 'en', path: '/docs/public', ref: 'docs.draft', title: 'Public' },
+        { collection: 'docs', canonicalKey: 'docs:draft', locale: 'de', path: '/dokumentation/entwurf', ref: 'docs.draft', title: 'Entwurf', draft: true }
+      ]
+    })
+    const provider = createFixtureContentProvider(fixture)
+    const event = createProviderFixtureEvent({ fixture, provider })
+
+    const routeParams = {
+      collection: 'docs',
+      first: true,
+      resolveVariant: {
+        route: '/de/dokumentation/setup',
+        locale: 'de',
+        fallback: ['en']
+      }
+    }
+    const routeResponse = normalizeProviderQueryResponse(
+      routeParams,
+      await provider.query(event, toContentProviderQuery(routeParams)),
+      provider.name,
+      fixture.runtime
+    )
+    expect(routeResponse.result).toMatchObject({
+      canonicalKey: 'docs:b',
+      route: {
+        alternates: [
+          { locale: 'de', path: '/de/dokumentation/setup', source: 'variant' }
+        ]
+      }
+    })
+
+    const refParams = {
+      collection: 'docs',
+      first: true,
+      resolveVariant: {
+        ref: 'docs.a',
+        locale: 'de',
+        fallback: ['en']
+      }
+    }
+    const refResponse = normalizeProviderQueryResponse(
+      refParams,
+      await provider.query(event, toContentProviderQuery(refParams)),
+      provider.name,
+      fixture.runtime
+    )
+    expect(refResponse.result).toMatchObject({
+      canonicalKey: 'docs:a',
+      route: {
+        alternates: [
+          { locale: 'en', path: '/docs/setup', source: 'variant' }
+        ]
+      },
+      resolution: { usedFallback: true }
+    })
+
+    const publicParams = {
+      collection: 'docs',
+      first: true,
+      resolveVariant: {
+        ref: 'docs.draft',
+        locale: 'en',
+        fallback: false
+      }
+    }
+    const publicResponse = normalizeProviderQueryResponse(
+      publicParams,
+      await provider.query(event, toContentProviderQuery(publicParams)),
+      provider.name,
+      fixture.runtime
+    )
+    expect(publicResponse.result).toMatchObject({
+      route: {
+        alternates: [
+          { locale: 'en', path: '/docs/public', source: 'variant' }
+        ]
+      }
+    })
+  })
 })

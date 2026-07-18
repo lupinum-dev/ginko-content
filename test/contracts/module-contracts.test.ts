@@ -132,16 +132,13 @@ describe('module contracts', () => {
     vi.doMock('../../packages/content/src/module/content-components-template', () => ({
       registerContentComponentsTemplate: vi.fn()
     }))
-    vi.doMock('../../packages/content/src/core/content/locale', () => ({
-      resolveCollectionI18nConfig: vi.fn((collection: any) => collection.i18n)
-    }))
   })
 
   test.each(['collections', 'provider', 'providers'])('rejects nuxt.config content.%s as a second source of truth', async (key) => {
     const { validateContentConfigOnlyOptions } = await import('../../packages/content/src/module/validation')
     expect(() => validateContentConfigOnlyOptions({
       ...createOptions(),
-      [key]: key === 'provider' ? 'cms' : {}
+      [key]: key === 'provider' ? 'remote' : {}
     })).toThrow(`content.${key} was removed from nuxt.config`)
   })
 
@@ -244,12 +241,12 @@ describe('module contracts', () => {
   test('accepts a provider implementation registered by a Nuxt module hook', async () => {
     const { nuxt, hooks } = createNuxt()
     nuxt.hook('content:providers', (providers: Record<string, string>) => {
-      providers.cms = '@lupinum/ginko-cms/nuxt-provider'
+      providers.remote = '~/providers/remote'
     })
 
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig: vi.fn(async () => ({
-        provider: 'cms',
+        provider: 'remote',
         collections: {
           docs: { source: '**/*.md' }
         }
@@ -263,15 +260,15 @@ describe('module contracts', () => {
 
     expect(applyContentRuntimeConfig).toHaveBeenCalledWith(
       nuxt,
-      expect.not.objectContaining({ provider: 'cms' }),
+      expect.not.objectContaining({ provider: 'remote' }),
       expect.objectContaining({
-        provider: 'cms',
+        provider: 'remote',
         providers: {
-          cms: '@lupinum/ginko-cms/nuxt-provider'
+          remote: '~/providers/remote'
         }
       }),
       expect.objectContaining({
-        provider: 'cms'
+        provider: 'remote'
       }),
       expect.any(Object),
       expect.any(Object),
@@ -339,12 +336,49 @@ describe('module contracts', () => {
     expect(privateCollections.posts).not.toHaveProperty('schema')
   })
 
-  test('fails loudly when cms provider is selected without the CMS module registration', async () => {
+  test('preserves an explicit collection i18n opt-out through runtime serialization', async () => {
     const { nuxt, hooks } = createNuxt()
 
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig: vi.fn(async () => ({
-        provider: 'cms',
+        collections: {
+          docs: { source: 'docs/**/*.md', i18n: true },
+          legal: { source: 'legal/**/*.md', i18n: false }
+        }
+      })),
+      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+    }))
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions(), nuxt as any)
+    await hooks.get('modules:done')?.()
+
+    const resolvedContext = applyContentRuntimeConfig.mock.calls[0][2]
+    const publicCollections = applyContentRuntimeConfig.mock.calls[0][4]
+    const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    expect(resolvedContext.collections.legal.i18n).toBe(false)
+    expect(publicCollections.legal.i18n).toBe(false)
+    expect(privateCollections.legal.i18n).toBe(false)
+
+    const { resolveRuntimeCollectionI18nConfig } = await import('../../packages/content/src/features/localization/config')
+    const runtime = {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: publicCollections
+    }
+    expect(resolveRuntimeCollectionI18nConfig('docs', runtime)).toEqual({
+      defaultLocale: 'en',
+      locales: ['en', 'de']
+    })
+    expect(resolveRuntimeCollectionI18nConfig('legal', runtime)).toBeUndefined()
+  })
+
+  test('fails loudly when an external provider is selected without module registration', async () => {
+    const { nuxt, hooks } = createNuxt()
+
+    vi.doMock('../../packages/content/src/utils/content-config', () => ({
+      loadContentConfig: vi.fn(async () => ({
+        provider: 'remote',
         collections: {
           docs: { source: '**/*.md' }
         }
@@ -356,7 +390,7 @@ describe('module contracts', () => {
     await mod.default.setup(createOptions(), nuxt as any)
 
     await expect(hooks.get('modules:done')?.()).rejects.toThrow(
-      'content.config.ts sets provider "cms", but no CMS provider module registered it'
+      'content.config.ts sets provider "remote", but no provider module registered it'
     )
   })
 
@@ -629,7 +663,7 @@ describe('module contracts', () => {
     let providersRegisteredBeforeContext = false
 
     nuxt.hook('content:providers', (providers: Record<string, string>) => {
-      providers.cms = '@lupinum/ginko-cms/nuxt-provider'
+      providers.remote = '~/providers/remote'
       providersRegisteredBeforeContext = true
     })
     nuxt.hook('content:context', (ctx: any) => {
@@ -638,9 +672,13 @@ describe('module contracts', () => {
 
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig: vi.fn(async () => ({
-        provider: 'cms',
+        provider: 'remote',
         collections: {
-          docs: { source: '**/*.md', i18n: true }
+          docs: {
+            source: '**/*.md',
+            i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
+            route: { en: '/docs', de: '/dokumentation' }
+          }
         }
       })),
       resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
@@ -673,7 +711,7 @@ describe('module contracts', () => {
       defaultLocale: 'en',
       // Localized collections carry a per-locale route mount map
       //, not a single `default` mount.
-      routeMounts: { en: '/docs', de: '/docs' }
+      routeMounts: { en: '/docs', de: '/dokumentation' }
     })
   })
 

@@ -7,9 +7,9 @@ export interface QuerySiteDataOptions {
 }
 
 export interface ContentSiteDataResponse<T = unknown> {
-  key?: string
+  key: string
   locale?: string
-  data?: T | null
+  data: T | null
   updatedAt?: number
 }
 

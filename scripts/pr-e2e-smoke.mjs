@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Slim PR e2e smoke (T6.3).
+// Slim PR e2e smoke.
 //
 // The full server e2e project runs in its own required PR lane, while browser
 // and static-generation contracts remain exact-main release lanes. This script

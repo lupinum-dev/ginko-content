@@ -4,15 +4,46 @@ import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const ignoredDirs = new Set(['.git', '.nuxt', '.output', '.pack', 'dist', 'node_modules'])
-const scannedExtensions = new Set(['.js', '.json', '.md', '.mjs', '.ts', '.vue'])
-const privateConsumerPattern = /i18n-cms|\/_temp\/i18n-cms|\/Users\/matthias\/Git\/_temp/
-const absoluteFileDependencyPattern = /["']file:(?:\/|[A-Za-z]:[\\/])/
+const ignoredDirs = new Set([
+  '.benchmarks',
+  '.cache',
+  '.data',
+  '.fallow',
+  '.git',
+  '.nuxt',
+  '.output',
+  '.pack',
+  '.temp',
+  '.tmp',
+  'coverage',
+  'dist',
+  'node_modules',
+  'reports',
+])
+const scannedExtensions = new Set([
+  '.cjs',
+  '.cts',
+  '.js',
+  '.json',
+  '.md',
+  '.mjs',
+  '.mts',
+  '.sh',
+  '.ts',
+  '.vue',
+  '.yaml',
+  '.yml',
+])
+const privateConsumerPattern = /(?:^|[^\w-])i18n-cms(?:[^\w-]|$)/m
+const personalPathPattern = /\/Users\/[^/\s]+\/|\/home\/[^/\s]+\/|[A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][^\\/\s]+[\\/]/
+const absoluteFileDependencyPattern = /\b(?:file|link):(?:\/|[A-Za-z]:[\\/])/
 const cmsRuntimeCouplingPattern = /@lupinum\/ginko-cms/
 const cmsNeutralRuntimeRoots = [
   'packages/content/src/core',
   'packages/content/src/features',
   'packages/content/src/integrations',
+  'packages/content/src/module.ts',
+  'packages/content/src/module',
   'packages/content/src/parsers',
   'packages/content/src/public',
   'packages/content/src/runtime',
@@ -22,7 +53,8 @@ const trackedIgnoredArtifactPathspecs = [
   ':(glob)**/.pack/**',
   ':(glob)**/dist/**',
   ':(glob)**/.nuxt/**',
-  ':(glob)**/.output/**'
+  ':(glob)**/.output/**',
+  ':(glob)**/*.tgz',
 ]
 
 function collectFiles(rootPath) {
@@ -47,6 +79,24 @@ function collectFiles(rootPath) {
 
 const violations = []
 
+const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
+const changelogLines = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8').split(/\r?\n/u)
+const releaseHeading = `## v${packageManifest.version}`
+const releaseHeadingIndex = changelogLines.indexOf(releaseHeading)
+if (releaseHeadingIndex === -1) {
+  violations.push(`CHANGELOG.md must contain the package release heading ${releaseHeading}`)
+} else {
+  const nextReleaseHeadingIndex = changelogLines.findIndex((line, index) =>
+    index > releaseHeadingIndex && line.startsWith('## '))
+  const releaseSection = changelogLines
+    .slice(releaseHeadingIndex + 1, nextReleaseHeadingIndex === -1 ? undefined : nextReleaseHeadingIndex)
+    .join('\n')
+    .trim()
+  if (!releaseSection) {
+    violations.push(`CHANGELOG.md release section ${releaseHeading} must not be empty`)
+  }
+}
+
 for (const filePath of collectFiles('.')) {
   if (relative(repoRoot, filePath).replaceAll('\\', '/') === 'scripts/check-repo-policies.mjs') {
     continue
@@ -54,6 +104,9 @@ for (const filePath of collectFiles('.')) {
   const source = readFileSync(filePath, 'utf8')
   if (privateConsumerPattern.test(source)) {
     violations.push(`${relative(repoRoot, filePath)} references a private consumer app path/name`)
+  }
+  if (personalPathPattern.test(source)) {
+    violations.push(`${relative(repoRoot, filePath)} contains a host-specific personal path`)
   }
   if ((filePath.endsWith('package.json') || filePath.endsWith('pnpm-lock.yaml')) && absoluteFileDependencyPattern.test(source)) {
     violations.push(`${relative(repoRoot, filePath)} contains an absolute filesystem dependency`)

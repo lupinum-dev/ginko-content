@@ -1,15 +1,16 @@
 import type { ContentQueryResponse } from '../types/api'
 import type { ContentProviderSearchRequest } from '../types/search'
 import type { JsonValue } from '../core/json-value'
-import type { ProviderDocumentInput } from '../runtime/server/provider-document'
+import type { ProviderDocumentInput } from './provider-document'
 import type {
   ContentProviderNavigationItem,
+  ProviderCapabilityOperator,
   ContentProviderSearchResult,
   ContentProviderSiteDataRequest,
   ContentProviderSurroundItem,
   ContentProviderSurroundingsOptions,
   ContentRouteRecord,
-} from './provider'
+} from './provider-contract'
 import type {
   ContentProviderNavigationOptions,
   ContentProviderPaginationMode,
@@ -85,7 +86,7 @@ export interface ContentDataSourceSiteDataResponse {
 export interface ContentDataSourceCapabilities {
   protocol: 'ginko-content-data-source/v1'
   query: {
-    operators: readonly string[]
+    operators: readonly ProviderCapabilityOperator[]
     pagination: readonly ContentProviderPaginationMode[]
     maxPageSize: number
   }

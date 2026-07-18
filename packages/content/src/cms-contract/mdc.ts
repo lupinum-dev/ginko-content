@@ -1,13 +1,7 @@
 /**
- * parseMdcBody - single canonical MDC parser entry point for the CMS.
- *
- * The CMS used to fake a parsed MDC body at read-time by wrapping the raw
- * markdown string in a paragraph element and regexing headings. That broke
- * MDC components, links, tables, and any non-trivial markdown.
- *
- * Per Gate 0: parse once at publish time using ginko-content's real parser,
- * store the AST on `publicEntries`, and have the public provider return the
- * stored AST verbatim. The CMS imports this function from the pure subpath.
+ * Single canonical MDC parser entry point for external CMS integrations.
+ * Parse at publish time, persist the resulting AST, and return that AST from
+ * the public provider instead of maintaining a second markdown parser.
  */
 
 import { parse } from 'comark'

@@ -90,6 +90,56 @@ describe('query plan contracts', () => {
         fallback: ['en']
       }
     })
+
+    const noFallbackPlan = lowerQueryPlan({
+      first: true,
+      resolveVariant: {
+        ref: 'docs.intro',
+        locale: 'de'
+      }
+    } as any)
+    expect(noFallbackPlan.resolveVariant).toEqual({
+      ref: 'docs.intro',
+      locale: 'de'
+    })
+
+    const disabledFallbackPlan = lowerQueryPlan({
+      first: true,
+      resolveLocale: { locale: 'de', fallback: false, exact: false },
+      resolveVariant: { ref: 'docs.intro', locale: 'de', fallback: false, exact: false }
+    } as any)
+    expect(disabledFallbackPlan.resolveLocale).toEqual({ locale: 'de', exact: true })
+    expect(disabledFallbackPlan.resolveVariant).toEqual({ ref: 'docs.intro', locale: 'de', exact: true })
+  })
+
+  test('uses the selected collection default when locale resolution has no explicit fallback', async () => {
+    const { buildContentGraph } = await import('../../packages/content/src/core/content/graph')
+    const { executeQueryPlan } = await import('../../packages/content/src/core/query/execute')
+    const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
+
+    const graph = buildContentGraph([
+      doc({ collection: 'docs', canonicalKey: 'docs:intro', locale: 'en', path: '/docs/intro', title: 'Global default' }),
+      doc({ collection: 'docs', canonicalKey: 'docs:intro', locale: 'fr', path: '/documentation/introduction', title: 'Collection default' })
+    ])
+    const plan = lowerQueryPlan({
+      collection: 'docs',
+      first: true,
+      resolveLocale: { locale: 'de' }
+    } as any)
+
+    const response = executeQueryPlan<{ title: string, locale: string }>(graph, plan, {
+      defaultLocale: 'en',
+      collections: {
+        docs: {
+          i18n: { defaultLocale: 'fr', locales: ['fr', 'de', 'en'] }
+        }
+      }
+    })
+
+    expect(response.result).toMatchObject({
+      title: 'Collection default',
+      locale: 'fr'
+    })
   })
 
   test('executes path equality without using path indexes for unsafe $or branches', async () => {
@@ -205,6 +255,61 @@ describe('query plan contracts', () => {
       'new-unfeatured',
       'old-unfeatured'
     ])
+  })
+
+  test('filesystem cursor execution rejects malformed or noncanonical offsets instead of restarting the first page', async () => {
+    const { executeQueryPlanOnDocuments } = await import('../../packages/content/src/core/query/execute')
+    const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
+    const documents = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+
+    const firstPlan = lowerQueryPlan({
+      paging: { mode: 'cursor', after: null, limit: 1 }
+    } as any)
+    const firstPage = executeQueryPlanOnDocuments(documents, firstPlan)
+    expect(firstPage).toMatchObject({
+      mode: 'cursor',
+      result: [{ id: 'a' }],
+      pageInfo: { hasNext: true, endCursor: expect.any(String) }
+    })
+
+    const cursor = (firstPage as { pageInfo: { endCursor: string } }).pageInfo.endCursor
+    const secondPlan = lowerQueryPlan({
+      paging: { mode: 'cursor', after: cursor, limit: 1 }
+    } as any)
+    expect(executeQueryPlanOnDocuments(documents, secondPlan)).toMatchObject({
+      result: [{ id: 'b' }]
+    })
+
+    const encoded = (raw: string) => Buffer.from(raw).toString('base64')
+    const malformedCursors = {
+      empty: '',
+      'invalid base64': 'not-base64!',
+      'invalid UTF-8': Buffer.from([0xFF]).toString('base64'),
+      'wrong prefix': encoded('x:1'),
+      'negative offset': encoded('o:-1'),
+      'fractional offset': encoded('o:1.5'),
+      'unsafe integer offset': encoded('o:9007199254740992'),
+      'leading-zero offset': encoded('o:01'),
+      'noncanonical base64': encoded('o:10').replace(/=+$/u, '')
+    }
+
+    for (const [name, after] of Object.entries(malformedCursors)) {
+      const plan = lowerQueryPlan({
+        paging: { mode: 'cursor', after, limit: 1 }
+      } as any)
+      expect(
+        () => executeQueryPlanOnDocuments(documents, plan),
+        name
+      ).toThrow(expect.objectContaining({
+        statusCode: 400,
+        statusMessage: 'unsupported_query_shape',
+        data: expect.objectContaining({
+          code: 'unsupported_query_shape',
+          provider: 'filesystem',
+          field: 'paging.after'
+        })
+      }))
+    }
   })
 
   // The canonical document value model has no Date union —

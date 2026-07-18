@@ -69,8 +69,8 @@ export interface ContentQueryCountResponse {
 /**
  * Low-level transport response for the content query engine.
  *
- * Most application code should use the builder helpers (`.all()`, `.first()`,
- * `.count()`) instead of reading this union directly.
+ * Application code should use the unified `one()` / `many()` / `paginate()`
+ * APIs instead of reading this union directly.
  */
 export type ContentQueryResponse<T> = ContentQueryFindResponse<T> | ContentQueryFindOneResponse<T> | ContentQueryCountResponse
 

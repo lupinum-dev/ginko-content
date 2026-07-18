@@ -91,7 +91,7 @@ describe('virtual provider template contract', () => {
     expect(contents).not.toContain('jiti')
   })
 
-  test('does not import the CMS provider unless a module registered it', () => {
+  test('does not import an external provider unless a module registered it', () => {
     const { addTemplate, templates } = createAddTemplate()
 
     createVirtualContentTemplates(
@@ -107,9 +107,8 @@ describe('virtual provider template contract', () => {
     const contents = templates.get('content/virtual-providers.mjs')?.()
 
     expect(contents).toContain('externalContentProviderNames = []')
-    expect(contents).not.toContain('@lupinum/ginko-cms/nuxt-provider')
-    expect(contents).not.toContain('"ginko": resolveProviderModule')
-    expect(contents).not.toContain('"cms": resolveProviderModule')
+    expect(contents).not.toContain('import * as provider0')
+    expect(contents).not.toContain('resolveProviderModule(provider0)')
   })
 
   test('imports only explicitly registered external providers', () => {
@@ -119,7 +118,7 @@ describe('virtual provider template contract', () => {
       {
         transformers: [],
         providers: {
-          cms: '@lupinum/ginko-cms/nuxt-provider',
+          remote: '~/providers/remote',
           preview: '~/providers/preview'
         }
       } as any,
@@ -130,11 +129,10 @@ describe('virtual provider template contract', () => {
 
     const contents = templates.get('content/virtual-providers.mjs')?.()
 
-    expect(contents).toContain('externalContentProviderNames = ["cms","preview"]')
-    expect(contents).toContain('import * as provider0 from "@lupinum/ginko-cms/nuxt-provider"')
+    expect(contents).toContain('externalContentProviderNames = ["remote","preview"]')
+    expect(contents).toContain('import * as provider0 from "~/providers/remote"')
     expect(contents).toContain('import * as provider1 from "~/providers/preview"')
-    expect(contents).toContain('"cms": resolveProviderModule(provider0)')
+    expect(contents).toContain('"remote": resolveProviderModule(provider0)')
     expect(contents).toContain('"preview": resolveProviderModule(provider1)')
-    expect(contents).not.toContain('"ginko": resolveProviderModule')
   })
 })

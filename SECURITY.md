@@ -14,9 +14,9 @@ branch is explicitly announced.
 ## Release Security
 
 - No long-lived npm publish tokens in CI.
-- Prefer npm trusted publishing plus staged publishing after the first package
-  release exists on npm.
-- First releases are manual owner-controlled publishes with 2FA because npm
-  staged publishing requires an existing package.
+- Prefer npm trusted publishing plus staged publishing when those controls are
+  configured; otherwise publishing is an owner-controlled manual action with
+  2FA.
 - Release jobs must not use package-manager caches.
-- Every release candidate must pass `pnpm run release:verify`.
+- Tags may only target a commit whose CI `Release authorization` job is green;
+  `pnpm run release:verify` is the corresponding local pre-check.

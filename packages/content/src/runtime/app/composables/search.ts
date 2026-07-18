@@ -15,12 +15,12 @@ import { resolveActiveLocale } from './locale'
 import { getContentRuntime } from './runtime'
 import { createPagefindSearchClient } from '../pagefind-client'
 
-interface UseContentSearchResultsOptions {
+interface SearchLoadOptions {
   locale?: MaybeRefOrGetter<string | undefined>
   limit?: MaybeRefOrGetter<number | undefined>
 }
 
-export interface UseContentSearchOptions extends UseContentSearchResultsOptions {
+export interface UseContentSearchOptions extends SearchLoadOptions {
   /**
    * Initial search term for the controlled query ref.
    */
@@ -31,21 +31,20 @@ export interface UseContentSearchOptions extends UseContentSearchResultsOptions 
   limit?: MaybeRefOrGetter<number | undefined>
   /**
    * Optional collection to additionally load that collection's search
-   * sections and search-shaped navigation tree from — absorbs the deleted
-   * `useContentSearchData`. Omit to use only the
-   * query-driven `results` (minisearch/pagefind/provider backend); `files` and
-   * `searchNavigation` stay empty and no extra request is issued.
+   * sections and search-shaped navigation tree. Omit to use only the
+   * query-driven results; `files` and `searchNavigation` stay empty and no
+   * extra request is issued.
    */
   collection?: ContentCollectionHandle | ContentCollectionStringName
 }
 
-interface UseContentSearchResultsResult {
+interface SearchLoadResult {
   results: ComputedRef<ContentSearchResult[]>
   pending: ComputedRef<boolean>
   error: ComputedRef<unknown>
 }
 
-export interface UseContentSearchResult extends UseContentSearchResultsResult {
+export interface UseContentSearchResult extends SearchLoadResult {
   query: Ref<string>
   activeIndex: Ref<number>
   activeResult: ComputedRef<ContentSearchResult | null>
@@ -173,7 +172,7 @@ const resolveAppConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>): A
 
 const loadSearchSections = async (
   collection: string,
-  options: UseContentSearchResultsOptions
+  options: SearchLoadOptions
 ) => {
   const runtime = getContentRuntime()
   const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)
@@ -187,9 +186,8 @@ const loadSearchSections = async (
         ...(locale ? { locale } : {}),
         select: ['title', 'description', 'body', ...extraFields]
       })
-      // `createSearchSections` (shared with the legacy provider `page()`
-      // pathway) reads the raw, pre-decoration `path` field. The unified
-      // query envelope drops that internal field in favor of
+      // `createSearchSections` reads the raw, pre-decoration `path` field.
+      // The unified query envelope drops that internal field in favor of
       // `route.resolvedPath` — re-attach it under the name this shared
       // helper still expects rather than forking it.
       return items.map(item => ({
@@ -204,13 +202,12 @@ const collectionName = (collection: ContentCollectionHandle | string) =>
   typeof collection === 'string' ? collection : collection.name
 
 /**
- * Load one collection's search sections and search-shaped navigation tree —
- * the index/navigation loading absorbed from the deleted
- * `useContentSearchData`. Internal to `useContentSearch`.
+ * Load one collection's search sections and search-shaped navigation tree.
+ * Internal to `useContentSearch`.
  */
-const useContentSearchCollectionData = async (
+const loadCollectionSearchData = async (
   collection: ContentCollectionStringName | ContentCollectionHandle,
-  options: UseContentSearchResultsOptions
+  options: SearchLoadOptions
 ) => {
   const name = collectionName(collection)
   const locale = computed(() => toValue(options.locale))
@@ -236,7 +233,7 @@ const useContentSearchCollectionData = async (
   }
 }
 
-const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options: UseContentSearchResultsOptions = {}): Promise<UseContentSearchResultsResult> => {
+const loadSearchResults = async (search: MaybeRefOrGetter<string>, options: SearchLoadOptions = {}): Promise<SearchLoadResult> => {
   const runtimeConfig = useRuntimeConfig()
   const config = resolveSearchConfig(runtimeConfig)
   const appConfig = resolveAppConfig(runtimeConfig)
@@ -261,12 +258,8 @@ const useContentSearchResults = async (search: MaybeRefOrGetter<string>, options
 }
 
 /**
- * The sole public search composable. Consolidates the
- * reactive, backend-normalized query-driven search (minisearch/pagefind/provider)
- * with the opt-in per-collection search-section/navigation loading
- * previously split across the deleted `useContentSearchData` and
- * `useContentSearchResults`. `searchNavigation` is the sole name for the
- * navigation data; there is no `navigation` compatibility alias.
+ * The sole public search composable. It combines reactive, backend-normalized
+ * query search with optional per-collection search sections and navigation.
  */
 export const useContentSearch = async (options: UseContentSearchOptions = {}): Promise<UseContentSearchResult> => {
   const query = ref(String(toValue(options.initialQuery) || ''))
@@ -274,9 +267,9 @@ export const useContentSearch = async (options: UseContentSearchOptions = {}): P
   // Both branches use Nuxt composables and must start synchronously while the
   // caller's setup context is active. Awaiting either branch first can lose
   // that context before the other branch initializes.
-  const searchPromise = useContentSearchResults(query, options)
+  const searchPromise = loadSearchResults(query, options)
   const collectionDataPromise = options.collection
-    ? useContentSearchCollectionData(options.collection, options)
+    ? loadCollectionSearchData(options.collection, options)
     : Promise.resolve({
         files: computed(() => [] as ContentSearchSection[]),
         searchNavigation: computed(() => [] as ContentNavigationItem[]),
@@ -357,7 +350,7 @@ export const useContentSearch = async (options: UseContentSearchOptions = {}): P
   }
 }
 
-const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string, minisearch: ContentSearchPublicRuntimeConfig['minisearch'], options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
+const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string, minisearch: ContentSearchPublicRuntimeConfig['minisearch'], options: SearchLoadOptions): Promise<SearchLoadResult> => {
   const locale = computed(() => toValue(options.locale))
   const requestUrl = computed(() => locale.value ? `${indexURL}?locale=${encodeURIComponent(locale.value)}` : indexURL)
   const fetchData = useFetch<ContentSearchIndexRecord[]>(requestUrl)
@@ -375,7 +368,7 @@ const useMiniSearch = async (search: MaybeRefOrGetter<string>, indexURL: string,
   }
 }
 
-const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: UseContentSearchResultsOptions): Promise<UseContentSearchResultsResult> => {
+const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: string, options: SearchLoadOptions): Promise<SearchLoadResult> => {
   const locale = computed(() => toValue(options.locale))
   const term = computed(() => String(toValue(search) || '').trim())
   const requestUrl = computed(() => {
@@ -408,7 +401,7 @@ const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: s
   }
 }
 
-const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string, options: UseContentSearchResultsOptions): UseContentSearchResultsResult => {
+const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string, options: SearchLoadOptions): SearchLoadResult => {
   const runtimeConfig = useRuntimeConfig()
   const contentConfig = resolveContentConfig(runtimeConfig)
   const locale = computed(() => toValue(options.locale))

@@ -4,8 +4,7 @@
  * The unified query API (ADR-0016) is the supported core read path. The
  * public composable surface is exactly `useContentPage` and
  * `useContentSearch`; every other application workflow is
- * ordinary Nuxt composition over the pure query operations below
- *.
+ * ordinary Nuxt composition over the pure query operations below.
  */
 export {
   one,
@@ -42,7 +41,6 @@ export type {
   PopulatedDocument,
   ResolveOneOptions,
   ResolveOneResult,
-  LocalizedDoc,
   LocalizedContentDocument,
   ResolutionEnvelope,
   SortSpec,
@@ -51,7 +49,6 @@ export type {
   ContentDocumentResolution,
   ContentNavigationItem,
   ContentCollectionName,
-  ContentCollectionStringName,
   ContentCollectionTarget,
   ContentSearchSection,
   SurroundOptions,

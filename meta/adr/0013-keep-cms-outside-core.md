@@ -39,5 +39,6 @@ The core repository may define provider interfaces, provider capabilities, typed
 - Core docs may mention a future CMS provider as a planned external path, but must not describe current Ginko as a CMS.
 - CMS-specific details should live in the CMS repository/package when that exists.
 - First-party CMS provider wiring is a module registration concern, not an app-level import string or core-owned runtime dependency.
-- The provider contract should stay website-shaped: query, page, navigation, search, sitemap, route metadata, and site data.
+- The provider contract should stay website-shaped: query, navigation,
+  surroundings, provider-owned search, site data, and route enumeration.
 - Editorial workflows should not leak into the core runtime API.

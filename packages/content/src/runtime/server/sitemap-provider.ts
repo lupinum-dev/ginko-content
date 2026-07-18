@@ -7,6 +7,7 @@ import { projectSitemapEntry } from '../../features/sitemap/query'
 import { absolutizeSitemapImages } from '../../features/sitemap/metadata'
 import { resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
 import { createContentProviderError } from '../../public/provider-errors'
+import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 import { getContentProvider } from './providers'
 import { getContentRuntimeConfig } from './runtime-config'
 import { normalizeProviderRoutes, projectProviderRouteFact } from './provider-route-facts'
@@ -62,7 +63,7 @@ export async function queryCollectionsSitemapEntries (
     environment: resolveRuntimeEnvironment(),
     includeDrafts: options.includeDrafts
   })
-  const routes = normalizeProviderRoutes(await provider.routes(event), provider.name)
+  const routes = normalizeProviderRoutes(await provider.routes(event), provider.name, runtime)
     .filter(route => (!include || include.has(route.collection)) && !exclude.has(route.collection))
     .filter(route => runtime.collections?.[route.collection]?.type !== 'data')
     .filter(route => runtime.collections?.[route.collection]?.sitemap !== false)
@@ -71,20 +72,19 @@ export async function queryCollectionsSitemapEntries (
 
   const siteUrl = resolveSiteUrl(event, options.siteUrl)
   const localeToLanguage = localeLanguageMap(event)
-  const byCanonical = new Map<string, typeof routes>()
+  const byCollectionAndCanonical = new Map<string, Map<string, typeof routes>>()
   for (const route of routes) {
-    const key = `${route.collection}:${route.canonicalKey}`
-    const group = byCanonical.get(key) || []
+    const byCanonical = byCollectionAndCanonical.get(route.collection) || new Map<string, typeof routes>()
+    const group = byCanonical.get(route.canonicalKey) || []
     group.push(route)
-    byCanonical.set(key, group)
+    byCanonical.set(route.canonicalKey, group)
+    byCollectionAndCanonical.set(route.collection, byCanonical)
   }
 
   return routes.map((route) => {
-    const variants = byCanonical.get(`${route.collection}:${route.canonicalKey}`) || []
-    const collectionI18n = runtime.collections?.[route.collection]?.i18n
-    const localized = collectionI18n && typeof collectionI18n === 'object'
-      ? true
-      : new Set(variants.map(variant => variant.locale).filter(Boolean)).size > 1
+    const variants = byCollectionAndCanonical.get(route.collection)?.get(route.canonicalKey) || []
+    const collectionI18n = resolveRuntimeCollectionI18nConfig(route.collection, runtime)
+    const localized = Boolean(collectionI18n)
     const projectedVariants = variants.map(variant => ({
       locale: localized ? variant.locale : '',
       path: projectProviderRouteFact(variant, runtime)
@@ -93,10 +93,7 @@ export async function queryCollectionsSitemapEntries (
       locale: localized ? route.locale : '',
       path: projectProviderRouteFact(route, runtime)
     }
-    const defaultLocale =
-      collectionI18n && typeof collectionI18n === 'object'
-        ? collectionI18n.defaultLocale || runtime.defaultLocale || route.locale
-        : runtime.defaultLocale || route.locale
+    const defaultLocale = collectionI18n?.defaultLocale || route.locale
     const metadata = route.sitemap && typeof route.sitemap === 'object' ? route.sitemap : undefined
     return projectSitemapEntry({
       siteUrl,

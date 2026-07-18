@@ -3,7 +3,7 @@ import { createTestEvent } from '../harness/event'
 import type { ContentCacheInvalidateInput } from '../../packages/content/src/public/provider'
 
 /**
- * Behavior suite (T6.2 #5): cache invalidation wiring end-to-end. A mutation
+ * Cache invalidation wiring end to end: a mutation
  * (a signed-off revalidation POST) must flow its computed — normalized and
  * deduplicated — tags/paths into the active cache adapter's `invalidate`.
  * Instead of a bare spy we use a *recording adapter* that captures every

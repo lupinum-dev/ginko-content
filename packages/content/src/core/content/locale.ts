@@ -52,7 +52,12 @@ const mergeLocaleOverride = <T>(base: T, override: unknown): T => {
   if (isPlainObject(base) && isPlainObject(override)) {
     const merged = Object.fromEntries(Object.entries(base).map(([key, value]) => [key, cloneValue(value)]))
     for (const [key, value] of Object.entries(override)) {
-      merged[key] = key in merged ? mergeLocaleOverride(merged[key], value) : cloneValue(value)
+      Object.defineProperty(merged, key, {
+        value: Object.prototype.hasOwnProperty.call(merged, key) ? mergeLocaleOverride(merged[key], value) : cloneValue(value),
+        enumerable: true,
+        configurable: true,
+        writable: true
+      })
     }
     return merged as T
   }
@@ -61,10 +66,27 @@ const mergeLocaleOverride = <T>(base: T, override: unknown): T => {
 }
 
 /**
- * Produce the fallback chain for a specific locale (excluding the locale
- * itself). The caller prepends the requested locale if it wants a
- * walkable chain — this helper is what to look at *after* the requested
- * locale missed.
+ * Build the locale resolution chain for a request. The requested locale,
+ * configured fallbacks, and default locale are ordered by priority and
+ * deduplicated without reordering.
+ */
+export const resolveLocaleChain = (
+  requestedLocale: string | undefined,
+  defaultLocale?: string,
+  fallback: Record<string, string[]> = {}
+) => {
+  const chain = [
+    ...(requestedLocale ? [requestedLocale] : []),
+    ...((requestedLocale && fallback[requestedLocale]) || []),
+    ...(defaultLocale ? [defaultLocale] : [])
+  ].filter(Boolean) as string[]
+
+  return Array.from(new Set(chain))
+}
+
+/**
+ * Produce the fallback portion of the canonical locale chain, excluding the
+ * requested locale itself.
  *
  * @example
  * buildLocaleFallbackChain('fr', 'en', { fr: ['de'] })  // ['de', 'en']
@@ -74,12 +96,7 @@ export const buildLocaleFallbackChain = (
   locale: string,
   defaultLocale?: string,
   fallback?: Record<string, string[]>
-) => {
-  return Array.from(new Set([
-    ...(fallback?.[locale] || []),
-    ...(defaultLocale && defaultLocale !== locale ? [defaultLocale] : [])
-  ]))
-}
+) => resolveLocaleChain(locale, defaultLocale, fallback).slice(1)
 
 /** Canonical locale order: default locale first, then configured locale order. */
 export const sortLocalesCanonically = (

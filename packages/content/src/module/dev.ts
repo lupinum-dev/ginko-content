@@ -46,10 +46,8 @@ export const registerContentDevRuntime = (
       }
       key = key.substring(MOUNT_PREFIX.length)
 
-      // `_manifest.json`/`_nav.json`/`_meta.json` are deleted derivatives
-      // — dev never persists them, so there is
-      // nothing to invalidate here anymore. The per-source parsed-content
-      // cache entry is the only dev artifact this watcher still owns.
+      // Each source owns one parsed-content cache entry. Derived graph,
+      // navigation, and metadata views rebuild from those canonical inputs.
       await nitro.storage.removeItem(`cache:content:parsed:${key}`)
 
       const payload = { event, key } satisfies ContentHotUpdate

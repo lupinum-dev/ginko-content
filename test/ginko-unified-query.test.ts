@@ -13,24 +13,90 @@ import { buildContentGraph } from '../packages/content/src/core/content/graph'
 import { executeQueryPlan } from '../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../packages/content/src/core/query/lower'
 import { navigationSelectFields } from '../packages/content/src/features/query/unified'
+import { decorateLocalizedDocument } from '../packages/content/src/features/query/localized-docs'
 import { defineCollection, defineContentConfig, type ContentCollectionHandle } from '../packages/content/src/types/config'
 import type { QueryWhere } from '../packages/content/src/types/query'
 import { doc } from './contracts/_utils'
 
 describe('defineCollection', () => {
+  test('rejects the removed named overload with an actionable diagnostic', () => {
+    expect(() => (defineCollection as unknown as (...args: unknown[]) => unknown)('docs', {
+      type: 'page',
+      source: 'docs/**/*.md'
+    })).toThrow('@lupinum/ginko-content defineCollection(name, config) was removed')
+  })
+
   test('returns a handle carrying the name and config', () => {
+    const authoredBlog = defineCollection({
+      type: 'page',
+      source: 'blog/*.md'
+    })
+    expect(authoredBlog).not.toHaveProperty('name')
+
     const config = defineContentConfig({
       collections: {
-        blog: defineCollection({
-          type: 'page',
-          source: 'blog/*.md'
-        })
+        blog: authoredBlog
       }
     })
     const blog = config.collections.blog
 
     expect(blog.name).toBe('blog')
+    expect(authoredBlog.name).toBe('blog')
+    expect(blog.type).toBe('page')
     expect(blog.source).toBe('blog/*.md')
+    expect(blog.sitemap).toBeUndefined()
+  })
+
+  test('rejects stale collection names that drift from config map keys', () => {
+    const guides = {
+      name: 'guides',
+      type: 'page',
+      source: 'docs/**/*.md'
+    }
+
+    expect(() => defineContentConfig({
+      collections: { docs: guides }
+    })).toThrow('@lupinum/ginko-content collection key "docs" must match collection name "guides"')
+  })
+
+  test('defaults data collections out of sitemap generation', () => {
+    const authors = defineCollection({
+      type: 'data',
+      source: 'authors/*.yml'
+    })
+
+    const config = defineContentConfig({
+      collections: { authors }
+    })
+
+    expect(config.collections.authors).toMatchObject({
+      name: 'authors',
+      type: 'data',
+      source: 'authors/*.yml',
+      sitemap: false
+    })
+  })
+
+  test('normalizes include and exclude collection sources', () => {
+    const docs = defineCollection({
+      type: 'page',
+      source: {
+        include: 'docs/**/*.md',
+        exclude: ['docs/private/**']
+      }
+    })
+
+    const config = defineContentConfig({
+      collections: { docs }
+    })
+
+    expect(config.collections.docs).toMatchObject({
+      name: 'docs',
+      type: 'page',
+      source: 'docs/**/*.md',
+      exclude: ['docs/private/**'],
+      sitemap: undefined
+    })
   })
 
   test('marks i18n collections with __i18n=true at the type level', () => {
@@ -90,9 +156,9 @@ describe('compileWhere', () => {
     })
   })
 
-  test('rewrites $nin to $not + $in', () => {
+  test('keeps $nin as the provider-advertised first-class operator', () => {
     expect(compileWhere({ category: { $nin: ['draft'] } })).toEqual({
-      category: { $not: { $in: ['draft'] } }
+      category: { $nin: ['draft'] }
     })
   })
 
@@ -128,16 +194,70 @@ describe('compileWhere', () => {
     })
   })
 
-  test('drops empty $and / $or arrays', () => {
-    expect(compileWhere({ $or: [{}] } as QueryWhere)).toBeUndefined()
+  test('rejects empty logical and nested filters instead of broadening the query', () => {
+    for (const where of [
+      { $and: [] },
+      { $or: [] },
+      { $and: [{}] },
+      { $or: [{}] },
+      { $not: {} },
+      { nested: {} }
+    ]) {
+      expect(() => compileWhere(where as QueryWhere)).toThrow(/cannot be empty|members cannot be empty|filters cannot be empty/)
+    }
   })
 
   test('rejects unsupported operators instead of compiling ignored filters', () => {
     expect(() => compileWhere({ title: { $near: 'intro' } } as unknown as QueryWhere)).toThrow('Unsupported content query operator: $near')
+    expect(() => compileWhere({ title: { $regex: 'intro' } } as unknown as QueryWhere)).toThrow('Unsupported content query operator: $regex')
     expect(() => lowerQueryPlan({
       collection: 'docs',
       where: [{ title: { $near: 'intro' } } as never]
     })).toThrow('Unsupported content query operator: $near')
+  })
+
+  test('rejects malformed filters instead of silently broadening them', () => {
+    class FilterValue {
+      status = 'draft'
+    }
+
+    for (const where of [
+      5,
+      new Map([['status', 'draft']]),
+      new Set(['draft']),
+      new FilterValue()
+    ]) {
+      expect(() => compileWhere(where as unknown as QueryWhere)).toThrow(/expected a plain object/)
+    }
+
+    for (const operand of [
+      /draft/i,
+      new Date('2026-01-01T00:00:00.000Z'),
+      new Map([['status', 'draft']]),
+      new Set(['draft']),
+      new FilterValue()
+    ]) {
+      expect(() => compileWhere({ status: operand } as unknown as QueryWhere)).toThrow(/Invalid content query filter/)
+    }
+
+    expect(() => compileWhere({ $and: { status: 'draft' } } as unknown as QueryWhere)).toThrow(/expected an array/)
+    expect(() => compileWhere({ $or: 'draft' } as unknown as QueryWhere)).toThrow(/expected an array/)
+    expect(() => compileWhere({ $not: 'draft' } as unknown as QueryWhere)).toThrow(/expected a plain object/)
+    expect(() => compileWhere({ status: { $eq: 'draft', nested: true } } as unknown as QueryWhere)).toThrow(/cannot mix operator and field keys/)
+
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    expect(() => compileWhere(circular as QueryWhere)).toThrow(/circular references/)
+  })
+
+  test('rejects dangerous own keys before object assignment can drop the filter', () => {
+    const parsed = JSON.parse('{"__proto__":{"$eq":"secret"}}') as QueryWhere
+    expect(Object.prototype.hasOwnProperty.call(parsed, '__proto__')).toBe(true)
+    expect(() => compileWhere(parsed)).toThrow(/Invalid query field path/)
+
+    const nullPrototype = Object.create(null) as Record<string, unknown>
+    nullPrototype.constructor = { name: 'Object' }
+    expect(() => compileWhere(nullPrototype as QueryWhere)).toThrow(/Invalid query field path/)
   })
 
   test('lowers $regex options as part of the regex comparison instead of a second operator', () => {
@@ -163,10 +283,13 @@ describe('compileSort', () => {
     ])
   })
 
-  test('skips entries that are not 1 or -1', () => {
-    expect(compileSort({ date: -1, weird: 0 as 1 } as { date: -1, weird: 1 })).toEqual([
-      { date: -1 }
-    ])
+  test('skips omitted entries but rejects non-string sort directions', () => {
+    expect(compileSort({ date: 'desc', omitted: undefined })).toEqual([{ date: -1 }])
+
+    for (const direction of [-1, 1, 0, 2, null, 'sideways']) {
+      expect(() => compileSort({ title: direction } as never)).toThrow(/Invalid content query sort direction/)
+    }
+    expect(() => compileSort(new Map([['title', 1]]) as unknown as { title: 1 })).toThrow(/expected a plain object/)
   })
 
   test('returns undefined for empty sort', () => {
@@ -181,8 +304,8 @@ describe('compileFallback', () => {
     expect(compileFallback(false)).toBe(false)
   })
 
-  test('wraps a single locale string into an array', () => {
-    expect(compileFallback('en')).toEqual(['en'])
+  test('rejects a bare locale string', () => {
+    expect(() => compileFallback('en' as never)).toThrow(/Invalid content query fallback/)
   })
 
   test('passes arrays through', () => {
@@ -209,6 +332,60 @@ describe('compileQueryParams', () => {
     })
   })
 
+  test('rejects invalid public pagination instead of coercing or forwarding it', () => {
+    expect(compileQueryParams({ collection: 'blog', limit: 0 })).toEqual({
+      collection: 'blog',
+      limit: 0
+    })
+
+    for (const limit of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 101, '10']) {
+      expect(() => compileQueryParams({
+        collection: 'blog',
+        limit: limit as number
+      })).toThrow(/Content query limit/)
+    }
+
+    for (const skip of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 10_001, '10']) {
+      expect(() => compileQueryParams({
+        collection: 'blog',
+        skip: skip as number
+      })).toThrow(/Content query skip/)
+    }
+  })
+
+  test('rejects malformed selectors, locale options, and selections before transport', () => {
+    for (const by of [
+      {},
+      { ref: 0 },
+      { ref: '' },
+      { path: '/docs', route: '/docs' },
+      { path: '/docs', unknown: true },
+      new Map([['path', '/docs']])
+    ]) {
+      expect(() => compileQueryParams({
+        collection: 'docs',
+        by: by as never
+      })).toThrow(/Invalid content query selector/)
+    }
+
+    for (const fallback of ['', ['en', ''], 5, null, { locale: 'en' }]) {
+      expect(() => compileQueryParams({
+        collection: 'docs',
+        fallback: fallback as never
+      })).toThrow(/Invalid content query fallback/)
+    }
+
+    for (const select of [['title', 5], ['title', ''], ['__proto__']]) {
+      expect(() => compileQueryParams({
+        collection: 'docs',
+        select: select as never
+      })).toThrow(/Invalid content query selection/)
+    }
+
+    expect(() => compileQueryParams({ collection: 'docs', locale: '' })).toThrow(/Invalid content query locale/)
+    expect(() => compileQueryParams({ collection: 'docs', exact: 'yes' as never })).toThrow(/Invalid content query exact/)
+  })
+
   test('does not inject default locale filters into variant-resolution queries', () => {
     expect(normalizeContentQueryParams({
       collection: 'docs',
@@ -220,9 +397,39 @@ describe('compileQueryParams', () => {
       }
     }, {
       collectionI18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      defaultLocale: 'en'
+    }).where).toBeUndefined()
+  })
+
+  test('normalizes the public default-locale shorthand before lowering', () => {
+    const normalized = normalizeContentQueryParams(compileQueryParams({
+      collection: 'docs',
+      by: { ref: 'docs.intro' },
+      locale: 'de',
+      fallback: 'default'
+    }), {
+      collectionI18n: { defaultLocale: 'fr', locales: ['de', 'fr'] },
       defaultLocale: 'en',
-      activeLocale: 'en'
-    }).where).toEqual([])
+      localeFallback: { de: ['en'] }
+    })
+
+    expect(normalized.resolveLocale?.fallback).toEqual(['fr'])
+    expect(normalized.resolveVariant?.fallback).toEqual(['fr'])
+  })
+
+  test('canonicalizes an explicit empty fallback to exact locale intent', () => {
+    const normalized = normalizeContentQueryParams({
+      collection: 'docs',
+      resolveLocale: { locale: 'de', fallback: [] },
+      resolveVariant: { path: '/dokumentation/fehlend', locale: 'de', fallback: [] }
+    }, {
+      collectionI18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+      defaultLocale: 'en',
+      localeFallback: { de: ['en'] }
+    })
+
+    expect(normalized.resolveLocale).toEqual({ locale: 'de', exact: true })
+    expect(normalized.resolveVariant).toEqual({ path: '/dokumentation/fehlend', locale: 'de', exact: true })
   })
 
   test('routes locale-aware path selectors through resolveVariant', () => {
@@ -230,7 +437,7 @@ describe('compileQueryParams', () => {
       collection: 'docs',
       by: { path: '/documentation/pour-commencer' },
       locale: 'fr',
-      fallback: 'en'
+      fallback: ['en']
     }) as { resolveVariant?: { path?: string, locale?: string }, resolveLocale?: { locale?: string } }
 
     expect(params.resolveVariant).toEqual({
@@ -337,6 +544,55 @@ describe('compileQueryParams', () => {
     })
     expect(navParams.resolveLocale).toEqual({ locale: 'de' })
     expect((navParams.resolveLocale as { exact?: boolean }).exact).toBeUndefined()
+  })
+})
+
+describe('query document locale policy', () => {
+  const rawDocument = {
+    id: 'content:de:guide:einstieg.md',
+    collection: 'docs',
+    canonicalKey: 'docs:intro',
+    locale: 'de',
+    path: '/einstieg',
+    type: 'markdown' as const,
+    body: { type: 'root' as const, children: [] },
+    resolved: {
+      locale: 'de',
+      variantPaths: { en: '/intro', de: '/einstieg' }
+    }
+  }
+
+  test('does not derive query variants from global locales when collection i18n is disabled', () => {
+    const result = decorateLocalizedDocument(rawDocument, 'docs', {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: { docs: { i18n: false, route: '/docs' } }
+    }, 'de')
+
+    expect(result).toMatchObject({
+      locale: '',
+      route: { resolvedPath: '/einstieg', alternates: [] },
+      resolution: { requested: {}, resolved: { locale: '' }, usedFallback: false }
+    })
+  })
+
+  test('continues to inherit global locale policy when the collection does not override it', () => {
+    const result = decorateLocalizedDocument(rawDocument, 'docs', {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: { docs: { route: '/docs' } }
+    }, 'de')
+
+    expect(result).toMatchObject({
+      locale: 'de',
+      route: {
+        resolvedPath: '/de/docs/einstieg',
+        alternates: [
+          { locale: 'en', path: '/docs/intro', source: 'variant' },
+          { locale: 'de', path: '/de/docs/einstieg', source: 'variant' }
+        ]
+      }
+    })
   })
 })
 

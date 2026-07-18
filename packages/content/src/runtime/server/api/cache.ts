@@ -44,7 +44,7 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
 
   const runtime = getContentRuntimeConfig().content || {}
   const includeDrafts = resolveIncludeDrafts({ environment: 'production' })
-  const records = normalizeProviderRoutes(await provider.routes(event), provider.name)
+  const records = normalizeProviderRoutes(await provider.routes(event), provider.name, runtime)
     .filter(route => runtime.collections?.[route.collection]?.type !== 'data')
     .filter(route => includeDrafts || !route.draft)
   const routes = records.map(route => projectProviderRouteFact(route, runtime))
@@ -87,11 +87,9 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
  * ANY HTML response and queues them for generation (`nitropack`'s
  * `extractLinks`/`crawlLinks`, verified against `runParallel`'s live `Set`
  * consumption in `nitropack/dist/_chunks/parallel.mjs` — added entries are
- * picked up as long as the queue has not yet drained). This is the "Nitro
- * route injection requires in place of the deleted
- * module-time `module/derived-route-discovery.ts` reparser: prerender
- * routes now come from THIS build result instead of a second parse of the
- * content directory.
+ * picked up as long as the queue has not yet drained). Prerender routes
+ * therefore come from this validated build result without a second content
+ * parse.
  *
  * Outside prerendering the response stays small JSON — counts and the
  * canonical public route paths, never the full document/snapshot payload

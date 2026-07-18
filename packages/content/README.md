@@ -10,23 +10,27 @@ Use it when you want content files to stay simple, but your Nuxt app still
 needs explicit APIs for route resolution, typed frontmatter, localized content,
 and server-side reads.
 
+This README describes the `0.3` prerelease. Install it from npm's `next`
+channel; `latest` remains `0.2.1` until the stable cutover.
+
 ## Requirements
 
-- Node.js 22 or later
+- Node.js 22.18–22.x, 24.11–24.x, or 26+
 - Nuxt 4.4.7 through Nuxt 4.x
-- Vue 3.5 or later
+- Vue 3.5.35 through Vue 3.x
+- ESM; CommonJS `require()` is not supported
 
 ## Install
 
 ```bash
-npx nuxi module add @lupinum/ginko-content
+npx nuxi module add @lupinum/ginko-content@next
 ```
 
 The Nuxt CLI installs the package and registers the module in `nuxt.config.ts`.
 If you prefer to install by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content
+pnpm add @lupinum/ginko-content@next
 ```
 
 ```ts
@@ -94,9 +98,10 @@ const { page } = await useContentPage(pages)
 - locale-aware content routing
 - route-aware page loading with `useContentPage(pages)`
 - semantic previous/next route-page data through `useContentPage(pages, { surround })`
-- server reads through `one`, `many`, `paginate`, `resolveOne`, `tree`, and
-  `neighbors`
-- Vue composables for the same read model
+- server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
+  and `surround`
+- route and search composables, plus pure client query functions for other
+  reads
 - search helpers for MiniSearch, Pagefind, and provider-owned search
 - sitemap integration for public content routes
 - a server-side provider contract for advanced custom sources
@@ -116,7 +121,8 @@ Do not duplicate docs, blog, pricing, privacy, or translated locale paths in
 `@nuxtjs/sitemap >= 8.0.15 < 9` when translated static app slugs such as `/preise`
 and `/en/pricing` need cross-locale sitemap alternates.
 
-See the public guide: [Sitemap and prerender](../../docs/content/docs/4.guides/4.routing-and-seo/3.sitemap-and-prerender.md).
+See the public guide:
+[Sitemap and prerender](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/4.guides/4.routing-and-seo/3.sitemap-and-prerender.md).
 
 ## Integration Dependencies
 
@@ -134,10 +140,13 @@ See the public guide: [Sitemap and prerender](../../docs/content/docs/4.guides/4
 The default provider reads files from your Nuxt project. The package does not
 include a CMS UI, Studio, admin panel, or content editing workflow.
 
-## Docs
+## Project links
 
-- Documentation: [ginko-content.nuxt.dev](https://ginko-content.nuxt.dev)
+- Documentation source: [Getting started](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/3.get-started/1.installation.md)
 - Repository: [github.com/lupinum-dev/ginko-content](https://github.com/lupinum-dev/ginko-content)
+- Issues: [GitHub issues](https://github.com/lupinum-dev/ginko-content/issues)
+- Contributing: [CONTRIBUTING.md](https://github.com/lupinum-dev/ginko-content/blob/main/CONTRIBUTING.md)
+- Security: [SECURITY.md](https://github.com/lupinum-dev/ginko-content/blob/main/SECURITY.md)
 
 ## Credits
 

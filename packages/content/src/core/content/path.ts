@@ -36,6 +36,64 @@ export const normalizeContentPath = (path: string) => {
   return path.endsWith('/') ? path.slice(0, -1) || '/' : path
 }
 
+/**
+ * Validate and normalize a provider-authored content route.
+ *
+ * Provider route facts are site-relative pathnames, never URLs or browser
+ * locations. Keeping this validation beside the canonical path normalizer
+ * gives query documents and auxiliary provider operations one acceptance
+ * rule instead of two subtly different public route boundaries.
+ */
+export const normalizeSiteRelativeContentPath = (value: string): string => {
+  const hasControlCharacter = (input: string) => [...input].some((character) => {
+    const code = character.codePointAt(0)!
+    return code <= 31 || code === 127
+  })
+
+  if (
+    !value.startsWith('/')
+    || value.startsWith('//')
+    || value.includes('\\')
+    || value.includes('?')
+    || value.includes('#')
+    || /[\s"<>]/u.test(value)
+    || hasControlCharacter(value)
+  ) {
+    throw new TypeError('contentPath must be a leading-slash, site-relative content route')
+  }
+
+  try {
+    const parsed = new URL(value, 'https://ginko.invalid')
+    // Always decode once, even when WHATWG URL parsing preserved the source.
+    // The previous short-circuit admitted malformed percent escapes because
+    // `decodeURI` never ran for the common `parsed.pathname === value` case.
+    const decodedPathname = decodeURI(parsed.pathname)
+    const decoded = decodeURIComponent(value)
+    const decodedSegments = decoded.split('/')
+    const hasEncodedSeparator = /%(?:2f|5c)/iu.test(value)
+    const hasUnsafeDecodedWhitespace = [...decoded].some(character => character !== ' ' && /\s/u.test(character))
+    const hasUnsafeDecodedCharacter = decoded.includes('\\') || decoded.includes('?') || decoded.includes('#') || /["<>]/u.test(decoded)
+    const hasDecodedTraversal = decodedSegments.some(segment => segment === '.' || segment === '..')
+    const sourcePreserved = parsed.pathname === value || decodedPathname === value
+    if (parsed.origin !== 'https://ginko.invalid' || !sourcePreserved) {
+      throw new TypeError('contentPath must be a leading-slash, site-relative content route')
+    }
+    if (
+      hasControlCharacter(decoded)
+      || hasEncodedSeparator
+      || hasUnsafeDecodedWhitespace
+      || hasUnsafeDecodedCharacter
+      || hasDecodedTraversal
+    ) {
+      throw new TypeError('contentPath must be a leading-slash, site-relative content route')
+    }
+  } catch {
+    throw new TypeError('contentPath must be a leading-slash, site-relative content route')
+  }
+
+  return normalizeContentPath(value)
+}
+
 export function refineUrlPart(name: string): string {
   name = name.split(/[/:]/).pop()!
   if (SEMVER_REGEX.test(name)) {

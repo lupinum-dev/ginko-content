@@ -21,13 +21,20 @@ const createProvider = (overrides: Partial<ContentProvider> = {}): ContentProvid
       pagination: []
     }
   },
-  query: vi.fn(async () => ({ result: [], limit: 0 })),
+  query: vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 })),
   ...overrides
 })
 
 describe('provider registry contract', () => {
   test('accepts only semantic query capabilities', () => {
     expect(validateContentProvider('remote', createProvider())).toBeTruthy()
+
+    for (const name of ['', 'different']) {
+      expect(() => validateContentProvider('remote', createProvider({ name }))).toThrow(expect.objectContaining({
+        statusMessage: 'provider_module_invalid',
+        data: expect.objectContaining({ provider: 'remote', field: 'name' })
+      }))
+    }
 
     expect(() => validateContentProvider('remote', {
       ...createProvider(),
@@ -38,6 +45,29 @@ describe('provider registry contract', () => {
     })).toThrow(expect.objectContaining({
       statusMessage: 'provider_module_invalid',
       data: expect.objectContaining({ field: 'capabilities' })
+    }))
+
+    for (const query of [
+      { operators: ['$madeUp'], pagination: [] },
+      { operators: ['$and'], pagination: [] },
+      { operators: ['$options'], pagination: [] },
+      { operators: ['$eq', '$eq'], pagination: [] }
+    ]) {
+      expect(() => validateContentProvider('remote', {
+        ...createProvider(),
+        capabilities: { query }
+      })).toThrow(expect.objectContaining({
+        statusMessage: 'provider_module_invalid',
+        data: expect.objectContaining({ field: 'capabilities.query.operators' })
+      }))
+    }
+
+    expect(() => validateContentProvider('remote', {
+      ...createProvider(),
+      capabilities: { query: { operators: ['$eq'], pagination: ['offset', 'offset'] } }
+    })).toThrow(expect.objectContaining({
+      statusMessage: 'provider_module_invalid',
+      data: expect.objectContaining({ field: 'capabilities.query.pagination' })
     }))
   })
 
@@ -55,7 +85,7 @@ describe('provider registry contract', () => {
   })
 
   test('rejects unsupported operators before provider dispatch', async () => {
-    const query = vi.fn(async () => ({ result: [], limit: 0 }))
+    const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
     const provider = enforceProviderCapabilities(createProvider({ query }))
 
     await expect(provider.query(createEvent(), toContentProviderQuery({
@@ -68,8 +98,30 @@ describe('provider registry contract', () => {
     expect(query).not.toHaveBeenCalled()
   })
 
+  test('treats logical plan nodes as wire structure rather than capabilities', async () => {
+    const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
+    const provider = enforceProviderCapabilities(createProvider({ query }))
+
+    await provider.query(createEvent(), toContentProviderQuery({
+      collection: 'docs',
+      where: {
+        $or: [
+          { title: 'Intro' },
+          { title: 'Guide' }
+        ]
+      }
+    }))
+
+    await provider.query(createEvent(), toContentProviderQuery({
+      collection: 'docs',
+      where: { $not: { title: { $eq: 'Draft' } } }
+    }))
+
+    expect(query).toHaveBeenCalledTimes(2)
+  })
+
   test('rejects unsupported pagination and versions before provider dispatch', async () => {
-    const query = vi.fn(async () => ({ result: [], limit: 0 }))
+    const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
     const provider = enforceProviderCapabilities(createProvider({ query }))
 
     await expect(provider.query(createEvent(), toContentProviderQuery({
@@ -91,7 +143,7 @@ describe('provider registry contract', () => {
   })
 
   test('dispatches the closed query unchanged without leaking core visibility policy', async () => {
-    const query = vi.fn(async () => ({ result: [], limit: 0 }))
+    const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
     const navigation = vi.fn(async () => [])
     const provider = enforceProviderCapabilities(createProvider({ query, navigation }))
     const lowered = toContentProviderQuery({ collection: 'docs' })
@@ -143,12 +195,52 @@ describe('raw provider route facts', () => {
     })])
   })
 
+  test('does not localize provider navigation when a collection explicitly disables global i18n', () => {
+    const unlocalizedRuntime = {
+      ...runtime,
+      collections: {
+        docs: {
+          type: 'page' as const,
+          i18n: false,
+          route: '/docs'
+        }
+      }
+    }
+
+    expect(projectProviderNavigation([{
+      title: 'Intro',
+      route: {
+        collection: 'docs',
+        canonicalKey: 'docs:intro',
+        locale: 'de',
+        contentPath: '/docs/intro'
+      }
+    }], 'remote', unlocalizedRuntime, 'de')).toEqual([{
+      title: 'Intro',
+      path: '/docs/intro'
+    }])
+  })
+
   test('rejects preprojected URLs on every raw route surface', () => {
     expect(() => projectProviderNavigation([{
       title: 'Einstieg',
       path: '/de/dokumentation/einstieg',
       route
     }], 'remote', runtime)).toThrow(/preprojected route field/)
+  })
+
+  test('rejects malformed provider search results at the provider boundary', () => {
+    for (const result of [
+      null,
+      {},
+      [{ title: 'Einstieg', score: Number.NaN, route }],
+      [{ title: 42, score: 1, route }],
+      [{ title: 'Einstieg', excerpt: 42, score: 1, route }]
+    ]) {
+      expect(() => projectProviderSearchResults(result, 'remote', runtime)).toThrow(expect.objectContaining({
+        statusMessage: 'provider_result_invalid'
+      }))
+    }
   })
 
   test('validates route candidates without applying consumer policy', () => {

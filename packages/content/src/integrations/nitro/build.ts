@@ -6,24 +6,15 @@
  * module, `content:file:beforeParse`/`afterParse` hooks — see
  * `integrations/nitro/ingest.ts#parseContentVariants`) inside the real
  * compiled Nitro app, then validates documents, the JSON-purity gate, the
- * graph, locale policy, routes, alternates, navigation, and counts — all
+ * graph, locale policy, routes, alternates, and counts — all
  * BEFORE anything is persisted. It never touches disk itself; the caller
  * (`runtime/server/api/cache.ts`) performs the one durable `snapshot.json`
  * write only after this function returns successfully, and Nitro build hooks
- * (`module/integration-hooks.ts`) consume `.routes`/`.counts` instead of
- * re-parsing content at module/build time.
- *
- * This replaces the deleted module-time `module/derived-route-discovery.ts`
- * reparser: the route-derivation logic below (per-collection canonical-key
- * dedup, `routeMounts: {}` pure locale-prefix projection, prerender/sitemap
- * collection selection) is deliberately the same logic that reparser used —
- * only the document SOURCE changed, from a second globby/readFile/
- * transformContent pass to the one real ingest pipeline already used by
- * every other consumer. This keeps generated route sets identical while
- * removing the second parser.
+ * (`module/integration-hooks.ts`) consume `.routes` and `.counts` from this
+ * result instead of parsing content again.
  */
 import type { H3Event } from 'h3'
-import type { NavItem, ParsedContent, ParsedContentMeta } from '../../types/content'
+import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionConfig } from '../../types/config'
 import type { ResolvedContentContext } from '../../types/module'
 import type { ContentGraph } from '../../core/content/graph'
@@ -41,15 +32,11 @@ import {
   resolveContentRoute,
   synthesizeAlternates,
   type ContentProviderRouteFact,
-  type ContentRouteRecord
+  type ProjectedContentRouteRecord
 } from '../../features/localization/route-projector'
-import { buildCanonicalNavigation, requireNavigationDocumentPath } from '../../features/navigation/build'
-import { markCollectionNavigationRoot, projectNavigationTree, type CanonicalNavigationItem } from '../../features/navigation/canonical'
-import { normalizeRouteMounts } from '../../core/content/path'
 import { countSitemapRoutes, resolveSitemapCollections } from '../../features/sitemap/counts'
 import { extractSitemapMetadata } from '../../features/sitemap/metadata'
 import { chunksFromArray, loadContentVariants } from '../../storage/contents'
-import { getContentRuntimeConfig } from './runtime-config'
 import { cacheStorage, contentConfig, getSourceContentIds, sourceStorage } from './storage'
 import { validateContentLinks } from '../../features/validation/links'
 import { CONTENT_VALIDATION_REPORT_VERSION, isContentValidationReport, type ContentValidationReport } from '../../features/validation/report'
@@ -59,9 +46,7 @@ export { computeSitemapCollectionCounts } from '../../features/sitemap/counts'
 
 export interface ContentBuildResult {
   snapshot: ContentSnapshot
-  graph: ContentGraph
-  routes: readonly ContentRouteRecord[]
-  navigation: readonly { collection: string, locale?: string, items: readonly NavItem[] }[]
+  routes: readonly ProjectedContentRouteRecord[]
   validation: ContentValidationReport
   counts: {
     documents: number
@@ -72,11 +57,9 @@ export interface ContentBuildResult {
 
 /**
  * A source id that produced no snapshot document is always a hard failure:
- * every mounted source must parse into at least one real document. Unlike the legacy
- * check this replaced, "produced no route path" is NOT a completeness
- * failure on its own: a valid `type: 'data'` document legitimately has no
- * route, and belongs in the snapshot/graph anyway (§14.3: "do not use 'has a
- * route path' as the snapshot inclusion test").
+ * every mounted source must parse into at least one real document. A valid
+ * `type: 'data'` document need not have a route and still belongs in the
+ * snapshot and graph.
  */
 const describeUnreadableSource = () => 'unreadable (source missing or failed to parse)'
 
@@ -87,11 +70,9 @@ const resolveRouteCollections = (collections: Record<string, ContentCollectionCo
   Object.keys(collections).filter(name => !isDataCollection(collections, name))
 
 /**
- * One immutable, locale-prefix-only policy per collection. Mirrors the
- * former `derived-route-discovery.ts` choice deliberately: no collection
- * route mount is threaded through here, so this stays a pure `{locale}` -> content-path projection,
- * byte-identical to the route sets those consumers already produce from the
- * same graph.
+ * One immutable, locale-prefix-only policy per collection. No collection
+ * route mount is threaded through here, so this stays a pure
+ * `{ locale }` to content-path projection from the canonical graph.
  */
 const routePolicyFor = (
   collection: string,
@@ -152,7 +133,7 @@ const collectRouteFacts = (graph: ContentGraph, collection: string): ContentProv
 const createValidationReport = async (
   event: H3Event,
   documents: ParsedContent[],
-  routes: readonly ContentRouteRecord[],
+  routes: readonly ProjectedContentRouteRecord[],
   graph: ContentGraph,
   contentContext: ResolvedContentContext & { cacheIntegrity: string },
   generatedAt: number
@@ -208,50 +189,6 @@ const assertAlternateRoundTrips = (
       }
     }
   }
-}
-
-/** One navigation tree per `{collection, locale}` from the in-memory document set — no HTTP round trip, no persisted cache. */
-const deriveNavigation = (
-  documents: ParsedContent[],
-  contentContext: ResolvedContentContext
-): Array<{ collection: string, locale?: string, items: NavItem[] }> => {
-  const collections = contentContext.collections || {}
-  const navigationFields = getContentRuntimeConfig().public?.content?.navigation
-  const configuredFields = navigationFields && navigationFields !== false ? navigationFields.fields || [] : []
-  const results: Array<{ collection: string, locale?: string, items: NavItem[] }> = []
-
-  for (const name of resolveRouteCollections(collections)) {
-    const { defaultLocale } = resolveCollectionI18n(name, contentContext)
-    const collectionI18n = collections[name]?.i18n
-    const locales = collectionI18n && typeof collectionI18n === 'object' && collectionI18n.locales?.length
-      ? collectionI18n.locales
-      : (contentContext.locales || [])
-    const routeMounts = normalizeRouteMounts(collections[name]?.route, locales, defaultLocale)
-    const localesToBuild = locales.length ? locales : [undefined]
-
-    for (const locale of localesToBuild) {
-      const navDocs = documents.filter(document =>
-        document.collection === name
-        && !document.partial
-        && document.type === 'markdown'
-        && document.navigation !== false
-        && (!locale || document.locale === locale))
-      const dirConfigs = documents
-        .filter(document => isNavigationFile(document) && document.partial && (!locale || document.locale === locale))
-        .reduce((accumulator, config) => {
-          requireNavigationDocumentPath(config, 'directory configuration')
-          accumulator[config.path] = { ...config, ...(config.body as unknown as Record<string, unknown> | undefined) }
-          return accumulator
-        }, {} as Record<string, ParsedContent>)
-
-      const tree = buildCanonicalNavigation(navDocs, dirConfigs as Record<string, ParsedContentMeta>, configuredFields)
-      const marked = markCollectionNavigationRoot(tree as CanonicalNavigationItem[], name, { routeMounts })
-      const items = projectNavigationTree(marked, { locale, defaultLocale, routeMounts, collection: name }) as NavItem[]
-      results.push({ collection: name, ...(locale ? { locale } : {}), items })
-    }
-  }
-
-  return results
 }
 
 /**
@@ -345,7 +282,7 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
 
   // Steps 8-10: per-collection locale policy, canonical route records (the
   // one projector), and alternate round-trip validation.
-  const routes: ContentRouteRecord[] = []
+  const routes: ProjectedContentRouteRecord[] = []
   const routesByCollection: Record<string, number> = {}
   const sitemapByCollection: Record<string, number> = {}
   const routeCollections = resolveRouteCollections(collections)
@@ -371,9 +308,6 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
     sitemapByCollection[name] ??= 0
   }
 
-  // Step 11: derive navigation for the active build consumers.
-  const navigation = deriveNavigation(documents, contentContext as ResolvedContentContext)
-
   const validation = existingValidation
     ?? await createValidationReport(
       event,
@@ -384,7 +318,7 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
       now
     )
 
-  // Step 12: construct and validate the snapshot — still in memory, nothing
+  // Construct and validate the snapshot — still in memory, nothing
   // durable yet. When reusing an already-published snapshot (see above),
   // it already passed this exact purity/completeness gate the one time it
   // was originally built — recomputing it from the identical document set
@@ -401,9 +335,7 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
 
   return {
     snapshot,
-    graph,
     routes,
-    navigation,
     validation,
     counts: {
       documents: documents.length,

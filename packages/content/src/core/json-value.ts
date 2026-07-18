@@ -9,7 +9,7 @@
  *  - `storage/validation.ts` (`validateDocumentJsonPurity`), called right
  *    after collection-schema parsing and before graph insertion, for both
  *    dev and build (the Nitro ingest pipeline runs in both);
- *  - `runtime/server/provider-document.ts` (`normalizeProviderDocument`),
+ *  - `public/provider-document.ts` (`normalizeProviderDocument`),
  *    the seam every third-party provider document passes through;
  *  - `core/content/snapshot.ts` (`buildContentSnapshot`), as a cheap
  *    defensive re-assertion before persisting the snapshot artifact.

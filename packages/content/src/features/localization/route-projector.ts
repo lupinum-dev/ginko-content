@@ -10,8 +10,7 @@
  * records they produce - nothing else may prepend or rewrite routes.
  *
  * It is deliberately a pure, Nuxt-free module so it is unit-testable without
- * booting a Nuxt instance and reusable from the future Nitro provider wire
- * (Phase 4A) without change.
+ * booting a Nuxt instance and reusable by provider integrations.
  */
 
 import type { ResolvedCollectionLocalePolicy } from './locale-policy'
@@ -58,9 +57,9 @@ export interface ContentProviderRouteFact extends ContentProviderVariantFact {
 
 /**
  * One produced, canonical public route for one document variant. This is
- * the sole shape internal consumers read paths from after Phase 2C.
+ * the sole shape internal consumers read paths from.
  */
-export interface ContentRouteRecord {
+export interface ProjectedContentRouteRecord {
   collection: string
   canonicalKey: string
   locale: string
@@ -131,8 +130,8 @@ export function projectContentRoute(
 /**
  * Lower a public route path into an ORDERED list of `{locale, contentPath}`
  * candidates using the resolved locale policy's mounts and fallback order.
- * Pure core function - consumed directly today by the resolver below, and
- * by the future Nitro provider wire (Phase 4A) without modification.
+ * Pure core function consumed by both the resolver below and provider query
+ * dispatch.
  */
 export function lowerRouteToCandidates(
   route: string,
@@ -198,8 +197,8 @@ export interface RouteIndex {
 export function buildRouteRecords(
   facts: readonly ContentProviderRouteFact[],
   policy: ResolvedCollectionLocalePolicy
-): { records: ContentRouteRecord[], index: RouteIndex } {
-  const records: ContentRouteRecord[] = []
+): { records: ProjectedContentRouteRecord[], index: RouteIndex } {
+  const records: ProjectedContentRouteRecord[] = []
   const byPath = new Map<string, ResolvedRoute>()
   const byLocaleContentPath = new Map<string, ResolvedRoute>()
 

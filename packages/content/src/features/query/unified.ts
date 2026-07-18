@@ -8,7 +8,7 @@
  * when the handle declares i18n.
  *
  * Implementation strategy: compile the public `by` / `where` options to an
- * internal `ContentQueryBuilderParams` payload via `compileQueryParams`, then
+ * internal `ContentProviderQueryInput` payload via `compileQueryParams`, then
  * dispatch through the explicit `ContentQueryContext` transport provided by
  * the client or server entrypoint.
  *
@@ -142,15 +142,13 @@ export async function backlinks<
 /* -------------------------------------------------------------------------- */
 
 /**
- * Resolve the navigation tree for a collection — the one tree concept,
- * absorbing the deleted `tree()` operation. The shape
- * mirrors the provider navigation query but is a thin builder over the same
- * transport.
+ * Resolve the navigation tree for a collection. The shape mirrors the
+ * provider navigation query but is a thin builder over the same transport.
  *
  * Locale fallback is on-by-default: every doc appears in the tree even when
  * it has no variant in the requested locale (the resolver substitutes the
- * fallback locale's path). This matches legacy navigation semantics —
- * sidebars are inherently lossy when filtered too strictly.
+ * fallback locale's path). This keeps sidebars complete when the requested
+ * locale does not contain every document.
  */
 export async function navigation<
   H extends ContentCollectionHandle | string,
@@ -169,8 +167,7 @@ export async function navigation<
 /* -------------------------------------------------------------------------- */
 
 /**
- * Return the previous/next navigation entries surrounding a document —
- * replacing the deleted `neighbors()` operation.
+ * Return the previous/next navigation entries surrounding a document.
  */
 export async function surround<H extends ContentCollectionHandle | string>(
   context: ContentQueryContext,

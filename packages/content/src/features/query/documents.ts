@@ -93,7 +93,7 @@ export async function resolveDocument<
   }
 
   const unwrapped = unwrapOneResponse<ParsedContent>(response)
-  const doc = Array.isArray(unwrapped) ? (unwrapped[0] ?? null) : (unwrapped ?? null)
+  const doc = unwrapped ?? null
   const decorated = decorateLocalizedDocument(doc as ParsedContent, collection, runtime, options.locale)
   const populated = decorated
     ? await populateDocument(context, one, decorated, options.populate, options.locale, options.fallback)

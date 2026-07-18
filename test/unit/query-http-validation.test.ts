@@ -1,15 +1,16 @@
 import { describe, expect, test } from 'vitest'
 import {
   MAX_ARRAY_OPERAND_LENGTH,
-  MAX_CURSOR_BYTES,
   MAX_FILTER_DEPTH,
   MAX_LOGICAL_GROUP_MEMBERS,
+  MAX_LOCALE_NAME_LENGTH,
   MAX_QUERY_REQUEST_BYTES,
   MAX_SELECTION_ENTRIES,
   MAX_SORT_ENTRIES,
   isOversizedQueryRequestBody,
   validateContentQueryRequestBody
 } from '../../packages/content/src/runtime/server/query-http-validation'
+import { MAX_PUBLIC_QUERY_CURSOR_BYTES } from '../../packages/content/src/core/query/limits'
 
 /**
  * Closed HTTP boundary validation. `validateContentQueryRequestBody`
@@ -82,6 +83,32 @@ describe('content query HTTP request validation', () => {
     expect(result.ok).toBe(false)
   })
 
+  test('rejects empty or ambiguous filters instead of accepting match-all no-ops', () => {
+    for (const where of [
+      [],
+      [{}],
+      [{ $and: [] }],
+      [{ $or: [] }],
+      [{ $not: {} }],
+      [{ nested: {} }],
+      [{ status: { $eq: 'draft', nested: true } }]
+    ]) {
+      expect(validateContentQueryRequestBody({ collection: 'posts', where }).ok).toBe(false)
+    }
+  })
+
+  test('rejects non-object top-level $not operands', () => {
+    for (const value of [true, 'published', null, [{ published: true }]]) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        where: [{ $not: value }]
+      } as never)).toMatchObject({
+        ok: false,
+        error: { path: '$.where[0].$not' }
+      })
+    }
+  })
+
   test('accepts exactly the logical-group member limit', () => {
     const members = Array.from({ length: MAX_LOGICAL_GROUP_MEMBERS }, (_, index) => ({ order: index }))
     const result = validateContentQueryRequestBody({
@@ -117,6 +144,29 @@ describe('content query HTTP request validation', () => {
       collection: 'posts',
       where: [{ title: { $options: 'i' } }]
     }).ok).toBe(false)
+
+    for (const [operator, operand] of [
+      ['$in', 'published'],
+      ['$nin', 'archived'],
+      ['$containsAny', 'nuxt'],
+      ['$icontains', 42],
+      ['$prefix', 42],
+      ['$type', 'function']
+    ] as const) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        where: [{ title: { [operator]: operand } }]
+      }), operator).toMatchObject({ ok: false })
+    }
+  })
+
+  test('rejects non-JSON object instances as operands', () => {
+    for (const operand of [/guide/i, new Date('2026-01-01T00:00:00Z'), new Map([['title', 'Guide']])]) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        where: [{ title: operand }]
+      } as never)).toMatchObject({ ok: false })
+    }
   })
 
   test('rejects negative, fractional, non-finite, and oversized paging numbers', () => {
@@ -155,11 +205,52 @@ describe('content query HTTP request validation', () => {
 
     expect(validateContentQueryRequestBody({
       collection: 'posts',
-      paging: { mode: 'cursor', after: 'x'.repeat(MAX_CURSOR_BYTES + 1), limit: 10 }
+      paging: { mode: 'cursor', after: 'x'.repeat(MAX_PUBLIC_QUERY_CURSOR_BYTES + 1), limit: 10 }
     }).ok).toBe(false)
   })
 
-  test('rejects top-level `skip` combined with cursor paging, in either field order', () => {
+  test('requires a positive limit for explicit offset and cursor paging', () => {
+    for (const paging of [
+      { mode: 'offset', skip: 0, limit: 0 },
+      { mode: 'cursor', after: null, limit: 0 }
+    ] as const) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        paging
+      })).toMatchObject({
+        ok: false,
+        error: {
+          path: '$.paging.limit',
+          reason: expect.stringMatching(/positive integer/u)
+        }
+      })
+    }
+
+    // Plain list limiting keeps its existing zero-value semantics. Only
+    // explicit page iteration must make forward progress.
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      limit: 0
+    }).ok).toBe(true)
+  })
+
+  test('rejects contradictory terminal and paging modes', () => {
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      first: true,
+      count: true
+    })).toMatchObject({ ok: false, error: { path: '$.first' } })
+
+    for (const terminal of [{ first: true }, { count: true }]) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        ...terminal,
+        paging: { mode: 'offset', skip: 0, limit: 10 }
+      })).toMatchObject({ ok: false, error: { path: '$.paging' } })
+    }
+  })
+
+  test('rejects duplicate top-level pagination values whenever `paging` is present', () => {
     // skip declared before paging
     const skipFirst = validateContentQueryRequestBody({
       collection: 'posts',
@@ -186,18 +277,23 @@ describe('content query HTTP request validation', () => {
       paging: { mode: 'cursor', after: 'opaque-cursor-value', limit: 10 } as never
     }).ok).toBe(false)
 
-    // The mirror image: cursor paging is fine as long as no top-level skip rides along.
+    // Cursor paging is fine as long as no duplicate top-level values ride along.
     expect(validateContentQueryRequestBody({
       collection: 'posts',
       paging: { mode: 'cursor', after: 'opaque-cursor-value', limit: 10 }
     }).ok).toBe(true)
 
-    // Offset paging may still carry a top-level `skip` — the conflict is cursor-specific.
     expect(validateContentQueryRequestBody({
       collection: 'posts',
       skip: 5,
       paging: { mode: 'offset', skip: 0, limit: 10 }
-    }).ok).toBe(true)
+    }).ok).toBe(false)
+
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      limit: 5,
+      paging: { mode: 'offset', skip: 0, limit: 10 }
+    })).toMatchObject({ ok: false, error: { path: '$.limit' } })
   })
 
   test('rejects invalid selection and sort entries', () => {
@@ -225,6 +321,61 @@ describe('content query HTTP request validation', () => {
       collection: 'posts',
       sort: [{ date: -1, $unknownParam: true } as never]
     }).ok).toBe(false)
+
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      sort: [{ title: 1, $caseFirst: false } as never]
+    }).ok).toBe(false)
+
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      sort: [{ title: 1, $sensitivity: false } as never]
+    }).ok).toBe(false)
+
+    for (const locale of ['', 'not_a_locale', 'x'.repeat(MAX_LOCALE_NAME_LENGTH + 1)]) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        sort: [{ title: 1, $locale: locale }]
+      })).toMatchObject({ ok: false, error: { path: '$.sort[0].$locale' } })
+    }
+  })
+
+  test('rejects empty and prototype-traversing field paths on every query surface', () => {
+    const invalidPaths = [
+      '',
+      '.title',
+      'meta..title',
+      'meta.__proto__.title',
+      'prototype.name',
+      'author.constructor.name'
+    ]
+
+    for (const field of invalidPaths) {
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        where: [{ [field]: true }]
+      }), `where: ${field}`).toMatchObject({ ok: false })
+
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        sort: [{ [field]: 1 }]
+      }), `sort: ${field}`).toMatchObject({ ok: false })
+
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        only: [field]
+      }), `only: ${field}`).toMatchObject({ ok: false })
+
+      expect(validateContentQueryRequestBody({
+        collection: 'posts',
+        without: [field]
+      }), `without: ${field}`).toMatchObject({ ok: false })
+    }
+
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ meta: { constructor: { name: 'Object' } } }]
+    })).toMatchObject({ ok: false })
   })
 
   test('rejects an array operand over the size limit', () => {

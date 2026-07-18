@@ -7,7 +7,7 @@ import {
 import { defu } from 'defu'
 import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
-import { name, version } from '../package.json'
+import { name, peerDependencies, version } from '../package.json'
 import type { JsonValue } from './cms-contract/index'
 import { buildResolvedContentContract, hashCanonicalJson } from './cms-contract/index'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from './types/module'
@@ -46,9 +46,7 @@ const hookNuxtBoundary = <T>(
 }
 
 export { defineCollection, defineContentConfig, reference } from './types/config.js'
-// Curated root-entry type surface (GC-4). The former wildcard type re-export
-// leaked the entire internal type graph — including the retired fluent-builder
-// types — through the package root. Keep this list minimal: the module options,
+// Curated root-entry type surface. Keep this list minimal: the module options,
 // the collection handle, and the canonical document/navigation/toc envelope types
 // that docs, playgrounds, and examples actually import. The collection-map
 // registries + `StrictParsedContent` stay because the generated app types
@@ -75,11 +73,9 @@ export default defineNuxtModule<ModuleOptions>({
     version,
     configKey: 'content',
     compatibility: {
-      // Matches the peerDependencies range in packages/content/package.json and the
-      // versions actually exercised by .github/workflows/deps-canary.yml
-      // (minimum-supported: nuxt 4.4.7, latest-supported: ^4.4.7). Do not widen this
-      // without adding a canary lane that proves it.
-      nuxt: '>=4.4.7 <5'
+      // The published peer range is the compatibility authority. The minimum
+      // and current supported versions are exercised by deps-canary CI.
+      nuxt: peerDependencies.nuxt
     }
   },
   moduleDependencies: {
@@ -121,7 +117,13 @@ export default defineNuxtModule<ModuleOptions>({
       Object.entries(appContentConfig.collections).map(([name, collection]) => ({
         name,
         localized: Boolean(collection.i18n),
-        route: typeof collection.route === 'string' ? collection.route : undefined
+        ...(collection.i18n && typeof collection.i18n === 'object'
+          ? {
+              locales: collection.i18n.locales,
+              defaultLocale: collection.i18n.defaultLocale
+            }
+          : {}),
+        route: collection.route
       }))
     )
     const resolvedI18n = toResolvedContentI18nOptions(localePolicy, options)
@@ -139,13 +141,15 @@ export default defineNuxtModule<ModuleOptions>({
       name,
       {
         ...collection,
-        i18n: resolveCollectionI18nConfig(
-          collection,
-          resolvedI18n.defaultLocale && resolvedI18n.locales.length
-            ? { defaultLocale: resolvedI18n.defaultLocale, locales: resolvedI18n.locales }
-            : undefined,
-          { warnMissingGlobal: true }
-        )
+        i18n: collection.i18n === false
+          ? false
+          : resolveCollectionI18nConfig(
+              collection,
+              resolvedI18n.defaultLocale && resolvedI18n.locales.length
+                ? { defaultLocale: resolvedI18n.defaultLocale, locales: resolvedI18n.locales }
+                : undefined,
+              { warnMissingGlobal: true }
+            )
       }
     ]))
     const provider = appContentConfig.provider || 'filesystem'
@@ -300,7 +304,7 @@ export default defineNuxtModule<ModuleOptions>({
 export interface ModuleHooks {
   /**
    * Mutable setup registry, called before provider selection is validated.
-   * Integrations (e.g. Ginko CMS) use it to register an implementation name.
+   * Provider integrations use it to register an implementation name.
    */
   'content:providers'(providers: Record<string, string>): void | Promise<void>
   /**

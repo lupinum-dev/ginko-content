@@ -7,6 +7,7 @@ describe('Custom transformer example', () => {
 
     expect(parsed).toMatchObject({
       id: 'content:1.index.names',
+      type: 'json',
       body: ['Jason', 'Jessi', 'Joes', 'John']
     })
   })

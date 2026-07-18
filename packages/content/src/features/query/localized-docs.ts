@@ -3,24 +3,25 @@ import type { LocalizedDoc } from '../../types/query'
 import { decorateLocalizedDocumentEnvelope } from '../../features/localization/results'
 import { normalizeContentPath, normalizeRouteMounts } from '../../features/localization/path'
 import type { RuntimeContentConfig } from './context'
+import { resolveRuntimeCollectionI18nConfig } from '../localization/config'
 
 const collectionLocaleConfig = (
   collection: string,
   runtime: RuntimeContentConfig | undefined
 ) => {
   const collectionConfig = runtime?.collections?.[collection]
-  const collectionI18n = collectionConfig?.i18n
-  const collectionLocales = collectionI18n && typeof collectionI18n === 'object' ? collectionI18n.locales : undefined
-  const collectionDefault = collectionI18n && typeof collectionI18n === 'object' ? collectionI18n.defaultLocale : undefined
-  const locales = collectionLocales?.length ? collectionLocales : (runtime?.locales?.length ? runtime.locales : [])
-  const defaultLocale = collectionDefault || runtime?.defaultLocale
+  const collectionI18n = runtime
+    ? resolveRuntimeCollectionI18nConfig(collection, runtime)
+    : undefined
+  const locales = collectionI18n?.locales || []
+  const defaultLocale = collectionI18n?.defaultLocale
   const routeMounts = normalizeRouteMounts(collectionConfig?.route, locales, defaultLocale)
 
   return {
     locales,
     defaultLocale,
     routeMounts,
-    hasLocaleConfig: Boolean(locales.length || defaultLocale)
+    hasLocaleConfig: Boolean(collectionI18n)
   }
 }
 

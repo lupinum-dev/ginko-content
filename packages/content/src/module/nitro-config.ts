@@ -129,8 +129,6 @@ export const registerContentNitroConfig = ({
     }
     if (contentContext.sitemap !== false) {
       nitroConfig.plugins ||= []
-      // Ginko swaps Nuxt Sitemap's upstream Nuxt Content v2 source through the official
-      // `sitemap:sources` runtime hook instead of patching Sitemap's generated virtual modules.
       const sitemapPlugin = resolveRuntimeModule('server/plugins/sitemap.js')
       if (!nitroConfig.plugins.includes(sitemapPlugin)) {
         nitroConfig.plugins.push(sitemapPlugin)

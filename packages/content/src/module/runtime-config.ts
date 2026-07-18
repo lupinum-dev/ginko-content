@@ -34,7 +34,7 @@ type RuntimeCollectionConfig = {
   exclude?: ContentCollectionConfig['exclude']
   type?: ContentCollectionConfig['type']
   strict: boolean
-  i18n?: { defaultLocale: string, locales: string[] }
+  i18n?: false | { defaultLocale: string, locales: string[] }
   sitemap?: boolean
   route?: ContentCollectionConfig['route']
   translatedSlugs?: boolean

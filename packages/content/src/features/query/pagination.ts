@@ -19,8 +19,13 @@ import type { ContentQueryContext } from './context'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
 import { populateDocument, selectWithPopulate, validatePopulateSpec } from './populate'
-import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from './public-limits'
-import { unwrapCountResponse, unwrapCursorFindResponse, unwrapFindResponse } from './responses'
+import {
+  assertPublicPagingLimit,
+  DEFAULT_PUBLIC_PAGINATION_LIMIT,
+  MAX_PUBLIC_QUERY_CURSOR_BYTES,
+  MAX_PUBLIC_QUERY_SKIP
+} from '../../core/query/limits'
+import { unwrapCursorFindResponse, unwrapFindResponse } from './responses'
 import { isNotFoundError } from './errors'
 
 type OneResolver = <H extends ContentCollectionHandle | string>(
@@ -29,9 +34,12 @@ type OneResolver = <H extends ContentCollectionHandle | string>(
   options: OneOptions<H>
 ) => Promise<LocalizedDoc<ParsedContent> | null>
 
-const normalizePositiveInteger = (value: unknown, fallback: number) => {
-  const number = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : fallback
-  return Math.max(1, number)
+const resolvePage = (value: unknown): number => {
+  if (value === undefined) return 1
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 1) {
+    throw new TypeError('Content pagination page must be a positive finite integer.')
+  }
+  return value
 }
 
 const emptyOffsetPage = (page: number, limit: number): OffsetPaginationResult<never> => ({
@@ -74,14 +82,29 @@ export async function resolvePagination<
   const runtime = context.runtime
   validatePopulateSpec(handle, collection, runtime, options.populate)
   const fallback = resolveFallback(options.fallback, collection, runtime)
-  // Source compatibility: omitting `mode` always means
-  // `mode: 'offset'`, even when `after` happens to be set — new code should
-  // write `mode: 'cursor'` explicitly rather than relying on inference.
+  if (options.mode !== undefined && options.mode !== 'offset' && options.mode !== 'cursor') {
+    throw new TypeError('Content pagination mode must be "offset" or "cursor".')
+  }
   const mode = options.mode ?? 'offset'
-  const limit = Math.min(normalizePositiveInteger(options.limit, 10), MAX_PUBLIC_QUERY_LIMIT)
+  if (mode === 'cursor' && options.page !== undefined) {
+    throw new TypeError('Content cursor pagination does not accept an offset page.')
+  }
+  if (mode === 'offset' && options.after !== undefined) {
+    throw new TypeError('Content offset pagination does not accept a cursor.')
+  }
+  const limit = options.limit ?? DEFAULT_PUBLIC_PAGINATION_LIMIT
+  assertPublicPagingLimit(limit)
   const select = selectWithPopulate(options.select as ReadonlyArray<string> | undefined, options.populate)
 
   if (mode === 'cursor') {
+    if (options.after !== undefined && options.after !== null) {
+      if (typeof options.after !== 'string') {
+        throw new TypeError('Content pagination cursor must be a string or null.')
+      }
+      if (new TextEncoder().encode(options.after).length > MAX_PUBLIC_QUERY_CURSOR_BYTES) {
+        throw new TypeError(`Content pagination cursor exceeds ${MAX_PUBLIC_QUERY_CURSOR_BYTES} bytes.`)
+      }
+    }
     const params = compileQueryParams({
       collection,
       where: options.where as QueryWhere | undefined,
@@ -117,28 +140,20 @@ export async function resolvePagination<
     } as PaginationResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
   }
 
-  const requestedPage = normalizePositiveInteger(options.page, 1)
-  const skip = Math.min((requestedPage - 1) * limit, MAX_PUBLIC_QUERY_SKIP)
-  const page = Math.floor(skip / limit) + 1
+  const page = resolvePage(options.page)
+  const skip = (page - 1) * limit
+  if (!Number.isSafeInteger(skip) || skip > MAX_PUBLIC_QUERY_SKIP) {
+    throw new TypeError(`Content pagination page exceeds the maximum query skip of ${MAX_PUBLIC_QUERY_SKIP}.`)
+  }
   const params = compileQueryParams({
     collection,
     where: options.where as QueryWhere | undefined,
     sort: options.sort,
-    limit,
-    skip,
     locale: options.locale,
     fallback,
     select
   })
   params.paging = { mode: 'offset', skip, limit }
-  const countParams = compileQueryParams({
-    collection,
-    where: options.where as QueryWhere | undefined,
-    locale: options.locale,
-    fallback
-  })
-  countParams.count = true
-
   let response: unknown
   try {
     response = await context.transport('query', params)
@@ -150,23 +165,18 @@ export async function resolvePagination<
   }
 
   const envelope = unwrapFindResponse<ParsedContent>(response)
-  let total = envelope.total
-  if (!envelope.hasTotal) {
-    const countResponse = await context.transport('query', countParams)
-    total = unwrapCountResponse(countResponse) ?? envelope.total
-  }
   const decorated = envelope.result
     .map(doc => decorateLocalizedDocument(doc, collection, runtime, options.locale))
     .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
   const populated = await Promise.all(decorated.map(doc => populateDocument(context, one, doc, options.populate, options.locale, options.fallback)))
-  const pageCount = total > 0 ? Math.ceil(total / limit) : 0
+  const pageCount = envelope.total > 0 ? Math.ceil(envelope.total / limit) : 0
 
   return {
     mode: 'offset',
     data: populated as unknown as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>,
     page,
     limit,
-    total,
+    total: envelope.total,
     pageCount,
     hasNext: page < pageCount,
     hasPrevious: page > 1,

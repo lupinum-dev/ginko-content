@@ -3,6 +3,18 @@ import type { __ginkoI18nBrand, __ginkoSchemaBrand } from '../config'
 import type { ContentCollectionI18nMap, ContentCollectionMap, ContentCollectionName, ContentCollectionTarget } from './collections'
 import type { ContentDocumentResolution, ContentDocumentRoute } from './results'
 
+export const CONTENT_QUERY_TYPE_VALUES = [
+  'string',
+  'number',
+  'boolean',
+  'object',
+  'undefined'
+] as const
+
+export type ContentQueryType = typeof CONTENT_QUERY_TYPE_VALUES[number]
+
+type QueryElement<TValue> = TValue extends readonly (infer TElement)[] ? TElement : TValue
+
 export interface QueryOperators<TValue = unknown> {
   $eq?: TValue
   $ne?: TValue
@@ -10,15 +22,14 @@ export interface QueryOperators<TValue = unknown> {
   $gte?: TValue
   $lt?: TValue
   $lte?: TValue
-  $in?: TValue[]
-  $nin?: TValue[]
+  $in?: readonly QueryElement<TValue>[]
+  $nin?: readonly QueryElement<TValue>[]
   $exists?: boolean
-  $contains?: TValue | TValue[]
-  $containsAny?: TValue[]
+  $contains?: QueryElement<TValue> | readonly QueryElement<TValue>[]
+  $containsAny?: readonly QueryElement<TValue>[]
   $icontains?: string
-  $type?: 'string' | 'number' | 'boolean' | 'object' | 'undefined'
+  $type?: ContentQueryType
   $prefix?: TValue extends string ? string : never
-  $not?: TValue | QueryOperators<TValue>
 }
 
 export type ContentSelector =
@@ -31,14 +42,14 @@ type PathWhere = string | QueryOperators<string>
 
 export type QueryWhere<T = ParsedContentMeta> = {
   path?: PathWhere
-  $and?: QueryWhere<T>[]
-  $or?: QueryWhere<T>[]
+  $and?: readonly QueryWhere<T>[]
+  $or?: readonly QueryWhere<T>[]
   $not?: QueryWhere<T>
 } & {
   [K in Exclude<keyof T, 'path'>]?: WhereValue<NonNullable<T[K]>>
 }
 
-export type SortDirection = 'asc' | 'desc' | 1 | -1
+export type SortDirection = 'asc' | 'desc'
 export type SortSpec<T = ParsedContentMeta> = string extends keyof T
   ? { [key: string]: SortDirection | undefined }
   : { [K in keyof T]?: SortDirection }
@@ -95,12 +106,13 @@ type LocaleOption<H, OptKey extends string = 'locale'> = HandleIsI18n<H> extends
   : { [K in OptKey]?: string }
 
 /**
- * Argument tuple for verbs whose options parameter is defaulted (`many`, `tree`).
+ * Argument tuple for verbs whose options parameter is optional for
+ * non-localized collections (`many`, `navigation`).
  *
  * For i18n handles the options object is REQUIRED (its type already requires
  * `locale` via `LocaleOption`) — a defaulted `options = {}` parameter would
  * otherwise silently satisfy the locale obligation and reopen the i18n hole.
- * For non-i18n handles the options object stays optional. (CS-7, T5.5.)
+ * For non-i18n handles the options object stays optional.
  */
 export type OptionsArg<H, O> = HandleIsI18n<H> extends true
   ? [options: O]
@@ -116,7 +128,7 @@ type BacklinksLocaleOption<Target, Source> = HandleIsI18n<Target> extends true
     ? { locale: string }
     : { locale?: string }
 
-export type LocaleFallback = false | true | 'default' | string | string[]
+export type LocaleFallback = boolean | 'default' | readonly string[]
 
 /**
  * The canonical document envelope attached to every document
@@ -211,6 +223,11 @@ export interface ResolveOneResult<T = ParsedContentMeta> {
   explain: ResolutionEnvelope
 }
 
+/** Internal composition used by the emitted query-function declarations. */
+export type ResolveOneResultFor<H, O> = ResolveOneResult<
+  SelectedInnerDocument<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>, O>
+>
+
 export type ResolveOneOptions<
   H = unknown,
   P extends PopulateSpec | undefined = undefined
@@ -246,17 +263,30 @@ export type ManyOptions<
  */
 export type PaginationMode = 'offset' | 'cursor'
 
+type PaginationCommonOptions<
+  H,
+  P extends PopulateSpec | undefined
+> = Omit<ManyOptions<H, P>, 'skip' | 'limit'> & {
+  limit?: number
+}
+
 export type PaginationOptions<
   H = unknown,
   P extends PopulateSpec | undefined = undefined
-> = Omit<ManyOptions<H, P>, 'skip' | 'limit'> & {
-  mode?: PaginationMode
-  /** Offset-mode page number. Ignored in `cursor` mode. */
-  page?: number
-  /** Opaque cursor from a previous `CursorPaginationResult.endCursor`. `cursor` mode only. */
-  after?: string | null
-  limit?: number
-}
+> = PaginationCommonOptions<H, P> & (
+  | {
+      mode?: 'offset'
+      /** Offset-mode page number. */
+      page?: number
+      after?: never
+    }
+  | {
+      mode: 'cursor'
+      page?: never
+      /** Opaque cursor from a previous `CursorPaginationResult.endCursor`. */
+      after?: string | null
+    }
+)
 
 export interface OffsetPaginationResult<T = ParsedContentMeta> {
   mode: 'offset'
@@ -332,7 +362,7 @@ export type BacklinksResult<
 
 export type { ContentNavigationItem }
 
-/** Options for the public `navigation()` verb, absorbing `tree()`. */
+/** Options for the public `navigation()` verb. */
 export type NavigationOptions<
   H = unknown,
   Select extends ReadonlyArray<keyof HandleSchema<H> | string> | undefined = undefined
@@ -363,7 +393,7 @@ export type ResolvedContentNavigationItem<
   path: string
 }
 
-/** Options for the public `surround()` verb, replacing `neighbors()`. */
+/** Options for the public `surround()` verb. */
 export type SurroundOptions<H = unknown> = {
   by: ContentSelector
   fallback?: LocaleFallback

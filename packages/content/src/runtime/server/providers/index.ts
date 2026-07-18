@@ -2,7 +2,12 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 import { loadExternalContentProvider } from '#content/virtual/providers'
 import type { H3Event } from 'h3'
 import { PROVIDER_QUERY_VERSION, type ContentProvider, type ContentProviderQuery } from '../../../public/provider'
+import {
+  isContentProviderOperatorCapabilities,
+  isContentProviderPaginationCapabilities
+} from '../../../public/provider-contract'
 import type { FilterExpr } from '../../../core/query/plan'
+import { collectJsonPurityViolations } from '../../../core/json-value'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { wrapContentProviderCacheResults, type RuntimeContentProvider } from '../provider-result'
 
@@ -24,9 +29,10 @@ const assertProviderMethod = (providerName: string, provider: Record<string, unk
 
 /**
  * Derive the operator vocabulary a plan actually exercises by walking its
- * `FilterExpr` tree (CS-5 trap 3). Only `compare` nodes carry operators; we
- * recurse through `and`/`or`/`not` to reach every one. Operators are reported
- * in the builder's `$`-prefixed vocabulary so they compare directly against
+ * `FilterExpr` tree. Logical nodes are wire structure, so capability checks
+ * recurse through them and collect only the comparison operators they contain.
+ * Operators are reported in the public `$`-prefixed vocabulary so they
+ * compare directly against
  * `capabilities.query.operators`.
  */
 export const collectPlanFilterOperators = (filter: FilterExpr, operators: Set<string> = new Set()): Set<string> => {
@@ -52,49 +58,16 @@ export const collectPlanFilterOperators = (filter: FilterExpr, operators: Set<st
 }
 
 /**
- * Detect a value that would not survive `JSON.parse(JSON.stringify(value))`
- * unchanged — a live `RegExp`, `Date`, `Map`, `Set`, class instance, function,
- * `bigint`, or `symbol`. `undefined` is allowed (JSON drops it to an absent
- * key, which the plan's optional fields rely on). Returns the offending path,
- * or `undefined` when the value is JSON-pure.
- */
-const findNonJsonValue = (value: unknown, path: string): string | undefined => {
-  if (value === null || value === undefined) return undefined
-  const kind = typeof value
-  if (kind === 'string' || kind === 'number' || kind === 'boolean') return undefined
-  if (kind === 'function' || kind === 'bigint' || kind === 'symbol') return path
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const offender = findNonJsonValue(value[index], `${path}[${index}]`)
-      if (offender) return offender
-    }
-    return undefined
-  }
-  if (kind === 'object') {
-    const prototype = Object.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) return path
-    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      const offender = findNonJsonValue(child, `${path}.${key}`)
-      if (offender) return offender
-    }
-    return undefined
-  }
-  return path
-}
-
-/**
- * Dev-mode guard: the provider wire is JSON-pure by contract (CS-5). A stray
- * `RegExp`/`Date` in `plan.filter` would corrupt any provider that serializes
- * the query, so we fail fast in dev instead of shipping a silently mangled
- * wire. No-op in production (the walk is not free).
+ * The provider wire is JSON-pure by contract. Fail before every provider
+ * dispatch rather than letting a serialized provider receive changed query
+ * semantics. Capability checking already walks the same bounded plan.
  */
 export const assertJsonPureProviderQuery = (provider: ContentProvider, query: ContentProviderQuery): void => {
-  if (!import.meta.dev) return
-  const offender = findNonJsonValue(query, 'query')
-  if (offender) {
-    throw createContentProviderError('provider_query_not_json_pure', `${provider.name} received a non-JSON-pure query at ${offender}. Provider queries must survive JSON.parse(JSON.stringify(query)).`, {
+  const violation = collectJsonPurityViolations(query, 'query')[0]
+  if (violation) {
+    throw createContentProviderError('provider_query_not_json_pure', `${provider.name} received a non-JSON-pure query at ${violation.path}. Provider queries must survive JSON.parse(JSON.stringify(query)).`, {
       provider: provider.name,
-      field: offender
+      field: violation.path
     })
   }
 }
@@ -108,7 +81,7 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
   }
 
   const capabilities = provider.capabilities.query
-  const supported = new Set(capabilities.operators)
+  const supported = new Set<string>(capabilities.operators)
   const usedOperators = collectPlanFilterOperators(query.plan.filter)
   for (const operator of usedOperators) {
     if (!supported.has(operator)) {
@@ -170,11 +143,7 @@ export const enforceProviderCapabilities = (provider: ContentProvider): ContentP
         assertProviderQuerySupported(provider, query)
         return await provider.navigation!(event, query, options)
       }
-    : undefined,
-  surroundings: provider.surroundings,
-  search: provider.search,
-  siteData: provider.siteData,
-  routes: provider.routes
+    : undefined
 })
 
 export const validateContentProvider = (providerName: string, provider: unknown): ContentProvider => {
@@ -186,6 +155,12 @@ export const validateContentProvider = (providerName: string, provider: unknown)
 
   if (typeof provider.name !== 'string') {
     throw createContentProviderError('provider_module_invalid', `Content provider ${providerName} is missing a string name.`, {
+      provider: providerName,
+      field: 'name'
+    })
+  }
+  if (provider.name.length === 0 || provider.name !== providerName) {
+    throw createContentProviderError('provider_module_invalid', `Content provider registered as ${providerName} must export the same non-empty name.`, {
       provider: providerName,
       field: 'name'
     })
@@ -209,13 +184,12 @@ export const validateContentProvider = (providerName: string, provider: unknown)
   const queryCapabilities = provider.capabilities.query
   assertProviderField(
     providerName,
-    Array.isArray(queryCapabilities.operators) && queryCapabilities.operators.every(operator => typeof operator === 'string'),
+    isContentProviderOperatorCapabilities(queryCapabilities.operators),
     'capabilities.query.operators'
   )
   assertProviderField(
     providerName,
-    Array.isArray(queryCapabilities.pagination)
-    && queryCapabilities.pagination.every((mode: unknown) => mode === 'offset' || mode === 'cursor'),
+    isContentProviderPaginationCapabilities(queryCapabilities.pagination),
     'capabilities.query.pagination'
   )
 
@@ -254,10 +228,12 @@ export async function getContentProvider(event?: H3Event): Promise<ContentProvid
       if (isObject(error) && error.statusMessage === 'provider_module_invalid') {
         throw error
       }
-      throw createContentProviderError('provider_module_missing', `Content provider module for ${provider} could not be loaded.`, {
-        provider,
-        cause: error instanceof Error ? error.message : String(error)
-      })
+      throw createContentProviderError(
+        'provider_module_missing',
+        `Content provider module for ${provider} could not be loaded.`,
+        { provider },
+        error
+      )
     }
   }
 

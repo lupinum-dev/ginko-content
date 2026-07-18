@@ -28,7 +28,14 @@ export function parsePortableJson(source: string): JsonValue {
       while (true) {
         whitespace(); const key = string(); whitespace()
         if (keys.has(key) || source[offset++] !== ':') return fail()
-        keys.add(key); output[key] = value(); whitespace()
+        keys.add(key)
+        Object.defineProperty(output, key, {
+          value: value(),
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        })
+        whitespace()
         if (source[offset] === '}') { offset++; return output }
         if (source[offset++] !== ',') return fail()
       }

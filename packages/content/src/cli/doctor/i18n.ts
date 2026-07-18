@@ -3,74 +3,81 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { DetectedI18n, DoctorFinding } from './types'
 import { collectFiles, collectOutputFiles, hasDependency, readPackageJson, readTextIfPresent, toRelativePath } from './files'
-import { extractLocaleCodesFromConfig, findCollectionDefinitions, localeCodePattern } from './parsing'
+import { extractLocaleCodesFromConfig, findCollectionDefinitions, findObjectPropertyBlocks } from './parsing'
 import { countSitemapUrls, readGeneratedSitemaps } from './sitemap'
 
 async function detectI18n(rootDir: string): Promise<DetectedI18n> {
   const nuxtConfigPath = join(rootDir, 'nuxt.config.ts')
-  const contentConfigPath = join(rootDir, 'content.config.ts')
   const nuxtConfig = await readTextIfPresent(nuxtConfigPath)
-  const contentConfig = await readTextIfPresent(contentConfigPath)
   const packageJson = await readPackageJson(rootDir)
-  const locales = new Set([
-    ...extractLocaleCodesFromConfig(nuxtConfig),
-    ...extractLocaleCodesFromConfig(contentConfig)
-  ])
-  const contentDir = join(rootDir, 'content')
 
-  if (existsSync(contentDir)) {
-    const entries = await readdir(contentDir, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.isDirectory() && localeCodePattern.test(entry.name)) {
-        locales.add(entry.name)
-      }
+  const contentI18nBlocks = findObjectPropertyBlocks(nuxtConfig, 'content')
+    .flatMap(block => findObjectPropertyBlocks(block, 'i18n'))
+  const nuxtI18nBlocks = findObjectPropertyBlocks(nuxtConfig, 'i18n')
+
+  // `findObjectPropertyBlocks()` is intentionally syntax-light and returns
+  // nested matches too. Remove content.i18n blocks so only the top-level Nuxt
+  // I18n authority remains.
+  for (const contentI18nBlock of contentI18nBlocks) {
+    const index = nuxtI18nBlocks.indexOf(contentI18nBlock)
+    if (index !== -1) {
+      nuxtI18nBlocks.splice(index, 1)
     }
   }
 
+  const nuxtI18nConfig = nuxtI18nBlocks.join('\n')
+  const contentI18nConfig = contentI18nBlocks.join('\n')
+  const hasNuxtI18nModule = /['"]@nuxtjs\/i18n['"]/.test(nuxtConfig)
+  const authorityConfig = hasNuxtI18nModule ? nuxtI18nConfig : contentI18nConfig
+
   return {
-    locales: [...locales].sort(),
-    hasNuxtI18nModule: /['"]@nuxtjs\/i18n['"]/.test(nuxtConfig),
-    hasContentI18nConfig: /\bcontent\s*:\s*\{[\s\S]*?\bi18n\s*:/.test(nuxtConfig),
-    hasNuxtI18nDependency: hasDependency(packageJson, '@nuxtjs/i18n')
+    locales: extractLocaleCodesFromConfig(authorityConfig).sort(),
+    hasNuxtI18nModule,
+    hasNuxtI18nDependency: hasDependency(packageJson, '@nuxtjs/i18n'),
+    nuxtI18nDeclaresLocales: /\blocales\s*:/.test(nuxtI18nConfig),
+    nuxtI18nDeclaresDefaultLocale: /\bdefaultLocale\s*:/.test(nuxtI18nConfig),
+    contentI18nDeclaresLocales: /\blocales\s*:/.test(contentI18nConfig),
+    contentI18nDeclaresDefaultLocale: /\bdefaultLocale\s*:/.test(contentI18nConfig)
   }
 }
 
-async function inspectI18nConfig(rootDir: string, detected: DetectedI18n): Promise<DoctorFinding[]> {
+function inspectI18nConfig(detected: DetectedI18n): DoctorFinding[] {
   const findings: DoctorFinding[] = []
 
-  if (!detected.locales.length) {
+  if (detected.hasNuxtI18nModule) {
+    if (!detected.hasNuxtI18nDependency) {
+      findings.push({
+        severity: 'error',
+        file: 'package.json',
+        message: 'Direct @nuxtjs/i18n dependency is missing for an i18n app.',
+        suggestion: 'Install @nuxtjs/i18n directly so Nuxt owns route localization explicitly.'
+      })
+    }
+
+    if (!detected.nuxtI18nDeclaresLocales || !detected.nuxtI18nDeclaresDefaultLocale) {
+      findings.push({
+        severity: 'error',
+        file: 'nuxt.config.ts',
+        message: 'Nuxt I18n locale authority is incomplete.',
+        suggestion: 'Declare locales and defaultLocale under top-level i18n in nuxt.config.ts.'
+      })
+    }
+
+    if (detected.contentI18nDeclaresLocales || detected.contentI18nDeclaresDefaultLocale) {
+      findings.push({
+        severity: 'error',
+        file: 'nuxt.config.ts',
+        message: 'Duplicate locale authority found in content.i18n.',
+        suggestion: 'Remove locales and defaultLocale from content.i18n; Nuxt I18n is authoritative when registered. Keep only fallback and translatedSlugs there.'
+      })
+    }
+  }
+  else if (!detected.contentI18nDeclaresLocales || !detected.contentI18nDeclaresDefaultLocale) {
     findings.push({
       severity: 'error',
       file: 'nuxt.config.ts',
-      message: 'No i18n locales detected.',
-      suggestion: 'Configure @nuxtjs/i18n locales and content.i18n.locales, or create content/<locale>/ folders.'
-    })
-  }
-
-  if (!detected.hasNuxtI18nDependency) {
-    findings.push({
-      severity: 'error',
-      file: 'package.json',
-      message: 'Direct @nuxtjs/i18n dependency is missing for an i18n app.',
-      suggestion: 'Install @nuxtjs/i18n directly so Nuxt owns route localization explicitly.'
-    })
-  }
-
-  if (!detected.hasNuxtI18nModule) {
-    findings.push({
-      severity: 'error',
-      file: 'nuxt.config.ts',
-      message: '@nuxtjs/i18n module is not registered.',
-      suggestion: 'Add @nuxtjs/i18n to modules before relying on localized content routes.'
-    })
-  }
-
-  if (!detected.hasContentI18nConfig) {
-    findings.push({
-      severity: 'error',
-      file: 'nuxt.config.ts',
-      message: 'content.i18n runtime config is missing.',
-      suggestion: 'Add content.i18n with defaultLocale and locales so collections resolve localized documents.'
+      message: 'Content-owned locale authority is incomplete.',
+      suggestion: 'Without @nuxtjs/i18n, declare locales and defaultLocale under content.i18n in nuxt.config.ts.'
     })
   }
 
@@ -352,7 +359,7 @@ export async function inspectI18n(rootDir: string): Promise<DoctorFinding[]> {
   const detected = await detectI18n(rootDir)
 
   return [
-    ...await inspectI18nConfig(rootDir, detected),
+    ...inspectI18nConfig(detected),
     ...await inspectI18nCollections(rootDir),
     ...await inspectI18nContentFolders(rootDir, detected.locales),
     ...await inspectI18nDuplicateContentGroups(rootDir, detected.locales),

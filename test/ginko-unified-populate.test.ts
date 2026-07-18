@@ -86,7 +86,7 @@ describe('unified query populate', () => {
         }
       }
 
-      return { result: null }
+      return null
     })
   })
 
@@ -150,7 +150,7 @@ describe('unified query populate', () => {
         }
       }
 
-      return { result: null }
+      return null
     })
 
     const doc = await one({
@@ -207,7 +207,7 @@ describe('unified query populate', () => {
         }
       }
 
-      return { result: null }
+      return null
     })
 
     const doc = await one({
@@ -309,7 +309,7 @@ describe('unified query populate', () => {
         }
       }
 
-      return { result: null }
+      return null
     })
 
     const post = await one({
@@ -362,10 +362,11 @@ describe('unified query populate', () => {
     mocks.transport.mockImplementationOnce(async (_endpoint, params) => {
       expect(params).toMatchObject({
         collection: 'posts',
-        skip: 2,
-        limit: 2,
+        paging: { mode: 'offset', skip: 2, limit: 2 },
         sort: [{ title: 1 }]
       })
+      expect(params).not.toHaveProperty('skip')
+      expect(params).not.toHaveProperty('limit')
 
       return {
         result: [
@@ -415,95 +416,40 @@ describe('unified query populate', () => {
     })
   })
 
-  test('counts total matches when the provider returns an array instead of an envelope', async () => {
-    mocks.transport.mockImplementation(async (_endpoint, params) => {
-      if (params.count) {
-        expect(params).toMatchObject({
-          collection: 'posts',
-          count: true
-        })
-        expect(params).not.toHaveProperty('limit')
-        expect(params).not.toHaveProperty('skip')
-        return 5
-      }
-
-      expect(params).toMatchObject({
-        collection: 'posts',
-        skip: 2,
-        limit: 2
-      })
-      return [
-        {
-          id: 'content:posts:two.md',
-          path: '/two',
-          collection: 'posts',
-          title: 'Two',
-          authors: [],
-          body: null
-        },
-        {
-          id: 'content:posts:three.md',
-          path: '/three',
-          collection: 'posts',
-          title: 'Three',
-          authors: [],
-          body: null
-        }
-      ]
-    })
-
-    const page = await paginate({
-      runtime: {},
-      transport: mocks.transport
-    }, posts, {
-      page: 2,
-      limit: 2
-    })
-
-    expect(page).toMatchObject({
-      total: 5,
-      pageCount: 3,
-      hasNext: true,
-      nextPage: 3
-    })
-    expect(mocks.transport).toHaveBeenCalledTimes(2)
-  })
-
-  test('clamps pagination requests to public query limits before computing metadata', async () => {
-    mocks.transport.mockImplementationOnce(async (_endpoint, params) => {
-      expect(params).toMatchObject({
-        collection: 'posts',
-        skip: 10_000,
-        limit: 100
-      })
-
-      return {
-        result: [],
-        total: 20_000,
-        skip: 10_000,
-        limit: 100
-      }
-    })
-
-    const page = await paginate({
+  test('rejects pagination outside public query limits instead of changing the requested page', async () => {
+    await expect(paginate({
       runtime: {},
       transport: mocks.transport
     }, posts, {
       page: 200,
       limit: 1_000
-    })
+    } as never)).rejects.toThrow(/limit exceeds the maximum/)
 
-    expect(page).toMatchObject({
-      mode: 'offset',
-      page: 101,
-      limit: 100,
-      total: 20_000,
-      pageCount: 200,
-      hasNext: true,
-      hasPrevious: true,
-      nextPage: 102,
-      previousPage: 100
-    })
+    await expect(paginate({
+      runtime: {},
+      transport: mocks.transport
+    }, posts, {
+      page: 102,
+      limit: 100
+    })).rejects.toThrow(/maximum query skip/)
+
+    expect(mocks.transport).not.toHaveBeenCalled()
+  })
+
+  test('rejects contradictory pagination modes before transport', async () => {
+    for (const options of [
+      { after: 'cursor-without-mode' },
+      { mode: 'offset', after: 'cursor' },
+      { mode: 'cursor', page: 2 },
+      { mode: 'unknown' }
+    ]) {
+      await expect(paginate({
+        runtime: {},
+        transport: mocks.transport
+      }, posts, options as never)).rejects.toThrow(/pagination mode|does not accept/)
+    }
+
+    expect(mocks.transport).not.toHaveBeenCalled()
   })
 
   test('resolves backlinks by inferring reference fields from typed source handles', async () => {
@@ -546,11 +492,13 @@ describe('unified query populate', () => {
               body: null
             }
           ],
+          skip: 0,
+          limit: 100,
           total: 1
         }
       }
 
-      return { result: null }
+      return null
     })
 
     const result = await backlinks({
@@ -595,10 +543,10 @@ describe('unified query populate', () => {
             ]
           }
         ])
-        return { result: [] }
+        return { result: [], skip: 0, limit: 100, total: 0 }
       }
 
-      return { result: null }
+      return null
     })
 
     await backlinks({
@@ -638,10 +586,10 @@ describe('unified query populate', () => {
             ]
           }
         ])
-        return { result: [] }
+        return { result: [], skip: 0, limit: 100, total: 0 }
       }
 
-      return { result: null }
+      return null
     })
 
     await backlinks({
@@ -680,7 +628,7 @@ describe('unified query populate', () => {
         }
       }
 
-      return { result: null }
+      return null
     })
 
     await expect(backlinks({
@@ -713,10 +661,10 @@ describe('unified query populate', () => {
 
       if (params.collection === 'posts' || params.collection === 'docs') {
         seen.set(params.collection, params.where)
-        return { result: [] }
+        return { result: [], skip: 0, limit: 100, total: 0 }
       }
 
-      return { result: null }
+      return null
     })
 
     await backlinks({

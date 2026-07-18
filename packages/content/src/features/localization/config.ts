@@ -7,7 +7,7 @@ export interface ContentI18nConfigInput {
 
 export interface CollectionI18nInput {
   source?: string | string[]
-  i18n?: true | ContentI18nConfigInput
+  i18n?: boolean | ContentI18nConfigInput
 }
 
 export type RuntimeCollectionI18nInput = CollectionI18nInput
@@ -36,6 +36,9 @@ export const resolveCollectionI18nConfig = (
     warnMissingGlobal?: boolean
   } = {}
 ): ContentCollectionI18nConfig | undefined => {
+  if (collection?.i18n === false) {
+    return undefined
+  }
   if (collection?.i18n && collection.i18n !== true) {
     return normalizeI18nConfig(collection.i18n)
   }

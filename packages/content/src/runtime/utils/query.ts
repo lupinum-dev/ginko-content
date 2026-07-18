@@ -1,6 +1,6 @@
 import { type H3Event, createError } from 'h3'
-import type { ContentQueryBuilderParams } from '../../types/query'
-import { decodeQueryParams, encodeQueryParams, ensureQueryWhereArray, findQueryWhere, collectQueryWhere, normalizeContentQueryParams } from '../../core/query/params'
+import type { ContentProviderQueryInput } from '../../types/query'
+import { decodeQueryParams, encodeQueryParams } from '../../core/query/params'
 
 const safeDecodeQueryParams = (encoded: string) => {
   try {
@@ -10,7 +10,7 @@ const safeDecodeQueryParams = (encoded: string) => {
   }
 }
 
-export const getContentQuery = (event: H3Event): ContentQueryBuilderParams => {
+export const getContentQuery = (event: H3Event): ContentProviderQueryInput => {
   const encoded = event.context.params?.params
 
   if (!encoded) {
@@ -20,4 +20,4 @@ export const getContentQuery = (event: H3Event): ContentQueryBuilderParams => {
   const normalized = encoded.replace(/\.json$/, '').replace(/^[^/]+\//, '')
   return safeDecodeQueryParams(normalized)
 }
-export { collectQueryWhere, decodeQueryParams, encodeQueryParams, ensureQueryWhereArray, findQueryWhere, normalizeContentQueryParams }
+export { decodeQueryParams, encodeQueryParams }

@@ -73,7 +73,7 @@ const targetReferenceCandidates = (doc: LocalizedDoc<ParsedContent>) => {
   // reference targets. The shaped result always carries a default route of
   // '/', so the resolved-path candidate is gated on `canonicalKey` to avoid
   // treating an identity-less document as referenceable. `ref` is the sole
-  // user-facing alias (the explicit-id alias has been retired).
+  // user-facing alias.
   const values = [
     (doc as { ref?: unknown }).ref,
     doc.canonicalKey,

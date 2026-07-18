@@ -68,7 +68,7 @@ Every resolved document carries a `route` and a `resolution`, not a bare `path`:
 
 - `route.requestedPath` — the selector the app queried with, if any.
 - `route.resolvedPath` — the document's canonical public path. Use this for links.
-- `route.alternates` — labeled locale alternates (`source: 'variant'` for a concrete translation, `source: 'fallback'` with a `resolvedLocale` when a locale falls back to another). Build locale-switcher links from this, not from manual prefixing.
+- `route.alternates` — proven locale destinations (`source: 'variant'` for a concrete translation; `source: 'fallback'` with a `resolvedLocale` only for the fallback route used by the current resolution). Build locale-switcher links from this, not from manual prefixing.
 - `resolution.requested.locale` / `resolution.resolved.locale` / `resolution.usedFallback` — the locale that was asked for vs. the locale actually served.
 
 Do not manually prepend or strip locale prefixes on a path — read `route.alternates` instead.

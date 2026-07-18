@@ -30,6 +30,32 @@ describe('navigation tree contracts', () => {
     })
   })
 
+  test('copies own __proto__ navigation metadata without changing item prototypes', () => {
+    const page = Object.fromEntries([
+      ['title', 'Guide'],
+      ['id', 'content:en:guide:index.md'],
+      ['file', { path: '/en/guide/index.md' }],
+      ['path', '/guide'],
+      ['canonicalKey', 'guide'],
+      ['locale', 'en'],
+      ['__proto__', { source: 'page' }]
+    ])
+    const directoryConfig = {
+      title: 'Guides',
+      navigation: JSON.parse('{"__proto__":{"source":"directory"},"badge":"Hot"}')
+    }
+
+    const navigation = buildCanonicalNavigation([page] as any, {
+      '/guide': directoryConfig as any
+    }, ['__proto__'])
+    const item = navigation[0] as Record<string, unknown>
+
+    expect(Object.getPrototypeOf(item)).toBe(Object.prototype)
+    expect(Object.hasOwn(item, '__proto__')).toBe(true)
+    expect(item.__proto__).toEqual({ source: 'directory' })
+    expect(item).toMatchObject({ title: 'Guides', badge: 'Hot' })
+  })
+
   test('merges fallback nodes by canonical identity without using titles', () => {
     const merged = mergeCanonicalNavigation([
       {

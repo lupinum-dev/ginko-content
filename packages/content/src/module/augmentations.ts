@@ -35,7 +35,7 @@ interface ModulePublicRuntimeConfig {
     source: ContentCollectionConfig['source']
     exclude?: ContentCollectionConfig['exclude']
     strict: boolean
-    i18n?: ContentCollectionI18nConfig
+    i18n?: false | ContentCollectionI18nConfig
     sitemap?: boolean
   }>
 
@@ -68,7 +68,7 @@ declare module '@nuxt/schema' {
   interface NuxtHooks {
     /**
      * Mutable provider-registration seam, called before provider selection is
-     * validated: integrations (e.g. Ginko CMS) register their implementation
+     * validated: external provider modules register their implementation
      * name here. Distinct from the read-only `content:context` notification.
      */
     'content:providers': (providers: Record<string, string>) => void | Promise<void>

@@ -2,12 +2,12 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../../core/content/graph'
 import { resolveGraphCanonicalKey } from '../../core/content/graph'
 import { parseRefLink } from '../../core/references/resolve'
-import type { ContentRouteRecord } from '../localization/route-projector'
+import type { ProjectedContentRouteRecord } from '../localization/route-projector'
 import type { ContentLinksOptions, ContentValidationRouteFacts } from '../../types/module'
 import type { ContentValidationFinding } from './report'
 
 interface ContentLinkValidationOptions {
-  routes: readonly ContentRouteRecord[]
+  routes: readonly ProjectedContentRouteRecord[]
   graph: ContentGraph
   defaultLocale?: string
   links?: ContentLinksOptions

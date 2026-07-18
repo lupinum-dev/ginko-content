@@ -4,31 +4,21 @@ import { sortLocalesCanonically } from '../../core/content/locale'
 import { getContentStem, normalizeContentPath, projectContentPathToLocale, type RouteMounts } from './path'
 
 /**
- * Build the canonical `route.alternates` list for the
- * document envelope returned by the unified query API
- * (`one`/`many`/`resolveOne`/`surround`/`backlinks`) and `useContentPage`.
+ * Build the `route.alternates` facts a single resolved document can prove.
  *
- * One `variant` alternate is emitted per configured locale with a concrete
- * graph variant; every other configured locale gets a `fallback` alternate
- * labeled with the `resolvedLocale` that actually owns the served content —
- * the same `variant`/`fallback` distinction `synthesizeAlternates`
- * (`./route-projector.ts`) makes over the whole-collection `RouteIndex`.
- *
- * This per-document call site only has this one document's own variant map
- * (`variantPaths`), not the whole-collection route index
- * `synthesizeAlternates` needs for its cross-document content-path identity
- * check — wiring every query result through that full
- * index is Phase 4C provider work. A fallback candidate
- * here is always attributed to the document's own resolved/served locale,
- * which is the only fallback source this call site can prove without that
- * wider index.
+ * Concrete `variantPaths` are always safe. A fallback entry is safe only when
+ * the current query actually resolved that requested route to this document;
+ * guessing fallback URLs for every other configured locale would require the
+ * whole collection route index and could point at another canonical document.
  */
 export const buildContentAlternates = (
   variantPaths: Record<string, string> | undefined,
   resolvedLocale: string,
   defaultLocale: string | undefined,
   locales: readonly string[],
-  routeMounts: RouteMounts | undefined
+  routeMounts: RouteMounts | undefined,
+  requestedLocale?: string,
+  requestedRoute?: string
 ): ContentAlternate[] => {
   if (!locales.length) {
     return []
@@ -39,30 +29,26 @@ export const buildContentAlternates = (
 
   for (const locale of locales) {
     const variantPath = variants[locale]
-    if (variantPath) {
-      alternates.push({
-        locale,
-        path: projectContentPathToLocale(variantPath, locale, defaultLocale, routeMounts),
-        source: 'variant'
-      })
-      continue
-    }
-
-    if (!resolvedLocale || locale === resolvedLocale) {
-      continue
-    }
-
-    const sourcePath = variants[resolvedLocale]
-    if (!sourcePath) {
-      // No concrete source content to fall back from at all - emit nothing
-      // rather than guess (mirrors `synthesizeAlternates`'s "no candidate"
-      // outcome for an empty fallback chain).
-      continue
-    }
-
+    if (!variantPath) continue
     alternates.push({
       locale,
-      path: projectContentPathToLocale(sourcePath, locale, defaultLocale, routeMounts),
+      path: projectContentPathToLocale(variantPath, locale, defaultLocale, routeMounts),
+      source: 'variant'
+    })
+  }
+
+  if (
+    requestedRoute
+    && requestedLocale
+    && locales.includes(requestedLocale)
+    && resolvedLocale
+    && variants[resolvedLocale]
+    && requestedLocale !== resolvedLocale
+    && !variants[requestedLocale]
+  ) {
+    alternates.push({
+      locale: requestedLocale,
+      path: normalizeContentPath(requestedRoute),
       source: 'fallback',
       resolvedLocale
     })
@@ -107,7 +93,15 @@ export const buildContentDocumentEnvelope = (input: ContentDocumentEnvelopeInput
   resolution: ContentDocumentResolution
 } => {
   const resolvedPath = projectContentPathToLocale(input.unprefixedPath, input.resolvedLocale, input.defaultLocale, input.routeMounts)
-  const alternates = buildContentAlternates(input.variantPaths, input.resolvedLocale, input.defaultLocale, input.locales, input.routeMounts)
+  const alternates = buildContentAlternates(
+    input.variantPaths,
+    input.resolvedLocale,
+    input.defaultLocale,
+    input.locales,
+    input.routeMounts,
+    input.requestedLocale,
+    input.requestedRoute
+  )
   const requestedPath = input.requestedPath || input.requestedRoute
   const usedFallback = Boolean(input.requestedLocale && input.resolvedLocale && input.requestedLocale !== input.resolvedLocale)
 

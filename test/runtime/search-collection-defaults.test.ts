@@ -8,11 +8,11 @@ import {
 } from '../../packages/content/src/runtime/server/search'
 
 const mocks = vi.hoisted(() => ({
-  serverQueryCollection: vi.fn()
+  getContentProvider: vi.fn()
 }))
 
-vi.mock('../../packages/content/src/runtime/server/provider-query', () => ({
-  serverQueryCollection: mocks.serverQueryCollection
+vi.mock('../../packages/content/src/runtime/server/providers', () => ({
+  getContentProvider: mocks.getContentProvider
 }))
 
 const scenario = createBasicScenario()
@@ -38,15 +38,8 @@ const createRuntime = (search: Record<string, unknown> = {}) => ({
 
 describe('runtime search collection defaults', () => {
   beforeEach(() => {
-    mocks.serverQueryCollection.mockReset()
-    mocks.serverQueryCollection.mockImplementation((_event, collection: string) => {
-      const builder = {
-        select: vi.fn(() => builder),
-        where: vi.fn(() => builder),
-        find: vi.fn(async () => scenario.documents.filter(document => document.collection === collection))
-      }
-      return builder
-    })
+    mocks.getContentProvider.mockReset()
+    mocks.getContentProvider.mockResolvedValue(provider)
     vi.stubGlobal('__ginkoTestRuntimeConfig', createRuntime())
   })
 

@@ -293,4 +293,27 @@ describe('search behavior', () => {
       title: 'Ship Your SaaS at light speed'
     }))
   })
+
+  test('copies only own extra fields without changing search record prototypes', () => {
+    const page = Object.assign(Object.create({ inherited: 'hidden' }) as Record<string, unknown>, {
+      path: '/docs/safe',
+      title: 'Safe',
+      body: { type: 'root', children: [] }
+    })
+    Object.defineProperty(page, '__proto__', {
+      value: { source: 'frontmatter' },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+
+    const [section] = createSearchSections([page as any], {
+      extraFields: ['inherited', '__proto__']
+    })
+
+    expect(Object.getPrototypeOf(section)).toBe(Object.prototype)
+    expect(section).not.toHaveProperty('inherited')
+    expect(Object.hasOwn(section!, '__proto__')).toBe(true)
+    expect((section as Record<string, unknown>).__proto__).toEqual({ source: 'frontmatter' })
+  })
 })

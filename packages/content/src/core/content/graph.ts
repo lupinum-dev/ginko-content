@@ -32,7 +32,7 @@ import type { ContentLocaleEntry } from '../../types/query'
 import { isNavigationFile } from './structural'
 import type { ContentManifest, ManifestVariant, ResolvedVariant } from '../../types/runtime'
 import { normalizeReferenceValue, buildReferenceTargets } from '../references/resolve'
-import { sortLocalesCanonically } from './locale'
+import { resolveLocaleChain, sortLocalesCanonically } from './locale'
 
 export interface ContentGraphVariant extends ManifestVariant {
   document: ParsedContent
@@ -80,36 +80,6 @@ const emptyManifest = (): ContentManifest => ({
   paths: {},
   collections: {}
 })
-
-/**
- * Build the locale resolution chain for a request.
- *
- * Order, from highest to lowest priority:
- *   1. The explicitly requested locale (if any).
- *   2. Author-configured fallbacks for that locale.
- *   3. The site-wide default locale.
- *
- * Duplicates are removed while preserving first-occurrence order, so the
- * caller can walk the chain and stop at the first hit without worrying
- * about re-visiting the default.
- *
- * @example
- * resolveLocaleChain('fr', 'en', { fr: ['de'] })  // ['fr', 'de', 'en']
- * resolveLocaleChain(undefined, 'en')            // ['en']
- */
-export const resolveLocaleChain = (
-  requestedLocale: string | undefined,
-  defaultLocale?: string,
-  fallback: Record<string, string[]> = {}
-) => {
-  const chain = [
-    ...(requestedLocale ? [requestedLocale] : []),
-    ...((requestedLocale && fallback[requestedLocale]) || []),
-    ...(defaultLocale ? [defaultLocale] : [])
-  ].filter(Boolean) as string[]
-
-  return Array.from(new Set(chain))
-}
 
 /**
  * Build a `ContentGraph` from a flat list of parsed documents.
@@ -313,13 +283,14 @@ export const resolveGraphVariant = (
   }
 
   const availableLocales = sortLocalesCanonically(Object.keys(variants), options)
+  const hasExplicitFallback = options.fallback !== undefined
   const localeChain = options.exact
     ? (requestedLocale ? [requestedLocale] : [])
-    : (options.fallback?.length
-        ? Array.from(new Set([requestedLocale, ...options.fallback].filter(Boolean) as string[]))
+    : (hasExplicitFallback
+        ? Array.from(new Set([requestedLocale, ...(options.fallback || [])].filter(Boolean) as string[]))
         : resolveLocaleChain(requestedLocale, options.defaultLocale, options.localeFallback || {}))
 
-  const resolvedLocale = localeChain.find(locale => variants[locale]) || (options.exact ? undefined : availableLocales[0])
+  const resolvedLocale = localeChain.find(locale => variants[locale]) || (options.exact || hasExplicitFallback ? undefined : availableLocales[0])
   if (resolvedLocale === undefined) {
     return null
   }
@@ -361,8 +332,8 @@ export const resolveGraphRouteVariant = (
   const normalizedPath = normalizePath(routePath)
   const localeChain = options.exact
     ? (requestedLocale ? [requestedLocale] : [])
-    : (options.fallback?.length
-        ? Array.from(new Set([requestedLocale, ...options.fallback].filter(Boolean) as string[]))
+    : (options.fallback !== undefined
+        ? Array.from(new Set([requestedLocale, ...(options.fallback || [])].filter(Boolean) as string[]))
         : resolveLocaleChain(requestedLocale, options.defaultLocale, options.localeFallback || {}))
   const localesToSearch = localeChain.length
     ? localeChain

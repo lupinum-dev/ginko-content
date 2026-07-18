@@ -1,7 +1,7 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 
 // A `content:file:beforeParse` hook that changes a route fact
-// (here, the `order` frontmatter used to sort route listings/navigation).
+// (here, the `order` frontmatter that sorts route listings and navigation).
 // Both a direct query and the generated static route render through this
 // same real ingest pipeline, so the mutated fact must appear identically in
 // both.

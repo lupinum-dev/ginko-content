@@ -1,6 +1,6 @@
 import type { NavItem, ParsedContent } from '../../../types/content'
 import type {
-  ContentQueryBuilderParams,
+  ContentProviderQueryInput,
   ContentCollectionTarget,
   ContentNavigationTreeItem,
   BacklinksOptions,
@@ -18,8 +18,7 @@ import type {
   PaginationResultFor,
   QueryResultDocument,
   ResolveOneOptions,
-  ResolveOneResult,
-  SelectedInnerDocument,
+  ResolveOneResultFor,
   SurroundOptions,
   SurroundResult
 } from '../../../types/query'
@@ -48,8 +47,8 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
 
   return {
     runtime,
-    transport: async <T>(endpoint: 'query' | 'navigation', params: ContentQueryBuilderParams) => {
-      return await fetchContentApi<ContentQueryResponse<T> | T | T[] | NavItem[] | null>(
+    transport: async <T>(endpoint: 'query' | 'navigation', params: ContentProviderQueryInput) => {
+      return await fetchContentApi<ContentQueryResponse<T> | NavItem[] | null>(
         endpoint,
         params,
         { fetcher, runtime, previewToken }
@@ -64,7 +63,7 @@ export async function resolveOne<
 >(
   handle: H,
   options: O
-): Promise<ResolveOneResult<SelectedInnerDocument<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>, O>>> {
+): Promise<ResolveOneResultFor<H, O>> {
   return await resolveOneWithContext(createClientContentQueryContext(), handle, options)
 }
 

@@ -133,15 +133,8 @@ const internalDocumentFields = new Set([
   'body'
 ])
 
-const toUserContentDocument = (document: ParsedContent) => {
-  const userDocument: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(document)) {
-    if (!internalDocumentFields.has(key)) {
-      userDocument[key] = value
-    }
-  }
-  return userDocument
-}
+const toUserContentDocument = (document: ParsedContent) =>
+  Object.fromEntries(Object.entries(document).filter(([key]) => !internalDocumentFields.has(key)))
 
 const validateNavigationDocument = (document: ParsedContent): Result<void, ContentError> => {
   if (!isNavigationFile(document)) {
@@ -257,7 +250,7 @@ export const validateCollectionDocument = (
  * Runs immediately after collection schema parsing and before graph
  * insertion for every document entering core — filesystem-parsed documents
  * (via `integrations/nitro/ingest.ts`) and provider documents (via
- * `runtime/server/provider-document.ts`) alike, in both dev and build.
+ * `public/provider-document.ts`) alike, in both dev and build.
  *
  * A single recursive validator (`core/json-value.ts`) backs every call site
  * so dev and production reject the exact same shapes. Failure always names

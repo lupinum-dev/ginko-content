@@ -1,6 +1,6 @@
 import type { MarkdownOptions, MarkdownPluginDescriptor } from './content'
 import type { ContentCollectionConfig, ContentProviderName } from './config'
-import type { ContentQueryBuilderWhere } from './query'
+import type { ContentProviderQueryWhere, QueryWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
 import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
 import type { ResolvedContentContractV1 } from '../cms-contract/types'
@@ -225,7 +225,7 @@ export interface ContentSearchOptions {
    *
    * @default { partial: false }
    */
-  filterQuery?: ContentQueryBuilderWhere
+  filterQuery?: QueryWhere
   /**
    * Collections included in the built-in index.
    *
@@ -246,6 +246,11 @@ export interface ContentSearchOptions {
    * MiniSearch index and ranking options.
    */
   minisearch?: Partial<ContentMiniSearchOptions>
+}
+
+/** Setup-normalized search config exposed through the resolved module context. */
+export type ResolvedContentSearchOptions = Omit<ContentSearchOptions, 'filterQuery'> & {
+  filterQuery?: ContentProviderQueryWhere
 }
 
 export interface ContentPreviewOptions {
@@ -497,10 +502,11 @@ export interface ResolvedContentI18nOptions {
   strictTranslatedSlugs: boolean
 }
 
-export interface ContentContext extends ModuleOptions {
+export interface ContentContext extends Omit<ModuleOptions, 'search'> {
   collections: Record<string, ContentCollectionConfig>
   provider: ContentProviderName
   providers: Record<string, string>
+  search: false | ResolvedContentSearchOptions
   transformers: Array<string>
   sitemap: false | ContentSitemapOptions
   validation: 'report' | 'error'

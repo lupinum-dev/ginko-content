@@ -20,9 +20,13 @@ import {
   useContentSearch,
   type ContentAlternate,
   type ContentCollectionName,
+  // @ts-expect-error ContentCollectionStringName was removed from the public client surface.
+  type ContentCollectionStringName,
   type ContentDocumentResolution,
   type ContentDocumentRoute,
   type DocumentFromHandle,
+  // @ts-expect-error LocalizedDoc was removed from the public client surface.
+  type LocalizedDoc,
   type LocalizedContentDocument,
   type OneOptions,
   type QueryWhere,
@@ -31,6 +35,12 @@ import {
 import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import type { StrictParsedContent } from '@lupinum/ginko-content'
+import {
+  toContentProviderQuery,
+  type ContentProvider,
+  type ContentProviderQueryInput,
+  type ProviderDocumentInput
+} from '@lupinum/ginko-content/provider'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { parsePortableDocument, type PortableDocumentV1, type PortableManifestV1 } from '@lupinum/ginko-content/portability'
 import { readPortableDirectory, writePortableDirectory } from '@lupinum/ginko-content/portability/node'
@@ -43,7 +53,25 @@ declare const publicDocument: StrictParsedContent
 declare const portableDocument: PortableDocumentV1
 declare const portableManifest: PortableManifestV1
 
-void [parsePortableDocument, readPortableDirectory, writePortableDirectory, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest]
+const structuredBody: StrictParsedContent['body'] = [{ slug: 'alpha' }]
+const providerRow: ProviderDocumentInput = {
+  collection: 'docs',
+  locale: 'en',
+  contentPath: '/structured',
+  type: 'json',
+  body: structuredBody
+}
+const providerQueryInput = {
+  collection: 'docs',
+  where: { title: { $eq: 'Structured' } }
+} satisfies ContentProviderQueryInput
+const structuredProvider = {
+  name: 'structured',
+  capabilities: { query: { operators: [], pagination: ['offset'] } },
+  query: async () => ({ result: [providerRow], skip: 0, limit: 1, total: 1 })
+} satisfies ContentProvider
+
+void [parsePortableDocument, readPortableDirectory, writePortableDirectory, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest, structuredProvider, toContentProviderQuery(providerQueryInput)]
 
 // Structural source classification is module-private and never part of the
 // public/root document contract.
@@ -132,9 +160,18 @@ const rawPosts = defineCollection({
     description: z.string().optional(),
     date: z.string(),
     authors: z.array(reference('authors')),
+    tags: z.array(z.string()),
+    readonlyTags: z.array(z.string()).readonly(),
     image: z.object({ src: z.string() }).optional()
   })
 })
+
+const rawUnlocalized = defineCollection({
+  type: 'page',
+  source: 'legal/**/*.md',
+  i18n: false
+})
+void rawUnlocalized
 
 const _contentConfig = defineContentConfig({
   collections: { docs: rawDocs, authors: rawAuthors, posts: rawPosts }
@@ -152,7 +189,7 @@ type Expect<T extends true> = T
 /* ── Type-level shape probes ────────────────────────────────────────────── */
 
 // Handles carry the i18n discriminator at the type level, behind a private
-// symbol carrier (VNext 18.1) rather than a readable `__i18n` property.
+// symbol carrier rather than a readable `__i18n` property.
 type _ProbeDocsI18n = Expect<Equal<typeof docs[typeof __ginkoI18nBrand], true>>
 type _ProbePostsI18n = Expect<Equal<typeof posts[typeof __ginkoI18nBrand], false>>
 // The old readable properties must be gone at the type level.
@@ -169,7 +206,7 @@ type _DocsOneIsAny = unknown extends OneOptions<typeof docs> ? 'is-any' : 'not-a
 type _ProbeNotAny = Expect<Equal<_DocsOneIsAny, 'not-any'>>
 
 // OneOptions<docs> requires both `by` and `locale`.
-type _DocsMissingLocale = { by: { ref: string }, fallback: 'en' } extends OneOptions<typeof docs> ? 'accepted' : 'rejected'
+type _DocsMissingLocale = { by: { ref: string }, fallback: readonly ['en'] } extends OneOptions<typeof docs> ? 'accepted' : 'rejected'
 type _ProbeRejected = Expect<Equal<_DocsMissingLocale, 'rejected'>>
 
 // OneOptions<posts> only requires `by` (no locale).
@@ -304,11 +341,38 @@ type _DocsAlternateCarriesResolvedLocale = Expect<Equal<Extract<DocsDoc['route']
 
 // Public-safe MongoDB-style filter operators are accepted.
 const filtered = await many(posts, {
-  where: { date: { $gt: '2024-01-01' }, title: { $icontains: 'foo' } },
+  where: {
+    date: { $gt: '2024-01-01' },
+    title: { $icontains: 'foo' },
+    tags: {
+      $in: ['nuxt', 'vue'] as const,
+      $nin: ['internal'] as const,
+      $contains: 'nuxt',
+      $containsAny: ['nuxt', 'vue'] as const
+    },
+    readonlyTags: { $eq: ['typed'] as const, $contains: ['typed'] as const }
+  },
   sort: { date: 'desc' },
   limit: 10
 })
 void filtered
+
+// @ts-expect-error array-field set membership accepts elements, not nested arrays.
+void ({ tags: { $in: [['nuxt']] } } satisfies QueryWhere<{ tags: string[] }>)
+// @ts-expect-error field-level $not was removed; use logical QueryWhere.$not.
+void ({ tags: { $not: { $contains: 'internal' } } } satisfies QueryWhere<{ tags: string[] }>)
+void ({ $not: { tags: { $contains: 'internal' } } } satisfies QueryWhere<{ tags: string[] }>)
+
+await one(posts, { by: { path: '/fallback' }, fallback: ['en'] as const })
+await one(posts, { by: { path: '/fallback' }, fallback: 'default' })
+await one(posts, { by: { path: '/fallback' }, fallback: false })
+// @ts-expect-error bare locale fallbacks were removed; use ['en'].
+await one(posts, { by: { path: '/fallback' }, fallback: 'en' })
+// @ts-expect-error public sort directions are asc/desc; numeric directions are provider-wire only.
+await many(posts, { sort: { date: -1 } })
+
+void (null as unknown as LocalizedDoc)
+void (null as unknown as ContentCollectionStringName)
 
 // @ts-expect-error public unified filters intentionally do not expose caller-provided regex.
 void ({ title: { $regex: 'foo' } } satisfies QueryWhere<{ title: string }>)
@@ -673,7 +737,7 @@ await one('docs', { locale: 'de', by: { path: '/leitfaden' }, populate: ['author
 // @ts-expect-error surround requires `by`
 await surround(docs, { locale: 'de', ref: 'guide.intro' })
 
-/* ── CS-7 (T5.5): i18n zero-arg / empty-options holes ──────────────────── */
+/* ── i18n zero-argument and empty-options holes ──────────────────────────── */
 
 // @ts-expect-error — i18n collections require a locale; zero-arg many() must not compile
 await many(docs)

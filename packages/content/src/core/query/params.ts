@@ -1,19 +1,20 @@
-import type { ContentQueryBuilderParams, ContentQueryBuilderWhere } from '../../types/query'
+import type { ContentProviderQueryInput, ContentProviderQueryWhere } from '../../types/query'
 import type { ContentCollectionI18nConfig } from '../../types/config'
 import { buildLocaleFallbackChain } from '../content/locale'
-import { withoutTrailingSlash } from 'ufo'
+import { collectJsonPurityViolations, formatJsonPurityViolations } from '../json-value'
 
-const stringifyQueryParams = (value: unknown) => JSON.stringify(value, (_key, item) =>
-  item instanceof RegExp ? `--REGEX ${item.toString()}` : item)
+export const encodeQueryParams = (params: ContentProviderQueryInput) => {
+  const violations = collectJsonPurityViolations(params)
+  if (violations.length) {
+    throw new TypeError(`Invalid content query params: ${formatJsonPurityViolations(violations)}`)
+  }
+  const bytes = new TextEncoder().encode(JSON.stringify(params))
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
 
-const parseQueryParams = (value: string) => JSON.parse(value, (_key, item: unknown) => {
-  const encoded = typeof item === 'string' ? item.match(/^--REGEX \/(.*)\/([dgimsuy]*)$/) : undefined
-  return encoded?.[1] ? new RegExp(encoded[1], encoded[2] || '') : item
-})
-
-export const encodeQueryParams = (params: ContentQueryBuilderParams) => {
-  let encoded = stringifyQueryParams(params)
-  encoded = typeof Buffer !== 'undefined' ? Buffer.from(encoded).toString('base64') : btoa(encoded)
+  let encoded = btoa(binary)
   encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 
   const chunks = encoded.match(/.{1,100}/g) || []
@@ -25,22 +26,22 @@ export const decodeQueryParams = (encoded: string) => {
   encoded = encoded.replace(/-/g, '+').replace(/_/g, '/')
   encoded = encoded.padEnd(encoded.length + (4 - (encoded.length % 4)) % 4, '=')
 
-  return parseQueryParams(typeof Buffer !== 'undefined' ? Buffer.from(encoded, 'base64').toString() : atob(encoded))
+  const binary = atob(encoded)
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0))
+  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
 }
 
-const escapeContentPath = (path: string) => path.replace(/[-[\]{}()*+.,^$\s/]/g, '\\$&')
-
-export const ensureQueryWhereArray = (where?: ContentQueryBuilderParams['where']) => {
+export const ensureQueryWhereArray = (where?: ContentProviderQueryInput['where']) => {
   return Array.isArray(where) ? [...where] : where ? [where] : []
 }
 
 export const collectQueryWhere = (
-  where: ContentQueryBuilderParams['where'],
-  predicate: (condition: ContentQueryBuilderWhere) => boolean
-): ContentQueryBuilderWhere[] => {
-  const matches: ContentQueryBuilderWhere[] = []
+  where: ContentProviderQueryInput['where'],
+  predicate: (condition: ContentProviderQueryWhere) => boolean
+): ContentProviderQueryWhere[] => {
+  const matches: ContentProviderQueryWhere[] = []
 
-  const visit = (conditions: ContentQueryBuilderParams['where']) => {
+  const visit = (conditions: ContentProviderQueryInput['where']) => {
     for (const condition of ensureQueryWhereArray(conditions)) {
       if (predicate(condition)) {
         matches.push(condition)
@@ -65,63 +66,92 @@ export const collectQueryWhere = (
 }
 
 export const findQueryWhere = (
-  where: ContentQueryBuilderParams['where'],
-  predicate: (condition: ContentQueryBuilderWhere) => boolean
-): ContentQueryBuilderWhere | undefined => collectQueryWhere(where, predicate)[0]
+  where: ContentProviderQueryInput['where'],
+  predicate: (condition: ContentProviderQueryWhere) => boolean
+): ContentProviderQueryWhere | undefined => collectQueryWhere(where, predicate)[0]
 
-export const normalizeContentQueryParams = (
-  params: ContentQueryBuilderParams,
+const normalizeResolutionFallback = <T extends {
+  locale?: string
+  fallback?: string[] | boolean
+  exact?: boolean
+}>(
+  resolution: T | undefined,
   options: {
-    path?: string
     collectionI18n?: ContentCollectionI18nConfig
     defaultLocale?: string
     localeFallback?: Record<string, string[]>
-    activeLocale?: string
-    includeDraftFilter?: boolean
+  }
+): T | undefined => {
+  if (!resolution) return undefined
+
+  const normalized = { ...resolution }
+  const defaultLocale = options.collectionI18n?.defaultLocale || options.defaultLocale
+
+  // `fallback: false` and `exact: true` are the same no-fallback intent. Keep
+  // only that canonical state so later lowering cannot accidentally restore a
+  // configured fallback chain from an absent/empty fallback array.
+  if (normalized.exact === true || normalized.fallback === false) {
+    delete normalized.fallback
+    normalized.exact = true
+    return normalized
+  }
+
+  if (normalized.fallback === true) {
+    const locale = normalized.locale || defaultLocale
+    normalized.fallback = locale
+      ? buildLocaleFallbackChain(locale, defaultLocale, options.localeFallback)
+      : []
+  } else if (Array.isArray(normalized.fallback)) {
+    // `default` is the public shorthand for this collection's own default, not
+    // a literal locale code. Preserve explicit order while resolving it here,
+    // before configured-locale validation and plan lowering.
+    normalized.fallback = Array.from(new Set(normalized.fallback.flatMap(locale =>
+      locale === 'default' ? (defaultLocale ? [defaultLocale] : []) : [locale]
+    )))
+    if (normalized.fallback.length === 0) {
+      delete normalized.fallback
+      normalized.exact = true
+    }
+  }
+
+  return normalized
+}
+
+export const normalizeContentQueryParams = (
+  params: ContentProviderQueryInput,
+  options: {
+    collectionI18n?: ContentCollectionI18nConfig
+    defaultLocale?: string
+    localeFallback?: Record<string, string[]>
   } = {}
-): ContentQueryBuilderParams => {
+): ContentProviderQueryInput => {
   const where = ensureQueryWhereArray(params.where)
-  const normalized: ContentQueryBuilderParams = {
+  const normalized: ContentProviderQueryInput = {
     ...params,
     where,
     sort: params.sort ? [...params.sort] : params.sort
   }
-
-  if (options.path) {
-    if (normalized.first && where.length === 0) {
-      where.push({ path: withoutTrailingSlash(options.path) })
-    } else {
-      where.push({ path: new RegExp(`^${escapeContentPath(options.path)}`) })
-    }
+  if (params.where === undefined) {
+    delete normalized.where
   }
 
-  if (!normalized.sort?.length) {
-    normalized.sort = [{ 'file.stem': 1, $numeric: true }]
+  if (normalized.resolveLocale) {
+    normalized.resolveLocale = normalizeResolutionFallback(normalized.resolveLocale, options)
   }
-
-  if (normalized.resolveLocale?.locale && normalized.resolveLocale.fallback === true) {
-    normalized.resolveLocale = {
-      ...normalized.resolveLocale,
-      fallback: buildLocaleFallbackChain(
-        normalized.resolveLocale.locale,
-        options.collectionI18n?.defaultLocale || options.defaultLocale,
-        options.localeFallback
-      )
-    }
-  }
-
-  if (options.includeDraftFilter) {
-    if (!findQueryWhere(where, item => typeof item.draft !== 'undefined')) {
-      where.push({ draft: { $ne: true } })
-    }
+  if (normalized.resolveVariant) {
+    normalized.resolveVariant = normalizeResolutionFallback(normalized.resolveVariant, options)
   }
 
   if (options.collectionI18n?.locales.length && !normalized.resolveLocale && !normalized.resolveVariant) {
     const queryLocale = findQueryWhere(where, item => typeof item.locale !== 'undefined')?.locale
-    const defaultLocale = options.activeLocale || options.collectionI18n.defaultLocale
+    const defaultLocale = options.collectionI18n.defaultLocale
     if (!queryLocale && defaultLocale) {
       where.push({ locale: defaultLocale })
     }
+  }
+
+  if (where.length > 0) {
+    normalized.where = where
   }
 
   return normalized

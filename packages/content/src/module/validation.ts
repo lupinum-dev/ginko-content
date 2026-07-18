@@ -15,10 +15,6 @@ export function assertConfiguredProviderAvailable(contentContext: Pick<ContentCo
 
   if (contentContext.providers?.[provider]) return
 
-  if (provider === 'cms') {
-    throw new Error('content.config.ts sets provider "cms", but no CMS provider module registered it. Add @lupinum/ginko-cms to nuxt.config.ts modules or remove provider: "cms".')
-  }
-
   throw new Error(`content.config.ts sets provider "${provider}", but no provider module registered it. Register a module for "${provider}" or add it to content providers.`)
 }
 

@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import type { ContentQueryBuilderParams } from '../types/query'
+import type { ContentProviderQueryInput } from '../types/query'
 import type {
   ContentQueryFindOneResponse,
   ContentQueryFindResponse,
@@ -147,7 +147,7 @@ export const withResolvedRefsList = async <T>(
 export const withResolvedRefsQueryResponse = async <T>(
   event: H3Event,
   response: ContentQueryResponse<T>,
-  params: ContentQueryBuilderParams
+  params: ContentProviderQueryInput
 ): Promise<ContentQueryResponse<T>> => {
   if (typeof response.result === 'number') {
     return response

@@ -71,6 +71,8 @@ describe('runtime auxiliary API provider boundaries', () => {
   })
 
   test('locales API resolves identity variants through exact provider queries', async () => {
+    const query = vi.fn(provider.query.bind(provider))
+    mocks.getContentProvider.mockResolvedValue({ ...provider, query })
     const handler = (await import('../../packages/content/src/runtime/server/api/locales')).default
     const event = createTestEvent({
       scenario,
@@ -83,6 +85,41 @@ describe('runtime auxiliary API provider boundaries', () => {
       { canonicalKey: 'docs:getting-started', locale: 'de', path: '/de/dokumentation/erste-schritte' },
       { canonicalKey: 'docs:getting-started', locale: 'en', path: '/docs/getting-started' }
     ])
+    expect(query).toHaveBeenCalled()
+    for (const [, dispatched] of query.mock.calls) {
+      expect(JSON.stringify(dispatched.plan.filter)).toContain('canonicalKey')
+      expect(JSON.stringify(dispatched.plan.filter)).toContain('docs:getting-started')
+    }
+  })
+
+  test('locales API rejects non-own collection names before external-provider lookup or dispatch', async () => {
+    const handler = (await import('../../packages/content/src/runtime/server/api/locales')).default
+    const event = createTestEvent({
+      scenario,
+      provider,
+      params: { collection: 'constructor' },
+      query: { identity: 'private:document' }
+    })
+
+    let thrown: unknown
+    try {
+      await handler(event)
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toMatchObject({
+      statusCode: 400,
+      statusMessage: 'invalid_content_query_request',
+      data: {
+        code: 'invalid_content_query_request',
+        path: '$.collection',
+        reason: 'collection must name a configured content collection.'
+      }
+    })
+    expect(JSON.stringify(thrown)).not.toContain('constructor')
+    expect(JSON.stringify(thrown)).not.toContain('private:document')
+    expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
   test('sitemap API forwards query/runtime include options to the provider', async () => {
@@ -144,7 +181,7 @@ describe('runtime auxiliary API provider boundaries', () => {
       }
     })
 
-    await expect(handler(event)).resolves.toEqual({
+    await expect(handler(event)).resolves.toMatchObject({
       key: 'navigation.footer',
       locale: 'de',
       data: null
@@ -154,5 +191,50 @@ describe('runtime auxiliary API provider boundaries', () => {
       statusCode: 400,
       statusMessage: 'missing_site_data_key'
     })
+  })
+
+  test('site-data API rejects provider identity echoes, missing data, and invalid timestamps', async () => {
+    const handler = (await import('../../packages/content/src/runtime/server/api/site-data')).default
+    const event = createTestEvent({
+      scenario,
+      provider,
+      query: { key: 'navigation.footer', locale: 'en' }
+    })
+
+    for (const response of [
+      { key: 'navigation.header', locale: 'en', data: null },
+      { key: 'navigation.footer', locale: 'de', data: null },
+      { key: 'navigation.footer', locale: 'en', data: null, updatedAt: -1 },
+      { key: 'navigation.footer', locale: null, data: null },
+      { key: 'navigation.footer', locale: 'en', data: null, updatedAt: null },
+      {}
+    ]) {
+      mocks.getContentProvider.mockResolvedValueOnce({
+        ...provider,
+        siteData: vi.fn(async () => response)
+      })
+      await expect(handler(event)).rejects.toMatchObject({
+        statusMessage: 'provider_result_invalid',
+        data: expect.objectContaining({ operation: 'siteData' })
+      })
+    }
+  })
+
+  test('site-data API rejects non-JSON provider data', async () => {
+    const handler = (await import('../../packages/content/src/runtime/server/api/site-data')).default
+    const event = createTestEvent({ scenario, provider, query: { key: 'announcement' } })
+
+    for (const data of [
+      { publishedAt: new Date('2026-01-01T00:00:00.000Z') }
+    ]) {
+      mocks.getContentProvider.mockResolvedValueOnce({
+        ...provider,
+        siteData: vi.fn(async () => ({ data }))
+      })
+      await expect(handler(event)).rejects.toMatchObject({
+        statusMessage: 'provider_result_invalid',
+        data: expect.objectContaining({ operation: 'siteData', field: 'result.data' })
+      })
+    }
   })
 })

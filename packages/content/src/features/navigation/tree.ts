@@ -1,6 +1,6 @@
 import type { ContentNavigationItem } from '../../types/content'
 
-export function flattenCollectionNavigation (navigation: ContentNavigationItem[] = []): ContentNavigationItem[] {
+function flattenCollectionNavigation (navigation: ContentNavigationItem[] = []): ContentNavigationItem[] {
   return navigation.flatMap((item) => {
     const children: ContentNavigationItem[] = item.children ? flattenCollectionNavigation(item.children) : []
     if (!item.unprefixedPath && !item.path) {

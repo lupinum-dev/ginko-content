@@ -1,51 +1,70 @@
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const isFindResponseEnvelope = (response: unknown): response is {
-  result?: unknown
-  total?: unknown
-  skip?: unknown
-  limit?: unknown
-} => isObject(response) &&
+const hasExactKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean => {
+  const expected = new Set(keys)
+  return Object.keys(value).length === expected.size && Object.keys(value).every(key => expected.has(key))
+}
+
+const isNonNegativeInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+
+const isDenseArray = (value: unknown[]): boolean => {
+  for (let index = 0; index < value.length; index += 1) {
+    if (!(index in value)) return false
+  }
+  return true
+}
+
+export interface OffsetFindResponseEnvelope<T = unknown> {
+  mode?: 'offset'
+  result: T[]
+  total: number
+  skip: number
+  limit: number
+}
+
+export interface OffsetFindResponseConstraints {
+  expectedSkip?: number
+  expectedLimit?: number
+}
+
+export const isCanonicalOffsetFindResponseEnvelope = <T = unknown>(
+  response: unknown,
+  constraints: OffsetFindResponseConstraints = {}
+): response is OffsetFindResponseEnvelope<T> => isObject(response) &&
   Array.isArray(response.result) &&
-  typeof response.total === 'number' &&
-  (typeof response.skip === 'undefined' || typeof response.skip === 'number') &&
-  (typeof response.limit === 'undefined' || typeof response.limit === 'number')
+  isDenseArray(response.result) &&
+  isNonNegativeInteger(response.total) &&
+  isNonNegativeInteger(response.skip) &&
+  isNonNegativeInteger(response.limit) &&
+  (constraints.expectedSkip === undefined || response.skip === constraints.expectedSkip) &&
+  (constraints.expectedLimit === undefined || response.limit === constraints.expectedLimit) &&
+  response.total >= response.result.length &&
+  (response.result.length === 0 || response.total >= response.skip + response.result.length) &&
+  response.result.length <= response.limit &&
+  (response.mode === undefined
+    ? hasExactKeys(response, ['result', 'skip', 'limit', 'total'])
+    : response.mode === 'offset' && hasExactKeys(response, ['mode', 'result', 'skip', 'limit', 'total']))
 
 const isResultOnlyEnvelope = (response: unknown): response is { result?: unknown } =>
   isObject(response) &&
   'result' in response &&
-  Object.keys(response).length === 1
+  hasExactKeys(response, ['result'])
 
-const isSingleQueryEnvelope = (response: unknown): response is {
-  result?: unknown
-  total?: unknown
-  skip?: unknown
-  limit?: unknown
-} => isFindResponseEnvelope(response) || isResultOnlyEnvelope(response)
-
-const isListQueryEnvelope = (response: unknown): response is {
-  result?: unknown
-  total?: unknown
-  skip?: unknown
-  limit?: unknown
-} => isFindResponseEnvelope(response)
-
-export const unwrapOneResponse = <T>(response: unknown): T | T[] | null => {
-  if (!response) return null
-  if (isSingleQueryEnvelope(response)) {
-    const result = response.result
-    return (result ?? null) as T | T[] | null
-  }
-  return response as T
+export const unwrapOneResponse = <T>(response: unknown): T | null => {
+  // The HTTP adapter uses top-level null because JSON cannot preserve an
+  // object property whose value is undefined. The provider boundary itself
+  // remains the canonical `{ result: T | undefined }` envelope.
+  if (response === null) return null
+  if (isResultOnlyEnvelope(response) && response.result === undefined) return null
+  if (isResultOnlyEnvelope(response) && response.result !== null && !Array.isArray(response.result)) return response.result as T
+  throw new TypeError('Invalid content query response: expected a single-result envelope or null.')
 }
 
 export const unwrapListResponse = <T>(response: unknown): T[] => {
-  if (!response) return []
-  if (isListQueryEnvelope(response)) {
-    return response.result as T[]
-  }
-  return Array.isArray(response) ? response as T[] : [response as T]
+  if (isCanonicalOffsetFindResponseEnvelope<T>(response)) return response.result
+  throw new TypeError('Invalid content query response: expected an offset-list envelope.')
 }
 
 export const unwrapFindResponse = <T>(response: unknown): {
@@ -53,37 +72,41 @@ export const unwrapFindResponse = <T>(response: unknown): {
   total: number
   skip: number
   limit: number
-  hasTotal: boolean
 } => {
-  if (!response) {
-    return { result: [], total: 0, skip: 0, limit: 0, hasTotal: false }
-  }
-
-  if (isListQueryEnvelope(response)) {
-    const result = Array.isArray(response.result) ? response.result as T[] : response.result ? [response.result as T] : []
-    const hasTotal = typeof response.total === 'number'
+  if (isCanonicalOffsetFindResponseEnvelope<T>(response)) {
     return {
-      result,
-      total: hasTotal ? response.total as number : result.length,
-      skip: typeof response.skip === 'number' ? response.skip : 0,
-      limit: typeof response.limit === 'number' ? response.limit : result.length,
-      hasTotal
+      result: response.result as T[],
+      total: response.total,
+      skip: response.skip,
+      limit: response.limit
     }
   }
-
-  const result = Array.isArray(response) ? response as T[] : [response as T]
-  return { result, total: result.length, skip: 0, limit: result.length, hasTotal: false }
+  throw new TypeError('Invalid content query response: expected an offset-list envelope.')
 }
 
-const isCursorFindResponseEnvelope = (response: unknown): response is {
+export interface CursorFindResponseEnvelope<T = unknown> {
   mode: 'cursor'
-  result: unknown
-  limit?: unknown
-  pageInfo?: { endCursor?: unknown, hasNext?: unknown }
-} => isObject(response) &&
+  result: T[]
+  limit: number
+  pageInfo: { endCursor: string | null, hasNext: boolean }
+}
+
+export const isCanonicalCursorFindResponseEnvelope = <T = unknown>(
+  response: unknown,
+  constraints: { maxLimit?: number } = {}
+): response is CursorFindResponseEnvelope<T> => isObject(response) &&
   response.mode === 'cursor' &&
   Array.isArray(response.result) &&
-  isObject(response.pageInfo)
+  isDenseArray(response.result) &&
+  isNonNegativeInteger(response.limit) &&
+  (constraints.maxLimit === undefined || response.limit <= constraints.maxLimit) &&
+  response.result.length <= response.limit &&
+  isObject(response.pageInfo) &&
+  (response.pageInfo.endCursor === null || typeof response.pageInfo.endCursor === 'string') &&
+  typeof response.pageInfo.hasNext === 'boolean' &&
+  (!response.pageInfo.hasNext || (typeof response.pageInfo.endCursor === 'string' && response.pageInfo.endCursor.length > 0)) &&
+  hasExactKeys(response.pageInfo, ['endCursor', 'hasNext']) &&
+  hasExactKeys(response, ['mode', 'result', 'limit', 'pageInfo'])
 
 /** Unwrap a `mode: 'cursor'` provider list response. Never invents a `total`. */
 export const unwrapCursorFindResponse = <T>(response: unknown): {
@@ -92,25 +115,15 @@ export const unwrapCursorFindResponse = <T>(response: unknown): {
   endCursor: string | null
   hasNext: boolean
 } => {
-  if (!isCursorFindResponseEnvelope(response)) {
-    return { result: [], limit: 0, endCursor: null, hasNext: false }
+  if (!isCanonicalCursorFindResponseEnvelope<T>(response)) {
+    throw new TypeError('Invalid content query response: expected a cursor-list envelope.')
   }
 
-  const result = response.result as T[]
+  const { endCursor, hasNext } = response.pageInfo
   return {
-    result,
-    limit: typeof response.limit === 'number' ? response.limit : result.length,
-    endCursor: typeof response.pageInfo?.endCursor === 'string' ? response.pageInfo.endCursor : null,
-    hasNext: Boolean(response.pageInfo?.hasNext)
+    result: response.result,
+    limit: response.limit,
+    endCursor,
+    hasNext
   }
-}
-
-export const unwrapCountResponse = (response: unknown) => {
-  if (typeof response === 'number') {
-    return response
-  }
-  if (isSingleQueryEnvelope(response) && typeof response.result === 'number') {
-    return response.result
-  }
-  return null
 }

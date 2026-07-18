@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import type { ContentCacheHintInput } from '../core/cache-hints'
 import { withContentCache } from '../core/provider-result'
 import type { ContentProviderSearchRequest } from '../types/search'
+import { collectJsonPurityViolations } from '../core/json-value'
 import type { ContentProviderNavigationOptions } from './provider-query'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
@@ -11,10 +12,11 @@ import {
   type ContentDataSourceCacheHint,
   type ContentDataSourceControl,
 } from './data-source'
-import {
-  type ContentProvider,
-  type ContentProviderSurroundingsOptions,
+import type {
+  ContentProvider,
+  ContentProviderSurroundingsOptions,
 } from './provider-contract'
+import { isContentProviderQueryCapabilities } from './provider-contract'
 
 const contexts = new WeakMap<object, Map<object, Promise<unknown>>>()
 class ContentDataSourceControlError extends Error {
@@ -27,28 +29,29 @@ class ContentDataSourceControlError extends Error {
   }
 }
 
+type ContentDataSourceValidationErrorCode =
+  | 'CACHE_HINT_INVALID'
+  | 'CURSOR_INVALID'
+  | 'RESPONSE_INVALID'
+  | 'RESULT_LIMIT_EXCEEDED'
+
+class ContentDataSourceValidationError extends Error {
+  readonly code: ContentDataSourceValidationErrorCode
+
+  constructor(code: ContentDataSourceValidationErrorCode, message: string) {
+    super(message)
+    this.name = 'ContentDataSourceValidationError'
+    this.code = code
+  }
+}
+
 function normalizedBackendError(cause: unknown): Error {
   if (cause instanceof ContentDataSourceControlError) return cause
-  const record = cause && typeof cause === 'object' ? cause as Record<string, unknown> : {}
-  const publicData = record.data && typeof record.data === 'object'
-    ? record.data as Record<string, unknown>
-    : {}
-  const rawCode = typeof record.code === 'string'
-    ? record.code
-    : typeof record.statusMessage === 'string'
-      ? record.statusMessage
-      : typeof publicData.code === 'string'
-        ? publicData.code
-        : 'BACKEND_FAILURE'
-  const code = /token|secret|password|cookie|authorization/i.test(rawCode)
-    ? 'BACKEND_FAILURE'
-    : rawCode.slice(0, 128)
-  const statusCode = typeof record.statusCode === 'number' && record.statusCode >= 400 && record.statusCode <= 599
-    ? record.statusCode
-    : 500
-  return Object.assign(new Error('Content data-source operation failed.'), {
+  const validationError = cause instanceof ContentDataSourceValidationError ? cause : null
+  const code = validationError?.code ?? 'BACKEND_FAILURE'
+  return Object.assign(new Error(validationError?.message ?? 'Content data-source operation failed.'), {
     code,
-    statusCode,
+    statusCode: 500,
     statusMessage: code,
     data: { code },
   })
@@ -57,8 +60,8 @@ function normalizedBackendError(cause: unknown): Error {
 const positiveInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0
 
-const dataSourceError = (code: string, message: string): Error =>
-  Object.assign(new Error(message), { code })
+const dataSourceError = (code: ContentDataSourceValidationErrorCode, message: string): Error =>
+  new ContentDataSourceValidationError(code, message)
 
 function assertBoundedQuery<Context>(
   source: ContentDataSource<Context>,
@@ -86,26 +89,8 @@ function assertBoundedQuery<Context>(
   }
 }
 
-const utf8Bytes = (value: string) => new TextEncoder().encode(value.normalize('NFC')).length
-const credentialPattern = /(?:https?:\/\/[^/@\s]+@)|(?:[?&](?:access_token|api[_-]?key|token|secret|password)=)/i
-
-function assertJsonValue(value: unknown, seen = new Set<object>()): void {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return
-  if (typeof value === 'number' && Number.isFinite(value)) return
-  if (!value || typeof value !== 'object' || seen.has(value as object)) {
-    throw dataSourceError('RESPONSE_INVALID', 'Content data-source site-data is not bounded JSON.')
-  }
-  seen.add(value as object)
-  if (Array.isArray(value)) {
-    for (const item of value) assertJsonValue(item, seen)
-  } else {
-    for (const [key, item] of Object.entries(value)) {
-      if (!key) throw dataSourceError('RESPONSE_INVALID', 'Content data-source site-data is not bounded JSON.')
-      assertJsonValue(item, seen)
-    }
-  }
-  seen.delete(value as object)
-}
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length
+const credentialPattern = /https?:\/\/[^/@\s]+@|[?&](?:access_token|api[_-]?key|token|secret|password)=/i
 
 function navigationNodeCount(items: unknown[], limit: number): number {
   let count = 0
@@ -293,14 +278,25 @@ export function bindContentProvider<Context>(args: {
   source: ContentDataSource<Context>
   createContext: (event: H3Event) => Context | Promise<Context>
 }): ContentProvider {
-  const { source } = args
+  const source = args?.source
+  const queryCapabilities = source?.capabilities?.query
   if (
+    !source ||
     !source.name ||
-    source.capabilities.protocol !== 'ginko-content-data-source/v1' ||
-    !positiveInteger(source.capabilities.query.maxPageSize) ||
-    source.capabilities.query.maxPageSize > CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize
+    source.capabilities?.protocol !== 'ginko-content-data-source/v1' ||
+    !queryCapabilities ||
+    !isContentProviderQueryCapabilities(queryCapabilities) ||
+    !positiveInteger(queryCapabilities.maxPageSize) ||
+    queryCapabilities.maxPageSize > CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize ||
+    typeof source.query !== 'function' ||
+    typeof args.createContext !== 'function'
   ) {
     throw new TypeError('Invalid Content data-source capabilities.')
+  }
+  for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
+    if (source[method] !== undefined && typeof source[method] !== 'function') {
+      throw new TypeError(`Invalid Content data-source method: ${method}.`)
+    }
   }
   const execute = async <T>(event: H3Event, operation: (context: Context, control: ContentDataSourceControl) => Promise<{ data: T; cache: ContentDataSourceCacheHint | false }>) => {
     try {
@@ -386,14 +382,22 @@ export function bindContentProvider<Context>(args: {
             ) {
               throw dataSourceError('RESPONSE_INVALID', 'Content data-source site-data identity or timestamp mismatch.')
             }
-            assertJsonValue(result.data.data)
+            if (collectJsonPurityViolations(result.data.data).length) {
+              throw dataSourceError('RESPONSE_INVALID', 'Content data-source site-data is not bounded JSON.')
+            }
             const serialized = JSON.stringify(result.data.data)
             if (!serialized || utf8Bytes(serialized) > CONTENT_DATA_SOURCE_LIMITS.maxSiteDataBytes) {
               throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source site-data exceeds the byte limit.')
             }
-            return result
+            return {
+              ...result,
+              data: {
+                data: result.data.data,
+                ...(result.data.updatedAt === null ? {} : { updatedAt: result.data.updatedAt }),
+              },
+            }
           })
-      : undefined) as ContentProvider['siteData'],
+      : undefined),
     routes: source.routes
       ? async (event) =>
           await execute(event, async (context, control) => {

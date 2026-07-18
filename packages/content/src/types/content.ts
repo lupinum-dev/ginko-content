@@ -1,4 +1,5 @@
 import type { StorageValue } from 'unstorage'
+import type { JsonValue } from '../core/json-value'
 
 type LayoutKey = string
 
@@ -41,9 +42,10 @@ export interface ContentFileMeta {
    */
   basename?: string
   /**
-   * Source file extension.
+   * Source file extension. Custom transformers may register extensions beyond
+   * the built-in Markdown and structured-data formats.
    */
-  extension?: 'md' | 'yaml' | 'yml' | 'json' | 'json5' | 'csv'
+  extension?: string
 }
 
 /**
@@ -129,10 +131,9 @@ export interface ParsedContentInternalMeta {
    */
   canonicalKey?: string
   /**
-   * Per-request locale/reference resolution carrier (folded from the legacy
-   * underscore resolution meta). Absent until the query pipeline resolves a
-   * variant; shaping reads it to build the `resolved`/`localePaths`/`variants`
-   * route envelope.
+   * Per-request locale/reference resolution carrier. Absent until the query
+   * pipeline resolves a variant; shaping reads it to build the
+   * `resolved`/`localePaths`/`variants` route envelope.
    */
   resolved?: ContentResolutionCarrier
   /**
@@ -262,6 +263,8 @@ export interface StrictParsedContentMeta extends ParsedContentInternalMeta {
 /**
  * Parsed content document including the rendered body payload.
  */
+export type ParsedContentBody = MarkdownRoot | JsonValue | null
+
 export interface ParsedContent extends ParsedContentMeta {
   /**
    * Optional excerpt payload.
@@ -270,7 +273,7 @@ export interface ParsedContent extends ParsedContentMeta {
   /**
    * Parsed body payload. `null` means the source had no renderable body.
    */
-  body: MarkdownRoot | null
+  body: ParsedContentBody
 }
 
 /**
@@ -284,7 +287,7 @@ export interface StrictParsedContent extends StrictParsedContentMeta {
   /**
    * Parsed body payload. `null` means the source had no renderable body.
    */
-  body: MarkdownRoot | null
+  body: ParsedContentBody
 }
 
 /**

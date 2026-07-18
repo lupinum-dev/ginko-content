@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
 import { registerContentNitroConfig } from '../../packages/content/src/module/nitro-config'
 
-// Covers the Phase 3 gate follow-up: provider content-route prerender
-// injection depends on Nitro's own `crawlLinks` mechanism (see the long
+// Provider content-route prerender injection depends on Nitro's own
+// `crawlLinks` mechanism (see the long
 // comment in `module/nitro-config.ts` and `module/integration-hooks.ts`).
 // When a user has explicitly disabled `nitro.prerender.crawlLinks` in their
 // own nuxt.config, forcing it back on would silently override their choice;

@@ -46,21 +46,22 @@ function requireNavigationDocumentPaths (
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-const pick = (keys?: string[]) => (obj: any) => {
+const pick = (keys?: string[]) => (obj: Record<string, unknown> | undefined) => {
   const target = obj || {}
   if (!keys?.length) {
     return target
   }
 
-  return keys
+  return Object.fromEntries(keys
     .filter(key => typeof target[key] !== 'undefined')
-    .reduce((newObject, key) => Object.assign(newObject, { [key]: target[key] }), {})
+    .map(key => [key, target[key]]))
 }
 
-const isObject = (value: any) => Object.prototype.toString.call(value) === '[object Object]'
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Object.prototype.toString.call(value) === '[object Object]'
 
 const parentCanonicalKey = (content: ParsedContentMeta, depth: number) => {
-  const canonicalKey = (content as any).canonicalKey
+  const canonicalKey = content.canonicalKey
   if (typeof canonicalKey !== 'string' || !canonicalKey) {
     return undefined
   }
@@ -111,13 +112,13 @@ export const buildCanonicalNavigation = (
       const parts = content.path.substring(1).split('/')
       const idParts = content.id.split(':').slice(1)
       const isIndex = Boolean(idParts[idParts.length - 1]?.match(/([1-9][0-9]*\.)?index.md/g))
-      const navItem: PrivateNavItem = {
-        title: content.title,
+      let navItem: PrivateNavItem = {
+        title: content.title || generateTitle(parts[parts.length - 1] || ''),
         path: content.path,
         file: content.file,
         id: content.id,
-        canonicalKey: (content as any).canonicalKey,
-        locale: (content as any).locale,
+        canonicalKey: content.canonicalKey,
+        locale: content.locale,
         navigationKind: 'page',
         navigationPath: content.path,
         children: [],
@@ -132,7 +133,10 @@ export const buildCanonicalNavigation = (
         }
 
         if (dirConfig) {
-          Object.assign(navItem, pickNavigationFields(dirConfig))
+          navItem = {
+            ...navItem,
+            ...pickNavigationFields(dirConfig)
+          }
         }
       }
 
@@ -159,7 +163,7 @@ export const buildCanonicalNavigation = (
             navigationPath: currentPathPart,
             page: false,
             ...(canonicalKey ? { canonicalKey: canonicalKey } : {}),
-            ...((content as any).locale ? { locale: (content as any).locale } : {}),
+            ...(content.locale ? { locale: content.locale } : {}),
             children: [],
             ...(config && pickNavigationFields(config))
           }

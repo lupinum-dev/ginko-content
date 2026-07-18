@@ -167,6 +167,27 @@ describe('package export contracts', () => {
     expect(agent).not.toHaveProperty('buildAgentPageIndex')
   })
 
+  test('keeps the agent registry subpath explicit', async () => {
+    const registry = await import('../../packages/content/dist/public/agent-registry.js')
+
+    expect(Object.keys(registry).sort()).toEqual([
+      'blockquoteMarkdown',
+      'clearAgentMarkdownSerializers',
+      'createAgentMarkdownRegistry',
+      'defineAgentMarkdownComponent',
+      'getAgentMarkdownRegistry',
+      'getMarkdownProp',
+      'jsonFenceMarkdown',
+      'linkMarkdown',
+      'registerAgentMarkdownComponent',
+      'registerAgentMarkdownComponents',
+      'registerAgentMarkdownSerializer',
+      'registerAgentMarkdownSerializers',
+      'renderMarkdownChildren',
+      'xmlComponentMarkdown'
+    ])
+  })
+
   test('ships browser-safe agent paths on an explicit matching subpath', async () => {
     const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
       exports: Record<string, Record<string, string>>
@@ -206,6 +227,10 @@ describe('package export contracts', () => {
     expect(provider.isContentProviderResult).toBeTypeOf('function')
     expect(provider.normalizeProviderDocument).toBeTypeOf('function')
     expect(provider.shapeProviderDocument).toBeUndefined()
+    expect(provider.isContentProviderOperatorCapabilities).toBeUndefined()
+    expect(provider.isContentProviderPaginationCapabilities).toBeUndefined()
+    expect(provider.isContentProviderQueryCapabilities).toBeUndefined()
+    expect(provider.defineContentProvider).toBeUndefined()
   })
 
   test('published JavaScript uses Node-resolvable relative specifiers', async () => {
@@ -249,6 +274,21 @@ describe('package export contracts', () => {
 
     expect(manifest.peerDependencies?.vitest).toBeTypeOf('string')
     expect(manifest.peerDependenciesMeta?.vitest?.optional).toBe(true)
+  })
+
+  test('published runtime floors match the supported Nuxt dependency graph', async () => {
+    const [manifest, workspaceManifest] = await Promise.all([
+      readFile('packages/content/package.json', 'utf8').then(JSON.parse),
+      readFile('package.json', 'utf8').then(JSON.parse)
+    ]) as [{
+      engines?: { node?: string }
+      peerDependencies?: Record<string, string>
+    }, { engines?: { node?: string } }]
+
+    expect(manifest.engines?.node).toBeTypeOf('string')
+    expect(workspaceManifest.engines?.node).toBe(manifest.engines?.node)
+    expect(manifest.peerDependencies?.nuxt).toMatch(/^>=\d+\.\d+\.\d+ <5$/)
+    expect(manifest.peerDependencies?.vue).toMatch(/^\^\d+\.\d+\.\d+$/)
   })
 
   test('superseded CMS import mapping is absent from the package', async () => {

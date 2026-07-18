@@ -26,6 +26,16 @@ const runtime = {
 
 const route = { path: '/de/guide/advanced', query: {} as Record<string, any> }
 const asyncDataCalls: any[] = []
+const publicDocument = (path: string, title: string, body?: Record<string, unknown>) => ({
+  id: `content:de:${path.replace(/^\//, '').replace(/\//g, ':')}.md`,
+  collection: 'docs',
+  canonicalKey: `docs:${path.replace(/^\/(?:de\/)?/, '')}`,
+  locale: 'de',
+  title,
+  ...(body ? { body } : {}),
+  route: { resolvedPath: path, alternates: [] },
+  resolution: { requested: { locale: 'de' }, resolved: { locale: 'de' }, usedFallback: false }
+})
 const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) => {
   if (kind === 'navigation') {
     return [{
@@ -44,62 +54,44 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
 
   if (params.resolveVariant) {
     return {
-      path: '/leitfaden/einstieg',
-      resolved: {
-        locale: 'de',
-        variantPaths: {
-          en: '/guide/getting-started',
-          de: '/leitfaden/einstieg'
-        }
-      },
-      title: 'Einstieg',
-      body: {
+      result: publicDocument('/de/leitfaden/einstieg', 'Einstieg', {
         type: 'root',
-        children: [
-          {
-            type: 'element',
-            tag: 'a',
-            props: {
-              href: '/leitfaden/einstieg#details'
-            },
-            children: []
-          }
-        ]
-      }
+        children: [{
+          type: 'element',
+          tag: 'a',
+          props: { href: '/leitfaden/einstieg#details' },
+          children: []
+        }]
+      })
     }
   }
 
   if (params.first) {
-    return {
-      path: '/guide/advanced',
-      title: 'Advanced'
-    }
+    return { result: publicDocument('/de/guide/advanced', 'Advanced') }
   }
 
-  return [
-    {
-      path: '/guide/advanced',
-      title: 'Advanced',
-      description: 'Deep dive',
-      body: {
-        type: 'root',
-        children: [
-          {
-            type: 'element',
-            tag: 'h2',
-            props: { id: 'deep-dive' },
-            children: [{ type: 'text', value: 'Deep dive' }]
-          },
-          {
-            type: 'element',
-            tag: 'p',
-            props: {},
-            children: [{ type: 'text', value: 'Details' }]
-          }
-        ]
-      }
-    }
-  ]
+  return {
+    result: [publicDocument('/de/guide/advanced', 'Advanced', {
+      type: 'root',
+      children: [
+        {
+          type: 'element',
+          tag: 'h2',
+          props: { id: 'deep-dive' },
+          children: [{ type: 'text', value: 'Deep dive' }]
+        },
+        {
+          type: 'element',
+          tag: 'p',
+          props: {},
+          children: [{ type: 'text', value: 'Details' }]
+        }
+      ]
+    })],
+    skip: params.skip ?? 0,
+    limit: params.limit ?? 100,
+    total: 1
+  }
 })
 
 vi.mock('#imports', () => ({
@@ -238,7 +230,17 @@ describe('app query/composable contracts', () => {
     )
   })
 
-  test('useContentSearch({ collection }) absorbs the deleted useContentSearchData index/navigation loading', async () => {
+  test('client queries reject malformed public options before transport', async () => {
+    const { many, one } = await import('../../packages/content/src/runtime/app/composables/query-api')
+
+    await expect(one('docs', { by: {} } as never)).rejects.toThrow(/Invalid content query selector/)
+    await expect(many('docs', { where: { $or: [] } } as never)).rejects.toThrow(/logical groups cannot be empty/)
+    await expect(many('docs', { limit: 101 } as never)).rejects.toThrow(/limit exceeds the maximum/)
+
+    expect(fetchContentApi).not.toHaveBeenCalled()
+  })
+
+  test('useContentSearch({ collection }) loads search sections and navigation', async () => {
     const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
 
     const search = await useContentSearch({ collection: 'docs', locale: 'de' })

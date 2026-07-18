@@ -7,7 +7,10 @@ export default defineNuxtConfig({
   ],
 
   content: {
-    i18n: false,
+    i18n: {
+      locales: ['en', 'de'],
+      defaultLocale: 'en'
+    },
     search: {
       engine: 'provider',
       collections: ['docs']

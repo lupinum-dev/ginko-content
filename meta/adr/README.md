@@ -3,8 +3,13 @@
 Each ADR captures one decision: the context that forced it, the option we
 picked, the alternatives we turned down, and the consequences we accept.
 
-ADRs are immutable once merged. If a decision is reversed, write a new
-ADR that supersedes the old one; do not rewrite history.
+ADRs preserve accepted durable decisions, not execution logs. If an accepted
+decision is reversed, retain the old ADR as superseded and link the replacement. Keep active ADRs
+factually aligned with the implemented contract; version control already holds
+the drafting history. Current documentation authority is implementation and
+tests, then public package/docs-app documentation, then root maintainer docs,
+then ADRs. Delete abandoned drafts and completed plans after any durable
+decision has been captured in an accepted ADR or active document.
 
 ## Index
 
@@ -14,7 +19,6 @@ ADR that supersedes the old one; do not rewrite history.
 | 0002  | [Target small-to-medium content sites](./0002-target-small-to-medium-content-sites.md)                 | active |
 | 0003  | [No native search deps — JSON + Pagefind](./0003-no-native-search-deps.md)                             | active |
 | 0004  | [Filesystem provider uses files as the source of truth](./0004-filesystem-source-of-truth.md)          | active |
-| 0005  | [Collection-first public query surface](./0005-collection-first-public-query-surface.md)               | superseded by 0016 |
 | 0006  | [Locale-agnostic canonical identity](./0006-locale-agnostic-canonical-identity.md)                     | active |
 | 0007  | [`@nuxtjs/i18n` as the locale source of truth](./0007-nuxt-i18n-as-locale-source-of-truth.md)          | active |
 | 0008  | [Translated slugs via numeric-prefix identity](./0008-translated-slugs-via-numeric-prefix.md)          | active |
@@ -24,10 +28,8 @@ ADR that supersedes the old one; do not rewrite history.
 | 0012  | [Provider-neutral core with filesystem as the default provider](./0012-provider-neutral-core-filesystem-default.md) | active |
 | 0013  | [Keep Ginko CMS outside the core repository](./0013-keep-cms-outside-core.md)                          | active |
 | 0014  | [Keep MCP out of Ginko Core](./0014-keep-mcp-out-of-core.md)                                           | active |
-| 0015  | [Retire draft specs and completed planning logs](./0015-retire-draft-spec-and-task-log.md)             | active |
 | 0016  | [Unified query API](./0016-unified-query-api.md)                                                       | active |
 | 0017  | [CMS cache invalidation boundary](./0017-cms-cache-invalidation-boundary.md)                           | active |
-| 0018  | [Classify public surfaces by audience](./0018-public-surface-classification.md)                        | active |
 | 0019  | [Keep MiniSearch after the Orama benchmark](./0019-keep-minisearch-after-orama-benchmark.md)             | active |
 
 ## Format

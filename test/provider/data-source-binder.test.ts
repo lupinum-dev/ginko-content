@@ -2,8 +2,11 @@ import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { H3Event } from 'h3'
-import { bindContentProvider } from '../../packages/content/src/public/provider'
-import type { ContentDataSource } from '../../packages/content/src/public/data-source'
+import { bindContentProvider, isContentProviderResult } from '../../packages/content/src/public/provider'
+import {
+  CONTENT_DATA_SOURCE_LIMITS,
+  type ContentDataSource,
+} from '../../packages/content/src/public/data-source'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 
 const boundedQuery = () => {
@@ -19,11 +22,54 @@ const event = () => {
   return { context: {}, node: { req: request, res: response } } as unknown as H3Event
 }
 
+const decomposedValueOver = (maximumBytes: number) =>
+  'e\u0301'.repeat(Math.floor(maximumBytes / 3) + 1)
+
+const expectOnlyRawUtf8ToExceed = (value: string, maximumBytes: number) => {
+  const encoder = new TextEncoder()
+  expect(encoder.encode(value).length).toBeGreaterThan(maximumBytes)
+  expect(encoder.encode(value.normalize('NFC')).length).toBeLessThanOrEqual(maximumBytes)
+}
+
 describe('bindContentProvider', () => {
   it('lowers unbounded builder input to the fixed core query bounds', () => {
     expect(toContentProviderQuery({ collection: 'docs' }).plan.limit).toBe(100)
     expect(toContentProviderQuery({ collection: 'docs', first: true }).plan.limit).toBe(1)
     expect(toContentProviderQuery({ collection: 'docs', count: true }).plan.limit).toBeUndefined()
+  })
+
+  it('rejects malformed data-source capabilities and methods at bind time', () => {
+    const valid = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+    }
+    const invalid = [
+      { ...valid, capabilities: { ...valid.capabilities, query: undefined } },
+      { ...valid, capabilities: { ...valid.capabilities, query: { ...valid.capabilities.query, operators: ['$eq', 1] } } },
+      { ...valid, capabilities: { ...valid.capabilities, query: { ...valid.capabilities.query, operators: ['$madeUp'] } } },
+      { ...valid, capabilities: { ...valid.capabilities, query: { ...valid.capabilities.query, operators: ['$and'] } } },
+      { ...valid, capabilities: { ...valid.capabilities, query: { ...valid.capabilities.query, operators: ['$eq', '$eq'] } } },
+      { ...valid, capabilities: { ...valid.capabilities, query: { ...valid.capabilities.query, pagination: ['page'] } } },
+      { ...valid, capabilities: { ...valid.capabilities, query: { ...valid.capabilities.query, pagination: ['offset', 'offset'] } } },
+      { ...valid, query: true },
+      { ...valid, search: true },
+    ]
+
+    for (const source of invalid) {
+      expect(() => bindContentProvider({
+        source: source as unknown as ContentDataSource<null>,
+        createContext: () => null,
+      })).toThrow(/Invalid Content data-source/)
+    }
+
+    expect(() => bindContentProvider({
+      source: valid as ContentDataSource<null>,
+      createContext: true as unknown as () => null,
+    })).toThrow(/Invalid Content data-source/)
   })
 
   it('creates one immutable context per request and source under concurrency', async () => {
@@ -117,27 +163,48 @@ describe('bindContentProvider', () => {
     resolveBackend({ data: { result: [] }, cache: false })
   })
 
-  it('never exposes backend causes or secret-bearing error details', async () => {
-    const source = {
-      name: 'cms',
-      capabilities: {
-        protocol: 'ginko-content-data-source/v1',
-        query: { operators: [], pagination: [], maxPageSize: 100 },
-      },
-      query: vi.fn(async () => {
-        throw Object.assign(new Error('Bearer top-secret'), {
-          code: 'BACKEND_FAILURE',
-          details: { field: 'password=top-secret', token: 'top-secret' },
-          cause: { password: 'top-secret' },
-        })
+  it('never trusts or exposes backend code fields, status, causes, or secret details', async () => {
+    const backendErrors = [
+      Object.assign(new Error('Bearer code-secret'), {
+        code: 'RESULT_LIMIT_EXCEEDED',
+        statusCode: 418,
+        details: { field: 'password=code-secret' },
+        cause: { password: 'code-secret' },
       }),
-    } as unknown as ContentDataSource<null>
-    const provider = bindContentProvider({ source, createContext: () => null })
+      Object.assign(new Error('Bearer status-secret'), {
+        statusMessage: 'PRIVATE_BACKEND_STATUS',
+        statusCode: 404,
+      }),
+      Object.assign(new Error('Bearer data-secret'), {
+        data: { code: 'DATABASE_SHARD_A', token: 'data-secret' },
+        statusCode: 503,
+      }),
+    ]
 
-    const error = await provider.query(event(), boundedQuery()).catch((cause) => cause)
-    expect(error).toBeInstanceOf(Error)
-    expect(JSON.stringify(error)).not.toContain('top-secret')
-    expect(error).not.toHaveProperty('cause')
+    for (const backendError of backendErrors) {
+      const source = {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: vi.fn(async () => { throw backendError }),
+      } as unknown as ContentDataSource<null>
+      const provider = bindContentProvider({ source, createContext: () => null })
+
+      const error = await provider.query(event(), boundedQuery()).catch((cause) => cause)
+      expect(error).toBeInstanceOf(Error)
+      expect(error).toMatchObject({
+        message: 'Content data-source operation failed.',
+        code: 'BACKEND_FAILURE',
+        statusCode: 500,
+        statusMessage: 'BACKEND_FAILURE',
+        data: { code: 'BACKEND_FAILURE' },
+      })
+      expect(JSON.stringify(error)).not.toMatch(/code-secret|status-secret|data-secret|RESULT_LIMIT_EXCEEDED|PRIVATE_BACKEND_STATUS|DATABASE_SHARD_A/)
+      expect(error).not.toHaveProperty('cause')
+      expect(error).not.toHaveProperty('details')
+    }
   })
 
   it('does not trust timeout-like text from backend errors', async () => {
@@ -198,6 +265,24 @@ describe('bindContentProvider', () => {
       },
       query: vi.fn(),
     }
+    const normalizedSiteData = bindContentProvider({
+      source: {
+        ...base,
+        siteData: vi.fn(async () => ({
+          data: { key: 'announcement', locale: null, data: { enabled: true }, updatedAt: null },
+          cache: false as const,
+        })),
+      } satisfies ContentDataSource<null>,
+      createContext: () => null,
+    })
+    const normalizedResult = await normalizedSiteData.siteData!(event(), { key: 'announcement' })
+    expect(isContentProviderResult(normalizedResult)).toBe(true)
+    if (isContentProviderResult(normalizedResult)) {
+      expect(normalizedResult.data).toEqual({
+        data: { enabled: true },
+      })
+    }
+
     const siteData = bindContentProvider({
       source: {
         ...base,
@@ -209,6 +294,20 @@ describe('bindContentProvider', () => {
       createContext: () => null,
     })
     await expect(siteData.siteData!(event(), { key: 'announcement', locale: 'en' })).rejects.toMatchObject({
+      data: { code: 'RESPONSE_INVALID' },
+    })
+
+    const nonJsonSiteData = bindContentProvider({
+      source: {
+        ...base,
+        siteData: vi.fn(async () => ({
+          data: { key: 'announcement', locale: null, data: new Date(), updatedAt: null },
+          cache: false as const,
+        })),
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+    await expect(nonJsonSiteData.siteData!(event(), { key: 'announcement' })).rejects.toMatchObject({
       data: { code: 'RESPONSE_INVALID' },
     })
 
@@ -247,6 +346,112 @@ describe('bindContentProvider', () => {
       createContext: () => null,
     })
     await expect(cache.query(event(), boundedQuery())).rejects.toMatchObject({ data: { code: 'CACHE_HINT_INVALID' } })
+  })
+
+  it('measures ETag bytes without normalization and retains NFC-only cache keys', async () => {
+    const oversizedDecomposed = decomposedValueOver(CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes)
+    expectOnlyRawUtf8ToExceed(oversizedDecomposed, CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes)
+    const cacheHints = [
+      {
+        tags: [],
+        paths: [],
+        maxAge: null,
+        swr: null,
+        etag: oversizedDecomposed,
+        lastModified: null,
+      },
+      {
+        tags: ['e\u0301'],
+        paths: [],
+        maxAge: null,
+        swr: null,
+        etag: null,
+        lastModified: null,
+      },
+      {
+        tags: [],
+        paths: ['/e\u0301'],
+        maxAge: null,
+        swr: null,
+        etag: null,
+        lastModified: null,
+      },
+    ]
+
+    for (const cache of cacheHints) {
+      const source = {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: vi.fn(async () => ({
+          data: { mode: 'cursor', result: [], limit: 2, pageInfo: { endCursor: null, hasNext: false } },
+          cache,
+        })),
+      } as unknown as ContentDataSource<null>
+      const provider = bindContentProvider({ source, createContext: () => null })
+
+      await expect(provider.query(event(), boundedQuery())).rejects.toMatchObject({
+        data: { code: 'CACHE_HINT_INVALID' },
+      })
+    }
+  })
+
+  it('measures serialized site-data bytes without normalization', async () => {
+    const data = decomposedValueOver(CONTENT_DATA_SOURCE_LIMITS.maxSiteDataBytes)
+    expectOnlyRawUtf8ToExceed(JSON.stringify(data), CONTENT_DATA_SOURCE_LIMITS.maxSiteDataBytes)
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+      siteData: vi.fn(async () => ({
+        data: { key: 'announcement', locale: null, data, updatedAt: null },
+        cache: false as const,
+      })),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+
+    await expect(provider.siteData!(event(), { key: 'announcement' })).rejects.toMatchObject({
+      data: { code: 'RESULT_LIMIT_EXCEEDED' },
+    })
+  })
+
+  it('measures route snapshot and cursor bytes without normalization', async () => {
+    const oversizedDecomposed = decomposedValueOver(CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes)
+    expectOnlyRawUtf8ToExceed(oversizedDecomposed, CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes)
+    const pages = [
+      {
+        items: [],
+        nextCursor: null,
+        snapshot: oversizedDecomposed,
+      },
+      {
+        items: [{ collection: 'docs', canonicalKey: 'a', locale: 'en', contentPath: '/a' }],
+        nextCursor: oversizedDecomposed,
+        snapshot: 'generation-1',
+      },
+    ]
+
+    for (const page of pages) {
+      const source = {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: vi.fn(),
+        routes: vi.fn(async () => ({ data: page, cache: false as const })),
+      } as unknown as ContentDataSource<null>
+      const provider = bindContentProvider({ source, createContext: () => null })
+
+      await expect(provider.routes!(event())).rejects.toMatchObject({
+        data: { code: 'CURSOR_INVALID' },
+      })
+    }
   })
 
   it('rejects non-progressing route pages and oversized cursors', async () => {

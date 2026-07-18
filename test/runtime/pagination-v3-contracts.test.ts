@@ -19,7 +19,7 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
   getContentProvider: mocks.getContentProvider
 }))
 
-describe('provider query wire v2 — pagination and route candidates', () => {
+describe('provider query wire v3 — pagination and route candidates', () => {
   const scenario = createSaasI18nScenario()
   const provider = createInMemoryProvider(scenario)
 
@@ -121,7 +121,7 @@ describe('provider query wire v2 — pagination and route candidates', () => {
     expect(page2.result[0]?.route?.resolvedPath).not.toBe(page1.result[0]?.route?.resolvedPath)
   })
 
-  test('v2 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {
+  test('v3 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {
     const { createProviderQuery } = await import('../../packages/content/src/runtime/server/provider-query')
 
     // `docs` mounts `/dokumentation` in de and `/docs` in en (harness/scenarios.ts).
@@ -169,5 +169,67 @@ describe('provider query wire v2 — pagination and route candidates', () => {
       requestedLocale: 'de',
       localeChain: ['de', 'en']
     })
+  })
+
+  test('route and ref selectors share one explicit, configured, or disabled fallback chain', async () => {
+    const { createProviderQuery } = await import('../../packages/content/src/runtime/server/provider-query')
+    runtime.content = {
+      defaultLocale: 'en',
+      locales: ['en', 'de', 'fr'],
+      localeFallback: { de: ['fr'] },
+      collections: {
+        docs: {
+          i18n: { defaultLocale: 'en', locales: ['en', 'de', 'fr'] },
+          route: { en: '/docs', de: '/dokumentation', fr: '/documentation' }
+        }
+      }
+    } as never
+
+    const createQueries = (fallback: boolean | string[]) => ({
+      route: createProviderQuery({
+        collection: 'docs',
+        resolveVariant: {
+          route: '/de/dokumentation/intro',
+          locale: 'de',
+          fallback
+        }
+      } as never),
+      ref: createProviderQuery({
+        collection: 'docs',
+        resolveVariant: {
+          ref: 'docs.intro',
+          locale: 'de',
+          fallback
+        }
+      } as never)
+    })
+    const selectorLocales = (query: ReturnType<typeof createProviderQuery>) => {
+      const selector = query.plan.variantSelector
+      return selector?.by === 'route'
+        ? selector.candidates.map(candidate => candidate.locale)
+        : selector?.localeChain
+    }
+
+    const configured = createQueries(true)
+    expect(configured.route.plan.resolveVariant?.fallback).toEqual(['fr', 'en'])
+    expect(configured.ref.plan.resolveVariant?.fallback).toEqual(['fr', 'en'])
+    expect(selectorLocales(configured.route)).toEqual(['de', 'fr', 'en'])
+    expect(selectorLocales(configured.ref)).toEqual(['de', 'fr', 'en'])
+
+    // The explicit chain overrides the configured de -> fr chain for both
+    // selector kinds. Route closure must not reconstruct policy fallback.
+    const explicit = createQueries(['en'])
+    expect(explicit.route.plan.resolveVariant?.fallback).toEqual(['en'])
+    expect(explicit.ref.plan.resolveVariant?.fallback).toEqual(['en'])
+    expect(selectorLocales(explicit.route)).toEqual(['de', 'en'])
+    expect(selectorLocales(explicit.ref)).toEqual(['de', 'en'])
+
+    const disabled = createQueries(false)
+    expect(disabled.route.plan.resolveVariant).toMatchObject({ exact: true })
+    expect(disabled.ref.plan.resolveVariant).toMatchObject({ exact: true })
+    expect(disabled.route.plan.resolveVariant).not.toHaveProperty('fallback')
+    expect(disabled.ref.plan.resolveVariant).not.toHaveProperty('fallback')
+    expect(selectorLocales(disabled.route)).toEqual(['de'])
+    expect(selectorLocales(disabled.ref)).toEqual(['de'])
   })
 })

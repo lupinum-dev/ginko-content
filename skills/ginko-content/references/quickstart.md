@@ -5,7 +5,7 @@ Use this when adding Ginko Content to a Nuxt app or creating the first collectio
 ## Install
 
 ```bash
-pnpm add @lupinum/ginko-content
+pnpm add @lupinum/ginko-content@next
 ```
 
 Add the module:

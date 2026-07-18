@@ -18,8 +18,7 @@ import type {
   PaginationResultFor,
   QueryResultDocument,
   ResolveOneOptions,
-  ResolveOneResult,
-  SelectedInnerDocument,
+  ResolveOneResultFor,
   SurroundOptions,
   SurroundResult
 } from '../../types/query'
@@ -35,10 +34,17 @@ import {
 } from '../../features/query/unified'
 import { getContentProvider } from './providers'
 import { createContentProviderError } from '../../public/provider-errors'
+import { toContentProviderNavigationQuery } from '../../public/provider-query'
 import { getContentRuntimeConfig } from './runtime-config'
-import { createProviderNavigationQuery, createProviderQuery, normalizeProviderQueryResponse } from './provider-query'
+import {
+  assertConfiguredProviderCollection,
+  assertConfiguredProviderQueryLocales,
+  createProviderQuery,
+  normalizeProviderQueryResponse
+} from './provider-query'
 import { projectProviderNavigation, projectProviderSurroundings } from './provider-route-facts'
 import { stripLocalePrefix } from '../../core/content/path'
+import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
 
 export const createServerContentQueryContext = async (event: H3Event): Promise<ContentQueryContext> => {
   const provider = await getContentProvider(event)
@@ -49,13 +55,10 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
     ...(provider.surroundings
       ? {
           surroundings: async (collection, resolvedPath, options) => {
-            const collectionI18n = runtime.collections?.[collection]?.i18n
-            const locales = collectionI18n && typeof collectionI18n === 'object' && collectionI18n.locales?.length
-              ? collectionI18n.locales
-              : (runtime.locales || [])
-            const defaultLocale = collectionI18n && typeof collectionI18n === 'object'
-              ? collectionI18n.defaultLocale || runtime.defaultLocale
-              : runtime.defaultLocale
+            assertConfiguredProviderCollection(collection, runtime)
+            const collectionI18n = resolveRuntimeCollectionI18nConfig(collection, runtime)
+            const locales = collectionI18n?.locales || []
+            const defaultLocale = collectionI18n?.defaultLocale
             const contentPath = stripLocalePrefix(
               resolvedPath,
               locales,
@@ -69,24 +72,28 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
                 ...(options.select ? { select: options.select } : {})
               }),
               provider.name,
-              runtime
+              runtime,
+              collection
             ) as NavItem[]
           }
         }
       : {}),
     transport: async (endpoint, params) => {
+      assertConfiguredProviderCollection(params.collection, runtime)
       if (endpoint === 'navigation') {
+        assertConfiguredProviderQueryLocales(params, runtime)
         if (!provider.navigation) {
           throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support navigation queries`, {
             provider: provider.name
           })
         }
-        const { query, options } = createProviderNavigationQuery(params)
+        const { query, options } = toContentProviderNavigationQuery(params)
         return projectProviderNavigation(
           await provider.navigation(event, query, options),
           provider.name,
           runtime,
-          options.locale
+          options.locale,
+          query.collection || undefined
         ) as NavItem[]
       }
       return normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name)
@@ -101,7 +108,7 @@ export async function resolveOne<
   event: H3Event,
   handle: H,
   options: O
-): Promise<ResolveOneResult<SelectedInnerDocument<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>, O>>> {
+): Promise<ResolveOneResultFor<H, O>> {
   return await resolveOneWithContext(await createServerContentQueryContext(event), handle, options)
 }
 

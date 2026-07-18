@@ -8,10 +8,12 @@ The query path is deliberately split:
 
 - `src/types/query.ts` is the stable type barrel.
 - `src/types/query-parts/public.ts` owns the public query grammar (the unified `one`/`many`/`paginate`/… API, `QueryWhere`, `QueryOperators`), and `results.ts` the public result envelopes.
-- `src/types/query-parts/transport.ts` is an **internal IR** (`ContentQueryBuilderParams`, the fluent `ContentQueryBuilder`) that the public grammar lowers through to the `ContentQueryPlan` AST — it is not public and not the provider wire. Providers speak `ContentProviderQuery` (`src/public/provider-query.ts`).
+- `src/types/query-parts/transport.ts` defines the low-level `ContentProviderQueryInput` accepted by the public provider-lowering helpers and used by the unified compiler. It is not the provider wire: providers speak the closed `ContentProviderQuery` plan envelope (`src/public/provider-query.ts`).
 - `src/core/query/operators.ts` owns supported operator names.
 - `src/core/query/filter.ts`, `lower.ts`, `plan.ts`, and `execute.ts` own pure query compilation/execution.
-- `src/features/query/` owns public operation assembly: `one`, `many`, `paginate`, `tree`, `neighbors`, `variants`, `backlinks`, and response envelopes.
+- `src/features/query/` owns public operation assembly: `one`, `many`,
+  `paginate`, `resolveOne`, `navigation`, `surround`, `backlinks`, and response
+  envelopes.
 - `src/runtime/server/provider-query.ts` and `src/runtime/server/query-executor.ts` own provider dispatch and provider capability enforcement.
 
 ## Invariants
@@ -19,7 +21,7 @@ The query path is deliberately split:
 - Public query operators must be explicit and provider-advertised.
 - Provider capability checks are runtime truth; do not add frontend-only behavior the provider cannot enforce.
 - Public result shapes must use `ContentQueryResponse` envelopes consistently.
-- Localized result metadata must use the public `resolved.*` model, not legacy locale internals.
+- Localized result metadata must use the public `resolution.*` model, not legacy locale internals.
 - Invalid public input should fail at the API/runtime boundary with actionable errors.
 
 ## Public API Impact
@@ -30,7 +32,7 @@ Changing query options or result shapes can affect:
 - `@lupinum/ginko-content/server`
 - generated `#content/server` types
 - app composables in `src/runtime/app/composables/use-content*.ts`
-- docs under `docs/content/docs/4.querying/` and `9.api-reference/`
+- docs under `docs/content/docs/5.reference/`
 
 Update public facades and package contracts only when an export changes, not for internal query helpers.
 

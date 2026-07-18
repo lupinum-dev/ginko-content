@@ -7,7 +7,7 @@ import type {
 import { runContentDataSourceContract } from '../../packages/content/src/testing/data-source-contract'
 
 const query: BoundedContentProviderQuery = {
-  v: 2,
+  v: 3,
   collection: 'docs',
   plan: {
     mode: 'all',
@@ -16,6 +16,7 @@ const query: BoundedContentProviderQuery = {
     sort: [],
     projection: { only: [], without: [] },
     skip: 0,
+    paging: { mode: 'cursor', after: null, limit: 2 },
   },
 }
 
@@ -55,7 +56,7 @@ describe('ContentDataSource v1', () => {
     } as unknown as ContentDataSource<null>
 
     await expect(runContentDataSourceContract({ source, context: null, query })).rejects.toThrow(
-      /page size/i,
+      /Invalid Content data-source capabilities/,
     )
     expect(source.query).not.toHaveBeenCalled()
 
@@ -72,12 +73,39 @@ describe('ContentDataSource v1', () => {
     ).rejects.toThrow(/limit/i)
   })
 
-  it('has no provider-owned invalidation or generic asset lookup method', () => {
-    type Surface = keyof ContentDataSource<unknown>
-    expect(['name', 'capabilities', 'query', 'navigation', 'surroundings', 'search', 'siteData', 'routes']).toEqual(
-      expect.arrayContaining([] as Surface[]),
+  it('rejects a malformed query response inside an otherwise valid result envelope', async () => {
+    const source = {
+      name: 'fixture',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: ['cursor'], maxPageSize: 100 },
+      },
+      query: vi.fn(async () => ({
+        data: { result: [] },
+        cache: false as const,
+      })),
+    } as unknown as ContentDataSource<null>
+
+    await expect(runContentDataSourceContract({ source, context: null, query })).rejects.toThrow(
+      /invalid list response/i,
     )
-    const forbidden: Array<'invalidate' | 'resolveAssets'> = ['invalidate', 'resolveAssets']
-    expect(forbidden).not.toContain('query')
+  })
+
+  it('rejects malformed cache metadata through the bound provider seam', async () => {
+    const source = {
+      name: 'fixture',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: ['cursor'], maxPageSize: 100 },
+      },
+      query: vi.fn(async () => ({
+        data: { mode: 'cursor', result: [], limit: 2, pageInfo: { endCursor: null, hasNext: false } },
+        cache: 'invalid',
+      })),
+    } as unknown as ContentDataSource<null>
+
+    await expect(runContentDataSourceContract({ source, context: null, query })).rejects.toMatchObject({
+      code: 'CACHE_HINT_INVALID'
+    })
   })
 })

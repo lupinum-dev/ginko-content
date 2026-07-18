@@ -109,7 +109,7 @@ describe('locale and manifest contracts', () => {
   })
 
   test('resolveLocaleChain deduplicates configured circular fallbacks', async () => {
-    const { resolveLocaleChain } = await import('../../packages/content/src/storage/graph')
+    const { resolveLocaleChain } = await import('../../packages/content/src/core/content/locale')
 
     expect(resolveLocaleChain('de', 'en', { de: ['fr', 'en', 'fr'] })).toEqual(['de', 'fr', 'en'])
     expect(resolveLocaleChain('fr', 'en', { fr: ['de', 'en', 'de'] })).toEqual(['fr', 'de', 'en'])
@@ -154,11 +154,7 @@ describe('locale and manifest contracts', () => {
 
     const { getContentGraph, resolveVariant, resolveRouteVariant } = await import('../../packages/content/src/storage/graph')
     const event = createEvent()
-    // `getContentGraph(event).manifest` replaces the deleted persisted
-    // `_manifest.json` cache (`storage/manifest.ts#getContentManifest`,
-    // The graph's manifest is the same data, computed
-    // fresh (dev) or from the one process-cached graph (production) instead
-    // of a second revisionless cache.
+    // The graph manifest is the canonical variant and route index.
     const manifest = (await getContentGraph(event)).manifest
 
     expect(Object.keys(manifest.byCanonical['guide/advanced'] || {})).toEqual(['en', 'fr'])
@@ -191,44 +187,4 @@ describe('locale and manifest contracts', () => {
     await expect(resolveRouteVariant(event, '/missing', 'de')).resolves.toBeNull()
   })
 
-  test('getIndexedContentsList honors grouped path predicates', async () => {
-    const contents = [
-      doc({
-        id: 'content:en:guide:intro.md',
-        file: { path: '/en/guide/intro.md' },
-        path: '/guide/intro',
-        canonicalKey: 'guide/intro',
-        title: 'Intro'
-      }),
-      doc({
-        id: 'content:en:guide:advanced.md',
-        file: { path: '/en/guide/advanced.md' },
-        path: '/guide/advanced',
-        canonicalKey: 'guide/advanced',
-        title: 'Advanced'
-      })
-    ]
-
-    getContentsList.mockResolvedValue(contents)
-    getContent.mockImplementation(async (_event, id) => contents.find(content => content.id === id))
-
-    const { getIndexedContentsList } = await import('../../packages/content/src/storage/graph')
-    const event = {
-      ...createEvent(),
-      node: {
-        req: { headers: {} }
-      }
-    } as any
-    const results = await getIndexedContentsList(event, {
-      params: () => ({
-        where: [{ $or: [{ path: '/guide/intro' }, { path: '/guide/advanced' }] }]
-      })
-    })
-
-    expect(results).toEqual([
-      expect.objectContaining({ path: '/guide/intro' }),
-      expect.objectContaining({ path: '/guide/advanced' })
-    ])
-    expect(getContent).not.toHaveBeenCalled()
-  })
 })

@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
+import { z } from 'zod'
 import { doc } from './_utils'
+import pathMeta from '../../packages/content/src/parsers/path-meta'
+import { validateContentGraph } from '../../packages/content/src/runtime/server/validation'
+import { reference } from '../../packages/content/src/types/config'
 
 describe('graph contracts', () => {
   test('canonical identity is collection-scoped and unscoped ambiguity fails closed', async () => {
@@ -120,6 +124,246 @@ describe('graph contracts', () => {
     })).toMatchObject({
       resolvedLocale: 'de',
       fallback: true
+    })
+  })
+})
+
+describe('content graph validation contracts', () => {
+  test('allows a ref declared on only one locale variant of a canonical group', () => {
+    const english = pathMeta.transform!(
+      { id: 'content:en:guide:getting-started.md', ref: 'guide-intro', body: {} as any, type: 'markdown' } as any,
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+    const german = pathMeta.transform!(
+      { id: 'content:de:guide:getting-started.md', body: {} as any, type: 'markdown' } as any,
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+
+    const outcome = validateContentGraph([english, german], {
+      locales: ['en', 'de'],
+      translatedSlugs: false,
+      collections: {}
+    })
+    expect(outcome).toMatchObject({ ok: true })
+  })
+
+  test('requires refs to stay aligned across locale variants', () => {
+    const english = pathMeta.transform!(
+      { id: 'content:en:guide:getting-started.md', ref: 'guide-getting-started', body: {} as any, type: 'markdown' } as any,
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+    const german = pathMeta.transform!(
+      { id: 'content:de:guide:getting-started.md', ref: 'leitfaden-erste-schritte', body: {} as any, type: 'markdown' } as any,
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+
+    const outcome = validateContentGraph([english, german], {
+      locales: ['en', 'de'],
+      translatedSlugs: false,
+      collections: {}
+    })
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'CONFLICTING_REFS',
+        message: expect.stringMatching(/conflicting refs across locale variants/)
+      }
+    })
+  })
+
+  test('rejects duplicate refs in either order before reference targets can overwrite', () => {
+    const first = pathMeta.transform!(
+      { id: 'content:en:guide:getting-started.md', ref: 'shared-ref', body: {} as any, type: 'markdown' } as any,
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+    const second = pathMeta.transform!(
+      { id: 'content:de:blog:about.md', ref: 'shared-ref', body: {} as any, type: 'markdown' } as any,
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+
+    for (const documents of [[first, second], [second, first]]) {
+      const outcome = validateContentGraph(documents, {
+        locales: ['en', 'de'],
+        translatedSlugs: false,
+        collections: {}
+      })
+      expect(outcome).toMatchObject({
+        ok: false,
+        error: {
+          code: 'CONFLICTING_REFS',
+          message: expect.stringMatching(/duplicate ref "shared-ref"/)
+        }
+      })
+    }
+  })
+
+  test('scopes schema references to the declared target collection', () => {
+    const author = pathMeta.transform!(
+      { id: 'content:authors:evan.yml', type: 'yaml', body: null, ref: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    author.collection = 'authors'
+
+    const post = pathMeta.transform!(
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    post.collection = 'posts'
+
+    const outcome = validateContentGraph([author, post], {
+      locales: ['en'],
+      translatedSlugs: false,
+      collections: {
+        posts: {
+          source: 'posts/*.md',
+          schema: z.object({
+            author: reference('authors')
+          })
+        },
+        authors: {
+          source: 'authors/*.yml'
+        }
+      }
+    })
+
+    expect(outcome).toMatchObject({ ok: true })
+  })
+
+  test('rejects schema references that resolve in the wrong collection', () => {
+    const relatedPost = pathMeta.transform!(
+      { id: 'content:posts:related.md', type: 'markdown', body: {}, ref: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    relatedPost.collection = 'posts'
+
+    const article = pathMeta.transform!(
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    article.collection = 'posts'
+
+    const outcome = validateContentGraph([relatedPost, article], {
+      locales: ['en'],
+      translatedSlugs: false,
+      collections: {
+        posts: {
+          source: 'posts/*.md',
+          schema: z.object({
+            author: reference('authors')
+          })
+        },
+        authors: {
+          source: 'authors/*.yml'
+        }
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'SCHEMA_VALIDATION_FAILED',
+        message: expect.stringContaining('author: unresolved reference "evan" in collection "authors"')
+      }
+    })
+  })
+
+  test('validates derived reference metadata without live collection schemas', () => {
+    const relatedPost = pathMeta.transform!(
+      { id: 'content:posts:related.md', type: 'markdown', body: {}, ref: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    relatedPost.collection = 'posts'
+
+    const article = pathMeta.transform!(
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    article.collection = 'posts'
+
+    const outcome = validateContentGraph([relatedPost, article], {
+      locales: ['en'],
+      translatedSlugs: false,
+      collections: {
+        posts: {
+          source: 'posts/*.md',
+          references: {
+            authors: ['author']
+          }
+        } as any,
+        authors: {
+          source: 'authors/*.yml'
+        }
+      }
+    })
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'SCHEMA_VALIDATION_FAILED',
+        message: expect.stringContaining('author: unresolved reference "evan" in collection "authors"')
+      }
+    })
+  })
+
+  test('allows unscoped schema references to resolve across collections', () => {
+    const author = pathMeta.transform!(
+      { id: 'content:authors:evan.yml', type: 'yaml', body: null, ref: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    author.collection = 'authors'
+
+    const post = pathMeta.transform!(
+      { id: 'content:posts:hello.md', type: 'markdown', body: {}, author: 'evan' } as any,
+      { locales: ['en'], defaultLocale: 'en' }
+    )
+    post.collection = 'posts'
+
+    const outcome = validateContentGraph([author, post], {
+      locales: ['en'],
+      translatedSlugs: false,
+      collections: {
+        posts: {
+          source: 'posts/*.md',
+          schema: z.object({
+            author: reference()
+          })
+        },
+        authors: {
+          source: 'authors/*.yml'
+        }
+      }
+    })
+
+    expect(outcome).toMatchObject({ ok: true })
+  })
+
+  test('errors when inline and file-based locale variants collide on the same canonical locale', () => {
+    const inlineDefault = pathMeta.transform!(
+      { id: 'content:authors:evan.yml', body: null, type: 'yaml' as const },
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+    const fileVariant = pathMeta.transform!(
+      { id: 'content:de:authors:evan.yml', body: null, type: 'yaml' as const },
+      { locales: ['en', 'de'], defaultLocale: 'en' }
+    )
+
+    const inlineGerman = {
+      ...inlineDefault,
+      id: 'content:authors:evan.yml#__locale=de',
+      locale: 'de'
+    }
+
+    const outcome = validateContentGraph([inlineDefault, inlineGerman, fileVariant], {
+      locales: ['en', 'de'],
+      translatedSlugs: false,
+      collections: {}
+    })
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: 'DUPLICATE_CANONICAL_ID',
+        message: expect.stringMatching(/duplicate canonical id .* locale "de"/)
+      }
     })
   })
 })

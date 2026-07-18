@@ -173,6 +173,35 @@ describe('runtime search API boundaries', () => {
     expect(mocks.createMiniSearchIndex).not.toHaveBeenCalled()
   })
 
+  test('search API rejects provider route facts outside the configured search collections', async () => {
+    runtime.content.search = {
+      engine: 'provider',
+      collections: ['docs']
+    } as never
+    mocks.getContentProvider.mockResolvedValue({
+      name: 'cms-provider',
+      search: vi.fn(async () => [{
+        title: 'Wrong collection',
+        score: 1,
+        route: {
+          collection: 'posts',
+          canonicalKey: 'posts:wrong-collection',
+          locale: 'en',
+          contentPath: '/blog/wrong-collection'
+        }
+      }])
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/search')).default
+
+    await expect(handler(createTestEvent({ query: { q: 'wrong' } }))).rejects.toMatchObject({
+      statusMessage: 'provider_result_invalid',
+      data: expect.objectContaining({
+        operation: 'search',
+        field: 'result[0].route.collection'
+      })
+    })
+  })
+
   test('search API fails loudly when provider-owned search is selected without provider support', async () => {
     runtime.content.search = {
       engine: 'provider',

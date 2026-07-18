@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import type { NavItem, ParsedContent } from '../../../types/content'
+import type { ContentQueryFindResponse, ContentQueryResponse } from '../../../types/api'
 import type {
   ContentProvider,
   ContentProviderNavigationItem,
@@ -7,7 +8,7 @@ import type {
   ContentRouteRecord,
   ProviderDocumentInput
 } from '../../../public/provider'
-import { PROVIDER_QUERY_OPERATORS } from '../../../core/query/operators'
+import { PROVIDER_CAPABILITY_OPERATORS } from '../../../core/query/operators'
 import {
   longestMountForPath,
   normalizeContentPath,
@@ -16,6 +17,7 @@ import {
   stripLocalePrefix
 } from '../../../core/content/path'
 import { projectContentRoute } from '../../../features/localization/route-projector'
+import { resolveRuntimeCollectionI18nConfig } from '../../../features/localization/config'
 import {
   markCollectionNavigationRoot,
   scopeNavigationTree,
@@ -30,11 +32,9 @@ import { getContentRuntimeConfig } from '../runtime-config'
 const providerContentPath = (collection: string, locale: string, contentPath: string) => {
   const config = getContentRuntimeConfig().content || {}
   const collectionConfig = config.collections?.[collection]
-  const collectionI18n = collectionConfig?.i18n && typeof collectionConfig.i18n === 'object'
-    ? collectionConfig.i18n
-    : undefined
-  const locales = collectionI18n?.locales?.length ? collectionI18n.locales : (config.locales || [])
-  const routeMounts = normalizeRouteMounts(collectionConfig?.route, locales, collectionI18n?.defaultLocale || config.defaultLocale)
+  const collectionI18n = resolveRuntimeCollectionI18nConfig(collection, config)
+  const locales = collectionI18n?.locales || []
+  const routeMounts = normalizeRouteMounts(collectionConfig?.route, locales, collectionI18n?.defaultLocale)
   const normalizedPath = normalizeContentPath(contentPath)
   const sourceMount = longestMountForPath(normalizedPath, routeMounts || {})
   const mountAgnosticPath = sourceMount
@@ -66,9 +66,13 @@ const toVariantFacts = (document: ParsedContent) => {
 
 /** Convert an internal filesystem document into the same raw seam third-party providers use. */
 const toProviderDocument = (document: ParsedContent): ProviderDocumentInput => {
-  const { path, resolved, route, resolution, ...data } = document as ParsedContent & Record<string, unknown>
+  const { path, resolved, route, resolution, dir, variants, localePaths, unprefixedPath, ...data } = document as ParsedContent & Record<string, unknown>
   void route
   void resolution
+  void dir
+  void variants
+  void localePaths
+  void unprefixedPath
   return {
     ...data,
     id: document.id,
@@ -80,22 +84,28 @@ const toProviderDocument = (document: ParsedContent): ProviderDocumentInput => {
     type: document.type,
     body: document.body ?? null,
     // Reference resolution runs before the filesystem document crosses the
-    // provider seam. Preserve its canonical public carrier instead of
-    // dropping it with the rest of the legacy internal `resolved` metadata.
+    // provider seam, so preserve its canonical public carrier here.
     ...(resolved?.resolvedRefs ? { resolvedRefs: resolved.resolvedRefs } : {}),
     ...(document.file ? { file: document.file } : {})
   }
 }
 
-const mapQueryResult = <T>(response: Awaited<ReturnType<typeof executeFilesystemContentQuery<T>>>) => {
-  if (typeof response.result === 'number') return response
+const mapQueryResult = (response: ContentQueryResponse<ParsedContent>): ContentQueryResponse<ProviderDocumentInput> => {
+  if (typeof response.result === 'number') return { result: response.result }
   if (Array.isArray(response.result)) {
-    return { ...response, result: response.result.map(item => toProviderDocument(item as ParsedContent)) }
+    const list = response as ContentQueryFindResponse<ParsedContent>
+    const result = response.result.map(toProviderDocument)
+    return list.mode === 'cursor'
+      ? { mode: 'cursor', result, limit: list.limit, pageInfo: list.pageInfo }
+      : {
+          ...(list.mode === 'offset' ? { mode: 'offset' as const } : {}),
+          result,
+          skip: list.skip,
+          limit: list.limit,
+          total: list.total,
+        }
   }
-  return {
-    ...response,
-    result: response.result ? toProviderDocument(response.result as unknown as ParsedContent) : response.result
-  }
+  return { result: response.result ? toProviderDocument(response.result) : undefined }
 }
 
 const routeFactFromCanonicalNavigationItem = (collection: string, item: CanonicalNavigationItem) => {
@@ -119,7 +129,13 @@ const routeFactFromNavItem = (collection: string, item: NavItem) => {
   const resolvedCollection = collection || itemCollection
   if (!resolvedCollection) return undefined
   const config = getContentRuntimeConfig().content || {}
-  const contentPath = stripLocalePrefix(item.path, config.locales || [], config.defaultLocale, item.locale).path
+  const collectionI18n = resolveRuntimeCollectionI18nConfig(resolvedCollection, config)
+  const contentPath = stripLocalePrefix(
+    item.path,
+    collectionI18n?.locales || [],
+    collectionI18n?.defaultLocale,
+    item.locale
+  ).path
   return {
     collection: resolvedCollection,
     canonicalKey: item.canonicalKey,
@@ -182,39 +198,27 @@ export const filesystemProvider: ContentProvider = {
   capabilities: {
     query: {
       operators: [
-        ...PROVIDER_QUERY_OPERATORS.filter(operator => operator !== '$options'),
-        '$and',
-        '$or'
+        ...PROVIDER_CAPABILITY_OPERATORS
       ],
       pagination: ['offset', 'cursor']
     }
   },
-  query: async <T = ParsedContent>(event: H3Event, query: import('../../../public/provider').ContentProviderQuery) => {
+  query: async (event: H3Event, query: import('../../../public/provider').ContentProviderQuery) => {
     const plan = {
       ...query.plan,
-      projection: {
-        only: query.plan.projection.only.length
-          ? [...new Set([
-              ...query.plan.projection.only,
-              'id', 'collection', 'canonicalKey', 'locale', 'path', 'resolved',
-              'type', 'body', 'file'
-            ])]
-          : [],
-        without: query.plan.projection.only.length ? [] : query.plan.projection.without
-      }
+      // Provider documents must cross the seam with their complete identity
+      // and route facts. The canonical response shaper applies the caller's
+      // `only`/`without` projection after normalization.
+      projection: { only: [], without: [] }
     }
-    return mapQueryResult(await executeFilesystemContentQuery<T>(event, plan)) as unknown as import('../../../types/api').ContentQueryResponse<T>
+    return mapQueryResult(await executeFilesystemContentQuery<ParsedContent>(event, plan))
   },
   navigation: async (event, query, options) => {
     const collection = query.collection || ''
     const config = getContentRuntimeConfig().content || {}
-    const collectionI18n = collection ? config.collections?.[collection]?.i18n : undefined
-    const locales = collectionI18n && typeof collectionI18n === 'object' && collectionI18n.locales?.length
-      ? collectionI18n.locales
-      : (config.locales || [])
-    const defaultLocale = collectionI18n && typeof collectionI18n === 'object'
-      ? collectionI18n.defaultLocale || config.defaultLocale
-      : config.defaultLocale
+    const collectionI18n = collection ? resolveRuntimeCollectionI18nConfig(collection, config) : undefined
+    const locales = collectionI18n?.locales || []
+    const defaultLocale = collectionI18n?.defaultLocale
     const routeMounts = normalizeRouteMounts(config.collections?.[collection]?.route, locales, defaultLocale)
     const canonical = await resolveContentNavigation(event, query, options)
     const scoped = scopeNavigationTree(
@@ -230,15 +234,23 @@ export const filesystemProvider: ContentProvider = {
   routes: async (event): Promise<ContentRouteRecord[]> => {
     const result = await buildContentResult(event)
     const config = getContentRuntimeConfig().content || {}
-    return result.routes.map(route => ({
-      collection: route.collection,
-      canonicalKey: route.canonicalKey,
-      locale: route.locale,
-      contentPath: normalizeContentPath(
-        stripLocalePrefix(route.path, config.locales || [], config.defaultLocale, route.locale).path
-      ),
-      ...(route.draft ? { draft: true } : {}),
-      ...(route.sitemap ? (route.sitemapMetadata ? { sitemap: route.sitemapMetadata } : {}) : { sitemap: false })
-    }))
+    return result.routes.map((route) => {
+      const collectionI18n = resolveRuntimeCollectionI18nConfig(route.collection, config)
+      return {
+        collection: route.collection,
+        canonicalKey: route.canonicalKey,
+        locale: route.locale,
+        contentPath: normalizeContentPath(
+          stripLocalePrefix(
+            route.path,
+            collectionI18n?.locales || [],
+            collectionI18n?.defaultLocale,
+            route.locale
+          ).path
+        ),
+        ...(route.draft ? { draft: true } : {}),
+        ...(route.sitemap ? (route.sitemapMetadata ? { sitemap: route.sitemapMetadata } : {}) : { sitemap: false })
+      }
+    })
   }
 }

@@ -17,15 +17,24 @@
  * to a `(item, value) => boolean` comparator. Operand narrowing happens
  * here via type aliases (`Comparable`, `Haystack`) rather than `as any`.
  */
-import type { ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
+import type { ContentQueryResponse } from '../../types/api'
 import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../content/graph'
 import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
 import { isPlanRegex } from './plan'
-import { sortLocalesCanonically } from '../content/locale'
-import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, resolveLocaleChain, selectGraphDocuments } from '../content/graph'
-import { ensureArray, get, omit, sortList, withKeys, withoutKeys } from './operators'
+import { resolveLocaleChain, sortLocalesCanonically } from '../content/locale'
+import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, selectGraphDocuments } from '../content/graph'
+import { ensureArray, get, sortList, withKeys, withoutKeys } from './operators'
 import { normalizeRouteMounts, routeToContentPathCandidates } from '../content/path'
+import { createContentProviderError } from '../provider-errors'
+
+interface ExecuteQueryPlanOptions {
+  defaultLocale?: string
+  localeFallback?: Record<string, string[]>
+  collections?: Record<string, { route?: string | Record<string, string>, i18n?: boolean | { locales?: string[], defaultLocale?: string } }>
+  /** Whether locale metadata may expose draft variants. Omit for trusted internal callers. */
+  includeDrafts?: boolean
+}
 
 // Comparable operands accepted by `>`/`>=`/`<`/`<=`. JS permits cross-type
 // coercion here (string vs. number) and has always done so for content
@@ -198,19 +207,49 @@ const encodeFilesystemCursor = (offset: number): string => {
   return typeof Buffer !== 'undefined' ? Buffer.from(raw).toString('base64') : btoa(raw)
 }
 
+const invalidFilesystemCursor = (): never => {
+  throw createContentProviderError(
+    'unsupported_query_shape',
+    'The filesystem provider received an invalid cursor.',
+    { provider: 'filesystem', field: 'paging.after' }
+  )
+}
+
 const decodeFilesystemCursor = (cursor: string | null | undefined): number => {
-  if (!cursor) {
+  if (cursor === null || cursor === undefined) {
     return 0
   }
+
   try {
-    const raw = typeof Buffer !== 'undefined' ? Buffer.from(cursor, 'base64').toString() : atob(cursor)
-    if (!raw.startsWith(FILESYSTEM_CURSOR_PREFIX)) {
-      return 0
+    const bytes = typeof Buffer !== 'undefined'
+      ? Buffer.from(cursor, 'base64')
+      : Uint8Array.from(atob(cursor), character => character.charCodeAt(0))
+    const raw = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    const offsetText = raw.startsWith(FILESYSTEM_CURSOR_PREFIX)
+      ? raw.slice(FILESYSTEM_CURSOR_PREFIX.length)
+      : ''
+
+    // The textual offset is canonical decimal: no sign, exponent, fraction,
+    // leading zeroes, or values outside JavaScript's exact integer range.
+    if (!/^(?:0|[1-9]\d*)$/u.test(offsetText)) {
+      return invalidFilesystemCursor()
     }
-    const offset = Number(raw.slice(FILESYSTEM_CURSOR_PREFIX.length))
-    return Number.isFinite(offset) && offset >= 0 ? offset : 0
+
+    const offset = Number(offsetText)
+    if (!Number.isSafeInteger(offset) || offset < 0) {
+      return invalidFilesystemCursor()
+    }
+
+    // Buffer/atob accept several noncanonical base64 spellings. Requiring the
+    // exact filesystem encoding also proves the prefix and integer spelling
+    // round-trip without normalization.
+    if (encodeFilesystemCursor(offset) !== cursor) {
+      return invalidFilesystemCursor()
+    }
+
+    return offset
   } catch {
-    return 0
+    return invalidFilesystemCursor()
   }
 }
 
@@ -249,15 +288,7 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
   const projected = applyQueryPlanProjection(limited, plan)
 
   if (plan.mode === 'first') {
-    return {
-      ...omit(['skip', 'limit', 'total'])(({
-        result: projected,
-        skip: effectiveSkip,
-        limit: effectiveLimit || 0,
-        total: matched.length
-      } as ContentQueryFindResponse<T>) as unknown as Record<string, unknown>),
-      result: projected[0]
-    }
+    return { result: projected[0] }
   }
 
   return {
@@ -290,12 +321,15 @@ const withDirConfig = <T extends ParsedContent>(content: T | undefined, dirConfi
   if (!content || !dirConfig) {
     return content
   }
+  const dirBody = dirConfig.body && typeof dirConfig.body === 'object' && !Array.isArray(dirConfig.body)
+    ? dirConfig.body as Record<string, unknown>
+    : {}
 
   return {
     ...content,
     dir: {
       ...dirConfig,
-      ...dirConfig.body
+      ...dirBody
     }
   } as T
 }
@@ -343,11 +377,7 @@ const executeStandardPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan): Co
  * GOTCHA: `exact: true` short-circuits rank dedup — we only keep
  * documents in the exact requested locale. No fallback, no substitution.
  */
-const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: {
-  defaultLocale?: string
-  localeFallback?: Record<string, string[]>
-  collections?: Record<string, { route?: string | Record<string, string>, i18n?: boolean | { locales?: string[], defaultLocale?: string } }>
-}): ContentQueryResponse<T> => {
+const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: ExecuteQueryPlanOptions): ContentQueryResponse<T> => {
   const requestedLocale = plan.resolveLocale?.locale
   const collectionConfig = plan.collection ? options.collections?.[plan.collection] : undefined
   const collectionI18n = collectionConfig?.i18n && typeof collectionConfig.i18n === 'object' ? collectionConfig.i18n : undefined
@@ -358,14 +388,15 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
     paths: collectFieldComparisons(plan.filter, 'path')
   }) as Array<Record<string, unknown> & ParsedContent>
 
-  const localeChain = resolveLocaleChain(
-    requestedLocale,
-    options.defaultLocale,
-    requestedLocale
-      ? { [requestedLocale]: plan.resolveLocale?.fallback || options.localeFallback?.[requestedLocale] || [] }
-      : {}
-  )
+  const localeChain = plan.resolveLocale?.exact
+    ? (requestedLocale ? [requestedLocale] : [])
+    : plan.resolveLocale?.fallback !== undefined
+      ? Array.from(new Set([requestedLocale, ...plan.resolveLocale.fallback].filter(Boolean) as string[]))
+      : resolveLocaleChain(requestedLocale, defaultLocale, requestedLocale
+        ? { [requestedLocale]: options.localeFallback?.[requestedLocale] || [] }
+        : {})
   const localeRank = new Map(localeChain.map((locale, index) => [locale, index]))
+  const hasExplicitLocalePolicy = plan.resolveLocale?.exact === true || plan.resolveLocale?.fallback !== undefined
   const merged: Array<{ rank: number, item: T }> = []
   const indexByCanonical = new Map<string, number>()
 
@@ -373,13 +404,25 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
     if (plan.resolveLocale?.exact && item.locale !== requestedLocale) {
       continue
     }
+    if (hasExplicitLocalePolicy && !localeRank.has(item.locale || '')) {
+      continue
+    }
 
     const identity = item.canonicalKey || item.id || item.path
     const key = typeof identity === 'string' ? `${item.collection || 'content'}\0${identity}` : identity
     const rank = localeRank.get(item.locale || '') ?? Number.MAX_SAFE_INTEGER
-    const availableLocales = item.canonicalKey
-      ? sortLocalesCanonically(Object.keys(getGraphCanonicalVariants(graph, item.canonicalKey, item.collection) || {}), { defaultLocale, locales })
+    const allCanonicalVariants = item.canonicalKey
+      ? getGraphCanonicalVariants(graph, item.canonicalKey, item.collection)
+      : undefined
+    const canonicalVariants = allCanonicalVariants && options.includeDrafts === false
+      ? Object.fromEntries(Object.entries(allCanonicalVariants).filter(([, entry]) => !entry.document.draft))
+      : allCanonicalVariants
+    const availableLocales = canonicalVariants
+      ? sortLocalesCanonically(Object.keys(canonicalVariants), { defaultLocale, locales })
       : [item.locale].filter(Boolean) as string[]
+    const variantPaths = canonicalVariants
+      ? Object.fromEntries(Object.entries(canonicalVariants).map(([locale, entry]) => [locale, entry.path]))
+      : undefined
     const enriched = {
       ...item,
       resolved: {
@@ -387,7 +430,8 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
         requestedLocale,
         locale: item.locale,
         fallback: item.locale !== requestedLocale,
-        availableLocales
+        availableLocales,
+        ...(variantPaths ? { variantPaths } : {})
       }
     } as T
 
@@ -413,11 +457,7 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
   return finalizeQueryPlanResponse(matched, plan)
 }
 
-const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: {
-  defaultLocale?: string
-  localeFallback?: Record<string, string[]>
-  collections?: Record<string, { route?: string | Record<string, string>, i18n?: boolean | { locales?: string[], defaultLocale?: string } }>
-}): ContentQueryResponse<T> => {
+const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: ExecuteQueryPlanOptions): ContentQueryResponse<T> => {
   if (!plan.resolveVariant) {
     return { result: undefined }
   }
@@ -451,7 +491,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
       ? (() => {
           const localeChain = plan.resolveVariant!.exact
             ? (plan.resolveVariant!.locale ? [plan.resolveVariant!.locale] : [])
-            : (plan.resolveVariant!.fallback?.length
+            : (plan.resolveVariant!.fallback !== undefined
                 ? Array.from(new Set([plan.resolveVariant!.locale, ...plan.resolveVariant!.fallback].filter(Boolean) as string[]))
                 : resolveLocaleChain(plan.resolveVariant!.locale, defaultLocale, localeFallback || {}))
           const collectionVariants = plan.collection
@@ -512,8 +552,16 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
     return { result: undefined }
   }
   const dirConfig = findDirConfig(graph, content?.path, variant.resolvedLocale)
+  const allCanonicalVariants = getGraphCanonicalVariants(graph, variant.canonicalKey, content?.collection) || {}
+  const visibleCanonicalVariants = options.includeDrafts === false
+    ? Object.fromEntries(Object.entries(allCanonicalVariants).filter(([, entry]) => !entry.document.draft))
+    : allCanonicalVariants
+  const availableLocales = sortLocalesCanonically(Object.keys(visibleCanonicalVariants), {
+    defaultLocale,
+    locales: collectionI18n?.locales
+  })
   const variantPaths = Object.fromEntries(
-    Object.entries(getGraphCanonicalVariants(graph, variant.canonicalKey, content?.collection) || {}).map(([locale, entry]) => [locale, entry.path])
+    Object.entries(visibleCanonicalVariants).map(([locale, entry]) => [locale, entry.path])
   )
 
   const enriched = {
@@ -526,7 +574,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
       requestedLocale: variant.requestedLocale,
       locale: variant.resolvedLocale,
       fallback: variant.fallback,
-      availableLocales: variant.availableLocales,
+      availableLocales,
       variantPaths
     }
   } as T
@@ -542,11 +590,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
  * Top-level dispatcher. Picks the right execution strategy based on the
  * plan's resolution terms, then returns a uniform `ContentQueryResponse<T>`.
  */
-export const executeQueryPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: {
-  defaultLocale?: string
-  localeFallback?: Record<string, string[]>
-  collections?: Record<string, { route?: string | Record<string, string>, i18n?: boolean | { locales?: string[], defaultLocale?: string } }>
-} = {}): ContentQueryResponse<T> => {
+export const executeQueryPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: ExecuteQueryPlanOptions = {}): ContentQueryResponse<T> => {
   if (plan.resolveVariant) {
     return executeVariantPlan<T>(graph, plan, options)
   }
@@ -556,28 +600,4 @@ export const executeQueryPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan,
   }
 
   return executeStandardPlan<T>(graph, plan)
-}
-
-export const resolveQueryPlanVariant = (
-  graph: ContentGraph,
-  plan: ContentQueryPlan,
-  options: {
-    defaultLocale?: string
-    localeFallback?: Record<string, string[]>
-    collections?: Record<string, { route?: string | Record<string, string>, i18n?: boolean | { locales?: string[], defaultLocale?: string } }>
-  } = {}
-) => {
-  if (plan.resolveVariant) {
-    const collectionConfig = plan.collection ? options.collections?.[plan.collection] : undefined
-    const collectionI18n = collectionConfig?.i18n && typeof collectionConfig.i18n === 'object' ? collectionConfig.i18n : undefined
-    return resolveGraphRouteVariant(graph, plan.resolveVariant.path || plan.resolveVariant.route || '', plan.resolveVariant.locale, {
-      defaultLocale: collectionI18n?.defaultLocale || options.defaultLocale,
-      locales: collectionI18n?.locales,
-      fallback: plan.resolveVariant.fallback,
-      exact: plan.resolveVariant.exact,
-      localeFallback: options.localeFallback
-    })
-  }
-
-  return null
 }

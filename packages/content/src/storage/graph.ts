@@ -1,17 +1,11 @@
 import type { H3Event } from 'h3'
-import type { ParsedContent } from '../types/content'
-import type { ContentLocaleEntry, ContentQueryRequest } from '../types/query'
 import type { ContentGraph } from '../core/content/graph'
 import {
   buildContentGraph,
   resolveGraphCanonicalKey,
-  resolveGraphCollectionLocales,
   resolveGraphRouteVariant,
-  resolveGraphVariant,
-  resolveLocaleChain,
-  selectGraphDocuments
+  resolveGraphVariant
 } from '../core/content/graph'
-import { collectQueryWhere } from '../core/query/params'
 import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { assertFilesystemPreviewSupported, resolveRuntimeEnvironment } from '../core/visibility'
 import { isPreview } from '../integrations/nitro/preview'
@@ -19,8 +13,6 @@ import { getContentRuntimeConfig } from '../integrations/nitro/runtime-config'
 import { contentConfig } from './driver'
 import { getContentsList } from './contents'
 import { getProcessGraph, usesProcessSnapshot } from './snapshot-runtime'
-
-export { resolveLocaleChain }
 
 /**
  * The sealed filesystem snapshot is the one choke point every filesystem
@@ -52,14 +44,9 @@ export const getContentGraph = async (event: H3Event): Promise<ContentGraph> => 
 }
 
 /**
- * Graph-backed variant/route/reference resolution helpers.
- *
- * These used to live behind a persisted `_manifest.json` cache
- * (the deleted `storage/manifest.ts`): that cache was a
- * second, revisionless snapshot of `getContentGraph(event).manifest` with no
- * invalidation source of its own. `getContentGraph` already resolves to the
- * one process-cached graph in production (keyed by snapshot integrity) and a
- * per-request memoized graph in dev, so these helpers call it directly.
+ * Graph-backed variant, route, and reference resolution helpers. The graph is
+ * the one manifest source: it is process-cached by snapshot integrity in
+ * production and memoized per request in development.
  */
 export async function resolveVariant (
   event: H3Event,
@@ -105,29 +92,4 @@ export async function resolveCanonicalKey (
   collection?: string
 ) {
   return resolveGraphCanonicalKey(await getContentGraph(event), identity, collection)
-}
-
-export async function resolveCollectionLocales (
-  event: H3Event,
-  identity: string,
-  collection?: string
-): Promise<ContentLocaleEntry[]> {
-  return resolveGraphCollectionLocales(await getContentGraph(event), identity, collection)
-}
-
-export async function getIndexedContentsList (event: H3Event, query: ContentQueryRequest): Promise<ParsedContent[]> {
-  const params = query.params()
-  const paths = collectQueryWhere(params?.where, where => typeof where.path !== 'undefined')
-    .map(where => where.path)
-    .filter((path): path is string | RegExp => typeof path === 'string' || path instanceof RegExp)
-  const graph = await getContentGraph(event)
-
-  if (!paths.length && !params?.collection) {
-    return graph.documents
-  }
-
-  return selectGraphDocuments(graph, {
-    collection: params?.collection,
-    paths
-  })
 }

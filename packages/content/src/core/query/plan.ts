@@ -1,16 +1,16 @@
 /**
  * The internal, **immutable**, executor-facing query AST.
  *
- * Pipeline: public `ContentQueryBuilder` → `params` object → `lowerQueryPlan`
+ * Pipeline: public query options → params IR → `lowerQueryPlan`
  * (see `./lower.ts`) → `ContentQueryPlan` → `executeQueryPlan`
  * (see `./execute.ts`).
  *
  * The plan is the stable boundary between "how the user wrote the query"
  * and "how we execute it." Downstream code should pattern-match on
- * `FilterExpr.type` rather than reading builder params directly. The plan
+ * `FilterExpr.type` rather than reading params IR directly. The plan
  * never carries Nuxt/H3/Vue concerns.
  *
- * The plan stays immutable so builders, lowerers, and executors can compose
+ * The plan stays immutable so compilers, lowerers, and executors can compose
  * without hidden shared state.
  */
 
@@ -35,7 +35,7 @@ export type CompareOperator =
 /**
  * JSON-pure representation of a regular expression on a compare node's value.
  *
- * The plan is the provider wire contract (CS-5) and must survive
+ * The plan is the provider wire contract and must survive
  * `JSON.parse(JSON.stringify(plan))` unchanged — a live `RegExp` instance
  * serializes to `{}` and corrupts the wire. Lowering therefore stores regex
  * operands as a tagged object; the executor reconstructs the `RegExp`
@@ -92,12 +92,12 @@ export interface Projection {
   without: string[]
 }
 
-/** Terminal shape of the query. Set by `.all()`, `.first()`, or `.count()` on the builder. */
+/** Terminal shape of the query. Set by the unified query operation. */
 export type QueryMode = 'all' | 'first' | 'count'
 
 /**
- * Locale resolution parameters. Populated when a caller uses `.locale(...)`
- * on the builder or when the adapter injects the active request locale.
+ * Locale resolution parameters. Populated from unified query locale options
+ * or when an adapter injects the active request locale.
  * When set, the executor dedupes variants across the fallback chain rather
  * than returning every variant.
  */
@@ -135,7 +135,7 @@ export interface VariantResolution {
 }
 
 /**
- * Provider wire pagination semantics (CS-5 v2). Exactly one of
+ * Provider wire pagination semantics. Exactly one of
  * two honest modes: `offset` guarantees skip + an exact total; `cursor`
  * guarantees an opaque forward cursor with no synthetic total. Present on the
  * plan only when the caller made an explicit paging choice (`paginate()`, or

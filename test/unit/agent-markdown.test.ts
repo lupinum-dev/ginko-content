@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
 const markdownBody = (children: NonNullable<ParsedContent['body']>['children']): ParsedContent['body'] => ({
@@ -6,24 +6,58 @@ const markdownBody = (children: NonNullable<ParsedContent['body']>['children']):
   children
 })
 
-const providerDocumentFor = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
-  ...page,
-  collection: String(page.collection || 'docs'),
-  canonicalKey: String(page.canonicalKey || `docs:${String(page.path || '/').replace(/^\//, '')}`),
-  locale: String(page.locale || 'en'),
-  contentPath: String(page.path || '/'),
-  routeVariants: [{ locale: String(page.locale || 'en'), contentPath: String(page.path || '/') }],
-  body: page.body ?? null
-})
+const providerDocumentFor = (page: Partial<ParsedContent> & Record<string, unknown>) => {
+  const {
+    path,
+    resolved: _resolved,
+    variants: _variants,
+    localePaths: _localePaths,
+    unprefixedPath: _unprefixedPath,
+    dir: _dir,
+    route: _route,
+    resolution: _resolution,
+    ...providerFields
+  } = page
+  const collection = String(page.collection || 'docs')
+  const locale = String(page.locale || 'en')
+  const contentPath = String(path || '/')
+  return {
+    ...providerFields,
+    collection,
+    canonicalKey: String(page.canonicalKey || `${collection}:${contentPath.replace(/^\//, '')}`),
+    locale,
+    contentPath,
+    routeVariants: [{ locale, contentPath }],
+    body: page.body ?? null
+  }
+}
+
+const providerListResponse = (query: any, documents: unknown[]) => {
+  const skip = query.plan.paging?.mode === 'offset' ? query.plan.paging.skip : query.plan.skip ?? 0
+  const limit = query.plan.limit ?? query.plan.paging?.limit ?? 100
+  return { result: documents.slice(skip, skip + limit), skip, limit, total: documents.length }
+}
 
 const providerForPage = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
   name: 'fixture',
-  query: async () => ({ result: providerDocumentFor(page) })
+  query: async (_event: unknown, query: any) => {
+    const document = providerDocumentFor(page)
+    if (query.plan.mode === 'first') return { result: document }
+    if (query.plan.mode === 'count') return { result: 1 }
+    return providerListResponse(query, [document])
+  }
 })
 
 describe('agent markdown', () => {
   beforeEach(() => {
     vi.resetModules()
+    vi.stubGlobal('__ginkoTestRuntimeConfig', {
+      content: { collections: { docs: { type: 'page' } } }
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   test('exposes typed built-in metadata field helpers', async () => {
@@ -363,6 +397,17 @@ describe('agent markdown', () => {
     expect(resolved?.markdown).not.toContain('clientSecret')
     expect(resolved?.markdown).not.toContain('authorization')
     expect(resolved?.markdown).not.toContain('password')
+  })
+
+  test('copies own __proto__ component props as data without changing helper prototypes', async () => {
+    const { cleanPropsObject, xmlComponentMarkdown } = await import('../../packages/content/src/features/agent/agent-markdown')
+    const props = JSON.parse('{"title":"Safe","__proto__":{"source":"content"}}') as Record<string, unknown>
+    const clean = cleanPropsObject(props)
+
+    expect(Object.getPrototypeOf(clean)).toBe(Object.prototype)
+    expect(Object.hasOwn(clean, '__proto__')).toBe(true)
+    expect(clean.__proto__).toEqual({ source: 'content' })
+    expect(xmlComponentMarkdown('card', props)).toContain('"__proto__": {')
   })
 
   test('drops nested credential-like props from XML fallback JSON payloads', async () => {
@@ -734,8 +779,7 @@ describe('agent markdown', () => {
   })
 
   test('does not render markdown bodies while building the agent page index', async () => {
-    const query = vi.fn(async () => ({
-      result: [
+    const query = vi.fn(async (_event, providerQuery) => providerListResponse(providerQuery, [
         providerDocumentFor({
           path: '/docs/intro',
           title: 'Intro',
@@ -744,11 +788,7 @@ describe('agent markdown', () => {
             { type: 'element', tag: 'expensive-component' }
           ])
         })
-      ],
-      skip: 0,
-      limit: 0,
-      total: 1
-    }))
+      ]))
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
@@ -822,18 +862,13 @@ describe('agent markdown', () => {
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
       getContentProvider: async () => ({
-        query: async () => ({
-          result: [
+        query: async (_event: unknown, providerQuery: any) => providerListResponse(providerQuery, [
             providerDocumentFor({
               path: '/docs/intro',
               file: { path: 'content/docs/intro.md' },
               title: 'Intro'
             })
-          ],
-          skip: 0,
-          limit: 0,
-          total: 1
-        })
+          ])
       })
     }))
 
@@ -848,9 +883,9 @@ describe('agent markdown', () => {
 
   test('uses the source-locale public route for localized fallback agent pages', async () => {
     const query = vi.fn(async (_event, params) => {
-      // Providers now receive the lowered wire query (CS-5), not builder params.
+      // Providers receive the lowered wire query, not builder params.
       expect(params).toEqual(expect.objectContaining({
-        v: 2,
+        v: 3,
         plan: expect.objectContaining({
           resolveLocale: expect.objectContaining({ locale: 'de' }),
           projection: expect.objectContaining({
@@ -859,19 +894,14 @@ describe('agent markdown', () => {
         })
       }))
 
-      return {
-        result: [
+      return providerListResponse(params, [
           providerDocumentFor({
             path: '/guide/advanced',
             locale: 'en',
             file: { path: 'en/1.guide/2.advanced.md' },
             title: 'Advanced'
           })
-        ],
-        skip: 0,
-        limit: 0,
-        total: 1
-      }
+        ])
     })
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
@@ -952,18 +982,13 @@ describe('agent markdown', () => {
     }))
     vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
       getContentProvider: async () => ({
-        query: async () => ({
-          result: [
+        query: async (_event: unknown, providerQuery: any) => providerListResponse(providerQuery, [
             providerDocumentFor({
               path: '/docs/intro',
               title: 'Content Intro',
               description: 'Content intro.'
             })
-          ],
-          skip: 0,
-          limit: 0,
-          total: 1
-        })
+          ])
       })
     }))
 

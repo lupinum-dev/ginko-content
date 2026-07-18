@@ -33,10 +33,7 @@ export const resolveSitemapCollections = (
 
 /**
  * One count per canonical document in `collection` that has at least one
- * concrete path, honoring draft visibility. Mirrors the former
- * `collectSitemapCollectionRouteCounts` (deleted
- * `module/derived-route-discovery.ts`) exactly — only the document SOURCE
- * changed.
+ * concrete path, honoring draft visibility.
  */
 export const countSitemapRoutes = (
   graph: ContentGraph,

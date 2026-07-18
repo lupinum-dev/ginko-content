@@ -79,8 +79,8 @@ describe('static sitemap output', () => {
     expect(sitemap).not.toMatch(repeatedLocalePrefixPattern)
   }, 240000)
 
-  // Phase 3 gate follow-up: the sitemap-assert `'compiled'` hook (mode
-  // `build`/`both`) fetches its collection counts by spawning the just-built
+  // The sitemap-assert `compiled` hook in build mode fetches collection counts
+  // by spawning the just-built
   // server bundle as a real process and calling its content cache/build
   // route over HTTP (`fetchSitemapCollectionCounts` in
   // `packages/content/src/module/integration-hooks.ts`). That path was only

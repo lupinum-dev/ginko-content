@@ -6,6 +6,7 @@ export default defineTransformer({
   parse (id: string, rawContent: string) {
     return {
       id,
+      type: 'json',
       body: rawContent.trim().split('\n').map(line => line.trim()).sort()
     }
   }

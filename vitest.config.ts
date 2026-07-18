@@ -26,10 +26,9 @@ const productionFixtureTests = [
   'test/e2e/**/*.test.ts'
 ]
 
-// T-release-only: runs solely via the dedicated `test:generate:static` step in
-// release:verify, which targets this file directly. Kept out of the default e2e
-// project (and thus out of test:e2e / T-pr verify) per S2 -- the generate lane must
-// not duplicate a full `nuxi generate` run on every PR (see RFC review finding on T1).
+// Runs solely through the dedicated `test:generate:static` release step.
+// Keep it out of the default e2e project so pull requests do not duplicate a
+// full `nuxi generate` run.
 const generateLaneTests = [
   'test/e2e/generate-output.test.ts'
 ]
@@ -69,8 +68,7 @@ export default defineConfig({
           include: [
             'test/unit/**/*.test.ts',
             'test/ginko-transformer.test.ts',
-            'test/ginko-unified-query.test.ts',
-            'test/ginko-utils.test.ts'
+            'test/ginko-unified-query.test.ts'
           ],
           exclude: commonExclude
         }
@@ -153,8 +151,8 @@ export default defineConfig({
       {
         resolve: { alias },
         test: {
-          // T-release-only lane, run via `pnpm test:generate:static` (see generateLaneTests
-          // comment above). Deliberately a separate project rather than an e2e include/exclude
+          // Release-only lane run via `pnpm test:generate:static` (see generateLaneTests
+          // above). Deliberately a separate project rather than an e2e include/exclude
           // toggle: vitest's CLI file-path filter still honors project `exclude`, so pointing
           // `--project e2e test/e2e/generate-output.test.ts` at the e2e project after excluding
           // it there would silently match zero tests.

@@ -1,8 +1,8 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.3.0-rc.3",
+  "version": "0.3.0-rc.4",
   "description": "Collection-first content engine for Nuxt",
-  "homepage": "https://ginko-content.nuxt.dev",
+  "homepage": "https://github.com/lupinum-dev/ginko-content",
   "bugs": {
     "url": "https://github.com/lupinum-dev/ginko-content/issues"
   },
@@ -20,7 +20,7 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
   },
   "license": "MIT",
   "type": "module",
@@ -127,14 +127,13 @@
     "build": "nuxt-module-build build && pnpm build:web-types",
     "build:web-types": "vue-docgen-web-types src/runtime/app/components/ ./dist/web-types.json",
     "prepack": "pnpm run build",
-    "prepublishOnly": "node ../../scripts/preflight-release.mjs"
+    "prepublishOnly": "node -e \"console.error('Direct source publication is disabled. Publish the inspected CI tarball described in MAINTAINING.md.'); process.exit(1)\""
   },
   "dependencies": {
     "@comark/vue": "^0.4.0",
     "@nuxt/kit": "^4.4.8",
     "@shikijs/transformers": "^4.2.0",
     "comark": "^0.4.0",
-    "consola": "^3.4.2",
     "defu": "^6.1.7",
     "destr": "^2.0.5",
     "globby": "^16.2.0",
@@ -165,7 +164,7 @@
     "nuxt": ">=4.4.7 <5",
     "pagefind": "^1.5.2",
     "vitest": ">=4.1.6 <5",
-    "vue": "^3.5.0"
+    "vue": "^3.5.35"
   },
   "peerDependenciesMeta": {
     "pagefind": {

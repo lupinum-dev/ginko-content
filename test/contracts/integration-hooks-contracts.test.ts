@@ -4,37 +4,11 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { registerContentNitroIntegrationHooks } from '../../packages/content/src/module/integration-hooks'
 
-// Content-route derivation moved out of this module entirely: the deleted `module/derived-route-discovery.ts` used to reparse
-// the content directory here and add routes straight into the
-// `prerender:routes` Set. The content cache/build route is unshifted to the
-// front of `nitro.prerender.routes` (`module/nitro-config.ts`, which also
-// enables `crawlLinks` there) and, during prerendering, responds with HTML
-// containing one `<a href>` per canonical route the real build produced;
-// Nitro's own crawler extracts those links into that SAME route queue (see
-// `runtime/server/api/cache.ts`). This is the ONLY reliable injection point
-// for BOTH static (`nuxi generate`) and non-static (`nuxi build`) presets —
-// confirmed empirically that a hybrid build's main Nitro instance only
-// compiles a request-servable bundle of its own AFTER prerendering already
-// ran, so no build hook can push additional routes into the crawl queue in
-// time. Proven end to end by the real `nuxi generate`/`nuxi build` runs in
-// `test/e2e/generate-output.test.ts` and
-// `test/e2e/generated-output-smoke.test.ts`. This file covers what stays
-// owned by `registerContentNitroIntegrationHooks` itself: the
-// Nuxt-Sitemap-route half of `prerender:routes`, and the `compiled`-hook
-// sitemap-assert counts fetch (which only ever needs to run AFTER
-// prerendering already produced sitemap output on disk, so the timing
-// constraint above does not apply to it).
-// `registerContentNitroIntegrationHooks` now always appends a second,
-// unconditional `'compiled'` handler (the stale cache/build-route static
-// artifact cleanup -- see `appendHook`'s doc comment in
-// `integration-hooks.ts`) ahead of the sitemap-assert one. `appendHook`
-// merges multiple handlers for the same event into ONE serially-awaited
-// function -- never an array (a real Nitro build's `hookable`-based config
-// merge treats an array value as a nested-hook-name namespace to recurse
-// into, not "call each handler", so an array there would silently never
-// fire for the real `'compiled'` event; confirmed empirically against a
-// real `nuxi build`). This helper just calls whatever single function ended
-// up registered, so tests do not depend on that internal merging detail.
+// These contracts cover the Nuxt Sitemap prerender routes and the compiled
+// server count fetch owned by `registerContentNitroIntegrationHooks`. Static
+// route discovery itself is exercised by the real generate/build e2e lanes.
+// Multiple compiled handlers are registered as one serial function because
+// Nitro interprets an array as a nested hook namespace, not a handler list.
 const runCompiledHooks = async (nitroConfig: Record<string, any>, payload: unknown) => {
   await nitroConfig.hooks?.compiled?.(payload)
 }

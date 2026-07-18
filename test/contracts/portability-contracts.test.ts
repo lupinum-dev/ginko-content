@@ -21,6 +21,7 @@ import {
   validatePortableReferences,
 } from '../../packages/content/src/portability'
 import { PORTABILITY_CONTRACT_FIXTURES, runPortabilityContract } from '../../packages/content/src/testing/portability-contract'
+import { parsePortableJson } from '../../packages/content/src/portability/json'
 
 const absent = { present: false } as const
 const field = (key: string, type: ResolvedContentFieldV1['type'], localized: boolean, extra: Partial<ResolvedContentFieldV1> = {}): ResolvedContentFieldV1 => ({
@@ -128,6 +129,15 @@ const contract: ResolvedContentContractV1 = {
 }
 
 const fixture = (...segments: string[]) => resolve('packages/content/test/fixtures/portability', ...segments)
+
+it('parses own __proto__ JSON keys as data without changing object prototypes', () => {
+  const parsed = parsePortableJson('{"__proto__":{"source":"portable"},"title":"Safe"}') as Record<string, unknown>
+
+  expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype)
+  expect(Object.hasOwn(parsed, '__proto__')).toBe(true)
+  expect(parsed.__proto__).toEqual({ source: 'portable' })
+  expect(parsed.title).toBe('Safe')
+})
 
 describe('portable content contract', () => {
   it('passes the observable Level-1 codec contract', async () => {

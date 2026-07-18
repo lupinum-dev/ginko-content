@@ -216,7 +216,12 @@ export const cleanPropsObject = (props: unknown) => {
     const cleanedValue = cleanAgentPropValue(value)
     if (shouldDropAgentProp(normalizedName) || cleanedValue === undefined) continue
     if (!(normalizedName in clean) || normalizedName === name.trim()) {
-      clean[normalizedName] = cleanedValue
+      Object.defineProperty(clean, normalizedName, {
+        value: cleanedValue,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      })
     }
   }
   return clean
@@ -234,14 +239,24 @@ export const xmlComponentMarkdown = (
 
   for (const [key, value] of Object.entries(cleanProps)) {
     if (!xmlNamePattern.test(key)) {
-      complexProps[key] = value
+      Object.defineProperty(complexProps, key, {
+        value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      })
       continue
     }
     if (isScalarXmlAttributeValue(value)) {
       attrs.push(`${key}="${escapeXmlAttribute(String(value))}"`)
       continue
     }
-    complexProps[key] = value
+    Object.defineProperty(complexProps, key, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
   }
 
   const attrText = attrs.length ? ` ${attrs.join(' ')}` : ''

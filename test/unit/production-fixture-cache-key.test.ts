@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { fixtureBuildKey } from '../helpers/production-fixture'
 
-describe('production fixture cache key (C-1)', () => {
+describe('production fixture cache key', () => {
   test('build and generate keys differ for identical rootDir + env', () => {
     const buildKey = fixtureBuildKey('/fixtures/ginko-i18n', { FOO: 'bar' }, 'build')
     const generateKey = fixtureBuildKey('/fixtures/ginko-i18n', { FOO: 'bar' }, 'generate')

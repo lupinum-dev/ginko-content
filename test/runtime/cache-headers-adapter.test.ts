@@ -4,9 +4,9 @@ import { headersContentCache } from '../../packages/content/src/runtime/server/c
 import type { ContentCacheHint } from '../../packages/content/src/public/provider'
 
 /**
- * T7.3: the headers cache adapter is the one adapter whose `apply` does work —
- * it must translate a cache hint into real HTTP response headers. The two
- * shipped inert adapter (`noopContentCache`) leaves the
+ * The headers cache adapter is the adapter whose `apply` writes response state:
+ * it must translate a cache hint into real HTTP response headers. The shipped
+ * inert adapter (`noopContentCache`) leaves the
  * response untouched; this asserts the active one does not.
  */
 

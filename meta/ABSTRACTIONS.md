@@ -6,7 +6,7 @@ This document names the concepts behind Ginko. It is written for contributors an
 
 The provider-neutral Nuxt content engine in this repository.
 
-Ginko Core owns the public website contract: collections, query builders, content pages, navigation, search sections, sitemap entries, rendering components, and server helpers.
+Ginko Core owns the public website contract: collections, unified query operations, content pages, navigation, search sections, sitemap entries, rendering components, and server helpers.
 
 Core should not contain editor UI, Studio workflows, MCP tools, runtime mutation APIs, or CMS-specific editorial behavior.
 
@@ -16,7 +16,7 @@ A server-side adapter that serves the Ginko content contract from a source.
 
 The built-in provider is `filesystem`. External providers can be registered through `content.config.ts` and loaded through `#content/virtual/providers`.
 
-Providers implement `ContentProvider` from `@lupinum/ginko-content/provider` / `#content/provider` (the single home for provider types). They expose capabilities and methods for query, page, route metadata, navigation, surroundings, search sections, site data, and sitemap entries.
+Providers implement `ContentProvider` from `@lupinum/ginko-content/provider` / `#content/provider` (the single home for provider types). They expose query capabilities plus optional navigation, surroundings, provider-owned search, site data, and route enumeration methods.
 
 ## Filesystem Provider
 
@@ -87,7 +87,9 @@ The flow that turns source content into queryable documents:
 3. Validate against the collection schema.
 4. Store normalized artifacts for query, routing, navigation, search, and sitemap use.
 
-Generic contracts live in `src/core/pipeline`. Nitro orchestration lives in `src/integrations/nitro/ingest.ts`.
+Parsing and transforms live in `src/parsers/`; schema and graph validation live
+in `src/storage/validation.ts`; Nitro orchestration lives in
+`src/integrations/nitro/ingest.ts`.
 
 ## Canonical Identity
 

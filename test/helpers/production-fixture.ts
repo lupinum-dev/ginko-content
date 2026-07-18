@@ -8,7 +8,7 @@ export interface ProductionFixtureBuild {
   publicDir: string
   serverDir: string
   env: Record<string, string>
-  /** Raw stdout captured from the build command (used to corroborate build-time hook execution, e.g. C-6). */
+  /** Raw stdout captured from the build command for build-hook assertions. */
   stdout?: string
 }
 
@@ -21,7 +21,7 @@ export interface GenerateStaticFixture {
   rootDir: string
   publicDir: string
   env: Record<string, string>
-  /** Raw stdout captured from `nuxi generate` (used to corroborate build-time hook execution, e.g. C-6). */
+  /** Raw stdout captured from `nuxi generate` for build-hook assertions. */
   stdout: string
 }
 
@@ -43,7 +43,7 @@ function normalizeFixtureEnv (env: Record<string, string>) {
 // treats `process.env.TEST`/`VITEST` as truthy. Vitest sets both on its own worker process; if we
 // blindly forward that env to the spawned `nuxi build`/`nuxi generate` child, the child believes
 // *it* is running under a test runner and silences info-level logger output (e.g. the sitemap
-// assertion pass/fail line consumed by the T1-3 corroboration check) even though the build itself
+// assertion pass/fail line consumed by the generate tests) even though the build itself
 // completes normally. Strip the markers so the child logs the way a real CI/production build would.
 const testEnvMarkersToStrip = ['TEST', 'VITEST', 'VITEST_WORKER_ID', 'VITEST_POOL_ID']
 
@@ -63,9 +63,8 @@ export function fixtureBuildKey (
   env: Record<string, string>,
   mode: FixtureBuildMode = 'build'
 ) {
-  // C-1: the `::generate` component is load-bearing — without it, a `generate` result would be
-  // served for a `build` request (or vice versa) whenever rootDir+env match, silently mixing a
-  // fully static output with a node-server output.
+  // The mode component prevents a generated static result from satisfying a
+  // server-build request (or vice versa) when rootDir and env match.
   const modeComponent = mode === 'generate' ? '::generate' : ''
   return `${resolve(rootDir)}${modeComponent}::${JSON.stringify(normalizeFixtureEnv(env))}`
 }
@@ -164,7 +163,7 @@ export async function buildProductionFixture (
 
 /**
  * Runs `nuxi generate` (full static output) for a fixture instead of `nuxi build`.
- * Reuses the same env-keyed cache map as `buildProductionFixture` (C-1), but the key carries a
+ * Reuses the same environment-keyed cache map as `buildProductionFixture`, but the key carries a
  * distinct `::generate` component so a `generate` result is never served for a `build` request,
  * or vice versa, even when rootDir+env are otherwise identical.
  */

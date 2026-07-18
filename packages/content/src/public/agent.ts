@@ -7,8 +7,7 @@
  * so it does not share the `./server` query facade. The `agent` code identifiers
  * match the shipped module option name (`agent: {...}`).
  *
- * This is a PURE re-export: the registration API was reshaped once (per-app
- * registry) in T4.2b — the moved names keep their call signatures.
+ * This is a pure re-export of the per-application registration API.
  */
 export {
   clearAgentMarkdownSerializers,

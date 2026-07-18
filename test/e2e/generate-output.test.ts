@@ -27,7 +27,7 @@ const basicGolden = resolve(rootDir, 'test/golden/routes/ginko-basic.txt')
 const i18nGolden = resolve(rootDir, 'test/golden/routes/ginko-i18n.txt')
 const routeInvariantsGolden = resolve(rootDir, 'test/golden/routes/route-invariants.txt')
 
-// R-1: real `nuxi generate` runs for exactly these two fixtures. Reuses the same
+// Real `nuxi generate` runs reuse the same
 // generated-artifacts.ts assertions and leak sweeps as the `nuxi build` lane
 // (generated-output-smoke.test.ts) so the fully static deployment story is verified by a real
 // run instead of only by `nuxi build` + nitro.prerender (RFC gap #1).
@@ -48,8 +48,8 @@ describe('generate lane output (nuxi generate)', () => {
     expect(JSON.stringify(searchIndex)).not.toContain(fixtureLeakSentinels.basic[0])
 
     // ginko-basic has no i18n locales, so the repeated-locale-prefix sweep does not apply here
-    // (see C-4: keep the locale list passed to that sweep matching the fixture's actual
-    // locales -- an empty/non-i18n fixture has none to double).
+    // Keep this locale list aligned with the fixture; a non-i18n fixture has
+    // no locale prefix to repeat.
     assertNoLocalOrigins(textArtifacts)
     assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.basic)
     await assertRouteManifestMatchesGolden(outputPublicDir, basicGolden, 'generate')
@@ -118,10 +118,7 @@ describe('generate lane output (nuxi generate)', () => {
     await assertRouteManifestMatchesGolden(outputPublicDir, i18nGolden, 'generate')
     await assertGeneratedLinkIntegrity(outputPublicDir)
 
-    // T1-3 / C-6: corroborate the mode:'generate' sitemap-assert hook
-    // (shouldRunSitemapAssertionOnPrerenderedSitemaps, not the `build`/`compiled` path) actually
-    // ran and passed during this real `nuxi generate` invocation -- not just the synthetic
-    // temp-dir contract test in sitemap-assert-contracts.test.ts.
+    // Prove the generate-mode sitemap assertion ran during the real build.
     expect(fixture.stdout).toMatch(/Content sitemap assertion passed for \d+ sitemaps?\./)
   }, 300000)
 

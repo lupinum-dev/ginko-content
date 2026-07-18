@@ -14,7 +14,6 @@ type SitemapSourcesHookContext = {
   sources: SitemapSource[]
 }
 
-const LEGACY_NUXT_CONTENT_V2_SOURCE = '@nuxt/content@v2:urls'
 export default defineNitroPlugin((nitro) => {
   ;(nitro.hooks.hook as any)('sitemap:sources', (ctx: SitemapSourcesHookContext) => {
     const runtimeConfig = getContentRuntimeConfig()
@@ -27,10 +26,8 @@ export default defineNitroPlugin((nitro) => {
 
     const fetch = resolveContentSitemapSource(apiBaseURL, sitemap.path || '/sitemap')
 
-    // Nuxt Sitemap can auto-register the upstream Nuxt Content v2 adapter.
-    // Ginko owns its source explicitly, so remove the legacy source when it appears.
     ctx.sources = ctx.sources.filter((source) => {
-      return source.context?.name !== LEGACY_NUXT_CONTENT_V2_SOURCE && source.context?.name !== GINKO_SITEMAP_SOURCE_NAME
+      return source.context?.name !== GINKO_SITEMAP_SOURCE_NAME
     })
 
     ctx.sources.push({

@@ -4,8 +4,7 @@ import { useAsyncData } from '#imports'
 import { one } from '@lupinum/ginko-content/client'
 import { docs } from '../content.config'
 
-// `variants()`/`useContentVariants` were deleted —
-// alternates now live directly on a resolved document's `route.alternates`.
+// Alternates live directly on a resolved document's `route.alternates`.
 
 // Fully-translated doc — both en and de variants exist.
 const { data: fullyTranslatedDoc } = await useAsyncData(

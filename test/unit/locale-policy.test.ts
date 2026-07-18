@@ -1,10 +1,13 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
   LocalePolicyError,
   resolveLocalePolicy,
   validateLocaleFallback
 } from '../../packages/content/src/features/localization/locale-policy'
 import type { LocalePolicyInput } from '../../packages/content/src/features/localization/locale-policy'
+import { resolveCollectionI18nConfig } from '../../packages/content/src/features/localization/config'
+import { defineCollection, defineContentConfig } from '../../packages/content/src/types/config'
+import { getCollectionPath } from '../../packages/content/src/features/query/routes'
 
 /**
  * Unit tests for the immutable locale-policy resolver.
@@ -121,6 +124,33 @@ describe('resolveLocalePolicy — per-collection policy', () => {
     })
   })
 
+  test('localized collections preserve their own locale set, default, fallback, and translated route mounts', () => {
+    const policy = resolveLocalePolicy({
+      ...baseInput,
+      content: {
+        ...baseInput.content,
+        locales: ['en', 'de', 'fr'],
+        fallback: { de: ['fr', 'en'], fr: ['en'] }
+      },
+      collections: [{
+        name: 'docs',
+        localized: true,
+        locales: ['en', 'de'],
+        defaultLocale: 'en',
+        route: { en: '/docs', de: '/dokumentation' }
+      }]
+    })
+
+    expect(policy.collections.docs).toEqual({
+      localized: true,
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      fallback: { de: ['en'] },
+      translatedSlugs: false,
+      routeMounts: { en: '/docs', de: '/dokumentation' }
+    })
+  })
+
   // Immutability is a type-level contract (`Readonly<...>`), not a runtime
   // `Object.freeze()` — the resolved policy is embedded by reference into
   // Nuxt/Nitro runtime config, and Nitro's own runtime-config normalization
@@ -164,5 +194,67 @@ describe('validateLocaleFallback', () => {
   test('preserves declared fallback ordering exactly', () => {
     const result = validateLocaleFallback({ 'de-AT': ['de', 'en'] }, locales)
     expect(result['de-AT']).toEqual(['de', 'en'])
+  })
+})
+
+describe('collection locale configuration', () => {
+  test('resolves collection i18n from the global content config by default', () => {
+    expect(resolveCollectionI18nConfig({ source: 'authors/*.yml' }, {
+      defaultLocale: 'en',
+      locales: ['en', 'de']
+    })).toEqual({
+      defaultLocale: 'en',
+      locales: ['en', 'de']
+    })
+  })
+
+  test('prefers explicit per-collection i18n config', () => {
+    expect(resolveCollectionI18nConfig({
+      source: 'authors/*.yml',
+      i18n: {
+        defaultLocale: 'fr',
+        locales: ['fr', 'en']
+      }
+    }, {
+      defaultLocale: 'en',
+      locales: ['en', 'de']
+    })).toEqual({
+      defaultLocale: 'fr',
+      locales: ['fr', 'en']
+    })
+  })
+
+  test('builds localized collection paths from collection route config', () => {
+    const config = defineContentConfig({
+      collections: {
+        authors: defineCollection({
+          type: 'data',
+          source: 'authors/*.yml',
+          route: {
+            en: '/authors',
+            de: '/autoren'
+          },
+          i18n: {
+            defaultLocale: 'en',
+            locales: ['en', 'de']
+          }
+        })
+      }
+    })
+    const authors = config.collections.authors
+
+    expect(getCollectionPath(authors, { slug: 'alexia', locale: 'en' })).toBe('/authors/alexia')
+    expect(getCollectionPath(authors, { slug: 'alexia', locale: 'de' })).toBe('/de/autoren/alexia')
+    expect(getCollectionPath(authors, { slug: ['team', 'alexia'], locale: 'de', canonical: true })).toBe('/autoren/team/alexia')
+  })
+
+  test('returns undefined for i18n shorthand without global config', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(resolveCollectionI18nConfig({
+      source: 'authors/*.yml',
+      i18n: true
+    }, undefined, { warnMissingGlobal: true })).toBeUndefined()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('set i18n: true but no content.i18n config was found in nuxt.config.ts'))
+    warn.mockRestore()
   })
 })

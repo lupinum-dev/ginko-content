@@ -46,15 +46,11 @@ export async function inspectPublicApiUsage(rootDir: string): Promise<DoctorFind
     {
       // `content.preview` is a real Ginko option (ContentPreviewOptions), unlike
       // `content.database`/`content.build`, so it is not flagged as a v3
-      // leftover. This rule only reminds authors of its actual scope: the
-      // filesystem provider always shows drafts/partials in development, and a
-      // configured token additionally unlocks visibility for files already
-      // present in a deployed filesystem checkout. It does not fetch
-      // not-yet-published content — that kind of production preview workflow
-      // is owned by a CMS provider, not the filesystem provider.
+      // leftover. It protects preview-storage overlay reads; it is not a
+      // production filesystem-preview switch or a partial-visibility switch.
       pattern: /\bcontent\.preview\b/,
       message: 'content.preview configuration found.',
-      suggestion: 'content.preview only gates draft/partial visibility for the filesystem provider; it always applies in development. In production it unlocks drafts already present in the deployed content directory — it is not a substitute for a provider-owned preview workflow that fetches unpublished content.',
+      suggestion: 'content.preview protects filesystem preview-storage overlays. Ordinary drafts are visible in development, partials remain structural non-routes, and authenticated filesystem preview is unsupported in production; use provider-owned preview there.',
       severity: 'info'
     },
     {

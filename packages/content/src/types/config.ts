@@ -270,9 +270,10 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
    */
   strict?: boolean
   /**
-   * Per-collection locale settings. Use `true` to inherit the module-level i18n config.
+   * Per-collection locale settings. Use `true` to inherit the module-level
+   * i18n config or `false` to opt this collection out of global localization.
    */
-  i18n?: true | ContentCollectionI18nConfig
+  i18n?: boolean | ContentCollectionI18nConfig
   /**
    * Public route mount for this collection. Used to resolve `by.route`
    * selectors and to emit requested-locale URLs for fallback content.

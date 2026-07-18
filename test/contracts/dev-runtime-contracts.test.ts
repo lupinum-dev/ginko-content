@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
 describe('content dev runtime', () => {
-  test('invalidates aggregate and parsed caches for changed source content', async () => {
+  test('invalidates the parsed cache for changed source content', async () => {
     const { registerContentDevRuntime } = await import('../../packages/content/src/module/dev')
 
     let nitroInit: ((nitro: any) => Promise<void>) | undefined
@@ -52,10 +52,6 @@ describe('content dev runtime', () => {
 
     await watchHandler?.('update', 'content:source:content:en/docs/intro.md')
 
-    // `_manifest.json`/`_nav.json`/`_meta.json` are deleted derivatives
-    // — dev never persists them, so there is nothing
-    // to invalidate for them anymore; only the per-source parsed cache entry
-    // is invalidated.
     expect(removeItem).toHaveBeenCalledTimes(1)
     expect(removeItem).toHaveBeenCalledWith('cache:content:parsed:content:en/docs/intro.md')
     expect(viteSend).toHaveBeenCalledWith({
@@ -115,7 +111,7 @@ describe('content dev runtime', () => {
     await nitroInit?.(nitro)
     removeItem.mockClear()
 
-    await watchHandler?.('update', 'cache:content:_manifest.json')
+    await watchHandler?.('update', 'cache:other:item')
 
     expect(removeItem).not.toHaveBeenCalled()
   })

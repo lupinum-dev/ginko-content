@@ -1,9 +1,15 @@
 import { describe, expect, test } from 'vitest'
+import { z } from 'zod'
 
 import {
   fields,
   getContentFieldMetadata,
 } from '../../packages/content/src/types/fields'
+import { reference } from '../../packages/content/src/types/config'
+import {
+  collectTopLevelReferenceFields,
+  collectTopLevelReferenceFieldsByTarget
+} from '../../packages/content/src/core/references/schema'
 
 describe('content schema fields', () => {
   test('marks scalar helpers optional until required is requested', () => {
@@ -119,5 +125,21 @@ describe('content schema fields', () => {
       type: 'relations',
       relation: { collectionId: 'authors', multiple: true },
     })
+  })
+
+  test('derives backlink relation metadata from top-level schema references', () => {
+    const schema = z.object({
+      authors: fields.relations('authors'),
+      editor: fields.relation('authors'),
+      related: z.array(reference('posts')),
+      external: reference()
+    })
+
+    expect(collectTopLevelReferenceFieldsByTarget(schema)).toEqual({
+      authors: ['authors', 'editor'],
+      posts: ['related'],
+      '*': ['external']
+    })
+    expect(collectTopLevelReferenceFields(schema, 'authors')).toEqual(['authors', 'editor', 'external'])
   })
 })

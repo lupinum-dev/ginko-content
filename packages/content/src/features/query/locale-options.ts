@@ -25,5 +25,6 @@ export const resolveFallback = (
   runtime: RuntimeContentConfig | undefined
 ): Exclude<LocaleFallback, 'default'> | undefined => {
   if (fallback !== 'default') return fallback
-  return collectionDefaultLocale(collection, runtime)
+  const defaultLocale = collectionDefaultLocale(collection, runtime)
+  return defaultLocale ? [defaultLocale] : []
 }

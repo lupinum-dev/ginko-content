@@ -15,9 +15,17 @@
  *, so `$nin` (and any future operator) cannot drift between
  * the public type, the filesystem executor, and this boundary.
  */
-import type { ContentQueryBuilderParams } from '../../types/query'
-import { LOGICAL_QUERY_OPERATORS, PUBLIC_QUERY_OPERATORS } from '../../core/query/operators'
-import { MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../../features/query/public-limits'
+import {
+  CONTENT_QUERY_CURSOR_PAGING_KEYS,
+  CONTENT_QUERY_INPUT_KEYS,
+  CONTENT_QUERY_OFFSET_PAGING_KEYS,
+  CONTENT_QUERY_RESOLUTION_KEYS,
+  CONTENT_QUERY_TYPE_VALUES,
+  CONTENT_QUERY_VARIANT_SELECTOR_KEYS,
+  type ContentProviderQueryInput
+} from '../../types/query'
+import { isValidQueryCollationLocale, isValidQueryFieldPath, LOGICAL_QUERY_OPERATORS, PUBLIC_QUERY_OPERATORS } from '../../core/query/operators'
+import { MAX_PUBLIC_QUERY_CURSOR_BYTES, MAX_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_SKIP } from '../../core/query/limits'
 
 /** Transport safety limits — NOT provider capabilities. */
 export const MAX_QUERY_REQUEST_BYTES = 32_768
@@ -27,14 +35,17 @@ export const MAX_SELECTION_ENTRIES = 64
 export const MAX_SORT_ENTRIES = 16
 export const MAX_STRING_OPERAND_LENGTH = 1_000
 export const MAX_ARRAY_OPERAND_LENGTH = 200
-export const MAX_CURSOR_BYTES = 4_096
 export const MAX_FIELD_PATH_LENGTH = 200
 export const MAX_COLLECTION_NAME_LENGTH = 200
+export const MAX_LOCALE_NAME_LENGTH = 200
 
 const KNOWN_OPERATOR_KEYS = new Set<string>([
   ...PUBLIC_QUERY_OPERATORS,
   ...LOGICAL_QUERY_OPERATORS
 ])
+const QUERY_TYPE_VALUES = new Set<string>(CONTENT_QUERY_TYPE_VALUES)
+const ARRAY_OPERATORS = new Set(['$in', '$nin', '$containsAny'])
+const STRING_OPERATORS = new Set(['$icontains', '$prefix'])
 
 const SORT_PARAM_KEYS = new Set(['$locale', '$numeric', '$caseFirst', '$sensitivity'])
 const CASE_FIRST_VALUES = new Set(['upper', 'lower', 'false'])
@@ -47,13 +58,16 @@ export interface QueryValidationFailure {
 }
 
 export type QueryValidationResult =
-  | { ok: true, value: ContentQueryBuilderParams }
+  | { ok: true, value: ContentProviderQueryInput }
   | { ok: false, error: QueryValidationFailure }
 
 const fail = (path: string, reason: string): QueryValidationResult => ({ ok: false, error: { path, reason } })
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+  Boolean(value)
+  && typeof value === 'object'
+  && !Array.isArray(value)
+  && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
 
 const isFiniteInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value)
@@ -77,6 +91,15 @@ class ValidationError extends Error {
 
 const bad = (path: string, reason: string): never => {
   throw new ValidationError(path, reason)
+}
+
+const validateFieldPath = (field: string, path: string): void => {
+  if (!isValidQueryFieldPath(field)) {
+    return bad(path, 'Field paths must use non-empty segments and must not contain __proto__, prototype, or constructor.')
+  }
+  if (field.length > MAX_FIELD_PATH_LENGTH) {
+    return bad(path, `Field path exceeds ${MAX_FIELD_PATH_LENGTH} characters.`)
+  }
 }
 
 const assertNoUnknownKeys = (value: Record<string, unknown>, allowed: ReadonlySet<string>, path: string) => {
@@ -129,19 +152,19 @@ const validateFieldValue = (value: Record<string, unknown>, path: string, depth:
     return bad(path, `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.`)
   }
 
+  const keys = Object.keys(value)
+  if (keys.length === 0) {
+    return bad(path, 'Filter objects cannot be empty.')
+  }
+  const operatorKeys = keys.filter(key => key.startsWith('$'))
+  if (operatorKeys.length > 0 && operatorKeys.length !== keys.length) {
+    return bad(path, 'Operator objects cannot mix operator and nested-field keys.')
+  }
+
   for (const [key, entry] of Object.entries(value)) {
     if (key.startsWith('$')) {
-      if (!KNOWN_OPERATOR_KEYS.has(key) || key === '$and' || key === '$or') {
+      if (!KNOWN_OPERATOR_KEYS.has(key) || key === '$and' || key === '$or' || key === '$not') {
         return bad(`${path}.${key}`, `Unknown query operator "${key}".`)
-      }
-
-      if (key === '$not') {
-        if (isPlainObject(entry)) {
-          validateFieldValue(entry, `${path}.$not`, depth + 1)
-        } else {
-          validateOperand(entry, `${path}.$not`, depth)
-        }
-        continue
       }
 
       if (key === '$exists') {
@@ -152,9 +175,25 @@ const validateFieldValue = (value: Record<string, unknown>, path: string, depth:
       }
 
       if (key === '$type') {
-        if (typeof entry !== 'string') {
-          return bad(`${path}.$type`, '$type must be a string.')
+        if (typeof entry !== 'string' || !QUERY_TYPE_VALUES.has(entry)) {
+          return bad(`${path}.$type`, `$type must be one of ${CONTENT_QUERY_TYPE_VALUES.join(', ')}.`)
         }
+        continue
+      }
+
+      if (ARRAY_OPERATORS.has(key)) {
+        if (!Array.isArray(entry)) {
+          return bad(`${path}.${key}`, `${key} must be an array.`)
+        }
+        validateOperand(entry, `${path}.${key}`, depth)
+        continue
+      }
+
+      if (STRING_OPERATORS.has(key)) {
+        if (typeof entry !== 'string') {
+          return bad(`${path}.${key}`, `${key} must be a string.`)
+        }
+        validateOperand(entry, `${path}.${key}`, depth)
         continue
       }
 
@@ -163,6 +202,7 @@ const validateFieldValue = (value: Record<string, unknown>, path: string, depth:
     }
 
     // Non-`$` key: nested field path — recurse, still bounded by depth.
+    validateFieldPath(key, `${path}.${key}`)
     validateOperand(entry, `${path}.${key}`, depth + 1)
   }
 }
@@ -174,11 +214,17 @@ const validateWhereCondition = (condition: unknown, path: string, depth: number)
   if (!isPlainObject(condition)) {
     return bad(path, 'Filter condition must be an object.')
   }
+  if (Object.keys(condition).length === 0) {
+    return bad(path, 'Filter conditions cannot be empty.')
+  }
 
   for (const [key, value] of Object.entries(condition)) {
     if (key === '$and' || key === '$or') {
       if (!Array.isArray(value)) {
         return bad(`${path}.${key}`, `${key} must be an array.`)
+      }
+      if (value.length === 0) {
+        return bad(`${path}.${key}`, `${key} cannot be empty.`)
       }
       if (value.length > MAX_LOGICAL_GROUP_MEMBERS) {
         return bad(`${path}.${key}`, `${key} exceeds ${MAX_LOGICAL_GROUP_MEMBERS} members.`)
@@ -188,11 +234,13 @@ const validateWhereCondition = (condition: unknown, path: string, depth: number)
     }
 
     if (key === '$not') {
-      if (isPlainObject(value)) {
-        validateWhereCondition(value, `${path}.$not`, depth + 1)
-      } else {
-        validateOperand(value, `${path}.$not`, depth)
+      if (!isPlainObject(value)) {
+        return bad(`${path}.$not`, '$not must contain a filter condition object.')
       }
+      if (Object.keys(value).length === 0) {
+        return bad(`${path}.$not`, '$not cannot contain an empty filter condition.')
+      }
+      validateWhereCondition(value, `${path}.$not`, depth + 1)
       continue
     }
 
@@ -200,16 +248,16 @@ const validateWhereCondition = (condition: unknown, path: string, depth: number)
       return bad(`${path}.${key}`, `Unknown top-level query key "${key}".`)
     }
 
-    if (key.length > MAX_FIELD_PATH_LENGTH) {
-      return bad(`${path}.${key}`, `Field path exceeds ${MAX_FIELD_PATH_LENGTH} characters.`)
-    }
-
+    validateFieldPath(key, `${path}.${key}`)
     validateOperand(value, `${path}.${key}`, depth + 1)
   }
 }
 
 const validateWhere = (where: unknown, path: string): void => {
   if (where === undefined) return
+  if (Array.isArray(where) && where.length === 0) {
+    return bad(path, 'Filter conditions cannot be empty.')
+  }
   const conditions = Array.isArray(where) ? where : [where]
   conditions.forEach((condition, index) => validateWhereCondition(condition, `${path}[${index}]`, 1))
 }
@@ -231,20 +279,25 @@ const validateSort = (sort: unknown, path: string): void => {
         if (!SORT_PARAM_KEYS.has(key)) {
           return bad(`${path}[${index}].${key}`, `Unknown sort parameter "${key}".`)
         }
-        if (key === '$locale' && typeof value !== 'string') {
-          return bad(`${path}[${index}].$locale`, '$locale must be a string.')
+        if (key === '$locale' && (
+          typeof value !== 'string'
+          || value.length > MAX_LOCALE_NAME_LENGTH
+          || !isValidQueryCollationLocale(value)
+        )) {
+          return bad(`${path}[${index}].$locale`, `$locale must be a valid locale no longer than ${MAX_LOCALE_NAME_LENGTH} characters.`)
         }
         if (key === '$numeric' && typeof value !== 'boolean') {
           return bad(`${path}[${index}].$numeric`, '$numeric must be a boolean.')
         }
-        if (key === '$caseFirst' && !CASE_FIRST_VALUES.has(String(value))) {
+        if (key === '$caseFirst' && (typeof value !== 'string' || !CASE_FIRST_VALUES.has(value))) {
           return bad(`${path}[${index}].$caseFirst`, '$caseFirst must be one of upper, lower, false.')
         }
-        if (key === '$sensitivity' && !SENSITIVITY_VALUES.has(String(value))) {
+        if (key === '$sensitivity' && (typeof value !== 'string' || !SENSITIVITY_VALUES.has(value))) {
           return bad(`${path}[${index}].$sensitivity`, '$sensitivity must be one of base, accent, case, variant.')
         }
         continue
       }
+      validateFieldPath(key, `${path}[${index}].${key}`)
       if (value !== 1 && value !== -1) {
         return bad(`${path}[${index}].${key}`, 'Sort direction must be 1 or -1.')
       }
@@ -261,11 +314,10 @@ const validateSelection = (value: unknown, path: string): void => {
     return bad(path, `Selection exceeds ${MAX_SELECTION_ENTRIES} entries.`)
   }
   value.forEach((entry, index) => {
-    if (typeof entry !== 'string' || !entry.length) {
+    if (typeof entry !== 'string') {
       return bad(`${path}[${index}]`, 'Each selection entry must be a non-empty string.')
-    } else if (entry.length > MAX_FIELD_PATH_LENGTH) {
-      return bad(`${path}[${index}]`, `Field path exceeds ${MAX_FIELD_PATH_LENGTH} characters.`)
     }
+    validateFieldPath(entry, `${path}[${index}]`)
   })
 }
 
@@ -275,6 +327,13 @@ const validatePagingNumber = (value: unknown, path: string, max: number): void =
   }
   if ((value as number) > max) {
     return bad(path, `Exceeds maximum of ${max}.`)
+  }
+}
+
+const validatePositivePagingLimit = (value: unknown, path: string): void => {
+  validatePagingNumber(value, path, MAX_PUBLIC_QUERY_LIMIT)
+  if (value === 0) {
+    return bad(path, 'Paging limit must be a positive integer.')
   }
 }
 
@@ -294,10 +353,9 @@ const validateSkipLimit = (params: Record<string, unknown>, path: string): void 
  * actually ADVERTISED by the provider is a capability-preflight concern
  * enforced later, before provider dispatch (`providers/index.ts`).
  *
- * This closes `paging.skip`/`paging.page` against cursor mode; the sibling
- * check against the *top-level* `skip` field (offset paging's legacy/flat
- * shorthand) lives in `validateContentQueryRequestBody`, since it spans both
- * `raw.skip` and `raw.paging` and is not local to this object.
+ * This closes `paging.skip`/`paging.page` against cursor mode. The sibling
+ * check against duplicate top-level `skip`/`limit` values lives in
+ * `validateContentQueryRequestBody`, since it spans both objects.
  */
 const validatePaging = (paging: unknown, path: string): void => {
   if (paging === undefined) return
@@ -306,32 +364,62 @@ const validatePaging = (paging: unknown, path: string): void => {
   }
 
   if (paging.mode === 'offset') {
-    assertNoUnknownKeys(paging, new Set(['mode', 'skip', 'limit']), path)
+    assertNoUnknownKeys(paging, new Set(CONTENT_QUERY_OFFSET_PAGING_KEYS), path)
     if ('after' in paging) {
       return bad(`${path}.after`, 'Offset paging must not carry a cursor `after` value.')
     }
     validatePagingNumber(paging.skip, `${path}.skip`, MAX_PUBLIC_QUERY_SKIP)
-    validatePagingNumber(paging.limit, `${path}.limit`, MAX_PUBLIC_QUERY_LIMIT)
+    validatePositivePagingLimit(paging.limit, `${path}.limit`)
     return
   }
 
   if (paging.mode === 'cursor') {
-    assertNoUnknownKeys(paging, new Set(['mode', 'after', 'limit']), path)
+    assertNoUnknownKeys(paging, new Set(CONTENT_QUERY_CURSOR_PAGING_KEYS), path)
     if ('skip' in paging || 'page' in paging) {
       return bad(`${path}.skip`, 'Cursor paging must not carry offset `skip`/`page` values.')
     }
     if (paging.after !== undefined && paging.after !== null) {
       if (typeof paging.after !== 'string') {
         return bad(`${path}.after`, 'Cursor `after` must be a string or null.')
-      } else if (byteLength(paging.after) > MAX_CURSOR_BYTES) {
-        return bad(`${path}.after`, `Cursor exceeds ${MAX_CURSOR_BYTES} bytes.`)
+      } else if (byteLength(paging.after) > MAX_PUBLIC_QUERY_CURSOR_BYTES) {
+        return bad(`${path}.after`, `Cursor exceeds ${MAX_PUBLIC_QUERY_CURSOR_BYTES} bytes.`)
       }
     }
-    validatePagingNumber(paging.limit, `${path}.limit`, MAX_PUBLIC_QUERY_LIMIT)
+    validatePositivePagingLimit(paging.limit, `${path}.limit`)
     return
   }
 
   return bad(`${path}.mode`, 'paging.mode must be "offset" or "cursor".')
+}
+
+const validateLocaleResolutionOptions = (value: Record<string, unknown>, path: string): void => {
+  if (value.locale !== undefined) {
+    if (typeof value.locale !== 'string' || !value.locale.length) {
+      return bad(`${path}.locale`, 'locale must be a non-empty string.')
+    }
+    if (value.locale.length > MAX_LOCALE_NAME_LENGTH) {
+      return bad(`${path}.locale`, `locale exceeds ${MAX_LOCALE_NAME_LENGTH} characters.`)
+    }
+  }
+  if (value.fallback !== undefined && typeof value.fallback !== 'boolean' && !Array.isArray(value.fallback)) {
+    return bad(`${path}.fallback`, 'fallback must be a boolean or an array of locale strings.')
+  }
+  if (Array.isArray(value.fallback)) {
+    if (value.fallback.length > MAX_ARRAY_OPERAND_LENGTH) {
+      return bad(`${path}.fallback`, `fallback exceeds ${MAX_ARRAY_OPERAND_LENGTH} entries.`)
+    }
+    for (const [index, entry] of value.fallback.entries()) {
+      if (typeof entry !== 'string' || !entry.length) {
+        return bad(`${path}.fallback[${index}]`, 'Each fallback locale must be a non-empty string.')
+      }
+      if (entry.length > MAX_LOCALE_NAME_LENGTH) {
+        return bad(`${path}.fallback[${index}]`, `Locale exceeds ${MAX_LOCALE_NAME_LENGTH} characters.`)
+      }
+    }
+  }
+  if (value.exact !== undefined && typeof value.exact !== 'boolean') {
+    return bad(`${path}.exact`, 'exact must be a boolean.')
+  }
 }
 
 const validateResolveLocale = (value: unknown, path: string): void => {
@@ -339,23 +427,8 @@ const validateResolveLocale = (value: unknown, path: string): void => {
   if (!isPlainObject(value)) {
     return bad(path, 'resolveLocale must be an object.')
   }
-  assertNoUnknownKeys(value, new Set(['locale', 'fallback', 'exact']), path)
-  if (value.locale !== undefined && typeof value.locale !== 'string') {
-    return bad(`${path}.locale`, 'locale must be a string.')
-  }
-  if (value.fallback !== undefined && typeof value.fallback !== 'boolean' && !Array.isArray(value.fallback)) {
-    return bad(`${path}.fallback`, 'fallback must be a boolean or an array of locale strings.')
-  }
-  if (Array.isArray(value.fallback)) {
-    value.fallback.forEach((entry: unknown, index: number) => {
-      if (typeof entry !== 'string') {
-        return bad(`${path}.fallback[${index}]`, 'Each fallback locale must be a string.')
-      }
-    })
-  }
-  if (value.exact !== undefined && typeof value.exact !== 'boolean') {
-    return bad(`${path}.exact`, 'exact must be a boolean.')
-  }
+  assertNoUnknownKeys(value, new Set(CONTENT_QUERY_RESOLUTION_KEYS), path)
+  validateLocaleResolutionOptions(value, path)
 }
 
 /**
@@ -367,7 +440,10 @@ const validateResolveVariant = (value: unknown, path: string): void => {
   if (!isPlainObject(value)) {
     return bad(path, 'resolveVariant must be an object.')
   }
-  assertNoUnknownKeys(value, new Set(['path', 'route', 'ref', 'locale', 'fallback', 'exact']), path)
+  assertNoUnknownKeys(value, new Set([
+    ...CONTENT_QUERY_VARIANT_SELECTOR_KEYS,
+    ...CONTENT_QUERY_RESOLUTION_KEYS
+  ]), path)
 
   const selectors = (['path', 'route', 'ref'] as const).filter(key => value[key] !== undefined)
   if (selectors.length !== 1) {
@@ -378,35 +454,12 @@ const validateResolveVariant = (value: unknown, path: string): void => {
       return bad(`${path}.${key}`, `${key} must be a non-empty string.`)
     }
   }
-  if (value.locale !== undefined && typeof value.locale !== 'string') {
-    return bad(`${path}.locale`, 'locale must be a string.')
-  }
-  if (value.fallback !== undefined && typeof value.fallback !== 'boolean' && !Array.isArray(value.fallback)) {
-    return bad(`${path}.fallback`, 'fallback must be a boolean or an array of locale strings.')
-  }
-  if (value.exact !== undefined && typeof value.exact !== 'boolean') {
-    return bad(`${path}.exact`, 'exact must be a boolean.')
-  }
+  validateLocaleResolutionOptions(value, path)
 }
-
-const TOP_LEVEL_KEYS = new Set([
-  'collection',
-  'where',
-  'sort',
-  'only',
-  'without',
-  'skip',
-  'limit',
-  'first',
-  'count',
-  'resolveLocale',
-  'resolveVariant',
-  'paging'
-])
 
 /**
  * Validate a decoded content-query HTTP request body against the closed
- * `ContentQueryBuilderParams` wire shape. Pure — never touches
+ * `ContentProviderQueryInput` wire shape. Pure — never touches
  * H3, the provider, or the lowerer. Returns a discriminated result instead of
  * throwing so the H3 adapter controls the exact 400 response shape.
  */
@@ -416,7 +469,7 @@ export const validateContentQueryRequestBody = (raw: unknown): QueryValidationRe
       return fail('$', 'Request body must be a JSON object.')
     }
 
-    assertNoUnknownKeys(raw, TOP_LEVEL_KEYS, '$')
+    assertNoUnknownKeys(raw, new Set(CONTENT_QUERY_INPUT_KEYS), '$')
 
     if (raw.collection !== undefined) {
       if (typeof raw.collection !== 'string' || !raw.collection.length) {
@@ -434,8 +487,9 @@ export const validateContentQueryRequestBody = (raw: unknown): QueryValidationRe
     validateSkipLimit(raw, '$')
     validatePaging(raw.paging, '$.paging')
 
-    if (isPlainObject(raw.paging) && raw.paging.mode === 'cursor' && raw.skip !== undefined) {
-      return bad('$.skip', 'Top-level `skip` must not be combined with cursor paging (`paging.mode: "cursor"`).')
+    if (raw.paging !== undefined && (raw.skip !== undefined || raw.limit !== undefined)) {
+      const field = raw.skip !== undefined ? 'skip' : 'limit'
+      return bad(`$.${field}`, `Top-level \`${field}\` must not be combined with \`paging\`.`)
     }
     validateResolveLocale(raw.resolveLocale, '$.resolveLocale')
     validateResolveVariant(raw.resolveVariant, '$.resolveVariant')
@@ -446,8 +500,14 @@ export const validateContentQueryRequestBody = (raw: unknown): QueryValidationRe
     if (raw.count !== undefined && typeof raw.count !== 'boolean') {
       return bad('$.count', 'count must be a boolean.')
     }
+    if (raw.first === true && raw.count === true) {
+      return bad('$.first', 'first and count are mutually exclusive terminals.')
+    }
+    if ((raw.first === true || raw.count === true) && raw.paging !== undefined) {
+      return bad('$.paging', 'paging is only valid for list queries.')
+    }
 
-    return { ok: true, value: raw as unknown as ContentQueryBuilderParams }
+    return { ok: true, value: raw as unknown as ContentProviderQueryInput }
   } catch (error) {
     if (error instanceof ValidationError) {
       return fail(error.path, error.reason)

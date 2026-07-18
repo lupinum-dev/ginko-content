@@ -20,6 +20,10 @@ Use this guide when changing Nuxt module setup, generated imports, runtime confi
 - Generated imports and generated declarations must stay in sync.
 - Runtime config must keep secrets private and public config serializable.
 - Nitro hooks may be registered before `modules:done`; hook execution should prefer finalized context when available.
+- Content-backed prerender routes come from `module/integration-hooks.ts`; applications must not duplicate them in `nitro.prerender.routes`.
+- Sitemap entries are registered through the upstream `sitemap:sources` hook in `runtime/server/plugins/sitemap.ts`; do not patch Nuxt Sitemap virtual modules.
+- Static sitemap assertions run after Nuxt Sitemap finishes its prerender output. The compiled hook is only the server-build fallback.
+- `useContentPage()` registers localized route metadata so Nuxt I18n receives route-template-aware parameters.
 
 ## Public API Impact
 
@@ -31,7 +35,7 @@ Module setup changes can affect:
 - runtime config shape.
 - docs examples and quickstarts.
 
-Update public-surface metadata and runtime-assets contracts when generated imports or declarations change.
+Update generated API docs, type fixtures, and runtime-assets contracts when generated imports or declarations change.
 
 ## Provider Impact
 

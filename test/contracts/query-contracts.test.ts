@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent, doc } from './_utils'
 import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
+import { compileQueryParams } from '../../packages/content/src/core/query/filter'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({
@@ -89,8 +90,8 @@ describe('query execution contracts', () => {
 
     getContentsList.mockResolvedValue(dataset)
 
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
     const event = createEvent()
 
@@ -110,7 +111,11 @@ describe('query execution contracts', () => {
           requestedLocale: 'de',
           locale: 'de',
           fallback: false,
-          availableLocales: ['en', 'de']
+          availableLocales: ['en', 'de'],
+          variantPaths: {
+            en: '/guide/intro',
+            de: '/leitfaden/einstieg'
+          }
         }
       },
       {
@@ -119,7 +124,8 @@ describe('query execution contracts', () => {
           requestedLocale: 'de',
           locale: 'en',
           fallback: true,
-          availableLocales: ['en']
+          availableLocales: ['en'],
+          variantPaths: { en: '/guide' }
         }
       },
       {
@@ -128,7 +134,8 @@ describe('query execution contracts', () => {
           requestedLocale: 'de',
           locale: 'de',
           fallback: false,
-          availableLocales: ['de']
+          availableLocales: ['de'],
+          variantPaths: { de: '/leitfaden/mitte' }
         }
       },
       {
@@ -137,7 +144,8 @@ describe('query execution contracts', () => {
           requestedLocale: 'de',
           locale: 'en',
           fallback: true,
-          availableLocales: ['en']
+          availableLocales: ['en'],
+          variantPaths: { en: '/guide/advanced' }
         }
       },
       {
@@ -146,7 +154,11 @@ describe('query execution contracts', () => {
           requestedLocale: 'de',
           locale: 'de',
           fallback: false,
-          availableLocales: ['en', 'de']
+          availableLocales: ['en', 'de'],
+          variantPaths: {
+            en: '/guide/zed',
+            de: '/leitfaden/zed'
+          }
         }
       }
       ],
@@ -204,8 +216,8 @@ describe('query execution contracts', () => {
 
     getContentsList.mockResolvedValue(dataset)
 
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
     const event = createEvent()
 
@@ -300,8 +312,8 @@ describe('query execution contracts', () => {
       })
     ])
 
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     const result = await executeContentQuery(createEvent(), {
@@ -337,27 +349,18 @@ describe('query execution contracts', () => {
   test('canonical query plan applies collection prefilter and projection in the correct order', async () => {
     const { executeQueryPlanOnDocuments } = await import('../../packages/content/src/core/query/execute')
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
-    const { createQuery } = await import('../../packages/content/src/core/query/builder')
     const contents = [
       doc({ collection: 'docs', path: '/guide/intro', title: 'Intro', order: 1, group: 'docs' }),
       doc({ collection: 'docs', path: '/guide/advanced', title: 'Advanced', order: 2, group: 'docs' }),
       doc({ collection: 'blog', path: '/blog/post', title: 'Post', order: 0, group: 'blog' })
     ]
 
-    const query = createQuery(async (builtQuery: any) => {
-      const plan = lowerQueryPlan(builtQuery.params())
-      return executeQueryPlanOnDocuments(contents, plan)
-    }, {
-      initialParams: {
-        collection: 'docs'
-      } as any
-    })
-      .where('path', '=', '/guide/advanced')
-      .where('group', '=', 'docs')
-      .order('order', 'ASC')
-      .select('title', 'path')
-
-    const plan = lowerQueryPlan((query as any).params())
+    const plan = lowerQueryPlan(compileQueryParams({
+      collection: 'docs',
+      where: { path: '/guide/advanced', group: 'docs' },
+      sort: { order: 'asc' },
+      select: ['title', 'path']
+    }))
     const result = executeQueryPlanOnDocuments(contents, plan)
 
     expect(result.result).toEqual([
@@ -370,7 +373,7 @@ describe('query execution contracts', () => {
   // navigationFile) is unconditional — never a route, in any environment —
   // while draft is the one environment-aware publication-visibility fact.
   test('executeContentQuery applies structural exclusion unconditionally and draft visibility per environment', async () => {
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     const dataset = [
@@ -399,8 +402,8 @@ describe('query execution contracts', () => {
   })
 
   test('executeContentQuery rejects empty public graph queries', async () => {
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
@@ -412,8 +415,8 @@ describe('query execution contracts', () => {
   })
 
   test('executeContentQuery rejects public regex filters before graph execution', async () => {
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(Promise.resolve().then(() => executeContentQuery(createEvent(), {
@@ -480,8 +483,8 @@ describe('query execution contracts', () => {
     ]
     getContentsList.mockResolvedValue(dataset)
 
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
+    const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
     await expect(executeContentQuery(createEvent(), {
@@ -500,34 +503,18 @@ describe('query execution contracts', () => {
     })
   })
 
-  test('executeContentQuery clamps public pagination bounds', async () => {
-    const dataset = [
-      doc({ collection: 'docs', id: 'content:guide:a.md', file: { path: '/guide/a.md' }, canonicalKey: 'guide/a', path: '/guide/a', title: 'A', order: 1 }),
-      doc({ collection: 'docs', id: 'content:guide:b.md', file: { path: '/guide/b.md' }, canonicalKey: 'guide/b', path: '/guide/b', title: 'B', order: 2 }),
-      doc({ collection: 'docs', id: 'content:guide:c.md', file: { path: '/guide/c.md' }, canonicalKey: 'guide/c', path: '/guide/c', title: 'C', order: 3 })
-    ]
-
-    getContentsList.mockResolvedValue(dataset)
-
-    const { executeContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // The executor now takes a lowered plan (CS-5); lower builder params here.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
-
-    await expect(executeContentQuery(createEvent(), {
+  test('provider queries reject invalid public pagination instead of clamping it', () => {
+    expect(() => createProviderQuery({
       collection: 'docs',
       sort: [{ order: 1 }],
-      skip: -5,
       limit: 9999
-    } as any)).resolves.toMatchObject({
-      result: [
-        { title: 'A' },
-        { title: 'B' },
-        { title: 'C' }
-      ],
-      skip: 0,
-      limit: 100,
-      total: 3
-    })
+    } as any)).toThrow(/Content query limit/)
+    expect(() => createProviderQuery({
+      collection: 'docs',
+      sort: [{ order: 1 }],
+      skip: -5
+    } as any)).toThrow(/Content query skip/)
+    expect(getContentsList).not.toHaveBeenCalled()
   })
 
   test('module-owned envelope walk covers current query result shapes and rejects nested underscore metadata', () => {

@@ -1,10 +1,11 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { ContentMiniSearchOptions, ContentSearchEngine, ContentSearchPublicRuntimeConfig } from '../types/search'
-import type { ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
+import type { ContentSearchOptions, ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
 import { resolveLocalePolicy } from '../features/localization/locale-policy'
 import type { LocalePolicyCollectionInput, ResolvedLocalePolicy } from '../features/localization/locale-policy'
 import { normalizeContentSitemapAssertOptions } from './sitemap-assert'
 import { GINKO_SITEMAP_SOURCE_NAME, resolveContentSitemapSource } from '../runtime/utils/sitemap-source'
+import { compileWhere } from '../core/query/filter'
 
 type NuxtI18nConfig = {
   defaultLocale?: string
@@ -169,11 +170,16 @@ export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
   const normalizedEngine: ContentSearchEngine = engine === 'pagefind' || engine === 'provider'
     ? engine
     : 'minisearch'
+  const filterQuery = compileWhere(
+    options.search?.filterQuery === undefined
+      ? { partial: false }
+      : options.search.filterQuery
+  )
 
   return {
     engine: normalizedEngine,
     ignoredTags: options.search?.ignoredTags || ['script', 'style', 'pre'],
-    filterQuery: options.search?.filterQuery || { partial: false },
+    filterQuery,
     collections: options.search?.collections,
     extraFields: options.search?.extraFields || [],
     apiBaseURL: options.search?.apiBaseURL,
@@ -236,7 +242,7 @@ export function normalizeMiniSearchOptions (options: Partial<ContentMiniSearchOp
 }
 
 export function createSearchRuntimeConfig(
-  search: Exclude<ModuleOptions['search'], false>,
+  search: Pick<ContentSearchOptions, 'apiBaseURL' | 'engine' | 'minisearch'>,
   apiBaseURL: string
 ): ContentSearchPublicRuntimeConfig {
   const resolvedApiBaseURL = search.apiBaseURL || `${apiBaseURL.replace(/\/$/, '')}/search`

@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
-import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
+import { executeQueryPlan, executeQueryPlanOnDocuments } from '../../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
-import type { ContentQueryBuilderWhere } from '../../packages/content/src/types/query'
+import type { ContentProviderQueryWhere } from '../../packages/content/src/types/query'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
 /**
- * Behavior suite (T6.2 #1): the complete `CompareOperator` matrix executed
+ * The complete `CompareOperator` matrix executes
  * through `executeQueryPlan` — the real public execution path — never through
  * the internal `compareOperators` table. A fixed 12-document dataset gives each
  * operator a hit case, a miss case, and an edge case (null field, empty/array
@@ -60,7 +60,7 @@ const graph = buildContentGraph(ROWS.map(row => ({
 // Run a where clause through the full plan → graph executor and return the
 // matched documents' `n` values, numerically sorted so assertions are
 // order-independent (sort behavior has its own suite).
-const match = (where: ContentQueryBuilderWhere): number[] => {
+const match = (where: ContentProviderQueryWhere): number[] => {
   const plan = lowerQueryPlan({ collection: 'docs', where: [where] } as never)
   const response = executeQueryPlan<Record<string, unknown>>(graph, plan)
   return (response.result as Array<Record<string, unknown>>)
@@ -147,5 +147,44 @@ describe('query operator matrix (executeQueryPlan)', () => {
   test('prefix — startsWith on the raw field value', () => {
     expect(match({ title: { $prefix: 'Ba' } })).toEqual([3])
     expect(match({ title: { $prefix: 'zzz' } })).toEqual([])
+  })
+
+  test('field reads never traverse inherited properties', () => {
+    const inheritedMeta = Object.assign(Object.create({ secret: 'inherited' }) as Record<string, unknown>, { visible: true })
+    const inheritedDocument = Object.assign(Object.create({ secret: 'inherited' }) as Record<string, unknown>, {
+      title: 'inherited-only',
+      meta: inheritedMeta
+    })
+    const ownDocument = {
+      title: 'own',
+      secret: 'own',
+      meta: { secret: 'own' }
+    }
+
+    const topLevel = executeQueryPlanOnDocuments(
+      [inheritedDocument, ownDocument],
+      lowerQueryPlan({ where: [{ secret: { $exists: true } }] } as never)
+    )
+    expect((topLevel.result as Array<Record<string, unknown>>).map(document => document.title)).toEqual(['own'])
+
+    const nested = executeQueryPlanOnDocuments(
+      [inheritedDocument, ownDocument],
+      lowerQueryPlan({ where: [{ 'meta.secret': { $exists: true } }] } as never)
+    )
+    expect((nested.result as Array<Record<string, unknown>>).map(document => document.title)).toEqual(['own'])
+  })
+
+  test('without projection preserves own __proto__ data without changing the result prototype', () => {
+    const document = JSON.parse('{"title":"Visible","secret":"remove","__proto__":{"source":"content"}}') as Record<string, unknown>
+    const response = executeQueryPlanOnDocuments(
+      [document],
+      lowerQueryPlan({ without: ['secret'] } as never)
+    )
+    const projected = (response.result as Array<Record<string, unknown>>)[0]!
+
+    expect(Object.getPrototypeOf(projected)).toBe(Object.prototype)
+    expect(Object.hasOwn(projected, '__proto__')).toBe(true)
+    expect(projected.__proto__).toEqual({ source: 'content' })
+    expect(projected).not.toHaveProperty('secret')
   })
 })

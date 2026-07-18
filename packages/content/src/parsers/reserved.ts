@@ -3,8 +3,7 @@
  * not define these: the system value always wins and a dev/build warning is
  * emitted so authors notice the shadowed key.
  *
- * The former user-facing "explicit id" alias has been retired — authors who
- * want a stable, rename-proof alias for internal links should use `ref`.
+ * Authors who want a stable, rename-proof alias for internal links use `ref`.
  */
 export const RESERVED_CONTENT_KEYS = [
   'id',

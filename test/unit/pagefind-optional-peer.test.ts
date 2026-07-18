@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { assertPagefindAvailable, normalizeSearchOptions } from '../../packages/content/src/module/options'
 
 /**
- * T7.3: `pagefind` is an optional peerDependency. The module-setup guard
+ * `pagefind` is an optional peer dependency. The module-setup guard
  * (`assertPagefindAvailable`, called from `module.ts`) must:
  *   - stay silent for every non-pagefind engine (and when search is off), so a
  *     playground without pagefind installed builds fine, and
@@ -18,6 +18,18 @@ describe('assertPagefindAvailable (module-setup optional-peer guard)', () => {
     expect(() => normalizeSearchOptions({
       search: { engine: 'remote' } as never
     })).toThrow(/Unsupported content\.search\.engine/)
+  })
+
+  test('normalizes public search filters and rejects provider-only values', () => {
+    expect(normalizeSearchOptions({
+      search: { filterQuery: { path: { $prefix: '/docs' } } }
+    })).toMatchObject({
+      filterQuery: { path: { $prefix: '/docs' } }
+    })
+
+    expect(() => normalizeSearchOptions({
+      search: { filterQuery: { title: /docs/i } } as never
+    })).toThrow(/Invalid content query filter/)
   })
 
   test('does nothing when search is disabled', async () => {

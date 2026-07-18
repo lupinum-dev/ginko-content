@@ -2,11 +2,9 @@ import { buildLocaleFallbackChain } from '../../core/content/locale'
 import { mergeCanonicalNavigation, type CanonicalNavigationItem } from './canonical'
 
 /**
- * Navigation always derives fresh from `loadLocaleNavigation`: there is no persisted "single-entry" navigation cache here
- * (the deleted `_nav.json` artifact). `loadLocaleNavigation` itself reads
- * through `storage/graph.ts#getContentGraph`, which is already the one
- * process-cached graph in production and a per-request memo in dev, so
- * this layer does not need its own cache with no revision source.
+ * Navigation derives from `loadLocaleNavigation`, which reads the canonical
+ * content graph. That graph is process-cached in production and memoized per
+ * request in development, so navigation needs no second cache.
  */
 export interface ResolveNavigationRuntime {
   defaultLocale?: string

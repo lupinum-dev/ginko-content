@@ -12,6 +12,7 @@ import {
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
 const packDir = resolve(repoRoot, '.pack')
+const sourceManifest = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))
 
 function run(command, args, cwd = repoRoot, stdio = 'inherit') {
   return execFileSync(command, args, {
@@ -141,11 +142,13 @@ function assertReleaseTarball(tarball) {
       }
     }
 
-    if (!manifest.version || typeof manifest.version !== 'string') {
-      throw new Error('Release manifest is missing version.')
+    if (!manifest.version || manifest.version !== sourceManifest.version) {
+      throw new Error(`Release manifest version differs from the source manifest: ${manifest.version}.`)
     }
-    if (manifest.engines?.node !== '>=22.0.0') {
-      throw new Error(`Release manifest must declare engines.node >=22.0.0, got ${manifest.engines?.node}.`)
+    for (const field of ['engines', 'peerDependencies', 'peerDependenciesMeta']) {
+      if (JSON.stringify(manifest[field]) !== JSON.stringify(sourceManifest[field])) {
+        throw new Error(`Release manifest ${field} differs from packages/content/package.json.`)
+      }
     }
     if (manifest.repository?.url !== 'git+https://github.com/lupinum-dev/ginko-content.git') {
       throw new Error('Release manifest repository URL is missing or unexpected.')
@@ -156,12 +159,6 @@ function assertReleaseTarball(tarball) {
     if (!Array.isArray(manifest.files) || !manifest.files.includes('dist') || !manifest.files.includes('README.md')) {
       throw new Error('Release manifest files list must include dist and README.md.')
     }
-    for (const peer of ['nuxt', 'vue']) {
-      if (!manifest.peerDependencies?.[peer]) {
-        throw new Error(`Release manifest is missing required peer dependency: ${peer}`)
-      }
-    }
-
     for (const file of collectExpectedExportFiles(manifest.exports ?? {})) {
       if (!entrySet.has(file)) {
         throw new Error(`Release tarball is missing exported file: ${file}`)

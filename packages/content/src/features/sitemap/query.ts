@@ -17,7 +17,7 @@ export interface QueryCollectionsSitemapEntriesOptions {
 
 const absoluteUrl = (siteUrl: string, path: string) => `${siteUrl}${path}`
 
-export const buildSitemapAlternatives = (
+const buildSitemapAlternatives = (
   siteUrl: string,
   defaultLocale: string,
   localeToLanguage: Record<string, string>,
@@ -37,7 +37,7 @@ export const buildSitemapAlternatives = (
   return alternatives
 }
 
-export interface ProjectSitemapEntryOptions {
+interface ProjectSitemapEntryOptions {
   siteUrl: string
   defaultLocale: string
   localeToLanguage: Record<string, string>
