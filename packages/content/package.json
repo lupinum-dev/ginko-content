@@ -61,6 +61,11 @@
       "import": "./dist/public/client.js",
       "default": "./dist/public/client.js"
     },
+    "./navigation": {
+      "types": "./dist/public/navigation.d.ts",
+      "import": "./dist/public/navigation.js",
+      "default": "./dist/public/navigation.js"
+    },
     "./agent": {
       "types": "./dist/public/agent.d.ts",
       "import": "./dist/public/agent.js",

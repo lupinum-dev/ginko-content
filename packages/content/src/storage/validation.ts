@@ -154,6 +154,9 @@ const validateNavigationDocument = (document: ParsedContent): Result<void, Conte
   if (typeof document.hidden !== 'undefined' && typeof document.hidden !== 'boolean') {
     invalidFields.push('hidden must be a boolean')
   }
+  if (typeof document.sidebar !== 'undefined' && document.sidebar !== 'section' && document.sidebar !== 'group') {
+    invalidFields.push('sidebar must be "section" or "group"')
+  }
   if (typeof document.navigation !== 'undefined' && typeof document.navigation !== 'boolean' && typeof document.navigation !== 'object') {
     invalidFields.push('navigation must be false or an object')
   }

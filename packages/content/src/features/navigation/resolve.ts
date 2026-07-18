@@ -7,7 +7,17 @@ export type ContentNavigationMatch = {
   title?: string
 }
 
-const normalizePath = (path: string) => path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path
+export type NavigationTreeNode = {
+  path?: string
+  page?: boolean
+  children?: readonly NavigationTreeNode[]
+}
+
+export type NavigationPageNode<T extends NavigationTreeNode> = T & {
+  path: string
+}
+
+export const normalizeNavigationPath = (path: string) => path !== '/' && path.endsWith('/') ? path.replace(/\/+$/, '') : path
 
 const stringValue = (value: unknown) => typeof value === 'string' && value.length ? value : undefined
 
@@ -31,7 +41,7 @@ const fieldMatches = (item: ContentNavigationItem, field: 'path' | 'unprefixedPa
   }
 
   if (field === 'path' || field === 'unprefixedPath') {
-    return normalizePath(candidate) === normalizePath(value)
+    return normalizeNavigationPath(candidate) === normalizeNavigationPath(value)
   }
 
   return candidate === value
@@ -61,17 +71,16 @@ export const matchesNavigationItem = (item: ContentNavigationItem, match: string
 }
 
 export const findFirstNavigationPage = <
-  T = ParsedContentMeta,
-  Select extends ReadonlyArray<keyof T | string> | undefined = undefined
+  T extends NavigationTreeNode = ContentNavigationTreeItem<ParsedContentMeta>
 >(
-  items: ReadonlyArray<ContentNavigationTreeItem<T, Select>> | undefined = []
-): ResolvedContentNavigationItem<T, Select> | null => {
+  items: ReadonlyArray<T> | undefined = []
+): NavigationPageNode<T> | null => {
   for (const item of items) {
-    if ((item as ContentNavigationItem).page !== false && typeof item.path === 'string' && item.path.length > 0) {
-      return item as ResolvedContentNavigationItem<T, Select>
+    if (item.page !== false && typeof item.path === 'string' && item.path.length > 0) {
+      return item as NavigationPageNode<T>
     }
 
-    const child = findFirstNavigationPage(item.children)
+    const child = findFirstNavigationPage(item.children as readonly T[] | undefined)
     if (child) {
       return child
     }
@@ -80,8 +89,55 @@ export const findFirstNavigationPage = <
   return null
 }
 
+export function navigationItemContainsPath<T extends NavigationTreeNode>(
+  item: T,
+  path: string
+): boolean {
+  const normalizedPath = normalizeNavigationPath(path)
+  return (
+    (item.page !== false && typeof item.path === 'string' && normalizeNavigationPath(item.path) === normalizedPath)
+    || Boolean(item.children?.some(child => navigationItemContainsPath(child as T, normalizedPath)))
+  )
+}
+
+export function findNavigationTrail<T extends NavigationTreeNode>(
+  items: readonly T[] | undefined,
+  path: string
+): T[] {
+  const normalizedPath = normalizeNavigationPath(path)
+
+  for (const item of items || []) {
+    if (item.page !== false && typeof item.path === 'string' && normalizeNavigationPath(item.path) === normalizedPath) {
+      return [item]
+    }
+
+    const childTrail = findNavigationTrail(item.children as readonly T[] | undefined, normalizedPath)
+    if (childTrail.length) {
+      return [item, ...childTrail]
+    }
+  }
+
+  return []
+}
+
+/**
+ * Visit navigation items in depth-first pre-order. Returning `false` from the
+ * visitor skips only the current item's children; it does not abort traversal.
+ */
+export function walkNavigationTree<T extends NavigationTreeNode>(
+  items: readonly T[] | undefined,
+  visit: (item: T) => false | undefined
+): void {
+  for (const item of items || []) {
+    const shouldDescend = visit(item)
+    if (shouldDescend !== false) {
+      walkNavigationTree(item.children as readonly T[] | undefined, visit)
+    }
+  }
+}
+
 export const findFirstNavigationChild = (item: ContentNavigationItem | null | undefined): ResolvedContentNavigationItem | null => {
-  return findFirstNavigationPage(item?.children || [])
+  return findFirstNavigationPage(item?.children || []) as ResolvedContentNavigationItem | null
 }
 
 export const findNavigationItem = (

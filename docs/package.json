@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@lupinum/ginko-content": "workspace:*",
-    "@lupinum/ginko-docs": "0.2.2",
+    "@lupinum/ginko-docs": "file:/Users/matthias/Git/2_sites/ginko-docs/layer",
     "nuxt": "^4.4.8"
   }
 }

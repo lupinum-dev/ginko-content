@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, test, vi } from 'vitest'
 import { createEvent, doc, navDoc } from './_utils'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
@@ -311,6 +311,63 @@ describe('navigation contracts', () => {
     expect(findFirstNavigationPage(undefined)).toBeNull()
   })
 
+  test('pure navigation traversal helpers support raw and normalized consumer trees', async () => {
+    const {
+      findFirstNavigationPage,
+      findNavigationTrail,
+      navigationItemContainsPath,
+      normalizeNavigationPath,
+      walkNavigationTree
+    } = await import('../../packages/content/src/public/navigation')
+    type DocsItem = {
+      id: string
+      title: string
+      path?: string
+      sidebar?: 'section' | 'group'
+      children: DocsItem[]
+    }
+    const normalized: DocsItem[] = [
+      {
+        id: 'docs:0',
+        title: 'Docs',
+        sidebar: 'section',
+        children: [
+          { id: 'docs:0.0', title: 'Intro', path: '/docs/intro/', children: [] },
+          {
+            id: 'docs:0.1',
+            title: 'Guide',
+            children: [
+              { id: 'docs:0.1.0', title: 'Deep', path: '/docs/guide/deep', children: [] }
+            ]
+          }
+        ]
+      }
+    ]
+    const readonlyTree: readonly DocsItem[] = normalized
+    const first = findFirstNavigationPage(readonlyTree)
+    expectTypeOf(first).toMatchTypeOf<(DocsItem & { path: string }) | null>()
+    expect(first).toEqual(expect.objectContaining({ id: 'docs:0.0', path: '/docs/intro/' }))
+    expect(normalizeNavigationPath('/docs/intro///')).toBe('/docs/intro')
+    expect(navigationItemContainsPath(normalized[0]!, '/docs/guide/deep/')).toBe(true)
+    expect(navigationItemContainsPath(normalized[0]!, '/docs/missing')).toBe(false)
+    expect(findNavigationTrail(normalized, '/docs/guide/deep/').map(item => item.id)).toEqual([
+      'docs:0',
+      'docs:0.1',
+      'docs:0.1.0'
+    ])
+
+    const visited: string[] = []
+    walkNavigationTree(normalized, (item) => {
+      visited.push(item.id)
+      if (item.id === 'docs:0.1') return false
+    })
+    expect(visited).toEqual(['docs:0', 'docs:0.0', 'docs:0.1'])
+
+    expect(findFirstNavigationPage([
+      { title: 'Raw folder', path: '/must-not-win', page: false, children: [{ title: 'Child', path: '/child' }] }
+    ])).toEqual(expect.objectContaining({ title: 'Child', path: '/child' }))
+  })
+
   test('buildNavigation builds deterministic trees from index pages and folder metadata', async () => {
     const { buildNavigation } = await import('../../packages/content/src/features/navigation/build')
 
@@ -347,6 +404,30 @@ describe('navigation contracts', () => {
         locale: 'de'
       })
     ]))
+  })
+
+  test('navigation yml validation owns the shared sidebar vocabulary', async () => {
+    const { validateCollectionDocument } = await import('../../packages/content/src/storage/validation')
+
+    expect(validateCollectionDocument(doc({
+      id: 'content:en:docs:.navigation.yml',
+      file: { path: '/en/docs/.navigation.yml' },
+      type: 'yaml',
+      navigationFile: true,
+      partial: true,
+      sidebar: 'section'
+    } as any)).ok).toBe(true)
+
+    const invalid = validateCollectionDocument(doc({
+      id: 'content:en:docs:.navigation.yml',
+      file: { path: '/en/docs/.navigation.yml' },
+      type: 'yaml',
+      navigationFile: true,
+      partial: true,
+      sidebar: 'sction'
+    } as any))
+    expect(invalid.ok).toBe(false)
+    expect(invalid.ok ? '' : invalid.error.message).toContain('sidebar must be "section" or "group"')
   })
 
   test('navigation building fails clearly when a page lacks its canonical path', async () => {
@@ -696,6 +777,102 @@ describe('navigation contracts', () => {
 
     expect(navigation).toEqual([expect.objectContaining({ title: 'Deutsche Anleitung', locale: 'de' })])
     expect(navigation).not.toEqual(expect.arrayContaining([expect.objectContaining({ locale: 'en' })]))
+  })
+
+  test('resolveContentNavigation warns once for select fields outside schema and shared vocabulary', async () => {
+    const { z } = await import('zod')
+    ;(runtimeConfig.content as any).collections = {
+      docs: {
+        schema: z.object({
+          title: z.string(),
+          badge: z.string().optional()
+        })
+      }
+    }
+    useGraph([
+      doc({ id: 'content:en:docs:intro.md', collection: 'docs', canonicalKey: 'intro', path: '/docs/intro', title: 'Intro' })
+    ])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({
+      collection: 'docs',
+      only: ['title', 'badge', 'sidebar', 'sidbar']
+    } as any)
+
+    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('Navigation select field "sidbar"')
+    expect(warn.mock.calls[0]![0]).not.toContain('badge')
+    expect(warn.mock.calls[0]![0]).not.toContain('sidebar')
+    warn.mockRestore()
+    delete (runtimeConfig.content as any).collections
+  })
+
+  test('resolveContentNavigation diagnostics stay silent in production runtime', async () => {
+    const { z } = await import('zod')
+    ;(runtimeConfig.content as any).collections = {
+      docs: { schema: z.object({ title: z.string() }) }
+    }
+    useGraph([
+      doc({ id: 'content:en:docs:intro.md', collection: 'docs', canonicalKey: 'intro', path: '/docs/intro', title: 'Intro' })
+    ])
+    resolveRuntimeEnvironment.mockReturnValue('production')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({
+      collection: 'docs',
+      only: ['unknownProductionField']
+    } as any)
+
+    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+    delete (runtimeConfig.content as any).collections
+  })
+
+  test('resolveContentNavigation warns for sidecars that match no folder in their locale', async () => {
+    useGraph([
+      doc({ id: 'content:en:docs:intro.md', collection: 'docs', canonicalKey: 'intro', path: '/docs/intro', locale: 'en', title: 'Intro' }),
+      doc({
+        id: 'content:en:docs:missing:.navigation.yml',
+        collection: 'docs',
+        type: 'yaml',
+        navigationFile: true,
+        partial: true,
+        path: '/missing',
+        locale: 'en',
+        file: { path: '/en/missing/.navigation.yml' },
+        body: { title: 'Missing' }
+      } as any),
+      doc({
+        id: 'content:de:docs:leitfaden:.navigation.yml',
+        collection: 'docs',
+        type: 'yaml',
+        navigationFile: true,
+        partial: true,
+        path: '/leitfaden',
+        locale: 'de',
+        file: { path: '/de/leitfaden/.navigation.yml' },
+        body: { title: 'Leitfaden' }
+      } as any)
+    ])
+    resolveLocaleChain.mockReturnValue(['en'])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    const wire = toContentProviderNavigationQuery({
+      collection: 'docs',
+      resolveLocale: { locale: 'en', exact: true }
+    })
+
+    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('/en/missing/.navigation.yml')
+    expect(warn.mock.calls[0]![0]).not.toContain('/de/leitfaden/.navigation.yml')
+    warn.mockRestore()
   })
 
   test('resolveContentNavigation preserves a canonical collection root until the provider boundary', async () => {

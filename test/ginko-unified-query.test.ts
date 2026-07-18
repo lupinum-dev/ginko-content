@@ -733,6 +733,38 @@ describe('query executor correctness', () => {
     ])
   })
 
+  test('collection-less plans reach .navigation.yml rows that belong to no collection', () => {
+    const graph = buildContentGraph([
+      doc({ collection: 'docs', id: 'content:docs:guide:index.md', path: '/docs/guide', canonicalKey: 'docs/guide', title: 'Guide' }),
+      doc({
+        id: 'content:docs:guide:.navigation.yml',
+        path: '/docs/guide',
+        canonicalKey: 'docs/guide-nav',
+        title: 'Guide',
+        type: 'yaml',
+        partial: true,
+        navigationFile: true,
+        sidebar: 'section'
+      } as never)
+    ])
+
+    const scoped = executeQueryPlan(graph, lowerQueryPlan({
+      collection: 'docs',
+      where: [{ navigationFile: true }],
+      only: ['title', 'sidebar']
+    }))
+    const unscoped = executeQueryPlan(graph, lowerQueryPlan({
+      where: [{ navigationFile: true }],
+      only: ['title', 'sidebar']
+    } as never))
+
+    // Navigation files typically match no collection glob (`*.md` sources), so
+    // the server's directory-config plan must not be collection-scoped —
+    // otherwise `.navigation.yml` titles/icons/sidebar markers silently vanish.
+    expect(scoped.result).toEqual([])
+    expect(unscoped.result).toEqual([{ title: 'Guide', sidebar: 'section' }])
+  })
+
   test('does not use path prefiltering for $or clauses with non-path branches', () => {
     const graph = buildContentGraph([
       doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', canonicalKey: 'docs/intro', title: 'Intro', section: 'guide' }),
