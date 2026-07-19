@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { parsePackageManagerVersion } from './lib/release-artifact.mjs'
+
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const cliArgs = process.argv.slice(2)
 
@@ -235,7 +237,10 @@ async function main() {
     mkdirSync(appDir, { recursive: true })
     const tarball = resolveReleaseTarball()
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
-    const packageManagerVersion = runAndCapture(packageManager, ['--version'], appDir).trim()
+    const packageManagerVersion = parsePackageManagerVersion(
+      runAndCapture(packageManager, ['--version'], appDir),
+      packageManager,
+    )
     console.log(`Testing exact release tarball with ${packageManager}: ${tarball} (sha256 ${tarballSha256})`)
     assertNoWorkspaceRanges(tarball, tempRoot)
     const installedTarball = join(tempRoot, 'artifacts', `${tarballSha256}.tgz`)

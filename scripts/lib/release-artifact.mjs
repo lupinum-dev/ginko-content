@@ -10,3 +10,12 @@ export function assertReproduciblePacks(first, second) {
 export function normalizeArchiveEntry(entry) {
   return entry.replace(/\r$/, '').replaceAll('\\', '/')
 }
+
+export function parsePackageManagerVersion(output, packageManager) {
+  const version = output
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .find(line => /^\d+\.\d+\.\d+(?:[-+][0-9a-z.-]+)?$/i.test(line))
+  if (!version) throw new Error(`Unable to determine the ${packageManager} version.`)
+  return version
+}
