@@ -1,5 +1,5 @@
 import type { NavItem } from '../../types/content'
-import type { ContentQueryResponse } from '../../types/api'
+import type { ContentPublicQueryResponse } from '../../types/api'
 import type { ContentProviderQueryInput } from '../../types/query'
 
 export interface RuntimeContentConfig {
@@ -31,5 +31,5 @@ export interface ContentQueryContext {
   transport: <T>(
     endpoint: ContentQueryEndpoint,
     params: ContentProviderQueryInput
-  ) => Promise<ContentQueryResponse<T> | NavItem[] | null>
+  ) => Promise<ContentPublicQueryResponse<T> | NavItem[]>
 }

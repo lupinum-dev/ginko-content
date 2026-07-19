@@ -5,7 +5,6 @@ import type {
 import type { ContentSearchResult } from '../../types/search'
 import {
   longestMountForPath,
-  normalizeSiteRelativeContentPath,
   normalizeRouteMounts,
   routeRemainder
 } from '../../core/content/path'
@@ -14,6 +13,12 @@ import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/
 import type { RuntimeContentConfig } from '../../features/query/context'
 import { createContentProviderError } from '../../public/provider-errors'
 import { collectJsonPurityViolations } from '../../core/json-value'
+import {
+  CONTENT_ROUTE_LIMITS,
+  ContentRouteRecordValidationError,
+  normalizeRawContentRouteRecord,
+  normalizeRawProviderRouteFact,
+} from '../../core/provider-route-record'
 
 const forbiddenProjectedKeys = ['path', 'href', 'localePath', 'alternates'] as const
 
@@ -42,50 +47,13 @@ const assertJsonPureProviderValue = (value: unknown, provider: string, operation
   fail(provider, operation, `${field}${suffix}`, `returned a non-JSON value that ${violation.reason}.`)
 }
 
-const normalizeProviderContentPath = (
-  value: string,
+const assertRuntimeProviderRouteFact = (
+  route: ContentProviderRouteFact,
   provider: string,
   operation: string,
   field: string,
-) => {
-  try {
-    return normalizeSiteRelativeContentPath(value)
-  } catch {
-    return fail(provider, operation, field, 'returned contentPath outside the leading-slash, site-relative content route contract.')
-  }
-}
-
-export const normalizeProviderRouteFact = (
-  value: unknown,
-  provider: string,
-  operation: string,
-  field = 'route',
   runtime?: RuntimeContentConfig
 ): ContentProviderRouteFact => {
-  if (!isRecord(value)) {
-    return fail(provider, operation, field, 'returned an invalid route fact.')
-  }
-  assertNoProjectedKeys(value, provider, operation, field)
-
-  for (const key of ['collection', 'canonicalKey', 'locale', 'contentPath'] as const) {
-    if (typeof value[key] !== 'string' || !value[key]) {
-      fail(provider, operation, `${field}.${key}`, `returned a route fact without a non-empty ${key}.`)
-    }
-  }
-  const contentPath = normalizeProviderContentPath(
-    String(value.contentPath),
-    provider,
-    operation,
-    `${field}.contentPath`,
-  )
-
-  const route = {
-    collection: String(value.collection),
-    canonicalKey: String(value.canonicalKey),
-    locale: String(value.locale),
-    contentPath
-  }
-
   if (runtime?.collections) {
     if (!Object.prototype.hasOwnProperty.call(runtime.collections, route.collection)) {
       fail(provider, operation, `${field}.collection`, 'returned a route fact for an unknown collection.')
@@ -95,8 +63,30 @@ export const normalizeProviderRouteFact = (
       fail(provider, operation, `${field}.locale`, 'returned a route fact outside the configured collection locales.')
     }
   }
-
   return route
+}
+
+export const normalizeProviderRouteFact = (
+  value: unknown,
+  provider: string,
+  operation: string,
+  field = 'route',
+  runtime?: RuntimeContentConfig
+): ContentProviderRouteFact => {
+  try {
+    return assertRuntimeProviderRouteFact(
+      normalizeRawProviderRouteFact(value, field),
+      provider,
+      operation,
+      field,
+      runtime
+    )
+  } catch (error) {
+    if (error instanceof ContentRouteRecordValidationError) {
+      return fail(provider, operation, error.field, error.message)
+    }
+    throw error
+  }
 }
 
 export const projectProviderRouteFact = (
@@ -245,46 +235,23 @@ export const normalizeProviderRoutes = (
     return fail(provider, 'routes', 'result', 'returned a non-array routes result.')
   }
   assertJsonPureProviderValue(value, provider, 'routes', 'result')
+  let totalBytes = 2
   const routes = value.map((entry, index) => {
-    if (!isRecord(entry)) {
-      return fail(provider, 'routes', `result[${index}]`, 'returned an invalid route record.')
-    }
-    const route = normalizeProviderRouteFact(entry, provider, 'routes', `result[${index}]`, runtime)
-    if (entry.draft !== undefined && typeof entry.draft !== 'boolean') {
-      fail(provider, 'routes', `result[${index}].draft`, 'returned a non-boolean draft value.')
-    }
-    const sitemap = entry.sitemap
-    if (sitemap !== undefined && sitemap !== false && !isRecord(sitemap)) {
-      fail(provider, 'routes', `result[${index}].sitemap`, 'returned invalid sitemap metadata.')
-    }
-    if (isRecord(sitemap)) {
-      const lastmod = sitemap.lastmod
-      if (lastmod !== undefined) {
-        if (typeof lastmod !== 'string' || Number.isNaN(Date.parse(lastmod))) {
-          return fail(provider, 'routes', `result[${index}].sitemap.lastmod`, 'returned an invalid lastmod value.')
-        }
-        const normalized = new Date(lastmod).toISOString()
-        if (normalized !== lastmod) {
-          return fail(provider, 'routes', `result[${index}].sitemap.lastmod`, 'returned a lastmod value that is not a normalized UTC ISO string.')
-        }
+    const field = `result[${index}]`
+    try {
+      const { record, serializedBytes } = normalizeRawContentRouteRecord(entry, field)
+      totalBytes += serializedBytes + (index === 0 ? 0 : 1)
+      if (totalBytes > CONTENT_ROUTE_LIMITS.maxTotalRouteBytes) {
+        return fail(provider, 'routes', field, 'returned route records that exceed the aggregate byte limit.')
       }
-      const images = sitemap.images
-      if (images !== undefined) {
-        if (!Array.isArray(images)) {
-          return fail(provider, 'routes', `result[${index}].sitemap.images`, 'returned non-array sitemap images.')
-        }
-        for (const [imageIndex, image] of images.entries()) {
-          if (!isRecord(image) || typeof image.loc !== 'string' || !image.loc) {
-            return fail(provider, 'routes', `result[${index}].sitemap.images[${imageIndex}].loc`, 'returned a sitemap image without a non-empty loc string.')
-          }
-        }
+      assertRuntimeProviderRouteFact(record, provider, 'routes', field, runtime)
+      return record
+    } catch (error) {
+      if (error instanceof ContentRouteRecordValidationError) {
+        return fail(provider, 'routes', error.field, error.message)
       }
+      throw error
     }
-    return {
-      ...route,
-      ...(entry.draft === true ? { draft: true } : {}),
-      ...(sitemap === false ? { sitemap: false } : isRecord(sitemap) ? { sitemap } : {})
-    } as ContentRouteRecord
   })
 
   const identities = new Set<string>()

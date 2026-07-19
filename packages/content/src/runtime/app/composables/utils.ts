@@ -112,16 +112,13 @@ export async function fetchContentApi<T> (
     throw new Error(options.notFoundMessage || 'Not found')
   }
 
-  // Nitro serializes a top-level `null` handler result as an empty 204
-  // response. A missing `first` query is the one public query shape where
-  // that empty response has a precise meaning, so restore the canonical null
-  // before the shared query decoder sees it. Keep every other empty response
-  // invalid so transport failures cannot masquerade as empty collections.
-  const normalizedData = data === undefined && params.first === true ? null : data
+  if (data === undefined || data === null) {
+    throw new TypeError('Invalid content API response: expected a non-empty JSON body.')
+  }
 
   if (!import.meta.dev && import.meta.server) {
     addPrerenderPathOnSuccess?.(apiPath)
   }
 
-  return normalizedData as T
+  return data as T
 }

@@ -257,10 +257,15 @@ jobs:
         run: node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer
       - name: Test exact tarball with npm
         run: node scripts/timed-command.mjs consumer:npm pnpm test:package-consumer:npm
+      - name: Write release certification
+        run: pnpm release:certify
       - name: Record exact release artifact
         run: |
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat .pack/release-artifact.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat .pack/release-certification.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -268,6 +273,7 @@ jobs:
           path: |
             .pack/*.tgz
             .pack/release-artifact.json
+            .pack/release-certification.json
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
@@ -359,10 +365,10 @@ jobs:
         run: >-
           node -e "const fs=require('node:fs');const crypto=require('node:crypto');const path=require('node:path');
           const files=fs.readdirSync('.pack');const tarballs=files.filter(file=>file.endsWith('.tgz'));
-          if(tarballs.length!==1||files.filter(file=>file==='release-artifact.json').length!==1)throw new Error('Expected one tarball and one provenance manifest');
-          const m=require('./.pack/release-artifact.json');const tarball=tarballs[0];
+          if(tarballs.length!==1||!files.includes('release-artifact.json')||!files.includes('release-certification.json'))throw new Error('Expected one tarball, provenance manifest, and certification manifest');
+          const m=require('./.pack/release-artifact.json');const c=require('./.pack/release-certification.json');const tarball=tarballs[0];
           const digest=crypto.createHash('sha256').update(fs.readFileSync(path.join('.pack',tarball))).digest('hex');
-          if(m.commit!==process.env.GITHUB_SHA||m.worktreeDirty||!m.releaseEligible||m.reproduciblePacks!==2||m.tarball!==tarball||m.sha256!==digest)
+          if(m.commit!==process.env.GITHUB_SHA||m.worktreeDirty||!m.releaseEligible||m.reproduciblePacks!==2||m.tarball!==tarball||m.sha256!==digest||c.commit!==m.commit||c.sha256!==digest||Object.values(c.lanes).some(value=>value!=='passed'))
           throw new Error('Downloaded release artifact failed exact-SHA provenance validation')"
       - name: Record release authorization
         run: |
@@ -370,4 +376,7 @@ jobs:
           echo "All required lanes passed for commit \`${GITHUB_SHA}\`." >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat .pack/release-artifact.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat .pack/release-certification.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

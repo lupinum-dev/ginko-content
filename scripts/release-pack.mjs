@@ -202,6 +202,8 @@ try {
     'pipe',
   ).trim().length > 0
   const metadata = {
+    packageName: sourceManifest.name,
+    packageVersion: sourceManifest.version,
     commit,
     worktreeDirty,
     releaseEligible: !worktreeDirty,

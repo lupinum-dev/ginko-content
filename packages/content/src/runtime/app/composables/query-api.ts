@@ -22,7 +22,7 @@ import type {
   SurroundOptions,
   SurroundResult
 } from '../../../types/query'
-import type { ContentQueryResponse } from '../../../types/api'
+import type { ContentPublicQueryResponse } from '../../../types/api'
 import type { __ginkoSchemaBrand } from '../../../types/config'
 import { fetchContentApi, getContentApiFetcher, getPreviewToken } from './utils'
 import { getContentRuntime } from './runtime'
@@ -48,7 +48,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
   return {
     runtime,
     transport: async <T>(endpoint: 'query' | 'navigation', params: ContentProviderQueryInput) => {
-      return await fetchContentApi<ContentQueryResponse<T> | NavItem[] | null>(
+      return await fetchContentApi<ContentPublicQueryResponse<T> | NavItem[]>(
         endpoint,
         params,
         { fetcher, runtime, previewToken }

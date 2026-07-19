@@ -57,6 +57,15 @@ export interface ContentQueryFindOneResponse<T> {
 }
 
 /**
+ * Public application/HTTP response returned when a query resolves to one
+ * document. JSON cannot represent the provider seam's `undefined`, so the
+ * public boundary uses an explicit `null` for a successful miss.
+ */
+export interface ContentPublicQueryFindOneResponse<T> {
+  result: T | null
+}
+
+/**
  * Response envelope returned when a query resolves to a count.
  */
 export interface ContentQueryCountResponse {
@@ -73,6 +82,9 @@ export interface ContentQueryCountResponse {
  * APIs instead of reading this union directly.
  */
 export type ContentQueryResponse<T> = ContentQueryFindResponse<T> | ContentQueryFindOneResponse<T> | ContentQueryCountResponse
+
+/** Canonical response consumed by the shared client/server query layer. */
+export type ContentPublicQueryResponse<T> = ContentQueryFindResponse<T> | ContentPublicQueryFindOneResponse<T> | ContentQueryCountResponse
 
 // Ensure that a .js file is emitted too
 export {}

@@ -7,6 +7,7 @@ import {
   normalizeProviderQueryResponse
 } from '../provider-query'
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
+import { projectPublicQueryResponse } from '../../../features/query/responses'
 
 /**
  * Typed 400 for a closed-boundary rejection. No internal
@@ -51,8 +52,5 @@ export default defineEventHandler(async (event) => {
   }
   const provider = await getContentProvider(event)
   const response = normalizeProviderQueryResponse(query, await provider.query(event, createProviderQuery(query)), provider.name)
-  // `undefined` object properties disappear during JSON serialization. Use a
-  // top-level null for a missing first result so the client cannot mistake an
-  // empty `{}` response for a document.
-  return query.first && response.result === undefined ? null : response
+  return projectPublicQueryResponse(response, query.first === true)
 })

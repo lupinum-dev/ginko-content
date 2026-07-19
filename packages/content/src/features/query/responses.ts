@@ -1,3 +1,5 @@
+import type { ContentPublicQueryResponse, ContentQueryResponse } from '../../types/api'
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
@@ -53,14 +55,18 @@ const isResultOnlyEnvelope = (response: unknown): response is { result?: unknown
   hasExactKeys(response, ['result'])
 
 export const unwrapOneResponse = <T>(response: unknown): T | null => {
-  // The HTTP adapter uses top-level null because JSON cannot preserve an
-  // object property whose value is undefined. The provider boundary itself
-  // remains the canonical `{ result: T | undefined }` envelope.
-  if (response === null) return null
-  if (isResultOnlyEnvelope(response) && response.result === undefined) return null
-  if (isResultOnlyEnvelope(response) && response.result !== null && !Array.isArray(response.result)) return response.result as T
-  throw new TypeError('Invalid content query response: expected a single-result envelope or null.')
+  if (isResultOnlyEnvelope(response) && response.result === null) return null
+  if (isResultOnlyEnvelope(response) && response.result !== undefined && !Array.isArray(response.result)) return response.result as T
+  throw new TypeError('Invalid content query response: expected { result: document | null }.')
 }
+
+/** Project the in-process provider result onto the JSON-safe public contract. */
+export const projectPublicQueryResponse = <T>(
+  response: ContentQueryResponse<T>,
+  first: boolean
+): ContentPublicQueryResponse<T> => first
+  ? { result: (response as { result: T | undefined }).result ?? null }
+  : response as ContentPublicQueryResponse<T>
 
 export const unwrapListResponse = <T>(response: unknown): T[] => {
   if (isCanonicalOffsetFindResponseEnvelope<T>(response)) return response.result

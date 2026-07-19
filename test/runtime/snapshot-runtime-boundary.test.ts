@@ -144,7 +144,7 @@ describe('production snapshot runtime', () => {
   // it, and not silently ignore the preview token either.
   describe('production preview against the filesystem provider', () => {
     const previewEvent = () => createTestEvent({
-      query: { previewToken: 'secret' },
+      headers: { 'x-nuxt-content-preview': 'secret' },
       context: {}
     })
 
@@ -175,14 +175,39 @@ describe('production snapshot runtime', () => {
       expect(getItem).not.toHaveBeenCalled()
     })
 
-    test('an invalid preview token does not trip the guard and still serves the sealed snapshot', async () => {
+    test('an invalid preview token fails closed before reading the sealed snapshot', async () => {
       const getItem = vi.fn(async () => snapshot())
       stubPreviewRuntime(getItem)
       const { getContentGraph } = await import('../../packages/content/src/storage/graph')
 
-      const wrongTokenEvent = createTestEvent({ query: { previewToken: 'not-it' } })
-      await expect(getContentGraph(wrongTokenEvent)).resolves.toBeTruthy()
-      expect(getItem).toHaveBeenCalledTimes(1)
+      const wrongTokenEvent = createTestEvent({
+        headers: { 'x-nuxt-content-preview': 'not-it' }
+      })
+      await expect(getContentGraph(wrongTokenEvent)).rejects.toMatchObject({
+        statusCode: 401,
+        statusMessage: 'invalid_preview_token'
+      })
+      expect(getItem).not.toHaveBeenCalled()
+    })
+
+    test('rejects query-string preview credentials', async () => {
+      const getItem = vi.fn(async () => snapshot())
+      stubPreviewRuntime(getItem)
+      const { isPreview } = await import('../../packages/content/src/integrations/nitro/preview')
+
+      expect(() => isPreview(createTestEvent({ query: { previewToken: 'secret' } }))).toThrowError(
+        expect.objectContaining({ statusCode: 400, statusMessage: 'invalid_preview_transport' }),
+      )
+    })
+
+    test('marks every authorized preview response private and non-cacheable', async () => {
+      const getItem = vi.fn(async () => snapshot())
+      stubPreviewRuntime(getItem)
+      const middleware = (await import('../../packages/content/src/runtime/server/middleware/preview')).default
+      const event = previewEvent()
+
+      await middleware(event)
+      expect(event.responseHeaders.get('cache-control')).toBe('private, no-store')
     })
 
     test('a valid preview token in development is unaffected by the guard', async () => {
@@ -226,7 +251,7 @@ describe('production snapshot runtime', () => {
     const { toContentProviderQuery } = await import('../../packages/content/src/public/provider-query')
 
     const plan = toContentProviderQuery({ collection: 'docs' }).plan
-    const previewEvent = createTestEvent({ query: { previewToken: 'secret' } })
+    const previewEvent = createTestEvent({ headers: { 'x-nuxt-content-preview': 'secret' } })
     await expect(executeFilesystemContentQuery(previewEvent, plan)).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'unsupported_filesystem_preview'

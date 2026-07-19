@@ -42,6 +42,7 @@ import {
   createProviderQuery,
   normalizeProviderQueryResponse
 } from './provider-query'
+import { projectPublicQueryResponse } from '../../features/query/responses'
 import { projectProviderNavigation, projectProviderSurroundings } from './provider-route-facts'
 import { stripLocalePrefix } from '../../core/content/path'
 import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
@@ -96,7 +97,10 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
           query.collection || undefined
         ) as NavItem[]
       }
-      return normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name)
+      return projectPublicQueryResponse(
+        normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name),
+        params.first === true
+      )
     }
   }
 }

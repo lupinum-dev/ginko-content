@@ -58,7 +58,7 @@ export type {
   CursorPaginationResult
 } from '../types/query.js'
 
-export type { ContentQueryResponse } from '../types/api.js'
+export type { ContentPublicQueryResponse, ContentQueryResponse } from '../types/api.js'
 
 export const queryCollectionsSitemapEntries: typeof import('../runtime/server/sitemap-provider.js').queryCollectionsSitemapEntries = async (...args) => {
   const { queryCollectionsSitemapEntries } = await import('../runtime/server/sitemap-provider.js')

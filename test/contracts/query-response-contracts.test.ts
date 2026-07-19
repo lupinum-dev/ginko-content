@@ -7,15 +7,15 @@ import {
 } from '../../packages/content/src/features/query/responses'
 
 describe('query response contracts', () => {
-  test('unwrapOneResponse accepts only the canonical envelope or serialized null', () => {
+  test('unwrapOneResponse accepts only the public result envelope', () => {
     expect(unwrapOneResponse<{ title: string }>({ result: { title: 'Intro' } })).toEqual({ title: 'Intro' })
-    expect(unwrapOneResponse<{ title: string }>({ result: undefined })).toBeNull()
-    expect(unwrapOneResponse<{ title: string }>(null)).toBeNull()
-    expect(() => unwrapOneResponse(undefined)).toThrow('expected a single-result envelope')
-    expect(() => unwrapOneResponse({ result: null })).toThrow('expected a single-result envelope')
-    expect(() => unwrapOneResponse({ result: [{ title: 'Intro' }] })).toThrow('expected a single-result envelope')
-    expect(() => unwrapOneResponse({ title: 'Intro' })).toThrow('expected a single-result envelope')
-    expect(() => unwrapOneResponse({})).toThrow('expected a single-result envelope')
+    expect(unwrapOneResponse<{ title: string }>({ result: null })).toBeNull()
+    expect(() => unwrapOneResponse({ result: undefined })).toThrow('document | null')
+    expect(() => unwrapOneResponse(null)).toThrow('document | null')
+    expect(() => unwrapOneResponse(undefined)).toThrow('document | null')
+    expect(() => unwrapOneResponse({ result: [{ title: 'Intro' }] })).toThrow('document | null')
+    expect(() => unwrapOneResponse({ title: 'Intro' })).toThrow('document | null')
+    expect(() => unwrapOneResponse({})).toThrow('document | null')
   })
 
   test('unwrapListResponse accepts only canonical offset envelopes', () => {

@@ -17,12 +17,17 @@ import type {
   ContentProviderQuery,
   ContentQueryPlan,
 } from './provider-query'
+import { CONTENT_ROUTE_LIMITS } from '../core/provider-route-record'
+
+export { createContentDataSourceError } from '../core/data-source-error'
+export type { ContentDataSourceErrorCode } from '../core/data-source-error'
 
 export const CONTENT_DATA_SOURCE_LIMITS = Object.freeze({
   maxQueryPageSize: 100,
   maxSearchResults: 100,
   maxRoutePageSize: 250,
   maxTotalRoutes: 100_000,
+  ...CONTENT_ROUTE_LIMITS,
   maxNavigationNodes: 2_000,
   maxSurroundItems: 2,
   maxSiteDataBytes: 256 * 1024,

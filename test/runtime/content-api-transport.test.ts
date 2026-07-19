@@ -13,19 +13,19 @@ vi.mock('#imports', () => ({
 const runtime = { api: { baseURL: '/api/_content' }, integrity: 'test' }
 
 describe('content API transport', () => {
-  test('normalizes Nitro empty responses to null only for missing first queries', async () => {
+  test('rejects empty responses for first and list queries', async () => {
     const fetcher = vi.fn(async () => undefined)
 
     await expect(fetchContentApi(
       'query',
       { collection: 'docs', first: true },
       { fetcher, previewToken: null, runtime }
-    )).resolves.toBeNull()
+    )).rejects.toThrow('expected a non-empty JSON body')
 
     await expect(fetchContentApi(
       'query',
       { collection: 'docs', limit: 10 },
       { fetcher, previewToken: null, runtime }
-    )).resolves.toBeUndefined()
+    )).rejects.toThrow('expected a non-empty JSON body')
   })
 })

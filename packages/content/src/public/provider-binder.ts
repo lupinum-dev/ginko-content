@@ -4,6 +4,11 @@ import type { ContentCacheHintInput } from '../core/cache-hints'
 import { withContentCache } from '../core/provider-result'
 import type { ContentProviderSearchRequest } from '../types/search'
 import { collectJsonPurityViolations } from '../core/json-value'
+import { isContentDataSourceError } from '../core/data-source-error'
+import {
+  ContentRouteRecordValidationError,
+  normalizeRawContentRouteRecord,
+} from '../core/provider-route-record'
 import type { ContentProviderNavigationOptions } from './provider-query'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
@@ -15,6 +20,7 @@ import {
 import type {
   ContentProvider,
   ContentProviderSurroundingsOptions,
+  ContentRouteRecord,
 } from './provider-contract'
 import { isContentProviderQueryCapabilities } from './provider-contract'
 
@@ -31,9 +37,9 @@ class ContentDataSourceControlError extends Error {
 
 type ContentDataSourceValidationErrorCode =
   | 'CACHE_HINT_INVALID'
-  | 'CURSOR_INVALID'
   | 'RESPONSE_INVALID'
   | 'RESULT_LIMIT_EXCEEDED'
+  | 'ROUTE_ENUMERATION_INVALID'
 
 class ContentDataSourceValidationError extends Error {
   readonly code: ContentDataSourceValidationErrorCode
@@ -46,15 +52,27 @@ class ContentDataSourceValidationError extends Error {
 }
 
 function normalizedBackendError(cause: unknown): Error {
-  if (cause instanceof ContentDataSourceControlError) return cause
-  const validationError = cause instanceof ContentDataSourceValidationError ? cause : null
-  const code = validationError?.code ?? 'BACKEND_FAILURE'
-  return Object.assign(new Error(validationError?.message ?? 'Content data-source operation failed.'), {
+  const surfaced = (code: string, statusCode: number, message: string) => Object.assign(new Error(message), {
     code,
-    statusCode: 500,
+    statusCode,
     statusMessage: code,
     data: { code },
   })
+  if (cause instanceof ContentDataSourceControlError) {
+    return surfaced(cause.code, cause.code === 'BACKEND_TIMEOUT' ? 504 : 499, cause.message)
+  }
+  if (isContentDataSourceError(cause)) {
+    return surfaced(
+      cause.code,
+      cause.code === 'QUERY_CURSOR_INVALID' ? 400 : 502,
+      cause.code === 'QUERY_CURSOR_INVALID'
+        ? 'Content data-source query cursor is invalid.'
+        : 'Content data-source operation failed.'
+    )
+  }
+  const validationError = cause instanceof ContentDataSourceValidationError ? cause : null
+  const code = validationError?.code ?? 'BACKEND_FAILURE'
+  return surfaced(code, 502, validationError?.message ?? 'Content data-source operation failed.')
 }
 
 const positiveInteger = (value: unknown): value is number =>
@@ -333,8 +351,8 @@ export function bindContentProvider<Context>(args: {
         return result
       })
     }) as ContentProvider['query'],
-    navigation: source.navigation
-      ? async (event, query, options: ContentProviderNavigationOptions = {}) => {
+    ...(source.navigation
+      ? { navigation: async (event, query, options: ContentProviderNavigationOptions = {}) => {
           assertBoundedQuery(source, query)
           const limit = Math.min(query.plan.mode === 'count' ? 0 : query.plan.limit, CONTENT_DATA_SOURCE_LIMITS.maxNavigationNodes)
           if (!positiveInteger(limit)) throw new RangeError('Navigation requires a positive limit.')
@@ -345,20 +363,20 @@ export function bindContentProvider<Context>(args: {
             }
             return result
           })
-        }
-      : undefined,
-    surroundings: source.surroundings
-      ? async (event, collection, contentPath, options: ContentProviderSurroundingsOptions = {}) =>
+        } }
+      : {}),
+    ...(source.surroundings
+      ? { surroundings: async (event, collection, contentPath, options: ContentProviderSurroundingsOptions = {}) =>
           await execute(event, async (context, control) => {
             const result = await source.surroundings!(context, collection, contentPath, options, control)
             if (result.data.length > CONTENT_DATA_SOURCE_LIMITS.maxSurroundItems) {
               throw new RangeError('Content data-source surroundings exceed the result limit.')
             }
             return result
-          })
-      : undefined,
-    search: source.search
-      ? async (event, request: ContentProviderSearchRequest) =>
+          }) }
+      : {}),
+    ...(source.search
+      ? { search: async (event, request: ContentProviderSearchRequest) =>
           await execute(event, async (context, control) => {
             const limit = CONTENT_DATA_SOURCE_LIMITS.maxSearchResults
             const result = await source.search!(context, { ...request, limit }, control)
@@ -366,10 +384,10 @@ export function bindContentProvider<Context>(args: {
               throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source search result limit exceeded.')
             }
             return result
-          })
-      : undefined,
-    siteData: (source.siteData
-      ? async (event, request) =>
+          }) }
+      : {}),
+    ...(source.siteData
+      ? { siteData: async (event, request) =>
           await execute(event, async (context, control) => {
             const result = await source.siteData!(context, request, control)
             const requestedLocale = request.locale ?? null
@@ -396,12 +414,13 @@ export function bindContentProvider<Context>(args: {
                 ...(result.data.updatedAt === null ? {} : { updatedAt: result.data.updatedAt }),
               },
             }
-          })
-      : undefined),
-    routes: source.routes
-      ? async (event) =>
+          }) }
+      : {}),
+    ...(source.routes
+      ? { routes: async (event) =>
           await execute(event, async (context, control) => {
-            const items = []
+            const items: ContentRouteRecord[] = []
+            let totalBytes = 2
             let cursor: string | null = null
             let snapshot: string | null = null
             let cache: ContentDataSourceCacheHint | false | undefined
@@ -410,6 +429,9 @@ export function bindContentProvider<Context>(args: {
               assertControlActive(control)
               const page = await source.routes!(context, { cursor, limit: CONTENT_DATA_SOURCE_LIMITS.maxRoutePageSize }, control)
               assertControlActive(control)
+              if (!page || !page.data || !Array.isArray(page.data.items)) {
+                throw dataSourceError('ROUTE_ENUMERATION_INVALID', 'Content data-source returned an invalid route page.')
+              }
               if (page.data.items.length > CONTENT_DATA_SOURCE_LIMITS.maxRoutePageSize) {
                 throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source route page exceeds the result limit.')
               }
@@ -418,20 +440,34 @@ export function bindContentProvider<Context>(args: {
                 !page.data.snapshot ||
                 utf8Bytes(page.data.snapshot) > CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes
               ) {
-                throw dataSourceError('CURSOR_INVALID', 'Content data-source route snapshot is invalid.')
+                throw dataSourceError('ROUTE_ENUMERATION_INVALID', 'Content data-source route snapshot is invalid.')
               }
               if (snapshot !== null && page.data.snapshot !== snapshot) {
-                throw dataSourceError('CURSOR_INVALID', 'Content data-source route snapshot changed during enumeration.')
+                throw dataSourceError('ROUTE_ENUMERATION_INVALID', 'Content data-source route snapshot changed during enumeration.')
               }
               snapshot = page.data.snapshot
-              items.push(...page.data.items)
-              if (items.length > CONTENT_DATA_SOURCE_LIMITS.maxTotalRoutes) {
-                throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source total routes exceed the configured limit.')
+              for (const [index, item] of page.data.items.entries()) {
+                try {
+                  const normalized = normalizeRawContentRouteRecord(item, `routePage.items[${index}]`)
+                  totalBytes += normalized.serializedBytes + (items.length === 0 ? 0 : 1)
+                  if (totalBytes > CONTENT_DATA_SOURCE_LIMITS.maxTotalRouteBytes) {
+                    throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source total routes exceed the aggregate byte limit.')
+                  }
+                  items.push(normalized.record)
+                  if (items.length > CONTENT_DATA_SOURCE_LIMITS.maxTotalRoutes) {
+                    throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source total routes exceed the configured limit.')
+                  }
+                } catch (error) {
+                  if (error instanceof ContentRouteRecordValidationError) {
+                    throw dataSourceError(error.code, `Content data-source route record is invalid at ${error.field}.`)
+                  }
+                  throw error
+                }
               }
               const nextCursor = page.data.nextCursor
               if (nextCursor !== null) {
                 if (page.data.items.length === 0) {
-                  throw dataSourceError('CURSOR_INVALID', 'Content data-source route cursor made no progress.')
+                  throw dataSourceError('ROUTE_ENUMERATION_INVALID', 'Content data-source route cursor made no progress.')
                 }
                 if (
                   typeof nextCursor !== 'string' ||
@@ -440,7 +476,7 @@ export function bindContentProvider<Context>(args: {
                   nextCursor === cursor ||
                   seenCursors.has(nextCursor)
                 ) {
-                  throw dataSourceError('CURSOR_INVALID', 'Content data-source route cursor made no progress.')
+                  throw dataSourceError('ROUTE_ENUMERATION_INVALID', 'Content data-source route cursor made no progress.')
                 }
                 seenCursors.add(nextCursor)
               }
@@ -448,7 +484,7 @@ export function bindContentProvider<Context>(args: {
               cache = await mergeDataSourceCacheHints(cache, page.cache)
             } while (cursor !== null)
             return { data: items, cache: cache ?? false }
-          })
-      : undefined,
+          }) }
+      : {}),
   }
 }

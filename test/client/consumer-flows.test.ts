@@ -6,6 +6,7 @@ import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import { projectProviderNavigation } from '../../packages/content/src/runtime/server/provider-route-facts'
+import { projectPublicQueryResponse } from '../../packages/content/src/features/query/responses'
 
 const scenario = createSaasI18nScenario()
 const provider = createInMemoryProvider(scenario)
@@ -19,7 +20,10 @@ const context = {
         .then(items => projectProviderNavigation(items, provider.name, scenario.runtime, options.locale))
     }
     return provider.query(event, toContentProviderQuery(params))
-      .then(response => normalizeProviderQueryResponse(params, response, provider.name, scenario.runtime))
+      .then(response => projectPublicQueryResponse(
+        normalizeProviderQueryResponse(params, response, provider.name, scenario.runtime),
+        params.first === true,
+      ))
   }
 }
 

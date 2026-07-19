@@ -50,12 +50,14 @@ export async function runPureRuntimeProbe(api) {
     'portable codec semantic round trip changed',
   )
   assert(api.CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize === 100, 'data-source entry is invalid')
+  assert(api.normalizeNavigationPath('/docs/') === '/docs', 'navigation entry is invalid')
 
   return {
     vectorCount: canonicalVectors.length,
     hashes,
     canonicalKey: reparsed.canonicalKey,
     maxQueryPageSize: api.CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize,
+    normalizedNavigationPath: api.normalizeNavigationPath('/docs/'),
   }
 }
 

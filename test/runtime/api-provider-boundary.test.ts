@@ -117,7 +117,7 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
-  test('query API serializes a missing first result as null, never an empty document object', async () => {
+  test('query API serializes a missing first result in the public envelope', async () => {
     const query = vi.fn(async () => ({ result: undefined }))
     mocks.getContentProvider.mockResolvedValue({ ...provider, query })
     const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
@@ -133,8 +133,8 @@ describe('runtime API provider boundary', () => {
     })
 
     const response = await handler(event)
-    expect(response).toBeNull()
-    expect(JSON.stringify(response)).toBe('null')
+    expect(response).toEqual({ result: null })
+    expect(JSON.stringify(response)).toBe('{"result":null}')
     expect(query).toHaveBeenCalledOnce()
   })
 
