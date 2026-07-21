@@ -79,7 +79,7 @@ Render the current route through the collection:
 ```vue
 <!-- pages/[...slug].vue -->
 <script setup lang="ts">
-import { pages } from '~/content.config'
+import { pages } from '~~/content.config'
 
 const { page } = await useContentPage(pages)
 </script>

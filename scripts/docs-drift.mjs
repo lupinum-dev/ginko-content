@@ -528,6 +528,49 @@ const parseFrontmatter = (source) => {
   return frontmatter
 }
 
+const genericDiscoveryHeadings = new Set([
+  "## what's next",
+  '## next steps',
+  '## related',
+  '## see also'
+])
+
+const findGenericDiscoveryFooterLines = (file, source) =>
+  source.split('\n').flatMap((line, index) => {
+    const normalized = line.trim().toLowerCase().replaceAll('’', "'")
+    return genericDiscoveryHeadings.has(normalized) || normalized.startsWith('**next:**')
+      ? [`${file}:${index + 1}`]
+      : []
+  })
+
+const findBodyTitleLines = (file, source) => {
+  const lines = source.split('\n')
+  let inFrontmatter = lines[0] === '---'
+  let inFence = false
+
+  return lines.flatMap((line, index) => {
+    if (index === 0 && inFrontmatter) return []
+    if (inFrontmatter) {
+      if (line === '---') inFrontmatter = false
+      return []
+    }
+
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      return []
+    }
+
+    return !inFence && /^#\s+/.test(line) ? [`${file}:${index + 1}`] : []
+  })
+}
+
+const findAppRelativeContentConfigImports = (file, source) =>
+  source.split('\n').flatMap((line, index) =>
+    /from\s+['"]~\/content\.config(?:\.[cm]?[jt]s)?['"]/.test(line)
+      ? [`${file}:${index + 1}`]
+      : []
+  )
+
 // Structural (not prose) check: every ADR file's frontmatter `id` matches its
 // filename's numeric prefix, has the required fields, and its status is
 // reflected in meta/adr/README.md's index table. Catches an ADR whose id/status
@@ -730,6 +773,32 @@ const checks = [
   async () => {
     const offenders = await findAdrIndexDriftOffenders()
     return { name: 'ADR frontmatter id/status stay structurally in sync with meta/adr/README.md', offenders }
+  },
+  async () => {
+    const offenders = []
+    for (const file of await collectTextFiles(['docs/content/docs'])) {
+      offenders.push(...findGenericDiscoveryFooterLines(file, await readFile(file, 'utf8')))
+    }
+    return { name: 'docs end on useful content instead of generic discovery footers', offenders }
+  },
+  async () => {
+    const offenders = []
+    for (const file of await collectTextFiles(['docs/content/docs'])) {
+      offenders.push(...findBodyTitleLines(file, await readFile(file, 'utf8')))
+    }
+    return { name: 'docs use frontmatter titles without duplicate body h1 headings', offenders }
+  },
+  async () => {
+    const offenders = []
+    for (const file of await collectTextFiles([
+      'docs/content/docs',
+      'skills/ginko-content/references',
+      'README.md',
+      'packages/content/README.md'
+    ])) {
+      offenders.push(...findAppRelativeContentConfigImports(file, await readFile(file, 'utf8')))
+    }
+    return { name: 'Nuxt 4 examples import root content.config through the ~~ alias', offenders }
   }
 ]
 

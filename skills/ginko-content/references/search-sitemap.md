@@ -9,7 +9,7 @@ Use `useContentSearch()` for search UI, its query, and its result payloads:
 ```vue
 <script setup lang="ts">
 import { useContentSearch } from '@lupinum/ginko-content/client'
-import { docs } from '~/content.config'
+import { docs } from '~~/content.config'
 
 const {
   query,
@@ -30,7 +30,7 @@ Use the `navigation()` verb with `useAsyncData` for layout navigation:
 ```ts
 import { useAsyncData } from '#imports'
 import { navigation } from '@lupinum/ginko-content/client'
-import { docs } from '~/content.config'
+import { docs } from '~~/content.config'
 
 const { data: tree } = await useAsyncData(
   'layout-navigation:en',

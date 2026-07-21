@@ -37,7 +37,7 @@ const walk = async (dir) => {
     const outputPath = relative(root, path).replaceAll('\\', '/')
     const isMetaRefresh = /<meta\s+http-equiv=["']refresh["']/i.test(source)
     const isDocsEntryRedirect = outputPath === 'docs/index.html' && isMetaRefresh
-    if (isDocsEntryRedirect && !/content=["'][^"']*url=\/docs\/why-ginko["']/i.test(source)) {
+    if (isDocsEntryRedirect && !/content=["'][^"']*url=\/docs\/get-started\/quickstart["']/i.test(source)) {
       accessibilityOffenders.push(`${outputPath}: unexpected redirect target`)
     }
     if (!isDocsEntryRedirect && (outputPath === 'index.html' || outputPath.startsWith('docs/'))) {
@@ -57,19 +57,26 @@ await walk(root)
 
 const requiredOutputs = [
   'index.html',
-  'docs/why-ginko/index.html',
-  'docs/why-ginko/how-ginko-compares/index.html',
-  'docs/how-it-works/index.html',
-  'docs/get-started/installation/index.html',
-  'docs/guides/site-patterns/documentation-site/index.html',
+  'docs/get-started/quickstart/index.html',
+  'docs/build/documentation-site/index.html',
+  'docs/concepts/why-ginko/index.html',
+  'docs/guides/agent-readable-output/index.html',
   'docs/reference/query-api/index.html',
   'docs/migration/from-nuxt-content-v3/index.html',
-  'raw/docs/why-ginko.md',
+  'docs/resources/troubleshooting/index.html',
+  'raw/docs/get-started/quickstart.md',
+  'raw/docs/concepts/why-ginko.md',
   'raw/docs/reference/query-api.md',
   'llms.txt',
   'llms-full.txt'
 ]
 const retiredOutputs = [
+  'docs/why-ginko/index.html',
+  'docs/why-ginko/how-ginko-compares/index.html',
+  'docs/how-it-works/index.html',
+  'docs/get-started/installation/index.html',
+  'docs/guides/site-patterns/documentation-site/index.html',
+  'raw/docs/why-ginko.md',
   'docs/getting-started/index.html',
   'docs/essentials/index.html',
   'docs/collections/index.html',
@@ -100,12 +107,14 @@ if (missingOutputs.length > 0 || unexpectedRetiredOutputs.length > 0) {
 
 const llms = await readFile(join(root, 'llms.txt'), 'utf8')
 const llmsFull = await readFile(join(root, 'llms-full.txt'), 'utf8')
-const whyGinkoMarkdown = await readFile(join(root, 'raw/docs/why-ginko.md'), 'utf8')
+const quickstartMarkdown = await readFile(join(root, 'raw/docs/get-started/quickstart.md'), 'utf8')
+const whyGinkoMarkdown = await readFile(join(root, 'raw/docs/concepts/why-ginko.md'), 'utf8')
 const agentOutputProblems = []
 
 for (const expected of [
-  '[Why Ginko](https://ginko-content.nuxt.dev/raw/docs/why-ginko.md)',
-  '[Build a Documentation Site](https://ginko-content.nuxt.dev/raw/docs/guides/site-patterns/documentation-site.md)',
+  '[Quickstart](https://ginko-content.nuxt.dev/raw/docs/get-started/quickstart.md)',
+  '[Why Ginko (and when not)](https://ginko-content.nuxt.dev/raw/docs/concepts/why-ginko.md)',
+  '[Build a documentation site](https://ginko-content.nuxt.dev/raw/docs/build/documentation-site.md)',
   '[Query API](https://ginko-content.nuxt.dev/raw/docs/reference/query-api.md)',
   '[From Nuxt Content v3](https://ginko-content.nuxt.dev/raw/docs/migration/from-nuxt-content-v3.md)'
 ]) {
@@ -120,11 +129,15 @@ for (const retiredUrl of [
   if (llms.includes(retiredUrl)) agentOutputProblems.push(`llms.txt contains retired URL ${retiredUrl}`)
 }
 
-for (const heading of ['# Why Ginko', '# Query API', '# From Nuxt Content v3']) {
+for (const heading of ['# Why Ginko (and when not)', '# Query API', '# From Nuxt Content v3']) {
   if (!llmsFull.includes(heading)) agentOutputProblems.push(`llms-full.txt is missing ${heading}`)
 }
 
-if (!whyGinkoMarkdown.includes('# Why Ginko') || !whyGinkoMarkdown.includes('## The product decision')) {
+if (!quickstartMarkdown.includes('title: "Quickstart"') || !quickstartMarkdown.includes('## Install')) {
+  agentOutputProblems.push('raw Quickstart Markdown is not the canonical page content')
+}
+
+if (!whyGinkoMarkdown.includes('# Why Ginko (and when not)') || !whyGinkoMarkdown.includes('## Who it fits')) {
   agentOutputProblems.push('raw Why Ginko Markdown is not the canonical page content')
 }
 
