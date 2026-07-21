@@ -368,10 +368,9 @@ const findRawStringHandleFirstHelperLines = (file, source) => {
 const isFallbackAwareDoc = (file) => {
   const normalized = normalizePath(file)
   return (
-    normalized.includes('/2.how-it-works/6.localization-model') ||
-    normalized.includes('/4.guides/2.site-patterns/3.multilingual-site') ||
-    normalized.includes('/4.guides/4.routing-and-seo/2.translated-slugs') ||
-    normalized.includes('/4.guides/4.routing-and-seo/4.links-and-redirects') ||
+    normalized.includes('/2.build/3.multilingual-site') ||
+    normalized.includes('/4.guides/7.translated-slugs') ||
+    normalized.includes('/4.guides/6.routes-links-and-redirects') ||
     normalized.includes('/6.migration/') ||
     normalized.includes('/5.reference/') ||
     normalized.toLowerCase().includes('i18n') ||
@@ -703,7 +702,7 @@ const checks = [
     const manifest = JSON.parse(manifestSource)
     const workspaceManifest = JSON.parse(workspaceManifestSource)
     const readme = await readFile('packages/content/README.md', 'utf8')
-    const installDoc = await readFile('docs/content/docs/3.get-started/1.installation.md', 'utf8')
+    const installDoc = await readFile('docs/content/docs/1.get-started/1.quickstart.md', 'utf8')
     const requiredPeers = Object.entries(manifest.peerDependencies)
       .filter(([name]) => !manifest.peerDependenciesMeta?.[name]?.optional)
     const requiredPeerLabels = requiredPeers
@@ -724,7 +723,7 @@ const checks = [
     }
     for (const label of requiredPeerLabels) {
       if (!readme.includes(label)) offenders.push(`packages/content/README.md missing peer requirement: ${label}`)
-      if (!installDoc.includes(label)) offenders.push(`docs/content/docs/3.get-started/1.installation.md missing peer requirement: ${label}`)
+      if (!installDoc.includes(label)) offenders.push(`docs/content/docs/1.get-started/1.quickstart.md missing peer requirement: ${label}`)
     }
     return { name: 'README requirements match required package peer dependency floors', offenders }
   },

@@ -17,7 +17,7 @@ and server-side reads.
 
 - Main currently documents the `0.3` prerelease on npm's `next` channel;
   `latest` remains `0.2.1` until the stable cutover.
-- [Getting started](./docs/content/docs/3.get-started/1.installation.md)
+- [Getting started](./docs/content/docs/1.get-started/1.quickstart.md)
 - [Package README](./packages/content/README.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Basic playground](./playground/ginko-basic)

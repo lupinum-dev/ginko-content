@@ -24,7 +24,7 @@ export default {
       },
       primary: {
         label: { en: 'Get started' },
-        to: { en: '/docs/get-started/installation' }
+        to: { en: '/docs/get-started/quickstart' }
       },
       secondary: {
         label: { en: 'View on GitHub' },
