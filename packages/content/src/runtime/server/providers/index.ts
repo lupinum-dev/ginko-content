@@ -101,21 +101,21 @@ const assertProviderQuerySupported = (provider: ContentProvider, query: ContentP
   // `offset` (an exact count implies an exact total is meaningful).
   const pagination = new Set(capabilities.pagination)
 
-  if (query.plan.skip > 0 && !pagination.has('offset')) {
+  if (query.plan.pagination.mode !== 'cursor' && query.plan.pagination.skip > 0 && !pagination.has('offset')) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support offset pagination (skip).`, {
       provider: provider.name,
       field: 'skip'
     })
   }
 
-  if (query.plan.paging?.mode === 'cursor' && !pagination.has('cursor')) {
+  if (query.plan.pagination.mode === 'cursor' && !pagination.has('cursor')) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support cursor pagination.`, {
       provider: provider.name,
       field: 'paging'
     })
   }
 
-  if (query.plan.paging?.mode === 'offset' && !pagination.has('offset')) {
+  if (query.plan.pagination.mode === 'offset' && !pagination.has('offset')) {
     throw createContentProviderError('unsupported_query_shape', `${provider.name} does not support offset pagination.`, {
       provider: provider.name,
       field: 'paging'

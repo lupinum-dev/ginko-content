@@ -565,10 +565,12 @@ export const lowerQueryPlan = (
       only: params.only ? [...params.only] : [],
       without: params.without ? [...params.without] : []
     },
-    skip: params.skip ?? 0,
-    ...(limit !== undefined ? { limit } : {}),
+    pagination: normalizedPaging ?? {
+      mode: 'slice',
+      skip: params.skip ?? 0,
+      ...(limit !== undefined ? { limit } : {})
+    },
     mode: params.count ? 'count' : params.first ? 'first' : 'all',
-    ...(normalizedPaging ? { paging: normalizedPaging } : {}),
     ...(params.resolveLocale
       ? { resolveLocale: {
           ...(params.resolveLocale.locale !== undefined ? { locale: params.resolveLocale.locale } : {}),

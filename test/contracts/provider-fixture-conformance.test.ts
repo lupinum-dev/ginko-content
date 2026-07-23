@@ -66,6 +66,10 @@ const operatorProbes = Object.fromEntries(operators.map(operator => [operator, {
 describe('provider fixture conformance', () => {
   const fixture = createDefaultProviderFixture()
   const provider = createFixtureContentProvider(fixture)
+  const catalogRuntime = createProviderFixture({
+    collections: { catalog: { type: 'data' } },
+    documents: []
+  }).runtime
   const createEvent = () => createProviderFixtureEvent({ fixture, provider })
 
   runProviderContractSuite({
@@ -239,7 +243,8 @@ describe('provider fixture conformance', () => {
     const rawDocument = {
       collection: 'docs',
       locale: 'en',
-      contentPath: '/docs/intro',
+      canonicalKey: 'docs:intro',
+      contentPath: '/intro',
       body: { type: 'root', children: [] },
       title: 'Intro'
     }
@@ -248,9 +253,9 @@ describe('provider fixture conformance', () => {
       skip: 0,
       limit: 1,
       total: 1
-    })).toEqual({
+    }, undefined, fixture.runtime)).toEqual({
       result: [expect.objectContaining({
-        canonicalKey: 'docs:docs/intro',
+        canonicalKey: 'docs:intro',
         title: 'Intro',
         route: expect.objectContaining({ resolvedPath: '/docs/intro' }),
         resolution: expect.objectContaining({
@@ -268,13 +273,13 @@ describe('provider fixture conformance', () => {
       skip: 0,
       limit: 1,
       total: 1
-    })).toMatchObject({
+    }, undefined, fixture.runtime)).toMatchObject({
       result: [{ title: 'Intro', route: { resolvedPath: '/docs/intro' } }]
     })
 
     expect(() => normalizeProviderQueryResponse({ collection: 'docs' }, [
       { title: 'Intro' }
-    ])).toThrow(expect.objectContaining({
+    ], undefined, fixture.runtime)).toThrow(expect.objectContaining({
       data: expect.objectContaining({ code: 'provider_result_invalid' })
     }))
   })
@@ -341,7 +346,7 @@ describe('provider fixture conformance', () => {
       response: { mode: 'cursor', result: [], limit: 1, pageInfo: { endCursor: null, hasNext: false } }
     }
   ])('rejects a non-canonical provider $name envelope', ({ params, response }) => {
-    expect(() => normalizeProviderQueryResponse(params, response, 'fixture')).toThrow(expect.objectContaining({
+    expect(() => normalizeProviderQueryResponse(params, response, 'fixture', fixture.runtime)).toThrow(expect.objectContaining({
       data: expect.objectContaining({ code: 'provider_result_invalid' })
     }))
   })
@@ -358,7 +363,7 @@ describe('provider fixture conformance', () => {
         { mode: 'cursor', result: sparse, limit: 1, pageInfo: { endCursor: null, hasNext: false } }
       ]
     ] as const) {
-      expect(() => normalizeProviderQueryResponse(params, response, 'fixture')).toThrow(expect.objectContaining({
+      expect(() => normalizeProviderQueryResponse(params, response, 'fixture', fixture.runtime)).toThrow(expect.objectContaining({
         statusMessage: 'provider_result_invalid'
       }))
     }
@@ -376,7 +381,7 @@ describe('provider fixture conformance', () => {
       skip: 0,
       limit: 1,
       total: 1
-    })
+    }, undefined, catalogRuntime)
 
     expect(result.result[0]).toMatchObject({
       type: 'csv',
@@ -398,7 +403,7 @@ describe('provider fixture conformance', () => {
         skip: 0,
         limit: 2,
         total: 2
-      }, 'fixture')).toThrow(expect.objectContaining({
+      }, 'fixture', fixture.runtime)).toThrow(expect.objectContaining({
         statusMessage: 'provider_result_invalid'
       }))
     }

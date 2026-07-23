@@ -52,6 +52,10 @@ describe('query plan contracts', () => {
       projection: { only: ['title', 'path'], without: [] },
       mode: 'all'
     })
+    expect(plan.pagination).toEqual({ mode: 'slice', skip: 0, limit: 100 })
+    expect(plan).not.toHaveProperty('skip')
+    expect(plan).not.toHaveProperty('limit')
+    expect(plan).not.toHaveProperty('paging')
   })
 
   test('captures locale and variant resolution as explicit plan nodes', async () => {

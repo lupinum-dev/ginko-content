@@ -164,7 +164,15 @@ describe('raw provider route facts', () => {
     collections: {
       docs: {
         type: 'page' as const,
-        i18n: { locales: ['en', 'de'], defaultLocale: 'en' }
+        i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
+        localePolicy: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: { de: ['en'] },
+          translatedSlugs: false,
+          routeMounts: { en: '/docs', de: '/dokumentation' }
+        }
       }
     }
   }
@@ -172,7 +180,7 @@ describe('raw provider route facts', () => {
     collection: 'docs',
     canonicalKey: 'docs:intro',
     locale: 'de',
-    contentPath: '/dokumentation/einstieg'
+    contentPath: '/einstieg'
   }
 
   test('core projects navigation, surroundings, and search URLs', () => {
@@ -202,7 +210,14 @@ describe('raw provider route facts', () => {
         docs: {
           type: 'page' as const,
           i18n: false,
-          route: '/docs'
+          route: '/docs',
+          localePolicy: {
+            localized: false,
+            locales: [],
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { default: '/docs' }
+          }
         }
       }
     }

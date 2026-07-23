@@ -15,6 +15,7 @@ import type {
   ContentProviderNavigationOptions,
   ContentProviderPaginationMode,
   ContentProviderQuery,
+  ContentQueryPagination,
   ContentQueryPlan,
 } from './provider-query'
 import { CONTENT_ROUTE_LIMITS } from '../core/provider-route-record'
@@ -54,16 +55,17 @@ export interface ContentDataSourceResult<T> {
   cache: ContentDataSourceCacheHint | false
 }
 
-type AllPlan = Omit<ContentQueryPlan, 'mode' | 'limit'> & { mode: 'all'; limit: number }
-type FirstPlan = Omit<ContentQueryPlan, 'mode' | 'limit' | 'paging'> & {
-  mode: 'first'
-  limit: 1
-  paging?: never
+type AllPlan = Omit<ContentQueryPlan, 'mode' | 'pagination'> & {
+  mode: 'all'
+  pagination: ContentQueryPagination & { limit: number }
 }
-type CountPlan = Omit<ContentQueryPlan, 'mode' | 'limit' | 'paging'> & {
+type FirstPlan = Omit<ContentQueryPlan, 'mode' | 'pagination'> & {
+  mode: 'first'
+  pagination: { mode: 'slice', skip: number, limit: 1 }
+}
+type CountPlan = Omit<ContentQueryPlan, 'mode' | 'pagination'> & {
   mode: 'count'
-  limit?: never
-  paging?: never
+  pagination: { mode: 'slice', skip: number, limit?: never }
 }
 
 export type BoundedContentProviderQuery = Omit<ContentProviderQuery, 'plan'> & {

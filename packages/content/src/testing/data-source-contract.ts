@@ -38,11 +38,11 @@ const assertQueryResponse = (response: unknown, query: BoundedContentProviderQue
     assertDocuments(response.result)
     return
   }
-  const effectiveLimit = query.plan.paging?.limit ?? query.plan.limit
-  const valid = query.plan.paging?.mode === 'cursor'
+  const effectiveLimit = query.plan.pagination.limit
+  const valid = query.plan.pagination.mode === 'cursor'
     ? isCanonicalCursorFindResponseEnvelope(response, { maxLimit: effectiveLimit })
     : isCanonicalOffsetFindResponseEnvelope(response, {
-        expectedSkip: query.plan.paging?.mode === 'offset' ? query.plan.paging.skip : query.plan.skip,
+        expectedSkip: query.plan.pagination.skip,
         expectedLimit: effectiveLimit
       })
   if (!valid) throw new TypeError('Content data source returned an invalid list response.')
@@ -111,7 +111,7 @@ export function runContentDataSourceContractSuite<Context>(
 
   if (options.cursor) {
     test(`${options.name} preserves cursor pagination semantics`, async () => {
-      expect(options.cursor!.query.plan.paging?.mode).toBe('cursor')
+      expect(options.cursor!.query.plan.pagination.mode).toBe('cursor')
       await executeProbe(options, options.cursor!)
     })
   }

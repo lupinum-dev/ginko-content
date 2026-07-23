@@ -138,17 +138,13 @@ export default {
       return { result: selected[0] }
     }
 
-    if (query.plan.paging?.mode === 'cursor') {
+    if (query.plan.pagination.mode === 'cursor') {
       throw new TypeError('fixture-search does not advertise cursor pagination')
     }
-    const skip = query.plan.paging?.mode === 'offset'
-      ? query.plan.paging.skip
-      : query.plan.skip
-    const limit = query.plan.paging?.mode === 'offset'
-      ? query.plan.paging.limit
-      : (query.plan.limit ?? 100)
+    const { skip } = query.plan.pagination
+    const limit = query.plan.pagination.limit ?? 100
     return {
-      ...(query.plan.paging?.mode === 'offset' ? { mode: 'offset' as const } : {}),
+      ...(query.plan.pagination.mode === 'offset' ? { mode: 'offset' as const } : {}),
       result: selected.slice(skip, skip + limit),
       skip,
       limit,

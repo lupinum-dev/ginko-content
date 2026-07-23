@@ -85,9 +85,9 @@ function assertBoundedQuery<Context>(
   source: ContentDataSource<Context>,
   query: Parameters<ContentProvider['query']>[1],
 ): asserts query is BoundedContentProviderQuery {
-  const limit = query.plan.limit
+  const limit = query.plan.pagination.limit
   if (query.plan.mode === 'count') {
-    if (limit !== undefined || query.plan.paging !== undefined) {
+    if (limit !== undefined || query.plan.pagination.mode !== 'slice') {
       throw new TypeError('Count data-source queries cannot carry a limit or paging.')
     }
     return
@@ -101,9 +101,6 @@ function assertBoundedQuery<Context>(
   }
   if (query.plan.mode === 'first' && limit !== 1) {
     throw new RangeError('First data-source queries require limit 1.')
-  }
-  if (query.plan.mode === 'all' && query.plan.paging && query.plan.paging.limit !== limit) {
-    throw new RangeError('Paging limit must equal the data-source query limit.')
   }
 }
 
@@ -344,7 +341,7 @@ export function bindContentProvider<Context>(args: {
         if (
           query.plan.mode !== 'count' &&
           Array.isArray(data.result) &&
-          data.result.length > query.plan.limit
+          data.result.length > query.plan.pagination.limit
         ) {
           throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source query result limit exceeded.')
         }
@@ -354,7 +351,7 @@ export function bindContentProvider<Context>(args: {
     ...(source.navigation
       ? { navigation: async (event, query, options: ContentProviderNavigationOptions = {}) => {
           assertBoundedQuery(source, query)
-          const limit = Math.min(query.plan.mode === 'count' ? 0 : query.plan.limit, CONTENT_DATA_SOURCE_LIMITS.maxNavigationNodes)
+          const limit = Math.min(query.plan.mode === 'count' ? 0 : query.plan.pagination.limit, CONTENT_DATA_SOURCE_LIMITS.maxNavigationNodes)
           if (!positiveInteger(limit)) throw new RangeError('Navigation requires a positive limit.')
           return await execute(event, async (context, control) => {
             const result = await source.navigation!(context, query, { ...options, limit }, control)

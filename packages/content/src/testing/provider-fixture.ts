@@ -10,12 +10,20 @@ import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeContentPath } from '../features/localization/path'
 import { normalizeProviderDocument } from '../public/provider-document'
 import { createContentProviderError } from '../public/provider-errors'
+import {
+  resolveLocalePolicy,
+  type ResolvedCollectionLocalePolicy
+} from '../features/localization/locale-policy'
 
 export interface ProviderFixtureCollection {
   type: 'page' | 'data'
   i18n?: boolean | { locales?: string[], defaultLocale?: string }
   route?: string | Record<string, string>
   sitemap?: boolean
+}
+
+type ProviderFixtureRuntimeCollection = ProviderFixtureCollection & {
+  localePolicy: ResolvedCollectionLocalePolicy
 }
 
 export interface ProviderFixtureInput {
@@ -41,7 +49,7 @@ export interface ProviderFixture {
     defaultLocale: string
     locales: string[]
     localeFallback: Record<string, string[]>
-    collections: Record<string, ProviderFixtureCollection>
+    collections: Record<string, ProviderFixtureRuntimeCollection>
   }
 }
 
@@ -167,6 +175,27 @@ export const createProviderFixture = (input: ProviderFixtureInput): ProviderFixt
       .filter(locale => locale !== defaultLocale)
       .map(locale => [locale, [defaultLocale]])
   )
+  const localePolicy = resolveLocalePolicy({
+    nuxtI18n: { installed: false },
+    content: { locales, defaultLocale, fallback: localeFallback },
+    collections: Object.entries(input.collections).map(([name, collection]) => ({
+      name,
+      localized: Boolean(collection.i18n),
+      ...(collection.i18n && typeof collection.i18n === 'object'
+        ? {
+            locales: collection.i18n.locales,
+            defaultLocale: collection.i18n.defaultLocale
+          }
+        : {}),
+      route: collection.route
+    }))
+  })
+  const runtimeCollections = Object.fromEntries(
+    Object.entries(input.collections).map(([name, collection]) => [
+      name,
+      { ...collection, localePolicy: localePolicy.collections[name]! }
+    ])
+  )
 
   return {
     name: input.name || 'provider-fixture',
@@ -181,7 +210,7 @@ export const createProviderFixture = (input: ProviderFixtureInput): ProviderFixt
       defaultLocale,
       locales,
       localeFallback,
-      collections: input.collections
+      collections: runtimeCollections
     }
   }
 }

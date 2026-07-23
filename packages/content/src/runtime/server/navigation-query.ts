@@ -33,8 +33,7 @@ const trustedNavigationPlan = (
 ): ContentQueryPlan => {
   const {
     collection: _collection,
-    limit: _limit,
-    paging: _paging,
+    pagination: _pagination,
     resolveLocale: _resolveLocale,
     resolveVariant: _resolveVariant,
     variantSelector: _variantSelector,
@@ -46,7 +45,7 @@ const trustedNavigationPlan = (
     filter,
     sort: [...sort],
     projection: { only: [], without: [] },
-    skip: 0,
+    pagination: { mode: 'slice', skip: 0 },
     mode: 'all'
   }
 }

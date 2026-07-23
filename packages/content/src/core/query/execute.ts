@@ -260,9 +260,9 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
     }
   }
 
-  if (plan.mode === 'all' && plan.paging?.mode === 'cursor') {
-    const { limit } = plan.paging
-    const skip = decodeFilesystemCursor(plan.paging.after)
+  if (plan.mode === 'all' && plan.pagination.mode === 'cursor') {
+    const { limit } = plan.pagination
+    const skip = decodeFilesystemCursor(plan.pagination.after)
     const page = matched.slice(skip, skip + limit)
     const projected = applyQueryPlanProjection(page, plan)
     const hasNext = skip + limit < matched.length
@@ -277,12 +277,8 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
     }
   }
 
-  // An explicit `paging: { mode: 'offset' }` request is the single source of
-  // truth for skip/limit when present, so callers never have to duplicate the
-  // same numbers on both `plan.skip`/`plan.limit` and `plan.paging` — it falls
-  // back to the plain fields for a request that never named a paging mode.
-  const effectiveSkip = plan.paging?.mode === 'offset' ? plan.paging.skip : plan.skip
-  const effectiveLimit = plan.paging?.mode === 'offset' ? plan.paging.limit : plan.limit
+  const effectiveSkip = plan.pagination.mode === 'cursor' ? 0 : plan.pagination.skip
+  const effectiveLimit = plan.pagination.limit
   const skipped = effectiveSkip ? matched.slice(effectiveSkip) : matched
   const limited = typeof effectiveLimit === 'number' ? skipped.slice(0, effectiveLimit) : skipped
   const projected = applyQueryPlanProjection(limited, plan)
@@ -292,7 +288,7 @@ export const finalizeQueryPlanResponse = <T>(matched: T[], plan: ContentQueryPla
   }
 
   return {
-    ...(plan.paging?.mode === 'offset' ? { mode: 'offset' as const } : {}),
+    ...(plan.pagination.mode === 'offset' ? { mode: 'offset' as const } : {}),
     result: projected,
     skip: effectiveSkip,
     limit: effectiveLimit || 0,

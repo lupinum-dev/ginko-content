@@ -13,7 +13,7 @@ import { toContentProviderQuery } from '../../packages/content/src/public/provid
 const boundedQuery = () => {
   const query = toContentProviderQuery({ collection: 'docs' })
   query.plan.mode = 'all'
-  query.plan.limit = 2
+  query.plan.pagination.limit = 2
   return query
 }
 
@@ -34,9 +34,9 @@ const expectOnlyRawUtf8ToExceed = (value: string, maximumBytes: number) => {
 
 describe('bindContentProvider', () => {
   it('lowers unbounded builder input to the fixed core query bounds', () => {
-    expect(toContentProviderQuery({ collection: 'docs' }).plan.limit).toBe(100)
-    expect(toContentProviderQuery({ collection: 'docs', first: true }).plan.limit).toBe(1)
-    expect(toContentProviderQuery({ collection: 'docs', count: true }).plan.limit).toBeUndefined()
+    expect(toContentProviderQuery({ collection: 'docs' }).plan.pagination.limit).toBe(100)
+    expect(toContentProviderQuery({ collection: 'docs', first: true }).plan.pagination.limit).toBe(1)
+    expect(toContentProviderQuery({ collection: 'docs', count: true }).plan.pagination.limit).toBeUndefined()
   })
 
   it('rejects malformed data-source capabilities and methods at bind time', () => {
@@ -128,7 +128,7 @@ describe('bindContentProvider', () => {
     } as unknown as ContentDataSource<null>
     const provider = bindContentProvider({ source, createContext: () => null })
     const query = boundedQuery()
-    query.plan.limit = 101
+    query.plan.pagination.limit = 101
 
     await expect(provider.query(event(), query)).rejects.toThrow(/limit/i)
     expect(source.query).not.toHaveBeenCalled()

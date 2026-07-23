@@ -23,7 +23,16 @@ const mocks = vi.hoisted(() => ({
 
 const runtimeContent = {
   collections: {
-    docs: { type: 'page' }
+    docs: {
+      type: 'page',
+      localePolicy: {
+        localized: false,
+        locales: [],
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { default: '/docs' }
+      }
+    }
   },
   locales: ['en'],
   defaultLocale: 'en',
@@ -157,7 +166,7 @@ describe('runtime cache API boundary (atomic publication)', () => {
     expect(mocks.setItem).not.toHaveBeenCalled()
     expect(result).toEqual(expect.objectContaining({
       documentCount: 0,
-      routes: ['/guide', '/private-map'],
+      routes: ['/docs/guide', '/docs/private-map'],
       routesByCollection: { docs: 2 },
       sitemapByCollection: { docs: 1 }
     }))

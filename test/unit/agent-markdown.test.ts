@@ -33,8 +33,8 @@ const providerDocumentFor = (page: Partial<ParsedContent> & Record<string, unkno
 }
 
 const providerListResponse = (query: any, documents: unknown[]) => {
-  const skip = query.plan.paging?.mode === 'offset' ? query.plan.paging.skip : query.plan.skip ?? 0
-  const limit = query.plan.limit ?? query.plan.paging?.limit ?? 100
+  const skip = query.plan.pagination.skip
+  const limit = query.plan.pagination.limit ?? 100
   return { result: documents.slice(skip, skip + limit), skip, limit, total: documents.length }
 }
 

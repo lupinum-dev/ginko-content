@@ -138,17 +138,18 @@ export interface VariantResolution {
  * Provider wire pagination semantics. Exactly one of
  * two honest modes: `offset` guarantees skip + an exact total; `cursor`
  * guarantees an opaque forward cursor with no synthetic total. Present on the
- * plan only when the caller made an explicit paging choice (`paginate()`, or
- * `many({ skip })` needing offset semantics) — a plain unbounded/limited
- * `many()` carries no `paging` and keeps its existing skip/limit slicing
- * untouched, so this is additive rather than a restructuring of every list
- * query.
+ * explicit provider pagination requested by `paginate()`.
  */
 export type ContentProviderPaginationMode = 'offset' | 'cursor'
 
 export type ContentProviderPaging =
   | { mode: 'offset', skip: number, limit: number }
   | { mode: 'cursor', after?: string | null, limit: number }
+
+/** The single normalized pagination state carried by a query plan. */
+export type ContentQueryPagination =
+  | { mode: 'slice', skip: number, limit?: number }
+  | ContentProviderPaging
 
 /**
  * Closed provider-wire route/ref selector. Core resolves a
@@ -172,13 +173,10 @@ export interface ContentQueryPlan {
   filter: FilterExpr
   sort: SortClause[]
   projection: Projection
-  skip: number
-  limit?: number
+  pagination: ContentQueryPagination
   mode: QueryMode
   resolveLocale?: LocaleResolution
   resolveVariant?: VariantResolution
-  /** Explicit wire pagination-mode request for `mode: 'all'` plans (see `ContentProviderPaging`). */
-  paging?: ContentProviderPaging
   /**
    * Closed route/ref wire selector, computed by the provider-query lowering
    * step (`runtime/server/provider-query.ts`) from `resolveVariant` using the

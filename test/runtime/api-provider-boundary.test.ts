@@ -184,7 +184,10 @@ describe('runtime API provider boundary', () => {
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
       v: 3,
       collection: 'docs',
-      plan: expect.objectContaining({ collection: 'docs', limit: 10 })
+      plan: expect.objectContaining({
+        collection: 'docs',
+        pagination: { mode: 'slice', skip: 0, limit: 10 }
+      })
     }))
   })
 

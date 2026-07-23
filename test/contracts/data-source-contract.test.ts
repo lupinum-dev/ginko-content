@@ -14,12 +14,10 @@ const query: BoundedContentProviderQuery = {
   collection: 'docs',
   plan: {
     mode: 'all',
-    limit: 2,
     filter: { type: 'true' },
     sort: [],
     projection: { only: [], without: [] },
-    skip: 0,
-    paging: { mode: 'cursor', after: null, limit: 2 },
+    pagination: { mode: 'cursor', after: null, limit: 2 },
   },
 }
 
@@ -71,7 +69,13 @@ describe('ContentDataSource v1', () => {
       runContentDataSourceContract({
         source: boundedSource,
         context: null,
-        query: { ...query, plan: { ...query.plan, limit: 101 } },
+        query: {
+          ...query,
+          plan: {
+            ...query.plan,
+            pagination: { ...query.plan.pagination, limit: 101 }
+          }
+        },
       }),
     ).rejects.toThrow(/limit/i)
   })
@@ -118,8 +122,7 @@ const firstQuery = (contentPath: string): BoundedContentProviderQuery => ({
   plan: {
     ...query.plan,
     mode: 'first',
-    limit: 1,
-    paging: undefined,
+    pagination: { mode: 'slice', skip: 0, limit: 1 },
     filter: { type: 'compare', field: 'path', operator: 'eq', value: contentPath },
   },
 }) as BoundedContentProviderQuery
@@ -154,7 +157,7 @@ describe('runContentDataSourceContractSuite', () => {
           data: {
             mode: 'cursor',
             result: [contractDocument],
-            limit: request.plan.limit,
+            limit: request.plan.pagination.limit,
             pageInfo: { endCursor: null, hasNext: false },
           },
           cache: false,

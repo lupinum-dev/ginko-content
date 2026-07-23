@@ -91,15 +91,12 @@ const expectCanonicalProviderQueryResponse = (response: unknown, query: ContentP
     return
   }
 
-  const limit = query.plan.paging?.limit ?? query.plan.limit
-  expect(limit).toEqual(expect.any(Number))
-  if (query.plan.paging?.mode === 'cursor') {
+  const limit = query.plan.pagination.limit
+  if (query.plan.pagination.mode === 'cursor') {
     expect(isCanonicalCursorFindResponseEnvelope(response, { maxLimit: limit })).toBe(true)
   } else {
     expect(isCanonicalOffsetFindResponseEnvelope(response, {
-      expectedSkip: query.plan.paging?.mode === 'offset'
-        ? query.plan.paging.skip
-        : query.plan.skip,
+      expectedSkip: query.plan.pagination.skip,
       expectedLimit: limit
     })).toBe(true)
   }
@@ -188,7 +185,7 @@ export const runProviderContractSuite = (options: ProviderContractSuiteOptions) 
       const provider = await loadProvider()
       const probe = options.paginationProbes[mode]
       expect(probe, `Missing executable conformance probe for ${mode} pagination`).toBeDefined()
-      expect(probe!.positive.plan.paging?.mode, `${mode} pagination probe must explicitly select that mode`).toBe(mode)
+      expect(probe!.positive.plan.pagination.mode, `${mode} pagination probe must explicitly select that mode`).toBe(mode)
       const result = unwrapProviderContractResult(await provider.query(createEvent(), probe!.positive))
       expectCanonicalProviderQueryResponse(result, probe!.positive)
       await probe!.assertResult(result)
