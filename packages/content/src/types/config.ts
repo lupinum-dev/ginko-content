@@ -361,7 +361,7 @@ export type CollectionSchema<TCollection> =
     : Record<string, unknown>
 
 /** Zod string schema tagged with Ginko Content reference metadata. */
-export interface ContentReferenceSchema extends z.ZodString {}
+export type ContentReferenceSchema = z.ZodString
 
 /**
  * Typed handle returned by `defineCollection`. Carries the collection's name

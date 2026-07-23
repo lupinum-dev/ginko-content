@@ -20,9 +20,10 @@ export function normalizeComarkNodes(nodes: unknown[], source = ''): unknown[] {
       recordIndex += 1
       if (isRecord(props)) {
         for (const [name, value] of record.booleans) {
-          if (props[`:${name}`] === String(value)) {
+          const boundName = `:${name}`
+          if (props[boundName] === String(value)) {
             props[name] = value
-            delete props[`:${name}`]
+            Reflect.deleteProperty(props, boundName)
           }
         }
       }
@@ -66,8 +67,8 @@ function scanComponentRecords(source: string): ComponentRecord[] {
     }
     if (fence) continue
 
-    const opener = /^\s*:{1,}\s*([a-z][\w-]*)\b/i.exec(line)
-    if (!opener || /^\s*:{1,}\s*$/.test(line)) continue
+    const opener = /^\s*:+\s*([a-z][\w-]*)\b/i.exec(line)
+    if (!opener || /^\s*:+\s*$/.test(line)) continue
 
     const record: ComponentRecord = { tag: opener[1]!, booleans: new Map() }
     const frontmatterStart = index + 1
