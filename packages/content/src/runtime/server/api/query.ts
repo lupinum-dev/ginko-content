@@ -31,10 +31,9 @@ export default defineEventHandler(async (event) => {
     throw invalidContentQueryRequest('$', 'Request payload is too large.')
   }
 
-  // `getContentQuery` already rejects malformed base64/JSON with a 400
-  // (parsing JSON is not validation); this closes the untrusted shape itself —
-  // unknown keys, filter depth/operator/pagination shape, selection/sort
-  // bounds — BEFORE lowering or provider dispatch ever run.
+  // `getContentQuery` already rejects malformed base64/JSON with a 400.
+  // This applies HTTP resource bounds, then delegates the accepted language
+  // to the canonical query lowerer before provider dispatch.
   const decoded = getContentQuery(event)
   const validated = validateContentQueryRequestBody(decoded)
   if (!validated.ok) {

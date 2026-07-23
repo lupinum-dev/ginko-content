@@ -14,8 +14,8 @@ import { MAX_PUBLIC_QUERY_CURSOR_BYTES } from '../../packages/content/src/core/q
 
 /**
  * Closed HTTP boundary validation. `validateContentQueryRequestBody`
- * is a pure function — every case here runs without H3, a provider, or the
- * query lowerer, proving the boundary can reject before either ever runs.
+ * is a pure function: transport budgets are checked here and query semantics
+ * are delegated to the canonical lowerer without H3 or provider dispatch.
  */
 describe('content query HTTP request validation', () => {
   test('accepts a well-formed request', () => {

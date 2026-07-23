@@ -220,6 +220,23 @@ describe('provider query contract', () => {
       }
     })
 
+    test('owns typed operator validation in the canonical lowerer', () => {
+      for (const [operator, operand] of [
+        ['$exists', 'yes'],
+        ['$type', 'function'],
+        ['$in', 'published'],
+        ['$nin', 'archived'],
+        ['$containsAny', 'nuxt'],
+        ['$icontains', 42],
+        ['$prefix', 42],
+        ['$regex', 42]
+      ] as const) {
+        expect(() => lowerQueryPlan({
+          where: [{ title: { [operator]: operand } }]
+        } as never), operator).toThrow()
+      }
+    })
+
     test('rejects malformed direct provider-lowering inputs instead of broadening them', () => {
       for (const params of [
         { where: { $and: [] } },

@@ -15,10 +15,17 @@ import {
   CONTENT_QUERY_INPUT_KEYS,
   CONTENT_QUERY_OFFSET_PAGING_KEYS,
   CONTENT_QUERY_RESOLUTION_KEYS,
+  CONTENT_QUERY_TYPE_VALUES,
   CONTENT_QUERY_VARIANT_SELECTOR_KEYS
 } from '../../types/query'
 import type { CompareOperator, ContentQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
-import { assertSupportedQueryOperators, isValidQueryCollationLocale, isValidQueryFieldPath, PROVIDER_QUERY_OPERATORS } from './operators'
+import {
+  assertSupportedQueryOperators,
+  findUnsupportedPublicQueryOperator,
+  isValidQueryCollationLocale,
+  isValidQueryFieldPath,
+  PROVIDER_QUERY_OPERATORS
+} from './operators'
 import { assertPublicPagingLimit, assertPublicQueryLimit, assertPublicQuerySkip, DEFAULT_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_CURSOR_BYTES } from './limits'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../json-value'
 
@@ -31,11 +38,39 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 const SORT_PARAMETER_KEYS = new Set(['$locale', '$numeric', '$caseFirst', '$sensitivity'])
 const CASE_FIRST_VALUES = new Set(['upper', 'lower', 'false'])
 const SENSITIVITY_VALUES = new Set(['base', 'accent', 'case', 'variant'])
+const QUERY_TYPE_VALUES = new Set<string>(CONTENT_QUERY_TYPE_VALUES)
+const ARRAY_OPERATORS = new Set(['$in', '$nin', '$containsAny'])
+const STRING_OPERATORS = new Set(['$icontains', '$prefix'])
+
+export class ContentQueryInputError extends TypeError {
+  constructor(
+    public readonly path: string,
+    message: string
+  ) {
+    super(message)
+    this.name = 'ContentQueryInputError'
+  }
+}
+
+const invalid = (path: string, message: string): never => {
+  throw new ContentQueryInputError(path, message)
+}
+
+const assertAt = (path: string, check: () => void): void => {
+  try {
+    check()
+  }
+  catch (error) {
+    if (error instanceof ContentQueryInputError) throw error
+    if (error instanceof Error) invalid(path, error.message)
+    throw error
+  }
+}
 
 const assertNoUnknownKeys = (value: Record<string, unknown>, allowed: readonly string[], path: string): void => {
   for (const key of Object.keys(value)) {
     if (!allowed.includes(key)) {
-      throw new TypeError(`Unknown content query key at ${path}.${key}.`)
+      invalid(`${path}.${key}`, `Unknown content query key "${key}".`)
     }
   }
 }
@@ -144,9 +179,30 @@ const ensureQueryWhereArray = (where?: ContentProviderQueryInput['where']) => {
 
 const COMPARISON_OPERATORS = new Set<string>(PROVIDER_QUERY_OPERATORS)
 
-const assertValidFieldPath: (field: unknown) => asserts field is string = (field) => {
+const assertValidFieldPath: (field: unknown, path?: string) => asserts field is string = (field, path = '$.where') => {
   if (!isValidQueryFieldPath(field)) {
-    throw new TypeError(`Invalid query field path "${String(field)}". Field paths must use non-empty segments and must not contain __proto__, prototype, or constructor.`)
+    invalid(path, `Invalid query field path "${String(field)}". Field paths must use non-empty segments and must not contain __proto__, prototype, or constructor.`)
+  }
+}
+
+const assertOperatorOperand = (operator: string, value: unknown, path: string): void => {
+  if (operator === '$exists' && typeof value !== 'boolean') {
+    invalid(path, '$exists must be a boolean.')
+  }
+  if (operator === '$type' && (typeof value !== 'string' || !QUERY_TYPE_VALUES.has(value))) {
+    invalid(path, `$type must be one of ${CONTENT_QUERY_TYPE_VALUES.join(', ')}.`)
+  }
+  if (ARRAY_OPERATORS.has(operator) && !Array.isArray(value)) {
+    invalid(path, `${operator} must be an array.`)
+  }
+  if (STRING_OPERATORS.has(operator) && typeof value !== 'string') {
+    invalid(path, `${operator} must be a string.`)
+  }
+  if (operator === '$regex' && typeof value !== 'string' && !(value instanceof RegExp)) {
+    invalid(path, '$regex must be a string or RegExp.')
+  }
+  if (operator === '$options' && typeof value !== 'string') {
+    invalid(path, '$options must be a string.')
   }
 }
 
@@ -177,33 +233,35 @@ const collapse = (type: 'and' | 'or', clauses: FilterExpr[]): FilterExpr => {
  *   - a nested object (dotted-path access — `{ meta: { published: true } }`
  *     becomes `meta.published = true`)
  */
-const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
-  assertValidFieldPath(field)
+const lowerFieldCondition = (field: string, value: unknown, path: string): FilterExpr => {
+  assertValidFieldPath(field, path)
 
   if (isPlainObject(value)) {
     const objectValue = value
     const keys = Object.keys(objectValue)
     if (keys.length === 0) {
-      throw new TypeError(`Invalid content query filter at ${field}: nested filter objects cannot be empty.`)
+      invalid(path, 'Nested filter objects cannot be empty.')
     }
     const operatorKeys = keys.filter(key => key.startsWith('$'))
     if (operatorKeys.length > 0 && operatorKeys.length !== keys.length) {
-      throw new TypeError(`Invalid content query filter at ${field}: operator objects cannot mix operator and nested-field keys.`)
+      invalid(path, 'Operator objects cannot mix operator and nested-field keys.')
     }
     if (operatorKeys.includes('$not')) {
-      throw new TypeError(`Invalid content query filter at ${field}.$not: $not is a logical operator and must wrap a filter condition.`)
+      invalid(`${path}.$not`, '$not is a logical operator and must wrap a filter condition.')
     }
     if ('$options' in objectValue && !('$regex' in objectValue)) {
-      throw new TypeError('Query operator $options requires $regex.')
+      invalid(`${path}.$options`, 'Query operator $options requires $regex.')
     }
     const clauses: FilterExpr[] = []
 
     for (const [key, nestedValue] of Object.entries(objectValue)) {
       if (key === '$options') {
+        assertOperatorOperand(key, nestedValue, `${path}.${key}`)
         continue
       }
 
       if (COMPARISON_OPERATORS.has(key)) {
+        assertOperatorOperand(key, nestedValue, `${path}.${key}`)
         // Without explicit `$options`, a string `$regex` passes through to the
         // executor which parses trailing `/…/flags`; enforce the flag whitelist
         // here so the string form matches the RegExp-literal restriction.
@@ -224,7 +282,7 @@ const lowerFieldCondition = (field: string, value: unknown): FilterExpr => {
         continue
       }
 
-      clauses.push(lowerFieldCondition(`${field}.${key}`, nestedValue))
+      clauses.push(lowerFieldCondition(`${field}.${key}`, nestedValue, `${path}.${key}`))
     }
 
     return collapse('and', clauses)
@@ -243,41 +301,47 @@ const regexValue = (source: string, flags: string): PlanRegex => {
   return { __ginkoContentQueryValue: 'RegExp', source, flags }
 }
 
-const lowerWhereCondition = (condition: ContentProviderQueryWhere): FilterExpr => {
+const lowerWhereCondition = (condition: ContentProviderQueryWhere, path: string): FilterExpr => {
   if (!isPlainObject(condition)) {
-    throw new TypeError('Content query filter conditions must be plain objects.')
+    invalid(path, 'Content query filter conditions must be plain objects.')
   }
   if (Object.keys(condition).length === 0) {
-    throw new TypeError('Content query filter conditions cannot be empty.')
+    invalid(path, 'Content query filter conditions cannot be empty.')
   }
   const clauses: FilterExpr[] = []
 
   for (const [key, value] of Object.entries(condition)) {
     if (key === '$and') {
       if (!Array.isArray(value) || value.length === 0) {
-        throw new TypeError('Content query logical group $and must be a non-empty array.')
+        invalid(`${path}.$and`, 'Content query logical group $and must be a non-empty array.')
       }
-      clauses.push(collapse('and', value.map(member => lowerWhereCondition(member as ContentProviderQueryWhere))))
+      const members = value as ContentProviderQueryWhere[]
+      clauses.push(collapse('and', members.map((member, index) =>
+        lowerWhereCondition(member as ContentProviderQueryWhere, `${path}.$and[${index}]`)
+      )))
       continue
     }
 
     if (key === '$or') {
       if (!Array.isArray(value) || value.length === 0) {
-        throw new TypeError('Content query logical group $or must be a non-empty array.')
+        invalid(`${path}.$or`, 'Content query logical group $or must be a non-empty array.')
       }
-      clauses.push(collapse('or', value.map(member => lowerWhereCondition(member as ContentProviderQueryWhere))))
+      const members = value as ContentProviderQueryWhere[]
+      clauses.push(collapse('or', members.map((member, index) =>
+        lowerWhereCondition(member as ContentProviderQueryWhere, `${path}.$or[${index}]`)
+      )))
       continue
     }
 
     if (key === '$not') {
       if (!value || typeof value !== 'object' || Array.isArray(value) || value instanceof RegExp || value instanceof Date) {
-        throw new TypeError('Top-level query operator $not must contain a filter condition object.')
+        invalid(`${path}.$not`, 'Top-level query operator $not must contain a filter condition object.')
       }
-      clauses.push({ type: 'not', clause: lowerWhereCondition(value as ContentProviderQueryWhere) })
+      clauses.push({ type: 'not', clause: lowerWhereCondition(value as ContentProviderQueryWhere, `${path}.$not`) })
       continue
     }
 
-    clauses.push(lowerFieldCondition(key, value))
+    clauses.push(lowerFieldCondition(key, value, `${path}.${key}`))
   }
 
   return collapse('and', clauses)
@@ -285,33 +349,34 @@ const lowerWhereCondition = (condition: ContentProviderQueryWhere): FilterExpr =
 
 const lowerSort = (sort: ContentQuerySortOptions[] = []): SortClause[] => {
   if (!Array.isArray(sort)) {
-    throw new TypeError('Content query sort must be an array.')
+    invalid('$.sort', 'Content query sort must be an array.')
   }
-  return sort.flatMap((option) => {
+  return sort.flatMap((option, index) => {
+    const path = `$.sort[${index}]`
     if (!isPlainObject(option)) {
-      throw new TypeError('Each content query sort entry must be a plain object.')
+      invalid(path, 'Each content query sort entry must be a plain object.')
     }
     for (const key of Object.keys(option)) {
       if (key.startsWith('$') && !SORT_PARAMETER_KEYS.has(key)) {
-        throw new TypeError(`Unknown content query sort parameter: ${key}`)
+        invalid(`${path}.${key}`, `Unknown content query sort parameter: ${key}`)
       }
     }
     const sortParams = option
     if (sortParams.$locale !== undefined && !isValidQueryCollationLocale(sortParams.$locale)) {
-      throw new TypeError(`Invalid content query sort locale: ${String(sortParams.$locale)}`)
+      invalid(`${path}.$locale`, `Invalid content query sort locale: ${String(sortParams.$locale)}`)
     }
     if (sortParams.$numeric !== undefined && typeof sortParams.$numeric !== 'boolean') {
-      throw new TypeError('Invalid content query sort $numeric: expected a boolean.')
+      invalid(`${path}.$numeric`, 'Invalid content query sort $numeric: expected a boolean.')
     }
     if (sortParams.$caseFirst !== undefined && (typeof sortParams.$caseFirst !== 'string' || !CASE_FIRST_VALUES.has(sortParams.$caseFirst))) {
-      throw new TypeError('Invalid content query sort $caseFirst: expected upper, lower, or false.')
+      invalid(`${path}.$caseFirst`, 'Invalid content query sort $caseFirst: expected upper, lower, or false.')
     }
     if (sortParams.$sensitivity !== undefined && (typeof sortParams.$sensitivity !== 'string' || !SENSITIVITY_VALUES.has(sortParams.$sensitivity))) {
-      throw new TypeError('Invalid content query sort $sensitivity: expected base, accent, case, or variant.')
+      invalid(`${path}.$sensitivity`, 'Invalid content query sort $sensitivity: expected base, accent, case, or variant.')
     }
     const fields = Object.entries(option).filter(([key]) => !key.startsWith('$'))
     if (fields.length === 0) {
-      throw new TypeError('Content query sort entries must name at least one field.')
+      invalid(path, 'Content query sort entries must name at least one field.')
     }
     const meta = {
       ...(typeof sortParams.$locale === 'string' ? { locale: sortParams.$locale } : {}),
@@ -322,9 +387,9 @@ const lowerSort = (sort: ContentQuerySortOptions[] = []): SortClause[] => {
 
     return fields
       .map(([field, direction]) => {
-        assertValidFieldPath(field)
+        assertValidFieldPath(field, `${path}.${field}`)
         if (direction !== 1 && direction !== -1) {
-          throw new TypeError(`Invalid content query sort direction for "${field}": expected 1 or -1.`)
+          invalid(`${path}.${field}`, `Invalid content query sort direction for "${field}": expected 1 or -1.`)
         }
         return {
           field,
@@ -337,120 +402,138 @@ const lowerSort = (sort: ContentQuerySortOptions[] = []): SortClause[] => {
 
 const assertLocaleResolution = (value: unknown, field: 'resolveLocale' | 'resolveVariant'): void => {
   if (value === undefined) return
+  const path = `$.${field}`
   if (!isPlainObject(value)) {
-    throw new TypeError(`Content query ${field} must be a plain object.`)
+    invalid(path, `Content query ${field} must be a plain object.`)
   }
+  const record = value as Record<string, unknown>
   assertNoUnknownKeys(
-    value,
+    record,
     field === 'resolveVariant'
       ? [...CONTENT_QUERY_VARIANT_SELECTOR_KEYS, ...CONTENT_QUERY_RESOLUTION_KEYS]
       : CONTENT_QUERY_RESOLUTION_KEYS,
-    field
+    path
   )
-  if (value.locale !== undefined && (typeof value.locale !== 'string' || value.locale.length === 0)) {
-    throw new TypeError(`Content query ${field}.locale must be a non-empty string.`)
+  if (record.locale !== undefined && (typeof record.locale !== 'string' || record.locale.length === 0)) {
+    invalid(`${path}.locale`, `Content query ${field}.locale must be a non-empty string.`)
   }
-  if (value.fallback !== undefined && typeof value.fallback !== 'boolean' && !Array.isArray(value.fallback)) {
-    throw new TypeError(`Content query ${field}.fallback must be a boolean or an array of locale strings.`)
+  if (record.fallback !== undefined && typeof record.fallback !== 'boolean' && !Array.isArray(record.fallback)) {
+    invalid(`${path}.fallback`, `Content query ${field}.fallback must be a boolean or an array of locale strings.`)
   }
-  if (Array.isArray(value.fallback) && value.fallback.some(locale => typeof locale !== 'string' || locale.length === 0)) {
-    throw new TypeError(`Content query ${field}.fallback must contain only non-empty locale strings.`)
+  if (Array.isArray(record.fallback) && record.fallback.some(locale => typeof locale !== 'string' || locale.length === 0)) {
+    invalid(`${path}.fallback`, `Content query ${field}.fallback must contain only non-empty locale strings.`)
   }
-  if (value.exact !== undefined && typeof value.exact !== 'boolean') {
-    throw new TypeError(`Content query ${field}.exact must be a boolean.`)
+  if (record.exact !== undefined && typeof record.exact !== 'boolean') {
+    invalid(`${path}.exact`, `Content query ${field}.exact must be a boolean.`)
   }
   if (field === 'resolveVariant') {
-    const selectors = ['path', 'route', 'ref'].filter(selector => value[selector] !== undefined)
+    const selectors = ['path', 'route', 'ref'].filter(selector => record[selector] !== undefined)
     if (selectors.length !== 1) {
-      throw new TypeError('Content query resolveVariant must name exactly one of path, route, or ref.')
+      invalid(path, 'Content query resolveVariant must name exactly one of path, route, or ref.')
     }
     const selector = selectors[0]!
-    if (typeof value[selector] !== 'string' || value[selector].length === 0) {
-      throw new TypeError(`Content query resolveVariant.${selector} must be a non-empty string.`)
+    if (typeof record[selector] !== 'string' || record[selector].length === 0) {
+      invalid(`${path}.${selector}`, `Content query resolveVariant.${selector} must be a non-empty string.`)
     }
   }
 }
 
 const assertQueryParamsShape = (params: ContentProviderQueryInput): void => {
   if (!isPlainObject(params)) {
-    throw new TypeError('Content query params must be a plain object.')
+    invalid('$', 'Content query params must be a plain object.')
   }
-  assertNoUnknownKeys(params, CONTENT_QUERY_INPUT_KEYS, '$')
+  assertNoUnknownKeys(params as unknown as Record<string, unknown>, CONTENT_QUERY_INPUT_KEYS, '$')
   if (params.collection !== undefined && (typeof params.collection !== 'string' || params.collection.length === 0)) {
-    throw new TypeError('Content query collection must be a non-empty string.')
+    invalid('$.collection', 'Content query collection must be a non-empty string.')
   }
   if (params.first !== undefined && typeof params.first !== 'boolean') {
-    throw new TypeError('Content query first terminal must be a boolean.')
+    invalid('$.first', 'Content query first terminal must be a boolean.')
   }
   if (params.count !== undefined && typeof params.count !== 'boolean') {
-    throw new TypeError('Content query count terminal must be a boolean.')
+    invalid('$.count', 'Content query count terminal must be a boolean.')
   }
   if (params.first === true && params.count === true) {
-    throw new TypeError('Content query cannot request both first and count terminals.')
+    invalid('$.first', 'Content query cannot request both first and count terminals.')
   }
   if ((params.first === true || params.count === true) && params.paging !== undefined) {
-    throw new TypeError('Content query paging is only valid for list terminals.')
+    invalid('$.paging', 'Content query paging is only valid for list terminals.')
   }
   if (params.paging !== undefined && (params.skip !== undefined || params.limit !== undefined)) {
-    throw new TypeError('Content query paging must not duplicate top-level skip or limit values.')
+    invalid(params.skip !== undefined ? '$.skip' : '$.limit', 'Content query paging must not duplicate top-level skip or limit values.')
   }
   if (params.where !== undefined) {
     const conditions = Array.isArray(params.where) ? params.where : [params.where]
     if (conditions.length === 0) {
-      throw new TypeError('Content query filter conditions cannot be empty.')
+      invalid('$.where', 'Content query filter conditions cannot be empty.')
     }
     if (conditions.some(condition => !isPlainObject(condition))) {
-      throw new TypeError('Content query filter conditions must be plain objects.')
+      invalid('$.where', 'Content query filter conditions must be plain objects.')
     }
   }
   for (const [field, selection] of [['only', params.only], ['without', params.without]] as const) {
     if (selection === undefined) continue
     if (!Array.isArray(selection) || selection.some(entry => typeof entry !== 'string')) {
-      throw new TypeError(`Content query ${field} must be an array of field paths.`)
+      invalid(`$.${field}`, `Content query ${field} must be an array of field paths.`)
     }
   }
   if (params.paging !== undefined) {
     if (!isPlainObject(params.paging) || (params.paging.mode !== 'offset' && params.paging.mode !== 'cursor')) {
-      throw new TypeError('Content query paging mode must be offset or cursor.')
+      invalid('$.paging.mode', 'Content query paging mode must be offset or cursor.')
     }
+    const paging = params.paging
     assertNoUnknownKeys(
-      params.paging,
-      params.paging.mode === 'offset' ? CONTENT_QUERY_OFFSET_PAGING_KEYS : CONTENT_QUERY_CURSOR_PAGING_KEYS,
-      'paging'
+      paging,
+      paging.mode === 'offset' ? CONTENT_QUERY_OFFSET_PAGING_KEYS : CONTENT_QUERY_CURSOR_PAGING_KEYS,
+      '$.paging'
     )
-    assertPublicPagingLimit(params.paging.limit)
-    if (params.paging.mode === 'offset') {
-      assertPublicQuerySkip(params.paging.skip)
+    assertAt('$.paging.limit', () => assertPublicPagingLimit(paging.limit))
+    if (paging.mode === 'offset') {
+      assertAt('$.paging.skip', () => assertPublicQuerySkip(paging.skip))
     }
-    else if (params.paging.after !== undefined && params.paging.after !== null && typeof params.paging.after !== 'string') {
-      throw new TypeError('Content query cursor must be a string or null.')
+    else if (paging.after !== undefined && paging.after !== null && typeof paging.after !== 'string') {
+      invalid('$.paging.after', 'Content query cursor must be a string or null.')
     }
-    else if (typeof params.paging.after === 'string' && new TextEncoder().encode(params.paging.after).length > MAX_PUBLIC_QUERY_CURSOR_BYTES) {
-      throw new TypeError(`Content query cursor exceeds the maximum of ${MAX_PUBLIC_QUERY_CURSOR_BYTES} bytes.`)
+    else if (typeof paging.after === 'string' && new TextEncoder().encode(paging.after).length > MAX_PUBLIC_QUERY_CURSOR_BYTES) {
+      invalid('$.paging.after', `Content query cursor exceeds the maximum of ${MAX_PUBLIC_QUERY_CURSOR_BYTES} bytes.`)
     }
   }
   assertLocaleResolution(params.resolveLocale, 'resolveLocale')
   assertLocaleResolution(params.resolveVariant, 'resolveVariant')
 }
 
-export const lowerQueryPlan = (params: ContentProviderQueryInput): ContentQueryPlan => {
+export const lowerQueryPlan = (
+  params: ContentProviderQueryInput,
+  options: { publicOperatorsOnly?: boolean } = {}
+): ContentQueryPlan => {
   assertQueryParamsShape(params)
   // Validate the complete tree before interpreting plain objects as nested
   // field conditions. Otherwise a Map, Set, or class instance with no
   // enumerable keys could silently collapse to a match-all filter.
-  if (params.where !== undefined) serializeQueryValue(params.where)
-  assertSupportedQueryOperators(params.where)
-
-  for (const field of [...(params.only || []), ...(params.without || [])]) {
-    assertValidFieldPath(field)
+  if (params.where !== undefined) {
+    assertAt('$.where', () => { serializeQueryValue(params.where) })
   }
-  if (params.limit !== undefined) assertPublicQueryLimit(params.limit)
-  if (params.skip !== undefined) assertPublicQuerySkip(params.skip)
+  if (options.publicOperatorsOnly) {
+    const unsupported = findUnsupportedPublicQueryOperator(params.where)
+    if (unsupported) {
+      invalid('$.where', `Unknown query operator or unsupported public operator "${unsupported}".`)
+    }
+  }
+  else {
+    assertAt('$.where', () => assertSupportedQueryOperators(params.where))
+  }
+
+  for (const [selection, fields] of [['only', params.only], ['without', params.without]] as const) {
+    for (const [index, field] of (fields || []).entries()) {
+      assertValidFieldPath(field, `$.${selection}[${index}]`)
+    }
+  }
+  if (params.limit !== undefined) assertAt('$.limit', () => assertPublicQueryLimit(params.limit))
+  if (params.skip !== undefined) assertAt('$.skip', () => assertPublicQuerySkip(params.skip))
 
   const paging = params.paging
   if (paging) {
-    assertPublicPagingLimit(paging.limit)
-    if (paging.mode === 'offset') assertPublicQuerySkip(paging.skip)
+    assertAt('$.paging.limit', () => assertPublicPagingLimit(paging.limit))
+    if (paging.mode === 'offset') assertAt('$.paging.skip', () => assertPublicQuerySkip(paging.skip))
   }
   const resolveVariant = params.resolveVariant
   const resolveLocaleExact = params.resolveLocale?.exact === true || params.resolveLocale?.fallback === false
@@ -474,7 +557,9 @@ export const lowerQueryPlan = (params: ContentProviderQueryInput): ContentQueryP
 
   return {
     ...(params.collection !== undefined ? { collection: params.collection } : {}),
-    filter: collapse('and', ensureQueryWhereArray(params.where).map(lowerWhereCondition)),
+    filter: collapse('and', ensureQueryWhereArray(params.where).map((condition, index) =>
+      lowerWhereCondition(condition, `$.where[${index}]`)
+    )),
     sort: lowerSort(params.sort),
     projection: {
       only: params.only ? [...params.only] : [],
