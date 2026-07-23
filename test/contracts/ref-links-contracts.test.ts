@@ -339,6 +339,14 @@ describe('ref link contracts', () => {
                 href: '$main.pricing'
               },
               children: []
+            },
+            {
+              type: 'element',
+              tag: 'read-more',
+              props: {
+                links: [{ title: 'Nested', to: '$docs.nested' }]
+              },
+              children: []
             }
           ]
         }
@@ -348,20 +356,24 @@ describe('ref link contracts', () => {
     expect(collectMarkdownRefLinks(body)).toEqual([
       '$guide-advanced#deep-dive',
       '$docs.getting-started',
-      '$main.pricing'
+      '$main.pricing',
+      '$docs.nested'
     ])
 
     const rewritten = rewriteMarkdownRefLinks(body, {
       '$guide-advanced#deep-dive': '/guide/advanced#deep-dive',
       '$docs.getting-started': '/de/docs/einstieg',
-      '$main.pricing': '/de/pricing'
+      '$main.pricing': '/de/pricing',
+      '$docs.nested': '/de/docs/nested'
     })
 
     expect(rewritten.children[0].children[0].props.href).toBe('/guide/advanced#deep-dive')
     expect(rewritten.children[0].children[1].props.to).toBe('/de/docs/einstieg')
     expect(rewritten.children[0].children[2].props.href).toBe('/de/pricing')
+    expect(rewritten.children[0].children[3].props.links[0].to).toBe('/de/docs/nested')
     expect(body.children[0].children[0].props.href).toBe('$guide-advanced#deep-dive')
     expect(body.children[0].children[1].props.to).toBe('$docs.getting-started')
+    expect(body.children[0].children[3].props.links[0].to).toBe('$docs.nested')
   })
 
   test('resolves configured markdown quick links to route names with hashes', () => {

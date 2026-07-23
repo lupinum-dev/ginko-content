@@ -6,6 +6,7 @@ import { generatePath } from './path-meta'
 import { resolveMarkdownPlugins } from './markdown-plugins'
 import { stripReservedContentKeys } from './reserved'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree'
+import { normalizeComarkNodes } from '../core/markdown/normalize-comark'
 
 export default defineTransformer({
   name: 'markdown',
@@ -20,7 +21,7 @@ export default defineTransformer({
     const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 
     const body = normalizeMarkdownBody({
-      ...toMarkdownRoot(tree.nodes as any[]),
+      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[], content as string) as any[]),
       // `undefined` is not a JSON-pure value: omit `toc`
       // entirely when the document has none, instead of setting the key to
       // `undefined`.
@@ -28,7 +29,7 @@ export default defineTransformer({
     })
     const excerpt = Array.isArray(tree.meta?.summary)
       ? normalizeMarkdownBody({
-          ...toMarkdownRoot(tree.meta.summary as any[])
+          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[], content as string) as any[])
         })
       : undefined
 

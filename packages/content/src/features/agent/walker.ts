@@ -159,7 +159,7 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     case 'p':
       return block(renderChildren(node, ctx))
     case 'blockquote':
-      return block(renderChildren(node, ctx).split('\n').map(line => `> ${line}`).join('\n'))
+      return block(renderBlockquote(node, ctx))
     case 'strong':
     case 'b':
       return `**${renderChildren(node, ctx)}**`
@@ -203,6 +203,15 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     default:
       return renderUnknownComponent(node, ctx)
   }
+}
+
+const renderBlockquote = (node: MarkdownNode, ctx: AgentMarkdownContext) => {
+  const alert = typeof node.props?.['data-alert'] === 'string' ? node.props['data-alert'] : ''
+  const content = renderChildren(node, ctx)
+  const value = alert
+    ? `[!${alert.toUpperCase()}]\n${content}`
+    : content
+  return value.split('\n').map(line => `> ${line}`).join('\n')
 }
 
 /**
