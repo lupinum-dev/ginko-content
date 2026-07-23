@@ -49,7 +49,7 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
   })
 }))
 
-describe('locale and manifest contracts', () => {
+describe('locale graph contracts', () => {
   beforeEach(() => {
     route.path = '/'
     nuxtApp.$i18n.locale = undefined
@@ -116,7 +116,7 @@ describe('locale and manifest contracts', () => {
     expect(resolveLocaleChain(undefined, 'en')).toEqual(['en'])
   })
 
-  test('manifest indexes canonical variants, respects exact lookups, and ignores non-markdown routes', async () => {
+  test('graph indexes canonical variants, respects exact lookups, and ignores non-markdown routes', async () => {
     getContentsList.mockResolvedValue([
       doc(),
       doc({
@@ -154,16 +154,15 @@ describe('locale and manifest contracts', () => {
 
     const { getContentGraph, resolveVariant, resolveRouteVariant } = await import('../../packages/content/src/storage/graph')
     const event = createEvent()
-    // The graph manifest is the canonical variant and route index.
-    const manifest = (await getContentGraph(event)).manifest
+    const graph = await getContentGraph(event)
 
-    expect(Object.keys(manifest.byCanonical['guide/advanced'] || {})).toEqual(['en', 'fr'])
-    expect(manifest.paths['/guide/advanced']).toEqual([
+    expect(Object.keys(graph.byCanonical['guide/advanced'] || {})).toEqual(['en', 'fr'])
+    expect(graph.byPath['/guide/advanced']).toEqual([
       'content:en:guide:advanced.md',
       'content:fr:guide:advanced.md'
     ])
-    expect(manifest.byRoute['de:/leitfaden/erste-schritte']).toBe('guide/getting-started')
-    expect(manifest.byRoute['de:/authors/evan']).toBe('authors/evan')
+    expect(graph.byRoute['de:/leitfaden/erste-schritte']).toBe('guide/getting-started')
+    expect(graph.byRoute['de:/authors/evan']).toBe('authors/evan')
 
     await expect(resolveVariant(event, 'guide/advanced', 'de')).resolves.toMatchObject({
       requestedLocale: 'de',
