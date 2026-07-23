@@ -21,7 +21,7 @@ import { isNotFoundError } from './errors'
 import { ensureCollectionName } from './handles'
 import { decorateLocalizedDocument } from './localized-docs'
 import { resolveFallback } from './locale-options'
-import { populateDocument, selectWithPopulate, validatePopulateSpec } from './populate'
+import { populateDocument, populateDocuments, selectWithPopulate, validatePopulateSpec } from './populate'
 import { unwrapListResponse, unwrapOneResponse } from './responses'
 
 const explainResolution = (
@@ -153,6 +153,6 @@ export async function resolveManyDocuments<
   const decorated = list
     .map(doc => decorateLocalizedDocument(doc as ParsedContent, collection, runtime, options.locale))
     .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
-  const populated = await Promise.all(decorated.map(doc => populateDocument(context, one, doc, options.populate, options.locale, options.fallback)))
+  const populated = await populateDocuments(context, one, decorated, options.populate, options.locale, options.fallback)
   return populated as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>
 }

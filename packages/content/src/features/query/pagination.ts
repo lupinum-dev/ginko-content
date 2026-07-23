@@ -18,7 +18,7 @@ import { decorateLocalizedDocument } from './localized-docs'
 import type { ContentQueryContext } from './context'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
-import { populateDocument, selectWithPopulate, validatePopulateSpec } from './populate'
+import { populateDocuments, selectWithPopulate, validatePopulateSpec } from './populate'
 import {
   assertPublicPagingLimit,
   DEFAULT_PUBLIC_PAGINATION_LIMIT,
@@ -129,7 +129,7 @@ export async function resolvePagination<
     const decorated = envelope.result
       .map(doc => decorateLocalizedDocument(doc, collection, runtime, options.locale))
       .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
-    const populated = await Promise.all(decorated.map(doc => populateDocument(context, one, doc, options.populate, options.locale, options.fallback)))
+    const populated = await populateDocuments(context, one, decorated, options.populate, options.locale, options.fallback)
 
     return {
       mode: 'cursor',
@@ -168,7 +168,7 @@ export async function resolvePagination<
   const decorated = envelope.result
     .map(doc => decorateLocalizedDocument(doc, collection, runtime, options.locale))
     .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
-  const populated = await Promise.all(decorated.map(doc => populateDocument(context, one, doc, options.populate, options.locale, options.fallback)))
+  const populated = await populateDocuments(context, one, decorated, options.populate, options.locale, options.fallback)
   const pageCount = envelope.total > 0 ? Math.ceil(envelope.total / limit) : 0
 
   return {
