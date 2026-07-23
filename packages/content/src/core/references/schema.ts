@@ -1,4 +1,4 @@
-import { CONTENT_REFERENCE_PREFIX } from '../../types/reference'
+import { getContentReferenceMetadata } from '../../types/reference'
 
 const zodTypeNames: Record<string, string> = {
   array: 'ZodArray',
@@ -52,14 +52,7 @@ export const getReferenceDescriptor = (schema: any): { collection?: string } | n
     return null
   }
 
-  const description = typeof base.description === 'string' ? base.description : ''
-  if (!description.startsWith(CONTENT_REFERENCE_PREFIX)) {
-    return null
-  }
-
-  return {
-    collection: description.slice(CONTENT_REFERENCE_PREFIX.length) || undefined
-  }
+  return getContentReferenceMetadata(base)
 }
 
 const getArrayElement = (schema: any) => {

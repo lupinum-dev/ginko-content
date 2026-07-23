@@ -25,6 +25,30 @@ describe('content schema fields', () => {
     })
   })
 
+  test('keeps fluent metadata branches isolated', () => {
+    const base = fields.text()
+    const title = base.label('Title')
+    const subtitle = base.label('Subtitle').localized()
+
+    expect(base).not.toBe(title)
+    expect(title).not.toBe(subtitle)
+    expect(getContentFieldMetadata(base)).toMatchObject({
+      type: 'text',
+      required: false,
+    })
+    expect(getContentFieldMetadata(title)).toMatchObject({
+      type: 'text',
+      label: 'Title',
+      required: false,
+    })
+    expect(getContentFieldMetadata(subtitle)).toMatchObject({
+      type: 'text',
+      label: 'Subtitle',
+      localized: true,
+      required: false,
+    })
+  })
+
   test('creates CMS image fields as asset references', () => {
     const avatar = fields.image({ aspectRatio: '1:1', accept: ['image/png'] }).required()
 
@@ -141,5 +165,19 @@ describe('content schema fields', () => {
       '*': ['external']
     })
     expect(collectTopLevelReferenceFields(schema, 'authors')).toEqual(['authors', 'editor', 'external'])
+  })
+
+  test('keeps reference identity when schemas receive human descriptions and wrappers', () => {
+    const schema = z.object({
+      author: reference('authors').describe('Primary author').optional(),
+      related: z.array(reference('posts').describe('Related post')).default([]),
+      transformed: reference('authors').transform(value => value.trim()),
+      ordinary: z.string().describe('__nuxt_content_ref__:authors'),
+    })
+
+    expect(collectTopLevelReferenceFieldsByTarget(schema)).toEqual({
+      authors: ['author', 'transformed'],
+      posts: ['related'],
+    })
   })
 })

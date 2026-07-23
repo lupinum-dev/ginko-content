@@ -65,6 +65,7 @@ export {
 
 export {
   CONTENT_FIELD_METADATA_KEY,
+  CONTENT_REFERENCE_METADATA_KEY,
   CONTENT_REFERENCE_PREFIX,
   collectTopLevelReferenceFields,
   getContentFieldMetadata,
