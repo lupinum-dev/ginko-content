@@ -716,7 +716,6 @@ describe('module contracts', () => {
       locales: ['en', 'de'],
       collections: { docs: { id: 'docs' } },
     })
-    expect(finalized.contractSha256).toMatch(/^[a-f0-9]{64}$/)
     expect(finalized.localePolicy.collections.docs).toMatchObject({
       localized: true,
       locales: ['en', 'de'],

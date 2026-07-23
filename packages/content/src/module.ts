@@ -8,8 +8,7 @@ import { defu } from 'defu'
 import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
 import { name, peerDependencies, version } from '../package.json'
-import type { JsonValue } from './cms-contract/index'
-import { buildResolvedContentContract, hashCanonicalJson } from './cms-contract/index'
+import { buildResolvedContentContract } from './cms-contract/index'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from './types/module'
 import { loadContentConfig, resolveContentConfigPath } from './utils/content-config'
 import { createVirtualContentTemplates, registerVirtualContentAliases } from './module/virtual'
@@ -164,7 +163,6 @@ export default defineNuxtModule<ModuleOptions>({
         componentPolicy: options.componentPolicy,
       },
     )
-    const contractSha256 = await hashCanonicalJson(contract as unknown as JsonValue)
     // Disable cache in dev mode
     const buildIntegrity = nuxt.options.dev ? undefined : Date.now()
 
@@ -181,7 +179,6 @@ export default defineNuxtModule<ModuleOptions>({
       strictTranslatedSlugs: resolvedI18n.strictTranslatedSlugs,
       localePolicy,
       contract,
-      contractSha256,
       sitemap: resolvedSitemap,
       search: resolvedSearch,
       validation: options.validation || 'report'

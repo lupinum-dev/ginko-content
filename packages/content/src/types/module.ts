@@ -527,7 +527,6 @@ export interface ContentContext extends Omit<ModuleOptions, 'search'> {
    */
   localePolicy: ResolvedLocalePolicy
   contract: ResolvedContentContractV1
-  contractSha256: string
 }
 
 export type ResolvedContentContext = Omit<ContentContext, 'markdown'> & {
