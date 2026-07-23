@@ -12,6 +12,7 @@ import type {
 } from '../types/config'
 import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { ContentSearchPublicRuntimeConfig } from '../types/search'
+import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 import { CACHE_VERSION } from '../utils'
 import { normalizeMiniSearchOptions } from './options'
 
@@ -35,6 +36,7 @@ type RuntimeCollectionConfig = {
   type?: ContentCollectionConfig['type']
   strict: boolean
   i18n?: false | { defaultLocale: string, locales: string[] }
+  localePolicy: ResolvedCollectionLocalePolicy
   sitemap?: boolean
   route?: ContentCollectionConfig['route']
   translatedSlugs?: boolean

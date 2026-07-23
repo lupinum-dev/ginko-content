@@ -4,6 +4,7 @@ import type { ContentCollectionConfig, ContentCollectionI18nConfig } from '../ty
 import type { ContentContext, ContentRevalidateOptions, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { createSearchRuntimeConfig } from './options'
 import type { PortableComponentPolicyV1 } from '../cms-contract/types'
+import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 
 interface ModulePublicRuntimeConfig {
   api: {
@@ -36,6 +37,7 @@ interface ModulePublicRuntimeConfig {
     exclude?: ContentCollectionConfig['exclude']
     strict: boolean
     i18n?: false | ContentCollectionI18nConfig
+    localePolicy: ResolvedCollectionLocalePolicy
     sitemap?: boolean
   }>
 

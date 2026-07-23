@@ -13,8 +13,7 @@ import {
   xmlComponentMarkdown
 } from './agent-markdown'
 import { agentRawPathForRoute, normalizeAgentRoutePath } from './agent-paths'
-import { pathHasLocalePrefix } from '../../core/content/path'
-import { projectContentRoute } from '../localization/route-projector'
+import { pathHasLocalePrefix, prefixPathWithLocale } from '../../core/content/path'
 
 const textValue = (node: MarkdownNode): string => {
   if (node.type === 'text') return node.value || ''
@@ -100,20 +99,11 @@ const serializerForTag = (tag: string, ctx: AgentMarkdownContext) => {
 const isExternalHref = (href: string) =>
   /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')
 
-/**
- * Empty-`routeMounts` policy pattern: only a locale prefix is
- * needed for markdown links, so `projectContentRoute` gets a policy with an
- * empty `routeMounts` and owns the prefix decision instead of a
- * hand-assembled one.
- */
 const prefixLocalizedHref = (path: string, locale: string | undefined, ctx: AgentMarkdownContext) => {
   const normalized = normalizeAgentRoutePath(path)
   if (!locale) return normalized
   if (pathHasLocalePrefix(normalized, ctx.locales)) return normalized
-  return projectContentRoute(
-    { contentPath: normalized, locale },
-    { localized: true, locales: ctx.locales, defaultLocale: ctx.defaultLocale, fallback: {}, translatedSlugs: false, routeMounts: {} }
-  )
+  return prefixPathWithLocale(normalized, locale, ctx.defaultLocale)
 }
 
 const routeMarkdownPathForHref = (href: string, ctx: AgentMarkdownContext) => {

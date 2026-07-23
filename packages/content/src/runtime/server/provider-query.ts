@@ -4,9 +4,11 @@ import type { ContentQueryCountResponse, ContentQueryFindOneResponse, ContentQue
 import type { ContentProviderQueryInput, ResolveContentReferenceOptions } from '../../types/query'
 import { normalizeContentQueryParams } from '../../core/query/params'
 import { containsStandaloneRegexOptions, findUnsupportedPublicQueryOperator, withoutKeys } from '../../core/query/operators'
-import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
+import {
+  resolveRuntimeCollectionI18nConfig,
+  resolveRuntimeCollectionLocalePolicy
+} from '../../features/localization/config'
 import { resolveLocaleChain, sortLocalesCanonically } from '../../core/content/locale'
-import { normalizeRouteMounts } from '../../core/content/path'
 import { normalizeReferenceValue } from '../../core/references/resolve'
 import { lowerRouteToCandidates } from '../../features/localization/route-projector'
 import { DEFAULT_PUBLIC_QUERY_LIMIT } from '../../core/query/limits'
@@ -21,30 +23,26 @@ import { getContentRuntimeConfig } from './runtime-config'
 import { createContentProviderError } from '../../public/provider-errors'
 import { toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
 
-/**
- * Build the `ResolvedCollectionLocalePolicy` the canonical route projector
- * needs from the plain runtime content config already resolved at request
- * time — same reshaping pattern as
- * `features/query/routes.ts#getCollectionPath`.
- */
 const collectionLocalePolicyFor = (
   collection: string | null | undefined,
   config: ReturnType<typeof getContentRuntimeConfig>['content']
 ): ResolvedCollectionLocalePolicy => {
-  const collectionConfig = collection ? config.collections?.[collection] : undefined
-  const collectionI18n = collection ? resolveRuntimeCollectionI18nConfig(collection, config) : undefined
-  const defaultLocale = collectionI18n?.defaultLocale
-  const locales = collectionI18n?.locales || []
-  const mounts = normalizeRouteMounts(collectionConfig?.route, locales, defaultLocale)
-
-  return {
-    localized: locales.length > 0,
-    locales,
-    defaultLocale,
-    fallback: config.localeFallback ?? {},
-    translatedSlugs: false,
-    routeMounts: mounts ?? {}
+  if (!collection) {
+    throw createContentProviderError(
+      'unsupported_query_shape',
+      'Route and reference selectors require a configured collection.',
+      { field: 'collection' }
+    )
   }
+  const policy = resolveRuntimeCollectionLocalePolicy(collection, config)
+  if (!policy) {
+    throw createContentProviderError(
+      'unsupported_query_shape',
+      'Content collection locale policy is missing from runtime config.',
+      { collection, field: 'localePolicy' }
+    )
+  }
+  return policy
 }
 
 /**
@@ -404,14 +402,16 @@ const shapeNormalizedProviderQueryDocument = (
   runtimeConfig = getContentRuntimeConfig().content || {}
 ): ParsedContent => {
   const config = runtimeConfig
-  const collectionI18n = resolveRuntimeCollectionI18nConfig(normalized.collection, config)
-  const locales = collectionI18n?.locales || []
-  const defaultLocale = collectionI18n?.defaultLocale
-  const routeMounts = normalizeRouteMounts(
-    config.collections?.[normalized.collection]?.route,
-    locales,
-    defaultLocale
-  )
+  const localePolicy = resolveRuntimeCollectionLocalePolicy(normalized.collection, config)
+  if (!localePolicy) {
+    throw createContentProviderError(
+      'provider_result_invalid',
+      'Content collection locale policy is missing from runtime config.',
+      { collection: normalized.collection, provider: 'runtime', operation: 'query', field: 'localePolicy' }
+    )
+  }
+  const locales = [...localePolicy.locales]
+  const defaultLocale = localePolicy.defaultLocale
   const normalizedVariants = normalized.routeVariants as ContentProviderVariantFact[]
   const variants = Object.fromEntries(
     normalizedVariants.map(variant => [variant.locale, variant.contentPath])
@@ -426,7 +426,7 @@ const shapeNormalizedProviderQueryDocument = (
     locales,
     // Provider paths may already carry their concrete route mount. Projection
     // normalizes those variants without applying the same mount twice.
-    routeMounts,
+    routeMounts: localePolicy.routeMounts,
     requestedPath: params.resolveVariant?.path,
     requestedRoute: params.resolveVariant?.route
   })

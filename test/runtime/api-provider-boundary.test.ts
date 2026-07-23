@@ -212,7 +212,7 @@ describe('runtime API provider boundary', () => {
     }))
   })
 
-  test('internal search leaves draft visibility to providers without requiring $ne', async () => {
+  test('internal search leaves draft and locale visibility to providers for an unlocalized collection', async () => {
     const basicScenario = createBasicScenario()
     const fixtureProvider = createInMemoryProvider(basicScenario)
     const query = vi.fn(fixtureProvider.query.bind(fixtureProvider))
@@ -239,7 +239,7 @@ describe('runtime API provider boundary', () => {
     expect(records.map(record => record.title)).toEqual(['Hello World', 'Second Post'])
     expect(query).toHaveBeenCalledTimes(1)
     const dispatchedFilter = query.mock.calls[0]![1].plan.filter
-    expect(dispatchedFilter).toMatchObject({ field: 'locale', operator: 'eq', value: 'en' })
+    expect(dispatchedFilter).toEqual({ type: 'true' })
     expect(JSON.stringify(dispatchedFilter)).not.toContain('draft')
     expect(JSON.stringify(dispatchedFilter)).not.toContain('"operator":"ne"')
   })
@@ -329,12 +329,22 @@ describe('runtime API provider boundary', () => {
     })
   })
 
-  test('query API applies inherited global locale policy to provider identity', async () => {
+  test('query API does not localize a collection that did not opt in', async () => {
     vi.stubGlobal('__ginkoTestRuntimeConfig', {
       content: {
         defaultLocale: 'en',
         locales: ['en', 'de'],
-        collections: { docs: {} }
+        collections: {
+          docs: {
+            localePolicy: {
+              localized: false,
+              locales: [],
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
       }
     })
     mocks.getContentProvider.mockResolvedValue({
@@ -360,9 +370,14 @@ describe('runtime API provider boundary', () => {
       }
     })
 
-    await expect(handler(event)).rejects.toMatchObject({
-      statusMessage: 'provider_result_invalid',
-      data: expect.objectContaining({ operation: 'query', field: 'result' })
+    await expect(handler(event)).resolves.toMatchObject({
+      result: [{
+        locale: 'en',
+        route: {
+          resolvedPath: '/docs/intro',
+          alternates: []
+        }
+      }]
     })
   })
 
@@ -371,7 +386,19 @@ describe('runtime API provider boundary', () => {
       content: {
         defaultLocale: 'en',
         locales: ['en', 'de'],
-        collections: { docs: { i18n: false, route: '/docs' } }
+        collections: {
+          docs: {
+            i18n: false,
+            route: '/docs',
+            localePolicy: {
+              localized: false,
+              locales: [],
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
       }
     })
     mocks.getContentProvider.mockResolvedValue({

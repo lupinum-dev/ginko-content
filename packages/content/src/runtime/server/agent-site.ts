@@ -3,9 +3,7 @@ import { getRequestURL } from 'h3'
 import type { AgentMarkdown, AgentMarkdownMeta } from './agent-markdown'
 import { linkMarkdown, queryMarkdownEnabledContent, resolveContentMarkdownByRoute } from './agent-markdown'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
-import { pathHasLocalePrefix, stripLocalePrefix } from '../../core/content/path'
-import { projectContentRoute } from '../../features/localization/route-projector'
-import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
+import { pathHasLocalePrefix, prefixPathWithLocale, stripLocalePrefix } from '../../core/content/path'
 import { contentConfig } from './storage-access'
 import type {
   AgentMetadataField,
@@ -72,28 +70,10 @@ const resolveSiteUrl = (event?: H3Event) => {
 
 const joinUrl = (base: string, path: string) => new URL(normalizeAgentRoutePath(path), base).toString()
 
-/**
- * Empty-`routeMounts` policy pattern: the agent mirror has no
- * per-collection mount to apply, only locale prefixing, so it hands
- * `projectContentRoute` a policy whose `routeMounts` is `{}` and lets the
- * canonical projector own the prefix decision instead of hand-assembling it.
- */
-const agentLocalePolicy = (): ResolvedCollectionLocalePolicy => {
-  const locales = getAgentLocales()
-  return {
-    localized: locales.length > 0,
-    locales,
-    defaultLocale: defaultLocale(),
-    fallback: {},
-    translatedSlugs: false,
-    routeMounts: {}
-  }
-}
-
 const prefixLocale = (path: string, locale: string) => {
   const normalized = normalizeAgentRoutePath(path)
   if (pathHasLocalePrefix(normalized, [locale])) return normalized
-  return projectContentRoute({ contentPath: normalized, locale }, agentLocalePolicy())
+  return prefixPathWithLocale(normalized, locale, defaultLocale())
 }
 
 const sectionConfig = (id: string | undefined) => {
@@ -377,14 +357,13 @@ export const localeFromAgentPath = (path: string) => {
 
 export const collectAgentMarkdownPrerenderRoutes = async (event: H3Event) => {
   const routes = new Set<string>()
-  const policy = agentLocalePolicy()
   for (const locale of getAgentLocales()) {
     const pages = await buildAgentPageIndex(event, locale)
     for (const page of pages) {
       routes.add(page.rawPath)
     }
-    routes.add(projectContentRoute({ contentPath: '/llms.txt', locale }, policy))
-    routes.add(projectContentRoute({ contentPath: '/llms-full.txt', locale }, policy))
+    routes.add(prefixPathWithLocale('/llms.txt', locale, defaultLocale()))
+    routes.add(prefixPathWithLocale('/llms-full.txt', locale, defaultLocale()))
   }
   return Array.from(routes)
 }

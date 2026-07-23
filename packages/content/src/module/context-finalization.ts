@@ -78,6 +78,7 @@ export const registerContentContextFinalization = ({
         ...(collection.i18n === false || (collection.i18n && collection.i18n !== true)
           ? { i18n: collection.i18n }
           : {}),
+        localePolicy: contentContext.localePolicy.collections[name],
         ...(collection.cms ? { cms: collection.cms } : {}),
         ...(collection.agent ? { agent: collection.agent } : {}),
         ...(Object.keys(references).length ? { references } : {})

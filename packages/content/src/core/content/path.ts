@@ -183,13 +183,21 @@ export const normalizeRouteMounts = (
 export const longestMountForPath = (path: string, mounts: RouteMounts) => {
   const normalized = normalizeContentPath(path)
   return Object.entries(mounts)
-    .filter(([, mount]) => normalized === mount || normalized.startsWith(`${mount}/`))
+    .filter(([, mount]) => {
+      const normalizedMount = normalizeContentPath(mount)
+      return normalizedMount === '/'
+        || normalized === normalizedMount
+        || normalized.startsWith(`${normalizedMount}/`)
+    })
     .sort((a, b) => b[1].length - a[1].length)[0]
 }
 
 export const routeRemainder = (path: string, mount: string) => {
   const normalizedPath = normalizeContentPath(path)
   const normalizedMount = normalizeContentPath(mount)
+  if (normalizedMount === '/') {
+    return normalizedPath
+  }
   if (normalizedPath === normalizedMount) {
     return '/'
   }
@@ -206,7 +214,11 @@ export const mountContentPath = (
     return normalizeContentPath(remainder)
   }
   const suffix = normalizeContentPath(remainder)
-  return normalizeContentPath(suffix === '/' ? mount : `${mount}${suffix}`)
+  const normalizedMount = normalizeContentPath(mount)
+  if (normalizedMount === '/') {
+    return suffix
+  }
+  return normalizeContentPath(suffix === '/' ? normalizedMount : `${normalizedMount}${suffix}`)
 }
 
 const isLocalePrefixedPath = (path: string, locales: string[]) => {

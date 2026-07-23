@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import {
@@ -77,6 +77,50 @@ const operators = PROVIDER_CAPABILITY_OPERATORS
 const capabilities: ContentProviderCapabilities = {
   query: { operators, pagination: ['offset', 'cursor'] }
 }
+
+const runtime = {
+  content: {
+    defaultLocale: 'de',
+    locales: ['de'],
+    collections: {
+      docs: {
+        i18n: { defaultLocale: 'de', locales: ['de'] },
+        localePolicy: {
+          localized: true,
+          locales: ['de'],
+          defaultLocale: 'de',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { de: '/dokumentation' }
+        }
+      }
+    }
+  }
+}
+
+vi.mock('../../packages/content/src/runtime/server/runtime-config', () => ({
+  getContentRuntimeConfig: () => runtime
+}))
+
+beforeEach(() => {
+  runtime.content = {
+    defaultLocale: 'de',
+    locales: ['de'],
+    collections: {
+      docs: {
+        i18n: { defaultLocale: 'de', locales: ['de'] },
+        localePolicy: {
+          localized: true,
+          locales: ['de'],
+          defaultLocale: 'de',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { de: '/dokumentation' }
+        }
+      }
+    }
+  }
+})
 
 const assertTitles = (expected: string[]) => (result: unknown) => {
   const titles = (result as { result: Array<{ title: string }> }).result
@@ -225,26 +269,31 @@ describe('filesystem provider conformance', () => {
   })
 
   test('does not strip a global locale prefix from an explicitly unlocalized collection route', async () => {
-    vi.stubGlobal('__ginkoTestRuntimeConfig', {
-      content: {
-        defaultLocale: 'en',
-        locales: ['en', 'de'],
-        collections: { docs: { i18n: false } }
+    runtime.content = {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: {
+        docs: {
+          i18n: false,
+          localePolicy: {
+            localized: false,
+            locales: [],
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { default: '/docs' }
+          }
+        }
       }
-    })
+    } as typeof runtime.content
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    try {
-      await expect(filesystemProvider.routes!(createEvent())).resolves.toEqual([
-        expect.objectContaining({
-          collection: 'docs',
-          locale: 'de',
-          contentPath: '/de/dokumentation/einstieg'
-        })
-      ])
-    } finally {
-      vi.unstubAllGlobals()
-    }
+    await expect(filesystemProvider.routes!(createEvent())).resolves.toEqual([
+      expect.objectContaining({
+        collection: 'docs',
+        locale: 'de',
+        contentPath: '/de/dokumentation/einstieg'
+      })
+    ])
   })
 
   test('rejects standalone regex options during wire lowering', () => {

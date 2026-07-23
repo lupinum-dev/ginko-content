@@ -180,7 +180,15 @@ describe('provider query wire v3 — pagination and route candidates', () => {
       collections: {
         docs: {
           i18n: { defaultLocale: 'en', locales: ['en', 'de', 'fr'] },
-          route: { en: '/docs', de: '/dokumentation', fr: '/documentation' }
+          route: { en: '/docs', de: '/dokumentation', fr: '/documentation' },
+          localePolicy: {
+            localized: true,
+            locales: ['en', 'de', 'fr'],
+            defaultLocale: 'en',
+            fallback: { de: ['fr'] },
+            translatedSlugs: false,
+            routeMounts: { en: '/docs', de: '/dokumentation', fr: '/documentation' }
+          }
         }
       }
     } as never

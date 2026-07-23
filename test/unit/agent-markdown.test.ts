@@ -52,7 +52,20 @@ describe('agent markdown', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubGlobal('__ginkoTestRuntimeConfig', {
-      content: { collections: { docs: { type: 'page' } } }
+      content: {
+        collections: {
+          docs: {
+            type: 'page',
+            localePolicy: {
+              localized: false,
+              locales: [],
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
+      }
     })
   })
 
@@ -882,6 +895,27 @@ describe('agent markdown', () => {
   })
 
   test('uses the source-locale public route for localized fallback agent pages', async () => {
+    vi.stubGlobal('__ginkoTestRuntimeConfig', {
+      content: {
+        defaultLocale: 'en',
+        locales: ['en', 'de'],
+        localeFallback: { de: ['en'] },
+        collections: {
+          docs: {
+            i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+            route: { en: '/guide', de: '/leitfaden' },
+            localePolicy: {
+              localized: true,
+              locales: ['en', 'de'],
+              defaultLocale: 'en',
+              fallback: { de: ['en'] },
+              translatedSlugs: false,
+              routeMounts: { en: '/guide', de: '/leitfaden' }
+            }
+          }
+        }
+      }
+    })
     const query = vi.fn(async (_event, params) => {
       // Providers receive the lowered wire query, not builder params.
       expect(params).toEqual(expect.objectContaining({

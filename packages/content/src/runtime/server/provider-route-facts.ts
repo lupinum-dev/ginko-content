@@ -3,13 +3,12 @@ import type {
   ContentRouteRecord
 } from '../../public/provider'
 import type { ContentSearchResult } from '../../types/search'
-import {
-  longestMountForPath,
-  normalizeRouteMounts,
-  routeRemainder
-} from '../../core/content/path'
+import { longestMountForPath, routeRemainder } from '../../core/content/path'
 import { projectContentRoute } from '../../features/localization/route-projector'
-import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
+import {
+  resolveRuntimeCollectionI18nConfig,
+  resolveRuntimeCollectionLocalePolicy
+} from '../../features/localization/config'
 import type { RuntimeContentConfig } from '../../features/query/context'
 import { createContentProviderError } from '../../public/provider-errors'
 import { collectJsonPurityViolations } from '../../core/json-value'
@@ -94,31 +93,27 @@ export const projectProviderRouteFact = (
   runtime: RuntimeContentConfig,
   targetLocale = fact.locale
 ): string => {
-  const targetPolicy = resolveRuntimeCollectionI18nConfig(fact.collection, runtime)
-  if (targetPolicy && !targetPolicy.locales.includes(targetLocale)) {
+  const targetPolicy = resolveRuntimeCollectionLocalePolicy(fact.collection, runtime)
+  if (!targetPolicy) {
+    throw createContentProviderError(
+      'unsupported_query_shape',
+      'Content collection locale policy is missing from runtime config.',
+      { collection: fact.collection, field: 'localePolicy' }
+    )
+  }
+  if (targetPolicy.localized && !targetPolicy.locales.includes(targetLocale)) {
     throw createContentProviderError(
       'unsupported_query_shape',
       'Requested content locale is not configured for the selected collection.',
       { collection: fact.collection, field: 'locale' }
     )
   }
-  const collection = runtime.collections?.[fact.collection]
-  const locales = targetPolicy?.locales || []
-  const defaultLocale = targetPolicy?.defaultLocale
-  const routeMounts = normalizeRouteMounts(collection?.route, locales, defaultLocale) || {}
-  const sourceMount = longestMountForPath(fact.contentPath, routeMounts)
+  const sourceMount = longestMountForPath(fact.contentPath, targetPolicy.routeMounts)
   const contentPath = sourceMount
     ? routeRemainder(fact.contentPath, sourceMount[1])
     : fact.contentPath
 
-  return projectContentRoute({ contentPath, locale: targetLocale }, {
-    localized: locales.length > 0,
-    locales,
-    defaultLocale,
-    fallback: runtime.localeFallback || {},
-    translatedSlugs: false,
-    routeMounts
-  })
+  return projectContentRoute({ contentPath, locale: targetLocale }, targetPolicy)
 }
 
 export const projectProviderNavigation = (

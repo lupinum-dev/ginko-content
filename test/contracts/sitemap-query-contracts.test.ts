@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { projectSitemapEntry } from '../../packages/content/src/features/sitemap/query'
 import { extractSitemapMetadata } from '../../packages/content/src/features/sitemap/metadata'
+import { resolveLocalePolicy } from '../../packages/content/src/features/localization/locale-policy'
 import { createEvent } from './_utils'
 
 const state = vi.hoisted(() => ({
@@ -39,6 +40,34 @@ vi.mock('../../packages/content/src/runtime/server/runtime-config', () => ({
 vi.mock('nitropack/runtime', () => ({
   useRuntimeConfig: () => state.publicRuntime
 }))
+
+const setRuntimeCollections = (collections: Record<string, any>) => {
+  const localePolicy = resolveLocalePolicy({
+    nuxtI18n: { installed: false },
+    content: {
+      locales: state.runtime.locales,
+      defaultLocale: state.runtime.defaultLocale,
+      fallback: state.runtime.localeFallback
+    },
+    collections: Object.entries(collections).map(([name, collection]) => ({
+      name,
+      localized: Boolean(collection.i18n),
+      ...(collection.i18n && typeof collection.i18n === 'object'
+        ? {
+            locales: collection.i18n.locales,
+            defaultLocale: collection.i18n.defaultLocale
+          }
+        : {}),
+      route: collection.route
+    }))
+  })
+  state.runtime.collections = Object.fromEntries(
+    Object.entries(collections).map(([name, collection]) => [
+      name,
+      { ...collection, localePolicy: localePolicy.collections[name] }
+    ])
+  )
+}
 
 describe('provider-backed sitemap contracts', () => {
   beforeEach(() => {
@@ -106,9 +135,12 @@ describe('provider-backed sitemap contracts', () => {
   })
 
   test('preserves localized route metadata and expands relative images', async () => {
-    state.runtime.collections = {
-      docs: { i18n: { locales: ['en', 'de'], defaultLocale: 'en' } }
-    }
+    setRuntimeCollections({
+      docs: {
+        i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
+        route: '/'
+      }
+    })
     state.routes.mockReturnValue([
       {
         collection: 'docs', canonicalKey: 'guide/intro', locale: 'en', contentPath: '/guide/intro',
@@ -151,20 +183,25 @@ describe('provider-backed sitemap contracts', () => {
     ])
   })
 
-  test('inherits the global locale policy when the collection does not override it', async () => {
-    state.runtime.collections = { docs: {} }
+  test('inherits the global locale policy when the collection opts in', async () => {
+    setRuntimeCollections({
+      docs: {
+        i18n: true,
+        route: { en: '/docs', de: '/dokumentation' }
+      }
+    })
     state.routes.mockReturnValue([
       {
         collection: 'docs',
         canonicalKey: 'provider-guide',
         locale: 'en',
-        contentPath: '/docs/provider-guide'
+        contentPath: '/provider-guide'
       },
       {
         collection: 'docs',
         canonicalKey: 'provider-guide',
         locale: 'de',
-        contentPath: '/dokumentation/provider-leitfaden'
+        contentPath: '/provider-leitfaden'
       }
     ])
 
@@ -192,7 +229,7 @@ describe('provider-backed sitemap contracts', () => {
   })
 
   test('does not infer localization from provider locale facts when the collection disables i18n', async () => {
-    state.runtime.collections = { docs: { i18n: false } }
+    setRuntimeCollections({ docs: { i18n: false, route: '/' } })
     state.routes.mockReturnValue([{
       collection: 'docs',
       canonicalKey: 'provider-guide',
@@ -207,7 +244,10 @@ describe('provider-backed sitemap contracts', () => {
   })
 
   test('keeps collection and canonical identities distinct when either contains a colon', async () => {
-    state.runtime.collections = { 'a:b': {}, a: {} }
+    setRuntimeCollections({
+      'a:b': { i18n: true, route: '/' },
+      a: { i18n: true, route: '/' }
+    })
     state.routes.mockReturnValue([
       { collection: 'a:b', canonicalKey: 'c', locale: 'en', contentPath: '/first' },
       { collection: 'a', canonicalKey: 'b:c', locale: 'de', contentPath: '/second' }
@@ -224,7 +264,7 @@ describe('provider-backed sitemap contracts', () => {
 
   test('does not invent locale sitemap partitions for a non-localized collection', async () => {
     state.runtime.locales = []
-    state.runtime.collections = { docs: {} }
+    setRuntimeCollections({ docs: { route: '/' } })
     state.routes.mockReturnValue([
       { collection: 'docs', canonicalKey: 'intro', locale: 'en', contentPath: '/intro' }
     ])
@@ -235,11 +275,11 @@ describe('provider-backed sitemap contracts', () => {
   })
 
   test('applies collection, route, and draft policy after provider enumeration', async () => {
-    state.runtime.collections = {
-      docs: {},
-      private: { sitemap: false },
-      data: { type: 'data' }
-    }
+    setRuntimeCollections({
+      docs: { i18n: true, route: '/' },
+      private: { sitemap: false, route: '/' },
+      data: { type: 'data', route: '/' }
+    })
     state.routes.mockReturnValue([
       { collection: 'docs', canonicalKey: 'public', locale: 'en', contentPath: '/public' },
       { collection: 'docs', canonicalKey: 'draft', locale: 'en', contentPath: '/draft', draft: true },
@@ -263,7 +303,7 @@ describe('provider-backed sitemap contracts', () => {
   })
 
   test('rejects provider routes for collections absent from runtime configuration', async () => {
-    state.runtime.collections = { docs: {} }
+    setRuntimeCollections({ docs: { route: '/' } })
     state.routes.mockReturnValue([
       { collection: 'secret', canonicalKey: 'secret:leak', locale: 'en', contentPath: '/secret/leak' }
     ])

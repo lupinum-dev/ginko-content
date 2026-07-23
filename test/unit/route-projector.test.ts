@@ -47,6 +47,19 @@ describe('projectContentRoute', () => {
     expect(projectContentRoute({ contentPath: '/intro', locale: 'en' }, translatedPolicy)).toBe('/guide/intro')
     expect(projectContentRoute({ contentPath: '/intro', locale: 'de' }, translatedPolicy)).toBe('/de/anleitung/intro')
   })
+
+  test('treats the root mount as no added path segment', () => {
+    const rootPolicy: ResolvedCollectionLocalePolicy = {
+      ...policy,
+      routeMounts: { en: '/', de: '/', fr: '/' }
+    }
+    expect(projectContentRoute({ contentPath: '/intro', locale: 'en' }, rootPolicy)).toBe('/intro')
+    expect(projectContentRoute({ contentPath: '/intro', locale: 'de' }, rootPolicy)).toBe('/de/intro')
+    expect(lowerRouteToCandidates('/de/intro', rootPolicy, 'de')).toEqual([
+      { locale: 'de', contentPath: '/intro' },
+      { locale: 'en', contentPath: '/intro' }
+    ])
+  })
 })
 
 describe('lowerRouteToCandidates', () => {

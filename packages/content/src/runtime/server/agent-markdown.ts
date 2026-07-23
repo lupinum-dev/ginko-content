@@ -12,8 +12,7 @@ import { resolveAgentMarkdownOptions } from '../../features/agent/agent-markdown
 import { renderAgentMarkdownBody } from '../../features/agent/walker'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
 import { getCollectionPath } from '../../features/query/routes'
-import { pathHasLocalePrefix } from '../../core/content/path'
-import { projectContentRoute } from '../../features/localization/route-projector'
+import { pathHasLocalePrefix, prefixPathWithLocale } from '../../core/content/path'
 import { isPublicationVisible, resolveRuntimeEnvironment, type ContentVisibilityContext } from '../../core/visibility'
 import { isPreview } from '../../integrations/nitro/preview'
 import { many, one } from './query-api'
@@ -227,19 +226,11 @@ const collectionDefaultLocale = (config: ContentCollectionConfig) => {
   return collectionI18n?.defaultLocale || contentConfig().defaultLocale
 }
 
-/**
- * Empty-`routeMounts` policy pattern: only a locale prefix is
- * needed here, so `projectContentRoute` gets a policy with an empty
- * `routeMounts` and owns the prefix decision instead of a hand-assembled one.
- */
 const prefixRequestedLocale = (path: string, locale: string | undefined, defaultLocale: string | undefined) => {
   const normalized = normalizeAgentRoutePath(path)
   if (!locale) return normalized
   if (pathHasLocalePrefix(normalized, [locale])) return normalized
-  return projectContentRoute(
-    { contentPath: normalized, locale },
-    { localized: true, locales: [locale], defaultLocale, fallback: {}, translatedSlugs: false, routeMounts: {} }
-  )
+  return prefixPathWithLocale(normalized, locale, defaultLocale)
 }
 
 const publicPathForLocale = (

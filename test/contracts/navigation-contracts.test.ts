@@ -437,7 +437,28 @@ describe('navigation contracts', () => {
   })
 
   test('filesystem navigation joins collectionless structural metadata and returns raw route facts', async () => {
-    ;(runtimeConfig.content as any).collections = { docs: { route: '/docs' }, blog: { route: '/blog' } }
+    ;(runtimeConfig.content as any).collections = {
+      docs: {
+        route: '/docs',
+        localePolicy: {
+          localized: false,
+          locales: [],
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { default: '/docs' }
+        }
+      },
+      blog: {
+        route: '/blog',
+        localePolicy: {
+          localized: false,
+          locales: [],
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { default: '/blog' }
+        }
+      }
+    }
     const documents = [
       doc({
         id: 'content:en:docs:guide:intro.md',

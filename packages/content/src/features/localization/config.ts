@@ -1,4 +1,5 @@
 import type { ContentCollectionI18nConfig } from '../../types/config'
+import type { ResolvedCollectionLocalePolicy } from './locale-policy'
 
 export interface ContentI18nConfigInput {
   defaultLocale?: string
@@ -8,6 +9,7 @@ export interface ContentI18nConfigInput {
 export interface CollectionI18nInput {
   source?: string | string[]
   i18n?: boolean | ContentI18nConfigInput
+  localePolicy?: ResolvedCollectionLocalePolicy
 }
 
 export type RuntimeCollectionI18nInput = CollectionI18nInput
@@ -59,5 +61,23 @@ export const resolveRuntimeCollectionI18nConfig = (
   collection: string,
   content: RuntimeContentI18nInput
 ): ContentCollectionI18nConfig | undefined => {
-  return resolveCollectionI18nConfig(content.collections?.[collection], content)
+  const collectionConfig = content.collections?.[collection]
+  const policy = collectionConfig?.localePolicy
+  if (policy) {
+    return policy.localized && policy.defaultLocale
+      ? { defaultLocale: policy.defaultLocale, locales: [...policy.locales] }
+      : undefined
+  }
+  return resolveCollectionI18nConfig(collectionConfig, content)
 }
+
+/**
+ * Return the setup-resolved locale policy serialized into runtime config.
+ * Route-producing server paths must use this value directly instead of
+ * reconstructing fallback, translated-slug, or mount behavior.
+ */
+export const resolveRuntimeCollectionLocalePolicy = (
+  collection: string,
+  content: RuntimeContentI18nInput
+): ResolvedCollectionLocalePolicy | undefined =>
+  content.collections?.[collection]?.localePolicy

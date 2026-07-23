@@ -12,12 +12,14 @@ import { PROVIDER_CAPABILITY_OPERATORS } from '../../../core/query/operators'
 import {
   longestMountForPath,
   normalizeContentPath,
-  normalizeRouteMounts,
   routeRemainder,
   stripLocalePrefix
 } from '../../../core/content/path'
 import { projectContentRoute } from '../../../features/localization/route-projector'
-import { resolveRuntimeCollectionI18nConfig } from '../../../features/localization/config'
+import {
+  resolveRuntimeCollectionI18nConfig,
+  resolveRuntimeCollectionLocalePolicy
+} from '../../../features/localization/config'
 import {
   markCollectionNavigationRoot,
   scopeNavigationTree,
@@ -31,24 +33,20 @@ import { getContentRuntimeConfig } from '../runtime-config'
 
 const providerContentPath = (collection: string, locale: string, contentPath: string) => {
   const config = getContentRuntimeConfig().content || {}
-  const collectionConfig = config.collections?.[collection]
-  const collectionI18n = resolveRuntimeCollectionI18nConfig(collection, config)
-  const locales = collectionI18n?.locales || []
-  const routeMounts = normalizeRouteMounts(collectionConfig?.route, locales, collectionI18n?.defaultLocale)
+  const localePolicy = resolveRuntimeCollectionLocalePolicy(collection, config)
+  if (!localePolicy) {
+    throw new Error(`Missing runtime locale policy for content collection "${collection}".`)
+  }
   const normalizedPath = normalizeContentPath(contentPath)
-  const sourceMount = longestMountForPath(normalizedPath, routeMounts || {})
+  const sourceMount = longestMountForPath(normalizedPath, localePolicy.routeMounts)
   const mountAgnosticPath = sourceMount
     ? routeRemainder(normalizedPath, sourceMount[1])
     : normalizedPath
   return projectContentRoute({ contentPath: mountAgnosticPath, locale }, {
-    localized: locales.length > 0,
-    locales,
+    ...localePolicy,
     // Provider facts stop before the application locale prefix, so treating
     // the concrete locale as default here applies its mount without prefixing.
-    defaultLocale: locale,
-    fallback: {},
-    translatedSlugs: false,
-    routeMounts: routeMounts || {}
+    defaultLocale: locale
   })
 }
 
@@ -216,13 +214,17 @@ export const filesystemProvider: ContentProvider = {
   navigation: async (event, query, options) => {
     const collection = query.collection || ''
     const config = getContentRuntimeConfig().content || {}
-    const collectionI18n = collection ? resolveRuntimeCollectionI18nConfig(collection, config) : undefined
-    const locales = collectionI18n?.locales || []
-    const defaultLocale = collectionI18n?.defaultLocale
-    const routeMounts = normalizeRouteMounts(config.collections?.[collection]?.route, locales, defaultLocale)
+    const localePolicy = collection
+      ? resolveRuntimeCollectionLocalePolicy(collection, config)
+      : undefined
+    if (collection && !localePolicy) {
+      throw new Error(`Missing runtime locale policy for content collection "${collection}".`)
+    }
     const canonical = await resolveContentNavigation(event, query, options)
     const scoped = scopeNavigationTree(
-      markCollectionNavigationRoot(canonical, collection, { routeMounts }),
+      markCollectionNavigationRoot(canonical, collection, {
+        routeMounts: localePolicy?.routeMounts || {}
+      }),
       collection
     )
     return toProviderNavigation(collection, scoped)
