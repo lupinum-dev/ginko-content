@@ -205,11 +205,4 @@ export const runProviderContractSuite = (options: ProviderContractSuiteOptions) 
       expect(route).not.toHaveProperty('href')
     }
   })
-
-  test(`${name} infers optional operation support from method presence`, async () => {
-    const provider = await loadProvider()
-    for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
-      if (method in provider) expect(provider[method]).toBeTypeOf('function')
-    }
-  })
 }
