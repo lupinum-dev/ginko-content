@@ -92,7 +92,7 @@ describe('resolveLocalePolicy — per-collection policy', () => {
     })).toThrow(/require a usable default locale/)
   })
 
-  test('non-localized collections resolve an empty, non-localized policy', () => {
+  test('non-localized collections retain the document identity locale without becoming localized', () => {
     const policy = resolveLocalePolicy({
       ...baseInput,
       collections: [{ name: 'posts', localized: false, route: '/posts' }]
@@ -100,10 +100,39 @@ describe('resolveLocalePolicy — per-collection policy', () => {
     expect(policy.collections.posts).toEqual({
       localized: false,
       locales: [],
-      defaultLocale: undefined,
+      defaultLocale: 'en',
       fallback: {},
       translatedSlugs: false,
       routeMounts: { default: '/posts' }
+    })
+  })
+
+  test('collections without a route preserve authored root-relative paths', () => {
+    const policy = resolveLocalePolicy({
+      ...baseInput,
+      collections: [
+        { name: 'pages', localized: false },
+        { name: 'localizedPages', localized: true }
+      ]
+    })
+
+    expect(policy.collections.pages?.routeMounts).toEqual({ default: '/' })
+    expect(policy.collections.localizedPages?.routeMounts).toEqual({ en: '/', de: '/' })
+  })
+
+  test('unconfigured content uses the parser default locale as its route-query identity', () => {
+    const policy = resolveLocalePolicy({
+      nuxtI18n: { installed: false },
+      content: {},
+      collections: [{ name: 'pages', localized: false }]
+    })
+
+    expect(policy.defaultLocale).toBe('en')
+    expect(policy.collections.pages).toMatchObject({
+      localized: false,
+      locales: [],
+      defaultLocale: 'en',
+      routeMounts: { default: '/' }
     })
   })
 

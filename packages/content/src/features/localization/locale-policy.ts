@@ -219,7 +219,12 @@ function resolveAuthority(
  * setup; downstream code consumes the result rather than reconstructing it.
  */
 export function resolveLocalePolicy(input: LocalePolicyInput): ResolvedLocalePolicy {
-  const { source, locales, defaultLocale, strategy } = resolveAuthority(input.nuxtI18n, input.content)
+  const { source, locales, defaultLocale: configuredDefaultLocale, strategy } = resolveAuthority(input.nuxtI18n, input.content)
+  // Path parsing has always assigned unconfigured content to `en`. Keep that
+  // physical document identity in the resolved policy too, otherwise route
+  // queries lower to the empty locale while the graph is indexed under `en`.
+  // This does not localize a collection or add locale prefixes.
+  const defaultLocale = configuredDefaultLocale ?? (locales.length === 0 ? 'en' : undefined)
 
   if (defaultLocale && locales.length && !locales.includes(defaultLocale)) {
     throw new LocalePolicyError(
@@ -263,19 +268,19 @@ export function resolveLocalePolicy(input: LocalePolicyInput): ResolvedLocalePol
         .filter(([, chain]) => chain.length > 0)
     )
 
-    const fallbackMount = `/${collection.name}`
+    const defaultMount = '/'
     const routeMounts = localized
-      ? (normalizeRouteMounts(collection.route ?? fallbackMount, collectionLocales, collectionDefaultLocale) ?? { default: fallbackMount })
+      ? (normalizeRouteMounts(collection.route ?? defaultMount, collectionLocales, collectionDefaultLocale) ?? { default: defaultMount })
       : {
           default: typeof collection.route === 'string'
             ? collection.route
-            : (collection.route?.default ?? collection.route?.[collectionDefaultLocale ?? ''] ?? fallbackMount)
+            : (collection.route?.default ?? collection.route?.[collectionDefaultLocale ?? ''] ?? defaultMount)
         }
 
     collections[collection.name] = {
       localized,
       locales: localized ? collectionLocales : [],
-      defaultLocale: localized ? collectionDefaultLocale : undefined,
+      defaultLocale: collectionDefaultLocale,
       fallback: localized ? collectionFallback : {},
       translatedSlugs: localized ? translatedSlugs : false,
       routeMounts

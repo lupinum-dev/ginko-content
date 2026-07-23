@@ -4,6 +4,8 @@ import { z } from 'zod'
 export const docs = defineCollection({
   type: 'page',
   source: '**/*.md',
+  i18n: true,
+  route: '/',
   strict: true,
   schema: z.object({
     title: z.string()

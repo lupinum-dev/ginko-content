@@ -48,7 +48,6 @@ build+generate nav/index.html
 build+generate pricing/index.html
 build+generate query-locale/index.html
 build+generate raw/contact.md
-build+generate raw/de/guide/advanced.md
 build+generate raw/de/kontakt.md
 build+generate raw/de/leitfaden.md
 build+generate raw/de/leitfaden/erste-schritte.md
