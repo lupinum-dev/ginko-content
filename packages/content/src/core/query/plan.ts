@@ -156,13 +156,30 @@ export type ContentQueryPagination =
  * public `by.route` through locale prefix and collection mounts (via the
  * canonical route projector, `lowerRouteToCandidates`) before dispatch, and
  * hands the provider an ordered, exact `{ locale, contentPath }` candidate
- * list instead of a raw route the provider would otherwise have to guess a
- * mount for. Ref lookups carry the resolved locale fallback chain instead of
- * a raw `locale`/`fallback` pair for the same reason.
+ * list with each locale's collection mount already applied. Ref lookups carry
+ * the resolved locale fallback chain instead of a raw `locale`/`fallback`
+ * pair for the same reason.
  */
 export type ContentProviderVariantSelector =
-  | { by: 'route', requestedLocale: string, candidates: readonly { locale: string, contentPath: string }[] }
-  | { by: 'ref', ref: string, requestedLocale: string, localeChain: readonly string[] }
+  | {
+      by: 'route'
+      requestedRoute: string
+      requestedLocale: string
+      candidates: readonly { locale: string, contentPath: string }[]
+    }
+  | {
+      by: 'ref'
+      requestedRef: string
+      requestedLocale: string
+      localeChain: readonly string[]
+    }
+
+/** Raw in-process resolution or the closed selector that replaces it at the provider boundary. */
+export type ContentQueryVariant = VariantResolution | ContentProviderVariantSelector
+
+export const isContentProviderVariantSelector = (
+  variant: ContentQueryVariant
+): variant is ContentProviderVariantSelector => 'by' in variant
 
 /**
  * Complete executor-facing plan. Construct via `lowerQueryPlan(params)`;
@@ -176,12 +193,9 @@ export interface ContentQueryPlan {
   pagination: ContentQueryPagination
   mode: QueryMode
   resolveLocale?: LocaleResolution
-  resolveVariant?: VariantResolution
   /**
-   * Closed route/ref wire selector, computed by the provider-query lowering
-   * step (`runtime/server/provider-query.ts`) from `resolveVariant` using the
-   * resolved collection locale policy. Populated only when `resolveVariant`
-   * names a `route` or `ref` selector.
+   * One variant state. `lowerQueryPlan()` emits raw resolution; the provider
+   * boundary replaces route/ref resolution with an exact closed selector.
    */
-  variantSelector?: ContentProviderVariantSelector
+  variant?: ContentQueryVariant
 }

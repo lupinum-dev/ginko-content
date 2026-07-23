@@ -136,19 +136,19 @@ describe('provider query wire v3 — pagination and route candidates', () => {
       }
     } as never)
 
-    expect(query.plan.variantSelector).toMatchObject({
+    expect(query.plan.variant).toMatchObject({
       by: 'route',
       requestedLocale: 'de'
     })
-    const candidates = (query.plan.variantSelector as { candidates: Array<{ locale: string, contentPath: string }> }).candidates
+    expect(query.plan).not.toHaveProperty('resolveVariant')
+    expect(query.plan).not.toHaveProperty('variantSelector')
+    const candidates = (query.plan.variant as { candidates: Array<{ locale: string, contentPath: string }> }).candidates
     expect(candidates[0]).toMatchObject({ locale: 'de' })
     expect(candidates.map(candidate => candidate.locale)).toContain('en')
-    // Each locale's candidate content path is projected through that locale's
-    // OWN mount, not a shared/guessed one.
-    for (const candidate of candidates) {
-      expect(candidate.contentPath.startsWith('/dokumentation')).toBe(false)
-      expect(candidate.contentPath.startsWith('/docs')).toBe(false)
-    }
+    expect(candidates).toEqual([
+      { locale: 'de', contentPath: '/dokumentation/essentials/fallback-lab' },
+      { locale: 'en', contentPath: '/docs/essentials/fallback-lab' }
+    ])
   })
 
   test('ref resolution sends an ordered locale chain instead of a raw locale/fallback pair', async () => {
@@ -163,11 +163,46 @@ describe('provider query wire v3 — pagination and route candidates', () => {
       }
     } as never)
 
-    expect(query.plan.variantSelector).toEqual({
+    expect(query.plan.variant).toEqual({
       by: 'ref',
-      ref: 'docs.getting-started',
+      requestedRef: 'docs.getting-started',
       requestedLocale: 'de',
       localeChain: ['de', 'en']
+    })
+    expect(query.plan).not.toHaveProperty('resolveVariant')
+    expect(query.plan).not.toHaveProperty('variantSelector')
+  })
+
+  test('unlocalized route selectors retain the collection mount and runtime default locale', async () => {
+    const { createProviderQuery } = await import('../../packages/content/src/runtime/server/provider-query')
+    runtime.content = {
+      defaultLocale: 'en',
+      locales: ['en'],
+      collections: {
+        docs: {
+          i18n: false,
+          route: '/docs',
+          localePolicy: {
+            localized: false,
+            locales: [],
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { default: '/docs' }
+          }
+        }
+      }
+    } as never
+
+    const query = createProviderQuery({
+      collection: 'docs',
+      resolveVariant: { route: '/docs/build/blog' }
+    } as never)
+
+    expect(query.plan.variant).toEqual({
+      by: 'route',
+      requestedRoute: '/docs/build/blog',
+      requestedLocale: 'en',
+      candidates: [{ locale: 'en', contentPath: '/docs/build/blog' }]
     })
   })
 
@@ -212,31 +247,26 @@ describe('provider query wire v3 — pagination and route candidates', () => {
       } as never)
     })
     const selectorLocales = (query: ReturnType<typeof createProviderQuery>) => {
-      const selector = query.plan.variantSelector
+      const selector = query.plan.variant
+      if (!selector || !('by' in selector)) return undefined
       return selector?.by === 'route'
         ? selector.candidates.map(candidate => candidate.locale)
         : selector?.localeChain
     }
 
     const configured = createQueries(true)
-    expect(configured.route.plan.resolveVariant?.fallback).toEqual(['fr', 'en'])
-    expect(configured.ref.plan.resolveVariant?.fallback).toEqual(['fr', 'en'])
     expect(selectorLocales(configured.route)).toEqual(['de', 'fr', 'en'])
     expect(selectorLocales(configured.ref)).toEqual(['de', 'fr', 'en'])
+    expect(configured.route.plan.variant).not.toHaveProperty('fallback')
+    expect(configured.ref.plan.variant).not.toHaveProperty('fallback')
 
     // The explicit chain overrides the configured de -> fr chain for both
     // selector kinds. Route closure must not reconstruct policy fallback.
     const explicit = createQueries(['en'])
-    expect(explicit.route.plan.resolveVariant?.fallback).toEqual(['en'])
-    expect(explicit.ref.plan.resolveVariant?.fallback).toEqual(['en'])
     expect(selectorLocales(explicit.route)).toEqual(['de', 'en'])
     expect(selectorLocales(explicit.ref)).toEqual(['de', 'en'])
 
     const disabled = createQueries(false)
-    expect(disabled.route.plan.resolveVariant).toMatchObject({ exact: true })
-    expect(disabled.ref.plan.resolveVariant).toMatchObject({ exact: true })
-    expect(disabled.route.plan.resolveVariant).not.toHaveProperty('fallback')
-    expect(disabled.ref.plan.resolveVariant).not.toHaveProperty('fallback')
     expect(selectorLocales(disabled.route)).toEqual(['de'])
     expect(selectorLocales(disabled.ref)).toEqual(['de'])
   })

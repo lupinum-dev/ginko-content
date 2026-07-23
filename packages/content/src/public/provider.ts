@@ -7,6 +7,7 @@ export type {
   ContentProviderQuery,
   ContentProviderNavigationOptions,
   ContentQueryPlan,
+  ContentQueryVariant,
   ContentProviderPaginationMode,
   ContentProviderPaging,
   ContentProviderVariantSelector,

@@ -80,7 +80,7 @@ const selectQueryDocuments = (plan: QueryPlan) => {
     .filter(document => !plan.collection || document.collection === plan.collection)
     .filter(document => matchesFilter(document, plan.filter))
 
-  const selector = plan.variantSelector
+  const selector = plan.variant && 'by' in plan.variant ? plan.variant : undefined
   if (selector?.by === 'route') {
     selected = selector.candidates.flatMap(candidate => {
       const match = selected.find(document =>
@@ -91,7 +91,7 @@ const selectQueryDocuments = (plan: QueryPlan) => {
   }
   else if (selector?.by === 'ref') {
     selected = selector.localeChain.flatMap(locale => {
-      const match = selected.find(document => document.ref === selector.ref && document.locale === locale)
+      const match = selected.find(document => document.ref === selector.requestedRef && document.locale === locale)
       return match ? [match] : []
     })
   }

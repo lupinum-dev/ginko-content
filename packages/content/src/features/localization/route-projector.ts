@@ -145,7 +145,7 @@ export function lowerRouteToCandidates(
     const mounts = policy.routeMounts as RouteMounts
     const mount = mounts.default ?? Object.values(mounts)[0]
     const contentPath = mount ? routeRemainder(route, mount) : normalizeContentPath(route)
-    return [{ locale: policy.defaultLocale ?? '', contentPath }]
+    return [{ locale: requestedLocale ?? policy.defaultLocale ?? '', contentPath }]
   }
 
   const localeChain = requestedLocale

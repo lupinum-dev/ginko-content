@@ -35,8 +35,7 @@ const trustedNavigationPlan = (
     collection: _collection,
     pagination: _pagination,
     resolveLocale: _resolveLocale,
-    resolveVariant: _resolveVariant,
-    variantSelector: _variantSelector,
+    variant: _variant,
     ...base
   } = source
   return {

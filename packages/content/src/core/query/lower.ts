@@ -579,7 +579,7 @@ export const lowerQueryPlan = (
         } }
       : {}),
     ...(resolveVariant
-      ? { resolveVariant: {
+      ? { variant: {
           ...(resolveVariant.path ? { path: resolveVariant.path } : {}),
           ...(resolveVariant.route ? { route: resolveVariant.route } : {}),
           ...(resolveVariant.ref ? { ref: resolveVariant.ref } : {}),

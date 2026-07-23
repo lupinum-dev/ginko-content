@@ -1,7 +1,7 @@
 import { createError, type H3Event } from 'h3'
 import type { ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
 import type { ContentQueryPlan, FilterExpr } from '../../core/query/plan'
-import { isPlanRegex } from '../../core/query/plan'
+import { isContentProviderVariantSelector, isPlanRegex } from '../../core/query/plan'
 import { executeQueryPlan } from '../../core/query/execute'
 import { ContentError, type ContentErrorCode } from '../../core/errors'
 import { assertFilesystemPreviewSupported, resolveIncludeDrafts, resolveRuntimeEnvironment } from '../../core/visibility'
@@ -123,6 +123,13 @@ const applyFilesystemQueryPolicy = (plan: ContentQueryPlan, includeDrafts: boole
   }
 }
 
+const requestedVariantLocale = (plan: ContentQueryPlan): string | undefined => {
+  const variant = plan.variant
+  return variant
+    ? isContentProviderVariantSelector(variant) ? variant.requestedLocale : variant.locale
+    : undefined
+}
+
 export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputPlan: ContentQueryPlan): Promise<ContentQueryResponse<T>> => {
   // Fail before any query dispatch touches the sealed snapshot. `getContentGraph` enforces this same guard for every other
   // filesystem-backed consumer (navigation, sitemap, search, agent output);
@@ -159,12 +166,12 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
     return response as ContentQueryResponse<T>
   }
 
-  const requestedLocale = plan.resolveVariant?.locale || plan.resolveLocale?.locale
+  const requestedLocale = requestedVariantLocale(plan) || plan.resolveLocale?.locale
 
   if (plan.mode === 'first') {
     const content = response.result
     if (!content) {
-      notFound(plan, plan.resolveVariant ? 'Could not find document for the given route variant.' : undefined)
+      notFound(plan, plan.variant ? 'Could not find document for the given route variant.' : undefined)
     }
 
     return {

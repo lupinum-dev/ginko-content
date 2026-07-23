@@ -75,12 +75,13 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
       plan: expect.objectContaining({
-        variantSelector: {
+        variant: {
           by: 'route',
+          requestedRoute: '/de/dokumentation/essentials/fallback-lab',
           requestedLocale: 'de',
           candidates: [
-            { locale: 'de', contentPath: '/essentials/fallback-lab' },
-            { locale: 'en', contentPath: '/essentials/fallback-lab' }
+            { locale: 'de', contentPath: '/dokumentation/essentials/fallback-lab' },
+            { locale: 'en', contentPath: '/docs/essentials/fallback-lab' }
           ]
         }
       })

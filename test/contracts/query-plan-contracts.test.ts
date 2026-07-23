@@ -88,7 +88,7 @@ describe('query plan contracts', () => {
     })
     expect(variantPlan).toMatchObject({
       mode: 'first',
-      resolveVariant: {
+      variant: {
         path: '/guide/intro',
         locale: 'de',
         fallback: ['en']
@@ -102,7 +102,7 @@ describe('query plan contracts', () => {
         locale: 'de'
       }
     } as any)
-    expect(noFallbackPlan.resolveVariant).toEqual({
+    expect(noFallbackPlan.variant).toEqual({
       ref: 'docs.intro',
       locale: 'de'
     })
@@ -113,7 +113,7 @@ describe('query plan contracts', () => {
       resolveVariant: { ref: 'docs.intro', locale: 'de', fallback: false, exact: false }
     } as any)
     expect(disabledFallbackPlan.resolveLocale).toEqual({ locale: 'de', exact: true })
-    expect(disabledFallbackPlan.resolveVariant).toEqual({ ref: 'docs.intro', locale: 'de', exact: true })
+    expect(disabledFallbackPlan.variant).toEqual({ ref: 'docs.intro', locale: 'de', exact: true })
   })
 
   test('uses the selected collection default when locale resolution has no explicit fallback', async () => {

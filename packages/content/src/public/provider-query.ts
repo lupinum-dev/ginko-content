@@ -37,6 +37,7 @@ export type { ContentProviderQueryInput } from '../types/query'
 export type {
   ContentQueryPlan,
   ContentQueryPagination,
+  ContentQueryVariant,
   ContentProviderPaginationMode,
   ContentProviderPaging,
   ContentProviderVariantSelector

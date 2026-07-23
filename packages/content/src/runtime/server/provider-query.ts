@@ -10,7 +10,7 @@ import {
 } from '../../features/localization/config'
 import { resolveLocaleChain, sortLocalesCanonically } from '../../core/content/locale'
 import { normalizeReferenceValue } from '../../core/references/resolve'
-import { lowerRouteToCandidates } from '../../features/localization/route-projector'
+import { lowerRouteToCandidates, projectContentRoute } from '../../features/localization/route-projector'
 import { DEFAULT_PUBLIC_QUERY_LIMIT } from '../../core/query/limits'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
 import { buildContentDocumentEnvelope } from '../../features/localization/results'
@@ -22,6 +22,7 @@ import { normalizeProviderDocument, type ContentProviderVariantFact, type Normal
 import { getContentRuntimeConfig } from './runtime-config'
 import { createContentProviderError } from '../../public/provider-errors'
 import { toContentProviderQuery, type ContentProviderQuery } from '../../public/provider-query'
+import { isContentProviderVariantSelector } from '../../core/query/plan'
 
 const collectionLocalePolicyFor = (
   collection: string | null | undefined,
@@ -53,15 +54,19 @@ const collectionLocalePolicyFor = (
  * there is no `route`/`ref` selector to close (plain `path` lookups keep
  * their existing in-graph resolution).
  */
-const closeProviderVariantSelector = (query: ContentProviderQuery): ContentProviderQuery => {
-  const resolveVariant = query.plan.resolveVariant
-  if (!resolveVariant || (!resolveVariant.route && !resolveVariant.ref)) {
+const closeProviderVariant = (query: ContentProviderQuery): ContentProviderQuery => {
+  const resolveVariant = query.plan.variant
+  if (
+    !resolveVariant
+    || isContentProviderVariantSelector(resolveVariant)
+    || (!resolveVariant.route && !resolveVariant.ref)
+  ) {
     return query
   }
 
   const config = getContentRuntimeConfig().content || {}
   const policy = collectionLocalePolicyFor(query.collection, config)
-  const requestedLocale = resolveVariant.locale || policy.defaultLocale || ''
+  const requestedLocale = resolveVariant.locale || policy.defaultLocale || config.defaultLocale || ''
   const localeChain = resolveVariant.exact
     ? (requestedLocale ? [requestedLocale] : [])
     : resolveVariant.fallback !== undefined
@@ -76,15 +81,21 @@ const closeProviderVariantSelector = (query: ContentProviderQuery): ContentProvi
     const candidates = lowerRouteToCandidates(resolveVariant.route, {
       ...policy,
       fallback: requestedLocale ? { [requestedLocale]: localeChain.slice(1) } : {}
-    }, requestedLocale)
+    }, requestedLocale).map(candidate => ({
+      ...candidate,
+      contentPath: projectContentRoute(candidate, {
+        ...policy,
+        defaultLocale: candidate.locale
+      })
+    }))
 
     return {
       ...query,
       plan: {
         ...query.plan,
-        resolveVariant,
-        variantSelector: {
+        variant: {
           by: 'route',
+          requestedRoute: resolveVariant.route,
           requestedLocale,
           candidates
         }
@@ -96,10 +107,9 @@ const closeProviderVariantSelector = (query: ContentProviderQuery): ContentProvi
     ...query,
     plan: {
       ...query.plan,
-      resolveVariant,
-      variantSelector: {
+      variant: {
         by: 'ref',
-        ref: resolveVariant.ref!,
+        requestedRef: resolveVariant.ref!,
         requestedLocale,
         localeChain
       }
@@ -165,7 +175,7 @@ export const createProviderQuery = (params: ContentProviderQueryInput): ContentP
     )
   }
 
-  return closeProviderVariantSelector(query)
+  return closeProviderVariant(query)
 }
 
 export function assertConfiguredProviderQueryLocales (

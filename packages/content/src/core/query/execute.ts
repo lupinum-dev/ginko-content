@@ -20,8 +20,14 @@
 import type { ContentQueryResponse } from '../../types/api'
 import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../content/graph'
-import type { ContentQueryPlan, FilterExpr, CompareOperator } from './plan'
-import { isPlanRegex } from './plan'
+import type {
+  ContentProviderVariantSelector,
+  ContentQueryPlan,
+  FilterExpr,
+  CompareOperator,
+  VariantResolution
+} from './plan'
+import { isContentProviderVariantSelector, isPlanRegex } from './plan'
 import { resolveLocaleChain, sortLocalesCanonically } from '../content/locale'
 import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, selectGraphDocuments } from '../content/graph'
 import { ensureArray, get, sortList, withKeys, withoutKeys } from './operators'
@@ -454,8 +460,17 @@ const executeLocalePlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, optio
 }
 
 const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: ExecuteQueryPlanOptions): ContentQueryResponse<T> => {
-  if (!plan.resolveVariant) {
+  const requestedVariant = plan.variant
+  if (!requestedVariant) {
     return { result: undefined }
+  }
+  let selector: ContentProviderVariantSelector | undefined
+  let rawResolution: VariantResolution | undefined
+  if (isContentProviderVariantSelector(requestedVariant)) {
+    selector = requestedVariant
+  }
+  else {
+    rawResolution = requestedVariant
   }
 
   // `ref` selectors short-circuit through the canonical-key index. We
@@ -470,26 +485,63 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
   const localeFallback = options.localeFallback
   const routeMounts = normalizeRouteMounts(collectionConfig?.route, collectionI18n?.locales || [], defaultLocale)
 
-  const variant = plan.resolveVariant.ref
+  const resolveClosedSelector = (
+    closed: ContentProviderVariantSelector
+  ): ReturnType<typeof resolveGraphVariant> => {
+    const refCanonicalKey = closed.by === 'ref'
+      ? resolveGraphCanonicalKey(graph, closed.requestedRef, plan.collection)
+      : undefined
+    const candidates = closed.by === 'route'
+      ? closed.candidates.map(candidate => {
+          return {
+            locale: candidate.locale,
+            canonicalKey: graph.byRoute[`${candidate.locale}:${candidate.contentPath}`]
+          }
+        })
+      : closed.localeChain.map(locale => ({
+          locale,
+          canonicalKey: refCanonicalKey
+        }))
+
+    for (const candidate of candidates) {
+      if (!candidate.canonicalKey) continue
+      const resolved = resolveGraphVariant(graph, candidate.canonicalKey, candidate.locale, {
+        exact: true,
+        collection: plan.collection
+      })
+      if (resolved) {
+        return {
+          ...resolved,
+          requestedLocale: closed.requestedLocale,
+          fallback: Boolean(closed.requestedLocale && resolved.resolvedLocale !== closed.requestedLocale)
+        }
+      }
+    }
+    return null
+  }
+
+  const resolveRawVariant = (
+    resolution: VariantResolution
+  ): ReturnType<typeof resolveGraphVariant> => resolution.ref
     ? (() => {
-        const canonicalKey = resolveGraphCanonicalKey(graph, plan.resolveVariant!.ref!, plan.collection)
+        const canonicalKey = resolveGraphCanonicalKey(graph, resolution.ref!, plan.collection)
         if (!canonicalKey) return null
-        return resolveGraphVariant(graph, canonicalKey, plan.resolveVariant!.locale, {
+        return resolveGraphVariant(graph, canonicalKey, resolution.locale, {
           defaultLocale,
           locales: collectionI18n?.locales,
-          fallback: plan.resolveVariant!.fallback,
-          exact: plan.resolveVariant!.exact,
+          fallback: resolution.fallback,
+          exact: resolution.exact,
           localeFallback,
           collection: plan.collection
         })
       })()
-    : plan.resolveVariant.route
+    : resolution.route
       ? (() => {
-          const localeChain = plan.resolveVariant!.exact
-            ? (plan.resolveVariant!.locale ? [plan.resolveVariant!.locale] : [])
-            : (plan.resolveVariant!.fallback !== undefined
-                ? Array.from(new Set([plan.resolveVariant!.locale, ...plan.resolveVariant!.fallback].filter(Boolean) as string[]))
-                : resolveLocaleChain(plan.resolveVariant!.locale, defaultLocale, localeFallback || {}))
+          const localeChain = resolution.exact
+            ? (resolution.locale ? [resolution.locale] : [])
+            : (resolution.fallback !== undefined
+                ? Array.from(new Set([resolution.locale, ...resolution.fallback].filter(Boolean) as string[]))
+                : resolveLocaleChain(resolution.locale, defaultLocale, localeFallback || {}))
           const collectionVariants = plan.collection
             ? Object.values(graph.byCollectionCanonical[plan.collection] || {})
             : Object.values(graph.byCollectionCanonical).flatMap(entries => Object.values(entries))
@@ -500,8 +552,8 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
             candidateLocales.push('')
           }
           const candidates = routeToContentPathCandidates(
-            plan.resolveVariant!.route!,
-            plan.resolveVariant!.locale,
+            resolution.route!,
+            resolution.locale,
             candidateLocales,
             defaultLocale,
             routeMounts
@@ -511,11 +563,11 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
             if (!canonicalKey) {
               continue
             }
-            const resolved = resolveGraphVariant(graph, canonicalKey, plan.resolveVariant!.locale, {
+            const resolved = resolveGraphVariant(graph, canonicalKey, resolution.locale, {
               defaultLocale,
               locales: collectionI18n?.locales,
-              fallback: plan.resolveVariant!.fallback,
-              exact: plan.resolveVariant!.exact,
+              fallback: resolution.fallback,
+              exact: resolution.exact,
               localeFallback,
               collection: plan.collection
             })
@@ -525,17 +577,23 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
         })()
       : resolveGraphRouteVariant(
           graph,
-          plan.resolveVariant.path!,
-          plan.resolveVariant.locale,
+          resolution.path!,
+          resolution.locale,
           {
             defaultLocale,
             locales: collectionI18n?.locales,
-            fallback: plan.resolveVariant.fallback,
-            exact: plan.resolveVariant.exact,
+            fallback: resolution.fallback,
+            exact: resolution.exact,
             localeFallback,
             collection: plan.collection
           }
         )
+
+  const variant = selector
+    ? resolveClosedSelector(selector)
+    : rawResolution
+      ? resolveRawVariant(rawResolution)
+      : null
 
   if (!variant) {
     return { result: undefined }
@@ -564,9 +622,11 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
     ...withDirConfig(content, dirConfig),
     resolved: {
       ...((content as ParsedContent | undefined)?.resolved || {}),
-      ...(plan.resolveVariant.path ? { requestedPath: plan.resolveVariant.path } : {}),
-      ...(plan.resolveVariant.route ? { requestedRoute: plan.resolveVariant.route } : {}),
-      ...(plan.resolveVariant.ref ? { requestedRef: plan.resolveVariant.ref } : {}),
+      ...(rawResolution?.path ? { requestedPath: rawResolution.path } : {}),
+      ...(rawResolution?.route ? { requestedRoute: rawResolution.route } : {}),
+      ...(rawResolution?.ref ? { requestedRef: rawResolution.ref } : {}),
+      ...(selector?.by === 'route' ? { requestedRoute: selector.requestedRoute } : {}),
+      ...(selector?.by === 'ref' ? { requestedRef: selector.requestedRef } : {}),
       requestedLocale: variant.requestedLocale,
       locale: variant.resolvedLocale,
       fallback: variant.fallback,
@@ -587,7 +647,7 @@ const executeVariantPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, opti
  * plan's resolution terms, then returns a uniform `ContentQueryResponse<T>`.
  */
 export const executeQueryPlan = <T>(graph: ContentGraph, plan: ContentQueryPlan, options: ExecuteQueryPlanOptions = {}): ContentQueryResponse<T> => {
-  if (plan.resolveVariant) {
+  if (plan.variant) {
     return executeVariantPlan<T>(graph, plan, options)
   }
 
