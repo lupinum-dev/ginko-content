@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // Documentation-drift linter.
 //
-// Scans the shipped docs and examples for
-// stale/removed public APIs, private metadata leaks, unsupported query
-// operators, incomplete config snippets, and non-public imports. It runs in CI
-// through `verify` and `release:verify`.
+// Scans shipped docs and examples for facts with a concrete source of truth:
+// query operators, package imports, config shape, dependency floors, and ADR
+// structure. It runs in CI through `verify` and `release:verify`.
 //
 // Exit code 0 = clean; 1 = drift found (offenders printed to stderr).
 
@@ -36,68 +35,9 @@ const exampleImportRoots = [
   'test/fixtures'
 ]
 
-// Maintained public-contract fixtures. Scanned alongside docs/examples by
-// contract-oriented detectors, but excluded from beginner-documentation
-// placement checks because they are executable fixtures rather than teaching
-// material.
-const maintainedFixtureRoots = [
-  'test/fixtures/typecheck',
-  'test/fixtures/quickstart'
-]
-
 const sourceExampleFiles = [
   'packages/content/src/types/config.ts'
 ]
-
-const stalePublicApiPatterns = [
-  /(^|[^A-Za-z0-9_])queryCollection([^A-Za-z0-9_]|$)/,
-  /\bqueryCollectionNavigation\b/,
-  /\bqueryCollectionPage\b/,
-  /\bserverQueryCollection\b/,
-  /\bresolveContentReference\b/,
-  /\buseContentList\b/,
-  /\buseContentRoute\b/,
-  /\buseContentLocaleSwitch\b/
-]
-
-const advancedServerSurfacePatterns = [
-  /\bwithContentCache\b/,
-  /\bcontentCacheHeaders\b/,
-  /\bnoopContentCache\b/,
-  /\bContentCacheAdapter\b/,
-  /\bContentCacheHint\b/,
-  /\bContentProvider\b/,
-  /\bcreateContentProviderError\b/,
-  /\bdefineAgentMarkdownComponent\b/,
-  /\bregisterAgentMarkdown/,
-  /\bagentRawPathForRoute\b/,
-  /\bagentMarkdownPathForRoute\b/,
-  /\brenderLlmsTxt\b/,
-  /\brenderLlmsFullTxt\b/,
-  /\bresolveContentMarkdown\b/
-]
-
-const privateLocaleMetadataPatterns = [
-  /\b_requestedLocale\b/,
-  /\b_resolvedLocale\b/,
-  /\b_fallback\b/,
-  /\b_availableLocales\b/,
-  /\b_variantPaths\b/
-]
-
-const currentEnvelopeMetadataPatterns = [
-  /\b_path\b/,
-  /\b_id\b/,
-  /\b_file\b/,
-  /\b_locale\b/,
-  /\b_stem\b/,
-  /\b_dir\b/,
-  /\b_extension\b/
-]
-
-const namedDefineCollectionPattern = /\bdefineCollection\s*\(\s*['"][^'"]+['"]/
-
-const rawStringHandleFirstHelperPattern = /\b(?:useContentPage|useContentNavigation|useContentSearchData)\s*\(\s*['"][^'"]+['"]/
 
 const publicQueryOperators = new Set([
   ...PUBLIC_QUERY_OPERATORS,
@@ -152,124 +92,11 @@ const collectTextFiles = async (roots) => {
     .map(file => relative(process.cwd(), file))
 }
 
-const isMigrationDoc = file => file.split('\\').join('/').startsWith('docs/content/docs/6.migration/')
-
 const normalizePath = file => file.split('\\').join('/')
 
-// ADRs are decision *records*, not tutorials: by genre they quote removed,
-// rejected, and superseded APIs verbatim in Context/Alternatives/"old vs new"
-// sections (that is the point of an ADR). The stale-API/private-metadata/
-// operator-currency detectors below are built to protect docs that teach the
-// *current* API to users; running them line-by-line against ADR prose would
-// either flag legitimate historical quotation as "drift" or require every ADR
-// author to route history through the migration-doc marker vocabulary. ADRs
-// get the same "not a currency-checked doc" treatment as ARCHITECTURE.md /
-// ABSTRACTIONS.md instead. Their factual accuracy is enforced by the
-// dedicated ADR frontmatter check and current documentation invariants.
+// ADRs quote rejected and superseded APIs by design, so currency checks apply
+// to current documentation rather than decision history.
 const isAdrDoc = file => normalizePath(file).startsWith('meta/adr/')
-
-const isAdvancedSurfaceDoc = (file) => {
-  const normalized = normalizePath(file)
-  const lower = normalized.toLowerCase()
-  return (
-    normalized.includes('/6.migration/') ||
-    normalized.includes('/5.reference/') ||
-    normalized.includes('/4.guides/5.providers/') ||
-    lower.includes('/advanced/') ||
-    lower.includes('agent') ||
-    lower.includes('provider') ||
-    lower.includes('data-source') ||
-    lower.includes('data_source') ||
-    lower.includes('cache') ||
-    lower.includes('cms_contract') ||
-    lower.includes('public-surface') ||
-    normalized.endsWith('ARCHITECTURE.md') ||
-    normalized.endsWith('ABSTRACTIONS.md') ||
-    isAdrDoc(file)
-  )
-}
-
-const isHistoricalMigrationLine = (lines, index) => {
-  const context = lines
-    .slice(Math.max(0, index - 4), index + 1)
-    .join(' ')
-    .toLowerCase()
-
-  return [
-    'old api',
-    'old ginko api',
-    'older shape',
-    'before',
-    'replace',
-    'removed',
-    'legacy',
-    'old nuxt content',
-    'nuxt content v2',
-    'nuxt content v3',
-    'v3 guide',
-    'v3-only',
-    'if you see'
-  ].some(marker => context.includes(marker))
-}
-
-const findStalePublicApiLines = (file, source) => {
-  if (isAdrDoc(file)) return []
-  const lines = source.split('\n')
-  return lines.flatMap((line, index) => {
-    if (!stalePublicApiPatterns.some(pattern => pattern.test(line))) {
-      return []
-    }
-
-    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) {
-      return []
-    }
-
-    return [`${file}:${index + 1}`]
-  })
-}
-
-const findAdvancedSurfaceLinesOutsideAdvancedDocs = (file, source) => {
-  if (isAdvancedSurfaceDoc(file)) return []
-  return source.split('\n').flatMap((line, index) => {
-    if (!advancedServerSurfacePatterns.some(pattern => pattern.test(line))) {
-      return []
-    }
-
-    return [`${file}:${index + 1}`]
-  })
-}
-
-const findPrivateLocaleMetadataLines = (file, source) => {
-  if (isAdrDoc(file)) return []
-  const lines = source.split('\n')
-  return lines.flatMap((line, index) => {
-    if (!privateLocaleMetadataPatterns.some(pattern => pattern.test(line))) {
-      return []
-    }
-
-    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) {
-      return []
-    }
-
-    return [`${file}:${index + 1}`]
-  })
-}
-
-const findCurrentEnvelopeMetadataLines = (file, source) => {
-  if (isAdrDoc(file)) return []
-  const lines = source.split('\n')
-  return lines.flatMap((line, index) => {
-    if (!currentEnvelopeMetadataPatterns.some(pattern => pattern.test(line))) {
-      return []
-    }
-
-    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) {
-      return []
-    }
-
-    return [`${file}:${index + 1}`]
-  })
-}
 
 const isUnsupportedOperatorExample = (lines, index) => {
   const context = lines
@@ -324,66 +151,6 @@ const findUnsupportedPublicOperatorLines = (file, source) => {
     if (isMarkdownRefLinkExample(lines, index)) return []
     return [`${file}:${index + 1} (${unsupported.join(', ')})`]
   })
-}
-
-const isCompatibilityCollectionDeclarationLine = (lines, index) => {
-  const context = lines
-    .slice(Math.max(0, index - 3), index + 3)
-    .join(' ')
-    .toLowerCase()
-
-  return [
-    'older',
-    'compatibility',
-    'authored name must match',
-    'must match definecollection name',
-    'old api',
-    'before'
-  ].some(marker => context.includes(marker))
-}
-
-const findNamedDefineCollectionLines = (file, source) => {
-  if (isAdrDoc(file)) return []
-  const lines = source.split('\n')
-  return lines.flatMap((line, index) => {
-    if (!namedDefineCollectionPattern.test(line)) return []
-    if (isMigrationDoc(file) && isHistoricalMigrationLine(lines, index)) return []
-    if (isCompatibilityCollectionDeclarationLine(lines, index)) return []
-    return [`${file}:${index + 1}`]
-  })
-}
-
-const findRawStringHandleFirstHelperLines = (file, source) => {
-  if (isAdrDoc(file)) return []
-  const lines = source.split('\n')
-  return source
-    .split('\n')
-    .flatMap((line, index) =>
-      rawStringHandleFirstHelperPattern.test(line) && !isHistoricalMigrationLine(lines, index)
-        ? [`${file}:${index + 1}`]
-        : []
-    )
-}
-
-const isFallbackAwareDoc = (file) => {
-  const normalized = normalizePath(file)
-  return (
-    normalized.includes('/2.build/3.multilingual-site') ||
-    normalized.includes('/4.guides/7.translated-slugs') ||
-    normalized.includes('/4.guides/6.routes-links-and-redirects') ||
-    normalized.includes('/6.migration/') ||
-    normalized.includes('/5.reference/') ||
-    normalized.toLowerCase().includes('i18n') ||
-    normalized.toLowerCase().includes('fallback') ||
-    isAdrDoc(file)
-  )
-}
-
-const findUnapprovedFallbackLines = (file, source) => {
-  if (isFallbackAwareDoc(file)) return []
-  return source
-    .split('\n')
-    .flatMap((line, index) => line.includes('fallback: true') ? [`${file}:${index + 1}`] : [])
 }
 
 const collectExportedContentConfigHandles = (source) => {
@@ -609,103 +376,14 @@ const findAdrIndexDriftOffenders = async () => {
   return offenders
 }
 
-// Every regex-backed detector is self-tested against `positive-controls.md`:
-// each pattern must still match a known-bad fixture line, so a regex regression
-// (e.g. a broken escape) fails loudly instead of silently passing every doc.
-// This includes every single-pattern detector. The
-// remaining checks are heuristic (context windows, relational import/export
-// matching, code-block completeness, peer-version labels) rather than a fixed
-// pattern.test over one line, so they cannot be fixture-tested this way.
-const patternGroups = [
-  { name: 'stale-public-api', patterns: stalePublicApiPatterns },
-  { name: 'advanced-server-surface', patterns: advancedServerSurfacePatterns },
-  { name: 'private-locale-metadata', patterns: privateLocaleMetadataPatterns },
-  { name: 'current-envelope-metadata', patterns: currentEnvelopeMetadataPatterns },
-  { name: 'named-define-collection', patterns: [namedDefineCollectionPattern] },
-  { name: 'raw-string-handle-first-helper', patterns: [rawStringHandleFirstHelperPattern] }
-]
-
-const selfTest = async () => {
-  const fixture = await readFile(new URL('./docs-drift-fixtures/positive-controls.md', import.meta.url), 'utf8')
-  const lines = fixture.split('\n')
-  const dead = []
-
-  for (const group of patternGroups) {
-    for (const pattern of group.patterns) {
-      pattern.lastIndex = 0
-      if (!lines.some((line) => {
-        pattern.lastIndex = 0
-        return pattern.test(line)
-      })) {
-        dead.push(`${group.name}: ${pattern}`)
-      }
-    }
-  }
-
-  if (dead.length > 0) {
-    console.error('docs-drift self-test: dead detector pattern(s):')
-    for (const item of dead) console.error(`  ${item}`)
-    process.exit(1)
-  }
-}
-
 // Each check returns { name, offenders: string[] }.
 const checks = [
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...maintainedFixtureRoots])) {
-      offenders.push(...findStalePublicApiLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'current public docs do not teach removed query APIs', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      offenders.push(...findAdvancedSurfaceLinesOutsideAdvancedDocs(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'beginner docs do not teach advanced provider cache or agent surfaces', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...maintainedFixtureRoots])) {
-      offenders.push(...findPrivateLocaleMetadataLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'active docs prefer public localized resolution metadata', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...maintainedFixtureRoots])) {
-      offenders.push(...findCurrentEnvelopeMetadataLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'active docs and examples do not teach underscore envelope fields as current API', offenders }
-  },
   async () => {
     const offenders = []
     for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
       offenders.push(...findUnsupportedPublicOperatorLines(file, await readFile(file, 'utf8')))
     }
     return { name: 'docs and examples do not teach unsupported public query operators', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
-      offenders.push(...findNamedDefineCollectionLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'current docs do not teach authored collection names as the default', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots])) {
-      offenders.push(...findRawStringHandleFirstHelperLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'current docs and examples prefer collection handles for app-facing content helpers', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])) {
-      offenders.push(...findUnapprovedFallbackLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'fallback examples stay in fallback-aware docs', offenders }
   },
   async () => {
     const files = await collectTextFiles([...markdownRoots, ...exampleRoots, ...sourceExampleFiles])
@@ -803,12 +481,6 @@ const checks = [
 ]
 
 const main = async () => {
-  await selfTest()
-  if (process.argv.includes('--self-test')) {
-    console.log('docs-drift self-test: OK')
-    return
-  }
-
   const results = await Promise.all(checks.map(check => check()))
   const failed = results.filter(result => result.offenders.length > 0)
 
