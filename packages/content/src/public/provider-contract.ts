@@ -22,7 +22,11 @@ export interface ContentCacheInvalidateInput {
 export interface ContentCacheAdapter {
   name: string
   apply: (event: H3Event, hint: ContentCacheHint) => void | Promise<void>
-  invalidate: (input: ContentCacheInvalidateInput) => Promise<void>
+  /**
+   * Purge cached content after an authenticated revalidation request.
+   * Omit this capability when the adapter only applies response metadata.
+   */
+  invalidate?: (input: ContentCacheInvalidateInput) => Promise<void>
 }
 
 export interface ContentProviderSiteDataRequest {

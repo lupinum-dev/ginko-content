@@ -5,7 +5,6 @@ export { getCollectionPath } from '../../features/query/routes'
 export { queryCollectionsSitemapEntries } from './sitemap-provider'
 export {
   contentCacheHeaders,
-  noopContentCache,
   headersContentCache
 } from './cache-adapters'
 export {

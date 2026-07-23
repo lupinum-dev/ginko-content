@@ -67,7 +67,6 @@ export const queryCollectionsSitemapEntries: typeof import('../runtime/server/si
 
 export {
   contentCacheHeaders,
-  noopContentCache,
   headersContentCache
 } from '../runtime/server/cache-adapters.js'
 export {

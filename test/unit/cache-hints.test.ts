@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { mergeContentCacheHints, normalizeContentCacheHint } from '../../packages/content/src/core/cache-hints'
-import { contentCacheHeaders, noopContentCache } from '../../packages/content/src/runtime/server/cache-adapters'
+import { contentCacheHeaders } from '../../packages/content/src/runtime/server/cache-adapters'
 
 describe('content cache hints', () => {
   test('normalizes and deduplicates tags and paths', () => {
@@ -54,15 +54,6 @@ describe('content cache hints', () => {
     expect(headers.get('Cache-Control')).toBe('max-age=60, stale-while-revalidate=120')
     expect(headers.get('ETag')).toBe('abc')
     expect(headers.get('Last-Modified')).toBe('Fri, 02 Jan 2026 00:00:00 GMT')
-  })
-
-  test('noop adapter accepts tag-only and path invalidation without side effects', async () => {
-    const adapter = noopContentCache()
-
-    expect(adapter.name).toBe('noop')
-    expect(adapter.apply({ tags: ['entry:docs:a'], paths: ['/docs/a'] })).toBeUndefined()
-    await expect(adapter.invalidate({ tags: ['entry:docs:a'] })).resolves.toBeUndefined()
-    await expect(adapter.invalidate({ paths: ['/docs/a'] })).resolves.toBeUndefined()
   })
 
   test('tag-capable adapters can explicitly accept tag-only invalidation', async () => {

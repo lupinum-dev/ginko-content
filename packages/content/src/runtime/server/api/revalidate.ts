@@ -251,11 +251,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const adapter = await getContentCacheAdapter()
-  if (!adapter) {
+  if (!adapter?.invalidate) {
     throw createError({
       statusCode: 501,
       statusMessage: 'revalidation_not_supported',
-      message: 'The configured Content cache adapter does not support revalidation.'
+      message: 'The configured content cache adapter does not support revalidation.'
     })
   }
   await adapter.invalidate(input)
