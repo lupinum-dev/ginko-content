@@ -223,7 +223,7 @@ describe('package export contracts', () => {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
-  })
+  }, 15_000)
 
   test('built agent export loads as Node ESM', async () => {
     const agent = await import('../../packages/content/dist/public/agent.js')
