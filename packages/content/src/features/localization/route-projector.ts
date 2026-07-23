@@ -124,7 +124,9 @@ export function projectContentRoute(
 ): string {
   const mounts = mountsFor(policy, fact.locale)
   const mounted = mountContentPath(fact.contentPath, fact.locale, mounts)
-  return prefixPathWithLocale(mounted, fact.locale, policy.defaultLocale)
+  return policy.localized
+    ? prefixPathWithLocale(mounted, fact.locale, policy.defaultLocale)
+    : mounted
 }
 
 /**
