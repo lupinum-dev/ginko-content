@@ -974,10 +974,10 @@ describe('agent markdown', () => {
 
     await expect(buildAgentPageIndex({ node: { req: { headers: {} } } } as any, 'de')).resolves.toEqual([
       expect.objectContaining({
-        path: '/de/guide/advanced',
-        rawPath: '/raw/de/guide/advanced.md',
-        markdownPath: '/de/guide/advanced/index.md',
-        locale: 'de'
+        path: '/guide/advanced',
+        rawPath: '/raw/guide/advanced.md',
+        markdownPath: '/guide/advanced/index.md',
+        locale: 'en'
       })
     ])
   })

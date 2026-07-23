@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { MarkdownRoot, ParsedContent, StrictParsedContentMeta } from '../../types/content'
-import type { ContentCollectionConfig, ContentCollectionHandle } from '../../types/config'
+import type { ContentCollectionConfig } from '../../types/config'
 import type { LocalizedDoc } from '../../types/query'
 import type {
   AgentMarkdown,
@@ -11,8 +11,6 @@ import type {
 import { resolveAgentMarkdownOptions } from '../../features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../features/agent/walker'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
-import { getCollectionPath } from '../../features/query/routes'
-import { pathHasLocalePrefix, prefixPathWithLocale } from '../../core/content/path'
 import { isPublicationVisible, resolveRuntimeEnvironment, type ContentVisibilityContext } from '../../core/visibility'
 import { isPreview } from '../../integrations/nitro/preview'
 import { many, one } from './query-api'
@@ -211,71 +209,6 @@ const toAgentMarkdown = (
   }
 }
 
-const collectionHandle = (name: string, config: ContentCollectionConfig): ContentCollectionHandle =>
-  ({ ...config, name } as ContentCollectionHandle)
-
-const routeBaseForLocale = (config: ContentCollectionConfig, locale?: string) => {
-  if (!config.route) return ''
-  if (typeof config.route === 'string') return normalizeAgentRoutePath(config.route)
-  const localized = locale ? config.route[locale] : undefined
-  return typeof localized === 'string' ? normalizeAgentRoutePath(localized) : ''
-}
-
-const collectionDefaultLocale = (config: ContentCollectionConfig) => {
-  const collectionI18n = config.i18n && typeof config.i18n === 'object' ? config.i18n : undefined
-  return collectionI18n?.defaultLocale || contentConfig().defaultLocale
-}
-
-const prefixRequestedLocale = (path: string, locale: string | undefined, defaultLocale: string | undefined) => {
-  const normalized = normalizeAgentRoutePath(path)
-  if (!locale) return normalized
-  if (pathHasLocalePrefix(normalized, [locale])) return normalized
-  return prefixPathWithLocale(normalized, locale, defaultLocale)
-}
-
-const publicPathForLocale = (
-  collection: string,
-  config: ContentCollectionConfig,
-  rowPath: string,
-  locale: string | undefined,
-  defaultLocale: string | undefined
-) => {
-  const normalizedRowPath = normalizeAgentRoutePath(rowPath || '/')
-  const base = routeBaseForLocale(config, locale)
-  if (base && (normalizedRowPath === base || normalizedRowPath.startsWith(`${base}/`))) {
-    return prefixRequestedLocale(normalizedRowPath, locale, defaultLocale)
-  }
-
-  return getCollectionPath(collectionHandle(collection, config), {
-    ...(locale ? { locale } : {}),
-    path: normalizedRowPath
-  })
-}
-
-const publicPathForQueryRow = (
-  collection: string,
-  config: ContentCollectionConfig,
-  row: AgentSourceDocument,
-  locale?: string
-) => {
-  const resolvedPath = normalizeAgentRoutePath(row.route.resolvedPath)
-  const resolvedLocale = row.resolution.resolved.locale
-  if (!locale || locale === resolvedLocale) return resolvedPath
-
-  const defaultLocale = collectionDefaultLocale(config)
-  if (locale && resolvedLocale && locale !== resolvedLocale) {
-    const sourceLocalePath = publicPathForLocale(
-      collection,
-      config,
-      resolvedPath,
-      resolvedLocale,
-      defaultLocale
-    )
-    return prefixRequestedLocale(sourceLocalePath, locale, defaultLocale)
-  }
-  return publicPathForLocale(collection, config, resolvedPath, locale, defaultLocale)
-}
-
 export async function resolveContentMarkdown (
   event: H3Event,
   collection: string,
@@ -331,8 +264,8 @@ export async function queryMarkdownEnabledContent (
     for (const queryRow of rows) {
       const row = requireAgentSourceDocument(queryRow)
       if (!isPublicPage(parsedContentForAgent(row), config, visibility)) continue
-      const locale = options.locale || row.resolution.resolved.locale
-      const path = publicPathForQueryRow(collection, config, row, locale)
+      const locale = row.resolution.resolved.locale
+      const path = normalizeAgentRoutePath(row.route.resolvedPath)
       const title =
         typeof row.title === 'string' && row.title.trim()
           ? row.title.trim()

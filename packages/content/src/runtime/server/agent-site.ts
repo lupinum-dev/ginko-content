@@ -3,7 +3,7 @@ import { getRequestURL } from 'h3'
 import type { AgentMarkdown, AgentMarkdownMeta } from './agent-markdown'
 import { linkMarkdown, queryMarkdownEnabledContent, resolveContentMarkdownByRoute } from './agent-markdown'
 import { agentMarkdownPathForRoute, agentRawPathForRoute, normalizeAgentRoutePath } from '../../features/agent/agent-paths'
-import { pathHasLocalePrefix, prefixPathWithLocale, stripLocalePrefix } from '../../core/content/path'
+import { prefixPathWithLocale, stripLocalePrefix } from '../../core/content/path'
 import { contentConfig } from './storage-access'
 import type {
   AgentMetadataField,
@@ -70,12 +70,6 @@ const resolveSiteUrl = (event?: H3Event) => {
 
 const joinUrl = (base: string, path: string) => new URL(normalizeAgentRoutePath(path), base).toString()
 
-const prefixLocale = (path: string, locale: string) => {
-  const normalized = normalizeAgentRoutePath(path)
-  if (pathHasLocalePrefix(normalized, [locale])) return normalized
-  return prefixPathWithLocale(normalized, locale, defaultLocale())
-}
-
 const sectionConfig = (id: string | undefined) => {
   const sections = contentConfig().agent?.sections || []
   return sections.find((section: { id?: string }) => section.id === id)
@@ -136,7 +130,7 @@ const createGinkoAgentPage = (
   locale: string,
   siteUrl: string
 ): AgentPage => {
-  const path = prefixLocale(meta.path, locale)
+  const path = normalizeAgentRoutePath(meta.path)
   const rawPath = agentRawPathForRoute(path)
   const section = resolveSection(collectionSectionId(meta.collection), locale)
 
@@ -151,7 +145,7 @@ const createGinkoAgentPage = (
     section: section.id,
     sectionTitle: section.title,
     sectionOrder: section.order,
-    locale,
+    locale: meta.locale || locale,
     source: 'ginko',
     collection: meta.collection,
     updated: meta.lastModified,
