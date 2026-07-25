@@ -37,6 +37,7 @@ async function waitForHydration (page: Page) {
 
 describe('Ginko Docs navigation hydration', () => {
   test('keeps the production sidebar across hydration and client navigation', async () => {
+    const initialPath = '/docs/concepts/why-ginko'
     const server = await startFixtureServer(docsDir)
     let browser: Browser | undefined
     try {
@@ -63,7 +64,7 @@ describe('Ginko Docs navigation hydration', () => {
         }
       })
 
-      const response = await page.goto(`${server.baseURL}/docs/why-ginko`, { waitUntil: 'domcontentloaded' })
+      const response = await page.goto(`${server.baseURL}${initialPath}`, { waitUntil: 'domcontentloaded' })
       expect(response?.status()).toBeLessThan(400)
       await waitForHydration(page)
 
@@ -86,7 +87,7 @@ describe('Ginko Docs navigation hydration', () => {
       const destination = await links.evaluateAll((elements, currentPath) => {
         const link = elements.find(element => element.getAttribute('href') !== currentPath)
         return link?.getAttribute('href') || null
-      }, '/docs/why-ginko')
+      }, initialPath)
       expect(destination).toBeTruthy()
       await sidebar.locator(`a[href="${destination}"]`).first().click()
       await page.waitForURL(url => url.pathname === destination)
