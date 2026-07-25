@@ -61,14 +61,10 @@ export const resolveRuntimeCollectionI18nConfig = (
   collection: string,
   content: RuntimeContentI18nInput
 ): ContentCollectionI18nConfig | undefined => {
-  const collectionConfig = content.collections?.[collection]
-  const policy = collectionConfig?.localePolicy
-  if (policy) {
-    return policy.localized && policy.defaultLocale
-      ? { defaultLocale: policy.defaultLocale, locales: [...policy.locales] }
-      : undefined
-  }
-  return resolveCollectionI18nConfig(collectionConfig, content)
+  const policy = content.collections?.[collection]?.localePolicy
+  return policy?.localized
+    ? { defaultLocale: policy.defaultLocale, locales: [...policy.locales] }
+    : undefined
 }
 
 /**

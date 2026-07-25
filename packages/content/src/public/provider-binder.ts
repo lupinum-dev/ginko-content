@@ -9,7 +9,6 @@ import {
   ContentRouteRecordValidationError,
   normalizeRawContentRouteRecord,
 } from '../core/provider-route-record'
-import type { ContentProviderNavigationOptions } from './provider-query'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
   type BoundedContentProviderQuery,
@@ -349,12 +348,12 @@ export function bindContentProvider<Context>(args: {
       })
     }) as ContentProvider['query'],
     ...(source.navigation
-      ? { navigation: async (event, query, options: ContentProviderNavigationOptions = {}) => {
+      ? { navigation: async (event, query) => {
           assertBoundedQuery(source, query)
           const limit = Math.min(query.plan.mode === 'count' ? 0 : query.plan.pagination.limit, CONTENT_DATA_SOURCE_LIMITS.maxNavigationNodes)
           if (!positiveInteger(limit)) throw new RangeError('Navigation requires a positive limit.')
           return await execute(event, async (context, control) => {
-            const result = await source.navigation!(context, query, { ...options, limit }, control)
+            const result = await source.navigation!(context, query, { limit }, control)
             if (navigationNodeCount(result.data, limit) > limit) {
               throw dataSourceError('RESULT_LIMIT_EXCEEDED', 'Content data-source navigation result limit exceeded.')
             }

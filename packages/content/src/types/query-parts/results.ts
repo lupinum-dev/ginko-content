@@ -1,7 +1,6 @@
 export interface ContentCollectionNavigationOptions<TField extends string = string> {
   fields?: TField[]
   locale?: string
-  canonical?: boolean
 }
 
 export type ContentCollectionItemSurroundingsOptions<TField extends string = string> = ContentCollectionNavigationOptions<TField>

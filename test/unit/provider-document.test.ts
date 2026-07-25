@@ -4,24 +4,32 @@ import { normalizeProviderDocument } from '../../packages/content/src/public/pro
 const body = { type: 'root' as const, children: [] }
 
 describe('provider document normalization', () => {
-  test('derives stable identity for a minimal single-locale document', () => {
+  test('preserves provider-authored identity independently of the collection mount', () => {
     const document = normalizeProviderDocument({
       collection: 'blog',
       locale: 'en',
       contentPath: '/blog/hello-world',
+      canonicalKey: 'blog:hello-world',
+      body
+    })
+    const remounted = normalizeProviderDocument({
+      collection: 'blog',
+      locale: 'en',
+      contentPath: '/articles/hello-world',
+      canonicalKey: 'blog:hello-world',
       body
     })
 
     expect(document).toMatchObject({
       id: 'content:en:blog:hello-world.md',
-      canonicalKey: 'blog:blog/hello-world',
+      canonicalKey: 'blog:hello-world',
       collection: 'blog',
       locale: 'en',
-      path: '/blog/hello-world',
       contentPath: '/blog/hello-world',
       type: 'markdown',
       routeVariants: [{ locale: 'en', contentPath: '/blog/hello-world' }]
     })
+    expect(remounted.canonicalKey).toBe(document.canonicalKey)
     expect('file' in document).toBe(false)
   })
 
@@ -45,7 +53,7 @@ describe('provider document normalization', () => {
     expect(document).toMatchObject({
       id: 'cms:blog:42',
       canonicalKey: 'blog:42',
-      path: '/magazin/hallo',
+      contentPath: '/magazin/hallo',
       file: { source: 'cms', path: '/de/blog/hallo.md', extension: 'md' },
       title: 'Hallo',
       author: 'jane'
@@ -61,6 +69,7 @@ describe('provider document normalization', () => {
       collection: 'blog',
       locale: 'en',
       contentPath: '/blog/hello-world',
+      canonicalKey: 'blog:hello-world',
       body
     })
 
@@ -72,6 +81,7 @@ describe('provider document normalization', () => {
       collection: 'data',
       locale: 'en',
       contentPath: '/versions',
+      canonicalKey: 'versions',
       type: 'yaml',
       body
     })
@@ -85,6 +95,7 @@ describe('provider document normalization', () => {
       collection: 'catalog',
       locale: 'en',
       contentPath: '/catalog/products',
+      canonicalKey: 'products',
       type: 'csv',
       body
     })
@@ -102,6 +113,7 @@ describe('provider document normalization', () => {
       collection: 'people',
       locale: 'en',
       contentPath: '/people',
+      canonicalKey: 'people',
       type: 'json',
       body,
       file: { path: 'people.names', extension: 'names' }
@@ -122,11 +134,19 @@ describe('provider document normalization', () => {
       collection,
       locale,
       contentPath: '/docs/intro',
+      canonicalKey: 'docs:intro',
       body
     })).toThrow(/collection and locale must be non-empty strings/)
   })
 
-  test('rejects an explicitly empty canonical key', () => {
+  test('requires a provider-authored canonical key', () => {
+    expect(() => normalizeProviderDocument({
+      collection: 'docs',
+      locale: 'en',
+      contentPath: '/docs/intro',
+      body
+    } as never)).toThrow(/canonicalKey must be a non-empty string/)
+
     expect(() => normalizeProviderDocument({
       collection: 'docs',
       locale: 'en',
@@ -167,7 +187,7 @@ describe('provider document normalization', () => {
         { locale: 'de', contentPath: '/dokumentation/einstieg' }
       ],
       body
-    })).toThrow(/canonicalKey is required.*multiple locales/)
+    } as never)).toThrow(/canonicalKey must be a non-empty string/)
 
     expect(() => normalizeProviderDocument({
       ...base,
@@ -181,7 +201,7 @@ describe('provider document normalization', () => {
     ['body', { body: 'markdown source' }, /body must be null or a root Markdown AST/],
     ['file', { file: 'cms://document/1' }, /file must be an object/],
     ['file extension', { file: { extension: 42 } }, /file.extension must be a string/],
-    ['derived path mismatch', { path: '/docs/other' }, /derived "path" must match contentPath/],
+    ['derived path', { path: '/docs/intro' }, /"path" is derived by core/],
     ['derived route', { route: { resolvedPath: '/docs/intro' } }, /"route" is derived by core/],
     ['derived directory metadata', { dir: { badge: 'New' } }, /"dir" is derived by core/]
   ])('rejects invalid or provider-authored system field %s', (_name, overrides, message) => {
@@ -189,6 +209,7 @@ describe('provider document normalization', () => {
       collection: 'docs',
       locale: 'en',
       contentPath: '/docs/intro',
+      canonicalKey: 'docs:intro',
       body,
       ...overrides
     } as never)).toThrow(message as RegExp)
@@ -209,6 +230,7 @@ describe('provider document normalization', () => {
       collection: 'docs',
       locale: 'en',
       contentPath,
+      canonicalKey: 'docs:intro',
       body
     })).toThrow(/site-relative content route/)
   })
@@ -218,6 +240,7 @@ describe('provider document normalization', () => {
       collection: 'docs',
       locale: 'en',
       contentPath: '/docs/intro',
+      canonicalKey: 'docs:intro',
       routeVariants: [
         { locale: 'en', contentPath: '/docs/intro' },
         { locale: 'de', contentPath: 'https://evil.test/dokumentation/einstieg' }
@@ -231,6 +254,7 @@ describe('provider document normalization', () => {
       collection: 'blog',
       locale: 'en',
       contentPath: '/blog/invalid',
+      canonicalKey: 'blog:invalid',
       body,
       publishedAt: new Date('2026-01-01T00:00:00.000Z')
     })).toThrow(/non-JSON value/)

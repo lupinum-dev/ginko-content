@@ -87,12 +87,16 @@ const validateJsonOperandBudget = (value: unknown, path: string, depth: number):
     return
   }
 
+  if (depth > MAX_FILTER_DEPTH) {
+    bad(path, `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.`)
+  }
+
   if (Array.isArray(value)) {
     if (value.length > MAX_ARRAY_OPERAND_LENGTH) {
       bad(path, `Array operand exceeds ${MAX_ARRAY_OPERAND_LENGTH} entries.`)
     }
     value.forEach((entry, index) =>
-      validateJsonOperandBudget(entry, `${path}[${index}]`, depth)
+      validateJsonOperandBudget(entry, `${path}[${index}]`, depth + 1)
     )
     return
   }
@@ -100,10 +104,6 @@ const validateJsonOperandBudget = (value: unknown, path: string, depth: number):
   if (!isPlainObject(value)) {
     bad(path, 'HTTP query operands must be JSON values.')
   }
-  if (depth > MAX_FILTER_DEPTH) {
-    bad(path, `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.`)
-  }
-
   for (const [key, child] of Object.entries(value)) {
     if (!key.startsWith('$') && key.length > MAX_FIELD_PATH_LENGTH) {
       bad(`${path}.${key}`, `Field path exceeds ${MAX_FIELD_PATH_LENGTH} characters.`)

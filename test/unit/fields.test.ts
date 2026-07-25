@@ -172,7 +172,11 @@ describe('content schema fields', () => {
       author: reference('authors').describe('Primary author').optional(),
       related: z.array(reference('posts').describe('Related post')).default([]),
       transformed: reference('authors').transform(value => value.trim()),
+      // The rc.4 description-prefix encoding is dead: this is now nothing but
+      // human description text, and must not confer reference identity.
       ordinary: z.string().describe('__nuxt_content_ref__:authors'),
+      // The current metadata key is equally inert inside a description.
+      ordinaryCurrent: z.string().describe('ginko:contentReference:authors'),
     })
 
     expect(collectTopLevelReferenceFieldsByTarget(schema)).toEqual({

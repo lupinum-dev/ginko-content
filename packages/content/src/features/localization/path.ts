@@ -1,7 +1,5 @@
-import type { ResolvedCollectionLocalePolicy } from './locale-policy'
 import { resolveRuntimeCollectionI18nConfig, type RuntimeContentI18nInput } from './config'
 import {
-  longestMountForPath,
   mountContentPath,
   normalizeContentPath,
   normalizeRouteMounts,
@@ -12,7 +10,6 @@ import {
   stripLocalePrefix,
   type RouteMounts
 } from '../../core/content/path'
-import { projectContentRoute } from './route-projector'
 
 export {
   mountContentPath,
@@ -23,51 +20,6 @@ export {
   routeToContentPathCandidates,
   stripLocalePrefix,
   type RouteMounts
-}
-
-/**
- * Package loose `(defaultLocale, mounts)` call-site params into the
- * `ResolvedCollectionLocalePolicy` shape `projectContentRoute` requires -
- * the same pattern proven in `features/query/routes.ts#getCollectionPath`.
- * This does not re-derive policy from raw config; it only reshapes params
- * the caller already resolved.
- */
-const toLocalePolicy = (
-  defaultLocale: string | undefined,
-  mounts: RouteMounts
-): ResolvedCollectionLocalePolicy => ({
-  localized: true,
-  locales: [],
-  defaultLocale,
-  fallback: {},
-  translatedSlugs: false,
-  routeMounts: mounts
-})
-
-/**
- * Project a content path into its localized public path.
- *
- * `path` is ordinarily the mount-agnostic canonical content path, in which case this is a straight delegation to the
- * canonical projector. It may also be an already-projected path for a
- * different locale. The mount-detection
- * step below strips that locale's mount back off first so the projector
- * still receives a mount-agnostic content path.
- */
-export const projectContentPathToLocale = (
-  path: string,
-  locale?: string,
-  defaultLocale?: string,
-  mounts?: RouteMounts
-) => {
-  const normalizedPath = normalizeContentPath(path || '/')
-  if (normalizedPath === '/' || !locale || !mounts) {
-    return prefixPathWithLocale(normalizedPath, locale, defaultLocale)
-  }
-
-  const source = longestMountForPath(normalizedPath, mounts)
-  const remainder = source ? routeRemainder(normalizedPath, source[1]) : normalizedPath
-
-  return projectContentRoute({ contentPath: remainder, locale }, toLocalePolicy(defaultLocale, mounts))
 }
 
 /** Route prefixes that serve raw or API payloads - never locale-prefix these. */
@@ -178,12 +130,6 @@ export const localizePath = (
     return value
   }
 
-  // No route-mount concept for link-like strings - an empty mount map makes
-  // `projectContentRoute` a pure locale-prefixer, identical to the old
-  // direct `prefixPathWithLocale` call.
-  const projected = projectContentRoute(
-    { contentPath: pathname, locale: locale ?? '' },
-    toLocalePolicy(defaultLocale, {})
-  )
+  const projected = prefixPathWithLocale(pathname, locale, defaultLocale)
   return `${projected}${suffix}`
 }

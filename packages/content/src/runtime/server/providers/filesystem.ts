@@ -10,26 +10,19 @@ import type {
 } from '../../../public/provider'
 import { PROVIDER_CAPABILITY_OPERATORS } from '../../../core/query/operators'
 import {
-  longestMountForPath,
-  normalizeContentPath,
-  routeRemainder,
-  stripLocalePrefix
+  normalizeContentPath
 } from '../../../core/content/path'
-import { projectContentRoute } from '../../../features/localization/route-projector'
 import {
-  resolveRuntimeCollectionI18nConfig,
-  resolveRuntimeCollectionLocalePolicy
-} from '../../../features/localization/config'
-import {
-  markCollectionNavigationRoot,
-  scopeNavigationTree,
-  type CanonicalNavigationItem
-} from '../../../features/navigation/canonical'
+  mountProviderContentPath
+} from '../../../features/localization/route-projector'
+import { resolveRuntimeCollectionLocalePolicy } from '../../../features/localization/config'
+import type { CanonicalNavigationItem } from '../../../features/navigation/canonical'
 import { buildContentResult } from '../../../integrations/nitro/build'
 import { executeFilesystemContentQuery } from '../query-executor'
 import { resolveContentNavigation } from '../navigation-query'
 import { queryFilesystemCollectionItemSurroundings } from '../collection-helpers'
 import { getContentRuntimeConfig } from '../runtime-config'
+import { fromContentProviderQueryPlan } from '../../../features/query/query-plan-boundary'
 
 const providerContentPath = (collection: string, locale: string, contentPath: string) => {
   const config = getContentRuntimeConfig().content || {}
@@ -37,17 +30,10 @@ const providerContentPath = (collection: string, locale: string, contentPath: st
   if (!localePolicy) {
     throw new Error(`Missing runtime locale policy for content collection "${collection}".`)
   }
-  const normalizedPath = normalizeContentPath(contentPath)
-  const sourceMount = longestMountForPath(normalizedPath, localePolicy.routeMounts)
-  const mountAgnosticPath = sourceMount
-    ? routeRemainder(normalizedPath, sourceMount[1])
-    : normalizedPath
-  return projectContentRoute({ contentPath: mountAgnosticPath, locale }, {
-    ...localePolicy,
-    // Provider facts stop before the application locale prefix, so treating
-    // the concrete locale as default here applies its mount without prefixing.
-    defaultLocale: locale
-  })
+  return mountProviderContentPath({
+    contentPath: normalizeContentPath(contentPath),
+    locale
+  }, localePolicy)
 }
 
 const toVariantFacts = (document: ParsedContent) => {
@@ -117,28 +103,20 @@ const routeFactFromCanonicalNavigationItem = (collection: string, item: Canonica
     collection: resolvedCollection,
     canonicalKey: item.canonicalKey,
     locale: item.locale,
-    contentPath
+    contentPath: providerContentPath(resolvedCollection, item.locale, contentPath)
   }
 }
 
 const routeFactFromNavItem = (collection: string, item: NavItem) => {
-  if (!item.path || !item.canonicalKey || !item.locale) return undefined
+  if (typeof item.unprefixedPath !== 'string' || !item.canonicalKey || !item.locale) return undefined
   const itemCollection = typeof item.collection === 'string' ? item.collection : ''
   const resolvedCollection = collection || itemCollection
   if (!resolvedCollection) return undefined
-  const config = getContentRuntimeConfig().content || {}
-  const collectionI18n = resolveRuntimeCollectionI18nConfig(resolvedCollection, config)
-  const contentPath = stripLocalePrefix(
-    item.path,
-    collectionI18n?.locales || [],
-    collectionI18n?.defaultLocale,
-    item.locale
-  ).path
   return {
     collection: resolvedCollection,
     canonicalKey: item.canonicalKey,
     locale: item.locale,
-    contentPath
+    contentPath: providerContentPath(resolvedCollection, item.locale, item.unprefixedPath)
   }
 }
 
@@ -155,7 +133,6 @@ const toProviderNavigation = (collection: string, items: CanonicalNavigationItem
       stem,
       navigationKind,
       navigationPath,
-      _collectionRoot,
       ...fields
     } = item
     void path
@@ -167,7 +144,6 @@ const toProviderNavigation = (collection: string, items: CanonicalNavigationItem
     void stem
     void navigationKind
     void navigationPath
-    void _collectionRoot
     const route = routeFactFromCanonicalNavigationItem(collection, item)
     return {
       ...fields,
@@ -202,8 +178,13 @@ export const filesystemProvider: ContentProvider = {
     }
   },
   query: async (event: H3Event, query: import('../../../public/provider').ContentProviderQuery) => {
+    const config = getContentRuntimeConfig().content || {}
+    const policy = query.collection
+      ? resolveRuntimeCollectionLocalePolicy(query.collection, config)
+      : undefined
+    const canonicalPlan = fromContentProviderQueryPlan(query.plan, policy)
     const plan = {
-      ...query.plan,
+      ...canonicalPlan,
       // Provider documents must cross the seam with their complete identity
       // and route facts. The canonical response shaper applies the caller's
       // `only`/`without` projection after normalization.
@@ -211,23 +192,22 @@ export const filesystemProvider: ContentProvider = {
     }
     return mapQueryResult(await executeFilesystemContentQuery<ParsedContent>(event, plan))
   },
-  navigation: async (event, query, options) => {
-    const collection = query.collection || ''
+  navigation: async (event, query) => {
+    const collection = query.collection
+    if (!collection) {
+      throw new Error('Filesystem navigation requires a named content collection.')
+    }
     const config = getContentRuntimeConfig().content || {}
-    const localePolicy = collection
-      ? resolveRuntimeCollectionLocalePolicy(collection, config)
-      : undefined
-    if (collection && !localePolicy) {
+    const localePolicy = resolveRuntimeCollectionLocalePolicy(collection, config)
+    if (!localePolicy) {
       throw new Error(`Missing runtime locale policy for content collection "${collection}".`)
     }
-    const canonical = await resolveContentNavigation(event, query, options)
-    const scoped = scopeNavigationTree(
-      markCollectionNavigationRoot(canonical, collection, {
-        routeMounts: localePolicy?.routeMounts || {}
-      }),
-      collection
-    )
-    return toProviderNavigation(collection, scoped)
+    const canonicalPlan = fromContentProviderQueryPlan(query.plan, localePolicy)
+    const canonical = await resolveContentNavigation(event, {
+      collection,
+      plan: canonicalPlan
+    })
+    return toProviderNavigation(collection, canonical)
   },
   surroundings: async (event, collection, contentPath, options) =>
     toProviderSurround(collection, await queryFilesystemCollectionItemSurroundings(event, collection, contentPath, {
@@ -237,19 +217,18 @@ export const filesystemProvider: ContentProvider = {
     const result = await buildContentResult(event)
     const config = getContentRuntimeConfig().content || {}
     return result.routes.map((route) => {
-      const collectionI18n = resolveRuntimeCollectionI18nConfig(route.collection, config)
+      const localePolicy = resolveRuntimeCollectionLocalePolicy(route.collection, config)
+      if (!localePolicy) {
+        throw new Error(`Missing runtime locale policy for content collection "${route.collection}".`)
+      }
       return {
         collection: route.collection,
         canonicalKey: route.canonicalKey,
         locale: route.locale,
-        contentPath: normalizeContentPath(
-          stripLocalePrefix(
-            route.path,
-            collectionI18n?.locales || [],
-            collectionI18n?.defaultLocale,
-            route.locale
-          ).path
-        ),
+        contentPath: mountProviderContentPath({
+          contentPath: route.contentPath,
+          locale: route.locale
+        }, localePolicy),
         ...(route.draft ? { draft: true } : {}),
         ...(route.sitemap ? (route.sitemapMetadata ? { sitemap: route.sitemapMetadata } : {}) : { sitemap: false })
       }

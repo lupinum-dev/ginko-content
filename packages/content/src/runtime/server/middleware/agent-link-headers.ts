@@ -1,5 +1,5 @@
 import { defineEventHandler, getRequestURL, setHeader } from 'h3'
-import { getAgentLocales, localeFromAgentPath, resolveMarkdownForPublicRoute } from '../agent-site'
+import { localeFromAgentPath, resolveMarkdownForPublicRoute } from '../agent-site'
 import { agentRawPathForRoute, normalizeAgentRoutePath } from '../../../features/agent/agent-paths'
 import { appendResponseHeader } from '../agent-http'
 import { contentConfig } from '../storage-access'
@@ -40,7 +40,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const locale = localeFromAgentPath(pathname)
-  const defaultLocale = contentConfig().defaultLocale || getAgentLocales()[0]
+  const defaultLocale = contentConfig().defaultLocale
+  if (!defaultLocale) {
+    throw new Error('Agent link headers require a resolved default content locale.')
+  }
   const prefix = locale && locale !== defaultLocale ? `/${locale}` : ''
   const page = canAdvertisePageAlternate(pathname)
     ? await resolveMarkdownForPublicRoute(event, pathname, locale)

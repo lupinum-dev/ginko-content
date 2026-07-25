@@ -2,10 +2,26 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent, doc, navDoc } from './_utils'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
+import { fromContentProviderQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
 
-const runtimeConfig = {
+const rootLocalePolicy = {
+  localized: true,
+  locales: ['en', 'de', 'fr'],
+  defaultLocale: 'en',
+  fallback: { de: ['fr', 'en'] },
+  translatedSlugs: false,
+  routeMounts: { en: '/', de: '/', fr: '/' }
+}
+
+const runtimeConfig: any = {
   public: { content: { navigation: { fields: ['icon', 'badge'] } } },
-  content: { defaultLocale: 'en', localeFallback: { de: ['fr'] } }
+  content: {
+    defaultLocale: 'en',
+    localeFallback: { de: ['fr'] },
+    collections: {
+      docs: { route: '/', localePolicy: rootLocalePolicy }
+    }
+  }
 }
 
 const getContent = vi.fn()
@@ -25,7 +41,9 @@ describe('navigation contracts', () => {
     isPreview.mockReturnValue(false)
     resolveRuntimeEnvironment.mockReset()
     resolveRuntimeEnvironment.mockReturnValue('development')
-    delete (runtimeConfig.content as any).collections
+    runtimeConfig.content.collections = {
+      docs: { route: '/', localePolicy: rootLocalePolicy }
+    }
 
     vi.doMock('../../packages/content/src/runtime/server/runtime-config', () => ({
       getContentRuntimeConfig: () => runtimeConfig
@@ -78,6 +96,20 @@ describe('navigation contracts', () => {
     })
     getContentGraph.mockResolvedValue(graph)
     return graph
+  }
+
+  const resolveNavigation = async (event: any, params: any = {}) => {
+    const collection = params.collection || 'docs'
+    const query = toContentProviderNavigationQuery({
+      ...params,
+      collection
+    })
+    const policy = runtimeConfig.content.collections[collection]?.localePolicy
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    return resolveContentNavigation(event, {
+      collection,
+      plan: fromContentProviderQueryPlan(query.plan, policy)
+    })
   }
 
   test('createContentSearchNavigation exposes parent pages as search leaves without mutating source navigation', async () => {
@@ -341,14 +373,9 @@ describe('navigation contracts', () => {
     useGraph(Object.values(docsByLocale).flat())
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // Adapt builder parameters to the wire pair expected by this lower-level helper.
-    const resolveContentNavigation = (event: any, params: any = {}) => {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return rawResolveContentNavigation(event, query, options)
-    }
-    const nav = await resolveContentNavigation(createEvent(), {
-      resolveLocale: { locale: 'de', fallback: true }
+    const nav = await resolveNavigation(createEvent(), {
+      collection: 'docs',
+      resolveLocale: { locale: 'de', fallback: ['fr', 'en'] }
     })
 
     expect(resolveLocaleChain).toHaveBeenCalledWith('de', 'en', { de: ['fr', 'en'] })
@@ -386,13 +413,10 @@ describe('navigation contracts', () => {
     ])
     resolveLocaleChain.mockReturnValue(['en'])
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    const wire = toContentProviderNavigationQuery({
+    const navigation = await resolveNavigation(createEvent(), {
       collection: 'docs',
       where: [{ $not: { views: { $gt: 5, $lt: 10 } } }]
     } as any)
-
-    const navigation = await resolveContentNavigation(createEvent(), wire.query, wire.options)
 
     expect(navigation).toEqual([
       expect.objectContaining({
@@ -419,13 +443,10 @@ describe('navigation contracts', () => {
     } as any)])
     resolveLocaleChain.mockReturnValue(['en'])
 
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    const wire = toContentProviderNavigationQuery({
+    await expect(resolveNavigation(createEvent(), {
       collection: 'docs',
       resolveLocale: { locale: 'en', exact: true }
-    })
-
-    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+    })).resolves.toEqual([
       expect.objectContaining({
         title: 'Docs',
         page: false,
@@ -443,6 +464,7 @@ describe('navigation contracts', () => {
         localePolicy: {
           localized: false,
           locales: [],
+          defaultLocale: 'en',
           fallback: {},
           translatedSlugs: false,
           routeMounts: { default: '/docs' }
@@ -453,6 +475,7 @@ describe('navigation contracts', () => {
         localePolicy: {
           localized: false,
           locales: [],
+          defaultLocale: 'en',
           fallback: {},
           translatedSlugs: false,
           routeMounts: { default: '/blog' }
@@ -464,7 +487,7 @@ describe('navigation contracts', () => {
         id: 'content:en:docs:guide:intro.md',
         collection: 'docs',
         canonicalKey: 'guide/intro',
-        path: '/docs/guide/intro',
+        path: '/guide/intro',
         file: { path: '/docs/guide/intro.md' },
         title: 'Intro'
       }),
@@ -472,7 +495,7 @@ describe('navigation contracts', () => {
         id: 'content:en:docs:hidden:secret.md',
         collection: 'docs',
         canonicalKey: 'hidden/secret',
-        path: '/docs/hidden/secret',
+        path: '/hidden/secret',
         file: { path: '/docs/hidden/secret.md' },
         title: 'Secret'
       }),
@@ -480,27 +503,25 @@ describe('navigation contracts', () => {
         id: 'content:en:blog:guide:post.md',
         collection: 'blog',
         canonicalKey: 'guide/post',
-        path: '/blog/guide/post',
+        path: '/guide/post',
         file: { path: '/blog/guide/post.md' },
         title: 'Blog post'
       }),
       doc({
         id: 'content:en:docs:guide:.navigation.yml',
-        canonicalKey: 'guide/.navigation',
         navigationFile: true,
         partial: true,
         type: 'yaml',
-        path: '/docs/guide',
+        path: undefined,
         file: { path: '/docs/guide/.navigation.yml' },
         body: { title: 'Guides', icon: 'book', badge: 'New', sidebar: 'section' }
       } as any),
       doc({
         id: 'content:en:docs:hidden:.navigation.yml',
-        canonicalKey: 'hidden/.navigation',
         navigationFile: true,
         partial: true,
         type: 'yaml',
-        path: '/docs/hidden',
+        path: undefined,
         file: { path: '/docs/hidden/.navigation.yml' },
         body: { navigation: false }
       } as any)
@@ -514,7 +535,7 @@ describe('navigation contracts', () => {
       collection: 'docs',
       only: ['icon', 'badge', 'sidebar']
     })
-    const raw = await filesystemProvider.navigation!(createEvent(), wire.query, wire.options)
+    const raw = await filesystemProvider.navigation!(createEvent(), wire)
 
     expect(querySpy).not.toHaveBeenCalled()
     expect(raw).toEqual([
@@ -548,16 +569,62 @@ describe('navigation contracts', () => {
     querySpy.mockRestore()
   })
 
+  test('rejects duplicate navigation files that own the same canonical directory', async () => {
+    runtimeConfig.content.collections = {
+      docs: {
+        route: '/docs',
+        localePolicy: {
+          localized: false,
+          locales: [],
+          defaultLocale: 'en',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { default: '/docs' }
+        }
+      }
+    }
+    useGraph([
+      doc({
+        id: 'content:en:docs:guide:intro.md',
+        collection: 'docs',
+        canonicalKey: 'guide/intro',
+        path: '/guide/intro',
+        file: { path: '/docs/guide/intro.md' },
+        title: 'Intro'
+      }),
+      doc({
+        id: 'content:en:docs:guide:.navigation.yml',
+        navigationFile: true,
+        partial: true,
+        type: 'yaml',
+        path: undefined,
+        file: { path: '/docs/guide/.navigation.yml' },
+        body: { title: 'Guide' }
+      } as any),
+      doc({
+        id: 'content:en:docs:guide:.navigation.yaml',
+        navigationFile: true,
+        partial: true,
+        type: 'yaml',
+        path: undefined,
+        file: { path: '/docs/guide/.navigation.yaml' },
+        body: { title: 'Duplicate guide' }
+      } as any)
+    ])
+
+    await expect(resolveNavigation(createEvent(), { collection: 'docs' }))
+      .rejects.toThrow(
+        'Navigation configuration conflict: more than one file resolves to canonical directory "/guide".'
+      )
+  })
+
   test('filesystem navigation hides drafts in production and exposes them in development', async () => {
     useGraph([
       doc({ id: 'content:en:docs:public.md', collection: 'docs', canonicalKey: 'public', path: '/docs/public', title: 'Public' }),
       doc({ id: 'content:en:docs:draft.md', collection: 'docs', canonicalKey: 'draft', path: '/docs/draft', title: 'Draft', draft: true })
     ])
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    const wire = toContentProviderNavigationQuery({ collection: 'docs' })
-
     resolveRuntimeEnvironment.mockReturnValue('production')
-    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+    await expect(resolveNavigation(createEvent(), { collection: 'docs' })).resolves.toEqual([
       expect.objectContaining({
         title: 'Docs',
         children: [
@@ -567,7 +634,7 @@ describe('navigation contracts', () => {
     ])
 
     resolveRuntimeEnvironment.mockReturnValue('development')
-    await expect(resolveContentNavigation(createEvent(), wire.query, wire.options)).resolves.toEqual([
+    await expect(resolveNavigation(createEvent(), { collection: 'docs' })).resolves.toEqual([
       expect.objectContaining({
         title: 'Docs',
         children: [
@@ -578,64 +645,63 @@ describe('navigation contracts', () => {
     ])
   })
 
-  test('resolveContentNavigation merges synthetic translated folder roots before collection unwrapping', async () => {
+  test('resolveContentNavigation merges translated locale trees from mount-agnostic paths', async () => {
     ;(runtimeConfig.content as any).collections = {
       docs: {
         i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
-        route: { en: '/docs', de: '/dokumentation' }
+        route: { en: '/docs', de: '/dokumentation' },
+        localePolicy: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: { de: ['en'] },
+          translatedSlugs: true,
+          routeMounts: { en: '/docs', de: '/dokumentation' }
+        }
       }
     }
 
     const docsByLocale: Record<string, any[]> = {
       de: [
-        doc({ id: 'content:de:docs:getting-started:index.md', file: { path: '/de/1.dokumentation/1.erste-schritte/index.md' }, path: '/dokumentation/erste-schritte', locale: 'de', canonicalKey: 'docs/getting-started', title: 'Einfuehrung' }),
-        doc({ id: 'content:de:docs:getting-started:installation.md', file: { path: '/de/1.dokumentation/1.erste-schritte/installation.md' }, path: '/dokumentation/erste-schritte/installation', locale: 'de', canonicalKey: 'docs/getting-started/installation', title: 'Installation' }),
-        doc({ id: 'content:de:docs:essentials:markdown.md', file: { path: '/de/1.dokumentation/2.grundlagen/markdown-syntax.md' }, path: '/dokumentation/grundlagen/markdown-syntax', locale: 'de', canonicalKey: 'docs/essentials/markdown-syntax', title: 'Markdown Syntax' })
+        doc({ id: 'content:de:docs:getting-started:index.md', file: { path: '/de/1.dokumentation/1.erste-schritte/index.md' }, path: '/erste-schritte', locale: 'de', canonicalKey: 'getting-started', title: 'Einfuehrung' }),
+        doc({ id: 'content:de:docs:getting-started:installation.md', file: { path: '/de/1.dokumentation/1.erste-schritte/installation.md' }, path: '/erste-schritte/installation', locale: 'de', canonicalKey: 'getting-started/installation', title: 'Installation' }),
+        doc({ id: 'content:de:docs:essentials:markdown.md', file: { path: '/de/1.dokumentation/2.grundlagen/markdown-syntax.md' }, path: '/grundlagen/markdown-syntax', locale: 'de', canonicalKey: 'essentials/markdown-syntax', title: 'Markdown Syntax' })
       ],
       en: [
-        doc({ id: 'content:en:docs:getting-started:index.md', file: { path: '/en/1.docs/1.getting-started/index.md' }, path: '/docs/getting-started', locale: 'en', canonicalKey: 'docs/getting-started', title: 'Introduction' }),
-        doc({ id: 'content:en:docs:getting-started:usage.md', file: { path: '/en/1.docs/1.getting-started/usage.md' }, path: '/docs/getting-started/usage', locale: 'en', canonicalKey: 'docs/getting-started/usage', title: 'Usage' }),
-        doc({ id: 'content:en:docs:essentials:fallback-lab.md', file: { path: '/en/1.docs/2.essentials/fallback-lab.md' }, path: '/docs/essentials/fallback-lab', locale: 'en', canonicalKey: 'docs/essentials/fallback-lab', title: 'Fallback Lab' })
+        doc({ id: 'content:en:docs:getting-started:index.md', file: { path: '/en/1.docs/1.getting-started/index.md' }, path: '/getting-started', locale: 'en', canonicalKey: 'getting-started', title: 'Introduction' }),
+        doc({ id: 'content:en:docs:getting-started:usage.md', file: { path: '/en/1.docs/1.getting-started/usage.md' }, path: '/getting-started/usage', locale: 'en', canonicalKey: 'getting-started/usage', title: 'Usage' }),
+        doc({ id: 'content:en:docs:essentials:fallback-lab.md', file: { path: '/en/1.docs/2.essentials/fallback-lab.md' }, path: '/essentials/fallback-lab', locale: 'en', canonicalKey: 'essentials/fallback-lab', title: 'Fallback Lab' })
       ]
     }
 
     useGraph(Object.values(docsByLocale).flat())
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // Adapt builder parameters to the wire pair expected by this lower-level helper.
-    const resolveContentNavigation = (event: any, params: any = {}) => {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return rawResolveContentNavigation(event, query, options)
-    }
-    const nav = await resolveContentNavigation(createEvent(), {
+    const nav = await resolveNavigation(createEvent(), {
       collection: 'docs',
-      resolveLocale: { locale: 'de', fallback: true }
+      resolveLocale: { locale: 'de', fallback: ['en'] }
     })
 
     expect(nav).toEqual([
       expect.objectContaining({
-        title: 'Dokumentation',
-        children: [
-          expect.objectContaining({
-            title: 'Einfuehrung',
-            children: expect.arrayContaining([
-              expect.objectContaining({ title: 'Installation', locale: 'de' }),
-              expect.objectContaining({ title: 'Usage', locale: 'en', fallback: true })
-            ])
-          }),
-          expect.objectContaining({
-            title: 'Grundlagen',
-            children: expect.arrayContaining([
-              expect.objectContaining({ title: 'Markdown Syntax', locale: 'de' }),
-              expect.objectContaining({ title: 'Fallback Lab', locale: 'en', fallback: true })
-            ])
-          })
-        ]
+        title: 'Einfuehrung',
+        children: expect.arrayContaining([
+          expect.objectContaining({ title: 'Installation', locale: 'de' }),
+          expect.objectContaining({ title: 'Usage', locale: 'en', fallback: true })
+        ])
+      }),
+      expect.objectContaining({
+        title: 'Grundlagen',
+        children: expect.arrayContaining([
+          expect.objectContaining({ title: 'Markdown Syntax', locale: 'de' }),
+          expect.objectContaining({ title: 'Fallback Lab', locale: 'en', fallback: true })
+        ])
       })
     ])
 
-    delete (runtimeConfig.content as any).collections
+    runtimeConfig.content.collections = {
+      docs: { route: '/', localePolicy: rootLocalePolicy }
+    }
   })
 
   test('resolveContentNavigation does not derive fallback locale from grouped where clauses', async () => {
@@ -644,13 +710,8 @@ describe('navigation contracts', () => {
       navDoc({ id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, path: '/guide', locale: 'en', canonicalKey: 'guide', title: 'Guide', featured: true } as any)
     ])
 
-    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // Adapt builder parameters to the wire pair expected by this lower-level helper.
-    const resolveContentNavigation = (event: any, params: any = {}) => {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return rawResolveContentNavigation(event, query, options)
-    }
-    const nav = await resolveContentNavigation(createEvent(), {
+    const nav = await resolveNavigation(createEvent(), {
+      collection: 'docs',
       where: [{ $and: [{ locale: 'de' }, { featured: true }] }]
     } as any)
 
@@ -665,20 +726,15 @@ describe('navigation contracts', () => {
 
   test('resolveContentNavigation applies exact locale filters to pages and directory configs', async () => {
     useGraph([
-      navDoc({ id: 'content:de:guide:index.md', path: '/leitfaden', locale: 'de', title: 'Leitfaden' }),
-      navDoc({ id: 'content:en:guide:index.md', path: '/guide', locale: 'en', title: 'Guide' }),
-      doc({ id: 'content:de:guide:.navigation.yml', type: 'yaml', navigationFile: true, partial: true, path: '/leitfaden', locale: 'de', body: { title: 'Deutsche Anleitung' } } as any),
-      doc({ id: 'content:en:guide:.navigation.yml', type: 'yaml', navigationFile: true, partial: true, path: '/guide', locale: 'en', body: { title: 'English Guide' } } as any)
+      navDoc({ id: 'content:de:guide:index.md', path: '/leitfaden', file: { path: '/de/leitfaden/index.md' }, locale: 'de', title: 'Leitfaden' }),
+      navDoc({ id: 'content:en:guide:index.md', path: '/guide', file: { path: '/en/guide/index.md' }, locale: 'en', title: 'Guide' }),
+      doc({ id: 'content:de:guide:.navigation.yml', type: 'yaml', navigationFile: true, partial: true, path: undefined, file: { path: '/de/leitfaden/.navigation.yml' }, locale: 'de', body: { title: 'Deutsche Anleitung' } } as any),
+      doc({ id: 'content:en:guide:.navigation.yml', type: 'yaml', navigationFile: true, partial: true, path: undefined, file: { path: '/en/guide/.navigation.yml' }, locale: 'en', body: { title: 'English Guide' } } as any)
     ])
     resolveLocaleChain.mockReturnValue(['de'])
 
-    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // Adapt builder parameters to the wire pair expected by this lower-level helper.
-    const resolveContentNavigation = (event: any, params: any = {}) => {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return rawResolveContentNavigation(event, query, options)
-    }
-    const navigation = await resolveContentNavigation(createEvent(), {
+    const navigation = await resolveNavigation(createEvent(), {
+      collection: 'docs',
       resolveLocale: { locale: 'de', exact: true }
     })
 
@@ -692,13 +748,7 @@ describe('navigation contracts', () => {
       doc({ id: 'content:docs:getting-started:index.md', collection: 'docs', file: { path: '/docs/getting-started/index.md' }, path: '/docs/getting-started', title: 'Getting Started' })
     ])
 
-    const { resolveContentNavigation: rawResolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    // Adapt builder parameters to the wire pair expected by this lower-level helper.
-    const resolveContentNavigation = (event: any, params: any = {}) => {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return rawResolveContentNavigation(event, query, options)
-    }
-    const nav = await resolveContentNavigation(createEvent(), { collection: 'docs' })
+    const nav = await resolveNavigation(createEvent(), { collection: 'docs' })
 
     expect(nav).toEqual([
       expect.objectContaining({

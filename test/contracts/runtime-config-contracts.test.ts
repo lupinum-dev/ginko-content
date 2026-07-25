@@ -13,6 +13,12 @@ const createOptions = () => ({
 const createContentContext = () => ({
   locales: ['en', 'de'],
   defaultLocale: 'en',
+  localePolicy: {
+    defaultLocale: 'en',
+    locales: ['en', 'de'],
+    fallback: {},
+    collections: {}
+  },
   links: {},
   provider: 'filesystem',
   providers: {},

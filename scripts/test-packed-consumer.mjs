@@ -406,29 +406,30 @@ The packed package rendered this page.
               : [...documents]
           if (query.plan.mode === 'count') return { data: { result: selected.length }, cache }
           if (query.plan.mode === 'first') return { data: { result: selected[0] }, cache }
-          if (query.plan.paging?.mode === 'cursor') {
-            const start = query.plan.paging.after === 'page-2' ? 1 : 0
-            const result = selected.slice(start, start + 1)
+          if (query.plan.pagination.mode === 'cursor') {
+            const start = query.plan.pagination.after === 'page-2' ? 1 : 0
+            const result = selected.slice(start, start + query.plan.pagination.limit)
             return {
               data: {
                 mode: 'cursor',
                 result,
-                limit: query.plan.limit,
+                limit: query.plan.pagination.limit,
                 pageInfo: {
-                  endCursor: start === 0 && selected.length > 1 ? 'page-2' : null,
-                  hasNext: start === 0 && selected.length > 1
+                  endCursor: start + result.length < selected.length ? 'page-2' : null,
+                  hasNext: start + result.length < selected.length
                 }
               },
               cache
             }
           }
-          const skip = query.plan.paging?.mode === 'offset' ? query.plan.paging.skip : query.plan.skip
+          const skip = query.plan.pagination.skip
+          const limit = query.plan.pagination.limit ?? 0
           return {
             data: {
-              mode: 'offset',
-              result: selected.slice(skip, skip + query.plan.limit),
+              ...(query.plan.pagination.mode === 'offset' ? { mode: 'offset' as const } : {}),
+              result: limit ? selected.slice(skip, skip + limit) : selected.slice(skip),
               skip,
-              limit: query.plan.limit,
+              limit,
               total: selected.length
             },
             cache

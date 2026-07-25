@@ -10,19 +10,19 @@ const { data } = await useAsyncData(
   () => `guide-advanced:one:${locale.value}`,
   () => one(docs, {
     locale: locale.value,
-    by: { path: '/guide/advanced' },
+    by: { path: '/advanced' },
     fallback: true
   }),
   { watch: [locale] }
 )
 
 const { data: surroundEntries } = await useAsyncData(
-  () => `guide-advanced:surround:${locale.value}:${(data.value as { ref?: string } | null)?.ref || ''}`,
+  () => `guide-advanced:surround:${locale.value}`,
   () => surround(docs, {
     locale: locale.value,
-    by: { ref: (data.value as { ref?: string } | null)?.ref || '' }
+    by: { path: '/advanced' }
   }),
-  { watch: [locale, data], default: () => ({ previous: null, next: null }) }
+  { watch: [locale], default: () => ({ previous: null, next: null }) }
 )
 
 const asTitle = (item: unknown) => (item && typeof item === 'object' && 'title' in item ? (item as { title?: unknown }).title || null : null)

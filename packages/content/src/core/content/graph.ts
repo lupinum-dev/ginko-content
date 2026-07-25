@@ -89,6 +89,7 @@ export const buildContentGraph = (
   options: {
     locales?: string[]
     defaultLocale?: string
+    referencePathAliases?: (document: ParsedContent) => readonly string[]
   } = {}
 ): ContentGraph => {
   const byId: Record<string, ParsedContent> = {}
@@ -186,7 +187,11 @@ export const buildContentGraph = (
   const referenceTargetsByCollection = Object.fromEntries(
     Object.keys(byCollectionCanonical).map(collection => [
       collection,
-      buildReferenceTargets(documents.filter(document => (document.collection || 'content') === collection && !document.partial && !isNavigationFile(document)), options.locales || [])
+      buildReferenceTargets(
+        documents.filter(document => (document.collection || 'content') === collection && !document.partial && !isNavigationFile(document)),
+        options.locales || [],
+        options.referencePathAliases
+      )
     ])
   )
   const referenceTargetCollections = new Map<string, string[]>()

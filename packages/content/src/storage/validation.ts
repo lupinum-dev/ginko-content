@@ -3,6 +3,9 @@ import type { ContentCollectionConfig } from '../types/config'
 import { buildReferenceTargets, normalizeReferenceValue } from '../core/references/resolve'
 import { getObjectShape, getReferenceDescriptor, getSchemaDef, getSchemaTypeName, unwrapSchema } from '../core/references/schema'
 import { collectTranslatedSlugValidationIssues } from '../features/localization/translated-slugs'
+import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
+import { projectContentRoute } from '../features/localization/route-projector'
+import { providerReferencePathAliases } from '../features/localization/reference-path'
 import { ContentError, type ContentErrorCode } from '../core/errors'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { fail, ok, type Result } from '../core/result'
@@ -339,7 +342,13 @@ export const validateDocumentJsonPurity = (
  */
 export const validateContentGraph = (
   contents: ParsedContent[],
-  config: { collections?: Record<string, ContentCollectionConfig>, locales?: string[], translatedSlugs?: boolean, strictTranslatedSlugs?: boolean }
+  config: {
+    collections?: Record<string, ContentCollectionConfig>
+    locales?: string[]
+    translatedSlugs?: boolean
+    strictTranslatedSlugs?: boolean
+    localePolicy?: ResolvedLocalePolicy
+  }
 ): Result<void, ContentError> => {
   const locales = config.locales || []
   const docs = contents.filter(content => content && content.path)
@@ -352,6 +361,7 @@ export const validateContentGraph = (
   const targetCollections = new Map<string, Set<string>>()
   const markdownVariantsByCanonicalKey = new Map<string, ParsedContent[]>()
   const refsByValue = new Map<string, ParsedContent>()
+  const localePolicies = config.localePolicy?.collections
 
   for (const document of routeEntries) {
     const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
@@ -365,7 +375,13 @@ export const validateContentGraph = (
   for (const collection of new Set(routeEntries.map(document => document.collection || 'content'))) {
     referenceTargetsByCollection.set(
       collection,
-      buildReferenceTargets(routeEntries.filter(document => (document.collection || 'content') === collection), locales)
+      buildReferenceTargets(
+        routeEntries.filter(document => (document.collection || 'content') === collection),
+        locales,
+        localePolicies
+          ? document => providerReferencePathAliases(document, localePolicies)
+          : undefined
+      )
     )
   }
   const targetCollectionsByIdentity = new Map<string, string[]>()
@@ -433,13 +449,22 @@ export const validateContentGraph = (
     }
     idsByLocale.set(localeKey, document)
 
-    const pathKey = `${document.locale || ''}:${document.path || ''}`
+    const policy = document.collection
+      ? config.localePolicy?.collections[document.collection]
+      : undefined
+    const publicPath = policy
+      ? projectContentRoute({
+        contentPath: document.path || '/',
+          locale: document.locale || policy.defaultLocale
+        }, policy)
+      : document.path || ''
+    const pathKey = policy ? publicPath : `${document.locale || ''}:${publicPath}`
     if (pathsByLocale.has(pathKey)) {
       const previous = pathsByLocale.get(pathKey)!
       return fail(createContentError(
         'DUPLICATE_LOCALIZED_PATH',
         document.file?.path || document.id,
-        `duplicate localized path "${document.path}" for locale "${document.locale || 'default'}"`,
+        `duplicate localized path "${publicPath}" for locale "${document.locale || 'default'}"`,
         `conflicts with ${previous.file?.path || previous.id}`
       ))
     }

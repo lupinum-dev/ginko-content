@@ -19,7 +19,7 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
   getContentProvider: mocks.getContentProvider
 }))
 
-describe('provider query wire v3 — pagination and route candidates', () => {
+describe('provider query wire v4 — pagination and closed variants', () => {
   const scenario = createSaasI18nScenario()
   const provider = createInMemoryProvider(scenario)
 
@@ -121,7 +121,7 @@ describe('provider query wire v3 — pagination and route candidates', () => {
     expect(page2.result[0]?.route?.resolvedPath).not.toBe(page1.result[0]?.route?.resolvedPath)
   })
 
-  test('v3 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {
+  test('v4 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {
     const { createProviderQuery } = await import('../../packages/content/src/runtime/server/provider-query')
 
     // `docs` mounts `/dokumentation` in de and `/docs` in en (harness/scenarios.ts).
@@ -149,6 +149,7 @@ describe('provider query wire v3 — pagination and route candidates', () => {
       { locale: 'de', contentPath: '/dokumentation/essentials/fallback-lab' },
       { locale: 'en', contentPath: '/docs/essentials/fallback-lab' }
     ])
+    expect(JSON.parse(JSON.stringify(query))).toStrictEqual(query)
   })
 
   test('ref resolution sends an ordered locale chain instead of a raw locale/fallback pair', async () => {
@@ -171,6 +172,7 @@ describe('provider query wire v3 — pagination and route candidates', () => {
     })
     expect(query.plan).not.toHaveProperty('resolveVariant')
     expect(query.plan).not.toHaveProperty('variantSelector')
+    expect(JSON.parse(JSON.stringify(query))).toStrictEqual(query)
   })
 
   test('unlocalized route selectors retain the collection mount and runtime default locale', async () => {
@@ -185,6 +187,7 @@ describe('provider query wire v3 — pagination and route candidates', () => {
           localePolicy: {
             localized: false,
             locales: [],
+            defaultLocale: 'en',
             fallback: {},
             translatedSlugs: false,
             routeMounts: { default: '/docs' }

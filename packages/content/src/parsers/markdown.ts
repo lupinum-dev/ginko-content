@@ -1,4 +1,3 @@
-import { parse } from 'comark'
 import { isRelative } from 'ufo'
 import type { MarkdownNode, MarkdownOptions, MarkdownParsedContent, MarkdownRoot } from '../types/content'
 import { defineTransformer } from './utils'
@@ -7,6 +6,7 @@ import { resolveMarkdownPlugins } from './markdown-plugins'
 import { stripReservedContentKeys } from './reserved'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark'
+import { parseComark } from '../core/markdown/parse-comark'
 
 export default defineTransformer({
   name: 'markdown',
@@ -14,14 +14,12 @@ export default defineTransformer({
   parse: async (id, content, options = {}) => {
     const config = { ...(typeof options === 'object' && options !== null ? options : {}) } as MarkdownOptions
     const plugins = await resolveMarkdownPlugins(config.plugins || [])
-    const tree = await parse(content as string, {
-      plugins
-    })
+    const tree = await parseComark(content as string, plugins)
 
     const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 
     const body = normalizeMarkdownBody({
-      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[], content as string) as any[]),
+      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[]) as any[]),
       // `undefined` is not a JSON-pure value: omit `toc`
       // entirely when the document has none, instead of setting the key to
       // `undefined`.
@@ -29,7 +27,7 @@ export default defineTransformer({
     })
     const excerpt = Array.isArray(tree.meta?.summary)
       ? normalizeMarkdownBody({
-          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[], content as string) as any[])
+          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[]) as any[])
         })
       : undefined
 

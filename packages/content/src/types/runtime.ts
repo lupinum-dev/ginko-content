@@ -1,6 +1,7 @@
 import type { StorageValue } from 'unstorage'
 import type { ParsedContent, ContentTransformer, MarkdownOptions } from './content'
 import type { ContentCollectionConfig } from './config'
+import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
 import type { ContentContext, ModuleOptions } from './module'
 
 export interface ContentCacheArtifact<T = ParsedContent> {
@@ -34,6 +35,7 @@ export interface ParseContentOptions {
     translatedSlugs?: ContentContext['translatedSlugs']
     respectPathCase?: ModuleOptions['respectPathCase']
     collections?: Record<string, ContentCollectionConfig>
+    localePolicy?: ResolvedLocalePolicy['collections']
     collectionResolver?: (file: string) => string | undefined
   }
   [key: string]: unknown

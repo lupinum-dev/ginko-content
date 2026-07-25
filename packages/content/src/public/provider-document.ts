@@ -1,4 +1,4 @@
-import type { ContentFileMeta, ParsedContent, StrictParsedContent } from '../types/content'
+import type { ContentFileMeta, ParsedContent } from '../types/content'
 import { ContentError } from '../core/errors'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { normalizeSiteRelativeContentPath } from '../core/content/path'
@@ -15,7 +15,7 @@ import { isMarkdownRoot } from '../core/markdown/tree'
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 const providerDocumentTypes = new Set<NonNullable<ParsedContent['type']>>(['markdown', 'yaml', 'json', 'csv'])
-const providerDerivedKeys = ['resolved', 'variants', 'localePaths', 'unprefixedPath', 'dir', 'route', 'resolution'] as const
+const providerDerivedKeys = ['path', 'resolved', 'variants', 'localePaths', 'unprefixedPath', 'dir', 'route', 'resolution'] as const
 
 export interface ContentProviderVariantFact {
   locale: string
@@ -50,39 +50,41 @@ export interface ProviderDocumentInput extends Record<string, unknown> {
   routeVariants?: readonly ContentProviderVariantFact[]
   /** Parsed Markdown AST or structured JSON payload (`null` when absent). */
   body: ParsedContent['body']
-  /** Fully-qualified system id. Derived from `locale` + `path` when omitted. */
+  /** Fully-qualified system id. Derived from `locale` + `contentPath` when omitted. */
   id?: string
-  /**
-   * Opaque, locale-agnostic identity join key. Required for localized
-   * providers; single-locale providers may use the stable path derivation.
-   */
-  canonicalKey?: string
+  /** Opaque, locale-agnostic identity join key. */
+  canonicalKey: string
   /** Document kind. Defaults to `'markdown'`. */
   type?: ParsedContent['type']
   /** Optional file provenance. Absent for providers with no backing file. */
   file?: ContentFileMeta
 }
 
-export type NormalizedProviderDocument = StrictParsedContent & Record<string, unknown> & {
-  collection: string
-  locale: string
-  path: string
-  canonicalKey: string
+export interface ValidatedProviderDocument extends Record<string, unknown> {
+  readonly id: string
+  readonly collection: string
+  readonly locale: string
+  readonly contentPath: string
+  readonly canonicalKey: string
+  readonly type: NonNullable<ParsedContent['type']>
+  readonly body: ParsedContent['body']
+  readonly file?: ContentFileMeta
+  readonly routeVariants: readonly ContentProviderVariantFact[]
 }
 
 /**
- * Normalize a provider's raw document into the canonical content envelope,
- * filling in the derivable identity fields (`id`, `canonicalKey`, `type`) while
- * leaving `file` absent unless the provider supplied it.
+ * Validate a provider's raw document and fill derivable provider fields
+ * (`id`, `type`, `routeVariants`). Canonical and public paths are created only
+ * after this boundary.
  */
-export const normalizeProviderDocument = (input: ProviderDocumentInput): NormalizedProviderDocument => {
+export const normalizeProviderDocument = (input: ProviderDocumentInput): ValidatedProviderDocument => {
   const collection = input.collection
   const locale = input.locale
   if (typeof collection !== 'string' || !collection || typeof locale !== 'string' || !locale) {
     throw new ContentError('INVALID_CONTENT', 'Invalid provider document: collection and locale must be non-empty strings.')
   }
-  if (input.canonicalKey !== undefined && (typeof input.canonicalKey !== 'string' || !input.canonicalKey)) {
-    throw new ContentError('INVALID_CONTENT', 'Invalid provider document: canonicalKey must be a non-empty string when provided.')
+  if (typeof input.canonicalKey !== 'string' || !input.canonicalKey) {
+    throw new ContentError('INVALID_CONTENT', 'Invalid provider document: canonicalKey must be a non-empty string.')
   }
   if (input.id !== undefined && (typeof input.id !== 'string' || !input.id)) {
     throw new ContentError('INVALID_CONTENT', 'Invalid provider document: id must be a non-empty string when provided.')
@@ -114,9 +116,6 @@ export const normalizeProviderDocument = (input: ProviderDocumentInput): Normali
   } catch {
     throw new ContentError('INVALID_CONTENT', 'Invalid provider document: contentPath must be a leading-slash, site-relative content route.')
   }
-  if (Object.prototype.hasOwnProperty.call(input, 'path') && input.path !== contentPath) {
-    throw new ContentError('INVALID_CONTENT', 'Invalid provider document: derived "path" must match contentPath.')
-  }
   const extension = input.file?.extension ?? extensionForType(type)
   const id = input.id ?? `content:${locale}:${trimSlashes(contentPath).replace(/\//g, ':') || 'index'}.${extension}`
 
@@ -142,28 +141,22 @@ export const normalizeProviderDocument = (input: ProviderDocumentInput): Normali
   if (!seenLocales.has(locale)) {
     throw new ContentError('INVALID_CONTENT', `Invalid provider document "${id}": routeVariants must include the resolved locale "${locale}".`)
   }
-  if (routeVariants.length > 1 && !input.canonicalKey) {
-    throw new ContentError('INVALID_CONTENT', `Invalid provider document "${id}": canonicalKey is required when routeVariants contains multiple locales.`)
-  }
   const resolvedVariant = routeVariants.find(variant => variant.locale === locale)!
   if (resolvedVariant.contentPath !== contentPath) {
     throw new ContentError('INVALID_CONTENT', `Invalid provider document "${id}": contentPath must match the routeVariants entry for resolved locale "${locale}".`)
   }
-  const canonicalKey = input.canonicalKey ?? `${collection}:${trimSlashes(contentPath) || 'index'}`
-
-  const document = {
+  const document: ValidatedProviderDocument = {
     ...input,
     id,
     collection,
     locale,
-    path: contentPath,
     contentPath,
     routeVariants,
-    canonicalKey,
+    canonicalKey: input.canonicalKey,
     type,
     ...(input.file ? { file: input.file } : {}),
     body: input.body
-  } as NormalizedProviderDocument
+  }
 
   // Same canonical JSON-purity gate as the filesystem ingest path: a provider document must be JSON-pure before it can reach
   // graph insertion, in dev and in build alike.

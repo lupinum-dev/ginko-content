@@ -9,6 +9,7 @@ import {
 import { memoizeRuntimeValue } from '../integrations/nitro/context'
 import { assertFilesystemPreviewSupported, resolveRuntimeEnvironment } from '../core/visibility'
 import { isPreview } from '../integrations/nitro/preview'
+import { providerReferencePathAliases } from '../features/localization/reference-path'
 import { getContentRuntimeConfig } from '../integrations/nitro/runtime-config'
 import { contentConfig } from './driver'
 import { getContentsList } from './contents'
@@ -36,9 +37,16 @@ export const getContentGraph = async (event: H3Event): Promise<ContentGraph> => 
   return await memoizeRuntimeValue(event, 'graph', async () => {
     const config = contentConfig()
     const contents = await getContentsList(event)
+    const localePolicies = config.localePolicy?.collections
     return buildContentGraph(contents, {
       locales: config.locales,
-      defaultLocale: config.defaultLocale
+      defaultLocale: config.defaultLocale,
+      ...(localePolicies
+        ? {
+            referencePathAliases: (document: import('../types/content').ParsedContent) =>
+              providerReferencePathAliases(document, localePolicies)
+          }
+        : {})
     })
   })
 }

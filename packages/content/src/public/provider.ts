@@ -5,9 +5,7 @@ export type * from './provider-contract'
 export type {
   ContentProviderQueryInput,
   ContentProviderQuery,
-  ContentProviderNavigationOptions,
-  ContentQueryPlan,
-  ContentQueryVariant,
+  ContentProviderQueryPlan,
   ContentProviderPaginationMode,
   ContentProviderPaging,
   ContentProviderVariantSelector,

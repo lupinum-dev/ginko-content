@@ -4,10 +4,9 @@
  * the public provider instead of maintaining a second markdown parser.
  */
 
-import { parse } from 'comark'
-
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
+import { parseComark } from '../core/markdown/parse-comark.js'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree.js'
 
 export interface ParseMdcBodyOptions {
@@ -35,8 +34,8 @@ export async function parseMdcBody(
   raw: string,
   options: ParseMdcBodyOptions = {},
 ): Promise<ParseMdcBodyResult> {
-  const tree = await parse(raw ?? '')
-  const nodes = normalizeComarkNodes(tree.nodes as unknown[], raw) as Parameters<typeof toMarkdownRoot>[0]
+  const tree = await parseComark(raw ?? '')
+  const nodes = normalizeComarkNodes(tree.nodes as unknown[]) as Parameters<typeof toMarkdownRoot>[0]
   const toc = deriveToc(nodes, options)
   const body = toMarkdownRoot(nodes, toc)
   const searchText = renderPlainText(body)

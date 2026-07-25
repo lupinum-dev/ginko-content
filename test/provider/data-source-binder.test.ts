@@ -10,12 +10,10 @@ import {
 } from '../../packages/content/src/public/data-source'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 
-const boundedQuery = () => {
-  const query = toContentProviderQuery({ collection: 'docs' })
-  query.plan.mode = 'all'
-  query.plan.pagination.limit = 2
-  return query
-}
+const boundedQuery = () => toContentProviderQuery({
+  collection: 'docs',
+  limit: 2
+})
 
 const event = () => {
   const request = new EventEmitter()

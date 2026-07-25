@@ -5,11 +5,10 @@ import type {
 } from '../../types/query'
 import { resolveCollectionItemSurroundingsData } from '../../features/collections/resolve'
 import { resolveContentNavigation } from './navigation-query'
-import { toContentProviderNavigationQuery } from '../../public/provider-query'
+import { createCanonicalQueryPlan } from './provider-query'
 import { contentConfig } from './storage-access'
-import { markCollectionNavigationRoot, projectNavigationTree } from '../../features/navigation/canonical'
-import { normalizeRouteMounts } from '../../features/localization/path'
-import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
+import { projectNavigationTree } from '../../features/navigation/canonical'
+import { resolveRuntimeCollectionLocalePolicy } from '../../features/localization/config'
 
 export async function queryFilesystemCollectionNavigation (
   event: H3Event,
@@ -18,24 +17,25 @@ export async function queryFilesystemCollectionNavigation (
 ) {
   const options = Array.isArray(fieldsOrOptions) ? { fields: fieldsOrOptions } : fieldsOrOptions
   const locale = options.locale
-  const { query, options: navigationOptions } = toContentProviderNavigationQuery({
-    collection,
-    ...(options.fields?.length ? { only: options.fields } : {}),
-    ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
-  })
-  const navigation = await resolveContentNavigation(event, query, navigationOptions)
   const runtime = contentConfig()
-  const collectionI18n = resolveRuntimeCollectionI18nConfig(collection, runtime)
-  const locales = collectionI18n?.locales || []
-  const defaultLocale = collectionI18n?.defaultLocale
-  const routeMounts = normalizeRouteMounts(runtime.collections?.[collection]?.route, locales, defaultLocale)
-  const marked = markCollectionNavigationRoot(navigation, collection, { routeMounts })
-  return projectNavigationTree(marked, {
-    locale,
-    defaultLocale,
-    routeMounts,
+  // One policy lookup feeds both plan compilation and route projection. This
+  // path never leaves the process, so it compiles straight to the canonical
+  // plan rather than mounting a provider wire query and unmounting it again.
+  const localePolicy = resolveRuntimeCollectionLocalePolicy(collection, runtime)
+  if (!localePolicy) {
+    throw new Error(`Missing resolved locale policy for content collection "${collection}".`)
+  }
+  const navigation = await resolveContentNavigation(event, {
     collection,
-    canonical: options.canonical
+    plan: createCanonicalQueryPlan({
+      collection,
+      ...(options.fields?.length ? { only: options.fields } : {}),
+      ...(locale ? { resolveLocale: { locale, fallback: true } } : {})
+    }, runtime, localePolicy)
+  })
+  return projectNavigationTree(navigation, {
+    locale,
+    localePolicy
   })
 }
 

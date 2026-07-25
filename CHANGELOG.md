@@ -1,7 +1,61 @@
 # Changelog
 
-## v0.3.0-rc.5
+## v0.3.0
 
+This stable release promotes the coordinated `0.2.1` → `0.3.0` hard cut after
+four public release candidates. See the
+[0.2 to 0.3 migration guide](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/6.migration/4.ginko-version-upgrades.md)
+for the complete replacement map.
+
+- Replace the broad composable surface with `useContentPage()` and
+  `useContentSearch()`, plus pure `one()`, `many()`, `paginate()`, navigation,
+  surroundings, and reference helpers for explicit application reads.
+  Documents expose canonical `route` and `resolution` facts instead of the
+  former top-level path and locale projections.
+- Add the bounded `ContentDataSource` contract, provider/data-source
+  conformance suites, deterministic portability codecs, and safe Node
+  directory helpers. Remove the former `cms-import` subpath; CMS integrations
+  use the runtime-neutral portability and CMS-contract entry points.
+- Add build-owned link and asset validation, locale-specific Pagefind indexes,
+  selected- and all-language search, sealed production snapshots, exact
+  tarball consumers, and static/browser release gates.
+- Require Node.js 22.18–22.x, 24.11–24.x, or 26+, Nuxt 4.4.7 through Nuxt 4.x,
+  and Vue 3.5.35 through Vue 3.x.
+
+- Hard-cut the provider query wire to v4. Provider plans now carry
+  pagination only under `plan.pagination`, use mandatory `by` discriminants
+  for path/route/reference selectors, and are structurally closed before
+  dispatch. Replace the public `ContentQueryPlan` type with
+  `ContentProviderQueryPlan`; `toContentProviderQuery()` now accepts only
+  context-free queries and path selectors.
+- Define provider `contentPath` as a locale-specific collection-mounted,
+  site-relative path without an application locale prefix. Reject route facts
+  outside the configured locale mount and project canonical, provider, and
+  public paths through one resolved collection locale policy. Remove the
+  `longestMountForPath` CMS-contract export; route lowering now validates only
+  the locale's expected mount instead of guessing from another locale.
+- Require complete localized route maps and reject missing, unknown, empty, or
+  non-site-relative locale mounts during setup. Provider-wire paths and graph-executor paths now
+  use distinct plan types and cross their boundary through explicit
+  mount/unmount operations.
+- Generate filesystem paths and canonical keys from the same mount-agnostic
+  source parts. Keep `.navigation.yml` rows collection-neutral, join them to
+  actual pages in the named collection navigation query, and remove
+  downstream root and segment-count repair heuristics.
+- Preserve typed YAML component frontmatter through a shared Comark token
+  plugin used by filesystem, CMS, and portability parsing. Remove the
+  source-scanning shadow parser and keep inline bindings unsafe.
+- Remove `CONTENT_REFERENCE_PREFIX` and description-based reference semantics.
+  References are now identified only by `CONTENT_REFERENCE_METADATA_KEY`, whose
+  value changes from `"__nuxt_content_ref__:"` to `"ginko:contentReference"`;
+  migrate manually described schemas to `reference()` or
+  `withContentReferenceMetadata()`.
+- Count arrays toward the HTTP query-depth limit and bound programmatic query
+  values at 64 levels so hostile inputs fail with a path-bearing
+  `ContentQueryInputError` instead of overflowing the stack.
+- Make provider plans and nested plan collections readonly, remove the
+  subjective documentation-footer wording check, and share one population
+  implementation between single- and multi-document queries.
 - Add the runtime-free `@lupinum/ginko-content/navigation` entry with generic,
   readonly tree traversal helpers for navigation consumers outside Nuxt.
 - Promote `sidebar: section | group` to shared navigation metadata and validate
@@ -9,8 +63,30 @@
 - Diagnose unknown navigation select fields and locale sidecars that match no
   navigation tree during development and builds, with process-level warning
   deduplication and no production-runtime failures.
-- Join collectionless `.navigation.yml` sidecars during navigation queries so
-  folder metadata reaches projected navigation trees without consumer patches.
+- Require a named collection for navigation queries; ambiguous
+  cross-collection navigation is rejected instead of applying an arbitrary
+  route policy.
+- **Breaking:** make the `path` vocabulary in application queries canonical.
+  `by: { path }` and `where: { path }` now exclude the collection route mount,
+  so `by: { path: '/guide/getting-started' }` becomes
+  `by: { path: '/getting-started' }` and a collection index is `/` in every
+  locale. Filesystem `canonicalKey` values follow the same rule (`1/1` becomes
+  `1`). Stale mounted values select nothing rather than throwing: `one()`
+  returns `null`, `many()` returns `[]`, and `paginate()` returns an empty page
+  with `total: 0`, with an advisory development-only hint on a mount-shaped
+  `by: { path }` miss. `by: { route }` is unchanged and still takes the full
+  public URL. Internally these selectors stay canonical until provider
+  serialization, where they are mounted exactly once; direct provider tooling
+  names its mounted selector `providerPath`.
+- Require provider-authored `canonicalKey` on every document so changing a
+  collection mount cannot change identity. Resolve one mandatory default
+  locale in locale policy and reject unlocalized provider facts in any other
+  locale.
+- Carry navigation locale selection only in `query.plan.resolveLocale`; remove
+  the duplicate provider navigation options object.
+- Keep `getCollectionPath()` honest and context-free: handles using inherited
+  `i18n: true` must use an explicit collection-local
+  `{ locales, defaultLocale }` policy before this helper can project them.
 
 ## v0.3.0-rc.4
 
@@ -18,7 +94,7 @@
   infer element operands for `$in`, `$nin`, `$contains`, and `$containsAny`;
   fallback accepts booleans, `'default'`, or an exact readonly locale chain;
   logical `$not` is the only negation form; and public sorts use only `asc` or
-  `desc`. Provider wire v3 remains unchanged.
+  `desc`. These public vocabulary changes do not alter provider wire v3.
 - Tighten site data so in-process providers return required `data` plus an
   optional timestamp while request key and locale remain canonical. Remote
   data sources continue echoing identity for binder validation. Remove the

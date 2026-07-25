@@ -151,7 +151,7 @@ describe('runtime search API boundaries', () => {
           collection: 'docs',
           canonicalKey: 'docs:provider-guide',
           locale: 'de',
-          contentPath: '/provider-leitfaden'
+          contentPath: '/dokumentation/provider-leitfaden'
         }
       }
     ])

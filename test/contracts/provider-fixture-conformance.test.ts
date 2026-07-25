@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { normalizeProviderDocument } from '../../packages/content/src/public/provider-document'
-import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import {
   createDefaultProviderFixture,
@@ -39,7 +39,7 @@ const operatorCases: Record<(typeof operators)[number], { where: Record<string, 
   $exists: { where: { featured: { $exists: true } }, titles: ['Getting Started'] },
   $type: { where: { rating: { $type: 'number' } }, titles: ['Getting Started'] },
   $regex: { where: { title: { $regex: '^Getting' } }, titles: ['Getting Started'] },
-  $prefix: { where: { path: { $prefix: '/docs/essentials' } }, titles: ['Markdown Syntax'] }
+  $prefix: { where: { title: { $prefix: 'Markdown Syntax' } }, titles: ['Markdown Syntax', 'Markdown Syntax DE'] }
 }
 
 const assertTitles = (expected: string[]) => (result: unknown) => {
@@ -188,8 +188,12 @@ describe('provider fixture conformance', () => {
   })
 
   test('returns raw facts from every optional route-bearing operation', async () => {
-    const query = toContentProviderQuery({ collection: 'docs', only: ['description'] })
-    const navigation = await provider.navigation!(createEvent(), query, { locale: 'de' })
+    const query = toContentProviderNavigationQuery({
+      collection: 'docs',
+      only: ['description'],
+      resolveLocale: { locale: 'de' }
+    })
+    const navigation = await provider.navigation!(createEvent(), query)
     const surroundings = await provider.surroundings!(
       createEvent(),
       'docs',
@@ -244,7 +248,7 @@ describe('provider fixture conformance', () => {
       collection: 'docs',
       locale: 'en',
       canonicalKey: 'docs:intro',
-      contentPath: '/intro',
+      contentPath: '/docs/intro',
       body: { type: 'root', children: [] },
       title: 'Intro'
     }
@@ -375,6 +379,7 @@ describe('provider fixture conformance', () => {
         collection: 'catalog',
         locale: 'en',
         contentPath: '/catalog/products',
+        canonicalKey: 'products',
         type: 'csv',
         body: [{ slug: 'alpha' }]
       }],
@@ -430,5 +435,19 @@ describe('provider fixture conformance', () => {
       documents: []
     })
     expect(custom.locales).toEqual(['en', 'de'])
+  })
+
+  test('rejects a document whose collection has no declared route mount', () => {
+    // Mount validation is the point of this fixture. A document in an
+    // undeclared collection has no policy to validate against, so it must fail
+    // loudly rather than fall through to its raw path and let a conformance run
+    // pass while proving nothing about mounting.
+    expect(() => createProviderFixture({
+      defaultLocale: 'en',
+      collections: { docs: { type: 'page', route: '/guide' } },
+      documents: [
+        { collection: 'undeclared', canonicalKey: 'x', locale: 'en', path: '/guide/x', title: 'X' }
+      ]
+    })).toThrow(/collection "undeclared"/)
   })
 })

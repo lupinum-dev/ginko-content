@@ -28,7 +28,13 @@ export { renderAgentMarkdownBody } from '../../features/agent/walker'
 
 // --- Config-derived context inputs -----------------------------------------
 
-const defaultLocale = () => contentConfig().defaultLocale || contentConfig().locales?.[0] || 'en'
+const defaultLocale = () => {
+  const locale = contentConfig().defaultLocale
+  if (!locale) {
+    throw new Error('Agent markdown requires a resolved default content locale.')
+  }
+  return locale
+}
 
 const configuredLocales = (): string[] => {
   const locales = contentConfig().locales

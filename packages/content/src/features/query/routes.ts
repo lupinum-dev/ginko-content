@@ -1,7 +1,8 @@
 import type { ContentCollectionHandle } from '../../types/config'
-import type { ResolvedCollectionLocalePolicy } from '../localization/locale-policy'
-import { normalizeContentPath, normalizeRouteMounts } from '../../core/content/path'
-import { projectContentRoute } from '../localization/route-projector'
+import { resolveCollectionLocalePolicy } from '../localization/locale-policy'
+import { DEFAULT_CONTENT_LOCALE } from '../../core/content/locale'
+import { normalizeContentPath } from '../../core/content/path'
+import { mountProviderContentPath, projectContentRoute } from '../localization/route-projector'
 
 export interface CollectionPathOptions {
   /**
@@ -17,17 +18,10 @@ export interface CollectionPathOptions {
    */
   path?: string
   /**
-   * Override the default locale when the collection does not declare one.
+   * Include the application locale prefix. Set to `false` for the mounted
+   * provider coordinate.
    */
-  defaultLocale?: string
-  /**
-   * Override the locale list when the collection does not declare one.
-   */
-  locales?: string[]
-  /**
-   * Return the locale-specific route without adding the locale prefix.
-   */
-  canonical?: boolean
+  localePrefix?: boolean
 }
 
 const normalizeSlug = (slug: string | string[] | undefined) => {
@@ -54,25 +48,32 @@ export const getCollectionPath = (
   collection: ContentCollectionHandle,
   options: CollectionPathOptions = {}
 ) => {
-  const i18n = collectionI18n(collection)
-  const defaultLocale = i18n?.defaultLocale || options.defaultLocale
-  const locales = i18n?.locales?.length ? i18n.locales : (options.locales || (defaultLocale ? [defaultLocale] : []))
-  const locale = options.locale || defaultLocale
-  const mounts = normalizeRouteMounts(collection.route, locales, defaultLocale)
-  const remainder = normalizeRemainder(options.path ?? normalizeSlug(options.slug) ?? '/')
-
-  // `canonical: true` asks for the mounted-but-unprefixed path. Feeding the
-  // projector a policy whose `defaultLocale` equals the requested locale
-  // reproduces that exactly: the mount is still applied,
-  // but `prefixPathWithLocale` never adds a prefix when locale === defaultLocale.
-  const policy: ResolvedCollectionLocalePolicy = {
-    localized: locales.length > 0,
-    locales,
-    defaultLocale: options.canonical ? locale : defaultLocale,
-    fallback: {},
-    translatedSlugs: false,
-    routeMounts: mounts ?? {}
+  if (collection.i18n === true) {
+    throw new TypeError(
+      `getCollectionPath() cannot project collection "${collection.name}" from i18n: true because `
+      + 'the pure collection handle does not contain the inherited locale policy. '
+      + 'Use an explicit collection-local i18n { locales, defaultLocale } object.'
+    )
   }
+  const i18n = collectionI18n(collection)
+  const defaultLocale = i18n?.defaultLocale || DEFAULT_CONTENT_LOCALE
+  const locale = options.locale || defaultLocale
+  const remainder = normalizeRemainder(options.path ?? normalizeSlug(options.slug) ?? '/')
+  const policy = resolveCollectionLocalePolicy({
+    name: collection.name,
+    localized: Boolean(collection.i18n),
+    locales: i18n?.locales,
+    defaultLocale: i18n?.defaultLocale,
+    route: collection.route
+  }, {
+    locales: i18n?.locales || [],
+    defaultLocale,
+    fallback: {},
+    translatedSlugs: false
+  })
+  const routeFact = { contentPath: remainder, locale }
 
-  return projectContentRoute({ contentPath: remainder, locale: locale ?? '' }, policy)
+  return options.localePrefix === false
+    ? mountProviderContentPath(routeFact, policy)
+    : projectContentRoute(routeFact, policy)
 }

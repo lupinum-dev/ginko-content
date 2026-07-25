@@ -152,7 +152,7 @@ describe('provider registry contract', () => {
     await provider.navigation!(createEvent(), lowered)
 
     expect(query).toHaveBeenCalledWith(expect.anything(), lowered)
-    expect(navigation).toHaveBeenCalledWith(expect.anything(), lowered, undefined)
+    expect(navigation).toHaveBeenCalledWith(expect.anything(), lowered)
   })
 })
 
@@ -180,7 +180,7 @@ describe('raw provider route facts', () => {
     collection: 'docs',
     canonicalKey: 'docs:intro',
     locale: 'de',
-    contentPath: '/einstieg'
+    contentPath: '/dokumentation/einstieg'
   }
 
   test('core projects navigation, surroundings, and search URLs', () => {
@@ -214,6 +214,7 @@ describe('raw provider route facts', () => {
           localePolicy: {
             localized: false,
             locales: [],
+            defaultLocale: 'en',
             fallback: {},
             translatedSlugs: false,
             routeMounts: { default: '/docs' }
@@ -227,10 +228,10 @@ describe('raw provider route facts', () => {
       route: {
         collection: 'docs',
         canonicalKey: 'docs:intro',
-        locale: 'de',
+        locale: 'en',
         contentPath: '/docs/intro'
       }
-    }], 'remote', unlocalizedRuntime, 'de')).toEqual([{
+    }], 'remote', unlocalizedRuntime, 'en')).toEqual([{
       title: 'Intro',
       path: '/docs/intro'
     }])

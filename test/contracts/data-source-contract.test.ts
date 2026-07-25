@@ -10,7 +10,7 @@ import {
 } from '../../packages/content/src/testing/data-source-contract'
 
 const query: BoundedContentProviderQuery = {
-  v: 3,
+  v: 4,
   collection: 'docs',
   plan: {
     mode: 'all',
@@ -129,6 +129,7 @@ const firstQuery = (contentPath: string): BoundedContentProviderQuery => ({
 
 const contractDocument = {
   collection: 'docs',
+  canonicalKey: 'docs:intro',
   locale: 'en',
   contentPath: '/docs/intro',
   body: null,

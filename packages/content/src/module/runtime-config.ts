@@ -139,7 +139,7 @@ const sanitizeAgentConfig = async (
     return undefined
   }
 
-  const defaultLocale = contentContext.defaultLocale || contentContext.locales?.[0] || 'en'
+  const defaultLocale = contentContext.localePolicy.defaultLocale
   const locales = contentContext.locales?.length ? contentContext.locales : [defaultLocale]
   const agentSiteUrl = siteUrl || agent.site?.url || 'http://localhost:3000'
   const pages = await Promise.all((agent.pages || []).map(async (page) => {
@@ -187,6 +187,7 @@ export const applyContentRuntimeConfig = async (
   cacheIntegrity: string
 ) => {
   const revalidate = options.revalidate === false ? undefined : options.revalidate
+  const defaultLocale = contentContext.localePolicy.defaultLocale
   const searchRuntime = contentContext.search === false
     ? false
     : {
@@ -201,7 +202,7 @@ export const applyContentRuntimeConfig = async (
     locales: contentContext.locales,
     provider: contentContext.provider || 'filesystem',
     providers: contentContext.providers || {},
-    defaultLocale: contentContext.defaultLocale || undefined,
+    defaultLocale,
     localeFallback: contentContext.localeFallback || {},
     translatedSlugs: contentContext.translatedSlugs ?? false,
     strictTranslatedSlugs: contentContext.strictTranslatedSlugs ?? false,

@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 
 import { collectPlanFilterOperators, assertJsonPureProviderQuery } from '../../packages/content/src/runtime/server/providers'
 import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
+import { MAX_PROGRAMMATIC_QUERY_VALUE_DEPTH } from '../../packages/content/src/core/query/limits'
 import { PROVIDER_QUERY_VERSION, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import type { ContentProvider } from '../../packages/content/src/public/provider'
 
@@ -15,9 +16,20 @@ vi.mock('#content/virtual/providers', () => ({
 }))
 
 describe('provider query contract', () => {
-  test('uses only the v3 provider wire', () => {
-    expect(PROVIDER_QUERY_VERSION).toBe(3)
-    expect(toContentProviderQuery({ collection: 'docs' }).v).toBe(3)
+  test('uses only the v4 provider wire', () => {
+    expect(PROVIDER_QUERY_VERSION).toBe(4)
+    expect(toContentProviderQuery({ collection: 'docs' }).v).toBe(4)
+  })
+
+  test('the context-free helper rejects selectors that require application policy', () => {
+    expect(() => toContentProviderQuery({
+      collection: 'docs',
+      resolveVariant: { route: '/docs/intro' }
+    } as never)).toThrow(/accepts only an explicit mounted providerPath selector/)
+    expect(() => toContentProviderQuery({
+      collection: 'docs',
+      resolveVariant: { ref: 'docs.intro' }
+    } as never)).toThrow(/accepts only an explicit mounted providerPath selector/)
   })
 
   describe('collectPlanFilterOperators — capability walker', () => {
@@ -187,6 +199,45 @@ describe('provider query contract', () => {
       })).toThrow(/Invalid content query value/)
     })
 
+    test('rejects deeply nested programmatic values with a path-bearing query error', () => {
+      const nest = (depth: number, wrap: (value: unknown) => unknown): unknown => {
+        let value: unknown = 'value'
+        for (let level = 0; level < depth; level += 1) value = wrap(value)
+        return value
+      }
+
+      // Arrays and objects both count toward the budget. The bounded value walk
+      // must run before the unbounded JSON-purity walk, or either shape
+      // exhausts the stack before any budget is checked.
+      for (const [label, operand] of [
+        ['array', nest(5_000, value => [value])],
+        ['object', nest(5_000, value => ({ nested: value }))]
+      ] as const) {
+        expect(() => lowerQueryPlan({
+          collection: 'docs',
+          where: [{ field: { $eq: operand } }]
+        } as never), label).toThrow(expect.objectContaining({
+          name: 'ContentQueryInputError',
+          path: expect.stringMatching(/^\$\.where/),
+          message: expect.stringContaining(String(MAX_PROGRAMMATIC_QUERY_VALUE_DEPTH))
+        }))
+        expect(() => toContentProviderQuery({
+          collection: 'docs',
+          where: [{ field: { $eq: operand } }]
+        } as never), label).not.toThrow(RangeError)
+      }
+    })
+
+    test('accepts programmatic operands inside the value-depth budget', () => {
+      let operand: unknown = 'value'
+      for (let level = 0; level < 8; level += 1) operand = [operand]
+
+      expect(() => lowerQueryPlan({
+        collection: 'docs',
+        where: [{ field: { $eq: operand } }]
+      } as never)).not.toThrow()
+    })
+
     test('rejects a programmatic sort locale that Intl cannot execute', () => {
       expect(() => toContentProviderQuery({
         collection: 'docs',
@@ -249,14 +300,14 @@ describe('provider query contract', () => {
         { skip: 1, paging: { mode: 'offset', skip: 0, limit: 10 } },
         { sort: [{ title: 2 }] },
         { sort: [{ $numeric: true }] },
-        { resolveVariant: { path: '/docs/intro', ref: 'docs.intro' } },
+        { resolveVariant: { providerPath: '/docs/intro', ref: 'docs.intro' } },
         { collection: 'docs', filters: { published: true } },
         { where: null },
         { where: false },
         { where: 0 },
         { where: 'published' },
         { resolveLocale: { locale: 'en', fallbacks: ['de'] } },
-        { resolveVariant: { path: '/docs/intro', fallbacks: ['de'] } },
+        { resolveVariant: { providerPath: '/docs/intro', fallbacks: ['de'] } },
         { paging: { mode: 'offset', skip: 0, limit: 10, after: 'cursor' } },
         { paging: { mode: 'cursor', limit: 10, skip: 0 } }
       ]) {

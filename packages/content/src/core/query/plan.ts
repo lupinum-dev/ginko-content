@@ -2,7 +2,8 @@
  * The internal, **immutable**, executor-facing query AST.
  *
  * Pipeline: public query options → params IR → `lowerQueryPlan`
- * (see `./lower.ts`) → `ContentQueryPlan` → `executeQueryPlan`
+ * (see `./lower.ts`) → `LoweredQueryPlan` → runtime closure →
+ * `CanonicalQueryPlan` → `executeQueryPlan`
  * (see `./execute.ts`).
  *
  * The plan is the stable boundary between "how the user wrote the query"
@@ -44,9 +45,9 @@ export type CompareOperator =
  * regex.
  */
 export interface PlanRegex {
-  __ginkoContentQueryValue: 'RegExp'
-  source: string
-  flags: string
+  readonly __ginkoContentQueryValue: 'RegExp'
+  readonly source: string
+  readonly flags: string
 }
 
 /** True when `value` is a JSON-pure regex operand. */
@@ -67,29 +68,29 @@ export const isPlanRegex = (value: unknown): value is PlanRegex => {
  * of `if (!filter)` branches.
  */
 export type FilterExpr =
-  | { type: 'true' }
-  | { type: 'compare', field: string, operator: CompareOperator, value?: unknown }
-  | { type: 'and', clauses: FilterExpr[] }
-  | { type: 'or', clauses: FilterExpr[] }
-  | { type: 'not', clause: FilterExpr }
+  | { readonly type: 'true' }
+  | { readonly type: 'compare', readonly field: string, readonly operator: CompareOperator, readonly value?: unknown }
+  | { readonly type: 'and', readonly clauses: readonly FilterExpr[] }
+  | { readonly type: 'or', readonly clauses: readonly FilterExpr[] }
+  | { readonly type: 'not', readonly clause: FilterExpr }
 
 /**
  * One sort term. Clauses are applied in order — earlier fields dominate;
  * later fields act as tiebreakers.
  */
 export interface SortClause {
-  field: string
-  direction: -1 | 1
-  locale?: string
-  numeric?: boolean
-  caseFirst?: 'upper' | 'lower' | 'false'
-  sensitivity?: 'base' | 'accent' | 'case' | 'variant'
+  readonly field: string
+  readonly direction: -1 | 1
+  readonly locale?: string
+  readonly numeric?: boolean
+  readonly caseFirst?: 'upper' | 'lower' | 'false'
+  readonly sensitivity?: 'base' | 'accent' | 'case' | 'variant'
 }
 
 /** Projection is applied after filter/sort but before mode. `only` wins over `without` if both are set. */
 export interface Projection {
-  only: string[]
-  without: string[]
+  readonly only: readonly string[]
+  readonly without: readonly string[]
 }
 
 /** Terminal shape of the query. Set by the unified query operation. */
@@ -102,9 +103,9 @@ export type QueryMode = 'all' | 'first' | 'count'
  * than returning every variant.
  */
 export interface LocaleResolution {
-  locale?: string
-  fallback?: string[]
-  exact?: boolean
+  readonly locale?: string
+  readonly fallback?: readonly string[]
+  readonly exact?: boolean
 }
 
 /**
@@ -112,27 +113,17 @@ export interface LocaleResolution {
  * route selectors and internal route helpers to resolve a localized route path, then fall
  * back through the locale chain if the requested locale is missing.
  */
-export interface VariantResolution {
-  /**
-   * Localized or canonical route path to look up via `byRoute` + locale chain.
-   * Mutually exclusive with `route` and `ref`.
-   */
-  path?: string
-  /**
-   * Public app route to resolve through collection route mounts before looking
-   * up the locale variant. Mutually exclusive with `path` and `ref`.
-   */
-  route?: string
-  /**
-   * Stable authored alias resolved through `byRef`/`referenceTargets` to a
-   * canonical key, then to the locale-correct variant. Mutually exclusive
-   * with `path` and `route`.
-   */
-  ref?: string
-  locale?: string
-  fallback?: string[]
-  exact?: boolean
+interface LoweredVariantResolutionOptions {
+  readonly locale?: string
+  readonly fallback?: readonly string[]
+  readonly exact?: boolean
 }
+
+/** Raw selector produced by lowering before application locale policy is applied. */
+export type LoweredVariantSelector =
+  | ({ readonly by: 'path', readonly path: string } & LoweredVariantResolutionOptions)
+  | ({ readonly by: 'route', readonly route: string } & LoweredVariantResolutionOptions)
+  | ({ readonly by: 'ref', readonly ref: string } & LoweredVariantResolutionOptions)
 
 /**
  * Provider wire pagination semantics. Exactly one of
@@ -143,59 +134,52 @@ export interface VariantResolution {
 export type ContentProviderPaginationMode = 'offset' | 'cursor'
 
 export type ContentProviderPaging =
-  | { mode: 'offset', skip: number, limit: number }
-  | { mode: 'cursor', after?: string | null, limit: number }
+  | { readonly mode: 'offset', readonly skip: number, readonly limit: number }
+  | { readonly mode: 'cursor', readonly after?: string | null, readonly limit: number }
 
 /** The single normalized pagination state carried by a query plan. */
 export type ContentQueryPagination =
-  | { mode: 'slice', skip: number, limit?: number }
+  | { readonly mode: 'slice', readonly skip: number, readonly limit?: number }
   | ContentProviderPaging
 
 /**
- * Closed provider-wire route/ref selector. Core resolves a
- * public `by.route` through locale prefix and collection mounts (via the
- * canonical route projector, `lowerRouteToCandidates`) before dispatch, and
- * hands the provider an ordered, exact `{ locale, contentPath }` candidate
- * list with each locale's collection mount already applied. Ref lookups carry
- * the resolved locale fallback chain instead of a raw `locale`/`fallback`
- * pair for the same reason.
+ * Closed graph-executor selector. Every path is canonical and mount-agnostic;
+ * the provider boundary owns the separate mounted wire representation.
  */
-export type ContentProviderVariantSelector =
+export type CanonicalVariantSelector =
+  | ({
+      readonly by: 'path'
+      readonly canonicalPath: string
+    } & LoweredVariantResolutionOptions)
   | {
-      by: 'route'
-      requestedRoute: string
-      requestedLocale: string
-      candidates: readonly { locale: string, contentPath: string }[]
+      readonly by: 'route'
+      readonly requestedRoute: string
+      readonly requestedLocale: string
+      readonly candidates: readonly { readonly locale: string, readonly canonicalPath: string }[]
     }
   | {
-      by: 'ref'
-      requestedRef: string
-      requestedLocale: string
-      localeChain: readonly string[]
+      readonly by: 'ref'
+      readonly requestedRef: string
+      readonly requestedLocale: string
+      readonly localeChain: readonly string[]
     }
 
-/** Raw in-process resolution or the closed selector that replaces it at the provider boundary. */
-export type ContentQueryVariant = VariantResolution | ContentProviderVariantSelector
+export interface QueryPlanBase {
+  readonly collection?: string
+  readonly filter: FilterExpr
+  readonly sort: readonly SortClause[]
+  readonly projection: Projection
+  readonly pagination: ContentQueryPagination
+  readonly mode: QueryMode
+  readonly resolveLocale?: LocaleResolution
+}
 
-export const isContentProviderVariantSelector = (
-  variant: ContentQueryVariant
-): variant is ContentProviderVariantSelector => 'by' in variant
+/** Internal lowering output. Route/ref members still require application policy. */
+export interface LoweredQueryPlan extends QueryPlanBase {
+  readonly variant?: LoweredVariantSelector
+}
 
-/**
- * Complete executor-facing plan. Construct via `lowerQueryPlan(params)`;
- * execute via `executeQueryPlan(graph, plan, options)`. Do not mutate.
- */
-export interface ContentQueryPlan {
-  collection?: string
-  filter: FilterExpr
-  sort: SortClause[]
-  projection: Projection
-  pagination: ContentQueryPagination
-  mode: QueryMode
-  resolveLocale?: LocaleResolution
-  /**
-   * One variant state. `lowerQueryPlan()` emits raw resolution; the provider
-   * boundary replaces route/ref resolution with an exact closed selector.
-   */
-  variant?: ContentQueryVariant
+/** Closed, mount-agnostic plan accepted only by the in-process graph executor. */
+export interface CanonicalQueryPlan extends QueryPlanBase {
+  readonly variant?: CanonicalVariantSelector
 }

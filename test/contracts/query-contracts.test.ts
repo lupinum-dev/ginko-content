@@ -2,6 +2,16 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createEvent, doc } from './_utils'
 import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
 import { compileQueryParams } from '../../packages/content/src/core/query/filter'
+import { fromContentProviderQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
+
+const docsLocalePolicy = {
+  localized: true,
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  fallback: { de: ['en'] },
+  translatedSlugs: false,
+  routeMounts: { en: '/', de: '/' }
+}
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({
@@ -10,7 +20,7 @@ vi.mock('#imports', () => ({
       defaultLocale: 'en',
       localeFallback: { de: ['en'] },
       collections: {
-        docs: { i18n: true },
+        docs: { i18n: true, localePolicy: docsLocalePolicy },
         blog: { i18n: false }
       }
     }
@@ -92,7 +102,16 @@ describe('query execution contracts', () => {
 
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // Adapt builder parameters to the lowered plan expected by this helper.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params, {
+        defaultLocale: 'en',
+        localeFallback: { de: ['en'] },
+        collections: {
+          docs: { i18n: true, localePolicy: docsLocalePolicy }
+        }
+      } as any)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
+    }
     const event = createEvent()
 
     const list = await executeContentQuery(event, {
@@ -217,8 +236,16 @@ describe('query execution contracts', () => {
     getContentsList.mockResolvedValue(dataset)
 
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // Adapt builder parameters to the lowered plan expected by this helper.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params, {
+        defaultLocale: 'en',
+        localeFallback: { de: ['en'] },
+        collections: {
+          docs: { i18n: true, localePolicy: docsLocalePolicy }
+        }
+      } as any)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
+    }
     const event = createEvent()
 
     await expect(executeContentQuery(event, {
@@ -313,8 +340,16 @@ describe('query execution contracts', () => {
     ])
 
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    // Adapt builder parameters to the lowered plan expected by this helper.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params, {
+        defaultLocale: 'en',
+        localeFallback: { de: ['en'] },
+        collections: {
+          docs: { i18n: true, localePolicy: docsLocalePolicy }
+        }
+      } as any)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
+    }
 
     const result = await executeContentQuery(createEvent(), {
       collection: 'docs',

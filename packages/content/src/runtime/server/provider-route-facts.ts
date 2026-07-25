@@ -3,12 +3,12 @@ import type {
   ContentRouteRecord
 } from '../../public/provider'
 import type { ContentSearchResult } from '../../types/search'
-import { longestMountForPath, routeRemainder } from '../../core/content/path'
-import { projectContentRoute } from '../../features/localization/route-projector'
 import {
-  resolveRuntimeCollectionI18nConfig,
-  resolveRuntimeCollectionLocalePolicy
-} from '../../features/localization/config'
+  projectContentRoute,
+  RouteProjectionError,
+  unmountProviderContentPath
+} from '../../features/localization/route-projector'
+import { resolveRuntimeCollectionLocalePolicy } from '../../features/localization/config'
 import type { RuntimeContentConfig } from '../../features/query/context'
 import { createContentProviderError } from '../../public/provider-errors'
 import { collectJsonPurityViolations } from '../../core/json-value'
@@ -57,8 +57,14 @@ const assertRuntimeProviderRouteFact = (
     if (!Object.prototype.hasOwnProperty.call(runtime.collections, route.collection)) {
       fail(provider, operation, `${field}.collection`, 'returned a route fact for an unknown collection.')
     }
-    const localePolicy = resolveRuntimeCollectionI18nConfig(route.collection, runtime)
-    if (localePolicy && !localePolicy.locales.includes(route.locale)) {
+    const localePolicy = resolveRuntimeCollectionLocalePolicy(route.collection, runtime)
+    if (!localePolicy) {
+      return fail(provider, operation, `${field}.collection`, 'has no resolved locale policy.')
+    }
+    const allowedLocales = localePolicy.localized
+      ? localePolicy.locales
+      : [localePolicy.defaultLocale]
+    if (!allowedLocales.includes(route.locale)) {
       fail(provider, operation, `${field}.locale`, 'returned a route fact outside the configured collection locales.')
     }
   }
@@ -108,12 +114,19 @@ export const projectProviderRouteFact = (
       { collection: fact.collection, field: 'locale' }
     )
   }
-  const sourceMount = longestMountForPath(fact.contentPath, targetPolicy.routeMounts)
-  const contentPath = sourceMount
-    ? routeRemainder(fact.contentPath, sourceMount[1])
-    : fact.contentPath
-
-  return projectContentRoute({ contentPath, locale: targetLocale }, targetPolicy)
+  try {
+    const contentPath = unmountProviderContentPath(fact.contentPath, fact.locale, targetPolicy)
+    return projectContentRoute({ contentPath, locale: targetLocale }, targetPolicy)
+  }
+  catch (error) {
+    if (!(error instanceof RouteProjectionError)) throw error
+    throw createContentProviderError(
+      'provider_result_invalid',
+      error.message,
+      { collection: fact.collection, operation: 'route', field: 'contentPath' },
+      error
+    )
+  }
 }
 
 export const projectProviderNavigation = (

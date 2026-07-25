@@ -89,6 +89,7 @@ describe('query plan contracts', () => {
     expect(variantPlan).toMatchObject({
       mode: 'first',
       variant: {
+        by: 'path',
         path: '/guide/intro',
         locale: 'de',
         fallback: ['en']
@@ -103,6 +104,7 @@ describe('query plan contracts', () => {
       }
     } as any)
     expect(noFallbackPlan.variant).toEqual({
+      by: 'ref',
       ref: 'docs.intro',
       locale: 'de'
     })
@@ -113,8 +115,46 @@ describe('query plan contracts', () => {
       resolveVariant: { ref: 'docs.intro', locale: 'de', fallback: false, exact: false }
     } as any)
     expect(disabledFallbackPlan.resolveLocale).toEqual({ locale: 'de', exact: true })
-    expect(disabledFallbackPlan.variant).toEqual({ ref: 'docs.intro', locale: 'de', exact: true })
+    expect(disabledFallbackPlan.variant).toEqual({ by: 'ref', ref: 'docs.intro', locale: 'de', exact: true })
   })
+
+  test('crosses canonical and mounted path coordinates exactly once', async () => {
+    const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
+    const {
+      fromContentProviderQueryPlan,
+      toCanonicalQueryPlan,
+      toContentProviderQueryPlan
+    } = await import('../../packages/content/src/features/query/query-plan-boundary')
+    const policy = {
+      localized: true,
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      fallback: { de: ['en'] },
+      translatedSlugs: false,
+      routeMounts: { en: '/docs', de: '/dokumentation' }
+    } as const
+
+    const lowered = lowerQueryPlan({
+      collection: 'docs',
+      first: true,
+      resolveVariant: { path: '/intro', locale: 'en' }
+    })
+    const canonical = toCanonicalQueryPlan(lowered, policy)
+    const provider = toContentProviderQueryPlan(canonical, policy)
+
+    expect(canonical.variant).toEqual({
+      by: 'path',
+      canonicalPath: '/intro',
+      locale: 'en'
+    })
+    expect(provider.variant).toEqual({
+      by: 'path',
+      path: '/docs/intro',
+      locale: 'en'
+    })
+    expect(fromContentProviderQueryPlan(provider, policy).variant).toEqual(canonical.variant)
+  })
+
 
   test('uses the selected collection default when locale resolution has no explicit fallback', async () => {
     const { buildContentGraph } = await import('../../packages/content/src/core/content/graph')
@@ -213,21 +253,30 @@ describe('query plan contracts', () => {
     expect((result.result as Array<Record<string, unknown>>).map(item => item.title)).toEqual(['B'])
   })
 
-  test('resolves route variants for single-locale content without requiring a default locale', async () => {
+  test('resolves route variants for single-locale content with an explicit default locale', async () => {
     const { buildContentGraph } = await import('../../packages/content/src/core/content/graph')
     const { executeQueryPlan } = await import('../../packages/content/src/core/query/execute')
     const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
 
     const graph = buildContentGraph([
-      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', locale: undefined, canonicalKey: 'docs/intro', title: 'Intro' })
+      doc({ collection: 'docs', id: 'content:docs:intro.md', path: '/docs/intro', locale: 'en', canonicalKey: 'docs/intro', title: 'Intro' })
     ])
-    const plan = lowerQueryPlan({
+    const basePlan = lowerQueryPlan({
       collection: 'docs',
-      first: true,
-      resolveVariant: { route: '/docs/intro' }
+      first: true
     } as any)
+    const plan = {
+      ...basePlan,
+      variant: {
+        by: 'route' as const,
+        requestedRoute: '/docs/intro',
+        requestedLocale: 'en',
+        candidates: [{ locale: 'en', canonicalPath: '/docs/intro' }]
+      }
+    }
 
     const result = executeQueryPlan<Record<string, unknown>>(graph, plan, {
+      defaultLocale: 'en',
       collections: { docs: { route: '/docs' } }
     })
 

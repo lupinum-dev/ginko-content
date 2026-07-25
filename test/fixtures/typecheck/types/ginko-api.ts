@@ -36,11 +36,19 @@ import type { __ginkoI18nBrand } from '@lupinum/ginko-content/config'
 import { defineCollection, defineContentConfig, reference } from '@lupinum/ginko-content/config'
 import type { StrictParsedContent } from '@lupinum/ginko-content'
 import {
+  toContentProviderNavigationQuery,
   toContentProviderQuery,
   type ContentProvider,
+  type ContentProviderQueryPlan,
   type ContentProviderQueryInput,
+  // @ts-expect-error ContentQueryPlan was replaced by ContentProviderQueryPlan on the provider surface.
+  type ContentQueryPlan as _ContentQueryPlan,
   type ProviderDocumentInput
 } from '@lupinum/ginko-content/provider'
+import {
+  // @ts-expect-error Description-prefix reference encoding was removed in 0.3.0.
+  CONTENT_REFERENCE_PREFIX
+} from '@lupinum/ginko-content/cms-contract'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { parsePortableDocument, type PortableDocumentV1, type PortableManifestV1 } from '@lupinum/ginko-content/portability'
 import { readPortableDirectory, writePortableDirectory } from '@lupinum/ginko-content/portability/node'
@@ -58,6 +66,7 @@ const providerRow: ProviderDocumentInput = {
   collection: 'docs',
   locale: 'en',
   contentPath: '/structured',
+  canonicalKey: 'structured',
   type: 'json',
   body: structuredBody
 }
@@ -72,6 +81,26 @@ const structuredProvider = {
 } satisfies ContentProvider
 
 void [parsePortableDocument, readPortableDirectory, writePortableDirectory, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest, structuredProvider, toContentProviderQuery(providerQueryInput)]
+void [CONTENT_REFERENCE_PREFIX]
+
+declare const providerPlan: ContentProviderQueryPlan
+// @ts-expect-error v4 pagination lives only under plan.pagination.
+void providerPlan.skip
+// @ts-expect-error v4 removed the separate paging field.
+void providerPlan.paging
+// @ts-expect-error unresolved route policy cannot cross the public helper.
+toContentProviderQuery({ collection: 'docs', resolveVariant: { route: '/docs/intro' } })
+// @ts-expect-error unresolved reference policy cannot cross the public helper.
+toContentProviderQuery({ collection: 'docs', resolveVariant: { ref: 'docs.intro' } })
+toContentProviderQuery({ collection: 'docs', resolveVariant: { providerPath: '/docs/intro', locale: 'en' } })
+// @ts-expect-error provider helpers require an explicitly mounted providerPath.
+toContentProviderQuery({ collection: 'docs', resolveVariant: { path: '/intro', locale: 'en' } })
+// @ts-expect-error navigation requires one collection so route policy is unambiguous.
+toContentProviderNavigationQuery({})
+if (providerPlan.variant?.by === 'path') {
+  // @ts-expect-error canonical executor coordinates never cross the provider wire.
+  void providerPlan.variant.canonicalPath
+}
 
 // Structural source classification is module-private and never part of the
 // public/root document contract.
@@ -501,9 +530,11 @@ const stringRoutePrevious: null | { title: string } = stringRoutePage.previous.v
 void stringRoutePageTitle
 void stringRoutePrevious
 
-const authorPath = getCollectionPath(authors, { slug: 'evan', locale: 'de', defaultLocale: 'en', locales: ['en', 'de'] })
+const authorPath = getCollectionPath(authors, { slug: 'evan', locale: 'de' })
 const typedAuthorPath: string = authorPath
 void typedAuthorPath
+// @ts-expect-error locale authority belongs to the collection handle, not an individual route call.
+getCollectionPath(authors, { slug: 'evan', defaultLocale: 'en' })
 
 /* ── useContentSearch: the sole public search composable ── */
 

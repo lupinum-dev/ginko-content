@@ -249,7 +249,11 @@ export const resolveMarkdownRenderRefs = (
   }
 }
 
-export const buildReferenceTargets = (contents: ParsedContent[], locales: string[] = []) => {
+export const buildReferenceTargets = (
+  contents: ParsedContent[],
+  locales: string[] = [],
+  aliasesFor?: (document: ParsedContent) => readonly string[]
+) => {
   const targets = new Map<string, string>()
 
   for (const document of contents) {
@@ -279,6 +283,13 @@ export const buildReferenceTargets = (contents: ParsedContent[], locales: string
 
     if (document.locale && normalizedPath) {
       targets.set(`${document.locale}/${normalizedPath}`, canonicalId)
+    }
+
+    for (const alias of aliasesFor?.(document) || []) {
+      const normalizedAlias = normalizeReferenceValue(alias)
+      if (normalizedAlias) {
+        targets.set(normalizedAlias, canonicalId)
+      }
     }
   }
 

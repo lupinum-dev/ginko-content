@@ -10,8 +10,7 @@ Use it when you want content files to stay simple, but your Nuxt app still
 needs explicit APIs for route resolution, typed frontmatter, localized content,
 and server-side reads.
 
-This README describes the `0.3` prerelease. Install it from npm's `next`
-channel; `latest` remains `0.2.1` until the stable cutover.
+This README describes the stable `0.3` line.
 
 ## Requirements
 
@@ -23,14 +22,14 @@ channel; `latest` remains `0.2.1` until the stable cutover.
 ## Install
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@next
+npx nuxi module add @lupinum/ginko-content
 ```
 
 The Nuxt CLI installs the package and registers the module in `nuxt.config.ts`.
 If you prefer to install by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@next
+pnpm add @lupinum/ginko-content
 ```
 
 ```ts

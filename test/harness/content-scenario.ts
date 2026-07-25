@@ -5,6 +5,7 @@ import {
   resolveLocalePolicy,
   type ResolvedCollectionLocalePolicy
 } from '../../packages/content/src/features/localization/locale-policy'
+import { unmountProviderContentPath } from '../../packages/content/src/features/localization/route-projector'
 
 export interface ContentScenarioCollection {
   type: 'page' | 'data'
@@ -74,8 +75,6 @@ const createScenarioDocument = (
 export const createContentScenario = (input: ContentScenarioInput): ContentScenario => {
   const defaultLocale = input.defaultLocale || 'en'
   const locales = input.locales?.length ? input.locales : [defaultLocale]
-  const documents = input.documents.map(createScenarioDocument)
-  const graph = buildContentGraph(documents, { defaultLocale, locales })
   const localeFallback = input.localeFallback || Object.fromEntries(
     locales
       .filter(locale => locale !== defaultLocale)
@@ -107,6 +106,21 @@ export const createContentScenario = (input: ContentScenarioInput): ContentScena
       { ...collection, localePolicy: localePolicy.collections[name] }
     ])
   )
+  const documents = input.documents.map((inputDocument) => {
+    const document = createScenarioDocument(inputDocument)
+    const policy = collections[document.collection || '']?.localePolicy
+    return policy
+      ? {
+          ...document,
+          path: unmountProviderContentPath(
+            document.path || '/',
+            document.locale || defaultLocale,
+            policy
+          )
+        }
+      : document
+  })
+  const graph = buildContentGraph(documents, { defaultLocale, locales })
 
   return {
     name: input.name || 'content-scenario',

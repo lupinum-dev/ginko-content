@@ -227,16 +227,15 @@ export const populateDocument = async <T extends ParsedContent, P extends Popula
   locale: string | undefined,
   fallback: LocaleFallback | undefined
 ): Promise<LocalizedDoc<PopulatedDocument<T, P>>> => {
-  if (!populate || !isRecord(populate)) {
-    return doc as LocalizedDoc<PopulatedDocument<T, P>>
-  }
-
-  countPopulateReferences([doc], populate)
-  return populateOneDocument(
-    doc,
+  const [populated] = await populateDocuments(
+    context,
+    resolveReference,
+    [doc],
     populate,
-    createPopulateValueResolver(context, resolveReference, locale, fallback)
-  ) as Promise<LocalizedDoc<PopulatedDocument<T, P>>>
+    locale,
+    fallback
+  )
+  return populated!
 }
 
 export const selectWithPopulate = (

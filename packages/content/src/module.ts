@@ -156,8 +156,8 @@ export default defineNuxtModule<ModuleOptions>({
     const contract = buildResolvedContentContract(
       { collections },
       {
-        defaultLocale: resolvedI18n.defaultLocale || 'en',
-        locales: resolvedI18n.locales.length ? resolvedI18n.locales : [resolvedI18n.defaultLocale || 'en'],
+        defaultLocale: resolvedI18n.defaultLocale,
+        locales: resolvedI18n.locales.length ? resolvedI18n.locales : [resolvedI18n.defaultLocale],
         localeFallbacks: resolvedI18n.fallback,
         translatedSlugs: resolvedI18n.translatedSlugs,
         componentPolicy: options.componentPolicy,

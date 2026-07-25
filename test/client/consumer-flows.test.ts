@@ -1,25 +1,40 @@
 import { describe, expect, test } from 'vitest'
 import { defineCollection, defineContentConfig } from '../../packages/content/src/types/config'
-import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
-import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+import { createProviderQuery, normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import { projectProviderNavigation } from '../../packages/content/src/runtime/server/provider-route-facts'
 import { projectPublicQueryResponse } from '../../packages/content/src/features/query/responses'
 
 const scenario = createSaasI18nScenario()
 const provider = createInMemoryProvider(scenario)
 const event = createTestEvent({ scenario, provider })
+const publicDocument = (path: string, fields: Record<string, unknown> = {}) => ({
+  ...fields,
+  locale: 'en',
+  route: { resolvedPath: path, alternates: [] },
+  resolution: {
+    requested: {},
+    resolved: { locale: 'en' },
+    usedFallback: false
+  }
+})
 const context = {
   runtime: scenario.runtime,
   transport: (endpoint: 'query' | 'navigation', params: any) => {
     if (endpoint === 'navigation') {
-      const { query, options } = toContentProviderNavigationQuery(params)
-      return provider.navigation!(event, query, options)
-        .then(items => projectProviderNavigation(items, provider.name, scenario.runtime, options.locale))
+      const query = createProviderQuery(params, scenario.runtime)
+      return provider.navigation!(event, query)
+        .then(items => projectProviderNavigation(
+          items,
+          provider.name,
+          scenario.runtime,
+          query.plan.resolveLocale?.locale,
+          query.collection || undefined
+        ))
     }
-    return provider.query(event, toContentProviderQuery(params))
+    return provider.query(event, createProviderQuery(params, scenario.runtime))
       .then(response => projectPublicQueryResponse(
         normalizeProviderQueryResponse(params, response, provider.name, scenario.runtime),
         params.first === true,
@@ -73,17 +88,10 @@ describe('public client query flows against an in-memory content scenario', () =
         }
       },
       transport: async () => ({
-        result: {
-          path: '/plain/about',
+        result: publicDocument('/plain/about', {
           file: { path: 'plain/about.md' },
-          locale: 'en',
-          resolved: {
-            variantPaths: {
-              en: '/plain/about'
-            }
-          },
           title: 'About'
-        }
+        })
       })
     }, plain, {
       by: { route: '/plain/about' }
@@ -116,10 +124,7 @@ describe('public client query flows against an in-memory content scenario', () =
           ]
         }
         return {
-          result: {
-            title: 'Docs',
-            path: '/docs'
-          }
+          result: publicDocument('/docs', { title: 'Docs' })
         }
       }
     }, 'docs', {
@@ -145,7 +150,7 @@ describe('public client query flows against an in-memory content scenario', () =
             { title: 'Control', path: '/docs/control', page: false },
             { title: 'Getting Started', path: '/docs/getting-started' }
           ]
-        : { result: { title: 'Docs', path: '/docs' } }
+        : { result: publicDocument('/docs', { title: 'Docs' }) }
     }, 'docs', {
       by: { route: '/docs' }
     })
@@ -175,10 +180,7 @@ describe('public client query flows against an in-memory content scenario', () =
           ]
         }
         return {
-          result: {
-            title: 'Hidden',
-            path: '/docs/hidden'
-          }
+          result: publicDocument('/docs/hidden', { title: 'Hidden' })
         }
       }
     }, 'docs', {

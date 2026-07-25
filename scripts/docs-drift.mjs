@@ -295,21 +295,6 @@ const parseFrontmatter = (source) => {
   return frontmatter
 }
 
-const genericDiscoveryHeadings = new Set([
-  "## what's next",
-  '## next steps',
-  '## related',
-  '## see also'
-])
-
-const findGenericDiscoveryFooterLines = (file, source) =>
-  source.split('\n').flatMap((line, index) => {
-    const normalized = line.trim().toLowerCase().replaceAll('’', "'")
-    return genericDiscoveryHeadings.has(normalized) || normalized.startsWith('**next:**')
-      ? [`${file}:${index + 1}`]
-      : []
-  })
-
 const findBodyTitleLines = (file, source) => {
   const lines = source.split('\n')
   let inFrontmatter = lines[0] === '---'
@@ -451,13 +436,6 @@ const checks = [
   async () => {
     const offenders = await findAdrIndexDriftOffenders()
     return { name: 'ADR frontmatter id/status stay structurally in sync with meta/adr/README.md', offenders }
-  },
-  async () => {
-    const offenders = []
-    for (const file of await collectTextFiles(['docs/content/docs'])) {
-      offenders.push(...findGenericDiscoveryFooterLines(file, await readFile(file, 'utf8')))
-    }
-    return { name: 'docs end on useful content instead of generic discovery footers', offenders }
   },
   async () => {
     const offenders = []

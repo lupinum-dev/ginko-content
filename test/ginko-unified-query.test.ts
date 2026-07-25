@@ -13,10 +13,11 @@ import { buildContentGraph } from '../packages/content/src/core/content/graph'
 import { executeQueryPlan } from '../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../packages/content/src/core/query/lower'
 import { navigationSelectFields } from '../packages/content/src/features/query/unified'
-import { decorateLocalizedDocument } from '../packages/content/src/features/query/localized-docs'
 import { defineCollection, defineContentConfig, type ContentCollectionHandle } from '../packages/content/src/types/config'
 import type { QueryWhere } from '../packages/content/src/types/query'
 import { doc } from './contracts/_utils'
+import { toCanonicalQueryPlan } from '../packages/content/src/features/query/query-plan-boundary'
+import type { ResolvedCollectionLocalePolicy } from '../packages/content/src/features/localization/locale-policy'
 
 describe('defineCollection', () => {
   test('rejects the removed named overload with an actionable diagnostic', () => {
@@ -547,62 +548,22 @@ describe('compileQueryParams', () => {
   })
 })
 
-describe('query document locale policy', () => {
-  const rawDocument = {
-    id: 'content:de:guide:einstieg.md',
-    collection: 'docs',
-    canonicalKey: 'docs:intro',
-    locale: 'de',
-    path: '/einstieg',
-    type: 'markdown' as const,
-    body: { type: 'root' as const, children: [] },
-    resolved: {
-      locale: 'de',
-      variantPaths: { en: '/intro', de: '/einstieg' }
-    }
+describe('route mount resolution', () => {
+  const rootPolicy: ResolvedCollectionLocalePolicy = {
+    localized: true,
+    locales: ['en'],
+    defaultLocale: 'en',
+    fallback: {},
+    translatedSlugs: false,
+    routeMounts: { en: '/' }
   }
 
-  test('does not derive query variants from global locales when collection i18n is disabled', () => {
-    const result = decorateLocalizedDocument(rawDocument, 'docs', {
-      defaultLocale: 'en',
-      locales: ['en', 'de'],
-      collections: { docs: { i18n: false, route: '/docs' } }
-    }, 'de')
-
-    expect(result).toMatchObject({
-      locale: '',
-      route: { resolvedPath: '/einstieg', alternates: [] },
-      resolution: { requested: {}, resolved: { locale: '' }, usedFallback: false }
-    })
-  })
-
-  test('continues to inherit global locale policy when the collection does not override it', () => {
-    const result = decorateLocalizedDocument(rawDocument, 'docs', {
-      defaultLocale: 'en',
-      locales: ['en', 'de'],
-      collections: { docs: { route: '/docs' } }
-    }, 'de')
-
-    expect(result).toMatchObject({
-      locale: 'de',
-      route: {
-        resolvedPath: '/de/docs/einstieg',
-        alternates: [
-          { locale: 'en', path: '/docs/intro', source: 'variant' },
-          { locale: 'de', path: '/de/docs/einstieg', source: 'variant' }
-        ]
-      }
-    })
-  })
-})
-
-describe('route mount resolution', () => {
   test('resolves requested-locale public routes to fallback-locale content paths', () => {
     const graph = buildContentGraph([
       doc({
         collection: 'docs',
         id: 'content:en:1.docs:2.essentials:5.fallback-lab.md',
-        path: '/docs/essentials/fallback-lab',
+        path: '/essentials/fallback-lab',
         file: { path: '/en/1.docs/2.essentials/5.fallback-lab.md' },
         locale: 'en',
         canonicalKey: '1/2/5',
@@ -612,15 +573,22 @@ describe('route mount resolution', () => {
       defaultLocale: 'en',
       locales: ['en', 'de']
     })
-    const plan = lowerQueryPlan({
+    const basePlan = lowerQueryPlan({
       collection: 'docs',
-      first: true,
-      resolveVariant: {
-        route: '/de/dokumentation/essentials/fallback-lab',
-        locale: 'de',
-        fallback: ['en']
-      }
+      first: true
     } as never)
+    const plan = {
+      ...basePlan,
+      variant: {
+        by: 'route' as const,
+        requestedRoute: '/de/dokumentation/essentials/fallback-lab',
+        requestedLocale: 'de',
+        candidates: [
+          { locale: 'de', canonicalPath: '/essentials/fallback-lab' },
+          { locale: 'en', canonicalPath: '/essentials/fallback-lab' }
+        ]
+      }
+    }
     const response = executeQueryPlan(graph, plan, {
       defaultLocale: 'en',
       localeFallback: { de: ['en'] },
@@ -647,7 +615,7 @@ describe('route mount resolution', () => {
       doc({
         collection: 'docs',
         id: 'content:en:docs:intro.md',
-        path: '/docs/intro',
+        path: '/intro',
         file: { path: '/en/docs/intro.md' },
         locale: 'en',
         canonicalKey: 'docs/intro',
@@ -660,27 +628,27 @@ describe('route mount resolution', () => {
       locales: ['en']
     })
 
-    const filtered = executeQueryPlan(graph, lowerQueryPlan({
+    const filtered = executeQueryPlan(graph, toCanonicalQueryPlan(lowerQueryPlan({
       collection: 'docs',
       first: true,
       where: [{ draft: { $ne: true } }],
       resolveVariant: {
-        path: '/docs/intro',
+        path: '/intro',
         locale: 'en'
       }
-    }), { defaultLocale: 'en' })
+    }), rootPolicy), { defaultLocale: 'en' })
 
     expect(filtered.result).toBeUndefined()
 
-    const projected = executeQueryPlan(graph, lowerQueryPlan({
+    const projected = executeQueryPlan(graph, toCanonicalQueryPlan(lowerQueryPlan({
       collection: 'docs',
       first: true,
       only: ['title'],
       resolveVariant: {
-        path: '/docs/intro',
+        path: '/intro',
         locale: 'en'
       }
-    }), { defaultLocale: 'en' })
+    }), rootPolicy), { defaultLocale: 'en' })
 
     expect(projected.result).toEqual({ title: 'Intro' })
   })
@@ -690,7 +658,7 @@ describe('route mount resolution', () => {
       doc({
         collection: 'docs',
         id: 'content:en:docs:intro.md',
-        path: '/docs/intro',
+        path: '/intro',
         file: { path: '/en/docs/intro.md' },
         locale: 'en',
         canonicalKey: 'docs/intro',
@@ -701,14 +669,14 @@ describe('route mount resolution', () => {
       locales: ['en']
     })
 
-    const response = executeQueryPlan(graph, lowerQueryPlan({
+    const response = executeQueryPlan(graph, toCanonicalQueryPlan(lowerQueryPlan({
       collection: 'docs',
       count: true,
       resolveVariant: {
-        path: '/docs/intro',
+        path: '/intro',
         locale: 'en'
       }
-    }), { defaultLocale: 'en' })
+    }), rootPolicy), { defaultLocale: 'en' })
 
     expect(response.result).toBe(1)
   })

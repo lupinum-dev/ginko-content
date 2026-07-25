@@ -156,8 +156,8 @@ export type LocalizedDoc<T = ParsedContentMeta> = LocalizedContentDocument<T>
  *: identity, plus the `route`/`resolution`
  * envelope. Identity fields survive because `selectWithPopulate` force-keeps
  * them; `route`/`resolution` (and the `stem`/`extension`/`resolvedRefs`
- * bookkeeping fields) survive because `decorateLocalizedDocument` re-attaches
- * them after projection. The type promises exactly the runtime survivors —
+ * bookkeeping fields) are guaranteed by the public query-response boundary.
+ * The type promises exactly the runtime survivors —
  * no more, no less.
  */
 type IdentityGuaranteedKeys = 'id' | 'collection' | 'canonicalKey' | 'file'

@@ -160,8 +160,33 @@ describe('provider contract assertion helpers', () => {
     const runtime = {
       defaultLocale: 'en',
       locales: ['en', 'de'],
+      localePolicy: {
+        defaultLocale: 'en',
+        locales: ['en', 'de'],
+        fallback: {},
+        collections: {
+          docs: {
+            localized: true,
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { en: '/docs', de: '/docs' }
+          }
+        }
+      },
       collections: {
-        docs: { i18n: { defaultLocale: 'en', locales: ['en', 'de'] } }
+        docs: {
+          i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+          localePolicy: {
+            localized: true,
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { en: '/docs', de: '/docs' }
+          }
+        }
       }
     }
 
@@ -245,5 +270,67 @@ describe('provider contract assertion helpers', () => {
       nested = { title: `Level ${depth}`, children: [nested] }
     }
     expect(projectProviderNavigation([nested], 'fixture', runtime)).toHaveLength(1)
+  })
+
+  test('projects an en-sourced navigation fact into the requested de locale so the URL still resolves', async () => {
+    const { buildRouteRecords, resolveContentRoute } = await import(
+      '../../packages/content/src/features/localization/route-projector'
+    )
+    // Mirrors playground/ginko-i18n: translated mounts AND translated slugs,
+    // with de falling back to en.
+    const localePolicy = {
+      localized: true,
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      fallback: { de: ['en'] },
+      translatedSlugs: true,
+      routeMounts: { en: '/guide', de: '/leitfaden' }
+    }
+    const runtime = {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: { docs: { localePolicy } }
+    }
+
+    // A page with no `de` translation: navigation merges the `en` item into a
+    // `de` request, so the fact's locale and the requested locale differ.
+    const [enOnly] = projectProviderNavigation([{
+      title: 'Advanced',
+      route: {
+        collection: 'docs',
+        canonicalKey: 'docs:advanced',
+        locale: 'en',
+        contentPath: '/guide/advanced'
+      }
+    }], 'fixture', runtime, 'de', 'docs') as Array<{ path: string }>
+
+    // The mount belongs to the TARGET locale; the remainder belongs to the
+    // source variant, because `de` has no variant of its own to prefer.
+    expect(enOnly!.path).toBe('/de/leitfaden/advanced')
+
+    // The projected fallback URL must lower back to the same document through
+    // the ordinary resolver, otherwise navigation would emit a dead link.
+    const { index } = buildRouteRecords([
+      { collection: 'docs', canonicalKey: 'docs:advanced', locale: 'en', contentPath: '/advanced' },
+      { collection: 'docs', canonicalKey: 'docs:intro', locale: 'en', contentPath: '/getting-started' },
+      { collection: 'docs', canonicalKey: 'docs:intro', locale: 'de', contentPath: '/erste-schritte' }
+    ], localePolicy)
+    expect(resolveContentRoute(enOnly!.path, 'de', localePolicy, index)).toMatchObject({
+      canonicalKey: 'docs:advanced',
+      locale: 'en'
+    })
+
+    // A page that DOES have a de variant keeps its own translated slug: the
+    // navigation merge supplies the de fact, so projection is identity.
+    const [translated] = projectProviderNavigation([{
+      title: 'Erste Schritte',
+      route: {
+        collection: 'docs',
+        canonicalKey: 'docs:intro',
+        locale: 'de',
+        contentPath: '/leitfaden/erste-schritte'
+      }
+    }], 'fixture', runtime, 'de', 'docs') as Array<{ path: string }>
+    expect(translated!.path).toBe('/de/leitfaden/erste-schritte')
   })
 })

@@ -74,6 +74,44 @@ describe('content query HTTP request validation', () => {
     expect(result.ok).toBe(false)
   })
 
+  test('counts arrays toward the depth budget and rejects hostile array nesting structurally', () => {
+    let operand: unknown = 'value'
+    for (let depth = 0; depth < 5_000; depth += 1) {
+      operand = [operand]
+    }
+
+    const result = validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ value: { $eq: operand } }]
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        reason: `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.`
+      }
+    })
+  })
+
+  test('accepts depth 8 and rejects depth 9 for otherwise valid operands', () => {
+    const nestedArrays = (levels: number) => {
+      let value: unknown = 'value'
+      for (let depth = 0; depth < levels; depth += 1) value = [value]
+      return value
+    }
+
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ value: { $eq: nestedArrays(5) } }]
+    }).ok).toBe(true)
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ value: { $eq: nestedArrays(6) } }]
+    })).toMatchObject({
+      ok: false,
+      error: { reason: `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.` }
+    })
+  })
+
   test('rejects excessive $and/$or member counts', () => {
     const members = Array.from({ length: MAX_LOGICAL_GROUP_MEMBERS + 1 }, (_, index) => ({ order: index }))
     const result = validateContentQueryRequestBody({

@@ -33,6 +33,36 @@ describe('translated slug validation', () => {
     expect(transformed.canonicalKey).toBe('1/1')
   })
 
+  test('removes the configured source mount from both path and canonical identity', () => {
+    const options = {
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      translatedSlugs: true,
+      collectionResolver: () => 'docs',
+      localePolicy: {
+        docs: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: {},
+          translatedSlugs: true,
+          routeMounts: { en: '/guide', de: '/leitfaden' }
+        }
+      }
+    }
+    const english = pathMeta.transform!(
+      { id: 'content:en:1.guide:1.getting-started.md', body: {} as any },
+      options
+    )
+    const german = pathMeta.transform!(
+      { id: 'content:de:1.leitfaden:1.erste-schritte.md', body: {} as any },
+      options
+    )
+
+    expect(english).toMatchObject({ path: '/getting-started', canonicalKey: '1' })
+    expect(german).toMatchObject({ path: '/erste-schritte', canonicalKey: '1' })
+  })
+
   test('warns when translated slug entries are missing numeric prefixes', () => {
     const transformed = pathMeta.transform!(
       { id: 'content:de:leitfaden:1.erste-schritte.md', body: {} as any },

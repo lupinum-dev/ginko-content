@@ -2,13 +2,23 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
 import { createEvent, doc } from './_utils'
+import { fromContentProviderQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
+
+const localePolicy = {
+  localized: true,
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  fallback: {},
+  translatedSlugs: false,
+  routeMounts: { en: '/', de: '/' }
+}
 
 const runtimeConfig = {
   public: { content: { navigation: { fields: [] } } },
   content: {
     defaultLocale: 'en',
     localeFallback: {},
-    collections: {} as Record<string, { schemaFields?: string[] }>
+    collections: {} as Record<string, { schemaFields?: string[], localePolicy?: typeof localePolicy }>
   }
 }
 
@@ -60,13 +70,21 @@ describe('navigation diagnostics contracts', () => {
     })
   })
 
+  const resolveNavigation = async (wire: ReturnType<typeof toContentProviderNavigationQuery>) => {
+    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
+    return resolveContentNavigation(createEvent(), {
+      collection: wire.collection!,
+      plan: fromContentProviderQueryPlan(wire.plan, localePolicy)
+    })
+  }
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
   test('warns once for select fields outside derived schema membership and shared vocabulary', async () => {
     runtimeConfig.content.collections = {
-      docs: { schemaFields: ['title', 'summary'] }
+      docs: { schemaFields: ['title', 'summary'], localePolicy }
     }
     useGraph([
       doc({
@@ -78,14 +96,13 @@ describe('navigation diagnostics contracts', () => {
       })
     ])
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     const wire = toContentProviderNavigationQuery({
       collection: 'docs',
       only: ['title', 'summary', 'badge', 'sidebar', 'sidbar']
     } as any)
 
-    await resolveContentNavigation(createEvent(), wire.query, wire.options)
-    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+    await resolveNavigation(wire)
+    await resolveNavigation(wire)
 
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]![0]).toContain('Navigation select field "sidbar"')
@@ -96,7 +113,7 @@ describe('navigation diagnostics contracts', () => {
 
   test('does not emit request diagnostics in production runtime', async () => {
     runtimeConfig.content.collections = {
-      docs: { schemaFields: ['title'] }
+      docs: { schemaFields: ['title'], localePolicy }
     }
     useGraph([
       doc({
@@ -109,18 +126,20 @@ describe('navigation diagnostics contracts', () => {
     ])
     resolveRuntimeEnvironment.mockReturnValue('production')
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     const wire = toContentProviderNavigationQuery({
       collection: 'docs',
       only: ['unknownProductionField']
     } as any)
 
-    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+    await resolveNavigation(wire)
 
     expect(warn).not.toHaveBeenCalled()
   })
 
   test('matches sidecars against all trees in the requested locale and deduplicates warnings', async () => {
+    runtimeConfig.content.collections = {
+      docs: { localePolicy }
+    }
     useGraph([
       doc({
         id: 'content:en:docs:intro.md',
@@ -188,14 +207,13 @@ describe('navigation diagnostics contracts', () => {
       } as any)
     ])
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     const wire = toContentProviderNavigationQuery({
       collection: 'docs',
       resolveLocale: { locale: 'en', exact: true }
     })
 
-    await resolveContentNavigation(createEvent(), wire.query, wire.options)
-    await resolveContentNavigation(createEvent(), wire.query, wire.options)
+    await resolveNavigation(wire)
+    await resolveNavigation(wire)
 
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]![0]).toContain('/en/missing/.navigation.yml')
@@ -205,10 +223,10 @@ describe('navigation diagnostics contracts', () => {
   })
 
   test('enables diagnostics for development and prerender, but not production requests', async () => {
-    const { shouldEmitNavigationRuntimeDiagnostics } = await import('../../packages/content/src/features/navigation/diagnostics')
+    const { shouldEmitRuntimeDiagnostics } = await import('../../packages/content/src/core/runtime-diagnostics')
 
-    expect(shouldEmitNavigationRuntimeDiagnostics('development', false)).toBe(true)
-    expect(shouldEmitNavigationRuntimeDiagnostics('production', true)).toBe(true)
-    expect(shouldEmitNavigationRuntimeDiagnostics('production', false)).toBe(false)
+    expect(shouldEmitRuntimeDiagnostics('development', false)).toBe(true)
+    expect(shouldEmitRuntimeDiagnostics('production', true)).toBe(true)
+    expect(shouldEmitRuntimeDiagnostics('production', false)).toBe(false)
   })
 })

@@ -1,7 +1,8 @@
-import type { ContentResolutionCarrier, ParsedContent } from '../../types/content'
 import type { ContentAlternate, ContentDocumentResolution, ContentDocumentRoute } from '../../types/query'
 import { sortLocalesCanonically } from '../../core/content/locale'
-import { getContentStem, normalizeContentPath, projectContentPathToLocale, type RouteMounts } from './path'
+import { normalizeContentPath } from './path'
+import type { ResolvedCollectionLocalePolicy } from './locale-policy'
+import { projectContentRoute } from './route-projector'
 
 /**
  * Build the `route.alternates` facts a single resolved document can prove.
@@ -14,12 +15,11 @@ import { getContentStem, normalizeContentPath, projectContentPathToLocale, type 
 export const buildContentAlternates = (
   variantPaths: Record<string, string> | undefined,
   resolvedLocale: string,
-  defaultLocale: string | undefined,
-  locales: readonly string[],
-  routeMounts: RouteMounts | undefined,
+  policy: ResolvedCollectionLocalePolicy,
   requestedLocale?: string,
   requestedRoute?: string
 ): ContentAlternate[] => {
+  const { defaultLocale, locales } = policy
   if (!locales.length) {
     return []
   }
@@ -32,7 +32,7 @@ export const buildContentAlternates = (
     if (!variantPath) continue
     alternates.push({
       locale,
-      path: projectContentPathToLocale(variantPath, locale, defaultLocale, routeMounts),
+      path: projectContentRoute({ contentPath: variantPath, locale }, policy),
       source: 'variant'
     })
   }
@@ -70,9 +70,7 @@ export interface ContentDocumentEnvelopeInput {
   requestedLocale?: string
   /** Locale the document actually resolved/served in. */
   resolvedLocale: string
-  defaultLocale?: string
-  locales: readonly string[]
-  routeMounts?: RouteMounts
+  localePolicy: ResolvedCollectionLocalePolicy
   /** Original requested path/route selector value, if a route-shaped selector was used. */
   requestedPath?: string
   requestedRoute?: string
@@ -92,13 +90,14 @@ export const buildContentDocumentEnvelope = (input: ContentDocumentEnvelopeInput
   route: ContentDocumentRoute
   resolution: ContentDocumentResolution
 } => {
-  const resolvedPath = projectContentPathToLocale(input.unprefixedPath, input.resolvedLocale, input.defaultLocale, input.routeMounts)
+  const resolvedPath = projectContentRoute({
+    contentPath: input.unprefixedPath,
+    locale: input.resolvedLocale
+  }, input.localePolicy)
   const alternates = buildContentAlternates(
     input.variantPaths,
     input.resolvedLocale,
-    input.defaultLocale,
-    input.locales,
-    input.routeMounts,
+    input.localePolicy,
     input.requestedLocale,
     input.requestedRoute
   )
@@ -122,67 +121,4 @@ export const buildContentDocumentEnvelope = (input: ContentDocumentEnvelopeInput
       usedFallback
     }
   }
-}
-
-/**
- * Decorate a raw parsed document with the canonical `route`/`resolution`
- * envelope consumed by the unified query API and
- * `useContentPage`.
- */
-export interface DecoratedLocalizedDocument {
-  locale: string
-  route: ContentDocumentRoute
-  resolution: ContentDocumentResolution
-  stem?: string
-  extension?: string
-  /** Resolved markdown `$ref` links for the current runtime locale (consumed by `ContentRendererMarkdown`). */
-  resolvedRefs?: Record<string, string>
-}
-
-export const decorateLocalizedDocumentEnvelope = <T extends ParsedContent & Record<string, unknown>>(
-  doc: T,
-  collectionLocaleConfig: {
-    locales: readonly string[]
-    defaultLocale?: string
-    routeMounts?: RouteMounts
-    hasLocaleConfig: boolean
-  },
-  requestedLocale?: string
-): Omit<T, 'resolved'> & DecoratedLocalizedDocument => {
-  const { locales, defaultLocale, routeMounts, hasLocaleConfig } = collectionLocaleConfig
-  const resolution = (doc as { resolved?: ContentResolutionCarrier }).resolved
-  const unprefixedPath = normalizeContentPath(doc.path || '/')
-  const resolvedLocale = hasLocaleConfig
-    ? (resolution?.locale || doc.locale || requestedLocale || defaultLocale || '')
-    : ''
-
-  const envelope = buildContentDocumentEnvelope({
-    unprefixedPath,
-    variantPaths: hasLocaleConfig ? resolution?.variantPaths : undefined,
-    requestedLocale: hasLocaleConfig ? requestedLocale : undefined,
-    resolvedLocale,
-    defaultLocale,
-    locales,
-    routeMounts,
-    requestedPath: resolution?.requestedPath,
-    requestedRoute: resolution?.requestedRoute
-  })
-
-  // `path` is the raw, mount-agnostic, pre-projection content path the query
-  // engine needs to compute `route` from — an internal decoration input, not
-  // a guaranteed or selectable public field. Excluding
-  // it here (alongside the raw `resolved` carrier) keeps the single
-  // `route.resolvedPath`/`route.requestedPath` pair as the only path-shaped
-  // fields on the envelope, with no leaked internal duplicate.
-  const { resolved: _resolved, path: _path, ...rest } = doc as Record<string, unknown>
-
-  return {
-    ...rest,
-    locale: envelope.locale,
-    route: envelope.route,
-    resolution: envelope.resolution,
-    stem: getContentStem(unprefixedPath, doc.file?.path),
-    extension: doc.file?.extension,
-    ...(resolution?.resolvedRefs ? { resolvedRefs: resolution.resolvedRefs } : {})
-  } as Omit<T, 'resolved'> & DecoratedLocalizedDocument
 }

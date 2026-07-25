@@ -1,8 +1,7 @@
-import { parse } from 'comark'
-
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
 import type { PortableComponentPolicyV1 } from '../cms-contract/types.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
+import { parseComark } from '../core/markdown/parse-comark.js'
 import { portabilityError, type GinkoBoundaryError } from './errors.js'
 
 export interface PortableMdcAstV1 {
@@ -36,13 +35,13 @@ export async function parseStoredMdc(source: string, policy: PortableComponentPo
 async function parseMdc(source: string, policy: PortableComponentPolicyV1, allowStoredAssets: boolean): Promise<PortableMdcAstV1> {
   if (source.includes('\uFEFF')) throw unsupported()
   const normalized = normalizeBody(source)
-  let tree: Awaited<ReturnType<typeof parse>>
+  let tree: Awaited<ReturnType<typeof parseComark>>
   try {
-    tree = await parse(normalized)
+    tree = await parseComark(normalized)
   } catch {
     throw unsupported()
   }
-  const normalizedNodes = normalizeComarkNodes(tree.nodes as unknown[], normalized)
+  const normalizedNodes = normalizeComarkNodes(tree.nodes as unknown[])
   validateNodes(normalizedNodes, policy, allowStoredAssets)
   const nodes = stripPositions(normalizedNodes) as JsonValue[]
   canonicalJsonBytes(nodes)

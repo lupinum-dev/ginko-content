@@ -14,7 +14,6 @@ import type {
   QueryWhere
 } from '../../types/query'
 import { compileQueryParams } from '../../core/query/filter'
-import { decorateLocalizedDocument } from './localized-docs'
 import type { ContentQueryContext } from './context'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
@@ -125,11 +124,8 @@ export async function resolvePagination<
       throw error
     }
 
-    const envelope = unwrapCursorFindResponse<ParsedContent>(response)
-    const decorated = envelope.result
-      .map(doc => decorateLocalizedDocument(doc, collection, runtime, options.locale))
-      .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
-    const populated = await populateDocuments(context, one, decorated, options.populate, options.locale, options.fallback)
+    const envelope = unwrapCursorFindResponse<LocalizedDoc<ParsedContent>>(response)
+    const populated = await populateDocuments(context, one, envelope.result, options.populate, options.locale, options.fallback)
 
     return {
       mode: 'cursor',
@@ -164,11 +160,8 @@ export async function resolvePagination<
     throw error
   }
 
-  const envelope = unwrapFindResponse<ParsedContent>(response)
-  const decorated = envelope.result
-    .map(doc => decorateLocalizedDocument(doc, collection, runtime, options.locale))
-    .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
-  const populated = await populateDocuments(context, one, decorated, options.populate, options.locale, options.fallback)
+  const envelope = unwrapFindResponse<LocalizedDoc<ParsedContent>>(response)
+  const populated = await populateDocuments(context, one, envelope.result, options.populate, options.locale, options.fallback)
   const pageCount = envelope.total > 0 ? Math.ceil(envelope.total / limit) : 0
 
   return {

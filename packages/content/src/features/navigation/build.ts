@@ -66,7 +66,8 @@ const parentCanonicalKey = (content: ParsedContentMeta, depth: number) => {
     return undefined
   }
 
-  return canonicalKey.split('/').slice(0, depth + 1).join('/') || undefined
+  const canonicalParts = canonicalKey.split('/').filter(Boolean)
+  return canonicalParts.slice(0, depth + 1).join('/') || undefined
 }
 
 /**

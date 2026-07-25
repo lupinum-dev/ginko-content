@@ -21,7 +21,17 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
     defaultLocale: 'en',
     locales: ['en', 'de'],
     collections: {
-      docs: { route: { en: '/guide', de: '/leitfaden' } }
+      docs: {
+        route: { en: '/guide', de: '/leitfaden' },
+        localePolicy: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: { de: ['en'] },
+          translatedSlugs: false,
+          routeMounts: { en: '/guide', de: '/leitfaden' }
+        }
+      }
     },
     links: contentLinks.value
   })
@@ -38,7 +48,11 @@ describe('ref link contracts', () => {
     resolveCanonicalKey.mockReset()
     resolveVariant.mockReset()
     getContentGraph.mockReset()
-    getContentGraph.mockResolvedValue({ byId: {} })
+    getContentGraph.mockResolvedValue({
+      byId: new Proxy({}, {
+        get: () => ({ collection: 'docs' })
+      })
+    })
     contentLinks.value = {}
   })
 
@@ -50,8 +64,9 @@ describe('ref link contracts', () => {
     resolveCanonicalKey.mockResolvedValue('docs/advanced')
     resolveVariant.mockResolvedValue({
       canonicalKey: 'docs/advanced',
+      contentId: 'content:docs:advanced',
       resolvedLocale: 'de',
-      path: '/leitfaden/fortgeschritten',
+      path: '/fortgeschritten',
       fallback: false
     })
 
@@ -89,8 +104,8 @@ describe('ref link contracts', () => {
     resolveVariant.mockImplementation(async (_event, canonicalKey: string, locale?: string) => {
       const paths: Record<string, string> = {
         'docs/stable-page': '/stabile-seite',
-        'docs/advanced': '/guide/advanced',
-        'docs/getting-started': '/leitfaden/einstieg'
+        'docs/advanced': '/advanced',
+        'docs/getting-started': '/einstieg'
       }
 
       return {
@@ -123,8 +138,8 @@ describe('ref link contracts', () => {
       'de/leitfaden/einstieg'
     ])
     expect((resolved as any).resolved?.resolvedRefs).toEqual({
-      '$stable-page-id': '/de/stabile-seite',
-      '$guide/advanced#deep-dive': '/de/guide/advanced#deep-dive',
+      '$stable-page-id': '/de/leitfaden/stabile-seite',
+      '$guide/advanced#deep-dive': '/de/leitfaden/advanced#deep-dive',
       '$de/leitfaden/einstieg': '/de/leitfaden/einstieg'
     })
   })
@@ -135,7 +150,7 @@ describe('ref link contracts', () => {
       canonicalKey: 'docs/advanced',
       contentId: 'content:docs:advanced',
       resolvedLocale: 'en',
-      path: '/guide/advanced',
+      path: '/advanced',
       fallback: true
     })
     getContentGraph.mockResolvedValue({
@@ -258,6 +273,7 @@ describe('ref link contracts', () => {
     resolveCanonicalKey.mockResolvedValue('docs/services')
     resolveVariant.mockResolvedValue({
       canonicalKey: 'docs/services',
+      contentId: 'content:docs:services',
       resolvedLocale: 'de',
       path: '/services',
       fallback: false
@@ -280,7 +296,7 @@ describe('ref link contracts', () => {
 
     expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'main.services')
     expect((resolved as any).resolved?.resolvedRefs).toEqual({
-      '$main.services#plans': '/de/services#plans'
+      '$main.services#plans': '/de/leitfaden/services#plans'
     })
   })
 

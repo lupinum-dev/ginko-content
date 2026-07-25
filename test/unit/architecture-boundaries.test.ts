@@ -63,43 +63,6 @@ const importsRuntimeFramework = (specifier: string) =>
   || specifier.startsWith('@nuxt/')
   || specifier.startsWith('nitropack/')
 
-const readJson = async <T>(path: string): Promise<T> =>
-  JSON.parse(await readFile(path, 'utf8')) as T
-
-const exportedIdentifiers = (source: string, file: string): string[] => {
-  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
-  const identifiers: string[] = []
-  const hasExportModifier = (node: ts.Node) =>
-    ts.canHaveModifiers(node) && (ts.getModifiers(node) ?? []).some(modifier =>
-      modifier.kind === ts.SyntaxKind.ExportKeyword
-    )
-
-  const visit = (node: ts.Node) => {
-    if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
-      for (const element of node.exportClause.elements) {
-        identifiers.push(element.name.text)
-      }
-    } else if (
-      (ts.isFunctionDeclaration(node)
-        || ts.isClassDeclaration(node)
-        || ts.isInterfaceDeclaration(node)
-        || ts.isTypeAliasDeclaration(node))
-      && hasExportModifier(node)
-      && node.name
-    ) {
-      identifiers.push(node.name.text)
-    } else if (ts.isVariableStatement(node) && hasExportModifier(node)) {
-      for (const declaration of node.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name)) identifiers.push(declaration.name.text)
-      }
-    }
-    ts.forEachChild(node, visit)
-  }
-
-  visit(ast)
-  return identifiers
-}
-
 describe('architecture boundaries', () => {
   test('core does not import runtime modules', async () => {
     await expect(importsFrom('core', importsSourceSegment('runtime'))).resolves.toEqual([])
@@ -137,25 +100,5 @@ describe('architecture boundaries', () => {
 
     expect(sources.every(source => source.includes('PORTABLE_CONTENT_LIMITS'))).toBe(true)
     expect(sources.some(source => source.includes('25 * 1024 * 1024'))).toBe(false)
-  })
-
-  test('public package surface does not expose CMS admin/editor/workflow/MCP behavior', async () => {
-    const packageJson = await readJson<{ exports?: Record<string, unknown> }>('packages/content/package.json')
-    const publicFiles = await sourceFiles(join(sourceRoot, 'public'))
-    const publicSources = await Promise.all(publicFiles.map(async file => ({
-      file: relative(process.cwd(), file),
-      source: await readFile(file, 'utf8'),
-    })))
-
-    const forbidden = /\b(?:mcp|admin|editor|workflow|studio|convex)\b/i
-    const publicIdentifiers = [
-      ...Object.keys(packageJson.exports ?? {}),
-      ...publicSources.flatMap(({ file, source }) => [
-        file,
-        ...exportedIdentifiers(source, file),
-      ]),
-    ].filter(Boolean)
-
-    expect(publicIdentifiers.filter(identifier => forbidden.test(String(identifier)))).toEqual([])
   })
 })

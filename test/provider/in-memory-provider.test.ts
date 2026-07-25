@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createSaasI18nScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -11,7 +12,7 @@ describe('localized in-memory provider scenario', () => {
   const event = createTestEvent({ scenario, provider })
 
   test('returns concrete fallback facts for core to shape', async () => {
-    const response = await provider.query(event, toContentProviderQuery({
+    const response = await provider.query(event, createProviderQuery({
       collection: 'docs',
       first: true,
       resolveVariant: {
@@ -19,7 +20,7 @@ describe('localized in-memory provider scenario', () => {
         locale: 'de',
         fallback: ['en']
       }
-    })) as { result?: Record<string, unknown> }
+    }, scenario.runtime)) as { result?: Record<string, unknown> }
 
     expect(response.result).toMatchObject({
       title: 'Fallback Lab',
@@ -30,7 +31,7 @@ describe('localized in-memory provider scenario', () => {
   })
 
   test('keeps strict locale misses observable', async () => {
-    await expect(provider.query(event, toContentProviderQuery({
+    await expect(provider.query(event, createProviderQuery({
       collection: 'docs',
       first: true,
       resolveVariant: {
@@ -39,7 +40,7 @@ describe('localized in-memory provider scenario', () => {
         exact: true,
         fallback: false
       }
-    }))).resolves.toEqual({ result: undefined })
+    }, scenario.runtime))).resolves.toEqual({ result: undefined })
   })
 
   test('supports localized list, count, and raw navigation operations', async () => {

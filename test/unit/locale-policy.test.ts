@@ -180,6 +180,82 @@ describe('resolveLocalePolicy — per-collection policy', () => {
     })
   })
 
+  test('rejects a localized route map with a missing locale', () => {
+    expect(() => resolveLocalePolicy({
+      ...baseInput,
+      collections: [{
+        name: 'docs',
+        localized: true,
+        route: { en: '/docs' }
+      }]
+    })).toThrow(/Missing: de/)
+  })
+
+  test('rejects unknown localized route-map keys', () => {
+    expect(() => resolveLocalePolicy({
+      ...baseInput,
+      collections: [{
+        name: 'docs',
+        localized: true,
+        route: { en: '/docs', de: '/dokumentation', fr: '/documentation' }
+      }]
+    })).toThrow(/Unknown: fr/)
+  })
+
+  test('rejects empty localized route mounts', () => {
+    expect(() => resolveLocalePolicy({
+      ...baseInput,
+      collections: [{
+        name: 'docs',
+        localized: true,
+        route: { en: '/docs', de: '' }
+      }]
+    })).toThrow(/non-empty route mount for "de"/)
+  })
+
+  test.each([
+    'docs',
+    '//example.test/docs',
+    'https://example.test/docs',
+    '/docs?preview=true',
+    '/docs#intro',
+    '/docs\\private',
+    '/docs/../private',
+    '/docs/%2e%2e/private'
+  ])('rejects invalid route mount %j', (route) => {
+    expect(() => resolveLocalePolicy({
+      ...baseInput,
+      collections: [{
+        name: 'docs',
+        localized: true,
+        route: { en: '/docs', de: route }
+      }]
+    })).toThrow(/valid site-relative route mount for "de"/)
+  })
+
+  test('rejects locale-keyed routes for unlocalized collections', () => {
+    expect(() => resolveLocalePolicy({
+      ...baseInput,
+      collections: [{
+        name: 'posts',
+        localized: false,
+        route: { en: '/posts' }
+      }]
+    })).toThrow(/object containing only the "default"/)
+  })
+
+  test('accepts an explicit default route for an unlocalized collection', () => {
+    const policy = resolveLocalePolicy({
+      ...baseInput,
+      collections: [{
+        name: 'posts',
+        localized: false,
+        route: { default: '/posts' }
+      }]
+    })
+    expect(policy.collections.posts?.routeMounts).toEqual({ default: '/posts' })
+  })
+
   // Immutability is a type-level contract (`Readonly<...>`), not a runtime
   // `Object.freeze()` — the resolved policy is embedded by reference into
   // Nuxt/Nitro runtime config, and Nitro's own runtime-config normalization
@@ -274,7 +350,25 @@ describe('collection locale configuration', () => {
 
     expect(getCollectionPath(authors, { slug: 'alexia', locale: 'en' })).toBe('/authors/alexia')
     expect(getCollectionPath(authors, { slug: 'alexia', locale: 'de' })).toBe('/de/autoren/alexia')
-    expect(getCollectionPath(authors, { slug: ['team', 'alexia'], locale: 'de', canonical: true })).toBe('/autoren/team/alexia')
+    expect(getCollectionPath(authors, { slug: ['team', 'alexia'], locale: 'de', localePrefix: false })).toBe('/autoren/team/alexia')
+  })
+
+  test('does not invent inherited locale policy for an i18n: true collection handle', () => {
+    const config = defineContentConfig({
+      collections: {
+        docs: defineCollection({
+          type: 'page',
+          source: 'docs/**/*.md',
+          i18n: true,
+          route: { en: '/docs', de: '/dokumentation' }
+        })
+      }
+    })
+
+    expect(() => getCollectionPath(config.collections.docs, {
+      path: '/intro',
+      locale: 'de'
+    })).toThrow(/pure collection handle does not contain the inherited locale policy/)
   })
 
   test('returns undefined for i18n shorthand without global config', () => {

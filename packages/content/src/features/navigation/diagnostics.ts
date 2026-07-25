@@ -1,25 +1,16 @@
 import type { ParsedContentMeta } from '../../types/content'
+import type { RuntimeDiagnostic } from '../../core/runtime-diagnostics'
 import { isKnownNavigationSelectField } from '../../types/navigation'
 import { isNavigationFile } from '../../core/content/structural'
 import { normalizeNavigationPath } from './resolve'
 
-export interface NavigationDiagnostic {
-  key: string
-  message: string
-}
+export type NavigationDiagnostic = RuntimeDiagnostic
 
 export type NavigationDiagnosticCollections = Record<string, {
   schemaFields?: readonly string[]
 }>
 
 type NavigationDocumentWithPath = ParsedContentMeta & { path: string }
-
-const emittedNavigationDiagnostics = new Set<string>()
-
-export const shouldEmitNavigationRuntimeDiagnostics = (
-  environment: 'development' | 'production',
-  prerender: boolean
-): boolean => environment === 'development' || prerender
 
 export const collectUnknownNavigationSelectDiagnostics = (
   fields: readonly string[],
@@ -101,18 +92,4 @@ export const collectUnmatchedNavigationConfigDiagnostics = (
   }
 
   return diagnostics
-}
-
-export const emitNavigationDiagnostics = (
-  diagnostics: readonly NavigationDiagnostic[],
-  warn: (message: string) => void = console.warn
-): void => {
-  for (const diagnostic of diagnostics) {
-    if (emittedNavigationDiagnostics.has(diagnostic.key)) {
-      continue
-    }
-
-    emittedNavigationDiagnostics.add(diagnostic.key)
-    warn(`[ginko-content] ${diagnostic.message}`)
-  }
 }

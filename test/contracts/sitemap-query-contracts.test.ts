@@ -195,13 +195,13 @@ describe('provider-backed sitemap contracts', () => {
         collection: 'docs',
         canonicalKey: 'provider-guide',
         locale: 'en',
-        contentPath: '/provider-guide'
+        contentPath: '/docs/provider-guide'
       },
       {
         collection: 'docs',
         canonicalKey: 'provider-guide',
         locale: 'de',
-        contentPath: '/provider-leitfaden'
+        contentPath: '/dokumentation/provider-leitfaden'
       }
     ])
 
@@ -233,7 +233,7 @@ describe('provider-backed sitemap contracts', () => {
     state.routes.mockReturnValue([{
       collection: 'docs',
       canonicalKey: 'provider-guide',
-      locale: 'de',
+      locale: 'en',
       contentPath: '/provider-guide'
     }])
 

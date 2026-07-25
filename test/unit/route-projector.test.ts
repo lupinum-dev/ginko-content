@@ -4,11 +4,13 @@ import {
   RouteProjectionError,
   buildRouteRecords,
   lowerRouteToCandidates,
+  mountProviderContentPath,
   projectContentRoute,
   resolveContentRoute,
   synthesizeAlternates,
-  type ContentProviderRouteFact,
-  type ContentProviderVariantFact
+  unmountProviderContentPath,
+  type CanonicalRouteFact,
+  type CanonicalVariantFact
 } from '../../packages/content/src/features/localization/route-projector'
 
 /**
@@ -48,6 +50,26 @@ describe('projectContentRoute', () => {
     expect(projectContentRoute({ contentPath: '/intro', locale: 'de' }, translatedPolicy)).toBe('/de/anleitung/intro')
   })
 
+  test('converts canonical and provider paths exactly once', () => {
+    expect(mountProviderContentPath(
+      { contentPath: '/intro', locale: 'de' },
+      translatedPolicy
+    )).toBe('/anleitung/intro')
+    expect(unmountProviderContentPath(
+      '/anleitung/intro',
+      'de',
+      translatedPolicy
+    )).toBe('/intro')
+  })
+
+  test('rejects provider paths outside their locale-specific mount', () => {
+    expect(() => unmountProviderContentPath(
+      '/guide/intro',
+      'de',
+      translatedPolicy
+    )).toThrow(RouteProjectionError)
+  })
+
   test('treats the root mount as no added path segment', () => {
     const rootPolicy: ResolvedCollectionLocalePolicy = {
       ...policy,
@@ -55,7 +77,10 @@ describe('projectContentRoute', () => {
     }
     expect(projectContentRoute({ contentPath: '/intro', locale: 'en' }, rootPolicy)).toBe('/intro')
     expect(projectContentRoute({ contentPath: '/intro', locale: 'de' }, rootPolicy)).toBe('/de/intro')
-    expect(lowerRouteToCandidates('/de/intro', rootPolicy, 'de')).toEqual([
+    expect(lowerRouteToCandidates('/de/intro', rootPolicy, {
+      requestedLocale: 'de',
+      localeChain: ['de', 'en']
+    })).toEqual([
       { locale: 'de', contentPath: '/intro' },
       { locale: 'en', contentPath: '/intro' }
     ])
@@ -64,16 +89,25 @@ describe('projectContentRoute', () => {
 
 describe('lowerRouteToCandidates', () => {
   test('produces ordered candidates using the fallback chain', () => {
-    const candidates = lowerRouteToCandidates('/fr/docs/intro', policy, 'fr')
+    const candidates = lowerRouteToCandidates('/fr/docs/intro', policy, {
+      requestedLocale: 'fr',
+      localeChain: ['fr', 'de', 'en']
+    })
     expect(candidates.map(candidate => candidate.locale)).toEqual(['fr', 'de', 'en'])
     for (const candidate of candidates) {
       expect(candidate.contentPath).toBe('/intro')
     }
   })
+
+  test('does not guess another locale mount for an unprefixed route', () => {
+    expect(lowerRouteToCandidates('/anleitung/intro', translatedPolicy, {
+      localeChain: ['en', 'de', 'fr']
+    })).toEqual([])
+  })
 })
 
 describe('buildRouteRecords', () => {
-  const facts: ContentProviderRouteFact[] = [
+  const facts: CanonicalRouteFact[] = [
     { collection: 'docs', canonicalKey: 'intro', locale: 'en', contentPath: '/intro' },
     { collection: 'docs', canonicalKey: 'intro', locale: 'de', contentPath: '/intro' }
   ]
@@ -95,7 +129,7 @@ describe('buildRouteRecords', () => {
   })
 
   test('duplicate/ambiguous projected paths raise a diagnostic with both identities and the path', () => {
-    const colliding: ContentProviderRouteFact[] = [
+    const colliding: CanonicalRouteFact[] = [
       { collection: 'docs', canonicalKey: 'a', locale: 'en', contentPath: '/intro' },
       { collection: 'docs', canonicalKey: 'b', locale: 'en', contentPath: '/intro' }
     ]
@@ -113,7 +147,7 @@ describe('buildRouteRecords', () => {
 
 describe('resolveContentRoute — real resolver round trip', () => {
   test('every projected path resolves back to its originating canonicalKey', () => {
-    const facts: ContentProviderRouteFact[] = [
+    const facts: CanonicalRouteFact[] = [
       { collection: 'docs', canonicalKey: 'intro', locale: 'en', contentPath: '/intro' },
       { collection: 'docs', canonicalKey: 'intro', locale: 'de', contentPath: '/intro' },
       { collection: 'docs', canonicalKey: 'setup', locale: 'en', contentPath: '/setup' }
@@ -135,7 +169,7 @@ describe('resolveContentRoute — real resolver round trip', () => {
 })
 
 describe('synthesizeAlternates', () => {
-  const variants: ContentProviderVariantFact[] = [
+  const variants: CanonicalVariantFact[] = [
     { collection: 'docs', canonicalKey: 'intro', locale: 'en', contentPath: '/intro' }
   ]
 
@@ -170,7 +204,7 @@ describe('synthesizeAlternates', () => {
   })
 
   test('multi-hop fallback prefers the first available chain member (de before en) when both exist', () => {
-    const withDe: ContentProviderVariantFact[] = [
+    const withDe: CanonicalVariantFact[] = [
       ...variants,
       { collection: 'docs', canonicalKey: 'intro', locale: 'de', contentPath: '/intro' }
     ]
@@ -206,7 +240,7 @@ describe('synthesizeAlternates', () => {
     // "setup" already owns /de/docs/setup for locale de. "intro" falling back
     // to en would only collide if its candidate path matched another
     // document's real path — construct that collision directly.
-    const collidingVariants: ContentProviderVariantFact[] = [
+    const collidingVariants: CanonicalVariantFact[] = [
       { collection: 'docs', canonicalKey: 'intro', locale: 'en', contentPath: '/setup' },
       { collection: 'docs', canonicalKey: 'setup', locale: 'de', contentPath: '/setup' }
     ]
@@ -250,12 +284,18 @@ describe('lowerRouteToCandidates — non-localized branch is mount-agnostic', ()
     const nonLocalizedPolicy: ResolvedCollectionLocalePolicy = {
       localized: false,
       locales: [],
+      defaultLocale: 'en',
       fallback: {},
       translatedSlugs: false,
       routeMounts: { default: '/blog' }
     }
-    const candidates = lowerRouteToCandidates('/blog/post', nonLocalizedPolicy)
-    expect(candidates).toEqual([{ locale: '', contentPath: '/post' }])
+    const candidates = lowerRouteToCandidates('/blog/post', nonLocalizedPolicy, {
+      localeChain: []
+    })
+    expect(candidates).toEqual([{ locale: 'en', contentPath: '/post' }])
+    expect(lowerRouteToCandidates('/docs/post', nonLocalizedPolicy, {
+      localeChain: []
+    })).toEqual([])
   })
 })
 
@@ -277,7 +317,7 @@ describe('integration round trip — real ginko-i18n translated-slug fixture', (
     routeMounts: { en: '/guide', de: '/leitfaden' }
   }
 
-  const translatedSlugVariants: ContentProviderVariantFact[] = [
+  const translatedSlugVariants: CanonicalVariantFact[] = [
     { collection: 'docs', canonicalKey: 'guide/getting-started', locale: 'en', contentPath: '/getting-started' },
     { collection: 'docs', canonicalKey: 'guide/getting-started', locale: 'de', contentPath: '/erste-schritte' }
   ]
@@ -309,7 +349,7 @@ describe('integration round trip — real ginko-i18n translated-slug fixture', (
   })
 
   test('a de-only variant falls back to en, still projected through the de mount, and resolves back to the same key', () => {
-    const deOnly: ContentProviderVariantFact[] = [translatedSlugVariants[0]!]
+    const deOnly: CanonicalVariantFact[] = [translatedSlugVariants[0]!]
     const { index } = buildRouteRecords(deOnly, ginkoI18nDocsPolicy)
     const alternates = synthesizeAlternates('guide/getting-started', deOnly, ginkoI18nDocsPolicy, index)
     const de = alternates.find(alt => alt.locale === 'de')
@@ -341,7 +381,7 @@ describe('benchmark: 1,000 documents, several locales, multi-hop fallback', () =
     }
 
     const documentCount = 1000
-    const allVariants: ContentProviderRouteFact[] = []
+    const allVariants: CanonicalRouteFact[] = []
     for (let i = 0; i < documentCount; i++) {
       // Every third document only has an English source, forcing fallback
       // walks for the rest of its locales.
@@ -358,7 +398,7 @@ describe('benchmark: 1,000 documents, several locales, multi-hop fallback', () =
 
     const start = performance.now()
     const { index } = buildRouteRecords(allVariants, benchPolicy)
-    const byCanonicalKey = new Map<string, ContentProviderVariantFact[]>()
+    const byCanonicalKey = new Map<string, CanonicalVariantFact[]>()
     for (const variant of allVariants) {
       const list = byCanonicalKey.get(variant.canonicalKey) ?? []
       list.push(variant)

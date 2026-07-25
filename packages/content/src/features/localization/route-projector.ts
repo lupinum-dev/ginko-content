@@ -16,11 +16,10 @@
 import type { ResolvedCollectionLocalePolicy } from './locale-policy'
 import {
   mountContentPath,
+  lowerRouteToCanonicalCandidates,
   normalizeContentPath,
   prefixPathWithLocale,
-  routeRemainder,
-  routeToContentPathCandidates,
-  type RouteMounts
+  routeRemainder
 } from '../../core/content/path'
 
 export class RouteProjectionError extends Error {
@@ -32,24 +31,25 @@ export class RouteProjectionError extends Error {
 
 /**
  * One concrete graph variant fact: a document that exists, in one locale,
- * with its own content. Used as the input to alternate synthesis and as the seed for `ContentProviderRouteFact` below.
+ * with its own content. Used as the input to alternate synthesis and as the
+ * seed for `CanonicalRouteFact` below.
  */
-export interface ContentProviderVariantFact {
+export interface CanonicalVariantFact {
   collection: string
   canonicalKey: string
   locale: string
-  /** Canonical, locale-agnostic, mount-agnostic content path (e.g. `/guide/intro`). */
+  /** Canonical, locale-prefix-free, mount-agnostic path for this locale (e.g. `/intro`). */
   contentPath: string
   draft?: boolean
 }
 
 /**
- * A structural route-eligible fact: a `ContentProviderVariantFact` plus the
+ * A structural route-eligible fact: a `CanonicalVariantFact` plus the
  * flags the projector and downstream sitemap/prerender/navigation surfaces
  * need to decide whether and how a document participates in public routing.
  * Data documents, partials, and navigation files never become route facts.
  */
-export interface ContentProviderRouteFact extends ContentProviderVariantFact {
+export interface CanonicalRouteFact extends CanonicalVariantFact {
   navigationFile?: boolean
   sitemap?: boolean
   sitemapMetadata?: import('../sitemap/metadata').ContentSitemapMetadata
@@ -97,19 +97,18 @@ export interface ResolvedRoute {
   contentPath: string
 }
 
-const mountsFor = (policy: ResolvedCollectionLocalePolicy, locale: string): RouteMounts => {
-  const mounts = policy.routeMounts
-  if (mounts[locale]) {
-    return mounts as RouteMounts
+const mountForLocale = (
+  policy: ResolvedCollectionLocalePolicy,
+  locale: string
+): string => {
+  const key = policy.localized ? locale : 'default'
+  const mount = policy.routeMounts[key]
+  if (typeof mount !== 'string' || mount.length === 0) {
+    throw new RouteProjectionError(
+      `Collection locale policy is missing the required route mount for "${key}".`
+    )
   }
-  if (Object.keys(mounts).length === 0) {
-    // No mount is configured for this collection at all (e.g. a data
-    // collection with no `route`) - there is nothing to synthesize a
-    // fallback from, so leave the mount absent rather than inventing '/'.
-    return mounts as RouteMounts
-  }
-  const fallbackMount = mounts.default ?? Object.values(mounts)[0]
-  return { ...mounts, [locale]: fallbackMount ?? '/' } as RouteMounts
+  return normalizeContentPath(mount)
 }
 
 /**
@@ -119,14 +118,43 @@ const mountsFor = (policy: ResolvedCollectionLocalePolicy, locale: string): Rout
  * graph facts into a public path.
  */
 export function projectContentRoute(
-  fact: Pick<ContentProviderVariantFact, 'contentPath' | 'locale'>,
+  fact: Pick<CanonicalVariantFact, 'contentPath' | 'locale'>,
   policy: ResolvedCollectionLocalePolicy
 ): string {
-  const mounts = mountsFor(policy, fact.locale)
-  const mounted = mountContentPath(fact.contentPath, fact.locale, mounts)
+  const mounted = mountProviderContentPath(fact, policy)
   return policy.localized
     ? prefixPathWithLocale(mounted, fact.locale, policy.defaultLocale)
     : mounted
+}
+
+/** Convert canonical identity into the mounted, non-locale-prefixed provider path. */
+export function mountProviderContentPath(
+  fact: Pick<CanonicalVariantFact, 'contentPath' | 'locale'>,
+  policy: ResolvedCollectionLocalePolicy
+): string {
+  const mount = mountForLocale(policy, fact.locale)
+  return mountContentPath(fact.contentPath, fact.locale, { [fact.locale]: mount })
+}
+
+/** Convert a provider path back to canonical identity without mount guessing. */
+export function unmountProviderContentPath(
+  contentPath: string,
+  locale: string,
+  policy: ResolvedCollectionLocalePolicy
+): string {
+  const normalizedPath = normalizeContentPath(contentPath)
+  const mount = mountForLocale(policy, locale)
+  if (
+    mount !== '/'
+    && normalizedPath !== mount
+    && !normalizedPath.startsWith(`${mount}/`)
+  ) {
+    throw new RouteProjectionError(
+      `Provider content path "${normalizedPath}" is outside the configured `
+      + `mount "${mount}" for locale "${locale}".`
+    )
+  }
+  return routeRemainder(normalizedPath, mount)
 }
 
 /**
@@ -138,39 +166,21 @@ export function projectContentRoute(
 export function lowerRouteToCandidates(
   route: string,
   policy: ResolvedCollectionLocalePolicy,
-  requestedLocale?: string
-): RouteCandidate[] {
-  if (!policy.localized) {
-    // Mount-agnostic contentPath contract: strip the collection mount here
-    // too, exactly like the localized branch below, so `contentPath` always
-    // means the same thing regardless of whether the collection localizes.
-    const mounts = policy.routeMounts as RouteMounts
-    const mount = mounts.default ?? Object.values(mounts)[0]
-    const contentPath = mount ? routeRemainder(route, mount) : normalizeContentPath(route)
-    return [{ locale: requestedLocale ?? policy.defaultLocale ?? '', contentPath }]
+  operation: {
+    requestedLocale?: string
+    localeChain: readonly string[]
   }
-
-  const localeChain = requestedLocale
-    ? [requestedLocale, ...(policy.fallback[requestedLocale] ?? [])]
-    : [...policy.locales]
-
-  const mounts = policy.routeMounts as RouteMounts
-  const mounted = routeToContentPathCandidates(
+): RouteCandidate[] {
+  const requestedLocale = operation.requestedLocale ?? policy.defaultLocale
+  const localeChain = policy.localized ? operation.localeChain : [requestedLocale]
+  return lowerRouteToCanonicalCandidates(
     route,
     requestedLocale,
     localeChain,
     policy.defaultLocale,
-    mounts
+    policy.localized ? policy.locales : [policy.defaultLocale],
+    locale => mountForLocale(policy, locale)
   )
-
-  // `routeToContentPathCandidates` returns paths with the per-locale mount
-  // still applied (its historical contract). This module's `contentPath` is
-  // mount-agnostic, so strip each candidate's own
-  // mount back off to keep the two notions of "content path" consistent.
-  return mounted.map(({ locale, path }) => {
-    const mount = mounts[locale]
-    return { locale, contentPath: mount ? routeRemainder(path, mount) : path }
-  })
 }
 
 /**
@@ -197,7 +207,7 @@ export interface RouteIndex {
  * canonical keys may never own the same concrete route.
  */
 export function buildRouteRecords(
-  facts: readonly ContentProviderRouteFact[],
+  facts: readonly CanonicalRouteFact[],
   policy: ResolvedCollectionLocalePolicy
 ): { records: ProjectedContentRouteRecord[], index: RouteIndex } {
   const records: ProjectedContentRouteRecord[] = []
@@ -269,7 +279,10 @@ export function resolveContentRoute(
     return exact
   }
 
-  for (const candidate of lowerRouteToCandidates(normalizedPath, policy, locale)) {
+  for (const candidate of lowerRouteToCandidates(normalizedPath, policy, {
+    requestedLocale: locale,
+    localeChain: [locale, ...(policy.fallback[locale] ?? [])]
+  })) {
     const resolved = index.byLocaleContentPath.get(
       `${candidate.locale} ${normalizeContentPath(candidate.contentPath)}`
     )
@@ -296,7 +309,7 @@ export function resolveContentRoute(
  */
 export function synthesizeAlternates(
   canonicalKey: string,
-  variants: readonly ContentProviderVariantFact[],
+  variants: readonly CanonicalVariantFact[],
   policy: ResolvedCollectionLocalePolicy,
   index: RouteIndex,
   options: { allowFallback?: boolean } = {}
@@ -330,7 +343,7 @@ export function synthesizeAlternates(
       const chain = policy.fallback[locale] ?? []
       const sourceVariant = chain
         .map(target => byLocale.get(target))
-        .find((candidate): candidate is ContentProviderVariantFact => Boolean(candidate))
+        .find((candidate): candidate is CanonicalVariantFact => Boolean(candidate))
       if (!sourceVariant) {
         // Missing source variant: this locale's whole fallback chain has no
         // concrete content to serve. Emit no candidate.

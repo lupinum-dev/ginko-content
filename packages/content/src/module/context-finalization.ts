@@ -40,11 +40,11 @@ export const registerContentContextFinalization = ({
       registerContentSearchServerHandlers(options.api.baseURL, contentContext.search, resolveRuntimeModule)
     }
 
-    contentContext.defaultLocale = contentContext.defaultLocale || contentContext.locales[0]
     const resolvedContentContext = {
       ...contentContext,
+      defaultLocale: contentContext.localePolicy.defaultLocale,
       markdown: processMarkdownOptions(contentContext.markdown)
-    }
+    } satisfies ResolvedContentContext
     // `resolvedContentContext` is embedded by reference into Nuxt/Nitro
     // runtime config below (module/runtime-config.ts spreads it into the
     // object Nitro normalizes) — Nitro's own runtime-config fallback-value

@@ -12,11 +12,10 @@ import type {
   ContentRouteRecord,
 } from './provider-contract'
 import type {
-  ContentProviderNavigationOptions,
   ContentProviderPaginationMode,
   ContentProviderQuery,
+  ContentProviderQueryPlan,
   ContentQueryPagination,
-  ContentQueryPlan,
 } from './provider-query'
 import { CONTENT_ROUTE_LIMITS } from '../core/provider-route-record'
 
@@ -55,15 +54,15 @@ export interface ContentDataSourceResult<T> {
   cache: ContentDataSourceCacheHint | false
 }
 
-type AllPlan = Omit<ContentQueryPlan, 'mode' | 'pagination'> & {
+type AllPlan = Omit<ContentProviderQueryPlan, 'mode' | 'pagination'> & {
   mode: 'all'
   pagination: ContentQueryPagination & { limit: number }
 }
-type FirstPlan = Omit<ContentQueryPlan, 'mode' | 'pagination'> & {
+type FirstPlan = Omit<ContentProviderQueryPlan, 'mode' | 'pagination'> & {
   mode: 'first'
   pagination: { mode: 'slice', skip: number, limit: 1 }
 }
-type CountPlan = Omit<ContentQueryPlan, 'mode' | 'pagination'> & {
+type CountPlan = Omit<ContentProviderQueryPlan, 'mode' | 'pagination'> & {
   mode: 'count'
   pagination: { mode: 'slice', skip: number, limit?: never }
 }
@@ -110,7 +109,7 @@ export interface ContentDataSource<Context> {
   navigation?(
     context: Context,
     query: BoundedContentProviderQuery,
-    options: ContentProviderNavigationOptions & { limit: number },
+    options: { readonly limit: number },
     control: ContentDataSourceControl,
   ): Promise<ContentDataSourceResult<ContentProviderNavigationItem[]>>
   surroundings?(

@@ -3,13 +3,11 @@ import type { ZodTypeAny } from 'zod'
 /**
  * Stable Zod metadata key used to identify authored content references.
  *
- * The value intentionally retains the original exported string so existing
- * consumers importing `CONTENT_REFERENCE_PREFIX` do not break.
+ * Reference identity lives in schema metadata, never in `.describe()` text.
+ * Prefer `reference()` or `withContentReferenceMetadata()` over writing this
+ * key by hand.
  */
-export const CONTENT_REFERENCE_METADATA_KEY = '__nuxt_content_ref__:'
-
-/** @deprecated Use `CONTENT_REFERENCE_METADATA_KEY`. */
-export const CONTENT_REFERENCE_PREFIX = CONTENT_REFERENCE_METADATA_KEY
+export const CONTENT_REFERENCE_METADATA_KEY = 'ginko:contentReference'
 
 export type ContentReferenceMetadata = {
   collection?: string

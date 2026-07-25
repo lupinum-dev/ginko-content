@@ -28,6 +28,22 @@ const runtimeContent = {
       localePolicy: {
         localized: false,
         locales: [],
+        defaultLocale: 'en',
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { default: '/docs' }
+      }
+    }
+  },
+  localePolicy: {
+    defaultLocale: 'en',
+    locales: ['en'],
+    fallback: {},
+    collections: {
+      docs: {
+        localized: false,
+        locales: [],
+        defaultLocale: 'en',
         fallback: {},
         translatedSlugs: false,
         routeMounts: { default: '/docs' }
@@ -153,9 +169,9 @@ describe('runtime cache API boundary (atomic publication)', () => {
     mocks.getContentProvider.mockResolvedValue({
       name: 'cms-demo',
       routes: vi.fn(async () => [
-        { collection: 'docs', canonicalKey: 'docs/guide', locale: 'en', contentPath: '/guide' },
-        { collection: 'docs', canonicalKey: 'docs/draft', locale: 'en', contentPath: '/draft', draft: true },
-        { collection: 'docs', canonicalKey: 'docs/private-map', locale: 'en', contentPath: '/private-map', sitemap: false }
+        { collection: 'docs', canonicalKey: 'docs/guide', locale: 'en', contentPath: '/docs/guide' },
+        { collection: 'docs', canonicalKey: 'docs/draft', locale: 'en', contentPath: '/docs/draft', draft: true },
+        { collection: 'docs', canonicalKey: 'docs/private-map', locale: 'en', contentPath: '/docs/private-map', sitemap: false }
       ])
     })
 

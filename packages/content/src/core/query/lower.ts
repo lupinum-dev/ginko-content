@@ -1,6 +1,6 @@
 /**
  * Lower `ContentProviderQueryInput` (the low-level compiler input)
- * into a `ContentQueryPlan` (the executor's AST — see `./plan.ts`).
+ * into a `LoweredQueryPlan` (the policy-neutral AST — see `./plan.ts`).
  *
  * Lowering is the single place we translate user-level shapes (`$eq`,
  * `$and`, sibling-key-as-`$and`) into the normalized tree the executor
@@ -18,7 +18,7 @@ import {
   CONTENT_QUERY_TYPE_VALUES,
   CONTENT_QUERY_VARIANT_SELECTOR_KEYS
 } from '../../types/query'
-import type { CompareOperator, ContentQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
+import type { CompareOperator, LoweredQueryPlan, FilterExpr, PlanRegex, SortClause } from './plan'
 import {
   assertSupportedQueryOperators,
   findUnsupportedPublicQueryOperator,
@@ -26,7 +26,7 @@ import {
   isValidQueryFieldPath,
   PROVIDER_QUERY_OPERATORS
 } from './operators'
-import { assertPublicPagingLimit, assertPublicQueryLimit, assertPublicQuerySkip, DEFAULT_PUBLIC_QUERY_LIMIT, MAX_PUBLIC_QUERY_CURSOR_BYTES } from './limits'
+import { assertPublicPagingLimit, assertPublicQueryLimit, assertPublicQuerySkip, DEFAULT_PUBLIC_QUERY_LIMIT, MAX_PROGRAMMATIC_QUERY_VALUE_DEPTH, MAX_PUBLIC_QUERY_CURSOR_BYTES } from './limits'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../json-value'
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -82,7 +82,15 @@ const assertNoUnknownKeys = (value: Record<string, unknown>, allowed: readonly s
  * round trip. Arrays and plain objects are walked because `$in` and object
  * equality can carry nested operands.
  */
-const normalizeQueryValue = (value: unknown, path: string, ancestors: WeakSet<object>): unknown => {
+const normalizeQueryValue = (
+  value: unknown,
+  path: string,
+  ancestors: WeakSet<object>,
+  depth = 0
+): unknown => {
+  if (depth > MAX_PROGRAMMATIC_QUERY_VALUE_DEPTH) {
+    invalid(path, `Content query value nesting exceeds the maximum depth of ${MAX_PROGRAMMATIC_QUERY_VALUE_DEPTH}.`)
+  }
   if (value instanceof RegExp) {
     assertSupportedRegexFlags(value.flags)
     return { __ginkoContentQueryValue: 'RegExp', source: value.source, flags: value.flags } satisfies PlanRegex
@@ -103,7 +111,7 @@ const normalizeQueryValue = (value: unknown, path: string, ancestors: WeakSet<ob
     }
     ancestors.add(value)
     try {
-      return value.map((child, index) => normalizeQueryValue(child, `${path}[${index}]`, ancestors))
+      return value.map((child, index) => normalizeQueryValue(child, `${path}[${index}]`, ancestors, depth + 1))
     }
     finally {
       ancestors.delete(value)
@@ -124,7 +132,7 @@ const normalizeQueryValue = (value: unknown, path: string, ancestors: WeakSet<ob
       ancestors.add(value)
       try {
         return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-          .map(([key, child]) => [key, normalizeQueryValue(child, `${path}.${key}`, ancestors)]))
+          .map(([key, child]) => [key, normalizeQueryValue(child, `${path}.${key}`, ancestors, depth + 1)]))
       }
       finally {
         ancestors.delete(value)
@@ -504,7 +512,7 @@ const assertQueryParamsShape = (params: ContentProviderQueryInput): void => {
 export const lowerQueryPlan = (
   params: ContentProviderQueryInput,
   options: { publicOperatorsOnly?: boolean } = {}
-): ContentQueryPlan => {
+): LoweredQueryPlan => {
   assertQueryParamsShape(params)
   // Validate the complete tree before interpreting plain objects as nested
   // field conditions. Otherwise a Map, Set, or class instance with no
@@ -542,6 +550,13 @@ export const lowerQueryPlan = (
   const resolveVariantExact = resolveVariant?.exact === true || resolveVariant?.fallback === false
     ? true
     : resolveVariant?.exact
+  const loweredVariantSelector = resolveVariant?.path
+    ? { by: 'path' as const, path: resolveVariant.path }
+    : resolveVariant?.route
+      ? { by: 'route' as const, route: resolveVariant.route }
+      : resolveVariant?.ref
+        ? { by: 'ref' as const, ref: resolveVariant.ref }
+        : undefined
   const limit = params.count
     ? undefined
     : params.first
@@ -578,11 +593,9 @@ export const lowerQueryPlan = (
           ...(resolveLocaleExact !== undefined ? { exact: resolveLocaleExact } : {})
         } }
       : {}),
-    ...(resolveVariant
+    ...(resolveVariant && loweredVariantSelector
       ? { variant: {
-          ...(resolveVariant.path ? { path: resolveVariant.path } : {}),
-          ...(resolveVariant.route ? { route: resolveVariant.route } : {}),
-          ...(resolveVariant.ref ? { ref: resolveVariant.ref } : {}),
+          ...loweredVariantSelector,
           ...(resolveVariant.locale !== undefined ? { locale: resolveVariant.locale } : {}),
           ...(!resolveVariantExact && Array.isArray(resolveVariant.fallback) ? { fallback: [...resolveVariant.fallback] } : {}),
           ...(resolveVariantExact !== undefined ? { exact: resolveVariantExact } : {})

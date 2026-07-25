@@ -10,7 +10,9 @@ import { executeQueryPlan } from '../../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
 import { normalizeContentQueryParams } from '../../packages/content/src/core/query/params'
 import { buildContentAlternates } from '../../packages/content/src/features/localization/results'
+import type { ResolvedCollectionLocalePolicy } from '../../packages/content/src/features/localization/locale-policy'
 import type { ParsedContent } from '../../packages/content/src/types/content'
+import { toCanonicalQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
 
 /**
  * The locale fallback chain executes against a real
@@ -24,6 +26,27 @@ const LOCALES = ['de-AT', 'de', 'en']
 const DEFAULT_LOCALE = 'en'
 // Configured fallback: de-AT falls back through de before the default en.
 const LOCALE_FALLBACK = { 'de-AT': ['de'] }
+const alternatePolicy: ResolvedCollectionLocalePolicy = {
+  localized: true,
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  fallback: { de: ['en'] },
+  translatedSlugs: true,
+  routeMounts: { en: '/guide', de: '/leitfaden' }
+}
+const executionPolicy: ResolvedCollectionLocalePolicy = {
+  localized: true,
+  locales: [...LOCALES, 'fr'],
+  defaultLocale: DEFAULT_LOCALE,
+  fallback: { 'de-AT': ['de', 'en'] },
+  translatedSlugs: false,
+  routeMounts: {
+    'de-AT': '/',
+    de: '/',
+    en: '/',
+    fr: '/'
+  }
+}
 
 const variant = (
   canonicalKey: string,
@@ -57,7 +80,10 @@ const graph = buildContentGraph([
 ], { locales: LOCALES, defaultLocale: DEFAULT_LOCALE })
 
 const resolveVariant = (path: string, locale: string) => {
-  const plan = lowerQueryPlan({ collection: 'docs', first: true, resolveVariant: { path, locale } } as never)
+  const plan = toCanonicalQueryPlan(
+    lowerQueryPlan({ collection: 'docs', first: true, resolveVariant: { path, locale } } as never),
+    executionPolicy
+  )
   const response = executeQueryPlan<ParsedContent>(graph, plan, {
     defaultLocale: DEFAULT_LOCALE,
     localeFallback: LOCALE_FALLBACK
@@ -260,7 +286,10 @@ describe('locale fallback execution and result shaping', () => {
     }
     const execute = (params: Record<string, unknown>) => executeQueryPlan<ParsedContent>(
       graph,
-      lowerQueryPlan(normalizeContentQueryParams(params as never, options)),
+      toCanonicalQueryPlan(
+        lowerQueryPlan(normalizeContentQueryParams(params as never, options)),
+        executionPolicy
+      ),
       {
         defaultLocale: DEFAULT_LOCALE,
         localeFallback: LOCALE_FALLBACK,
@@ -292,7 +321,11 @@ describe('locale fallback execution and result shaping', () => {
       defaultLocale: DEFAULT_LOCALE,
       localeFallback: LOCALE_FALLBACK
     })
-    const response = executeQueryPlan<ParsedContent>(graph, lowerQueryPlan(params), {
+    const plan = toCanonicalQueryPlan(
+      lowerQueryPlan(params),
+      executionPolicy
+    )
+    const response = executeQueryPlan<ParsedContent>(graph, plan, {
       defaultLocale: DEFAULT_LOCALE,
       localeFallback: LOCALE_FALLBACK,
       collections: { docs: { i18n: { locales: [...LOCALES, 'fr'], defaultLocale: DEFAULT_LOCALE } } }
@@ -374,11 +407,14 @@ describe('locale fallback execution and result shaping', () => {
       de: '/guide/vorschau'
     })
 
-    const routePlan = lowerQueryPlan({
-      collection: 'docs',
-      first: true,
-      resolveVariant: { path: '/guide/preview', locale: 'en' }
-    } as never)
+    const routePlan = toCanonicalQueryPlan(
+      lowerQueryPlan({
+        collection: 'docs',
+        first: true,
+        resolveVariant: { path: '/guide/preview', locale: 'en' }
+      } as never),
+      executionPolicy
+    )
     const publishedRoute = executeQueryPlan<ParsedContent>(visibilityGraph, routePlan, {
       ...options,
       includeDrafts: false
@@ -399,11 +435,9 @@ describe('locale fallback execution and result shaping', () => {
 
   test('document alternates never guess fallback routes for unrequested locales', () => {
     expect(buildContentAlternates(
-      { en: '/guide/solo' },
+      { en: '/solo' },
       'en',
-      'en',
-      ['en', 'de'],
-      { en: '/guide', de: '/leitfaden' }
+      alternatePolicy
     )).toEqual([
       { locale: 'en', path: '/guide/solo', source: 'variant' }
     ])
@@ -411,11 +445,9 @@ describe('locale fallback execution and result shaping', () => {
 
   test('document alternates include the fallback route proven by the current resolution', () => {
     expect(buildContentAlternates(
-      { en: '/guide/solo' },
+      { en: '/solo' },
       'en',
-      'en',
-      ['en', 'de'],
-      { en: '/guide', de: '/leitfaden' },
+      alternatePolicy,
       'de',
       '/de/leitfaden/solo'
     )).toEqual([
@@ -426,11 +458,9 @@ describe('locale fallback execution and result shaping', () => {
 
   test('a concrete requested-locale variant prevents a duplicate fallback entry', () => {
     expect(buildContentAlternates(
-      { en: '/guide/intro', de: '/leitfaden/einstieg' },
+      { en: '/intro', de: '/einstieg' },
       'en',
-      'en',
-      ['en', 'de'],
-      { en: '/guide', de: '/leitfaden' },
+      alternatePolicy,
       'de',
       '/de/leitfaden/einstieg'
     )).toEqual([
@@ -443,9 +473,7 @@ describe('locale fallback execution and result shaping', () => {
     expect(buildContentAlternates(
       undefined,
       'en',
-      'en',
-      ['en', 'de'],
-      { en: '/guide', de: '/leitfaden' },
+      alternatePolicy,
       'de',
       '/de/leitfaden/solo'
     )).toEqual([])

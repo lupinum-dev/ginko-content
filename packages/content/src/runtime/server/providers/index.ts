@@ -138,10 +138,10 @@ export const enforceProviderCapabilities = (provider: ContentProvider): ContentP
     return await provider.query(event, query)
   },
   navigation: provider.navigation
-    ? async (event, query, options) => {
+    ? async (event, query) => {
         assertJsonPureProviderQuery(provider, query)
         assertProviderQuerySupported(provider, query)
-        return await provider.navigation!(event, query, options)
+        return await provider.navigation!(event, query)
       }
     : undefined
 })
