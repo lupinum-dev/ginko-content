@@ -5,6 +5,7 @@ import { buildContentGraph } from '../core/content/graph'
 import { isContentSnapshot } from '../core/content/snapshot'
 import { assertFilesystemPreviewSupported, resolveRuntimeEnvironment } from '../core/visibility'
 import { isPreview } from '../integrations/nitro/preview'
+import { providerReferencePathAliases } from '../features/localization/reference-path'
 import { cacheStorage, contentConfig } from './driver'
 
 /**
@@ -71,9 +72,16 @@ const loadSnapshotState = async (event: H3Event, integrity: string): Promise<Pro
   }
 
   const config = contentConfig()
+  const localePolicies = config.localePolicy?.collections
   const graph = buildContentGraph(raw.documents, {
     locales: config.locales,
-    defaultLocale: config.defaultLocale
+    defaultLocale: config.defaultLocale,
+    ...(localePolicies
+      ? {
+          referencePathAliases: (document: ParsedContent) =>
+            providerReferencePathAliases(document, localePolicies)
+        }
+      : {})
   })
   return {
     graph,

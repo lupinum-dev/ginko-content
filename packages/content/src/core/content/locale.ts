@@ -73,7 +73,7 @@ const mergeLocaleOverride = <T>(base: T, override: unknown): T => {
 export const resolveLocaleChain = (
   requestedLocale: string | undefined,
   defaultLocale?: string,
-  fallback: Record<string, string[]> = {}
+  fallback: Readonly<Record<string, readonly string[]>> = {}
 ) => {
   const chain = [
     ...(requestedLocale ? [requestedLocale] : []),
@@ -190,3 +190,5 @@ export const expandDataLocaleVariants = (
 
   return variants
 }
+/** Physical locale identity used when content has no configured locale authority. */
+export const DEFAULT_CONTENT_LOCALE = 'en'

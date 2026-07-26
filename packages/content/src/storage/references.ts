@@ -7,7 +7,8 @@ import type {
 } from '../types/api'
 import type { ParsedContent } from '../types/content'
 import { collectMarkdownRefLinks, parseRefLink } from '../core/references/resolve'
-import { normalizeRouteMounts, projectContentPathToLocale } from '../features/localization/path'
+import { projectContentRoute } from '../features/localization/route-projector'
+import { resolveRuntimeCollectionLocalePolicy } from '../features/localization/config'
 import { contentConfig } from './driver'
 import { getContentGraph, resolveCanonicalKey, resolveVariant } from './graph'
 
@@ -91,13 +92,18 @@ const resolveDocumentRefLinks = async (
       const routeLocale =
         variant.fallback && requestedLocale ? requestedLocale : variant.resolvedLocale
       const targetCollection = graph.byId[variant.contentId]?.collection
-      const targetRoute = targetCollection
-        ? config.collections?.[targetCollection]?.route
+      const targetPolicy = targetCollection
+        ? resolveRuntimeCollectionLocalePolicy(targetCollection, config)
         : undefined
-      const targetMounts = normalizeRouteMounts(targetRoute, config.locales, config.defaultLocale)
+      if (!targetPolicy) {
+        throw new Error(`Missing resolved locale policy for content collection "${targetCollection || ''}".`)
+      }
       return [
         href,
-        `${projectContentPathToLocale(variant.path, routeLocale, config.defaultLocale, targetMounts)}${parsed.hash}`
+        `${projectContentRoute({
+          contentPath: variant.path,
+          locale: routeLocale || targetPolicy.defaultLocale
+        }, targetPolicy)}${parsed.hash}`
       ] as const
     })
   )

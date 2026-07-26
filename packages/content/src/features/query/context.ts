@@ -1,6 +1,7 @@
 import type { NavItem } from '../../types/content'
-import type { ContentQueryResponse } from '../../types/api'
+import type { ContentPublicQueryResponse } from '../../types/api'
 import type { ContentProviderQueryInput } from '../../types/query'
+import type { ResolvedCollectionLocalePolicy } from '../localization/locale-policy'
 
 export interface RuntimeContentConfig {
   locales?: string[]
@@ -8,6 +9,7 @@ export interface RuntimeContentConfig {
   localeFallback?: Record<string, string[]>
   collections?: Record<string, {
     i18n?: boolean | { locales?: string[], defaultLocale?: string }
+    localePolicy?: ResolvedCollectionLocalePolicy
     route?: string | Record<string, string>
     references?: Record<string, string[]>
   }>
@@ -31,5 +33,5 @@ export interface ContentQueryContext {
   transport: <T>(
     endpoint: ContentQueryEndpoint,
     params: ContentProviderQueryInput
-  ) => Promise<ContentQueryResponse<T> | NavItem[] | null>
+  ) => Promise<ContentPublicQueryResponse<T> | NavItem[]>
 }

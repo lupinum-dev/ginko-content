@@ -25,13 +25,14 @@ import { validateContentGraph } from '../../storage/validation'
 import { usesProcessSnapshot } from '../../storage/snapshot-runtime'
 import { resolveIncludeDrafts } from '../../core/visibility'
 import { isNavigationFile } from '../../core/content/structural'
-import { resolveCollectionI18n } from '../../features/localization/path'
+import { collectUnmatchedNavigationConfigDiagnostics } from '../../features/navigation/diagnostics'
+import { emitRuntimeDiagnostics } from '../../core/runtime-diagnostics'
 import type { ResolvedCollectionLocalePolicy } from '../../features/localization/locale-policy'
 import {
   buildRouteRecords,
   resolveContentRoute,
   synthesizeAlternates,
-  type ContentProviderRouteFact,
+  type CanonicalRouteFact,
   type ProjectedContentRouteRecord
 } from '../../features/localization/route-projector'
 import { countSitemapRoutes, resolveSitemapCollections } from '../../features/sitemap/counts'
@@ -39,6 +40,7 @@ import { extractSitemapMetadata } from '../../features/sitemap/metadata'
 import { chunksFromArray, loadContentVariants } from '../../storage/contents'
 import { cacheStorage, contentConfig, getSourceContentIds, sourceStorage } from './storage'
 import { validateContentLinks } from '../../features/validation/links'
+import { providerReferencePathAliases } from '../../features/localization/reference-path'
 import { CONTENT_VALIDATION_REPORT_VERSION, isContentValidationReport, type ContentValidationReport } from '../../features/validation/report'
 import { dirname, normalize, join } from 'pathe'
 
@@ -74,29 +76,14 @@ const resolveRouteCollections = (collections: Record<string, ContentCollectionCo
  * route mount is threaded through here, so this stays a pure
  * `{ locale }` to content-path projection from the canonical graph.
  */
-const routePolicyFor = (
-  collection: string,
-  contentContext: Pick<ResolvedContentContext, 'locales' | 'defaultLocale' | 'collections'>
-): ResolvedCollectionLocalePolicy => {
-  const { defaultLocale } = resolveCollectionI18n(collection, contentContext)
-  return {
-    localized: true,
-    locales: contentContext.locales || [],
-    defaultLocale,
-    fallback: {},
-    translatedSlugs: false,
-    routeMounts: {}
-  }
-}
-
 /**
  * One route fact per `{collection, canonicalKey, locale}` concrete variant,
  * deduped by canonical key (each canonical document is only visited once
  * even though it appears under every one of its locale variants' content
  * ids in `graph.byCollection`).
  */
-const collectRouteFacts = (graph: ContentGraph, collection: string): ContentProviderRouteFact[] => {
-  const facts: ContentProviderRouteFact[] = []
+const collectRouteFacts = (graph: ContentGraph, collection: string): CanonicalRouteFact[] => {
+  const facts: CanonicalRouteFact[] = []
   const seenCanonicalKeys = new Set<string>()
 
   for (const contentId of graph.byCollection[collection] || []) {
@@ -172,7 +159,7 @@ const createValidationReport = async (
  */
 const assertAlternateRoundTrips = (
   collection: string,
-  facts: ContentProviderRouteFact[],
+  facts: CanonicalRouteFact[],
   policy: ResolvedCollectionLocalePolicy,
   index: ReturnType<typeof buildRouteRecords>['index']
 ) => {
@@ -273,11 +260,18 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   // Step 7: build and validate the canonical graph.
   const graph = buildContentGraph(documents, {
     locales: contentContext.locales,
-    defaultLocale: contentContext.defaultLocale
+    defaultLocale: contentContext.defaultLocale,
+    referencePathAliases: document =>
+      providerReferencePathAliases(document, contentContext.localePolicy.collections)
   })
   const graphValidation = validateContentGraph(documents, contentContext)
   if (!graphValidation.ok) {
     throw graphValidation.error
+  }
+  if (contentContext.navigation !== false) {
+    emitRuntimeDiagnostics(collectUnmatchedNavigationConfigDiagnostics(documents, {
+      defaultLocale: contentContext.defaultLocale
+    }))
   }
 
   // Steps 8-10: per-collection locale policy, canonical route records (the
@@ -293,7 +287,10 @@ export const buildContentResult = async (event: H3Event): Promise<ContentBuildRe
   })
 
   for (const name of routeCollections) {
-    const policy = routePolicyFor(name, contentContext)
+    const policy = contentContext.localePolicy.collections[name]
+    if (!policy) {
+      throw new Error(`Missing resolved locale policy for content collection "${name}".`)
+    }
     const facts = collectRouteFacts(graph, name)
     const { records, index } = buildRouteRecords(facts, policy)
     assertAlternateRoundTrips(name, facts, policy, index)

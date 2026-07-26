@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { buildCanonicalNavigation } from '../../packages/content/src/features/navigation/build'
-import { getNavigationIdentity, markCollectionNavigationRoot, mergeCanonicalNavigation, projectNavigationTree } from '../../packages/content/src/features/navigation/canonical'
+import { getNavigationIdentity, mergeCanonicalNavigation, projectNavigationTree } from '../../packages/content/src/features/navigation/canonical'
 import { createCollectionSurroundings } from '../../packages/content/src/features/navigation/tree'
 
 describe('navigation tree contracts', () => {
@@ -10,22 +10,16 @@ describe('navigation tree contracts', () => {
         title: 'Installation',
         id: 'content:de:docs:getting-started:installation.md',
         file: { path: '/de/1.dokumentation/1.erste-schritte/installation.md' },
-        path: '/dokumentation/erste-schritte/installation',
-        canonicalKey: 'docs/getting-started/installation',
+        path: '/erste-schritte/installation',
+        canonicalKey: 'getting-started/installation',
         locale: 'de'
       } as any
     ], {}, [])
 
     expect(navigation[0]).toMatchObject({
-      title: 'Dokumentation',
-      navigationKind: 'folder',
-      canonicalKey: 'docs',
-      locale: 'de'
-    })
-    expect(navigation[0]?.children?.[0]).toMatchObject({
       title: 'Erste Schritte',
       navigationKind: 'folder',
-      canonicalKey: 'docs/getting-started',
+      canonicalKey: 'getting-started',
       locale: 'de'
     })
   })
@@ -94,52 +88,70 @@ describe('navigation tree contracts', () => {
     ])).toHaveLength(2)
   })
 
+  test('aligns synthetic folder identity after a route mount is removed from the canonical path', () => {
+    const navigation = buildCanonicalNavigation([{
+      id: 'content:en:1.guide:4.deep:1.nested.md',
+      title: 'Nested',
+      type: 'markdown',
+      path: '/deep/nested',
+      canonicalKey: '4/1',
+      locale: 'en',
+      partial: false,
+      file: { path: 'en/1.guide/4.deep/1.nested.md' }
+    }] as any, {})
+
+    expect(navigation[0]).toMatchObject({
+      title: 'Deep',
+      canonicalKey: '4',
+      navigationKind: 'folder'
+    })
+  })
+
   test('projects collection roots once and keeps synthetic folders pathless for surroundings', () => {
     const routeMounts = {
       en: '/docs',
       de: '/dokumentation'
     }
-    const canonicalNavigation = markCollectionNavigationRoot([
+    const localePolicy = {
+      localized: true,
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      fallback: {},
+      translatedSlugs: true,
+      routeMounts
+    } as const
+    const canonicalNavigation = [
       {
-        title: 'Dokumentation',
-        path: '/dokumentation',
-        canonicalKey: '1',
+        title: 'Arbeitsablaeufe',
+        path: '/arbeitsablaeufe',
+        canonicalKey: '2',
         navigationKind: 'folder',
         children: [
           {
-            title: 'Arbeitsablaeufe',
-            path: '/dokumentation/arbeitsablaeufe',
-            canonicalKey: '1/2',
-            navigationKind: 'folder',
-            children: [
-              {
-                title: 'Content Routing',
-                path: '/dokumentation/arbeitsablaeufe/content-routing',
-                canonicalKey: '1/2/1',
-                navigationKind: 'page'
-              },
-              {
-                title: 'Launch Checkliste',
-                path: '/dokumentation/arbeitsablaeufe/launch-checkliste',
-                canonicalKey: '1/2/2',
-                navigationKind: 'page'
-              }
-            ]
+            title: 'Content Routing',
+            path: '/arbeitsablaeufe/content-routing',
+            canonicalKey: '2/1',
+            navigationKind: 'page'
+          },
+          {
+            title: 'Launch Checkliste',
+            path: '/arbeitsablaeufe/launch-checkliste',
+            canonicalKey: '2/2',
+            navigationKind: 'page'
           }
         ]
       }
-    ], 'docs', { routeMounts })
+    ]
     const navigation = projectNavigationTree(canonicalNavigation, {
       collection: 'docs',
       locale: 'de',
-      defaultLocale: 'en',
-      routeMounts
+      localePolicy
     })
 
     expect(navigation).toHaveLength(1)
     expect(navigation[0]).toMatchObject({
       title: 'Arbeitsablaeufe',
-      canonicalKey: '1/2'
+      canonicalKey: '2'
     })
     expect(navigation[0]).not.toHaveProperty('path')
     expect(navigation[0]).not.toHaveProperty('path')

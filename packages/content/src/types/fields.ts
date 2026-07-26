@@ -1,6 +1,6 @@
 import { z, type ZodTypeAny } from 'zod'
 
-import { CONTENT_REFERENCE_PREFIX } from './reference'
+import { withContentReferenceMetadata } from './reference'
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
@@ -63,7 +63,7 @@ const datetimeSchema = z.preprocess(
   })
 )
 
-export const CONTENT_FIELD_METADATA_KEY = Symbol.for('lupinum.ginko-content.field-metadata')
+export const CONTENT_FIELD_METADATA_KEY = 'lupinum.ginko-content.field-metadata'
 
 export type ContentFieldMetadata = {
   type:
@@ -111,7 +111,6 @@ export type ContentFieldSchema<
   T extends ZodTypeAny = ZodTypeAny,
   TRequired extends ZodTypeAny = T,
 > = T & {
-  [CONTENT_FIELD_METADATA_KEY]?: ContentFieldMetadata
   required(): ContentFieldSchema<TRequired, TRequired>
   label(value: string | Record<string, string> | null): ContentFieldSchema<T, TRequired>
   help(value: string | null): ContentFieldSchema<T, TRequired>
@@ -120,23 +119,18 @@ export type ContentFieldSchema<
 }
 
 function readFieldMetadata (schema: unknown): ContentFieldMetadata | null {
-  const value = (schema as { [CONTENT_FIELD_METADATA_KEY]?: ContentFieldMetadata } | null)?.[
-    CONTENT_FIELD_METADATA_KEY
-  ]
+  if (!schema || typeof schema !== 'object' || !('meta' in schema)) return null
+  const readMeta = (schema as { meta?: () => Record<string, unknown> | undefined }).meta
+  if (typeof readMeta !== 'function') return null
+  const value = readMeta.call(schema)?.[CONTENT_FIELD_METADATA_KEY] as ContentFieldMetadata | undefined
   return value ? { ...value } : null
 }
 
 function writeFieldMetadata<T extends ZodTypeAny>(
   schema: T,
   metadata: ContentFieldMetadata,
-): ContentFieldSchema<T, T> {
-  Object.defineProperty(schema, CONTENT_FIELD_METADATA_KEY, {
-    configurable: true,
-    enumerable: false,
-    value: metadata,
-    writable: true,
-  })
-  return schema as ContentFieldSchema<T>
+): T {
+  return schema.meta({ [CONTENT_FIELD_METADATA_KEY]: metadata }) as T
 }
 
 function cloneMetadata (metadata: ContentFieldMetadata, patch: Partial<ContentFieldMetadata>) {
@@ -149,14 +143,26 @@ function decorate<T extends ZodTypeAny, TRequired extends ZodTypeAny = T>(
   requiredSchema: TRequired = schema as unknown as TRequired,
 ): ContentFieldSchema<T, TRequired> {
   const decorated = writeFieldMetadata(schema, metadata) as unknown as ContentFieldSchema<T, TRequired>
-  decorated.required = () => decorate(requiredSchema, cloneMetadata(metadata, { required: true })) as ContentFieldSchema<TRequired, TRequired>
-  decorated.label = (value) =>
-    decorate(schema, cloneMetadata(metadata, { label: value }), requiredSchema) as ContentFieldSchema<T, TRequired>
-  decorated.help = (value) =>
-    decorate(schema, cloneMetadata(metadata, { description: value }), requiredSchema) as ContentFieldSchema<T, TRequired>
-  decorated.localized = (value = true) =>
-    decorate(schema, cloneMetadata(metadata, { localized: value }), requiredSchema) as ContentFieldSchema<T, TRequired>
-  decorated.shared = () => decorate(schema, cloneMetadata(metadata, { localized: false }), requiredSchema) as ContentFieldSchema<T, TRequired>
+  Object.defineProperties(decorated, {
+    required: {
+      value: () => decorate(requiredSchema, cloneMetadata(metadata, { required: true })),
+    },
+    label: {
+      value: (value: string | Record<string, string> | null) =>
+        decorate(schema, cloneMetadata(metadata, { label: value }), requiredSchema),
+    },
+    help: {
+      value: (value: string | null) =>
+        decorate(schema, cloneMetadata(metadata, { description: value }), requiredSchema),
+    },
+    localized: {
+      value: (value = true) =>
+        decorate(schema, cloneMetadata(metadata, { localized: value }), requiredSchema),
+    },
+    shared: {
+      value: () => decorate(schema, cloneMetadata(metadata, { localized: false }), requiredSchema),
+    },
+  })
   return decorated
 }
 
@@ -165,8 +171,8 @@ function optionalField<T extends ZodTypeAny>(
   metadata: ContentFieldMetadata,
 ): ContentFieldSchema<z.ZodOptional<T>, T> {
   const optionalSchema = requiredSchema.optional()
-  writeFieldMetadata(requiredSchema, cloneMetadata(metadata, { required: true }))
-  return decorate(optionalSchema, cloneMetadata(metadata, { required: false }), requiredSchema)
+  const required = writeFieldMetadata(requiredSchema, cloneMetadata(metadata, { required: true }))
+  return decorate(optionalSchema, cloneMetadata(metadata, { required: false }), required)
 }
 
 function textLike (type: ContentFieldMetadata['type']) {
@@ -276,14 +282,14 @@ export const fields = {
     })
   },
   relation (collection: string) {
-    return optionalField(z.string().describe(`${CONTENT_REFERENCE_PREFIX}${collection}`), {
+    return optionalField(withContentReferenceMetadata(z.string(), collection), {
       type: 'relation',
       localized: false,
       relation: { collectionId: collection, multiple: false },
     })
   },
   relations (collection: string) {
-    return optionalField(z.array(z.string().describe(`${CONTENT_REFERENCE_PREFIX}${collection}`)), {
+    return optionalField(z.array(withContentReferenceMetadata(z.string(), collection)), {
       type: 'relations',
       localized: false,
       relation: { collectionId: collection, multiple: true },

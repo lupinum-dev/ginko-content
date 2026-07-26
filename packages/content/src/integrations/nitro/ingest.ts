@@ -4,7 +4,7 @@ import type { ParsedContent } from '../../types/content'
 import { useNitroApp } from 'nitropack/runtime'
 import { ContentError } from '../../core/errors'
 import { transformContent } from '../../parsers'
-import { resolveCollection, resolveCollections } from '../../core/content/collection'
+import { resolveCollections } from '../../core/content/collection'
 import { expandDataLocaleVariants } from '../../core/content/locale'
 import { createContentError, validateCollectionDocument, validateDocumentJsonPurity } from '../../storage/validation'
 import type { ParseContentOptions } from '../../types/runtime'
@@ -32,7 +32,11 @@ const parseSource = async (
       pathMeta: {
         ...options.pathMeta,
         collectionResolver: (filePath: string) =>
-          resolveCollection(filePath, options.pathMeta?.collections, options.pathMeta?.locales || [])
+          resolveCollections(
+            filePath,
+            options.pathMeta?.collections,
+            options.pathMeta?.locales || []
+          )[0]
       }
     })
   } catch (cause) {
@@ -133,11 +137,12 @@ export const parseContentVariants = async (
       yaml: runtimeContentConfig.yaml,
       transformers: customTransformers,
       pathMeta: {
-        defaultLocale: runtimeContentConfig.defaultLocale || undefined,
+        defaultLocale: runtimeContentConfig.defaultLocale,
         translatedSlugs: runtimeContentConfig.translatedSlugs,
         locales: runtimeContentConfig.locales,
         respectPathCase: runtimeContentConfig.respectPathCase,
-        collections: runtimeContentConfig.collections || undefined
+        collections: runtimeContentConfig.collections,
+        localePolicy: runtimeContentConfig.localePolicy.collections
       }
     }
   ) as unknown as ParseContentOptions
@@ -148,7 +153,11 @@ export const parseContentVariants = async (
   const parsedDocument = await parseSource(id, file.body, options)
   const variants = validateVariants(id, await expandLocaleVariants(parsedDocument, options), options)
   const parsed = variants[0]
-  const matchedCollections = resolveCollections(parsed?.file?.path || id, options.pathMeta?.collections, options.pathMeta?.locales || [])
+  const matchedCollections = resolveCollections(
+    parsed?.file?.path || id,
+    options.pathMeta?.collections,
+    options.pathMeta?.locales || []
+  )
   if (matchedCollections.length > 1) {
     throw createContentError(
       'CONFLICTING_COLLECTION_MATCH',

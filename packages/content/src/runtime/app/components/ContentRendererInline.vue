@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { hash } from 'ohash'
-import { parse } from 'comark'
 import { computed, onServerPrefetch, shallowRef, useAttrs, watch } from 'vue'
 import type { MarkdownRoot } from '../../../types/content'
 import { useRuntimeConfig, useState } from '#imports'
@@ -8,6 +7,7 @@ import MarkdownRenderer from './internal/MarkdownRenderer.js'
 import { useUnwrap } from '../composables/useUnwrap'
 import { resolveMarkdownPlugins, resolveMarkdownRendererComponents } from '../../markdown/plugins'
 import { toMarkdownRoot } from '../../../core/markdown/tree'
+import { parseComark } from '../../../core/markdown/parse-comark'
 import { loadContentComponentEntries } from '../../../integrations/vue/content-components'
 
 const props = defineProps({
@@ -72,7 +72,7 @@ const rendererAttrs = computed(() => {
 
 const refresh = async () => {
   const plugins = await resolveMarkdownPlugins(runtimeContent.markdown.plugins)
-  const parsed = await parse(props.value || '', { plugins })
+  const parsed = await parseComark(props.value || '', plugins)
   const body = unwrapRoot({
     ...toMarkdownRoot(parsed.nodes as any[])
   }, props.unwrap)

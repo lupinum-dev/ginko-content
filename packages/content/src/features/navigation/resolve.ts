@@ -7,7 +7,17 @@ export type ContentNavigationMatch = {
   title?: string
 }
 
-const normalizePath = (path: string) => path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path
+export type NavigationTreeNode<TChild = unknown> = {
+  path?: string
+  page?: boolean
+  children?: readonly TChild[]
+}
+
+export type NavigationPageNode<T> = T & {
+  path: string
+}
+
+export const normalizeNavigationPath = (path: string) => path !== '/' && path.endsWith('/') ? path.replace(/\/+$/, '') : path
 
 const stringValue = (value: unknown) => typeof value === 'string' && value.length ? value : undefined
 
@@ -31,7 +41,7 @@ const fieldMatches = (item: ContentNavigationItem, field: 'path' | 'unprefixedPa
   }
 
   if (field === 'path' || field === 'unprefixedPath') {
-    return normalizePath(candidate) === normalizePath(value)
+    return normalizeNavigationPath(candidate) === normalizeNavigationPath(value)
   }
 
   return candidate === value
@@ -61,14 +71,13 @@ export const matchesNavigationItem = (item: ContentNavigationItem, match: string
 }
 
 export const findFirstNavigationPage = <
-  T = ParsedContentMeta,
-  Select extends ReadonlyArray<keyof T | string> | undefined = undefined
+  T extends NavigationTreeNode<T> = ContentNavigationTreeItem<ParsedContentMeta>
 >(
-  items: ReadonlyArray<ContentNavigationTreeItem<T, Select>> | undefined = []
-): ResolvedContentNavigationItem<T, Select> | null => {
+  items: ReadonlyArray<T> | undefined = []
+): NavigationPageNode<T> | null => {
   for (const item of items) {
-    if ((item as ContentNavigationItem).page !== false && typeof item.path === 'string' && item.path.length > 0) {
-      return item as ResolvedContentNavigationItem<T, Select>
+    if (item.page !== false && typeof item.path === 'string' && item.path.length > 0) {
+      return item as NavigationPageNode<T>
     }
 
     const child = findFirstNavigationPage(item.children)
@@ -80,9 +89,57 @@ export const findFirstNavigationPage = <
   return null
 }
 
-export const findFirstNavigationChild = (item: ContentNavigationItem | null | undefined): ResolvedContentNavigationItem | null => {
-  return findFirstNavigationPage(item?.children || [])
+export function navigationItemContainsPath<T extends NavigationTreeNode<T>>(
+  item: T,
+  path: string
+): boolean {
+  const normalizedPath = normalizeNavigationPath(path)
+  return (
+    (item.page !== false && typeof item.path === 'string' && normalizeNavigationPath(item.path) === normalizedPath)
+    || Boolean(item.children?.some(child => navigationItemContainsPath(child, normalizedPath)))
+  )
 }
+
+export function findNavigationTrail<T extends NavigationTreeNode<T>>(
+  items: readonly T[] | undefined,
+  path: string
+): T[] {
+  const normalizedPath = normalizeNavigationPath(path)
+
+  for (const item of items || []) {
+    if (item.page !== false && typeof item.path === 'string' && normalizeNavigationPath(item.path) === normalizedPath) {
+      return [item]
+    }
+
+    const childTrail = findNavigationTrail(item.children, normalizedPath)
+    if (childTrail.length) {
+      return [item, ...childTrail]
+    }
+  }
+
+  return []
+}
+
+/**
+ * Visit navigation items in depth-first pre-order. Returning `false` from the
+ * visitor skips only the current item's children; it does not abort traversal.
+ */
+export function walkNavigationTree<T extends NavigationTreeNode<T>>(
+  items: readonly T[] | undefined,
+  visit: (item: T) => unknown
+): void {
+  for (const item of items || []) {
+    const shouldDescend = visit(item)
+    if (shouldDescend !== false) {
+      walkNavigationTree(item.children, visit)
+    }
+  }
+}
+
+export const findFirstNavigationChild = <
+  T extends NavigationTreeNode<T> = ContentNavigationItem
+>(item: T | null | undefined): NavigationPageNode<T> | null =>
+  findFirstNavigationPage(item?.children)
 
 export const findNavigationItem = (
   items: ContentNavigationItem[] = [],
@@ -123,6 +180,6 @@ export const resolveNavigationFirstPages = (items: ContentNavigationItem[] = [])
 
 export const resolveNavigationFirstChildren = (items: ContentNavigationItem[] = []): ResolvedContentNavigationItem[] => {
   return items
-    .map(item => findFirstNavigationChild(item))
+    .map(item => findFirstNavigationChild(item) as ResolvedContentNavigationItem | null)
     .filter((item): item is ResolvedContentNavigationItem => Boolean(item))
 }

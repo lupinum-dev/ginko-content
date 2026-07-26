@@ -17,6 +17,11 @@ export const registerContentServerHandlers = (
       : options.sitemap
 
   addServerHandler({
+    middleware: true,
+    handler: resolveRuntimeModule('./server/middleware/preview.js')
+  })
+
+  addServerHandler({
     method: 'get',
     route: `${options.api.baseURL}/query/**:params`,
     handler: resolveRuntimeModule('./server/api/query.js')

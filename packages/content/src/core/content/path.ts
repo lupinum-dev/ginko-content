@@ -180,20 +180,32 @@ export const normalizeRouteMounts = (
   return entries.length ? Object.fromEntries(entries) : undefined
 }
 
-export const longestMountForPath = (path: string, mounts: RouteMounts) => {
-  const normalized = normalizeContentPath(path)
-  return Object.entries(mounts)
-    .filter(([, mount]) => normalized === mount || normalized.startsWith(`${mount}/`))
-    .sort((a, b) => b[1].length - a[1].length)[0]
-}
-
 export const routeRemainder = (path: string, mount: string) => {
   const normalizedPath = normalizeContentPath(path)
   const normalizedMount = normalizeContentPath(mount)
+  if (normalizedMount === '/') {
+    return normalizedPath
+  }
   if (normalizedPath === normalizedMount) {
     return '/'
   }
   return normalizeContentPath(normalizedPath.slice(normalizedMount.length) || '/')
+}
+
+/**
+ * Remove a configured route mount from a filesystem-derived path when that
+ * exact mount is present. Source layouts are allowed to live elsewhere, so
+ * unlike provider unmounting this operation leaves non-matching paths intact.
+ */
+export const canonicalizeSourcePath = (path: string, mount?: string) => {
+  const normalizedPath = normalizeContentPath(path)
+  const normalizedMount = mount ? normalizeContentPath(mount) : '/'
+  const removesMount = normalizedMount !== '/'
+    && (normalizedPath === normalizedMount || normalizedPath.startsWith(`${normalizedMount}/`))
+  return {
+    path: removesMount ? routeRemainder(normalizedPath, normalizedMount) : normalizedPath,
+    removedSegments: removesMount ? normalizedMount.split('/').filter(Boolean).length : 0
+  }
 }
 
 export const mountContentPath = (
@@ -206,7 +218,11 @@ export const mountContentPath = (
     return normalizeContentPath(remainder)
   }
   const suffix = normalizeContentPath(remainder)
-  return normalizeContentPath(suffix === '/' ? mount : `${mount}${suffix}`)
+  const normalizedMount = normalizeContentPath(mount)
+  if (normalizedMount === '/') {
+    return suffix
+  }
+  return normalizeContentPath(suffix === '/' ? normalizedMount : `${normalizedMount}${suffix}`)
 }
 
 const isLocalePrefixedPath = (path: string, locales: string[]) => {
@@ -245,6 +261,44 @@ export const stripLocalePrefix = (
   return { locale, path: routePath }
 }
 
+export const lowerRouteToCanonicalCandidates = (
+  route: string,
+  requestedLocale: string | undefined,
+  localeChain: readonly string[],
+  defaultLocale: string,
+  locales: readonly string[],
+  mountForLocale: (locale: string) => string
+) => {
+  const stripped = stripLocalePrefix(route, [...locales], defaultLocale, requestedLocale)
+  const activeLocale = stripped.locale || requestedLocale || defaultLocale
+  const activeMount = normalizeContentPath(mountForLocale(activeLocale))
+  const path = normalizeContentPath(stripped.path)
+  const matchesExpectedMount = activeMount === '/'
+    || path === activeMount
+    || path.startsWith(`${activeMount}/`)
+  if (!matchesExpectedMount) {
+    return []
+  }
+  const contentPath = routeRemainder(path, activeMount)
+  return localeChain.map(locale => ({
+    locale,
+    contentPath
+  }))
+}
+
+/**
+ * Released CMS-contract adapter returning mounted provider coordinates.
+ *
+ * This function GUESSES: it unions locales from the mount map, the requested
+ * chain, and the default locale, and it substitutes `/` for any locale with no
+ * declared mount. The content engine deliberately does not call it — route
+ * lowering goes through `lowerRouteToCandidates`
+ * (`features/localization/route-projector.ts`), which validates the resolved
+ * locale's configured mount and fails instead of substituting one.
+ *
+ * It exists only so CMS adapters compiled against the released contract keep
+ * working. New code should use the resolved collection locale policy.
+ */
 export const routeToContentPathCandidates = (
   route: string,
   requestedLocale: string | undefined,
@@ -253,21 +307,21 @@ export const routeToContentPathCandidates = (
   mounts?: RouteMounts
 ) => {
   const locales = Array.from(new Set([...Object.keys(mounts || {}), ...localeChain, defaultLocale].filter(Boolean) as string[]))
-  const stripped = stripLocalePrefix(route, locales, defaultLocale, requestedLocale)
   if (!mounts) {
+    const stripped = stripLocalePrefix(route, locales, defaultLocale, requestedLocale)
     return localeChain.map(locale => ({ locale, path: stripped.path }))
   }
 
-  const activeLocale = stripped.locale || requestedLocale || defaultLocale
-  const activeMount = activeLocale ? mounts[activeLocale] : undefined
-  const matchedMount = activeMount && (stripped.path === activeMount || stripped.path.startsWith(`${activeMount}/`))
-    ? activeMount
-    : longestMountForPath(stripped.path, mounts)?.[1]
-  const remainder = matchedMount ? routeRemainder(stripped.path, matchedMount) : stripped.path
-
-  return localeChain.map(locale => ({
-    locale,
-    path: mountContentPath(remainder, locale, mounts)
+  return lowerRouteToCanonicalCandidates(
+    route,
+    requestedLocale,
+    localeChain,
+    defaultLocale || localeChain[0] || '',
+    locales,
+    locale => mounts[locale] || '/'
+  ).map(candidate => ({
+    locale: candidate.locale,
+    path: mountContentPath(candidate.contentPath, candidate.locale, mounts)
   }))
 }
 

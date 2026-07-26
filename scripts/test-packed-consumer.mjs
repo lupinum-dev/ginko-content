@@ -1,9 +1,11 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { parsePackageManagerVersion } from './lib/release-artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const cliArgs = process.argv.slice(2)
@@ -17,8 +19,6 @@ const packageManager = optionValue('--package-manager', 'pnpm')
 if (!['pnpm', 'npm'].includes(packageManager)) {
   throw new Error(`Unsupported package manager ${packageManager}; expected pnpm or npm.`)
 }
-const buildOnly = cliArgs.includes('--build-only')
-
 function resolveReleaseTarball() {
   const explicit = optionValue('--tarball')
   if (explicit) {
@@ -39,6 +39,7 @@ function resolveReleaseTarball() {
 
 const nodeImportableSubpaths = [
   '@lupinum/ginko-content/config',
+  '@lupinum/ginko-content/navigation',
   '@lupinum/ginko-content/provider',
   '@lupinum/ginko-content/data-source',
   '@lupinum/ginko-content/portability',
@@ -63,6 +64,7 @@ const expectedDeclarations = [
   'dist/public/server.d.ts',
   'dist/public/provider.d.ts',
   'dist/public/data-source.d.ts',
+  'dist/public/navigation.d.ts',
   'dist/portability/index.d.ts',
   'dist/portability-node/index.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
@@ -235,6 +237,10 @@ async function main() {
     mkdirSync(appDir, { recursive: true })
     const tarball = resolveReleaseTarball()
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
+    const packageManagerVersion = parsePackageManagerVersion(
+      runAndCapture(packageManager, ['--version'], appDir),
+      packageManager,
+    )
     console.log(`Testing exact release tarball with ${packageManager}: ${tarball} (sha256 ${tarballSha256})`)
     assertNoWorkspaceRanges(tarball, tempRoot)
     const installedTarball = join(tempRoot, 'artifacts', `${tarballSha256}.tgz`)
@@ -265,6 +271,7 @@ async function main() {
     mkdirSync(resolve(appDir, 'pages'), { recursive: true })
     mkdirSync(resolve(appDir, 'server/api'), { recursive: true })
     mkdirSync(resolve(appDir, 'server/plugins'), { recursive: true })
+    mkdirSync(resolve(appDir, 'server/providers'), { recursive: true })
     mkdirSync(resolve(appDir, 'scripts'), { recursive: true })
 
     writeFile(resolve(appDir, 'nuxt.config.ts'), `
@@ -274,13 +281,17 @@ async function main() {
           url: 'https://packed-consumer.example.test',
           name: 'Packed Consumer'
         },
+        routeRules: {
+          '/cache-live': { prerender: false }
+        },
         content: {
+          cache: '~/server/content-cache',
           agent: {
             linkHeaders: true,
             markdownNegotiation: true
           },
           search: {
-            engine: 'pagefind'
+            engine: 'provider'
           },
           sitemap: true,
           validation: 'report'
@@ -306,6 +317,10 @@ async function main() {
       })
 
       export default defineContentConfig({
+        provider: 'memory',
+        providers: {
+          memory: '~/server/providers/memory'
+        },
         agent: {
           site: {
             title: 'Packed Consumer',
@@ -331,6 +346,164 @@ title: Package Consumer Page
 
 The packed package rendered this page.
 
+    `)
+
+    writeFile(resolve(appDir, 'server/providers/memory.ts'), `
+      import {
+        CONTENT_DATA_SOURCE_LIMITS,
+        createContentDataSourceError,
+        type ContentDataSource
+      } from '@lupinum/ginko-content/data-source'
+      import { bindContentProvider } from '@lupinum/ginko-content/provider'
+
+      const documents = [
+        {
+          collection: 'pages',
+          canonicalKey: 'pages:index',
+          locale: 'en',
+          contentPath: '/',
+          body: null,
+          title: 'Package Consumer Page'
+        },
+        {
+          collection: 'pages',
+          canonicalKey: 'pages:second',
+          locale: 'en',
+          contentPath: '/second',
+          body: null,
+          title: 'Second Page'
+        }
+      ] as const
+
+      const cache = {
+        tags: ['content:pages'],
+        paths: ['/'],
+        maxAge: 60,
+        swr: 30,
+        etag: 'packed-fixture-v1',
+        lastModified: 1_700_000_000_000
+      }
+
+      const source = {
+        name: 'memory',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: {
+            operators: ['$eq'],
+            pagination: ['offset', 'cursor'],
+            maxPageSize: CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize
+          }
+        },
+        async query(_context, query) {
+          const serialized = JSON.stringify(query.plan)
+          if (serialized.includes('/provider-failure')) {
+            throw createContentDataSourceError('BACKEND_FAILURE')
+          }
+          const selected = serialized.includes('/missing')
+            ? []
+            : serialized.includes('/second')
+              ? [documents[1]]
+              : [...documents]
+          if (query.plan.mode === 'count') return { data: { result: selected.length }, cache }
+          if (query.plan.mode === 'first') return { data: { result: selected[0] }, cache }
+          if (query.plan.pagination.mode === 'cursor') {
+            const start = query.plan.pagination.after === 'page-2' ? 1 : 0
+            const result = selected.slice(start, start + query.plan.pagination.limit)
+            return {
+              data: {
+                mode: 'cursor',
+                result,
+                limit: query.plan.pagination.limit,
+                pageInfo: {
+                  endCursor: start + result.length < selected.length ? 'page-2' : null,
+                  hasNext: start + result.length < selected.length
+                }
+              },
+              cache
+            }
+          }
+          const skip = query.plan.pagination.skip
+          const limit = query.plan.pagination.limit ?? 0
+          return {
+            data: {
+              ...(query.plan.pagination.mode === 'offset' ? { mode: 'offset' as const } : {}),
+              result: limit ? selected.slice(skip, skip + limit) : selected.slice(skip),
+              skip,
+              limit,
+              total: selected.length
+            },
+            cache
+          }
+        },
+        async navigation() {
+          return {
+            data: documents.map(document => ({
+              title: document.title,
+              route: {
+                collection: document.collection,
+                canonicalKey: document.canonicalKey,
+                locale: document.locale,
+                contentPath: document.contentPath
+              }
+            })),
+            cache
+          }
+        },
+        async search(_context, request) {
+          return {
+            data: documents.slice(0, request.limit).map((document, index) => ({
+              title: document.title,
+              excerpt: 'Packed provider search result',
+              score: 1 - index / 10,
+              route: {
+                collection: document.collection,
+                canonicalKey: document.canonicalKey,
+                locale: document.locale,
+                contentPath: document.contentPath
+              }
+            })),
+            cache
+          }
+        },
+        async siteData(_context, request) {
+          return {
+            data: {
+              key: request.key,
+              locale: request.locale ?? null,
+              data: { fixture: 'packed-memory' },
+              updatedAt: 1_700_000_000_000
+            },
+            cache
+          }
+        },
+        async routes(_context, request) {
+          const start = request.cursor === 'route-2' ? 1 : 0
+          const items = documents.slice(start, start + 1).map(document => ({
+            collection: document.collection,
+            canonicalKey: document.canonicalKey,
+            locale: document.locale,
+            contentPath: document.contentPath
+          }))
+          return {
+            data: {
+              items,
+              nextCursor: start === 0 ? 'route-2' : null,
+              snapshot: 'packed-route-inventory-v1'
+            },
+            cache
+          }
+        }
+      } satisfies ContentDataSource<{ requestId: string }>
+
+      export default bindContentProvider({
+        source,
+        createContext: async () => ({ requestId: 'packed-consumer' })
+      })
+    `)
+
+    writeFile(resolve(appDir, 'server/content-cache.ts'), `
+      import { headersContentCache } from '@lupinum/ginko-content/server'
+      export default headersContentCache()
     `)
 
     writeFile(
@@ -368,8 +541,61 @@ The packed package rendered this page.
       </script>
 
       <template>
-        <ContentRenderer v-if="page" :value="page" />
+        <main><h1>{{ page?.title }}</h1></main>
       </template>
+    `)
+
+    writeFile(resolve(appDir, 'server/api/query-contract.get.ts'), `
+      import { many, one, paginate } from '@lupinum/ginko-content/server'
+      import { pages } from '../../content.config'
+
+      export default defineEventHandler(async (event) => ({
+        found: await one(event, pages, { by: { path: '/' } }),
+        missing: await one(event, pages, { by: { path: '/missing' } }),
+        list: await many(event, pages, { limit: 2 }),
+        cursorFirst: await paginate(event, pages, { mode: 'cursor', after: null, limit: 1 }),
+        cursorSecond: await paginate(event, pages, { mode: 'cursor', after: 'page-2', limit: 1 })
+      }))
+    `)
+
+    writeFile(resolve(appDir, 'server/api/ofetch-contract.get.ts'), `
+      const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
+
+      export default defineEventHandler(async (event) => {
+        const missing = encode({ collection: 'pages', where: [{ path: '/missing' }], first: true })
+        return await event.$fetch('/api/_content/query/packed/' + missing + '.json')
+      })
+    `)
+
+    writeFile(resolve(appDir, 'pages/missing.vue'), `
+      <script setup lang="ts">
+      import { useContentPage } from '#imports'
+      import { pages } from '../content.config'
+
+      const { page } = await useContentPage(pages)
+      </script>
+
+      <template><main>{{ page == null ? 'Missing document' : 'Unexpected document' }}</main></template>
+    `)
+
+    writeFile(resolve(appDir, 'pages/second.vue'), `
+      <script setup lang="ts">
+      import { useContentPage } from '#imports'
+      import { pages } from '../content.config'
+
+      const { page } = await useContentPage(pages)
+      </script>
+
+      <template><main><h1>{{ page?.title }}</h1></main></template>
+    `)
+
+    writeFile(resolve(appDir, 'pages/cache-live.vue'), `
+      <script setup lang="ts">
+      import { one } from '@lupinum/ginko-content/client'
+      import { pages } from '../content.config'
+      const page = await one(pages, { by: { path: '/' } })
+      </script>
+      <template><main>{{ page?.title }}</main></template>
     `)
 
     writeFile(resolve(appDir, 'pages/import-smoke.vue'), `
@@ -468,12 +694,39 @@ The packed package rendered this page.
       throw new Error(`Packed CLI help does not expose content validation:\n${cliHelp}`)
     }
 
-    const validationOutput = packageExecAndCapture('ginko-content', ['validate', appDir], appDir)
-    if (!validationOutput.includes('Ginko Content validation: ok')) {
-      throw new Error(`Packed CLI did not validate the report produced by the build:\n${validationOutput}`)
-    }
+    const filesystemDir = resolve(tempRoot, 'filesystem-check')
+    mkdirSync(resolve(filesystemDir, 'content'), { recursive: true })
+    symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
+    writeFile(resolve(filesystemDir, 'package.json'), JSON.stringify({ type: 'module', private: true }, null, 2))
+    writeFile(resolve(filesystemDir, 'nuxt.config.ts'), `
+      export default defineNuxtConfig({
+        modules: ['@lupinum/ginko-content'],
+        content: {
+          agent: false,
+          search: { engine: 'pagefind' },
+          sitemap: false,
+          validation: 'report'
+        },
+        compatibilityDate: '2026-04-14'
+      })
+    `)
+    writeFile(resolve(filesystemDir, 'content.config.ts'), `
+      import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
+      export const pages = defineCollection({ type: 'page', source: '*.md' })
+      export default defineContentConfig({ collections: { pages } })
+    `)
+    writeFile(resolve(filesystemDir, 'content/index.md'), `
+---
+title: Pagefind Package Check
+---
 
-    const pagefindDir = resolve(appDir, '.output/public/pagefind')
+# Pagefind Package Check
+    `)
+    packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
+      /could not be resolved[\s\S]*treating it as an external dependency/i
+    ])
+
+    const pagefindDir = resolve(filesystemDir, '.output/public/pagefind')
     const pagefindManifestPath = resolve(pagefindDir, 'ginko-locales.json')
     if (!existsSync(resolve(pagefindDir, 'pagefind.js')) || !existsSync(pagefindManifestPath)) {
       throw new Error('Packed consumer build did not emit Pagefind entry and locale manifest artifacts')
@@ -481,11 +734,6 @@ The packed package rendered this page.
     const pagefindManifest = JSON.parse(readFileSync(pagefindManifestPath, 'utf8'))
     if (pagefindManifest.version !== 1 || pagefindManifest.defaultLocale !== 'en' || pagefindManifest.indexes?.en !== 'pagefind.js') {
       throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(pagefindManifest)}`)
-    }
-
-    if (buildOnly) {
-      console.log(`Packed consumer ${packageManager} prepare/typecheck/build, CLI validation, and Pagefind artifact checks passed.`)
-      return
     }
 
     const port = 4599
@@ -508,11 +756,111 @@ The packed package rendered this page.
     if (!pageResponse.ok || !html.includes('Package Consumer Page')) {
       throw new Error(`Packed consumer page failed: ${pageResponse.status}\n${html.slice(0, 500)}`)
     }
+    const cachePageResponse = await fetch(`${baseURL}/cache-live`)
+    const cachePageBody = await cachePageResponse.text()
+    if (
+      !cachePageResponse.ok ||
+      !cachePageBody.includes('Package Consumer Page') ||
+      !cachePageResponse.headers.get('cache-control')?.includes('max-age=60')
+    ) {
+      throw new Error(`Live SSR page omitted provider cache metadata: ${cachePageResponse.status} ${cachePageResponse.headers.get('cache-control')}`)
+    }
+
+    const encodeQuery = value => Buffer.from(JSON.stringify(value)).toString('base64url')
+    const queryUrl = params => `${baseURL}/api/_content/query/packed/${encodeQuery(params)}.json`
+    const readJsonResponse = async (response, label) => {
+      const body = await response.text()
+      if (!response.ok) throw new Error(`${label} failed: ${response.status}\n${body.slice(0, 500)}`)
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error(`${label} did not return JSON: ${response.headers.get('content-type')}`)
+      }
+      if (!body) throw new Error(`${label} returned an unexpected empty body`)
+      return JSON.parse(body)
+    }
+
+    const foundResponse = await fetch(queryUrl({ collection: 'pages', where: [{ path: '/' }], first: true }))
+    const foundBody = await readJsonResponse(foundResponse, 'found first query')
+    if (foundBody.result?.title !== 'Package Consumer Page') {
+      throw new Error(`Found first query returned an invalid envelope: ${JSON.stringify(foundBody)}`)
+    }
+    const missingResponse = await fetch(queryUrl({ collection: 'pages', where: [{ path: '/missing' }], first: true }))
+    const missingBody = await readJsonResponse(missingResponse, 'missing first query')
+    if (missingResponse.status !== 200 || Object.keys(missingBody).join() !== 'result' || missingBody.result !== null) {
+      throw new Error(`Missing first query did not return { result: null }: ${JSON.stringify(missingBody)}`)
+    }
+
+    const listBody = await readJsonResponse(
+      await fetch(queryUrl({ collection: 'pages', limit: 2 })),
+      'list query'
+    )
+    if (!Array.isArray(listBody.result) || listBody.result.length !== 2) {
+      throw new Error(`List query returned an invalid envelope: ${JSON.stringify(listBody)}`)
+    }
+
+    const serverQueryBody = await readJsonResponse(await fetch(`${baseURL}/api/query-contract`), 'server query contract')
+    if (
+      serverQueryBody.found?.title !== 'Package Consumer Page' ||
+      serverQueryBody.missing !== null ||
+      serverQueryBody.list?.length !== 2 ||
+      serverQueryBody.cursorFirst?.endCursor !== 'page-2' ||
+      serverQueryBody.cursorSecond?.data?.[0]?.title !== 'Second Page'
+    ) {
+      throw new Error(`Server one/many/paginate contract failed: ${JSON.stringify(serverQueryBody)}`)
+    }
+
+    const ofetchBody = await readJsonResponse(await fetch(`${baseURL}/api/ofetch-contract`), '$fetch query contract')
+    if (ofetchBody.result !== null) {
+      throw new Error(`$fetch did not preserve the missing result envelope: ${JSON.stringify(ofetchBody)}`)
+    }
+
+    const missingPageResponse = await fetch(`${baseURL}/missing`)
+    const missingPageHtml = await missingPageResponse.text()
+    if (!missingPageResponse.ok || !missingPageHtml.includes('Missing document')) {
+      throw new Error(`Client-facing missing query failed: ${missingPageResponse.status}\n${missingPageHtml.slice(0, 500)}`)
+    }
+
+    const providerFailureResponse = await fetch(queryUrl({
+      collection: 'pages',
+      where: [{ path: '/provider-failure' }],
+      first: true
+    }))
+    const providerFailureText = await providerFailureResponse.text()
+    if (
+      providerFailureResponse.status !== 502 ||
+      !providerFailureText.includes('BACKEND_FAILURE') ||
+      providerFailureText.includes('memory')
+    ) {
+      throw new Error(`Provider failure was not sanitized: ${providerFailureResponse.status}\n${providerFailureText.slice(0, 500)}`)
+    }
 
     const navigationResponse = await fetch(`${baseURL}/api/_content/navigation?collection=pages`)
     const navigationBody = await navigationResponse.text()
     if (!navigationResponse.ok || !navigationBody.includes('"path":"/"')) {
       throw new Error(`Packed consumer content API failed: ${navigationResponse.status}\n${navigationBody.slice(0, 500)}`)
+    }
+
+    const searchBody = await readJsonResponse(
+      await fetch(`${baseURL}/api/_content/search?q=Package`),
+      'search query'
+    )
+    if (!Array.isArray(searchBody)) {
+      throw new TypeError(`Packed consumer search returned an invalid response: ${JSON.stringify(searchBody)}`)
+    }
+
+    const siteDataBody = await readJsonResponse(
+      await fetch(`${baseURL}/api/_content/site-data?key=settings`),
+      'site-data query'
+    )
+    if (siteDataBody.data?.fixture !== 'packed-memory') {
+      throw new Error(`Packed consumer site data did not use the in-memory provider: ${JSON.stringify(siteDataBody)}`)
+    }
+
+    const sitemapApiBody = await readJsonResponse(
+      await fetch(`${baseURL}/api/_content/sitemap`),
+      'sitemap route enumeration'
+    )
+    if (!Array.isArray(sitemapApiBody) || sitemapApiBody.length !== 2) {
+      throw new Error(`Packed consumer route enumeration lost routes: ${JSON.stringify(sitemapApiBody)}`)
     }
 
     const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
@@ -543,7 +891,18 @@ The packed package rendered this page.
       throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
     }
 
-    console.log(`Packed consumer ${packageManager} test passed.`)
+    writeFileSync(
+      resolve(dirname(tarball), `release-lane-consumer-${packageManager}.json`),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        status: 'passed',
+        sha256: tarballSha256,
+        node: process.version,
+        packageManager,
+        packageManagerVersion
+      }, null, 2)}\n`
+    )
+    console.log(`Packed consumer ${packageManager} ${packageManagerVersion} test passed.`)
   } finally {
     if (server && server.exitCode === null) {
       await stopServer(server)

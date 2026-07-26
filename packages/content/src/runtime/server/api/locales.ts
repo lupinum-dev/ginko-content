@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
             collection,
             canonicalKey: resolved.canonicalKey,
             locale: String(doc.locale),
-            contentPath: doc.path
+            contentPath: doc.contentPath
           }, runtime)
         }))
     : []

@@ -91,7 +91,11 @@ export const registerStaticOutputGeneration = ({
           const response = await localFetch(searchRuntime.indexURL)
 
           if (!response.ok) {
-            throw new Error(`Failed to generate search index: [${response.status}] ${response.statusText}`)
+            const details = await response.text()
+            throw new Error(
+              `Failed to generate search index: [${response.status}] ${response.statusText}`
+              + (details ? `\n${details}` : '')
+            )
           }
 
           const json = await response.text()

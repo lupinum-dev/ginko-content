@@ -3,10 +3,14 @@ import type { ContentCollectionConfig } from '../types/config'
 import { buildReferenceTargets, normalizeReferenceValue } from '../core/references/resolve'
 import { getObjectShape, getReferenceDescriptor, getSchemaDef, getSchemaTypeName, unwrapSchema } from '../core/references/schema'
 import { collectTranslatedSlugValidationIssues } from '../features/localization/translated-slugs'
+import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
+import { projectContentRoute } from '../features/localization/route-projector'
+import { providerReferencePathAliases } from '../features/localization/reference-path'
 import { ContentError, type ContentErrorCode } from '../core/errors'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
 import { fail, ok, type Result } from '../core/result'
 import { isNavigationFile } from '../core/content/structural'
+import { isNavigationSidebar, NAVIGATION_SIDEBAR_VALUES } from '../types/navigation'
 
 /**
  * Graph- and document-level validators.
@@ -136,8 +140,45 @@ const internalDocumentFields = new Set([
 const toUserContentDocument = (document: ParsedContent) =>
   Object.fromEntries(Object.entries(document).filter(([key]) => !internalDocumentFields.has(key)))
 
-const validateNavigationDocument = (document: ParsedContent): Result<void, ContentError> => {
-  if (!isNavigationFile(document)) {
+const invalidNavigationSidebarPath = (document: ParsedContent): string | undefined => {
+  if (typeof document.sidebar !== 'undefined' && !isNavigationSidebar(document.sidebar)) {
+    return 'sidebar'
+  }
+
+  const navigation = document.navigation
+  if (navigation && typeof navigation === 'object' && !Array.isArray(navigation)) {
+    const sidebar = (navigation as Record<string, unknown>).sidebar
+    if (typeof sidebar !== 'undefined' && !isNavigationSidebar(sidebar)) {
+      return 'navigation.sidebar'
+    }
+  }
+
+  return undefined
+}
+
+const validateNavigationDocument = (
+  document: ParsedContent,
+  collections: Record<string, ContentCollectionConfig>
+): Result<void, ContentError> => {
+  const navigationFile = isNavigationFile(document)
+  const collection = document.collection ? collections[document.collection] : undefined
+  const pageDocument = document.type === 'markdown' && collection?.type !== 'data'
+  if (!navigationFile && !pageDocument) {
+    return ok(undefined)
+  }
+
+  const invalidSidebarPath = invalidNavigationSidebarPath(document)
+  if (invalidSidebarPath) {
+    const acceptedValues = NAVIGATION_SIDEBAR_VALUES.map(value => `"${value}"`).join(' or ')
+    return fail(createContentError(
+      navigationFile ? 'INVALID_NAVIGATION_YAML' : 'INVALID_NAVIGATION_METADATA',
+      document.file?.path || document.id,
+      navigationFile ? 'malformed .navigation.yml' : 'invalid navigation metadata',
+      `${invalidSidebarPath} must be ${acceptedValues}`
+    ))
+  }
+
+  if (!navigationFile) {
     return ok(undefined)
   }
 
@@ -192,14 +233,15 @@ export const getCanonicalContentId = (document: ParsedContent, locales: string[]
  * - Strict collections (default): schema errors produce a `SCHEMA_VALIDATION_FAILED`
  *   failure.
  *
- * Also chains into `validateNavigationDocument` for `navigationFile: true` files,
- * which can fail with `INVALID_NAVIGATION_YAML`.
+ * Also validates core-owned navigation metadata on pages and navigation files.
+ * Invalid page metadata fails with `INVALID_NAVIGATION_METADATA`; malformed
+ * navigation files preserve the existing `INVALID_NAVIGATION_YAML` code.
  */
 export const validateCollectionDocument = (
   document: ParsedContent,
   collections: Record<string, ContentCollectionConfig> = {}
 ): Result<ParsedContent, ContentError> => {
-  const navigationResult = validateNavigationDocument(document)
+  const navigationResult = validateNavigationDocument(document, collections)
   if (!navigationResult.ok) {
     return navigationResult
   }
@@ -300,7 +342,13 @@ export const validateDocumentJsonPurity = (
  */
 export const validateContentGraph = (
   contents: ParsedContent[],
-  config: { collections?: Record<string, ContentCollectionConfig>, locales?: string[], translatedSlugs?: boolean, strictTranslatedSlugs?: boolean }
+  config: {
+    collections?: Record<string, ContentCollectionConfig>
+    locales?: string[]
+    translatedSlugs?: boolean
+    strictTranslatedSlugs?: boolean
+    localePolicy?: ResolvedLocalePolicy
+  }
 ): Result<void, ContentError> => {
   const locales = config.locales || []
   const docs = contents.filter(content => content && content.path)
@@ -313,6 +361,7 @@ export const validateContentGraph = (
   const targetCollections = new Map<string, Set<string>>()
   const markdownVariantsByCanonicalKey = new Map<string, ParsedContent[]>()
   const refsByValue = new Map<string, ParsedContent>()
+  const localePolicies = config.localePolicy?.collections
 
   for (const document of routeEntries) {
     const canonicalId = document.canonicalKey || getCanonicalContentId(document, locales)
@@ -326,7 +375,13 @@ export const validateContentGraph = (
   for (const collection of new Set(routeEntries.map(document => document.collection || 'content'))) {
     referenceTargetsByCollection.set(
       collection,
-      buildReferenceTargets(routeEntries.filter(document => (document.collection || 'content') === collection), locales)
+      buildReferenceTargets(
+        routeEntries.filter(document => (document.collection || 'content') === collection),
+        locales,
+        localePolicies
+          ? document => providerReferencePathAliases(document, localePolicies)
+          : undefined
+      )
     )
   }
   const targetCollectionsByIdentity = new Map<string, string[]>()
@@ -394,13 +449,22 @@ export const validateContentGraph = (
     }
     idsByLocale.set(localeKey, document)
 
-    const pathKey = `${document.locale || ''}:${document.path || ''}`
+    const policy = document.collection
+      ? config.localePolicy?.collections[document.collection]
+      : undefined
+    const publicPath = policy
+      ? projectContentRoute({
+        contentPath: document.path || '/',
+          locale: document.locale || policy.defaultLocale
+        }, policy)
+      : document.path || ''
+    const pathKey = policy ? publicPath : `${document.locale || ''}:${publicPath}`
     if (pathsByLocale.has(pathKey)) {
       const previous = pathsByLocale.get(pathKey)!
       return fail(createContentError(
         'DUPLICATE_LOCALIZED_PATH',
         document.file?.path || document.id,
-        `duplicate localized path "${document.path}" for locale "${document.locale || 'default'}"`,
+        `duplicate localized path "${publicPath}" for locale "${document.locale || 'default'}"`,
         `conflicts with ${previous.file?.path || previous.id}`
       ))
     }

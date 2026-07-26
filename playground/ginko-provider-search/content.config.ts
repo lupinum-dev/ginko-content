@@ -6,6 +6,11 @@ const providerModule = new URL('./server/provider.ts', import.meta.url).href
 export const docs = defineCollection({
   type: 'page',
   source: 'docs/**/*.md',
+  i18n: true,
+  route: {
+    en: '/docs',
+    de: '/dokumentation'
+  },
   strict: true,
   schema: z.object({
     title: z.string()

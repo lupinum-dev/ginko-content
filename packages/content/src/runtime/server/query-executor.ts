@@ -1,6 +1,6 @@
 import { createError, type H3Event } from 'h3'
 import type { ContentQueryFindResponse, ContentQueryResponse } from '../../types/api'
-import type { ContentQueryPlan, FilterExpr } from '../../core/query/plan'
+import type { CanonicalQueryPlan, FilterExpr } from '../../core/query/plan'
 import { isPlanRegex } from '../../core/query/plan'
 import { executeQueryPlan } from '../../core/query/execute'
 import { ContentError, type ContentErrorCode } from '../../core/errors'
@@ -10,7 +10,7 @@ import { getContentGraph } from '../../storage/graph'
 import { getContentRuntimeConfig } from './runtime-config'
 import { isPreview } from '../../integrations/nitro/preview'
 
-const notFound = (plan: ContentQueryPlan, description = 'Could not find document for the given query.') => {
+const notFound = (plan: CanonicalQueryPlan, description = 'Could not find document for the given query.') => {
   throw createError({
     statusMessage: 'Document not found!',
     statusCode: 404,
@@ -33,7 +33,7 @@ const statusForContentError: Partial<Record<ContentErrorCode, number>> = {
   INVALID_REF_VALUE: 422
 }
 
-const toHttpError = (error: ContentError, plan: ContentQueryPlan) => createError({
+const toHttpError = (error: ContentError, plan: CanonicalQueryPlan) => createError({
   statusCode: statusForContentError[error.code] ?? 500,
   statusMessage: error.code,
   message: error.message,
@@ -99,7 +99,7 @@ const andPlanFilters = (base: FilterExpr, ...extra: FilterExpr[]): FilterExpr =>
  * it, applied here because the filesystem operator surface is fully known
  * (a generic third-party provider is not — see `createProviderQuery`).
  */
-const applyFilesystemQueryPolicy = (plan: ContentQueryPlan, includeDrafts: boolean): ContentQueryPlan => {
+const applyFilesystemQueryPolicy = (plan: CanonicalQueryPlan, includeDrafts: boolean): CanonicalQueryPlan => {
   if (!plan.collection) {
     badQuery('Public content queries must target a collection.')
   }
@@ -123,7 +123,14 @@ const applyFilesystemQueryPolicy = (plan: ContentQueryPlan, includeDrafts: boole
   }
 }
 
-export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputPlan: ContentQueryPlan): Promise<ContentQueryResponse<T>> => {
+const requestedVariantLocale = (plan: CanonicalQueryPlan): string | undefined => {
+  const variant = plan.variant
+  return variant?.by === 'route' || variant?.by === 'ref'
+    ? variant.requestedLocale
+    : variant?.locale
+}
+
+export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event, inputPlan: CanonicalQueryPlan): Promise<ContentQueryResponse<T>> => {
   // Fail before any query dispatch touches the sealed snapshot. `getContentGraph` enforces this same guard for every other
   // filesystem-backed consumer (navigation, sitemap, search, agent output);
   // asserting it here too keeps the untrusted HTTP boundary's failure
@@ -159,12 +166,12 @@ export const executeFilesystemContentQuery = async <T = unknown>(event: H3Event,
     return response as ContentQueryResponse<T>
   }
 
-  const requestedLocale = plan.resolveVariant?.locale || plan.resolveLocale?.locale
+  const requestedLocale = requestedVariantLocale(plan) || plan.resolveLocale?.locale
 
   if (plan.mode === 'first') {
     const content = response.result
     if (!content) {
-      notFound(plan, plan.resolveVariant ? 'Could not find document for the given route variant.' : undefined)
+      notFound(plan, plan.variant ? 'Could not find document for the given route variant.' : undefined)
     }
 
     return {

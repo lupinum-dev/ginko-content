@@ -5,7 +5,7 @@ Use this when adding Ginko Content to a Nuxt app or creating the first collectio
 ## Install
 
 ```bash
-pnpm add @lupinum/ginko-content@next
+pnpm add @lupinum/ginko-content
 ```
 
 Add the module:
@@ -38,7 +38,7 @@ export default defineContentConfig({
 
 ```vue
 <script setup lang="ts">
-import { pages } from '~/content.config'
+import { pages } from '~~/content.config'
 
 const { page } = await useContentPage(pages)
 </script>

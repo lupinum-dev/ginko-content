@@ -10,7 +10,29 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const runtimeContent = {
-  collections: { docs: { type: 'page' } },
+  collections: {
+    docs: {
+      type: 'page',
+      localePolicy: {
+        localized: false,
+        locales: [],
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { default: '/' }
+      }
+    }
+  },
+  localePolicy: {
+    collections: {
+      docs: {
+        localized: false,
+        locales: [],
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { default: '/' }
+      }
+    }
+  },
   locales: ['en'],
   defaultLocale: 'en',
   translatedSlugs: false,

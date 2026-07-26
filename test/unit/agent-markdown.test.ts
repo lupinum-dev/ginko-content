@@ -1,58 +1,30 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ParsedContent } from '../../packages/content/src/types/content'
-
-const markdownBody = (children: NonNullable<ParsedContent['body']>['children']): ParsedContent['body'] => ({
-  type: 'root',
-  children
-})
-
-const providerDocumentFor = (page: Partial<ParsedContent> & Record<string, unknown>) => {
-  const {
-    path,
-    resolved: _resolved,
-    variants: _variants,
-    localePaths: _localePaths,
-    unprefixedPath: _unprefixedPath,
-    dir: _dir,
-    route: _route,
-    resolution: _resolution,
-    ...providerFields
-  } = page
-  const collection = String(page.collection || 'docs')
-  const locale = String(page.locale || 'en')
-  const contentPath = String(path || '/')
-  return {
-    ...providerFields,
-    collection,
-    canonicalKey: String(page.canonicalKey || `${collection}:${contentPath.replace(/^\//, '')}`),
-    locale,
-    contentPath,
-    routeVariants: [{ locale, contentPath }],
-    body: page.body ?? null
-  }
-}
-
-const providerListResponse = (query: any, documents: unknown[]) => {
-  const skip = query.plan.paging?.mode === 'offset' ? query.plan.paging.skip : query.plan.skip ?? 0
-  const limit = query.plan.limit ?? query.plan.paging?.limit ?? 100
-  return { result: documents.slice(skip, skip + limit), skip, limit, total: documents.length }
-}
-
-const providerForPage = (page: Partial<ParsedContent> & Record<string, unknown>) => ({
-  name: 'fixture',
-  query: async (_event: unknown, query: any) => {
-    const document = providerDocumentFor(page)
-    if (query.plan.mode === 'first') return { result: document }
-    if (query.plan.mode === 'count') return { result: 1 }
-    return providerListResponse(query, [document])
-  }
-})
+import {
+  markdownBody,
+  providerForPage
+} from './_agent-fixture'
 
 describe('agent markdown', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubGlobal('__ginkoTestRuntimeConfig', {
-      content: { collections: { docs: { type: 'page' } } }
+      content: {
+        defaultLocale: 'en',
+        collections: {
+          docs: {
+            type: 'page',
+            localePolicy: {
+              localized: false,
+              locales: [],
+              defaultLocale: 'en',
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
+      }
     })
   })
 
@@ -110,6 +82,7 @@ describe('agent markdown', () => {
     const query = vi.fn()
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: { type: 'page' }
         }
@@ -141,6 +114,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -222,6 +196,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         markdown: {
           tags: {
             card: 'MdcCard'
@@ -282,6 +257,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -327,6 +303,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -372,6 +349,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -439,6 +417,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -490,6 +469,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -531,6 +511,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -601,6 +582,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -664,6 +646,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -720,6 +703,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -755,6 +739,7 @@ describe('agent markdown', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        defaultLocale: 'en',
         collections: {
           docs: {
             type: 'page',
@@ -778,301 +763,4 @@ describe('agent markdown', () => {
     expect(resolved?.markdown).toContain('no agent markdown serializer yet')
   })
 
-  test('does not render markdown bodies while building the agent page index', async () => {
-    const query = vi.fn(async (_event, providerQuery) => providerListResponse(providerQuery, [
-        providerDocumentFor({
-          path: '/docs/intro',
-          title: 'Intro',
-          description: 'Start here.',
-          body: markdownBody([
-            { type: 'element', tag: 'expensive-component' }
-          ])
-        })
-      ]))
-
-    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
-      contentConfig: () => ({
-        defaultLocale: 'en',
-        locales: ['en'],
-        agent: {
-          site: {
-            title: 'Docs',
-            description: 'Docs site.',
-            url: 'https://example.test'
-          },
-          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
-        },
-        collections: {
-          docs: {
-            type: 'page',
-            route: '/docs',
-            agent: { section: 'docs', markdown: true }
-          }
-        }
-      })
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({ query })
-    }))
-
-    const { clearAgentMarkdownSerializers, registerAgentMarkdownSerializer } = await import('../../packages/content/src/runtime/server/agent-markdown')
-    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
-    const serializer = vi.fn(() => 'rendered')
-
-    clearAgentMarkdownSerializers()
-    registerAgentMarkdownSerializer('expensive-component', serializer)
-
-    const pages = await buildAgentPageIndex({ node: { req: { headers: {} } } } as any)
-
-    expect(pages).toHaveLength(1)
-    expect(pages[0]).toMatchObject({
-      path: '/docs/intro',
-      rawPath: '/raw/docs/intro.md',
-      markdownPath: '/docs/intro/index.md'
-    })
-    expect(serializer).not.toHaveBeenCalled()
-    expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      plan: expect.objectContaining({
-        projection: expect.objectContaining({ only: expect.not.arrayContaining(['body']) })
-      })
-    }))
-  })
-
-  test('collects only raw markdown and llms prerender routes', async () => {
-    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
-      contentConfig: () => ({
-        defaultLocale: 'en',
-        locales: ['en'],
-        agent: {
-          site: {
-            title: 'Docs',
-            description: 'Docs site.',
-            url: 'https://example.test'
-          },
-          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
-        },
-        collections: {
-          docs: {
-            type: 'page',
-            route: '/docs',
-            agent: { section: 'docs', markdown: true }
-          }
-        }
-      })
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        query: async (_event: unknown, providerQuery: any) => providerListResponse(providerQuery, [
-            providerDocumentFor({
-              path: '/docs/intro',
-              file: { path: 'content/docs/intro.md' },
-              title: 'Intro'
-            })
-          ])
-      })
-    }))
-
-    const { collectAgentMarkdownPrerenderRoutes } = await import('../../packages/content/src/runtime/server/agent-site')
-
-    await expect(collectAgentMarkdownPrerenderRoutes({ node: { req: { headers: {} } } } as any)).resolves.toEqual([
-      '/raw/docs/intro.md',
-      '/llms.txt',
-      '/llms-full.txt'
-    ])
-  })
-
-  test('uses the source-locale public route for localized fallback agent pages', async () => {
-    const query = vi.fn(async (_event, params) => {
-      // Providers receive the lowered wire query, not builder params.
-      expect(params).toEqual(expect.objectContaining({
-        v: 3,
-        plan: expect.objectContaining({
-          resolveLocale: expect.objectContaining({ locale: 'de' }),
-          projection: expect.objectContaining({
-            only: expect.arrayContaining(['file', 'title', 'description'])
-          })
-        })
-      }))
-
-      return providerListResponse(params, [
-          providerDocumentFor({
-            path: '/guide/advanced',
-            locale: 'en',
-            file: { path: 'en/1.guide/2.advanced.md' },
-            title: 'Advanced'
-          })
-        ])
-    })
-
-    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
-      contentConfig: () => ({
-        defaultLocale: 'en',
-        locales: ['en', 'de'],
-        agent: {
-          site: {
-            title: 'Docs',
-            description: 'Docs site.',
-            url: 'https://example.test'
-          },
-          sections: [{ id: 'docs', title: { en: 'Docs', de: 'Dokumentation' }, order: 10 }]
-        },
-        collections: {
-          docs: {
-            type: 'page',
-            route: {
-              en: '/guide',
-              de: '/leitfaden'
-            },
-            i18n: {
-              defaultLocale: 'en',
-              locales: ['en', 'de']
-            },
-            agent: { section: 'docs', markdown: true }
-          }
-        }
-      })
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({ query })
-    }))
-
-    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
-
-    await expect(buildAgentPageIndex({ node: { req: { headers: {} } } } as any, 'de')).resolves.toEqual([
-      expect.objectContaining({
-        path: '/de/guide/advanced',
-        rawPath: '/raw/de/guide/advanced.md',
-        markdownPath: '/de/guide/advanced/index.md',
-        locale: 'de'
-      })
-    ])
-  })
-
-  test('fails clearly when app-owned and content-owned agent pages share a route', async () => {
-    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
-      contentConfig: () => ({
-        defaultLocale: 'en',
-        locales: ['en'],
-        agent: {
-          site: {
-            title: 'Docs',
-            description: 'Docs site.',
-            url: 'https://example.test'
-          },
-          pages: [
-            {
-              id: 'intro',
-              route: '/docs/intro',
-              section: 'docs',
-              title: 'App Intro',
-              description: 'App intro.',
-              render: () => '# App Intro'
-            }
-          ],
-          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
-        },
-        collections: {
-          docs: {
-            type: 'page',
-            route: '/docs',
-            agent: { section: 'docs', markdown: true }
-          }
-        }
-      })
-    }))
-    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
-      getContentProvider: async () => ({
-        query: async (_event: unknown, providerQuery: any) => providerListResponse(providerQuery, [
-            providerDocumentFor({
-              path: '/docs/intro',
-              title: 'Content Intro',
-              description: 'Content intro.'
-            })
-          ])
-      })
-    }))
-
-    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
-
-    await expect(buildAgentPageIndex({ node: { req: { headers: {} } } } as any)).rejects.toThrow(
-      /Duplicate agent route "\/docs\/intro"/
-    )
-  })
-
-  test('validates agent section references and production site url', async () => {
-    const { hasAgentSurface, validateAgentConfig } = await import('../../packages/content/src/module/agent-config')
-
-    expect(hasAgentSurface({
-      collections: {
-        docs: { type: 'page' }
-      }
-    } as any)).toBe(false)
-    expect(hasAgentSurface({
-      collections: {
-        docs: { type: 'page', agent: { markdown: true } }
-      }
-    } as any)).toBe(true)
-
-    expect(() => validateAgentConfig({
-      agent: {
-        site: {
-          title: 'Docs',
-          description: 'Docs site.',
-          url: 'https://example.test'
-        },
-        sections: [{ id: 'docs', title: 'Docs' }],
-        pages: []
-      },
-      collections: {
-        docs: { type: 'page', agent: { section: 'missing', markdown: true } }
-      }
-    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
-      /unknown Ginko agent section "missing"/
-    )
-
-    expect(() => validateAgentConfig({
-      agent: {
-        site: {
-          title: 'Docs',
-          description: 'Docs site.'
-        },
-        sections: [{ id: 'docs', title: 'Docs' }],
-        pages: []
-      },
-      collections: {
-        docs: { type: 'page', agent: { section: 'docs', markdown: true } }
-      }
-    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
-      /requires agent\.site\.url/
-    )
-  })
-
-  test('parses markdown Accept headers and respects q=0', async () => {
-    const { acceptsMarkdown } = await import('../../packages/content/src/runtime/server/agent-http')
-
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/markdown;q=0, text/html;q=1' } } } } as any)).toBe(false)
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/html, text/markdown;q=0.7' } } } } as any)).toBe(false)
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: '*/*;q=0.1' } } } } as any)).toBe(false)
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/markdown, text/html;q=0.5' } } } } as any)).toBe(true)
-  })
-
-  test('exports one canonical raw markdown route helper', async () => {
-    const { agentRawPathForRoute, agentMarkdownPathForRoute } = await import('../../packages/content/src/features/agent/agent-paths')
-
-    expect(agentRawPathForRoute('/')).toBe('/raw/index.md')
-    expect(agentRawPathForRoute('/docs/intro/')).toBe('/raw/docs/intro.md')
-    expect(agentMarkdownPathForRoute('/docs/intro/')).toBe('/docs/intro/index.md')
-  })
-
-  test('detects unsafe agent route paths before markdown resolution', async () => {
-    const { isUnsafeAgentRoutePath, normalizeAgentRoutePath } = await import('../../packages/content/src/features/agent/agent-paths')
-
-    expect(isUnsafeAgentRoutePath('/docs/intro')).toBe(false)
-    expect(isUnsafeAgentRoutePath('/docs//intro')).toBe(false)
-    expect(normalizeAgentRoutePath('/docs//intro')).toBe('/docs/intro')
-    expect(isUnsafeAgentRoutePath('/../secret')).toBe(true)
-    expect(isUnsafeAgentRoutePath('/docs/%2e%2e/secret')).toBe(true)
-    expect(isUnsafeAgentRoutePath('/docs/%252e%252e/secret')).toBe(true)
-    expect(isUnsafeAgentRoutePath('/docs/%00secret')).toBe(true)
-  })
 })

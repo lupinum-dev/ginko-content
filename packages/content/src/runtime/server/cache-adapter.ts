@@ -7,8 +7,12 @@ export const getContentCacheAdapter = async (): Promise<ContentCacheAdapter | un
     return undefined
   }
 
-  if (typeof adapter.name !== 'string' || typeof adapter.apply !== 'function' || typeof adapter.invalidate !== 'function') {
-    throw new TypeError('Invalid content cache adapter. Expected { name, apply, invalidate }.')
+  if (
+    typeof adapter.name !== 'string' ||
+    typeof adapter.apply !== 'function' ||
+    (adapter.invalidate !== undefined && typeof adapter.invalidate !== 'function')
+  ) {
+    throw new TypeError('Invalid content cache adapter. Expected { name, apply, invalidate? }.')
   }
 
   return adapter

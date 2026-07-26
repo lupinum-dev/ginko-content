@@ -7,6 +7,41 @@ const mocks = vi.hoisted(() => ({
   transport: vi.fn()
 }))
 
+const publicDocument = (value: Record<string, any>, params: Record<string, any>) => {
+  if (value.route?.resolvedPath && value.resolution) return value
+  const { path = '/', resolved, ...document } = value
+  const locale = resolved?.locale || value.locale || params.resolveVariant?.locale || params.resolveLocale?.locale || 'en'
+  const requestedLocale = params.resolveVariant?.locale || params.resolveLocale?.locale
+  return {
+    ...document,
+    locale,
+    route: {
+      ...(params.resolveVariant?.route ? { requestedPath: params.resolveVariant.route } : {}),
+      resolvedPath: path,
+      alternates: []
+    },
+    resolution: {
+      requested: requestedLocale ? { locale: requestedLocale } : {},
+      resolved: { locale },
+      usedFallback: Boolean(requestedLocale && requestedLocale !== locale)
+    }
+  }
+}
+
+const transport = async (endpoint: string, params: Record<string, any>) => {
+  const response = await mocks.transport(endpoint, params)
+  if (endpoint !== 'query' || !response || typeof response !== 'object' || !('result' in response)) return response
+  const result = response.result
+  return {
+    ...response,
+    result: Array.isArray(result)
+      ? result.map(document => publicDocument(document, params))
+      : result && typeof result === 'object'
+        ? publicDocument(result, params)
+        : result
+  }
+}
+
 const contentConfig = defineContentConfig({
   collections: {
     authors: defineCollection({
@@ -93,7 +128,7 @@ describe('unified query populate', () => {
   test('resolves explicit reference fields through target collection handles', async () => {
     const context = {
       runtime: {},
-      transport: mocks.transport
+      transport
     }
     const post = await one(context, posts, {
       by: { path: '/hello' },
@@ -155,7 +190,7 @@ describe('unified query populate', () => {
 
     const doc = await one({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, docs, {
       by: { path: '/docs/guide' },
       select: ['title'],
@@ -212,7 +247,7 @@ describe('unified query populate', () => {
 
     const doc = await one({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, docs, {
       by: { path: '/docs/guide' },
       populate: { relatedPost: posts }
@@ -232,7 +267,7 @@ describe('unified query populate', () => {
   test('fails clearly when populate target disagrees with typed relation metadata', async () => {
     await expect(one({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, docs, {
       by: { path: '/docs/guide' },
       populate: { relatedAuthor: posts }
@@ -254,7 +289,7 @@ describe('unified query populate', () => {
           }
         }
       },
-      transport: mocks.transport
+      transport
     }, 'docs', {
       by: { path: '/docs/guide' },
       populate: { relatedAuthor: 'posts' }
@@ -271,13 +306,13 @@ describe('unified query populate', () => {
         return {
           result: {
             id: 'content:localized-posts:krypto.md',
-            path: '/blog/krypto',
+            path: '/krypto',
             collection: 'localizedPosts',
             locale: 'de',
             resolved: {
               variantPaths: {
-                en: '/blog/crypto',
-                de: '/blog/krypto'
+                en: '/crypto',
+                de: '/krypto'
               }
             },
             ref: 'posts.krypto',
@@ -292,13 +327,13 @@ describe('unified query populate', () => {
         return {
           result: {
             id: 'content:localized-authors:emily.md',
-            path: '/autoren/emily',
+            path: '/de/autoren/emily',
             collection: 'localizedAuthors',
             locale: 'de',
             resolved: {
               variantPaths: {
-                en: '/authors/emily',
-                de: '/autoren/emily'
+                en: '/emily',
+                de: '/emily'
               }
             },
             ref: 'authors.emily',
@@ -319,15 +354,31 @@ describe('unified query populate', () => {
         collections: {
           localizedPosts: {
             i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-            route: '/blog'
+            route: '/blog',
+            localePolicy: {
+              localized: true,
+              locales: ['en', 'de'],
+              defaultLocale: 'en',
+              fallback: { de: ['en'] },
+              translatedSlugs: false,
+              routeMounts: { en: '/blog', de: '/blog' }
+            }
           },
           localizedAuthors: {
             i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-            route: { en: '/authors', de: '/autoren' }
+            route: { en: '/authors', de: '/autoren' },
+            localePolicy: {
+              localized: true,
+              locales: ['en', 'de'],
+              defaultLocale: 'en',
+              fallback: { de: ['en'] },
+              translatedSlugs: false,
+              routeMounts: { en: '/authors', de: '/autoren' }
+            }
           }
         }
       },
-      transport: mocks.transport
+      transport
     }, localizedPosts, {
       locale: 'de',
       fallback: true,
@@ -395,7 +446,7 @@ describe('unified query populate', () => {
 
     const page = await paginate({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, posts, {
       page: 2,
       limit: 2,
@@ -419,7 +470,7 @@ describe('unified query populate', () => {
   test('rejects pagination outside public query limits instead of changing the requested page', async () => {
     await expect(paginate({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, posts, {
       page: 200,
       limit: 1_000
@@ -427,7 +478,7 @@ describe('unified query populate', () => {
 
     await expect(paginate({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, posts, {
       page: 102,
       limit: 100
@@ -445,7 +496,7 @@ describe('unified query populate', () => {
     ]) {
       await expect(paginate({
         runtime: {},
-        transport: mocks.transport
+        transport
       }, posts, options as never)).rejects.toThrow(/pagination mode|does not accept/)
     }
 
@@ -503,7 +554,7 @@ describe('unified query populate', () => {
 
     const result = await backlinks({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, authors, {
       by: { ref: 'authors.ada' },
       from: posts
@@ -551,7 +602,7 @@ describe('unified query populate', () => {
 
     await backlinks({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, authors, {
       by: { ref: 'authors.ada' },
       from: 'articles',
@@ -602,7 +653,7 @@ describe('unified query populate', () => {
           }
         }
       },
-      transport: mocks.transport
+      transport
     }, 'authors', {
       by: { ref: 'authors.ada' },
       from: 'posts'
@@ -633,7 +684,7 @@ describe('unified query populate', () => {
 
     await expect(backlinks({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, 'authors', {
       by: { ref: 'authors.ada' },
       from: 'posts'
@@ -669,7 +720,7 @@ describe('unified query populate', () => {
 
     await backlinks({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, authors, {
       by: { ref: 'authors.ada' },
       from: [posts, docs],
@@ -713,7 +764,7 @@ describe('unified query populate', () => {
 
     const result = await backlinks({
       runtime: {},
-      transport: mocks.transport
+      transport
     }, authors, {
       by: { ref: 'missing-identity' },
       from: posts

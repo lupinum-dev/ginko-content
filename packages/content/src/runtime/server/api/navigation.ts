@@ -1,12 +1,11 @@
 import { createError, defineEventHandler, getQuery } from 'h3'
 import { getContentQuery } from '../../utils/query'
 import { getContentProvider } from '../providers'
-import { toContentProviderNavigationQuery } from '../../../public/provider-query'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { projectProviderNavigation } from '../provider-route-facts'
 import { getContentRuntimeConfig } from '../runtime-config'
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
-import { assertConfiguredProviderCollection, assertConfiguredProviderQueryLocales } from '../provider-query'
+import { assertConfiguredProviderCollection, assertConfiguredProviderQueryLocales, createProviderQuery } from '../provider-query'
 
 const invalidContentQueryRequest = (path: string, reason: string) => createError({
   statusCode: 400,
@@ -34,12 +33,13 @@ export default defineEventHandler(async (event) => {
     throw invalidContentQueryRequest(validated.error.path, validated.error.reason)
   }
   const providerQueryParams = validated.value
-  if (providerQueryParams.collection) {
-    try {
-      assertConfiguredProviderCollection(providerQueryParams.collection)
-    } catch {
-      throw invalidContentQueryRequest('$.collection', 'collection must name a configured content collection.')
-    }
+  if (!providerQueryParams.collection) {
+    throw invalidContentQueryRequest('$.collection', 'collection must name a configured content collection.')
+  }
+  try {
+    assertConfiguredProviderCollection(providerQueryParams.collection)
+  } catch {
+    throw invalidContentQueryRequest('$.collection', 'collection must name a configured content collection.')
   }
   assertConfiguredProviderQueryLocales(providerQueryParams)
   const provider = await getContentProvider(event)
@@ -48,12 +48,16 @@ export default defineEventHandler(async (event) => {
       provider: provider.name
     })
   }
-  const { query: providerQuery, options } = toContentProviderNavigationQuery(providerQueryParams)
+  const { resolveVariant: _resolveVariant, ...navigationParams } = providerQueryParams
+  const providerQuery = createProviderQuery({
+    ...navigationParams,
+    collection: providerQueryParams.collection
+  })
   return projectProviderNavigation(
-    await provider.navigation(event, providerQuery, options),
+    await provider.navigation(event, providerQuery),
     provider.name,
     getContentRuntimeConfig().content,
-    options.locale,
+    providerQuery.plan.resolveLocale?.locale,
     providerQuery.collection || undefined
   )
 })

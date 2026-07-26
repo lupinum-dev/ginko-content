@@ -30,4 +30,6 @@ export {
 
 export { getContentFieldMetadata } from '../types/fields.js'
 
-export { CONTENT_REFERENCE_PREFIX } from '../types/reference.js'
+export {
+  CONTENT_REFERENCE_METADATA_KEY,
+} from '../types/reference.js'

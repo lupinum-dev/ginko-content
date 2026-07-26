@@ -96,11 +96,31 @@ the adapter's operational layer.
 
 ## Evidence levels
 
-Level 1 is protocol conformance. Run `runContentDataSourceContract` from
+Level 1 is protocol conformance. Use `runContentDataSourceContractSuite` from
 `@lupinum/ginko-content/testing/data-source-contract` with an adapter-owned
-verified context. Add executable positive and negative probes for every
-advertised capability. A passing Level 1 result proves the public protocol and
-bounds only.
+verified context. Its found, missing, list, and cursor probes execute through
+the real binder. Keep `runContentDataSourceContract` for a focused single-query
+probe. Core's binder contract owns adversarial response, cache, cancellation,
+deadline, JSON-purity, and route-limit tests; adapters must not duplicate those
+invariants. A passing Level 1 result proves the public protocol and bounds only.
+
+`routes()` returns one stable `snapshot` for the complete logical enumeration
+and its exact collection/locale scope, not one snapshot per backend partition.
+That snapshot must remain unchanged across all cursor pages. Cursors are opaque
+and must be bound to the snapshot, ordering, collections, and locales. Ginko
+rejects changing snapshots, repeated cursors, empty continuation pages, and
+non-progress with `ROUTE_ENUMERATION_INVALID`.
+
+Route limits are protocol rejection ceilings, not throughput promises:
+100,000 records, 64 KiB per serialized record, 32 MiB for the serialized
+enumeration, 16 sitemap images per route, and 2 KiB per image location. Publish
+separate production benchmarks for any supported operating scale.
+
+Adapters may throw `createContentDataSourceError('QUERY_CURSOR_INVALID')` for
+a stale or scope-invalid query cursor, or `createContentDataSourceError('BACKEND_FAILURE')`
+for a sanitized backend failure. Do not include backend messages or details.
+The public boundary maps them to 400 and 502 respectively; binder deadlines map
+to 504, and invalid provider responses map to 502.
 
 Level 2 is adapter-owned operational evidence. It must separately prove the
 backend's authorization matrix, transaction or receipt behavior, retries,

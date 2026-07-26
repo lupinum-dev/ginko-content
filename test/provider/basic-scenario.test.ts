@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
 import { createInMemoryProvider } from '../harness/provider'
 import { createBasicScenario } from '../harness/scenarios'
 import { createTestEvent } from '../harness/event'
@@ -10,11 +11,11 @@ describe('basic in-memory provider scenario', () => {
   const event = createTestEvent({ scenario, provider })
 
   test('resolves routes through the provider query wire', async () => {
-    await expect(provider.query(event, toContentProviderQuery({
+    await expect(provider.query(event, createProviderQuery({
       collection: 'docs',
       first: true,
       resolveVariant: { route: '/guide/getting-started' }
-    }))).resolves.toMatchObject({
+    }, scenario.runtime))).resolves.toMatchObject({
       result: {
         title: 'Getting Started',
         contentPath: '/guide/getting-started',
@@ -22,11 +23,11 @@ describe('basic in-memory provider scenario', () => {
       }
     })
 
-    await expect(provider.query(event, toContentProviderQuery({
+    await expect(provider.query(event, createProviderQuery({
       collection: 'docs',
       first: true,
       resolveVariant: { route: '/missing-page' }
-    }))).resolves.toEqual({ result: undefined })
+    }, scenario.runtime))).resolves.toEqual({ result: undefined })
   })
 
   test('returns raw route facts and excludes hidden or draft navigation items', async () => {

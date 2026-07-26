@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { hash as ohash } from 'ohash'
 import { z } from 'zod'
 import { createEvent, doc } from './_utils'
+import type { ResolvedCollectionLocalePolicy } from '../../packages/content/src/features/localization/locale-policy'
 import pathMeta from '../../packages/content/src/parsers/path-meta'
 import { validateCollectionDocument } from '../../packages/content/src/runtime/server/validation'
 
@@ -349,6 +350,48 @@ describe('storage contracts', () => {
     expect(buildReferenceTargets(documents, ['en', 'de']).get('authors/evan')).toBe('authors/evan')
     expect(buildReferenceTargets(documents, ['en', 'de']).get('missing')).toBeUndefined()
 
+    // The graph stores canonical, mount-agnostic paths, but authors have always
+    // written references against the mounted provider path. Both spellings must
+    // resolve, and both must land on the SAME canonical id.
+    const { providerReferencePathAliases } = await import(
+      '../../packages/content/src/features/localization/reference-path'
+    )
+    const mountedPolicies = {
+      docs: {
+        localized: true,
+        locales: ['en', 'de'],
+        defaultLocale: 'en',
+        fallback: { de: ['en'] },
+        translatedSlugs: true,
+        routeMounts: { en: '/guide', de: '/leitfaden' }
+      }
+    } satisfies Readonly<Record<string, ResolvedCollectionLocalePolicy>>
+    const canonicalDocuments = [
+      doc({
+        id: 'content:en:guide:deep:nested.md',
+        file: { path: '/en/guide/deep/nested.md' },
+        collection: 'docs',
+        locale: 'en',
+        // Canonical: the `/guide` mount is not part of graph identity.
+        path: '/deep/nested',
+        canonicalKey: 'deep/nested-page',
+        ref: 'nested'
+      })
+    ]
+    const aliasedTargets = buildReferenceTargets(
+      canonicalDocuments,
+      ['en', 'de'],
+      document => providerReferencePathAliases(document, mountedPolicies)
+    )
+
+    // Canonical spelling, authored alias, and mounted spelling all agree.
+    expect(aliasedTargets.get('deep/nested')).toBe('deep/nested-page')
+    expect(aliasedTargets.get('nested')).toBe('deep/nested-page')
+    expect(aliasedTargets.get('guide/deep/nested')).toBe('deep/nested-page')
+    // Without the alias the mounted spelling is unknown, which is exactly the
+    // regression this alias exists to prevent.
+    expect(buildReferenceTargets(canonicalDocuments, ['en', 'de']).get('guide/deep/nested')).toBeUndefined()
+
     const outcome = validateContentGraph([
       ...documents,
       doc({
@@ -374,6 +417,73 @@ describe('storage contracts', () => {
 })
 
 describe('collection schema validation', () => {
+  test('validates core-owned sidebar metadata on navigation files and pages', () => {
+    const validNavigationFile = validateCollectionDocument(doc({
+      id: 'content:en:docs:.navigation.yml',
+      file: { path: '/en/docs/.navigation.yml' },
+      type: 'yaml',
+      navigationFile: true,
+      partial: true,
+      sidebar: 'section'
+    } as any))
+    const invalidNavigationFile = validateCollectionDocument(doc({
+      id: 'content:en:docs:.navigation.yml',
+      file: { path: '/en/docs/.navigation.yml' },
+      type: 'yaml',
+      navigationFile: true,
+      partial: true,
+      sidebar: 'sction'
+    } as any))
+    const invalidPage = validateCollectionDocument(doc({
+      id: 'content:en:docs:intro.md',
+      file: { path: '/en/docs/intro.md' },
+      type: 'markdown',
+      sidebar: 'sction'
+    } as any))
+    const validPage = validateCollectionDocument(doc({
+      id: 'content:en:docs:intro.md',
+      file: { path: '/en/docs/intro.md' },
+      type: 'markdown',
+      sidebar: 'group'
+    } as any))
+    const invalidNestedPage = validateCollectionDocument(doc({
+      id: 'content:en:docs:nested.md',
+      file: { path: '/en/docs/nested.md' },
+      type: 'markdown',
+      navigation: { sidebar: 'sction' }
+    } as any))
+    const structuredData = validateCollectionDocument(doc({
+      id: 'content:data:layout.yml',
+      type: 'yaml',
+      sidebar: 'application-specific-value'
+    } as any))
+
+    expect(validNavigationFile.ok).toBe(true)
+    expect(validPage.ok).toBe(true)
+    expect(structuredData.ok).toBe(true)
+    expect(invalidNavigationFile).toMatchObject({
+      ok: false,
+      error: {
+        code: 'INVALID_NAVIGATION_YAML',
+        message: expect.stringContaining('sidebar must be "section" or "group"')
+      }
+    })
+    expect(invalidPage).toMatchObject({
+      ok: false,
+      error: {
+        code: 'INVALID_NAVIGATION_METADATA',
+        message: expect.stringContaining('sidebar must be "section" or "group"')
+      }
+    })
+    expect(invalidNestedPage).toMatchObject({
+      ok: false,
+      error: {
+        code: 'INVALID_NAVIGATION_METADATA',
+        message: expect.stringContaining('navigation.sidebar must be "section" or "group"')
+      }
+    })
+  })
+
   test('validates strict collection schemas against user fields only', () => {
     const document = pathMeta.transform!(
       {

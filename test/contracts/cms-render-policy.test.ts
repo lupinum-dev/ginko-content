@@ -72,6 +72,14 @@ describe('canonical public Markdown render policy', () => {
     })
   })
 
+  it('accepts only normalized GFM alert metadata on blockquotes', () => {
+    expect(validatePublicMarkdownAst(root(element('blockquote', { 'data-alert': 'note' })))).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('blockquote', { 'data-alert': 'custom' })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+    })
+  })
+
   it('applies the canonical URL policy to registered asset props', () => {
     const policy: PortableComponentPolicyV1 = {
       components: {

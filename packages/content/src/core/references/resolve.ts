@@ -52,10 +52,16 @@ export const collectMarkdownRefLinks = (node: unknown) => {
       return
     }
 
-    for (const key of MARKDOWN_LINK_PROP_KEYS) {
-      const value = (props as Record<string, unknown>)[key]
-      if (typeof value === 'string' && parseRefLink(value)) {
-        refs.add(value)
+    if (Array.isArray(props)) {
+      props.forEach(collectProps)
+      return
+    }
+
+    for (const [key, value] of Object.entries(props as Record<string, unknown>)) {
+      if (MARKDOWN_LINK_PROP_KEYS.includes(key as typeof MARKDOWN_LINK_PROP_KEYS[number])) {
+        if (typeof value === 'string' && parseRefLink(value)) refs.add(value)
+      } else if (value && typeof value === 'object') {
+        collectProps(value)
       }
     }
   }
@@ -98,16 +104,28 @@ export const rewriteMarkdownRefLinks = <T>(node: T, resolvedRefs: Record<string,
       return undefined
     }
 
-    let next: Record<string, unknown> | undefined
-    for (const key of MARKDOWN_LINK_PROP_KEYS) {
-      const value = (props as Record<string, unknown>)[key]
-      if (typeof value === 'string' && resolvedRefs[value]) {
-        next ||= { ...(props as Record<string, unknown>) }
-        next[key] = resolvedRefs[value]
+    const rewriteValue = (value: unknown, key?: string): unknown => {
+      if (
+        key &&
+        MARKDOWN_LINK_PROP_KEYS.includes(key as typeof MARKDOWN_LINK_PROP_KEYS[number]) &&
+        typeof value === 'string' &&
+        resolvedRefs[value]
+      ) {
+        return resolvedRefs[value]
       }
+      if (Array.isArray(value)) return value.map(item => rewriteValue(item))
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).map(([childKey, child]) => [
+            childKey,
+            rewriteValue(child, childKey),
+          ]),
+        )
+      }
+      return value
     }
 
-    return next || props as Record<string, unknown>
+    return rewriteValue(props) as Record<string, unknown>
   }
 
   const visit = (current: unknown): unknown => {
@@ -231,7 +249,11 @@ export const resolveMarkdownRenderRefs = (
   }
 }
 
-export const buildReferenceTargets = (contents: ParsedContent[], locales: string[] = []) => {
+export const buildReferenceTargets = (
+  contents: ParsedContent[],
+  locales: string[] = [],
+  aliasesFor?: (document: ParsedContent) => readonly string[]
+) => {
   const targets = new Map<string, string>()
 
   for (const document of contents) {
@@ -261,6 +283,13 @@ export const buildReferenceTargets = (contents: ParsedContent[], locales: string
 
     if (document.locale && normalizedPath) {
       targets.set(`${document.locale}/${normalizedPath}`, canonicalId)
+    }
+
+    for (const alias of aliasesFor?.(document) || []) {
+      const normalizedAlias = normalizeReferenceValue(alias)
+      if (normalizedAlias) {
+        targets.set(normalizedAlias, canonicalId)
+      }
     }
   }
 

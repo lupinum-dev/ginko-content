@@ -61,6 +61,8 @@ export type {
   CursorPaginationResult
 } from '../types/query.js'
 
+export type { ContentPublicQueryResponse } from '../types/api.js'
+
 // Search (kept — out of scope for ADR-0016).
 export { useContentSearch } from '../runtime/app/composables/search.js'
 export type {

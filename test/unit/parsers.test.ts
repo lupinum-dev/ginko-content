@@ -64,7 +64,8 @@ describe('content parsing metadata', () => {
 
     expect(transformed.navigationFile).toBe(true)
     expect(transformed.partial).toBe(true)
-    expect(transformed.path).toBe('/guide')
+    expect(transformed).not.toHaveProperty('path')
+    expect(transformed).not.toHaveProperty('canonicalKey')
   })
 
 })

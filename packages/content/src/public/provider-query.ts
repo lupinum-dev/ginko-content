@@ -1,9 +1,9 @@
 /**
- * Provider wire contract v3.
+ * Provider wire contract v4.
  *
  * The single query envelope crossing the `ContentProvider` boundary. It wraps
- * the executor-facing `ContentQueryPlan` (see `../core/query/plan.ts`) rather
- * than the low-level provider/compiler input:
+ * a provider-coordinate plan rather than the graph executor's mount-agnostic
+ * internal plan:
  *
  *  - **closed** — no index signatures; every field is named.
  *  - **versioned** — `v` lets providers reject a wire they do not understand.
@@ -15,31 +15,81 @@
  * Providers pattern-match `plan.filter` (a `FilterExpr` tree); they never
  * parse the low-level input again.
  *
- * v3 is the prerelease hard cutover for the closed plan contract. It preserves
+ * v4 is the prerelease hard cutover for the closed plan contract. It preserves
  * `$nin` as a native comparison node and retains the honest
  * `offset`/`cursor` pagination-mode union (`ContentProviderPaging`,
  * `ContentProviderListResponse`) and closes the route/ref selector
  * (`ContentProviderVariantSelector`) so providers never strip locale prefixes
  * or guess collection mounts themselves. There is no legacy dispatch — the
- * wire is v3 only.
+ * wire is v4 only.
  *
  * This module owns both the public wire types and their lowering helpers so
  * the provider boundary has one source of truth and no public-to-runtime
  * dependency cycle.
  */
-import type { ContentQueryPlan } from '../core/query/plan'
+import type { LoweredQueryPlan, QueryPlanBase } from '../core/query/plan'
 import type { ContentQueryFindResponse } from '../types/api'
 import type { ContentProviderQueryInput } from '../types/query'
-import { lowerQueryPlan } from '../core/query/lower'
+import { ContentQueryInputError, lowerQueryPlan } from '../core/query/lower'
 
 export type { ContentProviderQueryInput } from '../types/query'
 
 export type {
-  ContentQueryPlan,
+  ContentQueryPagination,
   ContentProviderPaginationMode,
-  ContentProviderPaging,
-  ContentProviderVariantSelector
+  ContentProviderPaging
 } from '../core/query/plan'
+
+export type ContentProviderVariantSelector =
+  | ({
+      readonly by: 'path'
+      /** Mounted, locale-specific provider content path. */
+      readonly path: string
+      readonly locale?: string
+      readonly fallback?: readonly string[]
+      readonly exact?: boolean
+    })
+  | {
+      readonly by: 'route'
+      readonly requestedRoute: string
+      readonly requestedLocale: string
+      readonly candidates: readonly { readonly locale: string, readonly contentPath: string }[]
+    }
+  | {
+      readonly by: 'ref'
+      readonly requestedRef: string
+      readonly requestedLocale: string
+      readonly localeChain: readonly string[]
+    }
+
+export interface ContentProviderQueryPlan extends QueryPlanBase {
+  readonly variant?: ContentProviderVariantSelector
+}
+
+export interface ContentProviderPathResolutionInput {
+  /** Mounted, locale-specific provider coordinate. */
+  providerPath: string
+  path?: never
+  route?: never
+  ref?: never
+  locale?: string
+  fallback?: string[] | false
+  exact?: boolean
+}
+
+/** Input that can be closed without application route/locale policy. */
+export type ContentProviderLoweringInput = Omit<ContentProviderQueryInput, 'resolveLocale' | 'resolveVariant'> & {
+  resolveLocale?: {
+    locale?: string
+    fallback?: string[] | false
+    exact?: boolean
+  }
+  resolveVariant?: ContentProviderPathResolutionInput
+}
+
+export type ContentProviderNavigationLoweringInput = ContentProviderLoweringInput & {
+  collection: string
+}
 
 /**
  * Closed, discriminated list response for the provider `query` boundary — see
@@ -51,49 +101,76 @@ export type ContentProviderListResponse<T> = ContentQueryFindResponse<T>
 
 /** The single wire type crossing the provider `query`/`navigation` boundary. */
 export interface ContentProviderQuery {
-  /** Wire version — always `PROVIDER_QUERY_VERSION` (3). No legacy dispatch remains. */
-  v: 3
+  /** Wire version — always `PROVIDER_QUERY_VERSION` (4). No legacy dispatch remains. */
+  readonly v: 4
   /** `null` = cross-collection query (navigation / search aggregation paths). */
-  collection: string | null
-  plan: ContentQueryPlan
+  readonly collection: string | null
+  readonly plan: ContentProviderQueryPlan
 }
 
-/**
- * Locale/fallback facts needed while a provider builds a navigation tree.
- * Selection already lives in the versioned query plan; providers return raw
- * route facts, so there is no second `fields` or `canonical` projection knob.
- */
-export interface ContentProviderNavigationOptions {
-  locale?: string
-  fallback?: boolean | readonly string[]
-  exact?: boolean
+export const PROVIDER_QUERY_VERSION = 4 as const
+
+const lowerContextFreeInput = (params: ContentProviderLoweringInput): LoweredQueryPlan => {
+  if ((params.resolveLocale as { fallback?: unknown } | undefined)?.fallback === true) {
+    throw new ContentQueryInputError(
+      '$.resolveLocale.fallback',
+      'toContentProviderQuery() requires an explicit fallback locale chain.'
+    )
+  }
+  const selector = params.resolveVariant
+  if (!selector) return lowerQueryPlan(params)
+
+  const allowedKeys = new Set(['providerPath', 'locale', 'fallback', 'exact'])
+  const unknownKey = Object.keys(selector).find(key => !allowedKeys.has(key))
+  if (
+    unknownKey
+    || typeof selector.providerPath !== 'string'
+    || !selector.providerPath
+    || (selector as { fallback?: unknown }).fallback === true
+  ) {
+    throw new ContentQueryInputError(
+      '$.resolveVariant',
+      'toContentProviderQuery() accepts only an explicit mounted providerPath selector.'
+    )
+  }
+
+  return lowerQueryPlan({
+    ...params,
+    resolveVariant: {
+      path: selector.providerPath,
+      ...(selector.locale ? { locale: selector.locale } : {}),
+      ...(selector.fallback !== undefined ? { fallback: selector.fallback } : {}),
+      ...(selector.exact !== undefined ? { exact: selector.exact } : {})
+    }
+  })
 }
 
-export const PROVIDER_QUERY_VERSION = 3 as const
+const closeContextFreePlan = (plan: LoweredQueryPlan): ContentProviderQueryPlan => {
+  if (!plan.variant) {
+    const { variant: _variant, ...closed } = plan
+    return closed
+  }
+  if (plan.variant.by === 'path') {
+    return { ...plan, variant: plan.variant }
+  }
+  throw new ContentQueryInputError(
+    `$.resolveVariant.${plan.variant.by}`,
+    'toContentProviderQuery() accepts only path variant selectors because route/ref selectors require application locale policy.'
+  )
+}
 
 /** Lower the low-level input into the closed, JSON-pure provider wire envelope. */
-export const toContentProviderQuery = (params: ContentProviderQueryInput): ContentProviderQuery => ({
+export const toContentProviderQuery = (params: ContentProviderLoweringInput): ContentProviderQuery => ({
   v: PROVIDER_QUERY_VERSION,
   collection: params.collection ?? null,
-  plan: lowerQueryPlan(params)
+  plan: closeContextFreePlan(lowerContextFreeInput(params))
 })
 
 /**
- * Split the low-level input into the final navigation wire pair. Selection is
- * lowered into the query plan; only normalized locale inputs travel beside
- * it because providers return raw route facts.
+ * Lower navigation input into the same closed wire query providers execute.
+ * This adds the required collection identity and otherwise uses the same
+ * context-free lowering rules as `toContentProviderQuery()`.
  */
 export const toContentProviderNavigationQuery = (
-  params: ContentProviderQueryInput
-): { query: ContentProviderQuery, options: ContentProviderNavigationOptions } => {
-  const resolveLocale = params.resolveLocale
-
-  return {
-    query: toContentProviderQuery(params),
-    options: {
-      ...(resolveLocale?.locale ? { locale: resolveLocale.locale } : {}),
-      ...(resolveLocale && 'fallback' in resolveLocale ? { fallback: resolveLocale.fallback } : {}),
-      ...(resolveLocale?.exact === true ? { exact: true } : {})
-    }
-  }
-}
+  params: ContentProviderNavigationLoweringInput
+): ContentProviderQuery => toContentProviderQuery(params)

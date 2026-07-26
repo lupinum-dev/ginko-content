@@ -2,20 +2,36 @@ import type { ContentCacheHint, ContentProvider, ContentProviderQuery } from '..
 import type { H3Event } from 'h3'
 import type { ContentQueryFindResponse, ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, ParsedContent } from '../types/content'
-import type { ProviderDocumentInput } from '../public/provider-document'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
 import { executeQueryPlan } from '../core/query/execute'
 import { PROVIDER_CAPABILITY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
 import { normalizeContentPath } from '../features/localization/path'
-import { normalizeProviderDocument } from '../public/provider-document'
+import {
+  normalizeProviderDocument,
+  type ProviderDocumentInput,
+  type ValidatedProviderDocument
+} from '../public/provider-document'
 import { createContentProviderError } from '../public/provider-errors'
+import {
+  resolveLocalePolicy,
+  type ResolvedCollectionLocalePolicy
+} from '../features/localization/locale-policy'
+import { fromContentProviderQueryPlan } from '../features/query/query-plan-boundary'
+import {
+  mountProviderContentPath,
+  unmountProviderContentPath
+} from '../features/localization/route-projector'
 
 export interface ProviderFixtureCollection {
   type: 'page' | 'data'
   i18n?: boolean | { locales?: string[], defaultLocale?: string }
   route?: string | Record<string, string>
   sitemap?: boolean
+}
+
+type ProviderFixtureRuntimeCollection = ProviderFixtureCollection & {
+  localePolicy: ResolvedCollectionLocalePolicy
 }
 
 export interface ProviderFixtureInput {
@@ -41,7 +57,7 @@ export interface ProviderFixture {
     defaultLocale: string
     locales: string[]
     localeFallback: Record<string, string[]>
-    collections: Record<string, ProviderFixtureCollection>
+    collections: Record<string, ProviderFixtureRuntimeCollection>
   }
 }
 
@@ -68,6 +84,25 @@ export interface ProviderFixtureEventOptions {
 }
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
+
+/**
+ * Every fixture document must belong to a declared collection, because the
+ * collection is where its route mount lives. Falling back to an unmounted path
+ * would let a conformance run pass while proving nothing about mounting.
+ */
+const collectionLocalePolicy = (
+  collections: Record<string, ProviderFixtureRuntimeCollection>,
+  collection: string | undefined
+): ResolvedCollectionLocalePolicy => {
+  const policy = collection ? collections[collection]?.localePolicy : undefined
+  if (!policy) {
+    throw new Error(
+      `@lupinum/ginko-content: provider fixture document declares collection "${collection || ''}", `
+      + `which is not one of the fixture's collections (${Object.keys(collections).join(', ') || 'none'}).`
+    )
+  }
+  return policy
+}
 
 const normalizeQueryResult = <T>(value: T | T[] | number | undefined): T[] => {
   if (Array.isArray(value)) return value
@@ -116,7 +151,7 @@ const createProviderFixtureCacheState = (): ProviderFixtureCacheState => ({
 
 export const createProviderFixtureDocument = (
   input: Partial<ParsedContent> & Record<string, unknown>
-): ParsedContent => {
+): ValidatedProviderDocument => {
   const { path: inputPath, resolved, route, resolution, dir, variants, localePaths, unprefixedPath, ...data } = input
   void resolved
   void route
@@ -160,13 +195,44 @@ export const createProviderFixtureDocument = (
 export const createProviderFixture = (input: ProviderFixtureInput): ProviderFixture => {
   const defaultLocale = input.defaultLocale || 'en'
   const locales = Array.from(new Set([defaultLocale, ...(input.locales || [])]))
-  const documents = input.documents.map(createProviderFixtureDocument)
-  const graph = buildContentGraph(documents, { defaultLocale, locales })
   const localeFallback = input.localeFallback || Object.fromEntries(
     locales
       .filter(locale => locale !== defaultLocale)
       .map(locale => [locale, [defaultLocale]])
   )
+  const localePolicy = resolveLocalePolicy({
+    nuxtI18n: { installed: false },
+    content: { locales, defaultLocale, fallback: localeFallback },
+    collections: Object.entries(input.collections).map(([name, collection]) => ({
+      name,
+      localized: Boolean(collection.i18n),
+      ...(collection.i18n && typeof collection.i18n === 'object'
+        ? {
+            locales: collection.i18n.locales,
+            defaultLocale: collection.i18n.defaultLocale
+          }
+        : {}),
+      route: collection.route
+    }))
+  })
+  const runtimeCollections = Object.fromEntries(
+    Object.entries(input.collections).map(([name, collection]) => [
+      name,
+      { ...collection, localePolicy: localePolicy.collections[name]! }
+    ])
+  )
+  const documents = input.documents.map((inputDocument) => {
+    const document = createProviderFixtureDocument(inputDocument)
+    // Mount validation is the point of this fixture: a document whose
+    // collection was never declared must fail here rather than quietly skip
+    // the unmount and let a conformance run pass without proving anything.
+    const policy = collectionLocalePolicy(runtimeCollections, document.collection)
+    return {
+      ...document,
+      path: unmountProviderContentPath(document.contentPath, document.locale || defaultLocale, policy)
+    }
+  })
+  const graph = buildContentGraph(documents, { defaultLocale, locales })
 
   return {
     name: input.name || 'provider-fixture',
@@ -181,7 +247,7 @@ export const createProviderFixture = (input: ProviderFixtureInput): ProviderFixt
       defaultLocale,
       locales,
       localeFallback,
-      collections: input.collections
+      collections: runtimeCollections
     }
   }
 }
@@ -225,14 +291,18 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
 
   const execute = (providerQuery: ContentProviderQuery) => {
     assertCollection(providerQuery.plan.collection)
+    const policy = providerQuery.collection
+      ? fixture.runtime.collections[providerQuery.collection]?.localePolicy
+      : undefined
+    const canonicalPlan = fromContentProviderQueryPlan(providerQuery.plan, policy)
     return executeQueryPlan<ParsedContent>(
       fixture.graph,
       {
-        ...providerQuery.plan,
+        ...canonicalPlan,
         filter: {
           type: 'and',
           clauses: [
-            providerQuery.plan.filter,
+            canonicalPlan.filter,
             { type: 'compare', field: 'draft', operator: 'ne', value: true }
           ]
         },
@@ -253,7 +323,13 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       && candidate.partial !== true
       && candidate.navigationFile !== true
     )
-    .map(candidate => ({ locale: candidate.locale!, contentPath: normalizeContentPath(candidate.path!) }))
+    .map(candidate => ({
+      locale: candidate.locale!,
+      contentPath: mountProviderContentPath({
+        locale: candidate.locale!,
+        contentPath: normalizeContentPath(candidate.path!)
+      }, collectionLocalePolicy(fixture.runtime.collections, candidate.collection))
+    }))
 
   const toRawDocument = (doc: ParsedContent) => {
     const { path, resolved, route, resolution, dir, variants, localePaths, unprefixedPath, ...data } = doc as ParsedContent & Record<string, unknown>
@@ -269,7 +345,15 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       collection: doc.collection || '',
       canonicalKey: doc.canonicalKey || '',
       locale: doc.locale || '',
-      contentPath: normalizeContentPath(path || '/'),
+      contentPath: (() => {
+        const policy = fixture.runtime.collections[doc.collection || '']?.localePolicy
+        return policy
+          ? mountProviderContentPath({
+              locale: doc.locale || fixture.defaultLocale,
+              contentPath: normalizeContentPath(path || '/')
+            }, policy)
+          : normalizeContentPath(path || '/')
+      })(),
       routeVariants: routeVariantsFor(doc),
       type: doc.type,
       body: doc.body ?? null,
@@ -316,12 +400,22 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       .filter(doc => !doc.draft && !doc.partial && !doc.navigationFile && doc.navigation !== false && doc.path)
   }
 
-  const routeFact = (doc: ParsedContent) => ({
-    collection: doc.collection || '',
-    canonicalKey: doc.canonicalKey || '',
-    locale: doc.locale || '',
-    contentPath: normalizeContentPath(doc.path || '/')
-  })
+  const routeFact = (doc: ParsedContent) => {
+    const collection = doc.collection || ''
+    const locale = doc.locale || fixture.defaultLocale
+    const policy = fixture.runtime.collections[collection]?.localePolicy
+    return {
+      collection,
+      canonicalKey: doc.canonicalKey || '',
+      locale,
+      contentPath: policy
+        ? mountProviderContentPath({
+            locale,
+            contentPath: normalizeContentPath(doc.path || '/')
+          }, policy)
+        : normalizeContentPath(doc.path || '/')
+    }
+  }
 
   const provider: ContentProvider = {
     name: name as ContentProvider['name'],
@@ -334,10 +428,10 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
       }
     },
     query,
-    navigation: async (event, providerQuery, navigationOptions = {}) => {
+    navigation: async (event, providerQuery) => {
       const docs = navigationDocuments(providerQuery)
       const collection = providerQuery.collection ?? undefined
-      const queryLocale = navigationOptions.locale
+      const queryLocale = providerQuery.plan.resolveLocale?.locale
       collectProviderFixtureCacheHint(event, {
         tags: [
           ...(collection ? [collectionTag(collection)] : []),
@@ -359,7 +453,11 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
         .filter(doc => doc.collection === collection && !doc.draft && !doc.partial && !doc.navigationFile && doc.path)
         .filter(doc => !options.locale || doc.locale === options.locale)
         .sort((a, b) => String(a.path).localeCompare(String(b.path)))
-      const index = docs.findIndex(doc => normalizeContentPath(doc.path || '/') === normalizeContentPath(contentPath))
+      const policy = fixture.runtime.collections[collection]?.localePolicy
+      const canonicalPath = policy
+        ? unmountProviderContentPath(contentPath, options.locale || policy.defaultLocale, policy)
+        : normalizeContentPath(contentPath)
+      const index = docs.findIndex(doc => normalizeContentPath(doc.path || '/') === canonicalPath)
       if (index === -1) return [null, null]
       return [docs[index - 1] || null, docs[index + 1] || null].map(doc => doc
         ? {

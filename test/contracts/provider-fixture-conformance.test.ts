@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { normalizeProviderDocument } from '../../packages/content/src/public/provider-document'
-import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import {
   createDefaultProviderFixture,
@@ -39,7 +39,7 @@ const operatorCases: Record<(typeof operators)[number], { where: Record<string, 
   $exists: { where: { featured: { $exists: true } }, titles: ['Getting Started'] },
   $type: { where: { rating: { $type: 'number' } }, titles: ['Getting Started'] },
   $regex: { where: { title: { $regex: '^Getting' } }, titles: ['Getting Started'] },
-  $prefix: { where: { path: { $prefix: '/docs/essentials' } }, titles: ['Markdown Syntax'] }
+  $prefix: { where: { title: { $prefix: 'Markdown Syntax' } }, titles: ['Markdown Syntax', 'Markdown Syntax DE'] }
 }
 
 const assertTitles = (expected: string[]) => (result: unknown) => {
@@ -66,6 +66,10 @@ const operatorProbes = Object.fromEntries(operators.map(operator => [operator, {
 describe('provider fixture conformance', () => {
   const fixture = createDefaultProviderFixture()
   const provider = createFixtureContentProvider(fixture)
+  const catalogRuntime = createProviderFixture({
+    collections: { catalog: { type: 'data' } },
+    documents: []
+  }).runtime
   const createEvent = () => createProviderFixtureEvent({ fixture, provider })
 
   runProviderContractSuite({
@@ -184,8 +188,12 @@ describe('provider fixture conformance', () => {
   })
 
   test('returns raw facts from every optional route-bearing operation', async () => {
-    const query = toContentProviderQuery({ collection: 'docs', only: ['description'] })
-    const navigation = await provider.navigation!(createEvent(), query, { locale: 'de' })
+    const query = toContentProviderNavigationQuery({
+      collection: 'docs',
+      only: ['description'],
+      resolveLocale: { locale: 'de' }
+    })
+    const navigation = await provider.navigation!(createEvent(), query)
     const surroundings = await provider.surroundings!(
       createEvent(),
       'docs',
@@ -239,6 +247,7 @@ describe('provider fixture conformance', () => {
     const rawDocument = {
       collection: 'docs',
       locale: 'en',
+      canonicalKey: 'docs:intro',
       contentPath: '/docs/intro',
       body: { type: 'root', children: [] },
       title: 'Intro'
@@ -248,9 +257,9 @@ describe('provider fixture conformance', () => {
       skip: 0,
       limit: 1,
       total: 1
-    })).toEqual({
+    }, undefined, fixture.runtime)).toEqual({
       result: [expect.objectContaining({
-        canonicalKey: 'docs:docs/intro',
+        canonicalKey: 'docs:intro',
         title: 'Intro',
         route: expect.objectContaining({ resolvedPath: '/docs/intro' }),
         resolution: expect.objectContaining({
@@ -268,13 +277,13 @@ describe('provider fixture conformance', () => {
       skip: 0,
       limit: 1,
       total: 1
-    })).toMatchObject({
+    }, undefined, fixture.runtime)).toMatchObject({
       result: [{ title: 'Intro', route: { resolvedPath: '/docs/intro' } }]
     })
 
     expect(() => normalizeProviderQueryResponse({ collection: 'docs' }, [
       { title: 'Intro' }
-    ])).toThrow(expect.objectContaining({
+    ], undefined, fixture.runtime)).toThrow(expect.objectContaining({
       data: expect.objectContaining({ code: 'provider_result_invalid' })
     }))
   })
@@ -341,7 +350,7 @@ describe('provider fixture conformance', () => {
       response: { mode: 'cursor', result: [], limit: 1, pageInfo: { endCursor: null, hasNext: false } }
     }
   ])('rejects a non-canonical provider $name envelope', ({ params, response }) => {
-    expect(() => normalizeProviderQueryResponse(params, response, 'fixture')).toThrow(expect.objectContaining({
+    expect(() => normalizeProviderQueryResponse(params, response, 'fixture', fixture.runtime)).toThrow(expect.objectContaining({
       data: expect.objectContaining({ code: 'provider_result_invalid' })
     }))
   })
@@ -358,7 +367,7 @@ describe('provider fixture conformance', () => {
         { mode: 'cursor', result: sparse, limit: 1, pageInfo: { endCursor: null, hasNext: false } }
       ]
     ] as const) {
-      expect(() => normalizeProviderQueryResponse(params, response, 'fixture')).toThrow(expect.objectContaining({
+      expect(() => normalizeProviderQueryResponse(params, response, 'fixture', fixture.runtime)).toThrow(expect.objectContaining({
         statusMessage: 'provider_result_invalid'
       }))
     }
@@ -370,13 +379,14 @@ describe('provider fixture conformance', () => {
         collection: 'catalog',
         locale: 'en',
         contentPath: '/catalog/products',
+        canonicalKey: 'products',
         type: 'csv',
         body: [{ slug: 'alpha' }]
       }],
       skip: 0,
       limit: 1,
       total: 1
-    })
+    }, undefined, catalogRuntime)
 
     expect(result.result[0]).toMatchObject({
       type: 'csv',
@@ -398,7 +408,7 @@ describe('provider fixture conformance', () => {
         skip: 0,
         limit: 2,
         total: 2
-      }, 'fixture')).toThrow(expect.objectContaining({
+      }, 'fixture', fixture.runtime)).toThrow(expect.objectContaining({
         statusMessage: 'provider_result_invalid'
       }))
     }
@@ -425,5 +435,19 @@ describe('provider fixture conformance', () => {
       documents: []
     })
     expect(custom.locales).toEqual(['en', 'de'])
+  })
+
+  test('rejects a document whose collection has no declared route mount', () => {
+    // Mount validation is the point of this fixture. A document in an
+    // undeclared collection has no policy to validate against, so it must fail
+    // loudly rather than fall through to its raw path and let a conformance run
+    // pass while proving nothing about mounting.
+    expect(() => createProviderFixture({
+      defaultLocale: 'en',
+      collections: { docs: { type: 'page', route: '/guide' } },
+      documents: [
+        { collection: 'undeclared', canonicalKey: 'x', locale: 'en', path: '/guide/x', title: 'X' }
+      ]
+    })).toThrow(/collection "undeclared"/)
   })
 })

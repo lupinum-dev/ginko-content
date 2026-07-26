@@ -134,7 +134,7 @@ describe('useContentPage contracts', () => {
         ]
       }
       if (params.resolveVariant?.route === '/docs/missing') {
-        return null
+        return { result: null }
       }
       if (params.resolveVariant?.route === '/docs/alias') {
         return {

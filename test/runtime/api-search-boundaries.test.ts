@@ -14,7 +14,15 @@ const runtime = vi.hoisted(() => ({
     locales: ['en', 'de'],
     collections: {
       docs: {
-        i18n: { defaultLocale: 'en', locales: ['en', 'de'] }
+        i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+        localePolicy: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { en: '/docs', de: '/dokumentation' }
+        }
       }
     },
     search: {

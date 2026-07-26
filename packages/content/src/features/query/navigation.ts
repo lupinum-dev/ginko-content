@@ -10,24 +10,14 @@ import type {
   SurroundResult
 } from '../../types/query'
 import { compileQueryParams } from '../../core/query/filter'
+import { NAVIGATION_REQUIRED_FIELDS } from '../../types/navigation'
 import type { ContentQueryContext } from './context'
 import { ensureCollectionName } from './handles'
 import { isCollectionRouteRoot, isNavigationRootPath } from './localized-docs'
 import { resolveFallback } from './locale-options'
 
-const NAVIGATION_INTERNAL_FIELDS = [
-  'id',
-  'path',
-  'file',
-  'canonicalKey',
-  'locale',
-  'draft',
-  'navigation',
-  'title'
-] as const
-
 export const navigationSelectFields = (fields: ReadonlyArray<string> | undefined = []) => [
-  ...new Set([...NAVIGATION_INTERNAL_FIELDS, ...fields])
+  ...new Set([...NAVIGATION_REQUIRED_FIELDS, ...fields])
 ]
 
 type OneResolver = <H extends ContentCollectionHandle | string>(

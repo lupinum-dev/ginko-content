@@ -14,8 +14,8 @@ import { MAX_PUBLIC_QUERY_CURSOR_BYTES } from '../../packages/content/src/core/q
 
 /**
  * Closed HTTP boundary validation. `validateContentQueryRequestBody`
- * is a pure function — every case here runs without H3, a provider, or the
- * query lowerer, proving the boundary can reject before either ever runs.
+ * is a pure function: transport budgets are checked here and query semantics
+ * are delegated to the canonical lowerer without H3 or provider dispatch.
  */
 describe('content query HTTP request validation', () => {
   test('accepts a well-formed request', () => {
@@ -72,6 +72,44 @@ describe('content query HTTP request validation', () => {
 
     const result = validateContentQueryRequestBody({ collection: 'posts', where: [where] })
     expect(result.ok).toBe(false)
+  })
+
+  test('counts arrays toward the depth budget and rejects hostile array nesting structurally', () => {
+    let operand: unknown = 'value'
+    for (let depth = 0; depth < 5_000; depth += 1) {
+      operand = [operand]
+    }
+
+    const result = validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ value: { $eq: operand } }]
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        reason: `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.`
+      }
+    })
+  })
+
+  test('accepts depth 8 and rejects depth 9 for otherwise valid operands', () => {
+    const nestedArrays = (levels: number) => {
+      let value: unknown = 'value'
+      for (let depth = 0; depth < levels; depth += 1) value = [value]
+      return value
+    }
+
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ value: { $eq: nestedArrays(5) } }]
+    }).ok).toBe(true)
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      where: [{ value: { $eq: nestedArrays(6) } }]
+    })).toMatchObject({
+      ok: false,
+      error: { reason: `Filter nesting exceeds maximum depth of ${MAX_FILTER_DEPTH}.` }
+    })
   })
 
   test('rejects excessive $and/$or member counts', () => {

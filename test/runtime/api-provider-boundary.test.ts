@@ -75,12 +75,13 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
       plan: expect.objectContaining({
-        variantSelector: {
+        variant: {
           by: 'route',
+          requestedRoute: '/de/dokumentation/essentials/fallback-lab',
           requestedLocale: 'de',
           candidates: [
-            { locale: 'de', contentPath: '/essentials/fallback-lab' },
-            { locale: 'en', contentPath: '/essentials/fallback-lab' }
+            { locale: 'de', contentPath: '/dokumentation/essentials/fallback-lab' },
+            { locale: 'en', contentPath: '/docs/essentials/fallback-lab' }
           ]
         }
       })
@@ -117,7 +118,7 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).not.toHaveBeenCalled()
   })
 
-  test('query API serializes a missing first result as null, never an empty document object', async () => {
+  test('query API serializes a missing first result in the public envelope', async () => {
     const query = vi.fn(async () => ({ result: undefined }))
     mocks.getContentProvider.mockResolvedValue({ ...provider, query })
     const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
@@ -133,8 +134,8 @@ describe('runtime API provider boundary', () => {
     })
 
     const response = await handler(event)
-    expect(response).toBeNull()
-    expect(JSON.stringify(response)).toBe('null')
+    expect(response).toEqual({ result: null })
+    expect(JSON.stringify(response)).toBe('{"result":null}')
     expect(query).toHaveBeenCalledOnce()
   })
 
@@ -182,9 +183,12 @@ describe('runtime API provider boundary', () => {
       total: 1
     })
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
-      v: 3,
+      v: 4,
       collection: 'docs',
-      plan: expect.objectContaining({ collection: 'docs', limit: 10 })
+      plan: expect.objectContaining({
+        collection: 'docs',
+        pagination: { mode: 'slice', skip: 0, limit: 10 }
+      })
     }))
   })
 
@@ -212,7 +216,7 @@ describe('runtime API provider boundary', () => {
     }))
   })
 
-  test('internal search leaves draft visibility to providers without requiring $ne', async () => {
+  test('internal search leaves draft and locale visibility to providers for an unlocalized collection', async () => {
     const basicScenario = createBasicScenario()
     const fixtureProvider = createInMemoryProvider(basicScenario)
     const query = vi.fn(fixtureProvider.query.bind(fixtureProvider))
@@ -239,7 +243,7 @@ describe('runtime API provider boundary', () => {
     expect(records.map(record => record.title)).toEqual(['Hello World', 'Second Post'])
     expect(query).toHaveBeenCalledTimes(1)
     const dispatchedFilter = query.mock.calls[0]![1].plan.filter
-    expect(dispatchedFilter).toMatchObject({ field: 'locale', operator: 'eq', value: 'en' })
+    expect(dispatchedFilter).toEqual({ type: 'true' })
     expect(JSON.stringify(dispatchedFilter)).not.toContain('draft')
     expect(JSON.stringify(dispatchedFilter)).not.toContain('"operator":"ne"')
   })
@@ -271,6 +275,7 @@ describe('runtime API provider boundary', () => {
       query: vi.fn(async () => ({
         result: [{
           collection: 'docs',
+          canonicalKey: 'docs:intro',
           locale: 'en',
           contentPath: 'https://evil.test/docs/intro',
           body: { type: 'root', children: [] }
@@ -299,7 +304,7 @@ describe('runtime API provider boundary', () => {
     })
   })
 
-  test('query API requires a provider canonical key for localized collections', async () => {
+  test('query API requires a provider canonical key', async () => {
     mocks.getContentProvider.mockResolvedValue({
       ...provider,
       query: vi.fn(async () => ({
@@ -325,16 +330,27 @@ describe('runtime API provider boundary', () => {
 
     await expect(handler(event)).rejects.toMatchObject({
       statusMessage: 'provider_result_invalid',
-      data: expect.objectContaining({ operation: 'query', field: 'result' })
+      data: expect.objectContaining({ operation: 'query', field: 'result[0]' })
     })
   })
 
-  test('query API applies inherited global locale policy to provider identity', async () => {
+  test('query API does not localize a collection that did not opt in', async () => {
     vi.stubGlobal('__ginkoTestRuntimeConfig', {
       content: {
         defaultLocale: 'en',
         locales: ['en', 'de'],
-        collections: { docs: {} }
+        collections: {
+          docs: {
+            localePolicy: {
+              localized: false,
+              locales: [],
+              defaultLocale: 'en',
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
       }
     })
     mocks.getContentProvider.mockResolvedValue({
@@ -342,6 +358,7 @@ describe('runtime API provider boundary', () => {
       query: vi.fn(async () => ({
         result: [{
           collection: 'docs',
+          canonicalKey: 'docs:intro',
           locale: 'en',
           contentPath: '/docs/intro',
           body: { type: 'root', children: [] }
@@ -360,9 +377,14 @@ describe('runtime API provider boundary', () => {
       }
     })
 
-    await expect(handler(event)).rejects.toMatchObject({
-      statusMessage: 'provider_result_invalid',
-      data: expect.objectContaining({ operation: 'query', field: 'result' })
+    await expect(handler(event)).resolves.toMatchObject({
+      result: [{
+        locale: 'en',
+        route: {
+          resolvedPath: '/docs/intro',
+          alternates: []
+        }
+      }]
     })
   })
 
@@ -371,7 +393,20 @@ describe('runtime API provider boundary', () => {
       content: {
         defaultLocale: 'en',
         locales: ['en', 'de'],
-        collections: { docs: { i18n: false, route: '/docs' } }
+        collections: {
+          docs: {
+            i18n: false,
+            route: '/docs',
+            localePolicy: {
+              localized: false,
+              locales: [],
+              defaultLocale: 'en',
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
       }
     })
     mocks.getContentProvider.mockResolvedValue({
@@ -383,8 +418,7 @@ describe('runtime API provider boundary', () => {
           locale: 'en',
           contentPath: '/docs/intro',
           routeVariants: [
-            { locale: 'en', contentPath: '/docs/intro' },
-            { locale: 'de', contentPath: '/dokumentation/einstieg' }
+            { locale: 'en', contentPath: '/docs/intro' }
           ],
           body: { type: 'root', children: [] }
         }],
@@ -447,6 +481,7 @@ describe('runtime API provider boundary', () => {
       query: vi.fn(async () => ({
         result: [{
           collection: 'posts',
+          canonicalKey: 'posts:wrong-collection',
           locale: 'en',
           contentPath: '/blog/wrong-collection',
           body: { type: 'root', children: [] }
@@ -491,12 +526,18 @@ describe('runtime API provider boundary', () => {
     expect(mocks.getContentProvider).toHaveBeenCalledWith(event)
     expect(navigation).toHaveBeenCalledWith(
       event,
-      expect.objectContaining({ v: 3, collection: 'docs', plan: expect.objectContaining({ collection: 'docs' }) }),
-      expect.objectContaining({ locale: 'de' })
+      expect.objectContaining({
+        v: 4,
+        collection: 'docs',
+        plan: expect.objectContaining({
+          collection: 'docs',
+          resolveLocale: { locale: 'de' }
+        })
+      })
     )
   })
 
-  test('navigation API preserves cross-collection navigation when collection is omitted', async () => {
+  test('navigation API rejects ambiguous cross-collection navigation', async () => {
     const navigation = vi.fn(async () => [])
     mocks.getContentProvider.mockResolvedValue({
       ...provider,
@@ -505,12 +546,11 @@ describe('runtime API provider boundary', () => {
     const handler = (await import('../../packages/content/src/runtime/server/api/navigation')).default
     const event = createTestEvent({ scenario, provider })
 
-    await expect(handler(event)).resolves.toEqual([])
-    expect(navigation).toHaveBeenCalledWith(
-      event,
-      expect.objectContaining({ v: 3, collection: null }),
-      {}
-    )
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 400,
+      data: expect.objectContaining({ path: '$.collection' })
+    })
+    expect(navigation).not.toHaveBeenCalled()
   })
 
   test('navigation API rejects non-own collection names before external-provider lookup or dispatch', async () => {

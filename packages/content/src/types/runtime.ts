@@ -1,6 +1,7 @@
 import type { StorageValue } from 'unstorage'
 import type { ParsedContent, ContentTransformer, MarkdownOptions } from './content'
 import type { ContentCollectionConfig } from './config'
+import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
 import type { ContentContext, ModuleOptions } from './module'
 
 export interface ContentCacheArtifact<T = ParsedContent> {
@@ -8,28 +9,14 @@ export interface ContentCacheArtifact<T = ParsedContent> {
   hash: string
 }
 
-export interface ManifestVariant {
+export interface ContentVariantIdentity {
   canonicalKey: string
   contentId: string
   locale: string
   path?: string
 }
 
-export interface ContentManifest {
-  /** Exact `{ collection → canonical key → locale → variant }` identity index. */
-  byCollectionCanonical: Record<string, Record<string, Record<string, ManifestVariant>>>
-  /** Unambiguous canonical keys only. Derived from `byCollectionCanonical`. */
-  byCanonical: Record<string, Record<string, ManifestVariant>>
-  /** Exact `{ collection → ref → canonical key }` alias index. */
-  byCollectionRef: Record<string, Record<string, string>>
-  /** Unambiguous refs only. Derived from `byCollectionRef`. */
-  byRef: Record<string, string>
-  byRoute: Record<string, string>
-  paths: Record<string, string[]>
-  collections: Record<string, string[]>
-}
-
-export interface ResolvedVariant extends ManifestVariant {
+export interface ResolvedVariant extends ContentVariantIdentity {
   requestedLocale?: string
   resolvedLocale?: string
   fallback: boolean
@@ -48,6 +35,7 @@ export interface ParseContentOptions {
     translatedSlugs?: ContentContext['translatedSlugs']
     respectPathCase?: ModuleOptions['respectPathCase']
     collections?: Record<string, ContentCollectionConfig>
+    localePolicy?: ResolvedLocalePolicy['collections']
     collectionResolver?: (file: string) => string | undefined
   }
   [key: string]: unknown

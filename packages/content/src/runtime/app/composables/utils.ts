@@ -112,6 +112,10 @@ export async function fetchContentApi<T> (
     throw new Error(options.notFoundMessage || 'Not found')
   }
 
+  if (data === undefined || data === null) {
+    throw new TypeError('Invalid content API response: expected a non-empty JSON body.')
+  }
+
   if (!import.meta.dev && import.meta.server) {
     addPrerenderPathOnSuccess?.(apiPath)
   }

@@ -12,17 +12,22 @@ import type {
   ContentRouteRecord,
 } from './provider-contract'
 import type {
-  ContentProviderNavigationOptions,
   ContentProviderPaginationMode,
   ContentProviderQuery,
-  ContentQueryPlan,
+  ContentProviderQueryPlan,
+  ContentQueryPagination,
 } from './provider-query'
+import { CONTENT_ROUTE_LIMITS } from '../core/provider-route-record'
+
+export { createContentDataSourceError } from '../core/data-source-error'
+export type { ContentDataSourceErrorCode } from '../core/data-source-error'
 
 export const CONTENT_DATA_SOURCE_LIMITS = Object.freeze({
   maxQueryPageSize: 100,
   maxSearchResults: 100,
   maxRoutePageSize: 250,
   maxTotalRoutes: 100_000,
+  ...CONTENT_ROUTE_LIMITS,
   maxNavigationNodes: 2_000,
   maxSurroundItems: 2,
   maxSiteDataBytes: 256 * 1024,
@@ -49,16 +54,17 @@ export interface ContentDataSourceResult<T> {
   cache: ContentDataSourceCacheHint | false
 }
 
-type AllPlan = Omit<ContentQueryPlan, 'mode' | 'limit'> & { mode: 'all'; limit: number }
-type FirstPlan = Omit<ContentQueryPlan, 'mode' | 'limit' | 'paging'> & {
-  mode: 'first'
-  limit: 1
-  paging?: never
+type AllPlan = Omit<ContentProviderQueryPlan, 'mode' | 'pagination'> & {
+  mode: 'all'
+  pagination: ContentQueryPagination & { limit: number }
 }
-type CountPlan = Omit<ContentQueryPlan, 'mode' | 'limit' | 'paging'> & {
+type FirstPlan = Omit<ContentProviderQueryPlan, 'mode' | 'pagination'> & {
+  mode: 'first'
+  pagination: { mode: 'slice', skip: number, limit: 1 }
+}
+type CountPlan = Omit<ContentProviderQueryPlan, 'mode' | 'pagination'> & {
   mode: 'count'
-  limit?: never
-  paging?: never
+  pagination: { mode: 'slice', skip: number, limit?: never }
 }
 
 export type BoundedContentProviderQuery = Omit<ContentProviderQuery, 'plan'> & {
@@ -103,7 +109,7 @@ export interface ContentDataSource<Context> {
   navigation?(
     context: Context,
     query: BoundedContentProviderQuery,
-    options: ContentProviderNavigationOptions & { limit: number },
+    options: { readonly limit: number },
     control: ContentDataSourceControl,
   ): Promise<ContentDataSourceResult<ContentProviderNavigationItem[]>>
   surroundings?(

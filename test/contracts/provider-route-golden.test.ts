@@ -10,6 +10,7 @@ import {
   normalizeContentSitemapAssertOptions
 } from '../../packages/content/src/module/sitemap-assert'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider'
+import type { ContentProviderQuery, ContentProviderVariantSelector } from '../../packages/content/src/public/provider'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import {
   normalizeProviderRoutes,
@@ -20,6 +21,14 @@ import {
 } from '../../packages/content/src/runtime/server/provider-route-facts'
 
 describe('provider route golden contract', () => {
+  const closedVariantQuery = (
+    collection: string,
+    variant: ContentProviderVariantSelector
+  ): ContentProviderQuery => {
+    const query = toContentProviderQuery({ collection, first: true })
+    return { ...query, plan: { ...query.plan, variant } }
+  }
+
   test('drives every route-bearing consumer from one raw provider contract', async () => {
     const fixture = createProviderFixture({
       name: 'provider-route-golden',
@@ -67,7 +76,15 @@ describe('provider route golden contract', () => {
     }
     const pageResponse = normalizeProviderQueryResponse(
       pageParams,
-      await provider.query(event, toContentProviderQuery(pageParams)),
+      await provider.query(event, closedVariantQuery('docs', {
+        by: 'route',
+        requestedRoute: '/de/dokumentation/start',
+        requestedLocale: 'de',
+        candidates: [
+          { locale: 'de', contentPath: '/dokumentation/start' },
+          { locale: 'en', contentPath: '/docs/start' }
+        ]
+      })),
       provider.name,
       fixture.runtime
     )
@@ -90,7 +107,7 @@ describe('provider route golden contract', () => {
       sort: [{ order: 1 }]
     })
     const navigation = projectProviderNavigation(
-      await provider.navigation!(event, navigationQuery, { locale: 'de', fallback: true }),
+      await provider.navigation!(event, navigationQuery),
       provider.name,
       fixture.runtime,
       'de'
@@ -183,7 +200,15 @@ describe('provider route golden contract', () => {
     }
     const routeResponse = normalizeProviderQueryResponse(
       routeParams,
-      await provider.query(event, toContentProviderQuery(routeParams)),
+      await provider.query(event, closedVariantQuery('docs', {
+        by: 'route',
+        requestedRoute: '/de/dokumentation/setup',
+        requestedLocale: 'de',
+        candidates: [
+          { locale: 'de', contentPath: '/dokumentation/setup' },
+          { locale: 'en', contentPath: '/docs/setup' }
+        ]
+      })),
       provider.name,
       fixture.runtime
     )
@@ -207,7 +232,12 @@ describe('provider route golden contract', () => {
     }
     const refResponse = normalizeProviderQueryResponse(
       refParams,
-      await provider.query(event, toContentProviderQuery(refParams)),
+      await provider.query(event, closedVariantQuery('docs', {
+        by: 'ref',
+        requestedRef: 'docs.a',
+        requestedLocale: 'de',
+        localeChain: ['de', 'en']
+      })),
       provider.name,
       fixture.runtime
     )
@@ -232,7 +262,12 @@ describe('provider route golden contract', () => {
     }
     const publicResponse = normalizeProviderQueryResponse(
       publicParams,
-      await provider.query(event, toContentProviderQuery(publicParams)),
+      await provider.query(event, closedVariantQuery('docs', {
+        by: 'ref',
+        requestedRef: 'docs.draft',
+        requestedLocale: 'en',
+        localeChain: ['en']
+      })),
       provider.name,
       fixture.runtime
     )

@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { build } from 'esbuild'
@@ -74,6 +74,7 @@ async function loadPackedApi(packageRoot) {
   const load = async (path) => await import(pathToFileURL(resolve(packageRoot, path)).href)
   return {
     ...(await load('dist/public/data-source.js')),
+    ...(await load('dist/public/navigation.js')),
     ...(await load('dist/portability/index.js')),
     ...(await load('dist/testing/portability-contract.js')),
   }
@@ -87,12 +88,13 @@ async function runWorkerProbe(packageRoot, tempRoot) {
     entry,
     [
       `import * as dataSource from ${JSON.stringify(resolve(packageRoot, 'dist/public/data-source.js'))}`,
+      `import * as navigation from ${JSON.stringify(resolve(packageRoot, 'dist/public/navigation.js'))}`,
       `import * as portability from ${JSON.stringify(resolve(packageRoot, 'dist/portability/index.js'))}`,
       `import * as testing from ${JSON.stringify(resolve(packageRoot, 'dist/testing/portability-contract.js'))}`,
       `import { runPureRuntimeProbe } from ${JSON.stringify(helper)}`,
       'globalThis.onmessage = async () => {',
       '  try {',
-      '    const result = await runPureRuntimeProbe({ ...dataSource, ...portability, ...testing })',
+      '    const result = await runPureRuntimeProbe({ ...dataSource, ...navigation, ...portability, ...testing })',
       "    globalThis.postMessage({ ok: true, result, runtime: { worker: typeof WorkerGlobalScope !== 'undefined', document: typeof document } })",
       '  } catch (error) {',
       "    globalThis.postMessage({ ok: false, error: error instanceof Error ? error.message : String(error) })",
@@ -180,6 +182,16 @@ async function main() {
     ) {
       throw new Error(`Worker V8 probe did not match Node: ${JSON.stringify(workerResult)}`)
     }
+    writeFileSync(
+      resolve(dirname(tarball), 'release-lane-pure-runtimes.json'),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        status: 'passed',
+        sha256: actualHash,
+        node: process.version,
+        runtimes: ['node', 'chromium-worker']
+      }, null, 2)}\n`,
+    )
     console.log(
       `Packed pure runtime probes passed: sha256=${actualHash}, vectors=${nodeResult.vectorCount}, codec=${nodeResult.canonicalKey}.`,
     )

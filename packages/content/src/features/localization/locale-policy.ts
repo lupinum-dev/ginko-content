@@ -17,7 +17,8 @@
  * Nuxt I18n routing strategies proven end-to-end for 0.3.
  * Any other strategy must fail setup rather than project unverified paths.
  */
-import { normalizeRouteMounts } from '../../core/content/path'
+import { normalizeSiteRelativeContentPath } from '../../core/content/path'
+import { DEFAULT_CONTENT_LOCALE } from '../../core/content/locale'
 
 export const SUPPORTED_NUXT_I18N_STRATEGY = 'prefix_except_default' as const
 
@@ -74,7 +75,7 @@ export interface LocalePolicyInput {
 export interface ResolvedCollectionLocalePolicy {
   localized: boolean
   locales: readonly string[]
-  defaultLocale?: string
+  defaultLocale: string
   fallback: Readonly<Record<string, readonly string[]>>
   translatedSlugs: boolean
   /**
@@ -87,19 +88,126 @@ export interface ResolvedCollectionLocalePolicy {
   routeMounts: Readonly<Record<string, string>>
 }
 
+const requireRouteMount = (
+  collection: string,
+  key: string,
+  value: unknown
+): string => {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new LocalePolicyError(
+      `@lupinum/ginko-content: collection "${collection}" must declare a non-empty route mount for "${key}".`
+    )
+  }
+  try {
+    return normalizeSiteRelativeContentPath(value)
+  } catch {
+    throw new LocalePolicyError(
+      `@lupinum/ginko-content: collection "${collection}" must declare a valid site-relative route mount for "${key}".`
+    )
+  }
+}
+
+const resolveCollectionRouteMounts = (
+  collection: LocalePolicyCollectionInput,
+  localized: boolean,
+  locales: readonly string[]
+): Readonly<Record<string, string>> => {
+  const route = collection.route ?? '/'
+
+  if (!localized) {
+    if (typeof route === 'string') {
+      return { default: requireRouteMount(collection.name, 'default', route) }
+    }
+    const keys = Object.keys(route)
+    if (keys.length !== 1 || keys[0] !== 'default') {
+      throw new LocalePolicyError(
+        `@lupinum/ginko-content: unlocalized collection "${collection.name}" must use a string route `
+        + 'or an object containing only the "default" route mount.'
+      )
+    }
+    return { default: requireRouteMount(collection.name, 'default', route.default) }
+  }
+
+  if (typeof route === 'string') {
+    const mount = requireRouteMount(collection.name, 'each locale', route)
+    return Object.fromEntries(locales.map(locale => [locale, mount]))
+  }
+
+  const declared = Object.keys(route)
+  const missing = locales.filter(locale => !declared.includes(locale))
+  const unknown = declared.filter(locale => !locales.includes(locale))
+  if (missing.length || unknown.length) {
+    throw new LocalePolicyError(
+      `@lupinum/ginko-content: localized collection "${collection.name}" must declare exactly one route mount `
+      + `for every resolved locale. Missing: ${missing.join(', ') || '(none)'}. `
+      + `Unknown: ${unknown.join(', ') || '(none)'}.`
+    )
+  }
+
+  return Object.fromEntries(locales.map(locale => [
+    locale,
+    requireRouteMount(collection.name, locale, route[locale])
+  ]))
+}
+
 export interface ResolvedLocalePolicy {
   /** Which side is the authority for locales/defaultLocale. */
   source: 'nuxt-i18n' | 'content'
   locales: readonly string[]
-  defaultLocale?: string
+  defaultLocale: string
   fallback: Readonly<Record<string, readonly string[]>>
   translatedSlugs: boolean
   strategy: typeof SUPPORTED_NUXT_I18N_STRATEGY | 'content-only'
   collections: Readonly<Record<string, ResolvedCollectionLocalePolicy>>
 }
 
+export interface ResolvedLocaleAuthority {
+  locales: readonly string[]
+  defaultLocale: string
+  fallback: Readonly<Record<string, readonly string[]>>
+  translatedSlugs: boolean
+}
+
 function normalizeLocales(locales: string[] | undefined): string[] {
   return Array.from(new Set((locales ?? []).filter((locale): locale is string => typeof locale === 'string' && locale.length > 0)))
+}
+
+/** Resolve one collection from an already-decided locale authority. */
+export function resolveCollectionLocalePolicy(
+  collection: LocalePolicyCollectionInput,
+  authority: ResolvedLocaleAuthority
+): ResolvedCollectionLocalePolicy {
+  const collectionLocales = normalizeLocales(collection.locales ?? [...authority.locales])
+  const collectionDefaultLocale = collection.defaultLocale ?? authority.defaultLocale
+  const localized = collection.localized && collectionLocales.length > 0
+  if (collection.localized && collectionLocales.length === 0) {
+    throw new LocalePolicyError(
+      `@lupinum/ginko-content: collection "${collection.name}" opts into localization ("i18n"), `
+      + 'but no locales are configured. Localized collections require a usable default locale.'
+    )
+  }
+  if (collectionLocales.length && !collectionLocales.includes(collectionDefaultLocale)) {
+    throw new LocalePolicyError(
+      `@lupinum/ginko-content: collection "${collection.name}" default locale "${collectionDefaultLocale}" `
+      + `is not present in its resolved locales list (${collectionLocales.join(', ')}).`
+    )
+  }
+
+  const collectionFallback = Object.fromEntries(
+    Object.entries(authority.fallback)
+      .filter(([locale]) => collectionLocales.includes(locale))
+      .map(([locale, chain]) => [locale, chain.filter(target => collectionLocales.includes(target))])
+      .filter(([, chain]) => chain.length > 0)
+  )
+
+  return {
+    localized,
+    locales: localized ? collectionLocales : [],
+    defaultLocale: collectionDefaultLocale,
+    fallback: localized ? collectionFallback : {},
+    translatedSlugs: localized ? authority.translatedSlugs : false,
+    routeMounts: resolveCollectionRouteMounts(collection, localized, collectionLocales)
+  }
 }
 
 /**
@@ -219,7 +327,12 @@ function resolveAuthority(
  * setup; downstream code consumes the result rather than reconstructing it.
  */
 export function resolveLocalePolicy(input: LocalePolicyInput): ResolvedLocalePolicy {
-  const { source, locales, defaultLocale, strategy } = resolveAuthority(input.nuxtI18n, input.content)
+  const { source, locales, defaultLocale: configuredDefaultLocale, strategy } = resolveAuthority(input.nuxtI18n, input.content)
+  // Path parsing has always assigned unconfigured content to `en`. Keep that
+  // physical document identity in the resolved policy too, otherwise route
+  // queries lower to the empty locale while the graph is indexed under `en`.
+  // This does not localize a collection or add locale prefixes.
+  const defaultLocale = configuredDefaultLocale ?? locales[0] ?? DEFAULT_CONTENT_LOCALE
 
   if (defaultLocale && locales.length && !locales.includes(defaultLocale)) {
     throw new LocalePolicyError(
@@ -233,53 +346,12 @@ export function resolveLocalePolicy(input: LocalePolicyInput): ResolvedLocalePol
 
   const collections: Record<string, ResolvedCollectionLocalePolicy> = {}
   for (const collection of input.collections) {
-    const collectionLocales = normalizeLocales(collection.locales ?? locales)
-    const collectionDefaultLocale = collection.defaultLocale ?? defaultLocale
-    const localized = collection.localized && collectionLocales.length > 0
-    if (collection.localized && collectionLocales.length === 0) {
-      throw new LocalePolicyError(
-        `@lupinum/ginko-content: collection "${collection.name}" opts into localization ("i18n"), `
-        + 'but no locales are configured. Localized collections require a usable default locale '
-        + '.'
-      )
-    }
-    if (localized && !collectionDefaultLocale) {
-      throw new LocalePolicyError(
-        `@lupinum/ginko-content: collection "${collection.name}" is localized, but no default locale is resolved. `
-        + 'Localized collections require a usable default locale.'
-      )
-    }
-    if (collectionDefaultLocale && collectionLocales.length && !collectionLocales.includes(collectionDefaultLocale)) {
-      throw new LocalePolicyError(
-        `@lupinum/ginko-content: collection "${collection.name}" default locale "${collectionDefaultLocale}" `
-        + `is not present in its resolved locales list (${collectionLocales.join(', ')}).`
-      )
-    }
-
-    const collectionFallback = Object.fromEntries(
-      Object.entries(fallback)
-        .filter(([locale]) => collectionLocales.includes(locale))
-        .map(([locale, chain]) => [locale, chain.filter(target => collectionLocales.includes(target))])
-        .filter(([, chain]) => chain.length > 0)
-    )
-
-    const fallbackMount = `/${collection.name}`
-    const routeMounts = localized
-      ? (normalizeRouteMounts(collection.route ?? fallbackMount, collectionLocales, collectionDefaultLocale) ?? { default: fallbackMount })
-      : {
-          default: typeof collection.route === 'string'
-            ? collection.route
-            : (collection.route?.default ?? collection.route?.[collectionDefaultLocale ?? ''] ?? fallbackMount)
-        }
-
-    collections[collection.name] = {
-      localized,
-      locales: localized ? collectionLocales : [],
-      defaultLocale: localized ? collectionDefaultLocale : undefined,
-      fallback: localized ? collectionFallback : {},
-      translatedSlugs: localized ? translatedSlugs : false,
-      routeMounts
-    }
+    collections[collection.name] = resolveCollectionLocalePolicy(collection, {
+      locales,
+      defaultLocale,
+      fallback,
+      translatedSlugs
+    })
   }
 
   // Immutability here is a type-level contract (`Readonly<...>`), not a

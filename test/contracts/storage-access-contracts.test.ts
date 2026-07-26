@@ -6,6 +6,23 @@ const schemaSafeParse = vi.hoisted(() => vi.fn(() => ({ success: true, data: {} 
 const runtimeContent = {
   ignores: ['\\.tmp$'],
   cacheIntegrity: 'integrity',
+  defaultLocale: 'en',
+  locales: ['en', 'de'],
+  localePolicy: {
+    defaultLocale: 'en',
+    locales: ['en', 'de'],
+    fallback: {},
+    collections: {
+      docs: {
+        localized: true,
+        locales: ['en', 'de'],
+        defaultLocale: 'en',
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { en: '/docs', de: '/dokumentation' }
+      }
+    }
+  },
   collections: {
     docs: {
       source: '*.md',
@@ -16,6 +33,14 @@ const runtimeContent = {
       i18n: {
         defaultLocale: 'en',
         locales: ['en', 'de']
+      },
+      localePolicy: {
+        localized: true,
+        locales: ['en', 'de'],
+        defaultLocale: 'en',
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { en: '/docs', de: '/dokumentation' }
       }
     }
   }

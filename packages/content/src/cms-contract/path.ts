@@ -16,7 +16,6 @@ export {
   isPartialPath,
   normalizeContentPath,
   normalizeRouteMounts,
-  longestMountForPath,
   routeRemainder,
   mountContentPath,
   prefixPathWithLocale,

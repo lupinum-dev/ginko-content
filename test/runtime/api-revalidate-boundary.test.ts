@@ -432,6 +432,39 @@ describe('runtime revalidate API boundary', () => {
     })
   })
 
+  test('fails when the configured adapter only applies response headers', async () => {
+    mocks.getContentCacheAdapter.mockResolvedValue({
+      name: 'headers-only',
+      apply: vi.fn()
+    })
+    const handler = (await import('../../packages/content/src/runtime/server/api/revalidate')).default
+    const body = JSON.stringify({ paths: ['/docs/a'] })
+    const event = {
+      ...createTestEvent(),
+      method: 'POST',
+      node: {
+        req: {
+          method: 'POST',
+          url: '/',
+          headers: {
+            'content-length': String(body.length),
+            'content-type': 'application/json',
+            'x-ginko-revalidate-token': 'secret'
+          },
+          rawBody: body,
+          [Symbol.asyncIterator]: async function * () {
+            yield Buffer.from(body)
+          }
+        }
+      }
+    } as any
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 501,
+      statusMessage: 'revalidation_not_supported'
+    })
+  })
+
   test('passes invalidation to the configured cache adapter', async () => {
     const adapterInvalidate = vi.fn()
     mocks.getContentCacheAdapter.mockResolvedValue({

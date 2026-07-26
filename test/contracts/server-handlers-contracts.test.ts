@@ -20,6 +20,10 @@ describe('content server handlers', () => {
       method: 'post',
       route: '/api/_content/revalidate'
     }))
+    expect(addServerHandler).toHaveBeenCalledWith({
+      middleware: true,
+      handler: './server/middleware/preview.js'
+    })
   })
 
   test('registers the revalidation endpoint when a token is configured', async () => {

@@ -19,9 +19,8 @@ import { compileQueryParams } from '../../core/query/filter'
 import type { ContentQueryContext } from './context'
 import { isNotFoundError } from './errors'
 import { ensureCollectionName } from './handles'
-import { decorateLocalizedDocument } from './localized-docs'
 import { resolveFallback } from './locale-options'
-import { populateDocument, selectWithPopulate, validatePopulateSpec } from './populate'
+import { populateDocument, populateDocuments, selectWithPopulate, validatePopulateSpec } from './populate'
 import { unwrapListResponse, unwrapOneResponse } from './responses'
 
 const explainResolution = (
@@ -92,13 +91,11 @@ export async function resolveDocument<
     throw error
   }
 
-  const unwrapped = unwrapOneResponse<ParsedContent>(response)
-  const doc = unwrapped ?? null
-  const decorated = decorateLocalizedDocument(doc as ParsedContent, collection, runtime, options.locale)
-  const populated = decorated
-    ? await populateDocument(context, one, decorated, options.populate, options.locale, options.fallback)
+  const doc = unwrapOneResponse<LocalizedDoc<ParsedContent>>(response)
+  const populated = doc
+    ? await populateDocument(context, one, doc, options.populate, options.locale, options.fallback)
     : null
-  const explain = explainResolution(collection, options.by, by, options.locale, options.fallback, decorated)
+  const explain = explainResolution(collection, options.by, by, options.locale, options.fallback, doc)
   return {
     doc: populated,
     explain
@@ -149,10 +146,7 @@ export async function resolveManyDocuments<
     throw error
   }
 
-  const list = unwrapListResponse<ParsedContent>(response)
-  const decorated = list
-    .map(doc => decorateLocalizedDocument(doc as ParsedContent, collection, runtime, options.locale))
-    .filter((doc): doc is LocalizedDoc<ParsedContent> => Boolean(doc))
-  const populated = await Promise.all(decorated.map(doc => populateDocument(context, one, doc, options.populate, options.locale, options.fallback)))
+  const docs = unwrapListResponse<LocalizedDoc<ParsedContent>>(response)
+  const populated = await populateDocuments(context, one, docs, options.populate, options.locale, options.fallback)
   return populated as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>
 }

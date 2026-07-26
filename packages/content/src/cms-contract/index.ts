@@ -51,7 +51,6 @@ export {
   generateTitle,
   isDraftPath,
   isPartialPath,
-  longestMountForPath,
   mountContentPath,
   normalizeContentPath,
   normalizeRouteMounts,
@@ -65,7 +64,7 @@ export {
 
 export {
   CONTENT_FIELD_METADATA_KEY,
-  CONTENT_REFERENCE_PREFIX,
+  CONTENT_REFERENCE_METADATA_KEY,
   collectTopLevelReferenceFields,
   getContentFieldMetadata,
   getObjectShape,

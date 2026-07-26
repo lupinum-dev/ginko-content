@@ -496,7 +496,7 @@ export interface ModuleOptions {
 
 export interface ResolvedContentI18nOptions {
   locales: string[]
-  defaultLocale?: string
+  defaultLocale: string
   fallback: Record<string, string[]>
   translatedSlugs: boolean
   strictTranslatedSlugs: boolean
@@ -527,9 +527,9 @@ export interface ContentContext extends Omit<ModuleOptions, 'search'> {
    */
   localePolicy: ResolvedLocalePolicy
   contract: ResolvedContentContractV1
-  contractSha256: string
 }
 
-export type ResolvedContentContext = Omit<ContentContext, 'markdown'> & {
+export type ResolvedContentContext = Omit<ContentContext, 'markdown' | 'defaultLocale'> & {
+  defaultLocale: string
   markdown: MarkdownOptions
 }

@@ -292,6 +292,10 @@ describe('module contracts', () => {
           },
           authors: {
             source: 'authors/*.yml'
+          },
+          empty: {
+            source: 'empty/*.yml',
+            schema: z.object({})
           }
         }
       })),
@@ -323,9 +327,13 @@ describe('module contracts', () => {
       expect.objectContaining({
         posts: expect.objectContaining({
           source: 'posts/*.md',
+          schemaFields: ['authors'],
           references: {
             authors: ['authors']
           }
+        }),
+        empty: expect.objectContaining({
+          schemaFields: []
         })
       }),
       undefined,
@@ -334,6 +342,10 @@ describe('module contracts', () => {
 
     const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
     expect(privateCollections.posts).not.toHaveProperty('schema')
+    expect(privateCollections.authors).not.toHaveProperty('schemaFields')
+    expect(privateCollections.empty).not.toHaveProperty('schema')
+    const publicCollections = applyContentRuntimeConfig.mock.calls[0][4]
+    expect(publicCollections.posts).not.toHaveProperty('schemaFields')
   })
 
   test('preserves an explicit collection i18n opt-out through runtime serialization', async () => {
@@ -704,7 +716,6 @@ describe('module contracts', () => {
       locales: ['en', 'de'],
       collections: { docs: { id: 'docs' } },
     })
-    expect(finalized.contractSha256).toMatch(/^[a-f0-9]{64}$/)
     expect(finalized.localePolicy.collections.docs).toMatchObject({
       localized: true,
       locales: ['en', 'de'],

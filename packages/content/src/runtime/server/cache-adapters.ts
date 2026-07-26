@@ -3,24 +3,9 @@ import { setHeader } from 'h3'
 import type { ContentCacheAdapter, ContentCacheHint } from '../../public/provider'
 
 /**
- * Choosing a cache adapter:
- * - `noopContentCache` — the default. Both `apply` and `invalidate` are intentionally
- *   inert: the runtime still computes and stores a cache hint per request, but nothing
- *   is written to the response and no upstream cache is purged. Use when caching is
- *   handled entirely outside this module (a CDN/edge config you own) or disabled.
- * - `headersContentCache` — the active-`apply` adapter: writes `Cache-Control`/`ETag`/
- *   `Last-Modified` onto every content response from the hint. Use when this module
- *   should own response cache headers directly (self-hosted / generic CDN).
- */
-export const noopContentCache = (): ContentCacheAdapter => ({
-  name: 'noop',
-  apply: () => {},
-  invalidate: async () => {}
-})
-
-/**
  * Emits the per-request cache hint as HTTP response headers via {@link contentCacheHeaders}.
- * `invalidate` is a no-op: header-based caching has no upstream store to purge.
+ * Header-based caching has no upstream store to purge, so this adapter deliberately
+ * does not advertise the optional invalidation capability.
  */
 export const headersContentCache = (): ContentCacheAdapter => ({
   name: 'headers',
@@ -29,8 +14,7 @@ export const headersContentCache = (): ContentCacheAdapter => ({
     headers.forEach((value, key) => {
       setHeader(event, key, value)
     })
-  },
-  invalidate: async () => {}
+  }
 })
 
 export const contentCacheHeaders = (hint: ContentCacheHint) => {

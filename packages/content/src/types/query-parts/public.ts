@@ -1,5 +1,6 @@
 import type { ContentNavigationItem, ParsedContent, ParsedContentMeta, StrictParsedContent, StrictParsedContentMeta } from '../content'
 import type { __ginkoI18nBrand, __ginkoSchemaBrand } from '../config'
+import type { SharedNavigationMetadata } from '../navigation'
 import type { ContentCollectionI18nMap, ContentCollectionMap, ContentCollectionName, ContentCollectionTarget } from './collections'
 import type { ContentDocumentResolution, ContentDocumentRoute } from './results'
 
@@ -155,8 +156,8 @@ export type LocalizedDoc<T = ParsedContentMeta> = LocalizedContentDocument<T>
  *: identity, plus the `route`/`resolution`
  * envelope. Identity fields survive because `selectWithPopulate` force-keeps
  * them; `route`/`resolution` (and the `stem`/`extension`/`resolvedRefs`
- * bookkeeping fields) survive because `decorateLocalizedDocument` re-attaches
- * them after projection. The type promises exactly the runtime survivors —
+ * bookkeeping fields) are guaranteed by the public query-response boundary.
+ * The type promises exactly the runtime survivors —
  * no more, no less.
  */
 type IdentityGuaranteedKeys = 'id' | 'collection' | 'canonicalKey' | 'file'
@@ -381,7 +382,7 @@ export type ContentNavigationTreeItem<
   title: string
   path?: string
   children?: Array<ContentNavigationTreeItem<T, Select>>
-} & (Select extends ReadonlyArray<infer K>
+} & SharedNavigationMetadata & (Select extends ReadonlyArray<infer K>
   ? Pick<T, Extract<K, keyof T>>
   : Record<never, never>)
 

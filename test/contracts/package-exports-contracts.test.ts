@@ -1,6 +1,11 @@
-import { access, readdir, readFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { access, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
+import { promisify } from 'node:util'
 import { describe, expect, test } from 'vitest'
+
+const execFileAsync = promisify(execFile)
 
 const collectJavaScriptFiles = async (root: string): Promise<string[]> => {
   const entries = await readdir(root, { withFileTypes: true })
@@ -151,6 +156,74 @@ describe('package export contracts', () => {
     expect(client).not.toHaveProperty('useContentSearchResults')
     expect(client).not.toHaveProperty('useContentPreview')
   })
+
+  test('built navigation export loads as runtime-free Node ESM', async () => {
+    const navigation = await import('@lupinum/ginko-content/navigation')
+
+    expect(Object.keys(navigation).sort()).toEqual([
+      'findFirstNavigationChild',
+      'findFirstNavigationPage',
+      'findNavigationTrail',
+      'navigationItemContainsPath',
+      'normalizeNavigationPath',
+      'walkNavigationTree'
+    ])
+    expect(navigation.normalizeNavigationPath('/docs/')).toBe('/docs')
+  })
+
+  test('new traversal helpers live only on the pure navigation subpath', async () => {
+    const [client, server] = await Promise.all([
+      import('../../packages/content/dist/public/client.js'),
+      import('../../packages/content/dist/public/server.js')
+    ])
+
+    for (const facade of [client, server]) {
+      expect(facade.findFirstNavigationPage).toBeTypeOf('function')
+      expect(facade).not.toHaveProperty('findFirstNavigationChild')
+      expect(facade).not.toHaveProperty('normalizeNavigationPath')
+      expect(facade).not.toHaveProperty('navigationItemContainsPath')
+      expect(facade).not.toHaveProperty('findNavigationTrail')
+      expect(facade).not.toHaveProperty('walkNavigationTree')
+    }
+  })
+
+  test('navigation subpath types resolve in bundler and node16 consumers', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ginko-navigation-types-'))
+    try {
+      await mkdir(join(root, 'node_modules/@lupinum'), { recursive: true })
+      await symlink(join(process.cwd(), 'packages/content'), join(root, 'node_modules/@lupinum/ginko-content'), 'junction')
+      await writeFile(join(root, 'package.json'), JSON.stringify({ type: 'module' }), 'utf8')
+      await writeFile(join(root, 'index.ts'), `
+        import { findFirstNavigationPage, normalizeNavigationPath } from '@lupinum/ginko-content/navigation'
+        import type { ContentNavigationTreeItem, NavigationSidebar } from '@lupinum/ginko-content/navigation'
+        type Item = { title: string; path?: string; children: Item[] }
+        const items: Item[] = [{ title: 'Docs', children: [{ title: 'Intro', path: '/docs/intro', children: [] }] }]
+        const page = findFirstNavigationPage(items)
+        const path: string | undefined = page?.path
+        const projected: ContentNavigationTreeItem = { title: 'Docs', sidebar: 'section' }
+        const sidebar: NavigationSidebar | undefined = projected.sidebar
+        normalizeNavigationPath(path ?? '/')
+        void sidebar
+      `, 'utf8')
+
+      for (const [module, moduleResolution] of [['ESNext', 'Bundler'], ['Node16', 'Node16']]) {
+        await writeFile(join(root, 'tsconfig.json'), JSON.stringify({
+          compilerOptions: {
+            target: 'ES2022',
+            module,
+            moduleResolution,
+            strict: true,
+            noEmit: true,
+            skipLibCheck: true
+          },
+          files: ['index.ts']
+        }), 'utf8')
+        await execFileAsync('pnpm', ['exec', 'tsc', '-p', root], { cwd: process.cwd() })
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 15_000)
 
   test('built agent export loads as Node ESM', async () => {
     const agent = await import('../../packages/content/dist/public/agent.js')

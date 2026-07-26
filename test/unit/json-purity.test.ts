@@ -126,6 +126,7 @@ describe('provider-document: normalizeProviderDocument runs the same JSON-purity
   test('passes JSON-pure provider input through', () => {
     const document = normalizeProviderDocument({
       collection: 'blog',
+      canonicalKey: 'blog:hello',
       locale: 'en',
       contentPath: '/blog/hello',
       body,
@@ -137,6 +138,7 @@ describe('provider-document: normalizeProviderDocument runs the same JSON-purity
   test('throws NON_JSON_VALUE for a Date-valued provider field', () => {
     expect(() => normalizeProviderDocument({
       collection: 'blog',
+      canonicalKey: 'blog:hello',
       locale: 'en',
       contentPath: '/blog/hello',
       body,
@@ -154,12 +156,35 @@ describe('ingest: a schema-produced Date fails before graph insertion, in dev an
     defaultLocale: 'en',
     translatedSlugs: false,
     respectPathCase: false,
+    localePolicy: {
+      defaultLocale: 'en',
+      locales: ['en'],
+      fallback: {},
+      collections: {
+        posts: {
+          localized: false,
+          locales: [],
+          defaultLocale: 'en',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { default: '/' }
+        }
+      }
+    },
     markdown: {},
     yaml: {},
     csv: {},
     collections: {
       posts: {
         source: 'posts/**/*.md',
+        localePolicy: {
+          localized: false,
+          locales: [],
+          defaultLocale: 'en',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { default: '/' }
+        },
         // A custom user Zod schema that (mis)produces a `Date` must be
         // rejected with an actionable error pointing at fields.date()/
         // fields.datetime() — never silently accepted.
@@ -188,5 +213,47 @@ describe('ingest: a schema-produced Date fails before graph insertion, in dev an
         violations: expect.arrayContaining([expect.objectContaining({ path: '$.publishedAt' })])
       }
     })
+  })
+})
+
+describe('ingest: navigation metadata uses the owning collection policy', () => {
+  test('keeps .navigation.yml collection-neutral until navigation joins it', async () => {
+    const [navigation] = await parseContentVariants(
+      'content:docs:.navigation.yml',
+      'title: Documentation',
+      {
+        locales: ['en'],
+        defaultLocale: 'en',
+        translatedSlugs: false,
+        respectPathCase: false,
+        markdown: {},
+        yaml: {},
+        csv: {},
+        collections: {
+          docs: {
+            type: 'page',
+            source: 'docs/**/*.md'
+          }
+        },
+        localePolicy: {
+          collections: {
+            docs: {
+              localized: false,
+              locales: [],
+              fallback: {},
+              translatedSlugs: false,
+              routeMounts: { default: '/docs' }
+            }
+          }
+        }
+      } as any
+    )
+
+    expect(navigation).toMatchObject({
+      navigationFile: true
+    })
+    expect(navigation).not.toHaveProperty('path')
+    expect(navigation).not.toHaveProperty('canonicalKey')
+    expect(navigation).not.toHaveProperty('collection')
   })
 })

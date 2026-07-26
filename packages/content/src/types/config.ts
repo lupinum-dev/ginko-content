@@ -1,5 +1,5 @@
 import { z, type ZodType } from 'zod'
-import { CONTENT_REFERENCE_PREFIX } from './reference'
+import { withContentReferenceMetadata } from './reference'
 
 /**
  * Internal type-machinery symbols used to carry phantom schema/i18n
@@ -360,15 +360,8 @@ export type CollectionSchema<TCollection> =
       : Record<string, unknown>
     : Record<string, unknown>
 
-/**
- * Zod string schema tagged as a Nuxt Content reference field.
- */
-export interface ContentReferenceSchema extends z.ZodString {
-  /**
-   * Serialized descriptor in the form `__nuxt_content_ref__:<collection>`.
-   */
-  description: string
-}
+/** Zod string schema tagged with Ginko Content reference metadata. */
+export type ContentReferenceSchema = z.ZodString
 
 /**
  * Typed handle returned by `defineCollection`. Carries the collection's name
@@ -596,5 +589,5 @@ export function defineAgentMarkdownPolicy<const TConfig extends ContentAgentMark
  * ```
  */
 export function reference (collection?: string): ContentReferenceSchema {
-  return z.string().describe(`${CONTENT_REFERENCE_PREFIX}${collection || ''}`) as ContentReferenceSchema
+  return withContentReferenceMetadata(z.string(), collection) as ContentReferenceSchema
 }

@@ -56,6 +56,33 @@ browser test.
 - Do not claim pure static same-URL markdown negotiation works. Static hosts
   should use explicit generated markdown routes.
 
+## Documentation
+
+Write for the reader's current task. A quickstart should reach a visible result,
+a guide should solve one problem, a concept page should explain one mental model,
+and reference pages should make exact signatures and defaults easy to find.
+
+- Lead with the action, answer, or definition. Put background after the common
+  path.
+- Use sentence-case headings, active voice, short paragraphs, and concrete
+  language. Avoid filler such as "simply", "just", and "obviously".
+- Keep the full page title descriptive. Use a nested `navigation` object with
+  a `title` field when the sidebar needs a shorter label.
+- Put examples next to the claim they demonstrate and label code fences with a
+  file or terminal context.
+- Use callouts only for compatibility limits, security concerns, destructive
+  behavior, or a result most readers would not expect.
+- Link where the reader needs the detail. Do not append generic "What's next",
+  "Related", "See also", or `**Next:**` link lists to every page.
+- Keep sidebar order in numbered paths and folder metadata. Do not maintain a
+  second navigation list in application code or prose.
+- Reserve `sidebar: section` for the two primary docs modes and use
+  `sidebar: group` for flat, always-visible labels within them. Give a group
+  hub the page label `Overview` instead of repeating the group name.
+
+Check examples against the public source and types, then run the docs build,
+smoke test, and drift check before handoff.
+
 ## Production Fixture Tests
 
 Use `test/helpers/production-fixture.ts` when a test needs a built fixture. It

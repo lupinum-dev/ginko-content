@@ -1,4 +1,4 @@
-import { CONTENT_REFERENCE_PREFIX } from '../../types/reference'
+import { getContentReferenceMetadata } from '../../types/reference'
 
 const zodTypeNames: Record<string, string> = {
   array: 'ZodArray',
@@ -38,20 +38,21 @@ export const getObjectShape = (schema: any): Record<string, any> => {
   return typeof shape === 'function' ? shape() : (shape || schema?.shape || {})
 }
 
+/** Serializable top-level field names derived from a collection's object schema. */
+export const collectTopLevelSchemaFields = (schema: unknown): string[] | null => {
+  const current = unwrapSchema(schema)
+  return getSchemaTypeName(current) === 'ZodObject'
+    ? Object.keys(getObjectShape(current))
+    : null
+}
+
 export const getReferenceDescriptor = (schema: any): { collection?: string } | null => {
   const base = unwrapSchema(schema)
   if (getSchemaTypeName(base) !== 'ZodString') {
     return null
   }
 
-  const description = typeof base.description === 'string' ? base.description : ''
-  if (!description.startsWith(CONTENT_REFERENCE_PREFIX)) {
-    return null
-  }
-
-  return {
-    collection: description.slice(CONTENT_REFERENCE_PREFIX.length) || undefined
-  }
+  return getContentReferenceMetadata(base)
 }
 
 const getArrayElement = (schema: any) => {

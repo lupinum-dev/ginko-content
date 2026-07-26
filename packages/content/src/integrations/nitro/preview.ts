@@ -1,14 +1,21 @@
 import type { H3Event } from 'h3'
-import { getCookie, getHeader, getQuery } from 'h3'
+import { createError, getCookie, getHeader, getQuery } from 'h3'
 import { getContentRuntimeConfig } from './runtime-config'
 
 const getIncomingPreviewToken = (event: H3Event) => {
-  const queryToken = getQuery(event).previewToken
-  if (typeof queryToken === 'string') {
-    return queryToken
+  if (!event?.node?.req) return undefined
+  if (Object.prototype.hasOwnProperty.call(getQuery(event), 'previewToken')) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'invalid_preview_transport',
+      message: 'Preview credentials are not accepted in query parameters.',
+      data: { code: 'invalid_preview_transport' }
+    })
   }
 
-  return getHeader(event, 'x-nuxt-content-preview') || getCookie(event, 'previewToken')
+  const headerToken = getHeader(event, 'x-nuxt-content-preview')
+  if (headerToken) return headerToken
+  return event.node?.req?.headers ? getCookie(event, 'previewToken') : undefined
 }
 
 const getConfiguredPreviewToken = () => {
@@ -20,7 +27,17 @@ const getConfiguredPreviewToken = () => {
 
 export const isPreview = (event: H3Event) => {
   const configuredToken = getConfiguredPreviewToken()
-  return Boolean(configuredToken && getIncomingPreviewToken(event) === configuredToken)
+  const incomingToken = getIncomingPreviewToken(event)
+  if (!incomingToken) return false
+  if (!configuredToken || incomingToken !== configuredToken) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'invalid_preview_token',
+      message: 'Invalid content preview credential.',
+      data: { code: 'invalid_preview_token' }
+    })
+  }
+  return true
 }
 
 export const getPreview = (event: H3Event) => {

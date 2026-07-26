@@ -171,6 +171,12 @@ describe('portable content contract', () => {
 
   it('classifies portable MDC semantically and rejects active syntax', async () => {
     await expect(classifyPortableMdc('::callout{tone="info"}\nSafe\n::', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'portable' })
+    await expect(classifyPortableMdc('> [!NOTE]\n> Safe', contract.collections.docs.componentPolicy)).resolves.toMatchObject({
+      classification: 'portable',
+      ast: { nodes: [['blockquote', { 'data-alert': 'note' }, 'Safe']] },
+    })
+    await expect(classifyPortableMdc('::blockquote{as="dialog"}\nUnsafe\n::', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc('[Unsafe]{style="display:none"}', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected' })
     await expect(classifyPortableMdc('<script>alert(1)</script>', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected', issues: [{ code: 'MDC_UNSUPPORTED' }] })
   })
 

@@ -7,6 +7,7 @@ import {
   normalizeProviderQueryResponse
 } from '../provider-query'
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
+import { projectPublicQueryResponse } from '../../../features/query/responses'
 
 /**
  * Typed 400 for a closed-boundary rejection. No internal
@@ -30,10 +31,9 @@ export default defineEventHandler(async (event) => {
     throw invalidContentQueryRequest('$', 'Request payload is too large.')
   }
 
-  // `getContentQuery` already rejects malformed base64/JSON with a 400
-  // (parsing JSON is not validation); this closes the untrusted shape itself —
-  // unknown keys, filter depth/operator/pagination shape, selection/sort
-  // bounds — BEFORE lowering or provider dispatch ever run.
+  // `getContentQuery` already rejects malformed base64/JSON with a 400.
+  // This applies HTTP resource bounds, then delegates the accepted language
+  // to the canonical query lowerer before provider dispatch.
   const decoded = getContentQuery(event)
   const validated = validateContentQueryRequestBody(decoded)
   if (!validated.ok) {
@@ -51,8 +51,5 @@ export default defineEventHandler(async (event) => {
   }
   const provider = await getContentProvider(event)
   const response = normalizeProviderQueryResponse(query, await provider.query(event, createProviderQuery(query)), provider.name)
-  // `undefined` object properties disappear during JSON serialization. Use a
-  // top-level null for a missing first result so the client cannot mistake an
-  // empty `{}` response for a document.
-  return query.first && response.result === undefined ? null : response
+  return projectPublicQueryResponse(response, query.first === true)
 })

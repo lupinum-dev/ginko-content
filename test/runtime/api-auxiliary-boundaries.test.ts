@@ -61,6 +61,7 @@ describe('runtime auxiliary API provider boundaries', () => {
   beforeEach(() => {
     mocks.getContentProvider.mockReset()
     mocks.getContentProvider.mockResolvedValue(provider)
+    runtime.content.collections = scenario.runtime.collections as never
     runtime.content.search = {
       engine: 'provider',
       collections: ['docs']

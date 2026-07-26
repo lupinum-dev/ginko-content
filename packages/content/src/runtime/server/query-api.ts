@@ -34,7 +34,6 @@ import {
 } from '../../features/query/unified'
 import { getContentProvider } from './providers'
 import { createContentProviderError } from '../../public/provider-errors'
-import { toContentProviderNavigationQuery } from '../../public/provider-query'
 import { getContentRuntimeConfig } from './runtime-config'
 import {
   assertConfiguredProviderCollection,
@@ -42,6 +41,7 @@ import {
   createProviderQuery,
   normalizeProviderQueryResponse
 } from './provider-query'
+import { projectPublicQueryResponse } from '../../features/query/responses'
 import { projectProviderNavigation, projectProviderSurroundings } from './provider-route-facts'
 import { stripLocalePrefix } from '../../core/content/path'
 import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
@@ -87,16 +87,23 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
             provider: provider.name
           })
         }
-        const { query, options } = toContentProviderNavigationQuery(params)
+        const { resolveVariant: _resolveVariant, ...navigationParams } = params
+        const query = createProviderQuery({
+          ...navigationParams,
+          collection: params.collection
+        })
         return projectProviderNavigation(
-          await provider.navigation(event, query, options),
+          await provider.navigation(event, query),
           provider.name,
           runtime,
-          options.locale,
+          query.plan.resolveLocale?.locale,
           query.collection || undefined
         ) as NavItem[]
       }
-      return normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name)
+      return projectPublicQueryResponse(
+        normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name),
+        params.first === true
+      )
     }
   }
 }

@@ -15,19 +15,17 @@ export const resolveCollectionItemSurroundingsData = async (
     after?: number
     fields?: string[]
     locale?: string
-    canonical?: boolean
     activeLocale?: string
-    loadNavigation: (options: { fields?: string[], locale?: string, canonical?: boolean }) => Promise<any[]>
+    loadNavigation: (options: { fields?: string[], locale?: string }) => Promise<any[]>
   }
 ) => {
   const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)
   const resolved = resolveRouteContent(path, locales, defaultLocale, options.locale)
   const navigation = await options.loadNavigation({
     fields: options.fields || [],
-    locale: resolved.locale || options.activeLocale,
-    canonical: options.canonical
+    locale: resolved.locale || options.activeLocale
   })
-  const localizedPath = options.canonical ? normalizeContentPath(resolved.path) : normalizeContentPath(resolved.routePath)
+  const localizedPath = normalizeContentPath(resolved.routePath)
   return createCollectionSurroundings(navigation, localizedPath, options)
 }
 

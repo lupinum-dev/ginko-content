@@ -9,7 +9,7 @@ Use `useContentPage()` for route-backed content. It resolves the handle against 
 ```vue
 <script setup lang="ts">
 import { createError, useContentPage } from '#imports'
-import { docs } from '~/content.config'
+import { docs } from '~~/content.config'
 
 const { page, previous, next } = await useContentPage(docs, {
   surround: true
@@ -39,7 +39,7 @@ Use `many()` with `useAsyncData` for route-linked lists:
 <script setup lang="ts">
 import { useAsyncData } from '#imports'
 import { many } from '@lupinum/ginko-content/client'
-import { posts as postsCollection } from '~/content.config'
+import { posts as postsCollection } from '~~/content.config'
 
 const { locale } = useI18n()
 const { data: posts } = await useAsyncData(

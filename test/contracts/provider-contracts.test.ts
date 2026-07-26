@@ -152,7 +152,7 @@ describe('provider registry contract', () => {
     await provider.navigation!(createEvent(), lowered)
 
     expect(query).toHaveBeenCalledWith(expect.anything(), lowered)
-    expect(navigation).toHaveBeenCalledWith(expect.anything(), lowered, undefined)
+    expect(navigation).toHaveBeenCalledWith(expect.anything(), lowered)
   })
 })
 
@@ -164,7 +164,15 @@ describe('raw provider route facts', () => {
     collections: {
       docs: {
         type: 'page' as const,
-        i18n: { locales: ['en', 'de'], defaultLocale: 'en' }
+        i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
+        localePolicy: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: { de: ['en'] },
+          translatedSlugs: false,
+          routeMounts: { en: '/docs', de: '/dokumentation' }
+        }
       }
     }
   }
@@ -202,7 +210,15 @@ describe('raw provider route facts', () => {
         docs: {
           type: 'page' as const,
           i18n: false,
-          route: '/docs'
+          route: '/docs',
+          localePolicy: {
+            localized: false,
+            locales: [],
+            defaultLocale: 'en',
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { default: '/docs' }
+          }
         }
       }
     }
@@ -212,10 +228,10 @@ describe('raw provider route facts', () => {
       route: {
         collection: 'docs',
         canonicalKey: 'docs:intro',
-        locale: 'de',
+        locale: 'en',
         contentPath: '/docs/intro'
       }
-    }], 'remote', unlocalizedRuntime, 'de')).toEqual([{
+    }], 'remote', unlocalizedRuntime, 'en')).toEqual([{
       title: 'Intro',
       path: '/docs/intro'
     }])

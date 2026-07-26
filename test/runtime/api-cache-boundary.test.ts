@@ -23,7 +23,32 @@ const mocks = vi.hoisted(() => ({
 
 const runtimeContent = {
   collections: {
-    docs: { type: 'page' }
+    docs: {
+      type: 'page',
+      localePolicy: {
+        localized: false,
+        locales: [],
+        defaultLocale: 'en',
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { default: '/docs' }
+      }
+    }
+  },
+  localePolicy: {
+    defaultLocale: 'en',
+    locales: ['en'],
+    fallback: {},
+    collections: {
+      docs: {
+        localized: false,
+        locales: [],
+        defaultLocale: 'en',
+        fallback: {},
+        translatedSlugs: false,
+        routeMounts: { default: '/docs' }
+      }
+    }
   },
   locales: ['en'],
   defaultLocale: 'en',
@@ -144,9 +169,9 @@ describe('runtime cache API boundary (atomic publication)', () => {
     mocks.getContentProvider.mockResolvedValue({
       name: 'cms-demo',
       routes: vi.fn(async () => [
-        { collection: 'docs', canonicalKey: 'docs/guide', locale: 'en', contentPath: '/guide' },
-        { collection: 'docs', canonicalKey: 'docs/draft', locale: 'en', contentPath: '/draft', draft: true },
-        { collection: 'docs', canonicalKey: 'docs/private-map', locale: 'en', contentPath: '/private-map', sitemap: false }
+        { collection: 'docs', canonicalKey: 'docs/guide', locale: 'en', contentPath: '/docs/guide' },
+        { collection: 'docs', canonicalKey: 'docs/draft', locale: 'en', contentPath: '/docs/draft', draft: true },
+        { collection: 'docs', canonicalKey: 'docs/private-map', locale: 'en', contentPath: '/docs/private-map', sitemap: false }
       ])
     })
 
@@ -157,7 +182,7 @@ describe('runtime cache API boundary (atomic publication)', () => {
     expect(mocks.setItem).not.toHaveBeenCalled()
     expect(result).toEqual(expect.objectContaining({
       documentCount: 0,
-      routes: ['/guide', '/private-map'],
+      routes: ['/docs/guide', '/docs/private-map'],
       routesByCollection: { docs: 2 },
       sitemapByCollection: { docs: 1 }
     }))

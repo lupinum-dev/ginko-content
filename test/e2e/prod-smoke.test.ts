@@ -26,7 +26,7 @@ describe('production fixture smoke', () => {
       const $fetch = ofetch.create({ baseURL })
 
       await expect($fetch('/guide/getting-started')).resolves.toContain('Getting Started')
-      await expect($fetch('/api/_content/navigation')).resolves.toEqual(
+      await expect($fetch('/api/_content/navigation?collection=pages')).resolves.toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Guide' })
         ])
@@ -61,6 +61,16 @@ describe('production fixture smoke', () => {
           expect.objectContaining({ title: 'Einstieg', path: '/de/leitfaden/erste-schritte', locale: 'de' })
         ])
       )
+
+      // `by: { path }` is canonical and mount-agnostic, so the collection index
+      // is `/` in both locales even though it is mounted at `/guide` and
+      // `/leitfaden`. A mounted value here would silently return null.
+      for (const [locale, expectedRoute] of [['en', '/guide'], ['de', '/de/leitfaden']] as const) {
+        await expect($fetch(`/api/ref-links-debug?locale=${locale}`)).resolves.toMatchObject({
+          home: { route: { resolvedPath: expectedRoute } },
+          gettingStarted: { canonicalKey: '1' }
+        })
+      }
     })
   }, 240000)
 })

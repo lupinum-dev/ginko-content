@@ -5,16 +5,15 @@ import type { H3Event } from 'h3'
 import { bindContentProvider, isContentProviderResult } from '../../packages/content/src/public/provider'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
+  createContentDataSourceError,
   type ContentDataSource,
 } from '../../packages/content/src/public/data-source'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 
-const boundedQuery = () => {
-  const query = toContentProviderQuery({ collection: 'docs' })
-  query.plan.mode = 'all'
-  query.plan.limit = 2
-  return query
-}
+const boundedQuery = () => toContentProviderQuery({
+  collection: 'docs',
+  limit: 2
+})
 
 const event = () => {
   const request = new EventEmitter()
@@ -33,9 +32,9 @@ const expectOnlyRawUtf8ToExceed = (value: string, maximumBytes: number) => {
 
 describe('bindContentProvider', () => {
   it('lowers unbounded builder input to the fixed core query bounds', () => {
-    expect(toContentProviderQuery({ collection: 'docs' }).plan.limit).toBe(100)
-    expect(toContentProviderQuery({ collection: 'docs', first: true }).plan.limit).toBe(1)
-    expect(toContentProviderQuery({ collection: 'docs', count: true }).plan.limit).toBeUndefined()
+    expect(toContentProviderQuery({ collection: 'docs' }).plan.pagination.limit).toBe(100)
+    expect(toContentProviderQuery({ collection: 'docs', first: true }).plan.pagination.limit).toBe(1)
+    expect(toContentProviderQuery({ collection: 'docs', count: true }).plan.pagination.limit).toBeUndefined()
   })
 
   it('rejects malformed data-source capabilities and methods at bind time', () => {
@@ -70,6 +69,22 @@ describe('bindContentProvider', () => {
       source: valid as ContentDataSource<null>,
       createContext: true as unknown as () => null,
     })).toThrow(/Invalid Content data-source/)
+  })
+
+  it('omits unsupported optional operations from the bound provider', () => {
+    const provider = bindContentProvider({
+      source: {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: vi.fn(),
+      } as unknown as ContentDataSource<null>,
+      createContext: () => null,
+    })
+
+    expect(Object.keys(provider).sort()).toEqual(['capabilities', 'name', 'query'])
   })
 
   it('creates one immutable context per request and source under concurrency', async () => {
@@ -111,7 +126,7 @@ describe('bindContentProvider', () => {
     } as unknown as ContentDataSource<null>
     const provider = bindContentProvider({ source, createContext: () => null })
     const query = boundedQuery()
-    query.plan.limit = 101
+    query.plan.pagination.limit = 101
 
     await expect(provider.query(event(), query)).rejects.toThrow(/limit/i)
     expect(source.query).not.toHaveBeenCalled()
@@ -197,7 +212,7 @@ describe('bindContentProvider', () => {
       expect(error).toMatchObject({
         message: 'Content data-source operation failed.',
         code: 'BACKEND_FAILURE',
-        statusCode: 500,
+        statusCode: 502,
         statusMessage: 'BACKEND_FAILURE',
         data: { code: 'BACKEND_FAILURE' },
       })
@@ -326,7 +341,7 @@ describe('bindContentProvider', () => {
       } as unknown as ContentDataSource<null>,
       createContext: () => null,
     })
-    await expect(routes.routes!(event())).rejects.toMatchObject({ data: { code: 'CURSOR_INVALID' } })
+    await expect(routes.routes!(event())).rejects.toMatchObject({ data: { code: 'ROUTE_ENUMERATION_INVALID' } })
 
     const cache = bindContentProvider({
       source: {
@@ -449,7 +464,7 @@ describe('bindContentProvider', () => {
       const provider = bindContentProvider({ source, createContext: () => null })
 
       await expect(provider.routes!(event())).rejects.toMatchObject({
-        data: { code: 'CURSOR_INVALID' },
+        data: { code: 'ROUTE_ENUMERATION_INVALID' },
       })
     }
   })
@@ -474,7 +489,7 @@ describe('bindContentProvider', () => {
       } as unknown as ContentDataSource<null>,
       createContext: () => null,
     })
-    await expect(nonProgressing.routes!(event())).rejects.toMatchObject({ data: { code: 'CURSOR_INVALID' } })
+    await expect(nonProgressing.routes!(event())).rejects.toMatchObject({ data: { code: 'ROUTE_ENUMERATION_INVALID' } })
     expect(routes).toHaveBeenCalledOnce()
 
     const oversizedCursor = bindContentProvider({
@@ -487,7 +502,100 @@ describe('bindContentProvider', () => {
       } as unknown as ContentDataSource<null>,
       createContext: () => null,
     })
-    await expect(oversizedCursor.routes!(event())).rejects.toMatchObject({ data: { code: 'CURSOR_INVALID' } })
+    await expect(oversizedCursor.routes!(event())).rejects.toMatchObject({ data: { code: 'ROUTE_ENUMERATION_INVALID' } })
+  })
+
+  it('surfaces only closed data-source failures', async () => {
+    for (const [code, statusCode] of [['QUERY_CURSOR_INVALID', 400], ['BACKEND_FAILURE', 502]] as const) {
+      const source = {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: ['cursor'], maxPageSize: 100 },
+        },
+        query: vi.fn(async () => { throw createContentDataSourceError(code) }),
+      } satisfies ContentDataSource<null>
+      const provider = bindContentProvider({ source, createContext: () => null })
+
+      await expect(provider.query(event(), boundedQuery())).rejects.toMatchObject({
+        statusCode,
+        data: { code },
+      })
+    }
+  })
+
+  it('bounds each route record, sitemap images, and aggregate serialized bytes', async () => {
+    const route = (index: number, extra: Record<string, unknown> = {}) => ({
+      collection: 'docs',
+      canonicalKey: `docs-${index}`,
+      locale: 'en',
+      contentPath: `/docs/${index}`,
+      ...extra,
+    })
+    const cases = [
+      {
+        item: route(1, { padding: 'x'.repeat(CONTENT_DATA_SOURCE_LIMITS.maxRouteRecordBytes) }),
+        code: 'RESULT_LIMIT_EXCEEDED',
+      },
+      {
+        item: route(2, {
+          sitemap: {
+            images: Array.from({ length: CONTENT_DATA_SOURCE_LIMITS.maxSitemapImagesPerRoute + 1 }, (_, index) => ({ loc: `/image-${index}.png` })),
+          },
+        }),
+        code: 'RESULT_LIMIT_EXCEEDED',
+      },
+      {
+        item: route(3, {
+          sitemap: { images: [{ loc: `/${'x'.repeat(CONTENT_DATA_SOURCE_LIMITS.maxSitemapImageLocationBytes)}.png` }] },
+        }),
+        code: 'RESULT_LIMIT_EXCEEDED',
+      },
+    ]
+
+    for (const scenario of cases) {
+      const source = {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: vi.fn(),
+        routes: vi.fn(async () => ({
+          data: { items: [scenario.item], nextCursor: null, snapshot: 'generation-1' },
+          cache: false as const,
+        })),
+      } as unknown as ContentDataSource<null>
+      const provider = bindContentProvider({ source, createContext: () => null })
+      await expect(provider.routes!(event())).rejects.toMatchObject({ data: { code: scenario.code } })
+    }
+
+    const padding = 'x'.repeat(63 * 1024)
+    const totalRecords = Math.ceil(CONTENT_DATA_SOURCE_LIMITS.maxTotalRouteBytes / (63 * 1024)) + 1
+    const records = Array.from({ length: totalRecords }, (_, index) => route(index, { padding }))
+    let offset = 0
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+      routes: vi.fn(async (_context, request) => {
+        const items = records.slice(offset, offset + request.limit)
+        offset += items.length
+        return {
+          data: {
+            items,
+            nextCursor: offset < records.length ? String(offset) : null,
+            snapshot: 'generation-1',
+          },
+          cache: false as const,
+        }
+      }),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+    await expect(provider.routes!(event())).rejects.toMatchObject({ data: { code: 'RESULT_LIMIT_EXCEEDED' } })
   })
 
   it('stops route enumeration after request abort even when the source ignores its signal', async () => {

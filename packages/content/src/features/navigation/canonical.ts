@@ -1,5 +1,7 @@
 import type { ContentFileMeta, ContentNavigationItem, NavItem } from '../../types/content'
-import { getContentStem, normalizeContentPath, projectContentPathToLocale, type RouteMounts } from '../localization/path'
+import { getContentStem, normalizeContentPath } from '../localization/path'
+import type { ResolvedCollectionLocalePolicy } from '../localization/locale-policy'
+import { projectContentRoute } from '../localization/route-projector'
 
 export type NavigationNodeKind = 'page' | 'folder'
 
@@ -16,17 +18,13 @@ export interface CanonicalNavigationItem {
   file?: ContentFileMeta
   navigationKind?: NavigationNodeKind
   navigationPath?: string
-  _collectionRoot?: string
   children?: CanonicalNavigationItem[]
   [key: string]: unknown
 }
 
 export interface ProjectNavigationOptions {
   locale?: string
-  defaultLocale?: string
-  routeMounts?: RouteMounts
-  collection?: string
-  canonical?: boolean
+  localePolicy?: ResolvedCollectionLocalePolicy
 }
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
@@ -93,14 +91,6 @@ export const mergeCanonicalNavigation = (
   return merged
 }
 
-const normalizeRoutePath = (path?: string) => {
-  if (!isString(path)) {
-    return undefined
-  }
-
-  return normalizeContentPath(path)
-}
-
 const isFolderNode = (item: CanonicalNavigationItem) => {
   if (item.navigationKind === 'folder') {
     return true
@@ -113,65 +103,6 @@ const isFolderNode = (item: CanonicalNavigationItem) => {
   return Boolean(item.children?.length && !item.id && !item.path)
 }
 
-const matchesCollectionRootConfig = (
-  collection: string,
-  root: CanonicalNavigationItem,
-  options: Pick<ProjectNavigationOptions, 'routeMounts'>
-) => {
-  if (!root.children?.length) {
-    return false
-  }
-
-  const identity = getNavigationIdentity(root)
-  if (identity === collection || identity === `/${collection}`) {
-    return true
-  }
-
-  const rootPath = normalizeRoutePath(root.navigationPath || root.path)
-  if (rootPath === '/' || rootPath === `/${collection}`) {
-    return true
-  }
-
-  if (rootPath && Object.values(options.routeMounts || {}).map(normalizeContentPath).includes(rootPath)) {
-    return true
-  }
-
-  return false
-}
-
-export const markCollectionNavigationRoot = (
-  navigation: CanonicalNavigationItem[] = [],
-  collection?: string,
-  options: Pick<ProjectNavigationOptions, 'routeMounts'> = {}
-): CanonicalNavigationItem[] => {
-  if (!collection || navigation.length !== 1) {
-    return navigation
-  }
-
-  const [root] = navigation
-  if (!root || root._collectionRoot === collection || !matchesCollectionRootConfig(collection, root, options)) {
-    return navigation
-  }
-
-  return [{ ...root, _collectionRoot: collection }]
-}
-
-export const scopeNavigationTree = (
-  navigation: CanonicalNavigationItem[] = [],
-  collection?: string
-): CanonicalNavigationItem[] => {
-  if (!collection || navigation.length !== 1) {
-    return navigation
-  }
-
-  const [root] = navigation
-  if (!root?.children?.length || root._collectionRoot !== collection) {
-    return navigation
-  }
-
-  return root.children
-}
-
 const publicFields = (item: CanonicalNavigationItem) => {
   const {
     children,
@@ -180,7 +111,6 @@ const publicFields = (item: CanonicalNavigationItem) => {
     file,
     navigationKind,
     navigationPath,
-    _collectionRoot,
     ...fields
   } = item
   void children
@@ -189,7 +119,6 @@ const publicFields = (item: CanonicalNavigationItem) => {
   void file
   void navigationKind
   void navigationPath
-  void _collectionRoot
   return fields
 }
 
@@ -222,11 +151,15 @@ const projectNavigationItem = (
   }
 
   const unprefixedPath = normalizeContentPath(rawPath)
+  const locale = options.locale || item.locale || options.localePolicy?.defaultLocale
+  if (options.localePolicy && !locale) {
+    throw new Error('Navigation projection requires a resolved locale.')
+  }
   return {
     ...base,
-    path: options.canonical
-      ? unprefixedPath
-      : projectContentPathToLocale(unprefixedPath, options.locale || item.locale, options.defaultLocale, options.routeMounts),
+    path: options.localePolicy
+      ? projectContentRoute({ contentPath: unprefixedPath, locale: locale! }, options.localePolicy)
+      : unprefixedPath,
     unprefixedPath,
     stem: item.stem || getContentStem(unprefixedPath, item.file?.path),
     ...(hasChildren ? { children } : {})
@@ -237,6 +170,5 @@ export const projectNavigationTree = (
   navigation: CanonicalNavigationItem[] | NavItem[] = [],
   options: ProjectNavigationOptions = {}
 ): ContentNavigationItem[] => {
-  return scopeNavigationTree(navigation as CanonicalNavigationItem[], options.collection)
-    .map(item => projectNavigationItem(item, options))
+  return (navigation as CanonicalNavigationItem[]).map(item => projectNavigationItem(item, options))
 }

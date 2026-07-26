@@ -8,7 +8,6 @@ import type { ContentProviderSearchRequest } from '../types/search'
 import type { ContentSitemapMetadata } from '../features/sitemap/metadata'
 import { isProviderCapabilityOperatorList, type ProviderCapabilityOperator } from '../core/query/operators'
 import type {
-  ContentProviderNavigationOptions,
   ContentProviderPaginationMode,
   ContentProviderQuery
 } from './provider-query'
@@ -22,7 +21,11 @@ export interface ContentCacheInvalidateInput {
 export interface ContentCacheAdapter {
   name: string
   apply: (event: H3Event, hint: ContentCacheHint) => void | Promise<void>
-  invalidate: (input: ContentCacheInvalidateInput) => Promise<void>
+  /**
+   * Purge cached content after an authenticated revalidation request.
+   * Omit this capability when the adapter only applies response metadata.
+   */
+  invalidate?: (input: ContentCacheInvalidateInput) => Promise<void>
 }
 
 export interface ContentProviderSiteDataRequest {
@@ -60,7 +63,14 @@ export const isContentProviderQueryCapabilities = (value: unknown): value is Con
     isContentProviderPaginationCapabilities(query.pagination)
 }
 
-/** Raw, pre-locale-prefix route identity returned by every provider surface. */
+/**
+ * Raw route identity returned by every provider surface.
+ *
+ * `contentPath` is the collection's locale-specific mounted, site-relative
+ * path, but never carries the application locale prefix. For example, a
+ * German document mounted at `/anleitung` may return
+ * `/anleitung/einstieg`, not `/de/anleitung/einstieg` and not `/einstieg`.
+ */
 export interface ContentProviderRouteFact {
   collection: string
   canonicalKey: string
@@ -107,7 +117,7 @@ export interface ContentProvider {
   name: ContentProviderName
   capabilities: ContentProviderCapabilities
   query: (event: H3Event, query: ContentProviderQuery) => Promise<MaybeContentProviderResult<ContentQueryResponse<ProviderDocumentInput>>>
-  navigation?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<MaybeContentProviderResult<ContentProviderNavigationItem[]>>
+  navigation?: (event: H3Event, query: ContentProviderQuery) => Promise<MaybeContentProviderResult<ContentProviderNavigationItem[]>>
   surroundings?: (event: H3Event, collection: string, contentPath: string, options?: ContentProviderSurroundingsOptions) => Promise<MaybeContentProviderResult<Array<ContentProviderSurroundItem | null>>>
   search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<MaybeContentProviderResult<ContentProviderSearchResult[]>>
   siteData?: (event: H3Event, request: ContentProviderSiteDataRequest) => Promise<MaybeContentProviderResult<ContentProviderSiteDataResponse>>

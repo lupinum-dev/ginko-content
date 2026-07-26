@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.3.0-rc.4",
+  "version": "0.3.0",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://github.com/lupinum-dev/ginko-content",
   "bugs": {
@@ -60,6 +60,11 @@
       "types": "./dist/public/client.d.ts",
       "import": "./dist/public/client.js",
       "default": "./dist/public/client.js"
+    },
+    "./navigation": {
+      "types": "./dist/public/navigation.d.ts",
+      "import": "./dist/public/navigation.js",
+      "default": "./dist/public/navigation.js"
     },
     "./agent": {
       "types": "./dist/public/agent.d.ts",

@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import {
@@ -8,6 +8,7 @@ import {
 import { PROVIDER_CAPABILITY_OPERATORS } from '../../packages/content/src/core/query/operators'
 import { executeQueryPlanOnDocuments } from '../../packages/content/src/core/query/execute'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
+import { executeFilesystemContentQuery } from '../../packages/content/src/runtime/server/query-executor'
 import { createEvent } from './_utils'
 
 const documents = [
@@ -16,7 +17,7 @@ const documents = [
     collection: 'docs',
     canonicalKey: 'docs:einstieg',
     locale: 'de',
-    path: '/dokumentation/einstieg',
+    path: '/einstieg',
     title: 'Einstieg',
     tags: ['guide', 'start'],
     featured: true,
@@ -30,7 +31,7 @@ const documents = [
     collection: 'docs',
     canonicalKey: 'docs:zulu',
     locale: 'de',
-    path: '/dokumentation/zulu',
+    path: '/zulu',
     title: 'Zulu',
     order: 2,
     type: 'markdown',
@@ -56,6 +57,7 @@ vi.mock('../../packages/content/src/runtime/server/collection-helpers', () => ({
   queryFilesystemCollectionItemSurroundings: vi.fn(async () => [{
     title: 'Einstieg',
     path: '/de/dokumentation/einstieg',
+    unprefixedPath: '/einstieg',
     canonicalKey: 'docs:einstieg',
     locale: 'de'
   }, null])
@@ -67,6 +69,9 @@ vi.mock('../../packages/content/src/integrations/nitro/build', () => ({
       collection: 'docs',
       canonicalKey: 'docs:einstieg',
       locale: 'de',
+      contentPath: runtime.content.collections.docs.localePolicy.localized
+        ? '/einstieg'
+        : '/de/dokumentation/einstieg',
       path: '/de/dokumentation/einstieg'
     }]
   }))
@@ -77,6 +82,50 @@ const operators = PROVIDER_CAPABILITY_OPERATORS
 const capabilities: ContentProviderCapabilities = {
   query: { operators, pagination: ['offset', 'cursor'] }
 }
+
+const runtime = {
+  content: {
+    defaultLocale: 'de',
+    locales: ['de'],
+    collections: {
+      docs: {
+        i18n: { defaultLocale: 'de', locales: ['de'] },
+        localePolicy: {
+          localized: true,
+          locales: ['de'],
+          defaultLocale: 'de',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { de: '/dokumentation' }
+        }
+      }
+    }
+  }
+}
+
+vi.mock('../../packages/content/src/runtime/server/runtime-config', () => ({
+  getContentRuntimeConfig: () => runtime
+}))
+
+beforeEach(() => {
+  runtime.content = {
+    defaultLocale: 'de',
+    locales: ['de'],
+    collections: {
+      docs: {
+        i18n: { defaultLocale: 'de', locales: ['de'] },
+        localePolicy: {
+          localized: true,
+          locales: ['de'],
+          defaultLocale: 'de',
+          fallback: {},
+          translatedSlugs: false,
+          routeMounts: { de: '/dokumentation' }
+        }
+      }
+    }
+  }
+})
 
 const assertTitles = (expected: string[]) => (result: unknown) => {
   const titles = (result as { result: Array<{ title: string }> }).result
@@ -99,7 +148,7 @@ const operatorCases: Record<string, { where: Record<string, unknown>, titles: st
   $exists: { where: { featured: { $exists: true } }, titles: ['Einstieg'] },
   $type: { where: { rating: { $type: 'number' } }, titles: ['Einstieg'] },
   $regex: { where: { title: { $regex: '^Ein' } }, titles: ['Einstieg'] },
-  $prefix: { where: { path: { $prefix: '/dokumentation/e' } }, titles: ['Einstieg'] }
+  $prefix: { where: { path: { $prefix: '/e' } }, titles: ['Einstieg'] }
 }
 
 const operatorProbes = Object.fromEntries(operators.map(operator => [operator, {
@@ -195,6 +244,81 @@ describe('filesystem provider conformance', () => {
     expect(response.result[0]).not.toHaveProperty('resolution')
   })
 
+  test('canonicalizes a provider path against its explicit locale mount', async () => {
+    runtime.content = {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: {
+        docs: {
+          i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+          localePolicy: {
+            localized: true,
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            fallback: { de: ['en'] },
+            translatedSlugs: true,
+            routeMounts: { en: '/guide', de: '/leitfaden' }
+          }
+        }
+      }
+    } as typeof runtime.content
+    vi.mocked(executeFilesystemContentQuery).mockClear()
+    const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
+
+    await filesystemProvider.query(createEvent(), toContentProviderQuery({
+      collection: 'docs',
+      resolveVariant: {
+        providerPath: '/leitfaden/advanced',
+        locale: 'de',
+        fallback: ['en']
+      },
+      first: true
+    }))
+
+    expect(executeFilesystemContentQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        variant: {
+          by: 'path',
+          canonicalPath: '/advanced',
+          locale: 'de',
+          fallback: ['en']
+        }
+      })
+    )
+  })
+
+  test('rejects a provider path mounted for a fallback locale', async () => {
+    runtime.content = {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: {
+        docs: {
+          i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
+          localePolicy: {
+            localized: true,
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            fallback: { de: ['en'] },
+            translatedSlugs: true,
+            routeMounts: { en: '/guide', de: '/leitfaden' }
+          }
+        }
+      }
+    } as typeof runtime.content
+    const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
+
+    await expect(filesystemProvider.query(createEvent(), toContentProviderQuery({
+      collection: 'docs',
+      resolveVariant: {
+        providerPath: '/guide/advanced',
+        locale: 'de',
+        fallback: ['en']
+      },
+      first: true
+    }))).rejects.toThrow(/outside the configured mount "\/leitfaden" for locale "de"/)
+  })
+
   test.each([
     { projection: { only: ['title'] }, retained: 'title' },
     { projection: { without: ['collection', 'canonicalKey', 'locale'] }, retained: 'title' }
@@ -225,26 +349,32 @@ describe('filesystem provider conformance', () => {
   })
 
   test('does not strip a global locale prefix from an explicitly unlocalized collection route', async () => {
-    vi.stubGlobal('__ginkoTestRuntimeConfig', {
-      content: {
-        defaultLocale: 'en',
-        locales: ['en', 'de'],
-        collections: { docs: { i18n: false } }
+    runtime.content = {
+      defaultLocale: 'en',
+      locales: ['en', 'de'],
+      collections: {
+        docs: {
+          i18n: false,
+          localePolicy: {
+            localized: false,
+            locales: [],
+            defaultLocale: 'en',
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { default: '/docs' }
+          }
+        }
       }
-    })
+    } as typeof runtime.content
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    try {
-      await expect(filesystemProvider.routes!(createEvent())).resolves.toEqual([
-        expect.objectContaining({
-          collection: 'docs',
-          locale: 'de',
-          contentPath: '/de/dokumentation/einstieg'
-        })
-      ])
-    } finally {
-      vi.unstubAllGlobals()
-    }
+    await expect(filesystemProvider.routes!(createEvent())).resolves.toEqual([
+      expect.objectContaining({
+        collection: 'docs',
+        locale: 'de',
+        contentPath: '/docs/de/dokumentation/einstieg'
+      })
+    ])
   })
 
   test('rejects standalone regex options during wire lowering', () => {

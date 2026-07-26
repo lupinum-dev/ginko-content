@@ -192,11 +192,23 @@ terminal.
 ```bash
 npm access get status @lupinum/ginko-content --registry=https://registry.npmjs.org/
 npm view @lupinum/ginko-content@$VERSION version --registry=https://registry.npmjs.org/
+npm view @lupinum/ginko-content dist-tags --json --registry=https://registry.npmjs.org/
 ```
 
 Registry metadata can take a short time to propagate. If access lists the
 package and status is `public`, wait a minute and retry before assuming the
 publish failed.
+
+After a stable release, remove `next` only when it still points to an older
+prerelease of the stable line and no newer prerelease should remain available:
+
+```bash
+npm dist-tag rm @lupinum/ginko-content next --registry=https://registry.npmjs.org/
+```
+
+Verify that `latest` points to the stable version and that no stale prerelease
+tag remains. Do not remove `next` when it intentionally points to a newer
+development line.
 
 11. Create the GitHub release with the same tarball:
 

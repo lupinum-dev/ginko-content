@@ -15,9 +15,8 @@ Use Ginko when you want content files to stay simple, but your Nuxt app still
 needs explicit APIs for route resolution, typed frontmatter, localized content,
 and server-side reads.
 
-- Main currently documents the `0.3` prerelease on npm's `next` channel;
-  `latest` remains `0.2.1` until the stable cutover.
-- [Getting started](./docs/content/docs/3.get-started/1.installation.md)
+- The current stable line is `0.3`.
+- [Getting started](./docs/content/docs/1.get-started/1.quickstart.md)
 - [Package README](./packages/content/README.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Basic playground](./playground/ginko-basic)
@@ -29,7 +28,7 @@ and server-side reads.
 Install the module:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@next
+npx nuxi module add @lupinum/ginko-content
 ```
 
 Define a collection:
@@ -67,7 +66,7 @@ Render route-backed content:
 ```vue
 <!-- pages/[...slug].vue -->
 <script setup lang="ts">
-import { pages } from '~/content.config'
+import { pages } from '~~/content.config'
 
 const { page } = await useContentPage(pages)
 </script>

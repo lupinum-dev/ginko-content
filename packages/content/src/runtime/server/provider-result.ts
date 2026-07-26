@@ -4,7 +4,6 @@ import type { ProviderDocumentInput } from '../../public/provider-document'
 import type {
   ContentProvider,
   ContentProviderNavigationItem,
-  ContentProviderNavigationOptions,
   ContentProviderQuery,
   ContentProviderSearchResult,
   ContentProviderSiteDataRequest,
@@ -41,7 +40,7 @@ const wrapProviderMethod = <T extends ProviderMethod>(event: H3Event, method: T)
 
 export interface RuntimeContentProvider extends Omit<ContentProvider, 'query' | 'navigation' | 'surroundings' | 'search' | 'siteData' | 'routes'> {
   query: (event: H3Event, query: ContentProviderQuery) => Promise<ContentQueryResponse<ProviderDocumentInput>>
-  navigation?: (event: H3Event, query: ContentProviderQuery, options?: ContentProviderNavigationOptions) => Promise<ContentProviderNavigationItem[]>
+  navigation?: (event: H3Event, query: ContentProviderQuery) => Promise<ContentProviderNavigationItem[]>
   surroundings?: (event: H3Event, collection: string, contentPath: string, options?: ContentProviderSurroundingsOptions) => Promise<Array<ContentProviderSurroundItem | null>>
   search?: (event: H3Event, request: ContentProviderSearchRequest) => Promise<ContentProviderSearchResult[]>
   siteData?: (event: H3Event, request: ContentProviderSiteDataRequest) => Promise<ContentProviderSiteDataResponse>

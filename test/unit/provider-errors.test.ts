@@ -92,6 +92,7 @@ describe('public provider errors', () => {
       normalizeProviderQueryResponse({ collection: 'docs', limit: 1 }, {
         result: [{
           collection: 'docs',
+          canonicalKey: 'docs:intro',
           locale: 'en',
           contentPath: '/docs/intro',
           body: { type: 'root', children: [] },
@@ -123,10 +124,53 @@ describe('public provider errors', () => {
     expect(JSON.stringify(thrown)).not.toContain('internalValue')
   })
 
+  test('reports provider paths outside their configured mount as structured provider errors', () => {
+    const runtime = {
+      defaultLocale: 'en',
+      collections: {
+        docs: {
+          localePolicy: {
+            localized: true,
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            fallback: {},
+            translatedSlugs: false,
+            routeMounts: { en: '/docs', de: '/dokumentation' }
+          }
+        }
+      }
+    }
+
+    expect(() => normalizeProviderQueryResponse({ collection: 'docs', limit: 1 }, {
+      result: [{
+        collection: 'docs',
+        canonicalKey: 'docs:intro',
+        locale: 'de',
+        contentPath: '/docs/intro',
+        routeVariants: [
+          { locale: 'en', contentPath: '/docs/intro' },
+          { locale: 'de', contentPath: '/docs/intro' }
+        ],
+        body: { type: 'root', children: [] }
+      }],
+      skip: 0,
+      limit: 1,
+      total: 1
+    }, 'remote', runtime)).toThrow(expect.objectContaining({
+      statusMessage: 'provider_result_invalid',
+      message: 'remote returned an invalid ProviderDocumentInput.',
+      data: expect.objectContaining({
+        code: 'provider_result_invalid',
+        field: 'result'
+      })
+    }))
+  })
+
   test('does not echo an out-of-scope collection returned by a provider', () => {
     expect(() => normalizeProviderQueryResponse({ collection: 'docs', limit: 1 }, {
       result: [{
         collection: 'private-tenant-secret',
+        canonicalKey: 'private:intro',
         locale: 'en',
         contentPath: '/private',
         body: { type: 'root', children: [] }
@@ -180,6 +224,34 @@ describe('public provider errors', () => {
     })).toThrow(expect.objectContaining({
       statusMessage: 'unsupported_query_shape',
       data: expect.objectContaining({ code: 'unsupported_query_shape', field: 'limit' })
+    }))
+  })
+
+  test('reports a route-mount failure as a query-shape error rather than a bare projection error', () => {
+    const runtimeConfig = {
+      collections: {
+        docs: {
+          localePolicy: {
+            localized: true,
+            locales: ['en', 'de'],
+            defaultLocale: 'en',
+            fallback: {},
+            translatedSlugs: false,
+            // `de` has no mount: mounting a `de` variant selector must fail
+            // through the provider error channel, not as a RouteProjectionError.
+            routeMounts: { en: '/guide' }
+          }
+        }
+      }
+    }
+
+    expect(() => createProviderQuery({
+      collection: 'docs',
+      first: true,
+      resolveVariant: { path: '/intro', locale: 'de' }
+    }, runtimeConfig as never)).toThrow(expect.objectContaining({
+      statusMessage: 'unsupported_query_shape',
+      data: expect.objectContaining({ collection: 'docs', field: 'resolveVariant' })
     }))
   })
 })

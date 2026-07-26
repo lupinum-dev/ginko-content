@@ -1,7 +1,7 @@
-import { parse } from 'comark'
-
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
 import type { PortableComponentPolicyV1 } from '../cms-contract/types.js'
+import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
+import { parseComark } from '../core/markdown/parse-comark.js'
 import { portabilityError, type GinkoBoundaryError } from './errors.js'
 
 export interface PortableMdcAstV1 {
@@ -35,14 +35,15 @@ export async function parseStoredMdc(source: string, policy: PortableComponentPo
 async function parseMdc(source: string, policy: PortableComponentPolicyV1, allowStoredAssets: boolean): Promise<PortableMdcAstV1> {
   if (source.includes('\uFEFF')) throw unsupported()
   const normalized = normalizeBody(source)
-  let tree: Awaited<ReturnType<typeof parse>>
+  let tree: Awaited<ReturnType<typeof parseComark>>
   try {
-    tree = await parse(normalized)
+    tree = await parseComark(normalized)
   } catch {
     throw unsupported()
   }
-  validateNodes(tree.nodes as unknown[], policy, allowStoredAssets)
-  const nodes = stripPositions(tree.nodes) as JsonValue[]
+  const normalizedNodes = normalizeComarkNodes(tree.nodes as unknown[])
+  validateNodes(normalizedNodes, policy, allowStoredAssets)
+  const nodes = stripPositions(normalizedNodes) as JsonValue[]
   canonicalJsonBytes(nodes)
   return { format: 'ginko-portable-mdc-ast', version: 1, source: normalized, nodes }
 }
@@ -78,6 +79,8 @@ function validateNodes(nodes: unknown[], policy: PortableComponentPolicyV1, allo
     if (!builtins.has(tag) && !component) throw unsupported()
     for (const [key, value] of Object.entries(props)) {
       if (/^(?:on|v-|[:@#])/i.test(key)) throw unsupported()
+      if (!component && (key === 'as' || key === 'style')) throw unsupported()
+      if (tag === 'blockquote' && key === 'data-alert' && !isGfmAlert(value)) throw unsupported()
       if (component) {
         const rule = component.props[key]
         if (!rule || !matchesProp(value, rule.type, allowStoredAssets)) throw unsupported()
@@ -103,6 +106,7 @@ const matchesProp = (value: unknown, type: string, allowStoredAssets: boolean) =
 const isJson = (value: unknown) => {
   try { canonicalJsonBytes(value as JsonValue); return true } catch { return false }
 }
+const isGfmAlert = (value: unknown) => typeof value === 'string' && ['note', 'tip', 'important', 'warning', 'caution'].includes(value)
 const safeUrl = (value: string) => {
   if (/^[/.#]/.test(value) && !value.startsWith('//')) return !hasUrlControl(value)
   try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password } catch { return false }

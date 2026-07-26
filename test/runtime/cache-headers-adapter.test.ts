@@ -5,9 +5,8 @@ import type { ContentCacheHint } from '../../packages/content/src/public/provide
 
 /**
  * The headers cache adapter is the adapter whose `apply` writes response state:
- * it must translate a cache hint into real HTTP response headers. The shipped
- * inert adapter (`noopContentCache`) leaves the
- * response untouched; this asserts the active one does not.
+ * it must translate a cache hint into real HTTP response headers without
+ * claiming that it can purge an upstream cache.
  */
 
 const createHeaderRecordingEvent = () => {
@@ -47,7 +46,7 @@ describe('headersContentCache adapter', () => {
     expect(headers.get('last-modified')).toBe(lastModified.toUTCString())
   })
 
-  test('invalidate is inert (no upstream store to purge)', async () => {
-    await expect(headersContentCache().invalidate({ tags: ['t'], paths: ['/p'] })).resolves.toBeUndefined()
+  test('does not advertise unsupported cache invalidation', () => {
+    expect(headersContentCache().invalidate).toBeUndefined()
   })
 })

@@ -180,6 +180,13 @@ export function validatePublicMarkdownAst(
         continue
       }
       if (name === 'style' && tag === 'span' && isSafeShikiStyle(propValue)) continue
+      if (tag === 'blockquote' && name === 'data-alert') {
+        if (
+          typeof propValue !== 'string' ||
+          !['note', 'tip', 'important', 'warning', 'caution'].includes(propValue)
+        ) report('invalid_prop_value', propPath, 'Blockquote alert metadata is invalid.')
+        continue
+      }
       if (
         !name || /^on/i.test(name) || /^v-|^@|^:|^#/.test(name) ||
         FORBIDDEN_PROPS.has(lower)
