@@ -45,6 +45,14 @@ before that workflow runs. A local
 command. The required CI lanes above are the release-confidence model; only
 their final authorization job on the exact release SHA permits tagging.
 
+The production audit temporarily accepts only
+[`GHSA-mh99-v99m-4gvg`](https://github.com/advisories/GHSA-mh99-v99m-4gvg)
+when npm reports the exact Nitro 2 → Archiver 7 dependency graph recorded in
+`scripts/lib/production-audit.mjs`. The exception expires after August 2, 2026,
+rejects any changed path or additional advisory, and must be deleted as soon as
+Nitro publishes a dependency graph containing the patched `brace-expansion`.
+This is an explicitly accepted build-time dependency risk, not remediation.
+
 ## Release Runbook
 
 Publishing is intentionally manual. The `release:publish` script and the
