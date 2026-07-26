@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.1
+
+- Fix Markdown references to folder-index pages when another collection uses
+  the same canonical key. A uniquely matched collection-mounted alias now
+  retains its collection scope through locale-variant resolution instead of
+  being rejected later as an ambiguous unscoped key.
+
 ## v0.3.0
 
 This stable release promotes the coordinated `0.2.1` → `0.3.0` hard cut after

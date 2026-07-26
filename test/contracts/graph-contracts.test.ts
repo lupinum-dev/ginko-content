@@ -60,6 +60,49 @@ describe('graph contracts', () => {
     expect(resolveGraphCanonicalKey(graph, 'shared')).toBeNull()
   })
 
+  test('a unique mounted alias remains resolvable when its canonical key exists in another collection', async () => {
+    const { buildContentGraph, resolveGraphCanonicalKey, resolveGraphVariant } = await import('../../packages/content/src/core/content/graph')
+    const graph = buildContentGraph([
+      doc({
+        id: 'docs:en:getting-started:index.md',
+        collection: 'docs',
+        canonicalKey: '1',
+        path: '/getting-started',
+        file: {
+          source: 'content',
+          path: '/en/guide/getting-started/index.md',
+          stem: 'en/guide/getting-started/index',
+          extension: 'md'
+        }
+      }),
+      doc({
+        id: 'blog:en:first-post.md',
+        collection: 'blog',
+        canonicalKey: '1',
+        path: '/first-post',
+        file: {
+          source: 'content',
+          path: '/en/blog/first-post.md',
+          stem: 'en/blog/first-post',
+          extension: 'md'
+        }
+      })
+    ], {
+      locales: ['en'],
+      defaultLocale: 'en',
+      referencePathAliases: document =>
+        document.collection === 'docs' ? ['/guide/getting-started'] : []
+    })
+
+    expect(resolveGraphCanonicalKey(graph, 'guide/getting-started')).toBeNull()
+    expect(resolveGraphCanonicalKey(graph, 'guide/getting-started', 'docs')).toBe('1')
+    expect(resolveGraphCanonicalKey(graph, 'guide/getting-started', 'blog')).toBeNull()
+    expect(resolveGraphVariant(graph, '1', 'en', {
+      collection: 'docs',
+      exact: true
+    })?.contentId).toBe('docs:en:getting-started:index.md')
+  })
+
   test('buildContentGraph indexes collection, path, canonical, refs, and navigation inputs', async () => {
     const { buildContentGraph, resolveGraphCollectionLocales, resolveGraphVariant } = await import('../../packages/content/src/core/content/graph')
 

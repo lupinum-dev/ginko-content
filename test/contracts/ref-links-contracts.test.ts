@@ -31,6 +31,17 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
           translatedSlugs: false,
           routeMounts: { en: '/guide', de: '/leitfaden' }
         }
+      },
+      blog: {
+        route: { en: '/blog', de: '/blog' },
+        localePolicy: {
+          localized: true,
+          locales: ['en', 'de'],
+          defaultLocale: 'en',
+          fallback: { de: ['en'] },
+          translatedSlugs: false,
+          routeMounts: { en: '/blog', de: '/blog' }
+        }
       }
     },
     links: contentLinks.value
@@ -141,6 +152,51 @@ describe('ref link contracts', () => {
       '$stable-page-id': '/de/leitfaden/stabile-seite',
       '$guide/advanced#deep-dive': '/de/leitfaden/advanced#deep-dive',
       '$de/leitfaden/einstieg': '/de/leitfaden/einstieg'
+    })
+  })
+
+  test('withResolvedRefs keeps the collection selected by a unique alias when canonical keys overlap', async () => {
+    resolveCanonicalKey.mockImplementation(async (_event, identity: string, collection?: string) => {
+      if (identity !== 'docs/getting-started') return null
+      return collection === 'docs' ? '1' : null
+    })
+    resolveVariant.mockResolvedValue({
+      canonicalKey: '1',
+      contentId: 'content:docs:getting-started',
+      locale: 'en',
+      resolvedLocale: 'en',
+      fallback: false,
+      availableLocales: ['en'],
+      path: '/getting-started'
+    })
+    getContentGraph.mockResolvedValue({
+      byId: {
+        'content:docs:getting-started': { collection: 'docs' }
+      }
+    })
+
+    const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
+    const resolved = await withResolvedRefs(createEvent(), doc({
+      body: {
+        type: 'root',
+        children: [
+          {
+            type: 'element',
+            tag: 'a',
+            props: { href: '$docs/getting-started' },
+            children: []
+          }
+        ]
+      }
+    }), 'en')
+
+    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'docs/getting-started')
+    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'docs/getting-started', 'docs')
+    expect(resolveVariant).toHaveBeenCalledWith(createEvent(), '1', 'en', {
+      collection: 'docs'
+    })
+    expect((resolved as any).resolved?.resolvedRefs).toEqual({
+      '$docs/getting-started': '/guide/getting-started'
     })
   })
 

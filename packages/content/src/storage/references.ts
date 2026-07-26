@@ -29,6 +29,28 @@ const isConfiguredQuickLink = (href: string) => {
   return Boolean(links?.[namespace]?.[key])
 }
 
+const resolveReferenceTarget = async (
+  event: H3Event,
+  identity: string,
+  collections: Record<string, unknown>
+): Promise<{ canonicalKey: string, collection?: string } | null> => {
+  const canonicalKey = await resolveCanonicalKey(event, identity)
+  if (canonicalKey) {
+    return { canonicalKey }
+  }
+
+  const scopedMatches = (await Promise.all(
+    Object.keys(collections).map(async collection => {
+      const scopedCanonicalKey = await resolveCanonicalKey(event, identity, collection)
+      return scopedCanonicalKey
+        ? { canonicalKey: scopedCanonicalKey, collection }
+        : null
+    })
+  )).filter((match): match is { canonicalKey: string, collection: string } => Boolean(match))
+
+  return scopedMatches.length === 1 ? scopedMatches[0] : null
+}
+
 const resolveDocumentRefLinks = async (
   event: H3Event,
   content: ParsedContent,
@@ -52,8 +74,8 @@ const resolveDocumentRefLinks = async (
         return null
       }
 
-      const canonicalKey = await resolveCanonicalKey(event, parsed.ref)
-      if (!canonicalKey) {
+      const target = await resolveReferenceTarget(event, parsed.ref, config.collections || {})
+      if (!target) {
         if (isConfiguredQuickLink(href)) {
           return [href, href] as const
         }
@@ -67,7 +89,9 @@ const resolveDocumentRefLinks = async (
         return [href, href] as const
       }
 
-      const variant = await resolveVariant(event, canonicalKey, requestedLocale)
+      const variant = await resolveVariant(event, target.canonicalKey, requestedLocale, {
+        collection: target.collection
+      })
       if (!variant?.path) {
         if (import.meta.dev) {
           console.warn(

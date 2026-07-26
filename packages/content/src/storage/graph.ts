@@ -63,6 +63,7 @@ export async function resolveVariant (
   options: {
     fallback?: string[]
     exact?: boolean
+    collection?: string
   } = {}
 ) {
   const config = getContentRuntimeConfig().content
@@ -71,6 +72,7 @@ export async function resolveVariant (
     locales: config.locales,
     fallback: options.fallback,
     exact: options.exact,
+    collection: options.collection,
     localeFallback: config.localeFallback
   })
 }
