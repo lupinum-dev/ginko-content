@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.2
+
+- Preserve the Nuxt request context used to register nested query and
+  navigation API paths during prerendering. Nuxt 4.5 consumers no longer emit
+  `NUXT_E1001` when route surroundings or navigation perform a second
+  transport request after an asynchronous boundary.
+
 ## v0.3.1
 
 - Fix Markdown references to folder-index pages when another collection uses

@@ -55,10 +55,11 @@ This is an explicitly accepted build-time dependency risk, not remediation.
 
 ## Release Runbook
 
-Publishing is intentionally manual. The `release:publish` script and the
-package's `prepublishOnly` hook both reject source-directory publication. npm
-does not run that directory lifecycle hook when publishing an explicit tarball,
-so the inspected CI tarball in step 9 is the only supported publication input.
+Publishing is intentionally maintainer-triggered. The package's
+`prepublishOnly` hook rejects source-directory publication. The
+`release:publish` script accepts only the exact clean, certified tarball for the
+current commit, refuses an already-published version, publishes that tarball,
+and confirms the result from npm.
 
 Set the release version once and reuse it in the commands below:
 
@@ -183,17 +184,16 @@ npm access list packages lupinum --registry=https://registry.npmjs.org/
 The npm CLI may open browser authentication during login or publish. Do not add
 `--otp` unless npm explicitly asks for a one-time password.
 
-9. Publish manually from the inspected tarball:
+9. Publish the inspected tarball through the guarded script:
 
 ```bash
-npm publish .pack/lupinum-ginko-content-$VERSION.tgz \
-  --access public \
-  --tag "$NPM_TAG" \
-  --registry=https://registry.npmjs.org/
+npm run release:publish
 ```
 
-If npm opens an authentication URL, complete it in the browser and return to the
-terminal.
+The script selects the stable `latest` tag, verifies the clean commit,
+certification identity, tarball checksum, and unpublished registry state, then
+confirms the published version. If npm opens an authentication URL, complete it
+in the browser and return to the terminal.
 
 10. Confirm npm package state:
 
