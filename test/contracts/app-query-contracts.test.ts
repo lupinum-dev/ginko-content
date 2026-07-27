@@ -26,6 +26,8 @@ const runtime = {
 
 const route = { path: '/de/guide/advanced', query: {} as Record<string, any> }
 const asyncDataCalls: any[] = []
+const addPrerenderPath = vi.fn()
+const createPrerenderPathAdder = vi.fn(() => addPrerenderPath)
 const publicDocument = (path: string, title: string, body?: Record<string, unknown>) => ({
   id: `content:de:${path.replace(/^\//, '').replace(/\//g, ':')}.md`,
   collection: 'docs',
@@ -139,6 +141,7 @@ vi.mock('../../packages/content/src/runtime/app/composables/preview', () => ({
 }))
 
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
+  createPrerenderPathAdder,
   fetchContentApi,
   getContentApiFetcher: () => vi.fn(async () => ({ result: [] })),
   getPreviewToken: () => 'captured-preview-token'
@@ -148,6 +151,8 @@ describe('app query/composable contracts', () => {
   beforeEach(() => {
     asyncDataCalls.length = 0
     fetchContentApi.mockClear()
+    addPrerenderPath.mockClear()
+    createPrerenderPathAdder.mockClear()
     route.path = '/de/guide/advanced'
   })
 
@@ -228,6 +233,22 @@ describe('app query/composable contracts', () => {
       }),
       expect.objectContaining({ previewToken: 'captured-preview-token' })
     )
+  })
+
+  test('captures one request-bound prerender writer for both phases of surround()', async () => {
+    const { surround } = await import('../../packages/content/src/runtime/app/composables/query-api')
+
+    await surround('docs', {
+      by: { route: '/de/guide/advanced' },
+      locale: 'de',
+      fallback: true
+    })
+
+    expect(createPrerenderPathAdder).toHaveBeenCalledOnce()
+    expect(fetchContentApi).toHaveBeenCalledTimes(2)
+    expect(fetchContentApi.mock.calls.map(call => call[0])).toEqual(['query', 'navigation'])
+    expect(fetchContentApi.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ addPrerenderPath }))
+    expect(fetchContentApi.mock.calls[1]?.[2]).toEqual(expect.objectContaining({ addPrerenderPath }))
   })
 
   test('client queries reject malformed public options before transport', async () => {

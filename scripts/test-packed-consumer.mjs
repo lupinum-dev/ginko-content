@@ -19,6 +19,11 @@ const packageManager = optionValue('--package-manager', 'pnpm')
 if (!['pnpm', 'npm'].includes(packageManager)) {
   throw new Error(`Unsupported package manager ${packageManager}; expected pnpm or npm.`)
 }
+const nuxtVersion = optionValue(
+  '--nuxt-version',
+  process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7'
+)
+
 function resolveReleaseTarball() {
   const explicit = optionValue('--tarball')
   if (explicit) {
@@ -258,7 +263,7 @@ async function main() {
         '@lupinum/ginko-content': `file:${installedTarball}`,
         '@nuxtjs/sitemap': process.env.GINKO_CONSUMER_SITEMAP_VERSION || '8.0.15',
         '@types/node': process.env.GINKO_CONSUMER_NODE_TYPES_VERSION || '^24.0.0',
-        nuxt: process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7',
+        nuxt: nuxtVersion,
         pagefind: process.env.GINKO_CONSUMER_PAGEFIND_VERSION || '1.5.2',
         typescript: '6.0.3',
         vue: process.env.GINKO_CONSUMER_VUE_VERSION || '3.5.35',
@@ -537,11 +542,14 @@ The packed package rendered this page.
       import { useContentPage } from '#imports'
       import { pages } from '../content.config'
 
-      const { page } = await useContentPage(pages)
+      const { page, next } = await useContentPage(pages, { surround: true })
       </script>
 
       <template>
-        <main><h1>{{ page?.title }}</h1></main>
+        <main>
+          <h1>{{ page?.title }}</h1>
+          <p data-testid="next-page">{{ next?.title }}</p>
+        </main>
       </template>
     `)
 
@@ -686,8 +694,19 @@ The packed package rendered this page.
     packageExec('nuxi', ['prepare'], appDir)
     packageExec('nuxi', ['typecheck'], appDir)
     packageExecAndRejectOutput('nuxt', ['build'], appDir, [
-      /could not be resolved[\s\S]*treating it as an external dependency/i
+      /could not be resolved[\s\S]*treating it as an external dependency/i,
+      /\bNUXT_E\d{4}\b/
     ])
+    const prerenderedContentApiDir = resolve(appDir, '.output/public/api/_content')
+    const prerenderedContentApiFiles = existsSync(prerenderedContentApiDir)
+      ? readdirSync(prerenderedContentApiDir, { recursive: true }).map(String)
+      : []
+    if (
+      !prerenderedContentApiFiles.some(path => path.startsWith('query/')) ||
+      !prerenderedContentApiFiles.some(path => path.startsWith('navigation/'))
+    ) {
+      throw new Error('Packed consumer surround() did not prerender both query and navigation API dependencies.')
+    }
 
     const cliHelp = packageExecAndCapture('ginko-content', ['--help'], appDir)
     if (!cliHelp.includes('validate [root]')) {
@@ -723,7 +742,8 @@ title: Pagefind Package Check
 # Pagefind Package Check
     `)
     packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
-      /could not be resolved[\s\S]*treating it as an external dependency/i
+      /could not be resolved[\s\S]*treating it as an external dependency/i,
+      /\bNUXT_E\d{4}\b/
     ])
 
     const pagefindDir = resolve(filesystemDir, '.output/public/pagefind')
@@ -753,7 +773,7 @@ title: Pagefind Package Check
 
     const pageResponse = await fetch(baseURL)
     const html = await pageResponse.text()
-    if (!pageResponse.ok || !html.includes('Package Consumer Page')) {
+    if (!pageResponse.ok || !html.includes('Package Consumer Page') || !html.includes('Second Page')) {
       throw new Error(`Packed consumer page failed: ${pageResponse.status}\n${html.slice(0, 500)}`)
     }
     const cachePageResponse = await fetch(`${baseURL}/cache-live`)

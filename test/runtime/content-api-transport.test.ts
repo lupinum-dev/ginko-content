@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { fetchContentApi } from '../../packages/content/src/runtime/app/composables/utils'
 
 vi.mock('#imports', () => ({
+  tryUseNuxtApp: () => undefined,
   useCookie: () => ({ value: null }),
   useRequestEvent: () => undefined,
   useRequestFetch: () => vi.fn(),
@@ -29,19 +30,35 @@ describe('content API transport', () => {
     )).rejects.toThrow('expected a non-empty JSON body')
   })
 
-  test('uses a request-bound prerender writer captured before nested async queries', async () => {
+  test('registers only successful JSON responses with the captured prerender writer', async () => {
     const fetcher = vi.fn(async () => ({ result: [] }))
     const addPrerenderPath = vi.fn()
 
     await fetchContentApi(
       'navigation',
       { collection: 'docs' },
-      { fetcher, previewToken: null, runtime, prerenderPathAdder: addPrerenderPath }
+      { fetcher, previewToken: null, runtime, addPrerenderPath }
     )
 
     expect(addPrerenderPath).toHaveBeenCalledOnce()
     expect(addPrerenderPath).toHaveBeenCalledWith(
       expect.stringMatching(/^\/api\/_content\/navigation\//)
     )
+
+    fetcher.mockResolvedValueOnce('<!DOCTYPE html><title>Fallback</title>')
+    await expect(fetchContentApi(
+      'query',
+      { collection: 'docs', first: true },
+      { fetcher, previewToken: null, runtime, addPrerenderPath }
+    )).rejects.toThrow('Not found')
+
+    fetcher.mockResolvedValueOnce(undefined)
+    await expect(fetchContentApi(
+      'query',
+      { collection: 'docs', first: true },
+      { fetcher, previewToken: null, runtime, addPrerenderPath }
+    )).rejects.toThrow('expected a non-empty JSON body')
+
+    expect(addPrerenderPath).toHaveBeenCalledOnce()
   })
 })

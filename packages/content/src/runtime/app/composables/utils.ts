@@ -1,6 +1,6 @@
 import { withBase } from 'ufo'
 import { hash } from 'ohash'
-import { useRequestEvent, useRequestFetch } from '#imports'
+import { tryUseNuxtApp, useRequestEvent, useRequestFetch } from '#imports'
 import type { ContentProviderQueryInput } from '../../../types/query'
 import { encodeQueryParams } from '../../utils/query'
 import { useContentPreview } from './preview'
@@ -21,16 +21,8 @@ export const navigationDisabled = () => {
   throw new Error('Navigation is only accessible when you enable it in module options.')
 }
 
-const lookupRequestEvent = (): { node: { res: { setHeader: (name: string, value: unknown) => void, getHeader: (name: string) => unknown } } } | undefined => {
-  try {
-    return useRequestEvent() as ReturnType<typeof lookupRequestEvent>
-  } catch {
-    return undefined
-  }
-}
-
 const addPathToEvent = (
-  event: NonNullable<ReturnType<typeof lookupRequestEvent>>,
+  event: NonNullable<ReturnType<typeof useRequestEvent>>,
   path: string
 ) => {
   event.node.res.setHeader(
@@ -43,15 +35,11 @@ const addPathToEvent = (
 }
 
 export const createPrerenderPathAdder = (): ((path: string) => void) | undefined => {
-  const event = lookupRequestEvent()
-  return event ? path => addPathToEvent(event, path) : undefined
-}
+  if (import.meta.dev || !import.meta.server) return undefined
 
-export const addPrerenderPath = (path: string) => {
-  const event = lookupRequestEvent()
-  if (event) {
-    addPathToEvent(event, path)
-  }
+  const nuxtApp = tryUseNuxtApp()
+  const event = nuxtApp ? useRequestEvent(nuxtApp) : undefined
+  return event ? path => addPathToEvent(event, path) : undefined
 }
 
 export type ContentApiEndpoint = 'query' | 'navigation'
@@ -74,12 +62,11 @@ export const getContentApiFetcher = (fetcher?: ContentApiFetcher): ContentApiFet
 export const buildContentApiPath = (
   endpoint: ContentApiEndpoint,
   params: ContentProviderQueryInput,
-  runtime?: ContentRuntimeShape
+  runtime: ContentRuntimeShape
 ) => {
-  const content = runtime || readContentRuntime()
   const encodedParams = encodeQueryParams(params)
-  const requestKey = import.meta.dev ? '_' : `${hash(params)}.${content.integrity}`
-  return withBase(`/${endpoint}/${requestKey}/${encodedParams}.json`, content.api.baseURL)
+  const requestKey = import.meta.dev ? '_' : `${hash(params)}.${runtime.integrity}`
+  return withBase(`/${endpoint}/${requestKey}/${encodedParams}.json`, runtime.api.baseURL)
 }
 
 export const isHtmlFallbackResponse = (data: unknown): data is string => {
@@ -90,36 +77,28 @@ export async function fetchContentApi<T> (
   endpoint: ContentApiEndpoint,
   params: ContentProviderQueryInput,
   options: {
-    fetcher?: ContentApiFetcher
-    runtime?: ContentRuntimeShape
-    notFoundMessage?: string
-    previewToken?: string | null
-    prerenderPathAdder?: ((path: string) => void) | null
-  } = {}
+    fetcher: ContentApiFetcher
+    runtime: ContentRuntimeShape
+    previewToken: string | null
+    addPrerenderPath?: (path: string) => void
+  }
 ): Promise<T> {
   const apiPath = buildContentApiPath(endpoint, params, options.runtime)
-  const previewToken = options.previewToken === undefined ? getPreviewToken() : options.previewToken
-  const addPrerenderPathOnSuccess =
-    options.prerenderPathAdder === undefined
-      ? !import.meta.dev && import.meta.server ? createPrerenderPathAdder() : undefined
-      : options.prerenderPathAdder ?? undefined
-
-  const fetcher = getContentApiFetcher(options.fetcher)
-  const data = await fetcher(apiPath, {
+  const data = await options.fetcher(apiPath, {
     method: 'GET',
     responseType: 'json',
-    ...(previewToken ? { headers: { 'x-nuxt-content-preview': previewToken } } : {})
+    ...(options.previewToken ? { headers: { 'x-nuxt-content-preview': options.previewToken } } : {})
   }) as unknown
 
   if (isHtmlFallbackResponse(data)) {
-    throw new Error(options.notFoundMessage || 'Not found')
+    throw new Error('Not found')
   }
 
   if (data === undefined || data === null) {
     throw new TypeError('Invalid content API response: expected a non-empty JSON body.')
   }
 
-  addPrerenderPathOnSuccess?.(apiPath)
+  options.addPrerenderPath?.(apiPath)
 
   return data as T
 }

@@ -51,9 +51,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
   const previewToken = getPreviewToken() ?? null
   // Nested navigation and surround queries can begin after an async boundary.
   // Capture the request-bound prerender writer while setup context is active.
-  const prerenderPathAdder = !import.meta.dev && import.meta.server
-    ? createPrerenderPathAdder() ?? null
-    : null
+  const addPrerenderPath = createPrerenderPathAdder()
 
   return {
     runtime,
@@ -61,7 +59,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
       return await fetchContentApi<ContentPublicQueryResponse<T> | NavItem[]>(
         endpoint,
         params,
-        { fetcher, runtime, previewToken, prerenderPathAdder }
+        { fetcher, runtime, previewToken, addPrerenderPath }
       )
     }
   }

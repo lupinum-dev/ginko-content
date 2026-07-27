@@ -81,6 +81,7 @@ vi.mock('../../packages/content/src/runtime/app/composables/runtime', () => ({
 }))
 
 vi.mock('../../packages/content/src/runtime/app/composables/utils', () => ({
+  createPrerenderPathAdder: () => undefined,
   fetchContentApi,
   getContentApiFetcher: () => vi.fn(),
   getPreviewToken: () => undefined
