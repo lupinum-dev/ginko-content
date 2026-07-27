@@ -6,11 +6,12 @@ import type {
   ContentQueryResponse
 } from '../types/api'
 import type { ParsedContent } from '../types/content'
+import { resolveGraphReferenceTarget } from '../core/content/graph'
 import { collectMarkdownRefLinks, parseRefLink } from '../core/references/resolve'
 import { projectContentRoute } from '../features/localization/route-projector'
 import { resolveRuntimeCollectionLocalePolicy } from '../features/localization/config'
 import { contentConfig } from './driver'
-import { getContentGraph, resolveCanonicalKey, resolveVariant } from './graph'
+import { getContentGraph, resolveVariant } from './graph'
 
 const isConfiguredQuickLink = (href: string) => {
   const parsed = parseRefLink(href)
@@ -27,28 +28,6 @@ const isConfiguredQuickLink = (href: string) => {
   const key = parsed.ref.slice(separator + 1)
   const links = (contentConfig() as { links?: Record<string, Record<string, unknown>> }).links
   return Boolean(links?.[namespace]?.[key])
-}
-
-const resolveReferenceTarget = async (
-  event: H3Event,
-  identity: string,
-  collections: Record<string, unknown>
-): Promise<{ canonicalKey: string, collection?: string } | null> => {
-  const canonicalKey = await resolveCanonicalKey(event, identity)
-  if (canonicalKey) {
-    return { canonicalKey }
-  }
-
-  const scopedMatches = (await Promise.all(
-    Object.keys(collections).map(async collection => {
-      const scopedCanonicalKey = await resolveCanonicalKey(event, identity, collection)
-      return scopedCanonicalKey
-        ? { canonicalKey: scopedCanonicalKey, collection }
-        : null
-    })
-  )).filter((match): match is { canonicalKey: string, collection: string } => Boolean(match))
-
-  return scopedMatches.length === 1 ? scopedMatches[0] : null
 }
 
 const resolveDocumentRefLinks = async (
@@ -74,7 +53,7 @@ const resolveDocumentRefLinks = async (
         return null
       }
 
-      const target = await resolveReferenceTarget(event, parsed.ref, config.collections || {})
+      const target = resolveGraphReferenceTarget(graph, parsed.ref)
       if (!target) {
         if (isConfiguredQuickLink(href)) {
           return [href, href] as const
@@ -115,12 +94,9 @@ const resolveDocumentRefLinks = async (
 
       const routeLocale =
         variant.fallback && requestedLocale ? requestedLocale : variant.resolvedLocale
-      const targetCollection = graph.byId[variant.contentId]?.collection
-      const targetPolicy = targetCollection
-        ? resolveRuntimeCollectionLocalePolicy(targetCollection, config)
-        : undefined
+      const targetPolicy = resolveRuntimeCollectionLocalePolicy(target.collection, config)
       if (!targetPolicy) {
-        throw new Error(`Missing resolved locale policy for content collection "${targetCollection || ''}".`)
+        throw new Error(`Missing resolved locale policy for content collection "${target.collection}".`)
       }
       return [
         href,

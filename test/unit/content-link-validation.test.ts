@@ -77,6 +77,38 @@ describe('content link validation', () => {
     ])
   })
 
+  test('keeps collection scope when a unique alias points to a cross-collection canonical key', async () => {
+    const source = document('/', [element('a', { href: '$guide/getting-started' })], 'index.md')
+    const target = document('/getting-started', [], 'getting-started.md')
+    target.canonicalKey = '1'
+    const blog = {
+      ...document('/first-post', [], 'first-post.md'),
+      id: 'blog:first-post.md#en',
+      canonicalKey: '1',
+      collection: 'blog'
+    }
+    const documents = [source, target, blog]
+    const graph = buildContentGraph(documents, {
+      locales: ['en'],
+      defaultLocale: 'en',
+      referencePathAliases: item =>
+        item === target ? ['/guide/getting-started'] : []
+    })
+
+    const findings = await validateContentLinks(documents, {
+      routes: [
+        route(source, '/'),
+        route(target, '/guide/getting-started'),
+        route(blog, '/blog/first-post')
+      ],
+      graph,
+      defaultLocale: 'en',
+      assetExists: async () => false
+    })
+
+    expect(findings).toEqual([])
+  })
+
   test('requires configured quick-link route names and required parameters', async () => {
     const page = document('/', [
       element('a', { href: '$main.user' }),

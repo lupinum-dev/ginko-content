@@ -7,7 +7,11 @@ import { reference } from '../../packages/content/src/types/config'
 
 describe('graph contracts', () => {
   test('canonical identity is collection-scoped and unscoped ambiguity fails closed', async () => {
-    const { buildContentGraph, resolveGraphCanonicalKey, resolveGraphVariant } = await import('../../packages/content/src/core/content/graph')
+    const {
+      buildContentGraph,
+      resolveGraphCanonicalKey,
+      resolveGraphVariant
+    } = await import('../../packages/content/src/core/content/graph')
     const { validateContentGraph } = await import('../../packages/content/src/storage/validation')
     const documents = [
       doc({
@@ -61,7 +65,12 @@ describe('graph contracts', () => {
   })
 
   test('a unique mounted alias remains resolvable when its canonical key exists in another collection', async () => {
-    const { buildContentGraph, resolveGraphCanonicalKey, resolveGraphVariant } = await import('../../packages/content/src/core/content/graph')
+    const {
+      buildContentGraph,
+      resolveGraphCanonicalKey,
+      resolveGraphReferenceTarget,
+      resolveGraphVariant
+    } = await import('../../packages/content/src/core/content/graph')
     const graph = buildContentGraph([
       doc({
         id: 'docs:en:getting-started:index.md',
@@ -95,12 +104,34 @@ describe('graph contracts', () => {
     })
 
     expect(resolveGraphCanonicalKey(graph, 'guide/getting-started')).toBeNull()
+    expect(resolveGraphReferenceTarget(graph, 'guide/getting-started')).toEqual({
+      canonicalKey: '1',
+      collection: 'docs'
+    })
     expect(resolveGraphCanonicalKey(graph, 'guide/getting-started', 'docs')).toBe('1')
     expect(resolveGraphCanonicalKey(graph, 'guide/getting-started', 'blog')).toBeNull()
     expect(resolveGraphVariant(graph, '1', 'en', {
       collection: 'docs',
       exact: true
     })?.contentId).toBe('docs:en:getting-started:index.md')
+  })
+
+  test('an unscoped canonical reference retains the implicit content collection', async () => {
+    const {
+      buildContentGraph,
+      resolveGraphReferenceTarget
+    } = await import('../../packages/content/src/core/content/graph')
+    const graph = buildContentGraph([
+      doc({ canonicalKey: 'guide/getting-started', collection: undefined })
+    ], {
+      locales: ['en'],
+      defaultLocale: 'en'
+    })
+
+    expect(resolveGraphReferenceTarget(graph, 'guide/getting-started')).toEqual({
+      canonicalKey: 'guide/getting-started',
+      collection: 'content'
+    })
   })
 
   test('buildContentGraph indexes collection, path, canonical, refs, and navigation inputs', async () => {

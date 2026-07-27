@@ -1,6 +1,6 @@
 import type { ParsedContent } from '../../types/content'
 import type { ContentGraph } from '../../core/content/graph'
-import { resolveGraphCanonicalKey } from '../../core/content/graph'
+import { getGraphCanonicalVariants, resolveGraphReferenceTarget } from '../../core/content/graph'
 import { parseRefLink } from '../../core/references/resolve'
 import type { ProjectedContentRouteRecord } from '../localization/route-projector'
 import type { ContentLinksOptions, ContentValidationRouteFacts } from '../../types/module'
@@ -134,14 +134,16 @@ export const validateContentLinks = async (
           continue
         }
 
-        const canonicalKey = resolveGraphCanonicalKey(options.graph, parsedRef.ref)
-        const variants = canonicalKey ? options.graph.byCanonical[canonicalKey] : undefined
+        const target = resolveGraphReferenceTarget(options.graph, parsedRef.ref)
+        const variants = target
+          ? getGraphCanonicalVariants(options.graph, target.canonicalKey, target.collection)
+          : undefined
         const variant = variants?.[document.locale || '']
           || variants?.[options.defaultLocale || '']
           || Object.values(variants || {})[0]
         const targetDocument = variant ? options.graph.byId[variant.contentId] : undefined
-        const targetRoute = targetDocument
-          ? routeByIdentity.get(identityKey(targetDocument.collection, canonicalKey || '', variant?.locale))
+        const targetRoute = target && targetDocument
+          ? routeByIdentity.get(identityKey(target.collection, target.canonicalKey, variant?.locale))
           : undefined
         if (!targetRoute) {
           addBroken(sourceFile, authoredValue)

@@ -6,6 +6,10 @@
   navigation API paths during prerendering. Nuxt 4.5 consumers no longer emit
   `NUXT_E1001` when route surroundings or navigation perform a second
   transport request after an asynchronous boundary.
+- Keep collection ownership attached to uniquely resolved Markdown reference
+  aliases, including when another collection uses the same canonical key.
+  Runtime resolution and build-time link validation now consume the same
+  collection-scoped graph target.
 
 ## v0.3.1
 

@@ -9,7 +9,6 @@ import {
   rewriteMarkdownRefLinks
 } from '../../packages/content/src/core/references/resolve'
 
-const resolveCanonicalKey = vi.fn()
 const resolveVariant = vi.fn()
 const getContentGraph = vi.fn()
 const contentLinks = vi.hoisted(() => ({
@@ -50,20 +49,37 @@ vi.mock('../../packages/content/src/storage/driver', () => ({
 
 vi.mock('../../packages/content/src/storage/graph', () => ({
   getContentGraph,
-  resolveCanonicalKey,
   resolveVariant
 }))
 
+const graphWithReferenceTargets = (
+  targets: Record<string, { canonicalKey: string, collection: string }>
+) => {
+  const byCollectionCanonical: Record<string, Record<string, Record<string, unknown>>> = {}
+  for (const { canonicalKey, collection } of Object.values(targets)) {
+    byCollectionCanonical[collection] ||= {}
+    byCollectionCanonical[collection]![canonicalKey] = {
+      en: {
+        canonicalKey,
+        contentId: `content:${collection}:${canonicalKey}`,
+        locale: 'en',
+        path: `/${canonicalKey}`,
+        document: { collection }
+      }
+    }
+  }
+  return {
+    byCanonical: {},
+    byCollectionCanonical,
+    referenceTargets: new Map(Object.entries(targets))
+  }
+}
+
 describe('ref link contracts', () => {
   beforeEach(() => {
-    resolveCanonicalKey.mockReset()
     resolveVariant.mockReset()
     getContentGraph.mockReset()
-    getContentGraph.mockResolvedValue({
-      byId: new Proxy({}, {
-        get: () => ({ collection: 'docs' })
-      })
-    })
+    getContentGraph.mockResolvedValue(graphWithReferenceTargets({}))
     contentLinks.value = {}
   })
 
@@ -72,7 +88,9 @@ describe('ref link contracts', () => {
   })
 
   test('withResolvedRefs resolves localized markdown refs and preserves hashes', async () => {
-    resolveCanonicalKey.mockResolvedValue('docs/advanced')
+    getContentGraph.mockResolvedValue(graphWithReferenceTargets({
+      'guide/advanced': { canonicalKey: 'docs/advanced', collection: 'docs' }
+    }))
     resolveVariant.mockResolvedValue({
       canonicalKey: 'docs/advanced',
       contentId: 'content:docs:advanced',
@@ -103,15 +121,14 @@ describe('ref link contracts', () => {
         }
       }
     })
-    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'guide/advanced')
   })
 
-  test('withResolvedRefs resolves authored ids, canonical keys, and path aliases through one canonical resolver', async () => {
-    resolveCanonicalKey.mockImplementation(async (_event, identity: string) => ({
-      'stable-page-id': 'docs/stable-page',
-      'guide/advanced': 'docs/advanced',
-      'de/leitfaden/einstieg': 'docs/getting-started'
-    })[identity] || null)
+  test('withResolvedRefs resolves authored ids, canonical keys, and path aliases through one scoped resolver', async () => {
+    getContentGraph.mockResolvedValue(graphWithReferenceTargets({
+      'stable-page-id': { canonicalKey: 'docs/stable-page', collection: 'docs' },
+      'guide/advanced': { canonicalKey: 'docs/advanced', collection: 'docs' },
+      'de/leitfaden/einstieg': { canonicalKey: 'docs/getting-started', collection: 'docs' }
+    }))
     resolveVariant.mockImplementation(async (_event, canonicalKey: string, locale?: string) => {
       const paths: Record<string, string> = {
         'docs/stable-page': '/stabile-seite',
@@ -143,11 +160,6 @@ describe('ref link contracts', () => {
       }
     }), 'de')
 
-    expect(resolveCanonicalKey.mock.calls.map(call => call[1])).toEqual([
-      'stable-page-id',
-      'guide/advanced',
-      'de/leitfaden/einstieg'
-    ])
     expect((resolved as any).resolved?.resolvedRefs).toEqual({
       '$stable-page-id': '/de/leitfaden/stabile-seite',
       '$guide/advanced#deep-dive': '/de/leitfaden/advanced#deep-dive',
@@ -156,10 +168,9 @@ describe('ref link contracts', () => {
   })
 
   test('withResolvedRefs keeps the collection selected by a unique alias when canonical keys overlap', async () => {
-    resolveCanonicalKey.mockImplementation(async (_event, identity: string, collection?: string) => {
-      if (identity !== 'docs/getting-started') return null
-      return collection === 'docs' ? '1' : null
-    })
+    getContentGraph.mockResolvedValue(graphWithReferenceTargets({
+      'docs/getting-started': { canonicalKey: '1', collection: 'docs' }
+    }))
     resolveVariant.mockResolvedValue({
       canonicalKey: '1',
       contentId: 'content:docs:getting-started',
@@ -168,11 +179,6 @@ describe('ref link contracts', () => {
       fallback: false,
       availableLocales: ['en'],
       path: '/getting-started'
-    })
-    getContentGraph.mockResolvedValue({
-      byId: {
-        'content:docs:getting-started': { collection: 'docs' }
-      }
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
@@ -190,8 +196,6 @@ describe('ref link contracts', () => {
       }
     }), 'en')
 
-    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'docs/getting-started')
-    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'docs/getting-started', 'docs')
     expect(resolveVariant).toHaveBeenCalledWith(createEvent(), '1', 'en', {
       collection: 'docs'
     })
@@ -201,18 +205,15 @@ describe('ref link contracts', () => {
   })
 
   test('withResolvedRefs resolves markdown refs through locale fallback', async () => {
-    resolveCanonicalKey.mockResolvedValue('docs/advanced')
+    getContentGraph.mockResolvedValue(graphWithReferenceTargets({
+      'guide/advanced': { canonicalKey: 'docs/advanced', collection: 'docs' }
+    }))
     resolveVariant.mockResolvedValue({
       canonicalKey: 'docs/advanced',
       contentId: 'content:docs:advanced',
       resolvedLocale: 'en',
       path: '/advanced',
       fallback: true
-    })
-    getContentGraph.mockResolvedValue({
-      byId: {
-        'content:docs:advanced': { collection: 'docs' }
-      }
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
@@ -240,7 +241,6 @@ describe('ref link contracts', () => {
 
   test('withResolvedRefs leaves non-markdown content untouched and preserves unresolved refs', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    resolveCanonicalKey.mockResolvedValue(null)
 
     const { withResolvedRefs, withResolvedRefsList, withResolvedRefsQueryResponse } = await import('../../packages/content/src/storage/references')
 
@@ -295,7 +295,6 @@ describe('ref link contracts', () => {
         services: { route: 'services' }
       }
     }
-    resolveCanonicalKey.mockResolvedValue(null)
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
     const resolved = await withResolvedRefs(createEvent(), doc({
@@ -315,7 +314,6 @@ describe('ref link contracts', () => {
     expect((resolved as any).resolved?.resolvedRefs).toEqual({
       '$main.services#plans': '$main.services#plans'
     })
-    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'main.services')
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('Could not resolve markdown ref "$main.services#plans"'))
     warn.mockRestore()
   })
@@ -326,7 +324,9 @@ describe('ref link contracts', () => {
         services: { route: 'services' }
       }
     }
-    resolveCanonicalKey.mockResolvedValue('docs/services')
+    getContentGraph.mockResolvedValue(graphWithReferenceTargets({
+      'main.services': { canonicalKey: 'docs/services', collection: 'docs' }
+    }))
     resolveVariant.mockResolvedValue({
       canonicalKey: 'docs/services',
       contentId: 'content:docs:services',
@@ -350,7 +350,6 @@ describe('ref link contracts', () => {
       }
     }), 'de')
 
-    expect(resolveCanonicalKey).toHaveBeenCalledWith(createEvent(), 'main.services')
     expect((resolved as any).resolved?.resolvedRefs).toEqual({
       '$main.services#plans': '/de/leitfaden/services#plans'
     })

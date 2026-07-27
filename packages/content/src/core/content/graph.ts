@@ -18,10 +18,9 @@
  *    page resolver when the request arrives as a localized URL.
  *  - **`byRef`**: normalized ref string → canonical key. This is how
  *    markdown links such as `[Ada]($authors.ada)` find their target without a scan.
- *  - **`referenceTargets`**: the `buildReferenceTargets` map — every shape
- *    the user might plausibly write to point at a document (canonical
- *    name, locale-prefixed path, short slug) pre-resolved to a canonical
- *    key.
+ *  - **`referenceTargets`**: every unambiguous shape the user might write
+ *    (canonical name, locale-prefixed path, short slug) pre-resolved to its
+ *    canonical key and owning collection.
  *
  * The graph is rebuilt from scratch on every request in dev; in production
  * it is memoized per-request via `memoizeRuntimeValue(event, 'graph', ...)`.
@@ -36,6 +35,11 @@ import { resolveLocaleChain, sortLocalesCanonically } from './locale'
 
 export interface ContentGraphVariant extends ContentVariantIdentity {
   document: ParsedContent
+}
+
+export interface ContentGraphReferenceTarget {
+  readonly canonicalKey: string
+  readonly collection: string
 }
 
 export interface ContentGraph {
@@ -58,8 +62,8 @@ export interface ContentGraph {
   byRef: Record<string, string>
   /** navigation path → `{ [locale]: document }`. Drives `.navigation.yml` merging. */
   byNavigationPath: Record<string, Record<string, ParsedContent>>
-  /** Every user-writable reference shape pre-resolved to a canonical key. */
-  referenceTargets: Map<string, string>
+  /** Every unambiguous user-writable reference shape with its collection scope intact. */
+  referenceTargets: Map<string, ContentGraphReferenceTarget>
   /** Exact collection-scoped user-writable reference targets. */
   referenceTargetsByCollection: Record<string, Map<string, string>>
 }
@@ -200,9 +204,12 @@ export const buildContentGraph = (
       referenceTargetCollections.set(identity, [...(referenceTargetCollections.get(identity) || []), collection])
     }
   }
-  const referenceTargets = new Map<string, string>()
+  const referenceTargets = new Map<string, ContentGraphReferenceTarget>()
   for (const [identity, collections] of referenceTargetCollections) {
-    if (collections.length === 1) referenceTargets.set(identity, referenceTargetsByCollection[collections[0]!]!.get(identity)!)
+    if (collections.length !== 1) continue
+    const collection = collections[0]!
+    const canonicalKey = referenceTargetsByCollection[collection]!.get(identity)
+    if (canonicalKey) referenceTargets.set(identity, { canonicalKey, collection })
   }
 
   return {
@@ -394,8 +401,38 @@ export const resolveGraphCanonicalKey = (
 
   const targetCanonicalKey = collection
     ? graph.referenceTargetsByCollection[collection]?.get(normalizedIdentity)
-    : graph.referenceTargets.get(normalizedIdentity)
+    : graph.referenceTargets.get(normalizedIdentity)?.canonicalKey
   return targetCanonicalKey && hasCollectionVariant(targetCanonicalKey) ? targetCanonicalKey : null
+}
+
+/**
+ * Resolve a user-authored reference without discarding the collection that
+ * made the identity unambiguous. Canonical keys are collection-scoped, so
+ * callers that subsequently resolve a locale variant must carry both values.
+ */
+export const resolveGraphReferenceTarget = (
+  graph: ContentGraph,
+  identity: string,
+  collection?: string
+): ContentGraphReferenceTarget | null => {
+  const normalizedIdentity = normalizeReferenceValue(identity)
+  if (!normalizedIdentity) return null
+
+  if (collection) {
+    const canonicalKey = resolveGraphCanonicalKey(graph, normalizedIdentity, collection)
+    return canonicalKey ? { canonicalKey, collection } : null
+  }
+
+  const canonicalVariants = graph.byCanonical[normalizedIdentity]
+  if (canonicalVariants) {
+    const targetCollection = Object.values(canonicalVariants)[0]?.document.collection || 'content'
+    return { canonicalKey: normalizedIdentity, collection: targetCollection }
+  }
+
+  const target = graph.referenceTargets.get(normalizedIdentity)
+  return target && getGraphCanonicalVariants(graph, target.canonicalKey, target.collection)
+    ? target
+    : null
 }
 
 export const resolveGraphCollectionLocales = (

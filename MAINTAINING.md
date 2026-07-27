@@ -190,10 +190,11 @@ The npm CLI may open browser authentication during login or publish. Do not add
 npm run release:publish
 ```
 
-The script selects the stable `latest` tag, verifies the clean commit,
-certification identity, tarball checksum, and unpublished registry state, then
-confirms the published version. If npm opens an authentication URL, complete it
-in the browser and return to the terminal.
+The script derives `latest` or `next` from the package version, verifies the
+clean commit, exact certification lanes, tarball checksum, and unpublished
+registry state, then waits briefly for npm to confirm the published version. If
+npm opens an authentication URL, complete it in the browser and return to the
+terminal.
 
 10. Confirm npm package state:
 
