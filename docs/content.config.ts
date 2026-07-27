@@ -7,6 +7,5 @@ export default defineGinkoDocsConfig({
     url: 'https://ginko-content.nuxt.dev'
   },
   locales: ['en'],
-  defaultLocale: 'en',
   blog: false
 })
