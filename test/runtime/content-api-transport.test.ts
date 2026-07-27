@@ -28,4 +28,20 @@ describe('content API transport', () => {
       { fetcher, previewToken: null, runtime }
     )).rejects.toThrow('expected a non-empty JSON body')
   })
+
+  test('uses a request-bound prerender writer captured before nested async queries', async () => {
+    const fetcher = vi.fn(async () => ({ result: [] }))
+    const addPrerenderPath = vi.fn()
+
+    await fetchContentApi(
+      'navigation',
+      { collection: 'docs' },
+      { fetcher, previewToken: null, runtime, prerenderPathAdder: addPrerenderPath }
+    )
+
+    expect(addPrerenderPath).toHaveBeenCalledOnce()
+    expect(addPrerenderPath).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/api\/_content\/navigation\//)
+    )
+  })
 })

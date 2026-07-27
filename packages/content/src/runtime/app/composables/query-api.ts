@@ -24,7 +24,12 @@ import type {
 } from '../../../types/query'
 import type { ContentPublicQueryResponse } from '../../../types/api'
 import type { __ginkoSchemaBrand } from '../../../types/config'
-import { fetchContentApi, getContentApiFetcher, getPreviewToken } from './utils'
+import {
+  createPrerenderPathAdder,
+  fetchContentApi,
+  getContentApiFetcher,
+  getPreviewToken
+} from './utils'
 import { getContentRuntime } from './runtime'
 import {
   backlinks as backlinksWithContext,
@@ -44,6 +49,11 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
   // would make nested queries call the Nuxt cookie composable again after an
   // async boundary, where setup context is no longer available.
   const previewToken = getPreviewToken() ?? null
+  // Nested navigation and surround queries can begin after an async boundary.
+  // Capture the request-bound prerender writer while setup context is active.
+  const prerenderPathAdder = !import.meta.dev && import.meta.server
+    ? createPrerenderPathAdder() ?? null
+    : null
 
   return {
     runtime,
@@ -51,7 +61,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
       return await fetchContentApi<ContentPublicQueryResponse<T> | NavItem[]>(
         endpoint,
         params,
-        { fetcher, runtime, previewToken }
+        { fetcher, runtime, previewToken, prerenderPathAdder }
       )
     }
   }

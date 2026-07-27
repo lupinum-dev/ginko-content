@@ -42,7 +42,7 @@ const addPathToEvent = (
   )
 }
 
-const createPrerenderPathAdder = (): ((path: string) => void) | undefined => {
+export const createPrerenderPathAdder = (): ((path: string) => void) | undefined => {
   const event = lookupRequestEvent()
   return event ? path => addPathToEvent(event, path) : undefined
 }
@@ -94,12 +94,15 @@ export async function fetchContentApi<T> (
     runtime?: ContentRuntimeShape
     notFoundMessage?: string
     previewToken?: string | null
+    prerenderPathAdder?: ((path: string) => void) | null
   } = {}
 ): Promise<T> {
   const apiPath = buildContentApiPath(endpoint, params, options.runtime)
   const previewToken = options.previewToken === undefined ? getPreviewToken() : options.previewToken
   const addPrerenderPathOnSuccess =
-    !import.meta.dev && import.meta.server ? createPrerenderPathAdder() : undefined
+    options.prerenderPathAdder === undefined
+      ? !import.meta.dev && import.meta.server ? createPrerenderPathAdder() : undefined
+      : options.prerenderPathAdder ?? undefined
 
   const fetcher = getContentApiFetcher(options.fetcher)
   const data = await fetcher(apiPath, {
@@ -116,9 +119,7 @@ export async function fetchContentApi<T> (
     throw new TypeError('Invalid content API response: expected a non-empty JSON body.')
   }
 
-  if (!import.meta.dev && import.meta.server) {
-    addPrerenderPathOnSuccess?.(apiPath)
-  }
+  addPrerenderPathOnSuccess?.(apiPath)
 
   return data as T
 }
