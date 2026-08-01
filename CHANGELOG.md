@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Fix development content updates so the custom HMR event is always sent
+  through Nuxt's client Vite server, including with separate Nuxt 4 client and
+  SSR dev servers.
+- Reload Nuxt automatically after valid edits to the active `content.config.*`,
+  bypass stale Jiti modules, and rebuild the module-owned development cache so
+  collection, route, source, and schema changes take effect without manually
+  restarting the dev command.
+
 ## v0.3.2
 
 - Preserve the Nuxt request context used to register nested query and

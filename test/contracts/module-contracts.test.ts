@@ -5,6 +5,7 @@ import { fields } from '../../packages/content/src/types/fields'
 const applyContentRuntimeConfig = vi.fn()
 const registerContentServerHandlers = vi.fn()
 const sitemapLoggerWarn = vi.fn()
+const removeBuildArtifact = vi.fn(async () => {})
 
 function createNuxt() {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
@@ -18,6 +19,7 @@ function createNuxt() {
         transpile: [] as Array<string | RegExp | ((ctx: { isClient?: boolean, isServer?: boolean }) => boolean)>
       },
       vite: {},
+      watch: [] as Array<string | RegExp>,
       experimental: {},
       ignore: [] as string[],
       modules: ['@nuxtjs/i18n', '@nuxtjs/sitemap'],
@@ -76,6 +78,12 @@ describe('module contracts', () => {
     applyContentRuntimeConfig.mockReset()
     registerContentServerHandlers.mockReset()
     sitemapLoggerWarn.mockReset()
+    removeBuildArtifact.mockReset()
+
+    vi.doMock('node:fs/promises', async () => ({
+      ...await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'),
+      rm: removeBuildArtifact
+    }))
 
     vi.doMock('@nuxt/kit', () => ({
       createResolver: () => ({
@@ -186,6 +194,30 @@ describe('module contracts', () => {
     await expect(mod.default.setup(createOptions(), nuxt as any)).rejects.toThrow(
       '@lupinum/ginko-content requires a content.config.ts with at least one collection'
     )
+  })
+
+  test.each([
+    { name: 'development', dev: true, watch: true, watchesConfig: true },
+    { name: 'development with watching disabled', dev: true, watch: false, watchesConfig: false },
+    { name: 'production', dev: false, watch: true, watchesConfig: false }
+  ])('registers collection config reload and cache cleanup in $name', async ({ dev, watch, watchesConfig }) => {
+    const { nuxt } = createNuxt()
+    nuxt.options.dev = dev
+
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions({ watch }), nuxt as any)
+
+    expect(nuxt.options.watch.filter(path => path === '/workspace/app/content.config.ts')).toHaveLength(watchesConfig ? 1 : 0)
+    if (dev) {
+      expect(removeBuildArtifact).toHaveBeenCalledWith('/workspace/.nuxt/content-cache', {
+        recursive: true,
+        force: true
+      })
+    } else {
+      expect(removeBuildArtifact).toHaveBeenCalledWith('/workspace/.nuxt/content-cache/validation.json', {
+        force: true
+      })
+    }
   })
 
   test('fails when collection map key and authored handle name drift', async () => {
