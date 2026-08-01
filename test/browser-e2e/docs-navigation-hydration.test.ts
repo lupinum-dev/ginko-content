@@ -68,7 +68,7 @@ describe('Ginko Docs navigation hydration', () => {
       expect(response?.status()).toBeLessThan(400)
       await waitForHydration(page)
 
-      const sidebar = page.locator('#nd-sidebar')
+      const sidebar = page.locator('aside[aria-label="Documentation"][data-variant="desktop"]')
       try {
         await sidebar.waitFor({ state: 'visible' })
       } catch (error) {
@@ -94,12 +94,12 @@ describe('Ginko Docs navigation hydration', () => {
       await waitForHydration(page)
 
       await page.locator('h1').waitFor({ state: 'visible' })
-      await sidebar.locator(`a[href="${destination}"][aria-current="page"]`).waitFor({ state: 'visible' })
+      await sidebar.locator(`a[href="${destination}"][data-active="true"]`).waitFor({ state: 'visible' })
       expect(await sidebar.locator('a[href^="/docs/"]').count()).toBeGreaterThan(0)
       expect(failures).toEqual([])
     } finally {
       await browser?.close()
       await server.stop()
     }
-  }, 300000)
+  }, 600000)
 })

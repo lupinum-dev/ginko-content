@@ -26,6 +26,7 @@ export const toValue = <T>(value: T | Ref<T> | (() => T)): T => {
 
 export const useRuntimeConfig = () => readGlobal('__nuxtRuntimeConfig', { public: {} })
 export const refreshNuxtData = () => readGlobal<() => void>('__nuxtRefreshNuxtData', () => {})()
+export const defineNuxtPlugin = <T>(plugin: T): T => plugin
 
 export const useRequestFetch = () => async (url: unknown) => {
   const fetcher = readGlobal<((url: unknown) => unknown | Promise<unknown>) | undefined>('__nuxtUseFetch', undefined)

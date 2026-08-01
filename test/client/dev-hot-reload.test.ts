@@ -1,26 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 describe('content dev hot reload client', () => {
-  beforeEach(() => {
-    vi.resetModules()
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    delete (globalThis as Record<string, unknown>).__nuxtRefreshNuxtData
-  })
-
   test('uses Vite HMR to refresh Nuxt data', async () => {
     const refreshNuxtData = vi.fn()
-    ;(globalThis as Record<string, unknown>).__nuxtRefreshNuxtData = refreshNuxtData
-
     const hot = {
       on: vi.fn()
     }
 
-    const { registerContentHotReload } = await import('../../packages/content/src/runtime/app/composables/hot-reload')
+    const { registerContentHotReload } = await import('../../packages/content/src/runtime/app/plugins/hot-reload')
 
-    registerContentHotReload(hot, true)
+    registerContentHotReload(hot, true, refreshNuxtData)
 
     expect(hot.on).toHaveBeenCalledTimes(1)
     expect(hot.on).toHaveBeenCalledWith('ginko-content:update', expect.any(Function))
@@ -33,8 +22,8 @@ describe('content dev hot reload client', () => {
   })
 
   test('does not register without Vite HMR', async () => {
-    const { registerContentHotReload } = await import('../../packages/content/src/runtime/app/composables/hot-reload')
+    const { registerContentHotReload } = await import('../../packages/content/src/runtime/app/plugins/hot-reload')
 
-    expect(registerContentHotReload(undefined, true)).toBeUndefined()
+    expect(registerContentHotReload(undefined, true, vi.fn())).toBeUndefined()
   })
 })
