@@ -27,7 +27,6 @@ build+generate de/preise/index.html
 build+generate de/query-locale/index.html
 build+generate de/ref-links/index.html
 build+generate de/search/index.html
-build+generate de/sitemap.xml/index.html
 build+generate de/tree/index.html
 build+generate de/variants/index.html
 build+generate docs-query/index.html
@@ -58,7 +57,6 @@ build+generate raw/guide/deep/nested.md
 build+generate raw/guide/getting-started.md
 build+generate ref-links/index.html
 build+generate search/index.html
-build+generate sitemap.xml/index.html
 build+generate sitemap_index.xml
 build+generate tree/index.html
 build+generate variants/index.html
