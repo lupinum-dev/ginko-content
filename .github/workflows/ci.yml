@@ -95,6 +95,10 @@ jobs:
         run: node scripts/timed-command.mjs package-build pnpm build:packages
       - name: Build documentation
         run: node scripts/timed-command.mjs docs-build pnpm docs:build
+        env:
+          # The docs Nitro server build peaks near Node's default ~4 GB heap
+          # cap and aborts intermittently; give it explicit headroom.
+          NODE_OPTIONS: --max-old-space-size=6144
       - name: Smoke-test documentation output
         run: node scripts/timed-command.mjs docs-smoke pnpm docs:smoke
       - uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
