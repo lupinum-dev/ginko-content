@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { z } from 'zod'
 import { fields } from '../../packages/content/src/types/fields'
@@ -209,12 +210,12 @@ describe('module contracts', () => {
 
     expect(nuxt.options.watch.filter(path => path === '/workspace/app/content.config.ts')).toHaveLength(watchesConfig ? 1 : 0)
     if (dev) {
-      expect(removeBuildArtifact).toHaveBeenCalledWith('/workspace/.nuxt/content-cache', {
+      expect(removeBuildArtifact).toHaveBeenCalledWith(resolve('/workspace/.nuxt', 'content-cache'), {
         recursive: true,
         force: true
       })
     } else {
-      expect(removeBuildArtifact).toHaveBeenCalledWith('/workspace/.nuxt/content-cache/validation.json', {
+      expect(removeBuildArtifact).toHaveBeenCalledWith(resolve('/workspace/.nuxt', 'content-cache', 'validation.json'), {
         force: true
       })
     }
