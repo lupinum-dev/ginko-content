@@ -218,7 +218,8 @@ describe('package export contracts', () => {
           },
           files: ['index.ts']
         }), 'utf8')
-        await execFileAsync('pnpm', ['exec', 'tsc', '-p', root], { cwd: process.cwd() })
+        const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+        await execFileAsync(pnpmCommand, ['exec', 'tsc', '-p', root], { cwd: process.cwd() })
       }
     } finally {
       await rm(root, { recursive: true, force: true })
