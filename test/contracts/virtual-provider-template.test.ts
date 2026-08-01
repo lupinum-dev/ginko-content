@@ -1,4 +1,5 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
@@ -24,15 +25,65 @@ const createAddTemplate = () => {
 }
 
 describe('virtual provider template contract', () => {
-  test('loads content config with extensionless TypeScript imports during setup', async () => {
+  test.each([
+    {
+      format: 'TypeScript with an extensionless import',
+      configFile: 'content.config.ts',
+      helperFile: 'helper.ts',
+      helperImport: './helper',
+      configSyntax: 'esm',
+      helperSyntax: 'esm',
+      preloadHelper: false
+    },
+    {
+      format: 'native ESM',
+      configFile: 'content.config.mjs',
+      helperFile: 'helper.mjs',
+      helperImport: './helper.mjs',
+      configSyntax: 'esm',
+      helperSyntax: 'esm',
+      preloadHelper: false
+    },
+    {
+      format: 'CommonJS',
+      configFile: 'content.config.cjs',
+      helperFile: 'helper.cjs',
+      helperImport: './helper.cjs',
+      configSyntax: 'cjs',
+      helperSyntax: 'cjs',
+      preloadHelper: false
+    },
+    {
+      format: 'TypeScript with a CommonJS helper',
+      configFile: 'content.config.ts',
+      helperFile: 'helper.cjs',
+      helperImport: './helper.cjs',
+      configSyntax: 'esm',
+      helperSyntax: 'cjs',
+      preloadHelper: true
+    }
+  ] as const)('reloads $format config modules during setup', async ({ configFile, helperFile, helperImport, configSyntax, helperSyntax, preloadHelper }) => {
     const tmpDir = await mkdtemp(join(process.cwd(), '.tmp-ginko-content-config-'))
 
     try {
-      await writeFile(join(tmpDir, 'helper.ts'), 'export const source = "**/*.md"\n')
-      await writeFile(join(tmpDir, 'content.config.ts'), [
-        'import { source } from "./helper"',
-        'export default { collections: { docs: { type: "page", source } } }'
-      ].join('\n'))
+      const helperSource = (source: string) => helperSyntax === 'esm'
+        ? `export const source = "${source}"\n`
+        : `exports.source = "${source}"\n`
+      const configSource = configSyntax === 'esm'
+        ? [
+            `import { source } from "${helperImport}"`,
+            'export default { collections: { docs: { type: "page", source } } }'
+          ].join('\n')
+        : [
+            `const { source } = require("${helperImport}")`,
+            'module.exports = { collections: { docs: { type: "page", source } } }'
+          ].join('\n')
+
+      await writeFile(join(tmpDir, helperFile), helperSource('**/*.md'))
+      await writeFile(join(tmpDir, configFile), configSource)
+      if (preloadHelper) {
+        createRequire(join(tmpDir, 'preload.cjs'))(join(tmpDir, helperFile))
+      }
 
       const nuxt = {
         options: {
@@ -40,10 +91,15 @@ describe('virtual provider template contract', () => {
         }
       } as any
 
-      expect(resolveContentConfigPath(nuxt)).toBe(toNuxtPath(join(tmpDir, 'content.config.ts')))
+      expect(resolveContentConfigPath(nuxt)).toBe(toNuxtPath(join(tmpDir, configFile)))
       const config = await loadContentConfig(nuxt)
 
       expect(config.collections?.docs?.source).toBe('**/*.md')
+
+      await writeFile(join(tmpDir, helperFile), helperSource('docs/**/*.md'))
+      const reloadedConfig = await loadContentConfig(nuxt)
+
+      expect(reloadedConfig.collections?.docs?.source).toBe('docs/**/*.md')
     } finally {
       await rm(tmpDir, { recursive: true, force: true })
     }

@@ -25,11 +25,8 @@ export const registerContentDevRuntime = (
   let viteServer: ContentViteDevServer | undefined
 
   if (options.watch !== false) {
-    nuxt.options.vite ||= {}
-    nuxt.options.vite.plugins ||= []
-    ;(nuxt.options.vite.plugins as any[]).push({
-      name: 'ginko-content-hmr',
-      configureServer(server: ContentViteDevServer) {
+    nuxt.hook('vite:serverCreated', (server, environment) => {
+      if (environment.isClient) {
         viteServer = server
       }
     })

@@ -106,6 +106,12 @@ export default defineNuxtModule<ModuleOptions>({
       noExternal: runtimeInlineDependencies
     })
     const contentConfigPath = resolveContentConfigPath(nuxt)
+    if (nuxt.options.dev && options.watch !== false && contentConfigPath) {
+      nuxt.options.watch ||= []
+      if (!nuxt.options.watch.includes(contentConfigPath)) {
+        nuxt.options.watch.push(contentConfigPath)
+      }
+    }
     const appContentConfig = await loadContentConfig(nuxt)
     if (!contentConfigPath || !appContentConfig.collections || !Object.keys(appContentConfig.collections).length) {
       throw new Error('@lupinum/ginko-content requires a content.config.ts with at least one collection. Define collections with defineContentConfig({ collections: { ... } }).')
@@ -183,7 +189,15 @@ export default defineNuxtModule<ModuleOptions>({
       search: resolvedSearch,
       validation: options.validation || 'report'
     }
-    await rm(resolveFilePath(nuxt.options.buildDir, 'content-cache/validation.json'), { force: true })
+    const contentCacheDir = resolveFilePath(nuxt.options.buildDir, 'content-cache')
+    if (nuxt.options.dev) {
+      // Collection config is structural module input. A Nuxt reload rebuilds
+      // every derived artifact, including parses whose schema rules changed
+      // without changing serializable runtime metadata.
+      await rm(contentCacheDir, { recursive: true, force: true })
+    } else {
+      await rm(resolveFilePath(contentCacheDir, 'validation.json'), { force: true })
+    }
     const layers = nuxt.options._layers || [{ cwd: nuxt.options.rootDir, config: {} }]
     const nitroPublicAssets = (nuxt.options as typeof nuxt.options & {
       nitro?: { publicAssets?: Array<{ dir: string, baseURL?: string }> }
