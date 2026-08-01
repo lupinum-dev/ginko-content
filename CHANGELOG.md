@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.3
 
 - Fix development content updates so the custom HMR event is always sent
   through Nuxt's client Vite server, including with separate Nuxt 4 client and
