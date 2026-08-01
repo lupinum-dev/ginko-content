@@ -77,9 +77,11 @@ describe('route manifest normalization', () => {
     ])
   })
 
-  test('keeps sitemap index, child sitemaps, llms*.txt, and raw Markdown', () => {
+  test('keeps sitemap index, child sitemaps, llms*.txt, and raw Markdown but drops sitemap.xml redirect stubs', () => {
     const files = [
       'sitemap_index.xml',
+      'sitemap.xml/index.html',
+      'de/sitemap.xml/index.html',
       '__sitemap__/en-US.xml',
       '__sitemap__/de-DE.xml',
       '__sitemap__/style.xsl',

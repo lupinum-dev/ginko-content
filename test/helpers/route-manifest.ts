@@ -30,7 +30,14 @@ const volatileArtifactPatterns = [
   // enter the golden.
   /^api\/_content\/cache\.\d+\.json\/index\.html$/,
   /^api\/_content\/cache\.\d+\.json\.html$/,
-  /^api\/_content\/(?:navigation|query)\//
+  /^api\/_content\/(?:navigation|query)\//,
+  // In i18n mode `/sitemap.xml` (and locale-prefixed aliases like
+  // `/de/sitemap.xml`) redirect to `sitemap_index.xml`; whether the prerender
+  // crawler materializes those redirects as `<route>/index.html` stubs varies
+  // by Nuxt/Nitro version (Nuxt 4.5 stopped emitting the locale-prefixed one).
+  // The canonical sitemap artifacts (`sitemap_index.xml`, `__sitemap__/*.xml`)
+  // remain stable golden entries.
+  /(?:^|\/)sitemap\.xml\/index\.html$/
 ]
 
 function normalizeSlashes (path: string) {
