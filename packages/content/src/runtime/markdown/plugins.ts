@@ -31,10 +31,16 @@ const builtinMarkdownComponents: Record<string, unknown> = {
   ProseImg: defineAsyncComponent(async () => await import('../app/components/Prose/ProseImg.vue'))
 }
 
+/**
+ * Builtin prose components resolve after the app's component registry, so an
+ * app-registered ProseImg (or a tags remap) wins over the bundled default.
+ */
+export function resolveMarkdownRendererFallbackComponents (): Record<string, unknown> {
+  return { ...builtinMarkdownComponents }
+}
+
 export function resolveMarkdownRendererComponents (plugins: ResolvedMarkdownPlugin[]) {
-  const components: Record<string, unknown> = {
-    ...builtinMarkdownComponents
-  }
+  const components: Record<string, unknown> = {}
 
   for (const plugin of plugins) {
     const builtin = builtinMarkdownPlugins[plugin.name]

@@ -2,6 +2,11 @@
 
 ## v0.3.4
 
+- Resolve builtin markdown prose components as fallbacks. An app-registered
+  global `ProseImg` (or a `markdown.tags` remap) now wins over the bundled
+  default; apps that relied on the builtin always rendering images should
+  remove any conflicting global `ProseImg` component, since the
+  `markdown.image` mode no longer applies once an app component takes over.
 - Normalize unbounded Zod number and array limits to `null` so contract
   generation remains canonical-JSON-safe.
 - Serialize Date defaults as ISO strings and reject non-finite or otherwise
