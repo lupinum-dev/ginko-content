@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test, vi } from 'vitest'
@@ -255,5 +257,18 @@ describe('render component contracts', () => {
     })
 
     expect(await renderToString(app)).toContain('data-my-image="true"')
+  })
+
+  test('both renderer components bind the builtin fallback map', () => {
+    // The precedence tests above mount MarkdownRenderer directly; this pins
+    // the bindings so neither renderer can silently drop the builtins.
+    for (const source of [
+      'packages/content/src/runtime/app/components/internal/ContentRendererMarkdown.vue',
+      'packages/content/src/runtime/app/components/ContentRendererInline.vue'
+    ]) {
+      const sfc = readFileSync(resolve(process.cwd(), source), 'utf8')
+      expect(sfc, source).toContain('resolveMarkdownRendererFallbackComponents()')
+      expect(sfc, source).toContain(':fallback-components="fallbackComponents"')
+    }
   })
 })
