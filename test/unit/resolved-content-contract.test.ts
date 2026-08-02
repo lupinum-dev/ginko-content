@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   buildResolvedContentContract,
@@ -11,6 +12,39 @@ import {
 const text = (bytes: Uint8Array) => new TextDecoder().decode(bytes)
 
 describe('resolved content contract v1', () => {
+  it('serializes unbounded schema limits and JSON-safe defaults', () => {
+    const contract = buildResolvedContentContract({
+      collections: {
+        records: {
+          type: 'data',
+          schema: z.object({
+            amount: z.number(),
+            bounded: z.number().min(1).max(10),
+            publishedAt: z.date().default(new Date(0)),
+            metadata: z.object({ createdAt: z.date() }).default({ createdAt: new Date(0) }),
+            tags: z.array(z.string()).max(Infinity),
+          }),
+        },
+      },
+    }, { defaultLocale: 'en', locales: ['en'] })
+
+    const fields = Object.fromEntries(contract.collections.records!.fields.map(field => [field.key, field]))
+    expect(fields.amount?.validation).toEqual({ kind: 'number', min: null, max: null, integer: false })
+    expect(fields.bounded?.validation).toEqual({ kind: 'number', min: 1, max: 10, integer: false })
+    expect(fields.publishedAt?.default).toEqual({ present: true, value: '1970-01-01T00:00:00.000Z' })
+    expect(fields.metadata?.default).toEqual({ present: true, value: { createdAt: '1970-01-01T00:00:00.000Z' } })
+    expect(fields.tags?.validation).toMatchObject({ kind: 'array', minItems: null, maxItems: null })
+  })
+
+  it('rejects non-finite and non-JSON defaults with the field name', () => {
+    expect(() => buildResolvedContentContract({
+      collections: { records: { type: 'data', schema: z.object({ amount: z.number().default(Infinity) }) } },
+    }, { defaultLocale: 'en', locales: ['en'] })).toThrow('Field "amount" has a non-finite default value.')
+    expect(() => buildResolvedContentContract({
+      collections: { records: { type: 'data', cms: { fields: { metadata: { defaultValue: new Map() } } } } },
+    }, { defaultLocale: 'en', locales: ['en'] })).toThrow('Field "metadata" has a non-JSON-serializable default value.')
+  })
+
   it('emits the one closed portable contract without CMS presentation policy', () => {
     const contract = buildResolvedContentContract(
       {

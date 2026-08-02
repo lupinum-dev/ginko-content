@@ -84,15 +84,27 @@ describe('resolved content contract field normalization', () => {
     })).toThrow(/cycle/)
   })
 
-  it('rejects non-JSON explicit defaults at the contract boundary', () => {
+  it('normalizes date defaults and rejects non-JSON explicit defaults at the contract boundary', () => {
+    const contract = buildResolvedContentContract({
+      collections: {
+        records: {
+          type: 'data',
+          cms: { fields: { publishedAt: { defaultValue: new Date(0) } } },
+        },
+      },
+    }, options)
+    expect(contract.collections.records?.fields).toContainEqual(expect.objectContaining({
+      key: 'publishedAt',
+      default: { present: true, value: '1970-01-01T00:00:00.000Z' },
+    }))
     expect(() => buildResolvedContentContract({
       collections: {
         records: {
           type: 'data',
-          cms: { fields: { invalid: { defaultValue: new Date(0) } } },
+          cms: { fields: { invalid: { defaultValue: new Map() } } },
         },
       },
-    }, options)).toThrow(/plain or null prototype/)
+    }, options)).toThrow(/non-JSON-serializable/)
   })
 
   it('rejects field policy that is irrelevant to its field type', () => {

@@ -142,20 +142,20 @@ function fieldFromSchema(key: string, schema: unknown, localized: boolean): Reso
   const required = !['ZodOptional', 'ZodNullable', 'ZodDefault'].includes(getSchemaTypeName(schema) ?? '')
   if (metadata) return fieldFromMetadata(key, metadata, schema, unwrapped, localized, required)
   const reference = getReferenceDescriptor(unwrapped)
-  if (reference) return field({ key, type: 'relation', required, default: defaultFromSchema(schema), relation: { collection: reference.collection ?? '', multiple: false } })
+  if (reference) return field({ key, type: 'relation', required, default: defaultFromSchema(schema, key), relation: { collection: reference.collection ?? '', multiple: false } })
   const typeName = getSchemaTypeName(unwrapped)
-  if (typeName === 'ZodObject') return field({ key, type: 'object', required, localized, default: defaultFromSchema(schema), fields: nestedFields(unwrapped), validation: validationFromSchema(schema) })
+  if (typeName === 'ZodObject') return field({ key, type: 'object', required, localized, default: defaultFromSchema(schema, key), fields: nestedFields(unwrapped), validation: validationFromSchema(schema) })
   if (typeName === 'ZodArray') {
     const element = getSchemaDef(unwrapped)?.element
     const relation = getReferenceDescriptor(unwrapSchema(element))
-    if (relation) return field({ key, type: 'relations', required, default: defaultFromSchema(schema), relation: { collection: relation.collection ?? '', multiple: true } })
+    if (relation) return field({ key, type: 'relations', required, default: defaultFromSchema(schema, key), relation: { collection: relation.collection ?? '', multiple: true } })
     const children = getSchemaTypeName(unwrapSchema(element)) === 'ZodObject' ? nestedFields(element) : null
-    return field({ key, type: children ? 'array' : 'json', required, localized, default: defaultFromSchema(schema), fields: children, validation: validationFromSchema(schema) })
+    return field({ key, type: children ? 'array' : 'json', required, localized, default: defaultFromSchema(schema, key), fields: children, validation: validationFromSchema(schema) })
   }
-  if (typeName === 'ZodNumber') return field({ key, type: 'number', required, default: defaultFromSchema(schema), validation: validationFromSchema(schema) })
-  if (typeName === 'ZodBoolean') return field({ key, type: 'toggle', required, default: defaultFromSchema(schema), validation: validationFromSchema(schema) })
-  if (typeName === 'ZodDate') return field({ key, type: 'date', required, default: defaultFromSchema(schema), validation: validationFromSchema(schema) })
-  return field({ key, type: typeName === 'ZodString' ? 'text' : 'json', required, localized, default: defaultFromSchema(schema), validation: validationFromSchema(schema) })
+  if (typeName === 'ZodNumber') return field({ key, type: 'number', required, default: defaultFromSchema(schema, key), validation: validationFromSchema(schema) })
+  if (typeName === 'ZodBoolean') return field({ key, type: 'toggle', required, default: defaultFromSchema(schema, key), validation: validationFromSchema(schema) })
+  if (typeName === 'ZodDate') return field({ key, type: 'date', required, default: defaultFromSchema(schema, key), validation: validationFromSchema(schema) })
+  return field({ key, type: typeName === 'ZodString' ? 'text' : 'json', required, localized, default: defaultFromSchema(schema, key), validation: validationFromSchema(schema) })
 }
 
 function fieldFromMetadata(key: string, metadata: ContentFieldMetadata, sourceSchema: unknown, schema: unknown, localized: boolean, required: boolean): ResolvedContentFieldV1 {
@@ -170,7 +170,7 @@ function fieldFromMetadata(key: string, metadata: ContentFieldMetadata, sourceSc
     type,
     required: metadata.required ?? required,
     localized: metadata.localized ?? localized,
-    default: defaultFromSchema(sourceSchema),
+    default: defaultFromSchema(sourceSchema, key),
     options: metadata.options ?? null,
     relation: metadata.relation ? { collection: metadata.relation.collectionId, multiple: metadata.relation.multiple ?? type === 'relations' } : null,
     media: metadata.image || metadata.asset
@@ -201,7 +201,7 @@ function mergeField(existing: ResolvedContentFieldV1 | undefined, key: string, o
     localized: override.localized ?? base.localized,
     searchable: override.searchable ?? base.searchable,
     sortable: override.sortable ?? base.sortable,
-    default: Object.prototype.hasOwnProperty.call(override, 'defaultValue') ? { present: true, value: override.defaultValue as JsonValue } : base.default,
+    default: Object.prototype.hasOwnProperty.call(override, 'defaultValue') ? { present: true, value: jsonDefault(override.defaultValue, key) } : base.default,
     options: override.options ?? base.options,
     relation: override.relation ? { collection: override.relation.collectionId, multiple: override.relation.multiple ?? type === 'relations' } : base.relation,
     fields: override.fields ? configuredFields(override.fields, false) : base.fields,
@@ -213,16 +213,45 @@ function mergeField(existing: ResolvedContentFieldV1 | undefined, key: string, o
   })
 }
 
-function defaultFromSchema(schema: unknown): ResolvedContentFieldV1['default'] {
+function defaultFromSchema(schema: unknown, key: string): ResolvedContentFieldV1['default'] {
   let current = schema
   while (current) {
     const typeName = getSchemaTypeName(current)
     const definition = getSchemaDef(current)
-    if (typeName === 'ZodDefault') return { present: true, value: definition?.defaultValue as JsonValue }
+    if (typeName === 'ZodDefault') return { present: true, value: jsonDefault(definition?.defaultValue, key) }
     if (!['ZodOptional', 'ZodNullable'].includes(typeName ?? '')) break
     current = definition?.innerType
   }
   return { present: false }
+}
+
+function jsonDefault(value: unknown, key: string, ancestors = new Set<object>()): JsonValue {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError(`Field "${key}" has a non-finite default value.`)
+    return value
+  }
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) throw new TypeError(`Field "${key}" has an invalid date default.`)
+    return value.toISOString()
+  }
+  if (typeof value !== 'object' || value === null) throw new TypeError(`Field "${key}" has a non-JSON-serializable default value.`)
+  if (ancestors.has(value)) throw new TypeError(`Field "${key}" has a cyclic default value.`)
+  ancestors.add(value)
+  try {
+    if (Array.isArray(value)) return value.map((entry, index) => jsonDefault(entry, `${key}[${index}]`, ancestors))
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) throw new TypeError(`Field "${key}" has a non-JSON-serializable default value.`)
+    if (Object.getOwnPropertySymbols(value).length > 0) throw new TypeError(`Field "${key}" has a non-JSON-serializable default value.`)
+    const result: { [key: string]: JsonValue } = {}
+    for (const [property, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
+      if (!descriptor.enumerable || !('value' in descriptor)) throw new TypeError(`Field "${key}" has a non-JSON-serializable default value.`)
+      result[property] = jsonDefault(descriptor.value, `${key}.${property}`, ancestors)
+    }
+    return result
+  } finally {
+    ancestors.delete(value)
+  }
 }
 
 function validationFromSchema(schema: unknown, semanticType?: ResolvedContentFieldTypeV1): ResolvedContentValidationV1 | null {
@@ -243,16 +272,16 @@ function validationFromSchema(schema: unknown, semanticType?: ResolvedContentFie
       : null
     return {
       kind: 'string',
-      minLength: typeof value.minLength === 'number' ? value.minLength : null,
-      maxLength: typeof value.maxLength === 'number' ? value.maxLength : null,
+      minLength: finiteNumber(value.minLength),
+      maxLength: finiteNumber(value.maxLength),
       format,
     }
   }
   if (typeName === 'ZodNumber') {
     return {
       kind: 'number',
-      min: typeof value.minValue === 'number' ? value.minValue : null,
-      max: typeof value.maxValue === 'number' ? value.maxValue : null,
+      min: finiteNumber(value.minValue),
+      max: finiteNumber(value.maxValue),
       integer: value.isInt === true,
     }
   }
@@ -288,11 +317,17 @@ function arrayLimits(checks: unknown): { minItems: number | null; maxItems: numb
     for (const check of checks) {
       const definition = (check as { _zod?: { def?: Record<string, unknown> }; def?: Record<string, unknown> })._zod?.def
         ?? (check as { def?: Record<string, unknown> }).def
-      if (definition?.check === 'min_length' && typeof definition.minimum === 'number') minItems = definition.minimum
-      if (definition?.check === 'max_length' && typeof definition.maximum === 'number') maxItems = definition.maximum
+      const minimum = finiteNumber(definition?.minimum)
+      const maximum = finiteNumber(definition?.maximum)
+      if (definition?.check === 'min_length' && minimum !== null) minItems = minimum
+      if (definition?.check === 'max_length' && maximum !== null) maxItems = maximum
     }
   }
   return { minItems, maxItems }
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function configuredFields(input: Record<string, ContentCmsFieldConfig> | ContentCmsFieldConfig[], localized: boolean): ResolvedContentFieldV1[] {

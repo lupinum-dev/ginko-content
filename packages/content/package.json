@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://github.com/lupinum-dev/ginko-content",
   "bugs": {
