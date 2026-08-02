@@ -50,6 +50,8 @@ const initialState = useState<{
 }))
 const tree = shallowRef<MarkdownRoot | null>(initialState.value.tree)
 
+const fallbackComponents = resolveMarkdownRendererFallbackComponents()
+
 const resolvedComponents = computed(() => ({
   ...Object.fromEntries(loadContentComponentEntries({
     type: 'root',
@@ -107,7 +109,7 @@ watch(
     :tag="tag"
     :prose="prose"
     :components="resolvedComponents"
-    :fallback-components="resolveMarkdownRendererFallbackComponents()"
+    :fallback-components="fallbackComponents"
     v-bind="rendererAttrs"
   />
 </template>

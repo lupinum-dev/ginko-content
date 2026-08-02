@@ -101,6 +101,8 @@ const renderedBody = computed(() => {
     : body.value
 })
 
+const fallbackComponents = resolveMarkdownRendererFallbackComponents()
+
 const resolvedComponents = computed(() => {
   if (!renderedBody.value) {
     return props.components
@@ -135,7 +137,7 @@ const rendererAttrs = computed(() => {
     :default-locale="defaultLocale"
     :locales="locales"
     :components="resolvedComponents"
-    :fallback-components="resolveMarkdownRendererFallbackComponents()"
+    :fallback-components="fallbackComponents"
     :render-policy="renderPolicy"
     :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"
