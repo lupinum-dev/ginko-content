@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.4
+
+- Normalize unbounded Zod number and array limits to `null` so contract
+  generation remains canonical-JSON-safe.
+- Serialize Date defaults as ISO strings and reject non-finite or otherwise
+  non-JSON defaults with field-specific errors.
+
 ## v0.3.3
 
 - Fix development content updates so the custom HMR event is always sent
