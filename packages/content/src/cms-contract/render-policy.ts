@@ -93,6 +93,10 @@ const isSafeBindingValue = (value: unknown): boolean => {
 
 const SHIKI_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 const SHIKI_STYLE_VALUES: Record<string, RegExp> = {
+  // Shiki marks inline code with `display: inline`; @shikijs/transformers marks
+  // highlighted and diff lines with `display: inline-block`. Nothing else is emitted,
+  // so nothing else is accepted.
+  display: /^(?:inline|inline-block)$/,
   color: SHIKI_COLOR,
   '--shiki-light': SHIKI_COLOR,
   '--shiki-dark': SHIKI_COLOR,
@@ -106,7 +110,6 @@ const SHIKI_STYLE_VALUES: Record<string, RegExp> = {
 
 const isSafeShikiStyle = (value: unknown): boolean => {
   if (typeof value !== 'string') return false
-  if (value.trim() === 'display: inline') return true
   const declarations = value.split(';')
   if (!declarations.length || declarations.some(declaration => !declaration)) return false
   const seen = new Set<string>()

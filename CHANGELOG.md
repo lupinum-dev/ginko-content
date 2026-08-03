@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.6
+
+- Bundle the generated content virtual modules into the Nitro server instead of
+  leaving them external. The development server previously handed
+  `content.config.ts` and registered transformers to Node's ESM loader, which
+  only resolves fully specified relative imports, so a config importing local
+  TypeScript the way `nuxt.config.ts` does failed every request with
+  `ERR_MODULE_NOT_FOUND`. Content config authoring now follows the same import
+  rules as the rest of a Nuxt app.
+- Accept the inline `display` styles Shiki emits. `@shikijs/transformers` marks
+  highlighted and diff lines with `display: inline-block`, which the render
+  policy rejected as unsafe, so any page with a highlighted code line failed to
+  render.
+
 ## v0.3.5
 
 - Resolve builtin markdown prose components as fallbacks. An app-registered

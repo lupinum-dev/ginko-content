@@ -116,6 +116,14 @@ describe('canonical public Markdown render policy', () => {
       style: 'color:#39ADB5;--shiki-dark:#89DDFF;--shiki-dark-font-style:italic',
     })))).toMatchObject({ ok: true })
     expect(validatePublicMarkdownAst(root(element('span', { style: 'display: inline' })))).toMatchObject({ ok: true })
+    // @shikijs/transformers marks highlighted and diff lines with inline-block.
+    expect(validatePublicMarkdownAst(root(element('span', { style: 'display: inline-block' })))).toMatchObject({ ok: true })
+    for (const style of ['display: block', 'display: flex']) {
+      expect(validatePublicMarkdownAst(root(element('span', { style })))).toMatchObject({
+        ok: false,
+        issues: [expect.objectContaining({ code: 'unsafe_prop' })],
+      })
+    }
     expect(validatePublicMarkdownAst(root(element('span', {
       style: 'background-image:url(https://evil.test/pixel)',
     })))).toMatchObject({
