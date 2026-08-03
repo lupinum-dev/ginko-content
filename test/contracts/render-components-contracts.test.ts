@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test, vi } from 'vitest'
@@ -158,7 +160,7 @@ describe('render component contracts', () => {
 
   test('ships a ProseImg component with native and Nuxt Image rendering paths', async () => {
     const ProseImg = (await import('../../packages/content/src/runtime/app/components/Prose/ProseImg.vue')).default
-    const { resolveMarkdownRendererComponents } = await import('../../packages/content/src/runtime/markdown/plugins')
+    const { resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } = await import('../../packages/content/src/runtime/markdown/plugins')
 
     runtimeConfig.public.content.markdown.image = 'img'
     const native = await renderToString(createSSRApp({
@@ -190,6 +192,83 @@ describe('render component contracts', () => {
     expect(nuxtImage).toContain('data-nuxt-img="true"')
     expect(nuxtImage).toContain('data-src="/hero.png"')
     expect(nuxtImage).toContain('data-loading="lazy"')
-    expect(resolveMarkdownRendererComponents([])).toHaveProperty('ProseImg')
+    expect(resolveMarkdownRendererComponents([])).not.toHaveProperty('ProseImg')
+    expect(resolveMarkdownRendererFallbackComponents()).toHaveProperty('ProseImg')
+  })
+
+  test('app-registered prose components win over builtin fallbacks', async () => {
+    const MarkdownRenderer = (await import('../../packages/content/src/runtime/app/components/internal/MarkdownRenderer')).default
+    const { resolveMarkdownRendererFallbackComponents } = await import('../../packages/content/src/runtime/markdown/plugins')
+    runtimeConfig.public.content.markdown.image = 'img'
+
+    const tree = {
+      type: 'root',
+      children: [
+        { type: 'element', tag: 'img', props: { src: '/hero.png', alt: 'Hero' }, children: [] }
+      ]
+    }
+    const renderImage = (register: boolean) => {
+      const app = createSSRApp({
+        render: () => h(MarkdownRenderer, {
+          tree: tree as any,
+          components: { img: 'ProseImg' },
+          fallbackComponents: resolveMarkdownRendererFallbackComponents()
+        })
+      })
+      if (register) {
+        app.component('ProseImg', {
+          props: ['src', 'alt'],
+          render() {
+            return h('img', { 'data-app-prose-img': 'true', src: this.$props.src, alt: this.$props.alt })
+          }
+        })
+      }
+      return renderToString(app)
+    }
+
+    expect(await renderImage(true)).toContain('data-app-prose-img="true"')
+
+    const builtin = await renderImage(false)
+    expect(builtin).not.toContain('data-app-prose-img')
+    expect(builtin).toContain('src="/hero.png"')
+  })
+
+  test('a consumer tags remap resolves through the registry instead of the builtin', async () => {
+    const MarkdownRenderer = (await import('../../packages/content/src/runtime/app/components/internal/MarkdownRenderer')).default
+    const { resolveMarkdownRendererFallbackComponents } = await import('../../packages/content/src/runtime/markdown/plugins')
+
+    const app = createSSRApp({
+      render: () => h(MarkdownRenderer, {
+        tree: {
+          type: 'root',
+          children: [
+            { type: 'element', tag: 'img', props: { src: '/hero.png', alt: 'Hero' }, children: [] }
+          ]
+        } as any,
+        components: { img: 'MyImage' },
+        fallbackComponents: resolveMarkdownRendererFallbackComponents()
+      })
+    })
+    app.component('MyImage', {
+      props: ['src', 'alt'],
+      render() {
+        return h('img', { 'data-my-image': 'true', src: this.$props.src })
+      }
+    })
+
+    expect(await renderToString(app)).toContain('data-my-image="true"')
+  })
+
+  test('both renderer components bind the builtin fallback map', () => {
+    // The precedence tests above mount MarkdownRenderer directly; this pins
+    // the bindings so neither renderer can silently drop the builtins.
+    for (const source of [
+      'packages/content/src/runtime/app/components/internal/ContentRendererMarkdown.vue',
+      'packages/content/src/runtime/app/components/ContentRendererInline.vue'
+    ]) {
+      const sfc = readFileSync(resolve(process.cwd(), source), 'utf8')
+      expect(sfc, source).toContain('resolveMarkdownRendererFallbackComponents()')
+      expect(sfc, source).toContain(':fallback-components="fallbackComponents"')
+    }
   })
 })

@@ -7,7 +7,7 @@ import MarkdownRenderer from './MarkdownRenderer.js'
 import { useLocalePath } from '../../composables/content-i18n'
 import { resolveMarkdownRenderRefs, rewriteMarkdownRefLinks } from '../../../../core/references/resolve'
 import { loadContentComponentEntries } from '../../../../integrations/vue/content-components'
-import { resolveMarkdownRendererComponents } from '../../../markdown/plugins'
+import { resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } from '../../../markdown/plugins'
 import { isMarkdownRoot } from '../../../../core/markdown/tree'
 
 const props = defineProps({
@@ -101,6 +101,8 @@ const renderedBody = computed(() => {
     : body.value
 })
 
+const fallbackComponents = resolveMarkdownRendererFallbackComponents()
+
 const resolvedComponents = computed(() => {
   if (!renderedBody.value) {
     return props.components
@@ -135,6 +137,7 @@ const rendererAttrs = computed(() => {
     :default-locale="defaultLocale"
     :locales="locales"
     :components="resolvedComponents"
+    :fallback-components="fallbackComponents"
     :render-policy="renderPolicy"
     :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"

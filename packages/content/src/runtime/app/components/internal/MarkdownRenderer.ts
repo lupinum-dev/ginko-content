@@ -40,6 +40,7 @@ function resolveVueComponent (
   name: string,
   components: Record<string, any>,
   registry: Record<string, any>,
+  fallbacks: Record<string, any>,
   prose: boolean | undefined,
   seen = new Set<string>()
 ): string | Record<string, any> | null {
@@ -62,7 +63,7 @@ function resolveVueComponent (
     const explicit = components[candidate]
     if (explicit) {
       if (typeof explicit === 'string' && explicit !== candidate && !htmlTags.includes(explicit as never)) {
-        return resolveVueComponent(explicit, components, registry, prose, seen) || explicit
+        return resolveVueComponent(explicit, components, registry, fallbacks, prose, seen) || explicit
       }
 
       return explicit
@@ -76,6 +77,13 @@ function resolveVueComponent (
     }
   }
 
+  for (const candidate of candidates) {
+    const fallback = fallbacks[candidate]
+    if (fallback) {
+      return fallback
+    }
+  }
+
   return null
 }
 
@@ -84,6 +92,7 @@ function renderNode (
   options: {
     components: Record<string, any>
     registry: Record<string, any>
+    fallbacks: Record<string, any>
     prose: boolean | undefined
     locale?: string
     defaultLocale?: string
@@ -114,9 +123,9 @@ function renderNode (
     component = tag
   } else {
     const resolvedAs = typeof nodeProps.as === 'string'
-      ? resolveVueComponent(nodeProps.as, options.components, options.registry, options.prose)
+      ? resolveVueComponent(nodeProps.as, options.components, options.registry, options.fallbacks, options.prose)
       : null
-    const resolvedComponent = resolvedAs || resolveVueComponent(tag, options.components, options.registry, options.prose)
+    const resolvedComponent = resolvedAs || resolveVueComponent(tag, options.components, options.registry, options.fallbacks, options.prose)
     if (resolvedComponent) {
       component = resolvedComponent
     } else if (htmlTags.includes(tag as never)) {
@@ -206,6 +215,10 @@ export default defineComponent({
       type: Object as PropType<Record<string, any>>,
       default: () => ({})
     },
+    fallbackComponents: {
+      type: Object as PropType<Record<string, any>>,
+      default: () => ({})
+    },
     prose: {
       type: Boolean as PropType<boolean | undefined>,
       default: undefined
@@ -249,6 +262,7 @@ export default defineComponent({
         .map((node, index) => renderNode(node, {
           components: props.components,
           registry,
+          fallbacks: props.fallbackComponents,
           prose: props.prose,
           locale: props.locale,
           defaultLocale: props.defaultLocale,

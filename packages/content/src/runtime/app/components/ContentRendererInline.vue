@@ -5,7 +5,7 @@ import type { MarkdownRoot } from '../../../types/content'
 import { useRuntimeConfig, useState } from '#imports'
 import MarkdownRenderer from './internal/MarkdownRenderer.js'
 import { useUnwrap } from '../composables/useUnwrap'
-import { resolveMarkdownPlugins, resolveMarkdownRendererComponents } from '../../markdown/plugins'
+import { resolveMarkdownPlugins, resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } from '../../markdown/plugins'
 import { toMarkdownRoot } from '../../../core/markdown/tree'
 import { parseComark } from '../../../core/markdown/parse-comark'
 import { loadContentComponentEntries } from '../../../integrations/vue/content-components'
@@ -49,6 +49,8 @@ const initialState = useState<{
   tree: null
 }))
 const tree = shallowRef<MarkdownRoot | null>(initialState.value.tree)
+
+const fallbackComponents = resolveMarkdownRendererFallbackComponents()
 
 const resolvedComponents = computed(() => ({
   ...Object.fromEntries(loadContentComponentEntries({
@@ -107,6 +109,7 @@ watch(
     :tag="tag"
     :prose="prose"
     :components="resolvedComponents"
+    :fallback-components="fallbackComponents"
     v-bind="rendererAttrs"
   />
 </template>
