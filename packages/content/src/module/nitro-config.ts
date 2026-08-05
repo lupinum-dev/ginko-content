@@ -117,6 +117,11 @@ export const registerContentNitroConfig = ({
     nitroConfig.externals = defu(typeof nitroConfig.externals === 'object' ? nitroConfig.externals : {}, {
       inline: [
         resolveModuleFile('.'),
+        // The generated virtual modules import authored app files (content.config.ts and
+        // transformers). Nitro's dev server externalizes them by default, which hands raw
+        // TypeScript to Node's ESM loader and fails on any import Node cannot resolve on its
+        // own — extensionless relative imports, aliases. They must be bundled instead.
+        withTrailingSlash(resolve(nuxt.options.buildDir, 'content')),
         ...runtimeInlineDependencies
       ]
     })
