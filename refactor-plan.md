@@ -479,7 +479,7 @@ That ignored checkout is not part of this branch or its diff.
 
 #### RC-03 — Make the canonical catch-all recipe correct on client navigation
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** medium
 - **Change type:** Nuxt usage-pattern correction
@@ -527,6 +527,21 @@ pnpm docs-drift
 **Cutover/rollback:** if the route-key pattern fails in the real browser fixture,
 stop and use a route-owned immediate `showError` policy proven by the same matrix;
 do not move 404 policy into Ginko or ship an untested watcher recipe.
+
+Execution note (2026-08-11): all canonical catch-all recipes now key the page by
+`route.path` and throw a fatal Nuxt 404 after the awaited content read. The two
+fixtures that intentionally render a local HTTP-200 fallback remain explicit and
+are labelled noncanonical. The production browser matrix proves direct 404,
+valid-to-valid navigation, valid-to-missing error rendering without stale content,
+and recovery to a valid page. Quickstart typecheck/build, the `useContentPage`
+contracts (10/10), Nuxt e2e (15/15), production browser tests (6/6), docs build,
+docs smoke, docs drift, and test-selection checks pass. The aggregate examples
+build exposed an unrelated unused `@nuxt/ui` dependency in the hello-world example;
+that deletion is isolated into a follow-up stack item rather than mixed into this
+route-policy change. `pnpm verify` completed the package build, workspace prepare,
+and docs-drift stages, then stopped only because `check:repo-policies` scans an
+ignored `.claude/worktrees/` checkout containing a forbidden private-consumer name;
+that user-owned checkout is outside this branch and its diff.
 
 #### RC-04 — Make Pagefind explicitly client-owned
 
@@ -1746,7 +1761,7 @@ only the decisive verification result, not a full command log.
 | RC-01 | complete | `codex/rc-markdown-contract` | Corpus 27/27; architecture 8/8; test selection isolated; full suite 118 files/1192 tests | Raw and pipeline snapshots reviewed separately |
 | RC-01A | complete | `codex/rc-packed-consumer-fixture` | Deterministic pack plus exact-tarball pnpm/Nuxt 4.5 and npm/Nuxt 4.4 lanes passed; source typecheck; fixture ESLint; docs drift and selection checks | 21 tracked fixture files; orchestrator has no embedded app source; generated-component helper no longer emits top-level `await` |
 | RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
-| RC-03 | not started | — | — | Catch-all 404 |
+| RC-03 | complete | `codex/rc-client-404` | Direct and client-navigation 404 matrix; production browser 6/6; Nuxt e2e 15/15; quickstart typecheck/build; docs build/smoke/drift | One tested route-key and fatal-error recipe; deliberate local-200 fixtures remain explicit |
 | RC-04 | complete | `codex/rc-pagefind-ssr` | Non-empty-query generate; production browser 5/5; search matrix 4/4; full suite 119 files/1,206 tests | Pagefind is client-lifecycle-owned; SSR is inert |
 | RC-05 | complete | `codex/rc-markdown-policy` | Focused matrix 112/112; full suite 119 files/1,198 tests; source typecheck and changed-file ESLint | Reviewed CMS/raw/pipeline snapshots; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-06 | complete | `codex/rc-portable-typed-props` | Portability 21/21; source typecheck; full suite 119 files/1,199 tests | One serializer/options source; portable formats remain v1 |

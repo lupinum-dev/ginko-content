@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { setResponseStatus, useContentPage } from '#imports'
+import { createError, useContentPage } from '#imports'
 import { pages } from '../content.config'
+
+definePageMeta({ key: route => route.path })
 
 const { page } = await useContentPage(pages)
 
-if (import.meta.server && !page.value) {
-  setResponseStatus(404, 'Document not found')
+if (!page.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Document not found', fatal: true })
 }
 </script>
 
 <template>
   <ContentRenderer v-if="page" :value="page" />
-  <p v-else>Document not found.</p>
 </template>
