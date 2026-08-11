@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ContentProvider } from '../../packages/content/src/public/provider'
-import { createInMemoryProvider } from '../harness/provider'
-import { createSaasI18nScenario } from '../harness/scenarios'
-import { createTestEvent } from '../harness/event'
-import { expectProviderError } from '../harness/assertions'
+import { createInMemoryProvider } from '../support/provider-scenarios/provider'
+import { createSaasI18nScenario } from '../support/provider-scenarios/scenarios'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { expectProviderError } from '../support/provider-scenarios/assertions'
 
 const mocks = vi.hoisted(() => ({
   getContentProvider: vi.fn()

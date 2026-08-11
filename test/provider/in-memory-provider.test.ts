@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
-import { createInMemoryProvider } from '../harness/provider'
-import { createSaasI18nScenario } from '../harness/scenarios'
-import { createTestEvent } from '../harness/event'
-import { expectProviderError } from '../harness/assertions'
+import { createInMemoryProvider } from '../support/provider-scenarios/provider'
+import { createSaasI18nScenario } from '../support/provider-scenarios/scenarios'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { expectProviderError } from '../support/provider-scenarios/assertions'
 
 describe('localized in-memory provider scenario', () => {
   const scenario = createSaasI18nScenario()

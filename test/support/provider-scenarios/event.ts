@@ -1,4 +1,4 @@
-import type { ContentProvider } from '../../packages/content/src/public/provider'
+import type { ContentProvider } from '../../../packages/content/src/public/provider'
 import type { ContentScenario } from './content-scenario'
 
 export interface TestEventOptions {

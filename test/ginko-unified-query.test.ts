@@ -15,7 +15,7 @@ import { lowerQueryPlan } from '../packages/content/src/core/query/lower'
 import { navigationSelectFields } from '../packages/content/src/features/query/unified'
 import { defineCollection, defineContentConfig, type ContentCollectionHandle } from '../packages/content/src/types/config'
 import type { QueryWhere } from '../packages/content/src/types/query'
-import { doc } from './contracts/_utils'
+import { doc } from './support/content-documents'
 import { toCanonicalQueryPlan } from '../packages/content/src/features/query/query-plan-boundary'
 import type { ResolvedCollectionLocalePolicy } from '../packages/content/src/features/localization/locale-policy'
 

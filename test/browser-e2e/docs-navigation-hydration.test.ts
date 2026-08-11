@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from 'playwright-core'
-import { startFixtureServer } from '../helpers/fixture-server'
+import { startProductionFixtureServer } from '../helpers/production-fixture'
 import { isExpectedNuxtPayloadCancellation } from '../helpers/browser-failures'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -38,7 +38,7 @@ async function waitForHydration (page: Page) {
 describe('Ginko Docs navigation hydration', () => {
   test('keeps the production sidebar across hydration and client navigation', async () => {
     const initialPath = '/docs/concepts/why-ginko'
-    const server = await startFixtureServer(docsDir)
+    const server = await startProductionFixtureServer(docsDir)
     let browser: Browser | undefined
     try {
       browser = await chromium.launch({ executablePath: resolveChromiumExecutable(), headless: true })

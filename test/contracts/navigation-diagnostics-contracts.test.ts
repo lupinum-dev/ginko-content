@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
-import { createEvent, doc } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
 import { fromContentProviderQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
 
 const localePolicy = {
@@ -72,7 +73,7 @@ describe('navigation diagnostics contracts', () => {
 
   const resolveNavigation = async (wire: ReturnType<typeof toContentProviderNavigationQuery>) => {
     const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
-    return resolveContentNavigation(createEvent(), {
+    return resolveContentNavigation(createTestEvent(), {
       collection: wire.collection!,
       plan: fromContentProviderQueryPlan(wire.plan, localePolicy)
     })

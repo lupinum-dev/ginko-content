@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { hash as ohash } from 'ohash'
 import { z } from 'zod'
-import { createEvent, doc } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
 import type { ResolvedCollectionLocalePolicy } from '../../packages/content/src/features/localization/locale-policy'
 import pathMeta from '../../packages/content/src/parsers/path-meta'
 import { validateCollectionDocument } from '../../packages/content/src/runtime/server/validation'
@@ -27,7 +28,7 @@ describe('storage contracts', () => {
   const validationSpy = vi.fn()
   const parseVariants = vi.fn()
 
-  const event = createEvent()
+  const event = createTestEvent()
 
   beforeEach(() => {
     vi.resetModules()
@@ -133,7 +134,7 @@ describe('storage contracts', () => {
     }))
 
     const { getContentsList } = await import('../../packages/content/src/storage/contents')
-    const eventA = createEvent()
+    const eventA = createTestEvent()
 
     const pending = Promise.all([getContentsList(eventA), getContentsList(eventA)])
     while (!release) {
@@ -162,7 +163,7 @@ describe('storage contracts', () => {
 
     const { getContentsList } = await import('../../packages/content/src/storage/contents')
 
-    await Promise.all([getContentsList(createEvent()), getContentsList(createEvent())])
+    await Promise.all([getContentsList(createTestEvent()), getContentsList(createTestEvent())])
 
     expect(parseVariants).toHaveBeenCalledTimes(2)
   })
@@ -171,12 +172,12 @@ describe('storage contracts', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { getContent } = await import('../../packages/content/src/storage/contents')
 
-    await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=de')).resolves.toMatchObject({
+    await expect(getContent(createTestEvent(), 'content:guide:intro.md#__locale=de')).resolves.toMatchObject({
       locale: 'de',
       title: 'Einstieg'
     })
 
-    await expect(getContent(createEvent(), 'content:guide:intro.md#__locale=fr')).resolves.toMatchObject({
+    await expect(getContent(createTestEvent(), 'content:guide:intro.md#__locale=fr')).resolves.toMatchObject({
       locale: 'en',
       title: 'Getting Started'
     })
@@ -200,13 +201,13 @@ describe('storage contracts', () => {
     })
 
     const { getContent } = await import('../../packages/content/src/storage/contents')
-    await getContent(createEvent(), 'content:guide:intro.md')
+    await getContent(createTestEvent(), 'content:guide:intro.md')
     expect(parseVariants).toHaveBeenCalledTimes(0)
 
     parsedCacheState.clear()
     sourceMeta.set('content:guide:intro.md', { mtime: 2, size: 10 })
 
-    const otherEvent = createEvent()
+    const otherEvent = createTestEvent()
     const { getContentsList } = await import('../../packages/content/src/storage/contents')
     await getContentsList(otherEvent)
     expect(parseVariants).toHaveBeenCalledTimes(1)
@@ -232,7 +233,7 @@ describe('storage contracts', () => {
     }
 
     const { getContent } = await import('../../packages/content/src/storage/contents')
-    await getContent(createEvent(), 'content:guide:intro.md')
+    await getContent(createTestEvent(), 'content:guide:intro.md')
 
     expect(parseVariants).toHaveBeenCalledTimes(1)
   })
@@ -250,14 +251,14 @@ describe('storage contracts', () => {
     ])
     const { getContent } = await import('../../packages/content/src/storage/contents')
 
-    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+    await expect(getContent(createTestEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
       title: '# One'
     })
 
     sourceItems.set('content:guide:intro.md', '# Two')
     sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 5 })
 
-    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+    await expect(getContent(createTestEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
       title: '# Two'
     })
     expect(parseVariants).toHaveBeenCalledTimes(2)
@@ -267,7 +268,7 @@ describe('storage contracts', () => {
     parsedCacheState.set('content:guide:intro.md', '# raw source is not a parsed artifact')
 
     const { getContent } = await import('../../packages/content/src/storage/contents')
-    await expect(getContent(createEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
+    await expect(getContent(createTestEvent(), 'content:guide:intro.md')).resolves.toMatchObject({
       path: '/guide/intro'
     })
 
@@ -314,7 +315,7 @@ describe('storage contracts', () => {
     })
 
     const { getContentsList } = await import('../../packages/content/src/storage/contents')
-    await expect(getContentsList(createEvent())).resolves.toEqual([])
+    await expect(getContentsList(createTestEvent())).resolves.toEqual([])
   })
 
   test('validation and reference resolution cover canonical ids, collection scope, and locale fallback', async () => {

@@ -4,14 +4,14 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { ofetch } from 'ofetch'
-import { startFixtureServer } from '../helpers/fixture-server'
-import type { FixtureServer } from '../helpers/fixture-server'
+import { startProductionFixtureServer } from '../helpers/production-fixture'
+import type { ProductionFixtureServer } from '../helpers/production-fixture'
 import { assertRouteManifestMatchesGolden } from '../helpers/route-manifest'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-const withFixtureServer = async (fixture: string, run: (server: FixtureServer) => Promise<void>) => {
-  const server = await startFixtureServer(resolve(rootDir, fixture))
+const withFixtureServer = async (fixture: string, run: (server: ProductionFixtureServer) => Promise<void>) => {
+  const server = await startProductionFixtureServer(resolve(rootDir, fixture))
   try {
     await run(server)
   } finally {

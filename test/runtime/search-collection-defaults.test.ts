@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { createBasicScenario } from '../harness/scenarios'
-import { createInMemoryProvider } from '../harness/provider'
-import { createTestEvent } from '../harness/event'
+import { createBasicScenario } from '../support/provider-scenarios/scenarios'
+import { createInMemoryProvider } from '../support/provider-scenarios/provider'
+import { createTestEvent } from '../support/provider-scenarios/event'
 import {
   buildSearchIndex,
   resolveSearchCollections

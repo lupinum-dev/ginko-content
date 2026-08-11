@@ -5,8 +5,7 @@ import { request } from 'node:http'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import { startFixtureServer } from '../helpers/fixture-server'
-import { buildProductionFixture } from '../helpers/production-fixture'
+import { buildProductionFixture, startProductionFixtureServer } from '../helpers/production-fixture'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const agentFixtureDir = resolve(rootDir, 'playground/ginko-agent-output')
@@ -31,7 +30,7 @@ async function requestStatus (baseURL: string, path: string) {
 
 describe('agent markdown negotiation', () => {
   test('serves HTML by default and markdown for Accept negotiation on a dynamic route', async () => {
-    const server = await startFixtureServer(agentFixtureDir)
+    const server = await startProductionFixtureServer(agentFixtureDir)
     try {
       const htmlResponse = await fetch(`${server.baseURL}/ssr-only`)
       const html = await htmlResponse.text()
@@ -82,7 +81,7 @@ describe('agent markdown negotiation', () => {
   }, 240000)
 
   test('rejects unknown explicit markdown routes and disabled agent markdown routes', async () => {
-    const agentServer = await startFixtureServer(agentFixtureDir)
+    const agentServer = await startProductionFixtureServer(agentFixtureDir)
     try {
       const unknownRaw = await fetch(`${agentServer.baseURL}/raw/not-found.md`)
       expect(unknownRaw.status).toBe(404)
@@ -97,7 +96,7 @@ describe('agent markdown negotiation', () => {
       await agentServer.stop()
     }
 
-    const disabledServer = await startFixtureServer(disabledFixtureDir)
+    const disabledServer = await startProductionFixtureServer(disabledFixtureDir)
     try {
       const disabledRaw = await fetch(`${disabledServer.baseURL}/raw/index.md`)
       expect(disabledRaw.status).toBe(404)
@@ -114,7 +113,7 @@ describe('agent markdown negotiation', () => {
   }, 240000)
 
   test('rejects traversal attempts and normalizes repeated slashes on explicit markdown routes', async () => {
-    const server = await startFixtureServer(agentFixtureDir)
+    const server = await startProductionFixtureServer(agentFixtureDir)
     try {
       for (const path of [
         '/raw/%2e%2e/secret.md',

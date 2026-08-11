@@ -1,11 +1,11 @@
-import type { ParsedContent } from '../../packages/content/src/types/content'
-import type { ContentGraph } from '../../packages/content/src/core/content/graph'
-import { buildContentGraph } from '../../packages/content/src/core/content/graph'
+import type { ParsedContent } from '../../../packages/content/src/types/content'
+import type { ContentGraph } from '../../../packages/content/src/core/content/graph'
+import { buildContentGraph } from '../../../packages/content/src/core/content/graph'
 import {
   resolveLocalePolicy,
   type ResolvedCollectionLocalePolicy
-} from '../../packages/content/src/features/localization/locale-policy'
-import { unmountProviderContentPath } from '../../packages/content/src/features/localization/route-projector'
+} from '../../../packages/content/src/features/localization/locale-policy'
+import { unmountProviderContentPath } from '../../../packages/content/src/features/localization/route-projector'
 
 export interface ContentScenarioCollection {
   type: 'page' | 'data'

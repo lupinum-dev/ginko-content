@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createTestEvent } from '../harness/event'
+import { createTestEvent } from '../support/provider-scenarios/event'
 import { CONTENT_SNAPSHOT_VERSION, type ContentSnapshot } from '../../packages/content/src/core/content/snapshot'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 import { encodeQueryParams } from '../../packages/content/src/runtime/utils/query'

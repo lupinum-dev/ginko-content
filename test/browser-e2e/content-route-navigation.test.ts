@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from 'playwright-core'
-import { startFixtureServer } from '../helpers/fixture-server'
+import { startProductionFixtureServer } from '../helpers/production-fixture'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureDir = resolve(rootDir, 'playground/ginko-basic')
@@ -38,7 +38,7 @@ const pushRoute = async (page: Page, path: string) => {
 
 describe('content catch-all route lifecycle', () => {
   test('returns direct 404s and handles valid, missing, and recovery navigation', async () => {
-    const server = await startFixtureServer(fixtureDir)
+    const server = await startProductionFixtureServer(fixtureDir)
     let browser: Browser | undefined
 
     try {

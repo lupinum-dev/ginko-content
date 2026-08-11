@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { isContentProviderResult, withContentCache } from '../../packages/content/src/public/provider'
 import { unwrapContentProviderResult } from '../../packages/content/src/runtime/server/provider-result'
 import { getContentCacheHint } from '../../packages/content/src/runtime/server/cache-hints'
-import { createTestEvent } from '../harness/event'
+import { createTestEvent } from '../support/provider-scenarios/event'
 
 const mocks = vi.hoisted(() => ({
   getContentRuntimeConfig: vi.fn(() => ({ content: {} }))

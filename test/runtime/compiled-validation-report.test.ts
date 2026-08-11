@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { createTestEvent } from '../harness/event'
-import { doc } from '../contracts/_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
 
 const mocks = vi.hoisted(() => ({
   getItem: vi.fn(),

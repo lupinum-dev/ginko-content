@@ -9,7 +9,7 @@ import { PROVIDER_CAPABILITY_OPERATORS } from '../../packages/content/src/core/q
 import { executeQueryPlanOnDocuments } from '../../packages/content/src/core/query/execute'
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import { executeFilesystemContentQuery } from '../../packages/content/src/runtime/server/query-executor'
-import { createEvent } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
 
 const documents = [
   {
@@ -164,7 +164,7 @@ describe('filesystem provider conformance', () => {
       const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
       return filesystemProvider
     },
-    createEvent,
+    createEvent: createTestEvent,
     expectedCapabilities: capabilities,
     operatorProbes,
     logicalProbes: {
@@ -231,7 +231,7 @@ describe('filesystem provider conformance', () => {
 
   test('converts internal filesystem documents into raw provider documents', async () => {
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
-    const response = await filesystemProvider.query(createEvent(), toContentProviderQuery({ collection: 'docs' })) as {
+    const response = await filesystemProvider.query(createTestEvent(), toContentProviderQuery({ collection: 'docs' })) as {
       result: Array<Record<string, unknown>>
     }
     expect(response.result[0]).toEqual(expect.objectContaining({
@@ -265,7 +265,7 @@ describe('filesystem provider conformance', () => {
     vi.mocked(executeFilesystemContentQuery).mockClear()
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    await filesystemProvider.query(createEvent(), toContentProviderQuery({
+    await filesystemProvider.query(createTestEvent(), toContentProviderQuery({
       collection: 'docs',
       resolveVariant: {
         providerPath: '/leitfaden/advanced',
@@ -308,7 +308,7 @@ describe('filesystem provider conformance', () => {
     } as typeof runtime.content
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    await expect(filesystemProvider.query(createEvent(), toContentProviderQuery({
+    await expect(filesystemProvider.query(createTestEvent(), toContentProviderQuery({
       collection: 'docs',
       resolveVariant: {
         providerPath: '/guide/advanced',
@@ -325,7 +325,7 @@ describe('filesystem provider conformance', () => {
   ])('keeps provider identity intact until canonical $retained projection', async ({ projection }) => {
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
     const params = { collection: 'docs', limit: 2, ...projection }
-    const raw = await filesystemProvider.query(createEvent(), toContentProviderQuery(params))
+    const raw = await filesystemProvider.query(createTestEvent(), toContentProviderQuery(params))
     const rawDocuments = (raw as { result: Array<Record<string, unknown>> }).result
 
     expect(rawDocuments).toHaveLength(2)
@@ -368,7 +368,7 @@ describe('filesystem provider conformance', () => {
     } as typeof runtime.content
     const { filesystemProvider } = await import('../../packages/content/src/runtime/server/providers/filesystem')
 
-    await expect(filesystemProvider.routes!(createEvent())).resolves.toEqual([
+    await expect(filesystemProvider.routes!(createTestEvent())).resolves.toEqual([
       expect.objectContaining({
         collection: 'docs',
         locale: 'de',

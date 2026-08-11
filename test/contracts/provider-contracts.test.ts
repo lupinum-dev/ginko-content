@@ -11,7 +11,7 @@ import {
   projectProviderSearchResults,
   projectProviderSurroundings
 } from '../../packages/content/src/runtime/server/provider-route-facts'
-import { createEvent } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
 
 const createProvider = (overrides: Partial<ContentProvider> = {}): ContentProvider => ({
   name: 'remote' as ContentProvider['name'],
@@ -88,7 +88,7 @@ describe('provider registry contract', () => {
     const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
     const provider = enforceProviderCapabilities(createProvider({ query }))
 
-    await expect(provider.query(createEvent(), toContentProviderQuery({
+    await expect(provider.query(createTestEvent(), toContentProviderQuery({
       collection: 'docs',
       where: { title: { $contains: 'intro' } }
     }))).rejects.toMatchObject({
@@ -102,7 +102,7 @@ describe('provider registry contract', () => {
     const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
     const provider = enforceProviderCapabilities(createProvider({ query }))
 
-    await provider.query(createEvent(), toContentProviderQuery({
+    await provider.query(createTestEvent(), toContentProviderQuery({
       collection: 'docs',
       where: {
         $or: [
@@ -112,7 +112,7 @@ describe('provider registry contract', () => {
       }
     }))
 
-    await provider.query(createEvent(), toContentProviderQuery({
+    await provider.query(createTestEvent(), toContentProviderQuery({
       collection: 'docs',
       where: { $not: { title: { $eq: 'Draft' } } }
     }))
@@ -124,7 +124,7 @@ describe('provider registry contract', () => {
     const query = vi.fn(async () => ({ result: [], skip: 0, limit: 100, total: 0 }))
     const provider = enforceProviderCapabilities(createProvider({ query }))
 
-    await expect(provider.query(createEvent(), toContentProviderQuery({
+    await expect(provider.query(createTestEvent(), toContentProviderQuery({
       collection: 'docs',
       skip: 1
     }))).rejects.toMatchObject({
@@ -132,7 +132,7 @@ describe('provider registry contract', () => {
       data: expect.objectContaining({ field: 'skip' })
     })
 
-    await expect(provider.query(createEvent(), {
+    await expect(provider.query(createTestEvent(), {
       ...toContentProviderQuery({ collection: 'docs' }),
       v: 1 as 2
     })).rejects.toMatchObject({
@@ -148,8 +148,8 @@ describe('provider registry contract', () => {
     const provider = enforceProviderCapabilities(createProvider({ query, navigation }))
     const lowered = toContentProviderQuery({ collection: 'docs' })
 
-    await provider.query(createEvent(), lowered)
-    await provider.navigation!(createEvent(), lowered)
+    await provider.query(createTestEvent(), lowered)
+    await provider.navigation!(createTestEvent(), lowered)
 
     expect(query).toHaveBeenCalledWith(expect.anything(), lowered)
     expect(navigation).toHaveBeenCalledWith(expect.anything(), lowered)

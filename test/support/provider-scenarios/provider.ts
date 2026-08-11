@@ -1,8 +1,8 @@
-import type { ContentProvider } from '../../packages/content/src/public/provider'
+import type { ContentProvider } from '../../../packages/content/src/public/provider'
 import {
   createFixtureContentProvider,
   type ProviderFixture
-} from '../../packages/content/src/testing/provider-fixture'
+} from '../../../packages/content/src/testing/provider-fixture'
 import type { ContentScenario } from './content-scenario'
 
 /**

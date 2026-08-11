@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { projectSitemapEntry } from '../../packages/content/src/features/sitemap/query'
 import { extractSitemapMetadata } from '../../packages/content/src/features/sitemap/metadata'
 import { resolveLocalePolicy } from '../../packages/content/src/features/localization/locale-policy'
-import { createEvent } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
 
 const state = vi.hoisted(() => ({
   routes: vi.fn(),
@@ -156,7 +156,7 @@ describe('provider-backed sitemap contracts', () => {
     ])
 
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })).resolves.toEqual([
       {
@@ -206,7 +206,7 @@ describe('provider-backed sitemap contracts', () => {
     ])
 
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    const entries = await queryCollectionsSitemapEntries(createEvent(), {
+    const entries = await queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })
 
@@ -238,7 +238,7 @@ describe('provider-backed sitemap contracts', () => {
     }])
 
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })).resolves.toEqual([{ loc: '/provider-guide' }])
   })
@@ -254,7 +254,7 @@ describe('provider-backed sitemap contracts', () => {
     ])
 
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })).resolves.toEqual([
       { _sitemap: 'en-US', loc: '/first' },
@@ -269,7 +269,7 @@ describe('provider-backed sitemap contracts', () => {
       { collection: 'docs', canonicalKey: 'intro', locale: 'en', contentPath: '/intro' }
     ])
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })).resolves.toEqual([{ loc: '/intro' }])
   })
@@ -288,16 +288,16 @@ describe('provider-backed sitemap contracts', () => {
       { collection: 'data', canonicalKey: 'record', locale: 'en', contentPath: '/record' }
     ])
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })).resolves.toEqual([{ _sitemap: 'en-US', loc: '/public' }])
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test', includeDrafts: true, include: ['docs']
     })).resolves.toEqual([
       { _sitemap: 'en-US', loc: '/public' },
       { _sitemap: 'en-US', loc: '/draft' }
     ])
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test', include: ['private']
     })).rejects.toMatchObject({ statusMessage: 'data_collection_sitemap_access' })
   })
@@ -309,7 +309,7 @@ describe('provider-backed sitemap contracts', () => {
     ])
 
     const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
-    await expect(queryCollectionsSitemapEntries(createEvent(), {
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
       siteUrl: 'https://docs.example.test'
     })).rejects.toMatchObject({
       statusMessage: 'provider_result_invalid',

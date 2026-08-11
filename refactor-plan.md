@@ -1527,7 +1527,7 @@ files.
 
 #### RC-17B — Give shared test support explicit domain owners
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** low
 - **Change type:** mechanical test navigability refactor
@@ -1569,6 +1569,20 @@ pnpm test:e2e:browser
 
 **Cutover/rollback:** direct imports replace old paths; no bridge exports or generic
 replacement support index.
+
+Execution note (2026-08-11): deleted the `fixture-server.ts` pass-through and
+updated every server/browser consumer to call `startProductionFixtureServer`
+directly. The provider/content scenario harness now lives at
+`test/support/provider-scenarios/`. The mixed contract `_utils.ts` was deleted:
+document factories live in `test/support/content-documents.ts`, memory storage in
+`test/support/memory-storage.ts`, and event consumers reuse the existing
+`createTestEvent` owner. No aggregate barrel or compatibility re-export remains.
+
+Changed test/support ESLint and the test-selection guard pass. The full core suite
+passes 121 files/1,217 tests, server e2e passes 6 files/15 tests, and production
+browser e2e passes 5 files/6 tests. A sandboxed core run denied two loopback binds;
+the identical permissioned run passed completely, confirming an environment
+restriction rather than a repository failure.
 
 #### RC-18 — Remove accidental sharing in playground and docs-app fixtures
 
@@ -1831,7 +1845,7 @@ only the decisive verification result, not a full command log.
 | RC-16 | complete | `codex/rc-public-docs-exports` | Every one of 18 manifest exports occurs once; focused contracts 25/25; API docs check, docs build/smoke, and docs drift 10/10 pass | Deleted regex symbol ledger; published one canonical data-source guide; integrated verify locally contaminated only by ignored `.claude/worktrees/` content |
 | RC-16A | complete | `codex/rc-example-dependency-cleanup` | All four focused example production builds pass; frozen lockfile install accepts the pruned graph | Deleted three unused Nuxt UI registrations and their unnecessary UI/editor dependency graph; no override |
 | RC-17A | complete | `codex/rc-script-ownership` | Moved tests 18/18; full core 121 files/1,217 tests; selection guard; docs build/smoke; reproducible pack `f5621acb…`; packed Node/browser probes | Deleted `scripts/lib/`; search, docs, and release support have explicit owners with no bridges |
-| RC-17B | not started | — | — | Test-support ownership |
+| RC-17B | complete | `codex/rc-test-support-ownership` | Full core 121 files/1,217 tests; server e2e 15/15; browser e2e 6/6; selection guard and changed-file ESLint | Deleted fixture pass-through and mixed `_utils`; provider scenarios, content documents, and memory storage have explicit owners |
 | RC-18 | not started | — | — | Fixture sharing cleanup |
 | RC-19 | not started | — | — | RC authorization |
 
