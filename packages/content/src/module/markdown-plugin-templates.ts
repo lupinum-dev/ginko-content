@@ -7,7 +7,7 @@ const BUILTIN_PARSER_SPECIFIERS: Record<string, string> = {
   breaks: 'comark/plugins/breaks',
   emoji: 'comark/plugins/emoji',
   footnotes: 'comark/plugins/footnotes',
-  highlight: 'comark/plugins/highlight',
+  shiki: 'comark/plugins/shiki',
   'json-render': 'comark/plugins/json-render',
   math: 'comark/plugins/math',
   mermaid: 'comark/plugins/mermaid',
@@ -18,7 +18,7 @@ const BUILTIN_PARSER_SPECIFIERS: Record<string, string> = {
 }
 
 const BUILTIN_PEERS: Record<string, string | undefined> = {
-  highlight: 'shiki',
+  shiki: 'shiki',
   math: 'katex',
   mermaid: 'beautiful-mermaid'
 }
@@ -36,6 +36,23 @@ export interface MarkdownPluginRegistryEntry {
     exportName: string
     tag: string
   }
+}
+
+export function canonicalizeMarkdownPluginAliases(
+  plugins: ResolvedMarkdownPlugin[],
+  warn: (message: string) => void
+): ResolvedMarkdownPlugin[] {
+  const hasHighlight = plugins.some(plugin => plugin.name === 'highlight')
+  const hasShiki = plugins.some(plugin => plugin.name === 'shiki')
+  if (hasHighlight && hasShiki) {
+    throw new TypeError('Markdown plugins "highlight" and "shiki" configure the same integration. Remove "highlight" and keep only "shiki".')
+  }
+  if (hasHighlight) {
+    warn('[ginko-content] Markdown plugin "highlight" is deprecated. Rename it to "shiki"; the alias will be removed in the next major version.')
+  }
+  return plugins.map(plugin => plugin.name === 'highlight'
+    ? { ...plugin, name: 'shiki' }
+    : plugin)
 }
 
 const PLUGIN_COMPONENT_POLICIES: Record<string, PortableComponentPolicyV1['components'][string] | undefined> = {
@@ -87,7 +104,7 @@ export async function resolveMarkdownPluginRegistry(
 
   for (const plugin of plugins) {
     if (entries.has(plugin.name)) continue
-    if (plugin.name === 'highlight') assertCanonicalHighlightOptionNames(plugin.options)
+    if (plugin.name === 'shiki') assertCanonicalHighlightOptionNames(plugin.options)
 
     const builtinSpecifier = BUILTIN_PARSER_SPECIFIERS[plugin.name]
     const peer = BUILTIN_PEERS[plugin.name]

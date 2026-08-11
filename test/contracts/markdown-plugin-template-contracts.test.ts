@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
+  canonicalizeMarkdownPluginAliases,
   createMarkdownPluginTemplates,
   resolveMarkdownPluginRegistry,
   withMarkdownPluginComponentPolicy,
@@ -8,6 +9,42 @@ import {
 const plugin = (name: string) => ({ name, options: {} })
 
 describe('generated Markdown plugin registry', () => {
+  test('canonicalizes the deprecated highlight alias once and rejects duplicate Shiki configuration', () => {
+    const warn = vi.fn()
+
+    expect(canonicalizeMarkdownPluginAliases([
+      { name: 'highlight', options: { preStyles: false } }
+    ], warn)).toEqual([
+      { name: 'shiki', options: { preStyles: false } }
+    ])
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('deprecated'))
+
+    expect(() => canonicalizeMarkdownPluginAliases([
+      plugin('highlight'),
+      plugin('shiki')
+    ], warn)).toThrow('configure the same integration')
+  })
+
+  test('resolves the canonical Shiki plugin and peer without importing the deprecated Comark alias', async () => {
+    const appResolutions: string[] = []
+    const moduleResolutions: string[] = []
+    const registry = await resolveMarkdownPluginRegistry([plugin('shiki')], {
+      resolveAppPath: vi.fn(async (specifier) => {
+        appResolutions.push(specifier)
+        return `/app/${specifier}`
+      }),
+      resolveModulePath: vi.fn(async (specifier) => {
+        moduleResolutions.push(specifier)
+        return `/package/${specifier}.mjs`
+      })
+    })
+
+    expect(appResolutions).toEqual(['shiki'])
+    expect(moduleResolutions).toEqual(['comark/plugins/shiki'])
+    expect(registry).toEqual([{ name: 'shiki', parserPath: '/package/comark/plugins/shiki.mjs' }])
+  })
+
   test('emits literal parser and renderer imports without exposing custom plugins to the client', async () => {
     const appResolutions: string[] = []
     const registry = await resolveMarkdownPluginRegistry(

@@ -190,8 +190,12 @@ export interface MarkdownTocPluginOptions extends MarkdownPluginOptions {
   searchDepth?: number
 }
 
+/** @deprecated Use the canonical `shiki` plugin name. */
+export type MarkdownDeprecatedHighlightPluginDescriptor = ['highlight', MarkdownHighlightPluginOptions]
+
 export type MarkdownBuiltinPluginDescriptor =
-  | ['highlight', MarkdownHighlightPluginOptions]
+  | ['shiki', MarkdownHighlightPluginOptions]
+  | MarkdownDeprecatedHighlightPluginDescriptor
   | ['toc', MarkdownTocPluginOptions]
 /**
  * User-authored plugin declaration in module options.

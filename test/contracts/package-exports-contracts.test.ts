@@ -358,7 +358,7 @@ describe('package export contracts', () => {
       peerDependenciesMeta?: Record<string, { optional?: boolean }>
     }
 
-    expect(manifest.peerDependencies?.katex).toMatch(/^\^0\.16\./)
+    expect(manifest.peerDependencies?.katex).toMatch(/^\^0\.17\./)
     expect(manifest.peerDependencies?.['beautiful-mermaid']).toMatch(/^\^1\./)
     expect(manifest.peerDependenciesMeta?.katex?.optional).toBe(true)
     expect(manifest.peerDependenciesMeta?.['beautiful-mermaid']?.optional).toBe(true)

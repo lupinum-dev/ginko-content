@@ -257,7 +257,7 @@ describe('runtime config contracts', () => {
         ...createContentContext().markdown,
         plugins: [
           {
-            name: 'highlight',
+            name: 'shiki',
             options: {
               preStyles: false,
               transformers: [transformer],

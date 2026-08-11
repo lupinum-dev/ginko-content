@@ -26,7 +26,7 @@ export function validateContentConfigOnlyOptions(options: ModuleOptions) {
 
 export function validateRemovedMarkdownOptions(options: ModuleOptions) {
   if ((options as unknown as Record<string, unknown>).highlight !== undefined) {
-    throw new Error('`content.highlight` was removed. Enable syntax highlighting with `content.markdown.plugins`, for example `[[\'highlight\', { ...options }]]`.')
+    throw new Error('`content.highlight` was removed. Enable syntax highlighting with `content.markdown.plugins`, for example `[[\'shiki\', { ...options }]]`.')
   }
 
   const markdown = (options.markdown || {}) as Record<string, unknown>

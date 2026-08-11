@@ -30,7 +30,7 @@ export default defineNuxtConfig({
     },
     markdown: {
       plugins: [
-        'highlight',
+        'shiki',
         ['toc', { depth: 2, searchDepth: 2 }],
         'summary'
       ]

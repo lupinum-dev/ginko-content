@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Comark conformance corpus > 'basic' freezes raw Comark 0.4 output separately > basic 1`] = `
+exports[`Comark conformance corpus > 'basic' freezes raw Comark 0.6 output separately > basic 1`] = `
 {
   "frontmatter": {
     "count": 2,
@@ -279,7 +279,7 @@ inline HTML
 }
 `;
 
-exports[`Comark conformance corpus > 'comments-summary' freezes raw Comark 0.4 output separately > comments-summary 1`] = `
+exports[`Comark conformance corpus > 'comments-summary' freezes raw Comark 0.6 output separately > comments-summary 1`] = `
 {
   "frontmatter": {},
   "meta": {
@@ -436,7 +436,7 @@ Visible after the delimiter.",
 }
 `;
 
-exports[`Comark conformance corpus > 'components' freezes raw Comark 0.4 output separately > components 1`] = `
+exports[`Comark conformance corpus > 'components' freezes raw Comark 0.6 output separately > components 1`] = `
 {
   "frontmatter": {},
   "meta": {},
@@ -660,7 +660,7 @@ Run the production build.
 }
 `;
 
-exports[`Comark conformance corpus > 'gfm' freezes raw Comark 0.4 output separately > gfm 1`] = `
+exports[`Comark conformance corpus > 'gfm' freezes raw Comark 0.6 output separately > gfm 1`] = `
 {
   "frontmatter": {},
   "meta": {},
@@ -1405,7 +1405,7 @@ A statement with a footnote.<sup>
 }
 `;
 
-exports[`Comark conformance corpus > 'highlight' freezes raw Comark 0.4 output separately > highlight 1`] = `
+exports[`Comark conformance corpus > 'highlight' freezes raw Comark 0.6 output separately > highlight 1`] = `
 {
   "frontmatter": {},
   "meta": {},
@@ -1420,7 +1420,6 @@ exports[`Comark conformance corpus > 'highlight' freezes raw Comark 0.4 output s
           3,
         ],
         "language": "ts",
-        "tabindex": "0",
       },
       [
         "code",
@@ -1616,7 +1615,6 @@ export { state }",
           3,
         ],
         "language": "ts",
-        "tabindex": "0",
       },
       [
         "code",
@@ -1779,15 +1777,15 @@ export { state }",
   },
   "ssr": {
     "html": {
-      "length": 1314,
-      "sha256": "6f64fd81cb601bf552a2ac6b28ce87847b157de3db0ca3fc6a1ae9b889cfd354",
+      "length": 1301,
+      "sha256": "a4a7919d73f7f9d548c260cabd00a5d40636b07263ac1b36b47a84fc0cd62aea",
     },
     "status": "accepted",
   },
 }
 `;
 
-exports[`Comark conformance corpus > 'inline' freezes raw Comark 0.4 output separately > inline 1`] = `
+exports[`Comark conformance corpus > 'inline' freezes raw Comark 0.6 output separately > inline 1`] = `
 {
   "frontmatter": {},
   "meta": {},
@@ -1929,7 +1927,7 @@ exports[`Comark conformance corpus > 'inline' freezes the Ginko pipeline contrac
 }
 `;
 
-exports[`Comark conformance corpus > 'malformed' freezes raw Comark 0.4 output separately > malformed 1`] = `
+exports[`Comark conformance corpus > 'malformed' freezes raw Comark 0.6 output separately > malformed 1`] = `
 {
   "issues": undefined,
   "message": "unexpected end of the stream within a flow collection (2:1)
@@ -1976,7 +1974,7 @@ exports[`Comark conformance corpus > 'malformed' freezes the Ginko pipeline cont
 }
 `;
 
-exports[`Comark conformance corpus > 'math' freezes raw Comark 0.4 output separately > math 1`] = `
+exports[`Comark conformance corpus > 'math' freezes raw Comark 0.6 output separately > math 1`] = `
 {
   "frontmatter": {},
   "meta": {},
@@ -2109,7 +2107,7 @@ $$",
 }
 `;
 
-exports[`Comark conformance corpus > 'mermaid' freezes raw Comark 0.4 output separately > mermaid 1`] = `
+exports[`Comark conformance corpus > 'mermaid' freezes raw Comark 0.6 output separately > mermaid 1`] = `
 {
   "frontmatter": {},
   "meta": {},

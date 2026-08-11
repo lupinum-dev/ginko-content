@@ -1,4 +1,4 @@
-import { createParse, defineComarkPlugin, parseFrontmatter } from 'comark'
+import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
 import type { ComarkPlugin } from 'comark'
 
 type ComponentTokenState = {
@@ -53,7 +53,7 @@ export const parseComark = async (
   markdown: string,
   plugins: readonly ComarkPlugin[] = [],
 ) => {
-  const parse = createParse({
+  const parse = createMarkdownParser({
     plugins: [typedComponentFrontmatter(), ...plugins],
   })
   return await parse(markdown)

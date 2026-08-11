@@ -332,7 +332,7 @@ async function main() {
     }
     const optionalPeerSpecs = [
       `beautiful-mermaid@${process.env.GINKO_CONSUMER_BEAUTIFUL_MERMAID_VERSION || '^1.1.3'}`,
-      `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.16.45'}`
+      `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.17.0'}`
     ]
     if (packageManager === 'pnpm') {
       run('pnpm', ['add', '--save-exact', ...optionalPeerSpecs], appDir)

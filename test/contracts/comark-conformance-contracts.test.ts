@@ -107,7 +107,7 @@ const corpus: CorpusCase[] = [
     fixture: 'highlight.md',
     profile: 'filesystem-configured',
     support: 'supported',
-    plugins: [plugin('highlight')],
+    plugins: [plugin('shiki')],
     expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
@@ -185,7 +185,7 @@ describe('Comark conformance corpus', () => {
     expect(Object.keys(entry.expected)).toEqual(['raw', 'cms', 'public', 'portable', 'ssr', 'agent'])
   })
 
-  test.each(corpus)('$id freezes raw Comark 0.4 output separately', async (entry) => {
+  test.each(corpus)('$id freezes raw Comark 0.6 output separately', async (entry) => {
     const source = await readFixture(entry.fixture)
     try {
       const tree = await parseConfigured(source, entry.plugins)

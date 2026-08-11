@@ -1,7 +1,7 @@
 import breaks from '../../packages/content/node_modules/comark/dist/plugins/breaks.js'
 import emoji from '../../packages/content/node_modules/comark/dist/plugins/emoji.js'
 import footnotes from '../../packages/content/node_modules/comark/dist/plugins/footnotes.js'
-import highlight from '../../packages/content/node_modules/comark/dist/plugins/highlight.js'
+import shiki from '../../packages/content/node_modules/comark/dist/plugins/shiki.js'
 import jsonRender from '../../packages/content/node_modules/comark/dist/plugins/json-render.js'
 import punctuation from '../../packages/content/node_modules/comark/dist/plugins/punctuation.js'
 import security from '../../packages/content/node_modules/comark/dist/plugins/security.js'
@@ -12,7 +12,7 @@ export const markdownPluginFactories = {
   breaks,
   emoji,
   footnotes,
-  highlight,
+  shiki,
   'json-render': jsonRender,
   punctuation,
   security,

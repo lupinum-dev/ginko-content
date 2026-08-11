@@ -13,9 +13,9 @@ describe('markdown plugin normalization', () => {
     })
   })
 
-  test('uses safe named themes for highlight plugin defaults', () => {
+  test('uses safe named themes for Shiki plugin defaults', () => {
     const normalized = normalizeMarkdownPluginOptions({
-      name: 'highlight',
+      name: 'shiki',
       options: { preStyles: false }
     }) as {
       preStyles: boolean
@@ -32,7 +32,7 @@ describe('markdown plugin normalization', () => {
     expect(normalized.themes.dark.name).toBe('material-theme-palenight')
   })
 
-  test('clones explicit highlight theme objects before passing them to Shiki', () => {
+  test('clones explicit Shiki theme objects before passing them to Shiki', () => {
     const lightTheme = Object.freeze({
       name: 'custom-light',
       settings: Object.freeze([
@@ -53,7 +53,7 @@ describe('markdown plugin normalization', () => {
     })
 
     const normalized = normalizeMarkdownPluginOptions({
-      name: 'highlight',
+      name: 'shiki',
       options: {
         themes: {
           light: lightTheme,
@@ -75,7 +75,7 @@ describe('markdown plugin normalization', () => {
     expect(normalized.themes.dark).not.toBe(darkTheme)
   })
 
-  test('clones explicit highlight language and transformer arrays before passing them to Comark', () => {
+  test('clones explicit Shiki language and transformer arrays before passing them to Comark', () => {
     const language = Object.freeze({
       name: 'custom-language',
       scopeName: 'source.custom',
@@ -91,7 +91,7 @@ describe('markdown plugin normalization', () => {
     const transformers = Object.freeze([transformer])
 
     const normalized = normalizeMarkdownPluginOptions({
-      name: 'highlight',
+      name: 'shiki',
       options: {
         languages,
         transformers
@@ -111,8 +111,8 @@ describe('markdown plugin normalization', () => {
   test.each([
     ['theme', { theme: 'github-dark' }, 'themes: { light, dark }'],
     ['langs', { langs: ['ts'] }, 'languages'],
-  ])('rejects the invalid highlight option %s with the canonical replacement', (_name, options, replacement) => {
-    expect(() => normalizeMarkdownPluginOptions({ name: 'highlight', options })).toThrow(replacement)
+  ])('rejects the invalid Shiki option %s with the canonical replacement', (_name, options, replacement) => {
+    expect(() => normalizeMarkdownPluginOptions({ name: 'shiki', options })).toThrow(replacement)
   })
 
   test('leaves non-highlight plugin options untouched', () => {

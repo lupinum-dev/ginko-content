@@ -1138,7 +1138,7 @@ navigation/sitemap/agent/provider behavior and the public-payload leakage gate.
 
 #### RC-13 — Upgrade `comark` and `@comark/vue` together to `0.6.x`
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-06, RC-07, RC-11, RC-12
 - **Risk:** high
 - **Change type:** dependency/API migration
@@ -1186,6 +1186,33 @@ pnpm test:package-consumer:npm
 
 **Cutover/rollback:** the dependency pair moves together. Revert both on failure;
 never support `0.4` and `0.6` through parallel parser branches.
+
+Execution note (2026-08-11): `comark` and `@comark/vue` now resolve one matched
+`0.6.2` line, with Shiki `4.3.1` and KaTeX `0.17.0`. The parser uses
+`createMarkdownParser`; first-party configuration and generated registries use
+the canonical `shiki` plugin. The released `highlight` spelling is normalized
+once during module setup, warns once, and cannot be combined with `shiki`; no
+parallel parser path remains. The typed component-frontmatter restoration stays
+because Comark `0.6.2` still stringifies typed YAML values upstream.
+
+All nine raw and Ginko-pipeline conformance rows were compared manually. Basic,
+comments/summary, components, GFM, inline, malformed, math, and Mermaid are
+unchanged. In the Shiki row, Comark `0.6.2` removes only `tabindex="0"` from the
+two generated `<pre>` tuples; the normalized AST remains render-safe and the SSR
+hash changed only for that reviewed markup difference. `pnpm dedupe` was run
+after the manifest cutover and its lock diff was inspected: obsolete duplicate
+Comark/Shiki/KaTeX and workspace peer snapshots were consolidated, while the
+resolved release graph contains exactly one intended dependency line.
+
+The full core suite passes 120 files/1,217 tests; source and generated typechecks,
+changed-file ESLint, test-selection, generated API docs, docs build/smoke/drift,
+Nuxt e2e 15/15, production browser 5/5, and static generation 5/5 pass. Exact
+tarball `c6f57946641042992203d61131b9fafe3ca049c5a387801c0a4f2851b7c49949`
+passes pure Node/worker/browser probes plus pnpm/Nuxt 4.5 and npm/Nuxt 4.4
+consumers with optional math and Mermaid peers. `pnpm verify` reaches the static
+policy lane after preparing every workspace, then stops only on the pre-existing
+ignored `.claude/worktrees/` policy-scan contamination; the equivalent owned
+checks pass independently.
 
 #### RC-14 — Remove obsolete Comark bundling overrides
 
@@ -1677,7 +1704,7 @@ only the decisive verification result, not a full command log.
 | RC-10 | complete | `codex/rc-inline-contract` | Baseline contracts 38/38; real generate/browser; docs build/smoke/drift; full suite 119 files/1,209 tests | Fixed safe profile; render overrides cannot authorize syntax |
 | RC-11 | complete | `codex/rc-markdown-plugin-registry` | Exact tarball `cdb7a9f1…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with absent-base-peer, SSR, prerender, Chromium, chunk, and server-only custom-plugin proofs; full core 120 files/1,214 tests; e2e 15/15; browser 5/5; generate 5/5 | One generated registry; parser descriptors private; no variable package imports or duplicate workspace fixture |
 | RC-12 | complete | `codex/rc-public-runtime-config` | Exact nine-key public projection; full core 120 files/1,215 tests; e2e 15/15; exact tarball `ad201d2b…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with SSR payload leakage checks | Server navigation/sitemap/site policy moved private; legacy site URL remains input-only |
-| RC-13 | not started | — | — | Comark `0.6.x` |
+| RC-13 | complete | `codex/rc-comark-06` | Matched Comark `0.6.2` graph; corpus 27/27 reviewed; full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `c6f57946…` passed pure runtimes and both consumers | Canonical `shiki`; `highlight` is warning-only alias; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-14 | not started | — | — | Build override deletion |
 | RC-15 | not started | — | — | Parser reuse |
 | RC-16 | not started | — | — | Public docs/exports |
