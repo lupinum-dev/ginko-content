@@ -255,7 +255,7 @@ with ownership-only moves.
 
 #### RC-00 — Resolve the expired production-audit decision
 
-- **Status:** not started
+- **Status:** blocked on a consumer-valid patched Nitro/Archiver graph
 - **Depends on:** none
 - **Risk:** high release risk; low-to-medium code risk
 - **Change type:** supply-chain judgment
@@ -295,6 +295,17 @@ pnpm lint
 **Cutover/rollback:** delete the exception when clean. If a dependency update
 breaks a runtime lane, revert the update and keep the RC blocked; never restore an
 expired automatic acceptance.
+
+Execution note (2026-08-11): the installed production graph still resolves
+`nitropack@2.13.4` → `archiver@7.0.1` → `brace-expansion@2.1.0`. The reviewed
+advisory marks versions through `5.0.7` affected and identifies `5.0.8` as the
+patched release, while Nitro's published dependency range remains
+`archiver@^7.0.1`. A workspace-only override would not protect npm consumers and
+is therefore not an acceptable release fix. The registry audit did not return a
+report during this execution and was stopped; no clean result is claimed. Amend
+this stack layer when Nitro adopts a compatible patched graph or an upstream
+backport is published, then rebase the upstack. The expired waiver remains
+unextended and the RC remains blocked.
 
 ### Phase 1 — Durable contract and corpus
 
@@ -1487,7 +1498,7 @@ only the decisive verification result, not a full command log.
 
 | ID | Status | PR | Decisive evidence | Notes |
 |---|---|---|---|---|
-| RC-00 | not started | — | — | Production audit |
+| RC-00 | blocked | `codex/rc-production-audit` | Installed graph resolves vulnerable `brace-expansion@2.1.0`; official patched line is `5.0.8` | Await consumer-valid Nitro/Archiver remediation; no waiver extension |
 | RC-01 | not started | — | — | ADR and corpus |
 | RC-01A | not started | — | — | Packed consumer extraction |
 | RC-02 | not started | — | — | Vue fallthrough |
