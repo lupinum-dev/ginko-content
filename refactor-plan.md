@@ -412,7 +412,7 @@ than adding install exceptions.
 
 #### RC-02 — Restore Vue fallthrough semantics in `ContentRenderer`
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** low
 - **Change type:** mechanical Vue alignment
@@ -447,6 +447,14 @@ pnpm typecheck
 
 **Cutover/rollback:** remove the consumed prop in one cut. Do not retain a second
 class-forwarding path.
+
+Execution note (2026-08-11): removed the consumed `class` prop, disabled implicit
+attribute inheritance on both renderer wrapper layers, and covered string, array,
+object, default-slot, and empty-slot forwarding. The focused Nuxt contract,
+source/fixture typecheck, and changed-file ESLint checks pass. `pnpm verify` was
+run and reached the static policy gate; it is locally blocked only because an
+ignored `.claude/worktrees/` checkout contains a forbidden private-consumer name.
+That ignored checkout is not part of this branch or its diff.
 
 #### RC-03 — Make the canonical catch-all recipe correct on client navigation
 
@@ -1501,7 +1509,7 @@ only the decisive verification result, not a full command log.
 | RC-00 | blocked | `codex/rc-production-audit` | Installed graph resolves vulnerable `brace-expansion@2.1.0`; official patched line is `5.0.8` | Await consumer-valid Nitro/Archiver remediation; no waiver extension |
 | RC-01 | not started | — | — | ADR and corpus |
 | RC-01A | not started | — | — | Packed consumer extraction |
-| RC-02 | not started | — | — | Vue fallthrough |
+| RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
 | RC-03 | not started | — | — | Catch-all 404 |
 | RC-04 | not started | — | — | Pagefind SSR |
 | RC-05 | not started | — | — | AST/policy closure |

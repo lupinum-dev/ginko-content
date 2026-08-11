@@ -35,6 +35,62 @@ vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () =>
 }))
 
 describe('render component contracts', () => {
+  test.each([
+    ['string', 'prose featured'],
+    ['array', ['prose', { featured: true, hidden: false }]],
+    ['object', { prose: true, featured: true, hidden: false }]
+  ])('ContentRenderer forwards %s class bindings and other attrs exactly once', async (_kind, className) => {
+    const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
+
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentRenderer, {
+        id: 'article-body',
+        class: className,
+        value: {
+          collection: 'docs',
+          locale: 'en',
+          resolvedRefs: {},
+          route: {},
+          body: {
+            type: 'root',
+            children: [{
+              type: 'element',
+              tag: 'p',
+              props: {},
+              children: [{ type: 'text', value: 'Rendered content' }]
+            }]
+          }
+        }
+      })
+    }))
+
+    expect(html.match(/id="article-body"/g)).toHaveLength(1)
+    expect(html.match(/class="prose featured"/g)).toHaveLength(1)
+    expect(html).not.toContain('[object Object]')
+  })
+
+  test.each(['default', 'empty'] as const)('ContentRenderer exposes fallthrough attrs to the %s slot', async (slotName) => {
+    const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
+    const slots = {
+      [slotName]: (scope: Record<string, unknown>) => h('section', {
+        id: scope.id,
+        class: scope.class
+      }, `${slotName} content`)
+    }
+
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentRenderer, {
+        value: {},
+        id: `${slotName}-slot`,
+        class: ['slot', { active: true }]
+      }, slots)
+    }))
+
+    expect(html).toContain(`id="${slotName}-slot"`)
+    expect(html).toContain('class="slot active"')
+    expect(html.match(new RegExp(`id="${slotName}-slot"`, 'g'))).toHaveLength(1)
+  })
+
   test('ContentRenderer does not serialize unsupported values into HTML', async () => {
     const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

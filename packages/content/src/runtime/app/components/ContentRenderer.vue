@@ -29,6 +29,7 @@ function warnUnsupportedValue (value: Record<string, any>, excerpt: boolean) {
 
 export default defineComponent({
   name: 'ContentRenderer',
+  inheritAttrs: false,
   props: {
     value: {
       type: Object,
@@ -45,10 +46,6 @@ export default defineComponent({
     },
     prose: {
       type: Boolean,
-      default: undefined
-    },
-    class: {
-      type: [String, Array, Object],
       default: undefined
     },
     unwrap: {

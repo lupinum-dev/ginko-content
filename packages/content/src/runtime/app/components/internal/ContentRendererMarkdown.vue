@@ -10,6 +10,10 @@ import { loadContentComponentEntries } from '../../../../integrations/vue/conten
 import { resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } from '../../../markdown/plugins'
 import { isMarkdownRoot } from '../../../../core/markdown/tree'
 
+defineOptions({
+  inheritAttrs: false
+})
+
 const props = defineProps({
   value: {
     type: Object,
