@@ -148,7 +148,7 @@ importers:
     dependencies:
       '@comark/vue':
         specifier: ^0.4.0
-        version: 0.4.0(shiki@4.2.0)(vue@3.5.39(typescript@5.9.3))
+        version: 0.4.0(katex@0.16.47)(shiki@4.2.0)(vue@3.5.39(typescript@5.9.3))
       '@nuxt/kit':
         specifier: ^4.4.8
         version: 4.4.8(magicast@0.5.3)
@@ -157,7 +157,7 @@ importers:
         version: 4.2.0
       comark:
         specifier: ^0.4.0
-        version: 0.4.0(shiki@4.2.0)
+        version: 0.4.0(katex@0.16.47)(shiki@4.2.0)
       defu:
         specifier: ^6.1.7
         version: 6.1.7
@@ -228,6 +228,9 @@ importers:
       '@nuxt/module-builder':
         specifier: 1.0.2
         version: 1.0.2(@nuxt/cli@3.37.0(@nuxt/schema@4.4.8)(cac@6.7.14)(commander@13.1.0)(magicast@0.5.3))(@vue/compiler-core@3.5.39)(esbuild@0.28.1)(typescript@5.9.3)(vue-tsc@3.3.7(typescript@5.9.3))(vue@3.5.39(typescript@5.9.3))
+      katex:
+        specifier: ^0.16.47
+        version: 0.16.47
       nuxt:
         specifier: 4.4.8
         version: 4.4.8(@babel/plugin-proposal-decorators@7.29.0(@babel/core@7.29.6))(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.6))(@babel/plugin-syntax-typescript@7.28.6(@babel/core@7.29.6))(@parcel/watcher@2.5.6)(@types/node@25.8.0)(@vue/compiler-sfc@3.5.39)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4)(esbuild@0.28.1)(eslint@10.3.0(jiti@2.7.0))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.60.3))(rollup@4.60.3)(srvx@0.11.22)(terser@5.47.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0)
@@ -4673,6 +4676,10 @@ packages:
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
+  commander@8.3.0:
+    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
+    engines: {node: '>= 12'}
+
   comment-parser@1.4.6:
     resolution: {integrity: sha512-ObxuY6vnbWTN6Od72xfwN9DbzC7Y2vv8u1Soi9ahRKL37gb6y1qk6/dgjs+3JWuXJHWvsg3BXIwzd/rkmAwavg==}
     engines: {node: '>= 12.0.0'}
@@ -5914,6 +5921,10 @@ packages:
 
   jstransformer@1.0.0:
     resolution: {integrity: sha512-C9YK3Rf8q6VAPDCCU9fnqo3mAfOH6vUGnMcP4AQAYIEpWtfGLpwOTmZ+igtdK5y+VvI2n3CyYSzy4Qh34eq24A==}
+
+  katex@0.16.47:
+    resolution: {integrity: sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==}
+    hasBin: true
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -8729,11 +8740,12 @@ snapshots:
 
   '@colordx/core@5.4.3': {}
 
-  '@comark/vue@0.4.0(shiki@4.2.0)(vue@3.5.39(typescript@5.9.3))':
+  '@comark/vue@0.4.0(katex@0.16.47)(shiki@4.2.0)(vue@3.5.39(typescript@5.9.3))':
     dependencies:
-      comark: 0.4.0(shiki@4.2.0)
+      comark: 0.4.0(katex@0.16.47)(shiki@4.2.0)
       vue: 3.5.39(typescript@5.9.3)
     optionalDependencies:
+      katex: 0.16.47
       shiki: 4.2.0
 
   '@dxup/nuxt@0.4.1(magicast@0.5.3)(typescript@5.9.3)':
@@ -12788,13 +12800,14 @@ snapshots:
 
   colortranslator@5.0.0: {}
 
-  comark@0.4.0(shiki@4.2.0):
+  comark@0.4.0(katex@0.16.47)(shiki@4.2.0):
     dependencies:
       entities: 8.0.0
       htmlparser2: 12.0.0
       js-yaml: 4.2.0
       markdown-exit: 1.0.0-beta.9
     optionalDependencies:
+      katex: 0.16.47
       shiki: 4.2.0
 
   comma-separated-tokens@2.0.3: {}
@@ -12805,6 +12818,8 @@ snapshots:
     optional: true
 
   commander@2.20.3: {}
+
+  commander@8.3.0: {}
 
   comment-parser@1.4.6: {}
 
@@ -14169,6 +14184,10 @@ snapshots:
     dependencies:
       is-promise: 2.2.2
       promise: 7.3.1
+
+  katex@0.16.47:
+    dependencies:
+      commander: 8.3.0
 
   keyv@4.5.4:
     dependencies:

@@ -31,6 +31,7 @@ decision has been captured in an accepted ADR or active document.
 | 0016  | [Unified query API](./0016-unified-query-api.md)                                                       | active |
 | 0017  | [CMS cache invalidation boundary](./0017-cms-cache-invalidation-boundary.md)                           | active |
 | 0019  | [Keep MiniSearch after the Orama benchmark](./0019-keep-minisearch-after-orama-benchmark.md)             | active |
+| 0020  | [Markdown profiles and closed render safety](./0020-markdown-profiles-and-render-safety.md)               | active |
 
 ## Format
 

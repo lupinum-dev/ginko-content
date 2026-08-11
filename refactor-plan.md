@@ -311,7 +311,7 @@ unextended and the RC remains blocked.
 
 #### RC-01 — Record Markdown profiles and freeze a conformance corpus
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** low
 - **Change type:** domain judgment and test infrastructure
@@ -357,6 +357,15 @@ pnpm test
 **Cutover/rollback:** the ADR is retained as the durable decision. The fixture
 remains deliberately small; remove any row that does not protect a supported
 contract rather than growing a syntax museum.
+
+Execution note (2026-08-11): ADR-0020 records the three profiles and closed
+parser-to-render policy. Nine behavior-owned fixtures execute under plain Node
+exactly once and produce separately reviewed raw-Comark and Ginko-pipeline
+snapshots. The corpus covers every syntax named above, records current gaps as
+explicit rejected stages, and exercises portable reparse, Vue SSR, and agent
+serialization. KaTeX is installed only as workspace test infrastructure so the
+configured Math parser contract can execute; the package-level optional-peer and
+browser-bundling contract remains owned by RC-11.
 
 #### RC-01A — Extract the packed consumer before adding new artifact cases
 
@@ -1507,7 +1516,7 @@ only the decisive verification result, not a full command log.
 | ID | Status | PR | Decisive evidence | Notes |
 |---|---|---|---|---|
 | RC-00 | blocked | `codex/rc-production-audit` | Installed graph resolves vulnerable `brace-expansion@2.1.0`; official patched line is `5.0.8` | Await consumer-valid Nitro/Archiver remediation; no waiver extension |
-| RC-01 | not started | — | — | ADR and corpus |
+| RC-01 | complete | `codex/rc-markdown-contract` | Corpus 27/27; architecture 8/8; test selection isolated; full suite 118 files/1192 tests | Raw and pipeline snapshots reviewed separately |
 | RC-01A | not started | — | — | Packed consumer extraction |
 | RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
 | RC-03 | not started | — | — | Catch-all 404 |

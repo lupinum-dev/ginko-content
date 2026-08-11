@@ -1,0 +1,2048 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Comark conformance corpus > 'basic' freezes raw Comark 0.4 output separately > basic 1`] = `
+{
+  "frontmatter": {
+    "count": 2,
+    "featured": true,
+    "title": "Parser baseline",
+  },
+  "meta": {
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "custom-overview",
+          "text": "Overview",
+        },
+      ],
+      "searchDepth": 2,
+      "title": "",
+    },
+  },
+  "nodes": [
+    [
+      "h1",
+      {
+        "id": "parser-baseline",
+      },
+      "Parser baseline",
+    ],
+    [
+      "h2",
+      {
+        "id": "custom-overview",
+      },
+      "Overview",
+    ],
+    [
+      "p",
+      {},
+      "This is ",
+      [
+        "strong",
+        {},
+        "renderable",
+      ],
+      " with an ",
+      [
+        "a",
+        {
+          "href": "/guide",
+        },
+        "internal link",
+      ],
+      " and ",
+      [
+        "mark",
+        {
+          "$": {
+            "block": 0,
+            "html": 1,
+          },
+        },
+        "inline HTML",
+      ],
+      ".",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'basic' freezes the Ginko pipeline contract > basic 1`] = `
+{
+  "agent": {
+    "markdown": "# Parser baseline
+
+## Overview
+
+This is **renderable** with an [internal link](/raw/guide.md) and <mark>
+\`\`\`json
+{
+  "$": {
+    "html": 1,
+    "block": 0
+  }
+}
+\`\`\`
+
+inline HTML
+</mark>
+
+.",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "h1",
+      {
+        "id": "parser-baseline",
+      },
+      "Parser baseline",
+    ],
+    [
+      "h2",
+      {
+        "id": "custom-overview",
+      },
+      "Overview",
+    ],
+    [
+      "p",
+      {},
+      "This is ",
+      [
+        "strong",
+        {},
+        "renderable",
+      ],
+      " with an ",
+      [
+        "a",
+        {
+          "href": "/guide",
+        },
+        "internal link",
+      ],
+      " and ",
+      [
+        "mark",
+        {
+          "$": {
+            "block": 0,
+            "html": 1,
+          },
+        },
+        "inline HTML",
+      ],
+      ".",
+    ],
+  ],
+  "portable": {
+    "error": {
+      "issues": undefined,
+      "message": "MDC syntax is unsupported.",
+      "name": "GinkoBoundaryError",
+    },
+    "status": "rejected",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><h1 id="parser-baseline">Parser baseline</h1><h2 id="custom-overview">Overview</h2><p>This is <strong>renderable</strong> with an <a href="/guide">internal link</a> and <mark>inline HTML</mark>.</p></div>",
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'comments-summary' freezes raw Comark 0.4 output separately > comments-summary 1`] = `
+{
+  "frontmatter": {},
+  "meta": {
+    "summary": [
+      [
+        "h1",
+        {
+          "id": "summary-boundary",
+        },
+        "Summary boundary",
+      ],
+      [
+        "p",
+        {},
+        "Visible before the delimiter.",
+      ],
+    ],
+  },
+  "nodes": [
+    [
+      "h1",
+      {
+        "id": "summary-boundary",
+      },
+      "Summary boundary",
+    ],
+    [
+      "p",
+      {},
+      "Visible before the delimiter.",
+    ],
+    [
+      null,
+      {},
+      " more ",
+    ],
+    [
+      "p",
+      {},
+      "Visible after the delimiter.",
+    ],
+    [
+      null,
+      {},
+      " private editorial note ",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'comments-summary' freezes the Ginko pipeline contract > comments-summary 1`] = `
+{
+  "agent": {
+    "markdown": "# Summary boundary
+
+Visible before the delimiter.
+
+moreVisible after the delimiter.
+
+private editorial note",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "h1",
+      {
+        "id": "summary-boundary",
+      },
+      "Summary boundary",
+    ],
+    [
+      "p",
+      {},
+      "Visible before the delimiter.",
+    ],
+    [
+      null,
+      {},
+      " more ",
+    ],
+    [
+      "p",
+      {},
+      "Visible after the delimiter.",
+    ],
+    [
+      null,
+      {},
+      " private editorial note ",
+    ],
+  ],
+  "portable": {
+    "error": {
+      "issues": undefined,
+      "message": "MDC syntax is unsupported.",
+      "name": "GinkoBoundaryError",
+    },
+    "status": "rejected",
+  },
+  "public": {
+    "issues": [
+      {
+        "code": "invalid_node",
+        "path": [
+          "children",
+          2,
+        ],
+      },
+      {
+        "code": "invalid_node",
+        "path": [
+          "children",
+          4,
+        ],
+      },
+    ],
+    "status": "rejected",
+  },
+  "ssr": {
+    "error": {
+      "issues": [
+        {
+          "code": "invalid_node",
+          "path": [
+            "children",
+            2,
+          ],
+        },
+        {
+          "code": "invalid_node",
+          "path": [
+            "children",
+            4,
+          ],
+        },
+      ],
+      "message": "Public Markdown AST is not render-safe.",
+      "name": "PublicMarkdownValidationError",
+    },
+    "status": "rejected",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'components' freezes raw Comark 0.4 output separately > components 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "callout",
+      {
+        "count": 2,
+        "featured": true,
+        "options": {
+          "regions": [
+            "eu",
+            "us",
+          ],
+          "retries": 3,
+        },
+        "title": "Before deployment",
+        "tone": "warning",
+      },
+      [
+        "template",
+        {
+          "name": "default",
+        },
+        "Run the production build.",
+      ],
+      [
+        "template",
+        {
+          "name": "actions",
+        },
+        [
+          "a",
+          {
+            "href": "/deployment",
+          },
+          "Open the deployment guide",
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'components' freezes the Ginko pipeline contract > components 1`] = `
+{
+  "agent": {
+    "markdown": "<callout title="Before deployment" tone="warning" count="2" featured="true">
+\`\`\`json
+{
+  "options": {
+    "retries": 3,
+    "regions": [
+      "eu",
+      "us"
+    ]
+  }
+}
+\`\`\`
+
+<template name="default">
+Run the production build.
+</template>
+
+<template name="actions">
+[Open the deployment guide](/raw/deployment.md)
+</template>
+</callout>",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "callout",
+      {
+        "count": 2,
+        "featured": true,
+        "options": {
+          "regions": [
+            "eu",
+            "us",
+          ],
+          "retries": 3,
+        },
+        "title": "Before deployment",
+        "tone": "warning",
+      },
+      [
+        "template",
+        {
+          "name": "default",
+        },
+        "Run the production build.",
+      ],
+      [
+        "template",
+        {
+          "name": "actions",
+        },
+        [
+          "a",
+          {
+            "href": "/deployment",
+          },
+          "Open the deployment guide",
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "error": {
+      "issues": undefined,
+      "message": "MDC syntax is unsupported.",
+      "name": "GinkoBoundaryError",
+    },
+    "status": "rejected",
+  },
+  "public": {
+    "issues": [
+      {
+        "code": "unknown_component",
+        "path": [
+          "children",
+          0,
+          "children",
+          0,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          0,
+          "children",
+          0,
+          "props",
+          "name",
+        ],
+      },
+      {
+        "code": "unknown_component",
+        "path": [
+          "children",
+          0,
+          "children",
+          1,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          0,
+          "children",
+          1,
+          "props",
+          "name",
+        ],
+      },
+    ],
+    "status": "rejected",
+  },
+  "ssr": {
+    "error": {
+      "issues": [
+        {
+          "code": "unknown_component",
+          "path": [
+            "children",
+            0,
+            "children",
+            0,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            0,
+            "children",
+            0,
+            "props",
+            "name",
+          ],
+        },
+        {
+          "code": "unknown_component",
+          "path": [
+            "children",
+            0,
+            "children",
+            1,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            0,
+            "children",
+            1,
+            "props",
+            "name",
+          ],
+        },
+      ],
+      "message": "Public Markdown AST is not render-safe.",
+      "name": "PublicMarkdownValidationError",
+    },
+    "status": "rejected",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'gfm' freezes raw Comark 0.4 output separately > gfm 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "blockquote",
+      {
+        "as": "note",
+      },
+      "Keep the generated output reviewable.",
+    ],
+    [
+      "ul",
+      {
+        "class": "contains-task-list",
+      },
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            ":checked": "true",
+            ":disabled": "true",
+            "class": "task-list-item-checkbox",
+            "type": "checkbox",
+          },
+        ],
+        " Parsed",
+      ],
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            ":disabled": "true",
+            "class": "task-list-item-checkbox",
+            "type": "checkbox",
+          },
+        ],
+        " Published",
+      ],
+    ],
+    [
+      "table",
+      {},
+      [
+        "thead",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "th",
+            {
+              "style": "text-align:left",
+            },
+            "Left",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:center",
+            },
+            "Center",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:right",
+            },
+            "Right",
+          ],
+        ],
+      ],
+      [
+        "tbody",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "td",
+            {
+              "style": "text-align:left",
+            },
+            "one",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:center",
+            },
+            "two",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:right",
+            },
+            "three",
+          ],
+        ],
+      ],
+    ],
+    [
+      "p",
+      {},
+      "A statement with a footnote.",
+      [
+        "sup",
+        {
+          "class": "footnote-ref",
+        },
+        [
+          "a",
+          {
+            "href": "#fn-contract",
+            "id": "fnref-contract",
+          },
+          "[1]",
+        ],
+      ],
+    ],
+    [
+      "section",
+      {
+        "class": "footnotes",
+      },
+      [
+        "hr",
+        {},
+      ],
+      [
+        "h2",
+        {
+          "id": "footnotes",
+        },
+        "Footnotes",
+      ],
+      [
+        "ol",
+        {
+          "class": "footnotes-list",
+        },
+        [
+          "li",
+          {
+            "id": "fn-contract",
+          },
+          "The contract is explicit.",
+          " ",
+          [
+            "a",
+            {
+              "class": "footnote-backref",
+              "href": "#fnref-contract",
+            },
+            "↩",
+          ],
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'gfm' freezes the Ginko pipeline contract > gfm 1`] = `
+{
+  "agent": {
+    "markdown": "> [!NOTE]
+> Keep the generated output reviewable.
+
+- <input type="checkbox" disabled="true" checked="true" />
+   Parsed
+- <input type="checkbox" disabled="true" />
+   Published
+
+| Left | Center | Right |
+| --- | --- | --- |
+| one | two | three |
+
+A statement with a footnote.<sup>
+[\\[1\\]](#fn-contract)
+</sup>
+
+<section>
+---
+
+## Footnotes
+
+1. The contract is explicit. [↩](#fnref-contract)
+</section>",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "blockquote",
+      {
+        "data-alert": "note",
+      },
+      "Keep the generated output reviewable.",
+    ],
+    [
+      "ul",
+      {
+        "class": "contains-task-list",
+      },
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            ":checked": "true",
+            ":disabled": "true",
+            "class": "task-list-item-checkbox",
+            "type": "checkbox",
+          },
+        ],
+        " Parsed",
+      ],
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            ":disabled": "true",
+            "class": "task-list-item-checkbox",
+            "type": "checkbox",
+          },
+        ],
+        " Published",
+      ],
+    ],
+    [
+      "table",
+      {},
+      [
+        "thead",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "th",
+            {
+              "style": "text-align:left",
+            },
+            "Left",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:center",
+            },
+            "Center",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:right",
+            },
+            "Right",
+          ],
+        ],
+      ],
+      [
+        "tbody",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "td",
+            {
+              "style": "text-align:left",
+            },
+            "one",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:center",
+            },
+            "two",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:right",
+            },
+            "three",
+          ],
+        ],
+      ],
+    ],
+    [
+      "p",
+      {},
+      "A statement with a footnote.",
+      [
+        "sup",
+        {
+          "class": "footnote-ref",
+        },
+        [
+          "a",
+          {
+            "href": "#fn-contract",
+            "id": "fnref-contract",
+          },
+          "[1]",
+        ],
+      ],
+    ],
+    [
+      "section",
+      {
+        "class": "footnotes",
+      },
+      [
+        "hr",
+        {},
+      ],
+      [
+        "h2",
+        {
+          "id": "footnotes",
+        },
+        "Footnotes",
+      ],
+      [
+        "ol",
+        {
+          "class": "footnotes-list",
+        },
+        [
+          "li",
+          {
+            "id": "fn-contract",
+          },
+          "The contract is explicit.",
+          " ",
+          [
+            "a",
+            {
+              "class": "footnote-backref",
+              "href": "#fnref-contract",
+            },
+            "↩",
+          ],
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "error": {
+      "issues": undefined,
+      "message": "MDC syntax is unsupported.",
+      "name": "GinkoBoundaryError",
+    },
+    "status": "rejected",
+  },
+  "public": {
+    "issues": [
+      {
+        "code": "unsafe_tag",
+        "path": [
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          0,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          0,
+          "props",
+          "type",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          0,
+          "props",
+          ":disabled",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          0,
+          "props",
+          ":checked",
+        ],
+      },
+      {
+        "code": "unsafe_tag",
+        "path": [
+          "children",
+          1,
+          "children",
+          1,
+          "children",
+          0,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          1,
+          "children",
+          1,
+          "children",
+          0,
+          "props",
+          "type",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          1,
+          "children",
+          1,
+          "children",
+          0,
+          "props",
+          ":disabled",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          2,
+          "children",
+          0,
+          "children",
+          0,
+          "children",
+          0,
+          "props",
+          "style",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          2,
+          "children",
+          0,
+          "children",
+          0,
+          "children",
+          1,
+          "props",
+          "style",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          2,
+          "children",
+          0,
+          "children",
+          0,
+          "children",
+          2,
+          "props",
+          "style",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          2,
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          0,
+          "props",
+          "style",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          2,
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          1,
+          "props",
+          "style",
+        ],
+      },
+      {
+        "code": "unsafe_prop",
+        "path": [
+          "children",
+          2,
+          "children",
+          1,
+          "children",
+          0,
+          "children",
+          2,
+          "props",
+          "style",
+        ],
+      },
+    ],
+    "status": "rejected",
+  },
+  "ssr": {
+    "error": {
+      "issues": [
+        {
+          "code": "unsafe_tag",
+          "path": [
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            0,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            0,
+            "props",
+            "type",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            0,
+            "props",
+            ":disabled",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            0,
+            "props",
+            ":checked",
+          ],
+        },
+        {
+          "code": "unsafe_tag",
+          "path": [
+            "children",
+            1,
+            "children",
+            1,
+            "children",
+            0,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            1,
+            "children",
+            1,
+            "children",
+            0,
+            "props",
+            "type",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            1,
+            "children",
+            1,
+            "children",
+            0,
+            "props",
+            ":disabled",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            2,
+            "children",
+            0,
+            "children",
+            0,
+            "children",
+            0,
+            "props",
+            "style",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            2,
+            "children",
+            0,
+            "children",
+            0,
+            "children",
+            1,
+            "props",
+            "style",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            2,
+            "children",
+            0,
+            "children",
+            0,
+            "children",
+            2,
+            "props",
+            "style",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            2,
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            0,
+            "props",
+            "style",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            2,
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            1,
+            "props",
+            "style",
+          ],
+        },
+        {
+          "code": "unsafe_prop",
+          "path": [
+            "children",
+            2,
+            "children",
+            1,
+            "children",
+            0,
+            "children",
+            2,
+            "props",
+            "style",
+          ],
+        },
+      ],
+      "message": "Public Markdown AST is not render-safe.",
+      "name": "PublicMarkdownValidationError",
+    },
+    "status": "rejected",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'highlight' freezes raw Comark 0.4 output separately > highlight 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "pre",
+      {
+        "class": "shiki shiki-themes material-theme-lighter material-theme-palenight dark:material-theme-palenight",
+        "filename": "parser.ts",
+        "highlights": [
+          1,
+          3,
+        ],
+        "language": "ts",
+        "tabindex": "0",
+      },
+      [
+        "code",
+        {
+          "class": "language-ts",
+        },
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " '",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#91B859;--shiki-dark:#C3E88D",
+            },
+            "ready",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "'",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line",
+            "style": "display: inline",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " skipped ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#FF5370;--shiki-dark:#FF9CAC",
+            },
+            " false",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-light-font-style:italic;--shiki-dark:#89DDFF;--shiki-dark-font-style:italic",
+            },
+            "export",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " {",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " }",
+          ],
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'highlight' freezes the Ginko pipeline contract > highlight 1`] = `
+{
+  "agent": {
+    "markdown": "\`\`\`
+const state = 'ready'
+const skipped = false
+export { state }
+\`\`\`",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "pre",
+      {
+        "class": "shiki shiki-themes material-theme-lighter material-theme-palenight dark:material-theme-palenight",
+        "filename": "parser.ts",
+        "highlights": [
+          1,
+          3,
+        ],
+        "language": "ts",
+        "tabindex": "0",
+      },
+      [
+        "code",
+        {
+          "class": "language-ts",
+        },
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " '",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#91B859;--shiki-dark:#C3E88D",
+            },
+            "ready",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "'",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line",
+            "style": "display: inline",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " skipped ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#FF5370;--shiki-dark:#FF9CAC",
+            },
+            " false",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-light-font-style:italic;--shiki-dark:#89DDFF;--shiki-dark-font-style:italic",
+            },
+            "export",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " {",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " }",
+          ],
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "pre",
+        {
+          "filename": "parser.ts",
+          "highlights": [
+            1,
+            3,
+          ],
+          "language": "ts",
+        },
+        [
+          "code",
+          {
+            "class": "language-ts",
+          },
+          "const state = 'ready'
+const skipped = false
+export { state }",
+        ],
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "issues": [
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          0,
+          "props",
+          "highlights",
+        ],
+      },
+    ],
+    "status": "rejected",
+  },
+  "ssr": {
+    "error": {
+      "issues": [
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            0,
+            "props",
+            "highlights",
+          ],
+        },
+      ],
+      "message": "Public Markdown AST is not render-safe.",
+      "name": "PublicMarkdownValidationError",
+    },
+    "status": "rejected",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'inline' freezes raw Comark 0.4 output separately > inline 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "p",
+      {},
+      "Inline ",
+      [
+        "strong",
+        {},
+        "safe",
+      ],
+      " content with an ",
+      [
+        "a",
+        {
+          "href": "/inline",
+        },
+        "internal link",
+      ],
+      ".",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'inline' freezes the Ginko pipeline contract > inline 1`] = `
+{
+  "agent": {
+    "markdown": "Inline **safe** content with an [internal link](/raw/inline.md).",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "p",
+      {},
+      "Inline ",
+      [
+        "strong",
+        {},
+        "safe",
+      ],
+      " content with an ",
+      [
+        "a",
+        {
+          "href": "/inline",
+        },
+        "internal link",
+      ],
+      ".",
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "p",
+        {},
+        "Inline ",
+        [
+          "strong",
+          {},
+          "safe",
+        ],
+        " content with an ",
+        [
+          "a",
+          {
+            "href": "/inline",
+          },
+          "internal link",
+        ],
+        ".",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><p>Inline <strong>safe</strong> content with an <a href="/inline">internal link</a>.</p></div>",
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'malformed' freezes raw Comark 0.4 output separately > malformed 1`] = `
+{
+  "issues": undefined,
+  "message": "unexpected end of the stream within a flow collection (2:1)
+
+ 1 | count: [unterminated
+ 2 |
+-----^",
+  "name": "YAMLException",
+}
+`;
+
+exports[`Comark conformance corpus > 'malformed' freezes the Ginko pipeline contract > malformed 1`] = `
+{
+  "agent": {
+    "status": "not-reached",
+  },
+  "normalizedNodes": undefined,
+  "portable": {
+    "error": {
+      "issues": undefined,
+      "message": "MDC syntax is unsupported.",
+      "name": "GinkoBoundaryError",
+    },
+    "status": "rejected",
+  },
+  "public": {
+    "status": "not-reached",
+  },
+  "ssr": {
+    "status": "not-reached",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'math' freezes raw Comark 0.4 output separately > math 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "p",
+      {},
+      "Inline math ",
+      [
+        "math",
+        {
+          "class": "math inline",
+          "content": "x^2 + y^2",
+        },
+        "x^2 + y^2",
+      ],
+      ".",
+    ],
+    [
+      "math",
+      {
+        "class": "math block",
+        "content": "E = mc^2",
+      },
+      "E = mc^2",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'math' freezes the Ginko pipeline contract > math 1`] = `
+{
+  "agent": {
+    "markdown": "Inline math <math content="x^2 + y^2">
+x^2 + y^2
+</math>
+
+.
+
+<math content="E = mc^2">
+E = mc^2
+</math>",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "p",
+      {},
+      "Inline math ",
+      [
+        "math",
+        {
+          "class": "math inline",
+          "content": "x^2 + y^2",
+        },
+        "x^2 + y^2",
+      ],
+      ".",
+    ],
+    [
+      "math",
+      {
+        "class": "math block",
+        "content": "E = mc^2",
+      },
+      "E = mc^2",
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "p",
+        {},
+        "Inline math $x^2 + y^2$.",
+      ],
+      [
+        "p",
+        {},
+        "$$
+E = mc^2
+$$",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "issues": [
+      {
+        "code": "unsafe_tag",
+        "path": [
+          "children",
+          0,
+          "children",
+          1,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          0,
+          "children",
+          1,
+          "props",
+          "content",
+        ],
+      },
+      {
+        "code": "unsafe_tag",
+        "path": [
+          "children",
+          1,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          1,
+          "props",
+          "content",
+        ],
+      },
+    ],
+    "status": "rejected",
+  },
+  "ssr": {
+    "error": {
+      "issues": [
+        {
+          "code": "unsafe_tag",
+          "path": [
+            "children",
+            0,
+            "children",
+            1,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            0,
+            "children",
+            1,
+            "props",
+            "content",
+          ],
+        },
+        {
+          "code": "unsafe_tag",
+          "path": [
+            "children",
+            1,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            1,
+            "props",
+            "content",
+          ],
+        },
+      ],
+      "message": "Public Markdown AST is not render-safe.",
+      "name": "PublicMarkdownValidationError",
+    },
+    "status": "rejected",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'mermaid' freezes raw Comark 0.4 output separately > mermaid 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "mermaid",
+      {
+        "content": "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]
+",
+      },
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'mermaid' freezes the Ginko pipeline contract > mermaid 1`] = `
+{
+  "agent": {
+    "markdown": "<mermaid content="graph TD
+  A[Parse] --&gt; B[Normalize]
+  B --&gt; C[Validate]
+" />",
+    "status": "accepted",
+  },
+  "normalizedNodes": [
+    [
+      "mermaid",
+      {
+        "content": "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]
+",
+      },
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "pre",
+        {
+          "language": "mermaid",
+        },
+        [
+          "code",
+          {
+            "class": "language-mermaid",
+          },
+          "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]",
+        ],
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "issues": [
+      {
+        "code": "unknown_component",
+        "path": [
+          "children",
+          0,
+          "tag",
+        ],
+      },
+      {
+        "code": "unknown_prop",
+        "path": [
+          "children",
+          0,
+          "props",
+          "content",
+        ],
+      },
+    ],
+    "status": "rejected",
+  },
+  "ssr": {
+    "error": {
+      "issues": [
+        {
+          "code": "unknown_component",
+          "path": [
+            "children",
+            0,
+            "tag",
+          ],
+        },
+        {
+          "code": "unknown_prop",
+          "path": [
+            "children",
+            0,
+            "props",
+            "content",
+          ],
+        },
+      ],
+      "message": "Public Markdown AST is not render-safe.",
+      "name": "PublicMarkdownValidationError",
+    },
+    "status": "rejected",
+  },
+}
+`;
