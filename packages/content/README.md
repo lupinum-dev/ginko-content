@@ -10,7 +10,8 @@ Use it when you want content files to stay simple, but your Nuxt app still
 needs explicit APIs for route resolution, typed frontmatter, localized content,
 and server-side reads.
 
-This README describes the stable `0.3` line.
+This README describes the `0.4.0-rc.1` release candidate. Install it from npm's
+`next` channel; the stable line remains `0.3` until the RC is promoted.
 
 ## Requirements
 
@@ -22,14 +23,14 @@ This README describes the stable `0.3` line.
 ## Install
 
 ```bash
-npx nuxi module add @lupinum/ginko-content
+npx nuxi module add @lupinum/ginko-content@0.4.0-rc.1
 ```
 
 The Nuxt CLI installs the package and registers the module in `nuxt.config.ts`.
 If you prefer to install by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content
+pnpm add @lupinum/ginko-content@0.4.0-rc.1
 ```
 
 ```ts
@@ -127,18 +128,24 @@ Do not duplicate docs, blog, pricing, privacy, or translated locale paths in
 and `/en/pricing` need cross-locale sitemap alternates.
 
 See the public guide:
-[Sitemap and prerender](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/4.guides/4.routing-and-seo/3.sitemap-and-prerender.md).
+[Sitemap and prerender](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/4.guides/9.sitemap-and-prerender.md).
 
 ## Integration Dependencies
 
 | Feature | Dependency model |
 | --- | --- |
 | Markdown highlighting and built-in Shiki transformers | Included as runtime dependencies of `@lupinum/ginko-content`. |
+| Math Markdown | Install the optional `katex` peer and add `katex/dist/katex.min.css` to Nuxt's `css` array. |
+| Mermaid Markdown | Install the optional `beautiful-mermaid` peer. |
 | MiniSearch backend | Included as a runtime dependency and used by the default search backend. |
 | Pagefind backend | Install the optional `pagefind` peer when `content.search.engine` is `'pagefind'`. |
 | Provider-owned search | No extra package. The active content provider must advertise and implement `search`. |
 | Content i18n | Install and configure `@nuxtjs/i18n` 10.x when the app uses Nuxt locale routes. |
 | Sitemap XML output | Install and configure `@nuxtjs/sitemap`; Ginko contributes the content sitemap source. |
+
+Markdown plugins are opt-in. Omitting `content.markdown.plugins` is identical
+to `plugins: []`; add `shiki`, `math`, `mermaid`, `toc`, or `summary` only when
+the application needs that behavior.
 
 ## Scope
 
@@ -147,7 +154,7 @@ include a CMS UI, Studio, admin panel, or content editing workflow.
 
 ## Project links
 
-- Documentation source: [Getting started](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/3.get-started/1.installation.md)
+- Documentation source: [Getting started](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/1.get-started/1.quickstart.md)
 - Repository: [github.com/lupinum-dev/ginko-content](https://github.com/lupinum-dev/ginko-content)
 - Issues: [GitHub issues](https://github.com/lupinum-dev/ginko-content/issues)
 - Contributing: [CONTRIBUTING.md](https://github.com/lupinum-dev/ginko-content/blob/main/CONTRIBUTING.md)

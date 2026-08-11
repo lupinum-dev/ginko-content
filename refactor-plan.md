@@ -3,7 +3,7 @@
 > Status: approved for execution
 > Target: `@lupinum/ginko-content@0.4.0-rc.1`, followed by `0.4.0`
 > Repository baseline: `main` at `76138818462c66afcf95c1db91b69f10ec5f05da`
-> Current package version: `0.3.6`
+> Current package version: `0.4.0-rc.1`
 > Scope: Vue, Nuxt, Vite, Comark, public-contract, release, and navigability alignment
 > Release authority: the exact-SHA CI `Release authorization` job described in `MAINTAINING.md`
 > Lifecycle: temporary execution document; delete after release once durable decisions are in ADRs and maintained documentation
@@ -163,33 +163,33 @@ The candidate is not done until every item is true:
 - [x] `pnpm audit:prod` is green with no expired exception silently extended.
 - [ ] Every pull request below is merged or explicitly removed from scope with a
   written reason approved before RC freeze.
-- [ ] `ContentRenderer` forwards Vue fallthrough attributes exactly once.
-- [ ] Direct and client-navigated missing content routes produce a Nuxt 404.
-- [ ] A non-empty initial Pagefind query performs no browser-only work during SSR.
-- [ ] The Comark conformance matrix covers all default and advertised syntax.
-- [ ] Supported raw AST normalizes into a public-policy-valid AST.
-- [ ] Comments never leak through renderer, search, summary, portable, or agent paths.
-- [ ] Typed portable MDC values survive asset rewrite and reparse.
-- [ ] Inline SSR, hydration, and reactive updates use one documented safe profile.
-- [ ] Math and Mermaid work in a production browser with no bare package imports.
-- [ ] `comark` and `@comark/vue` resolve one matched `0.6.x` line.
-- [ ] No documented option is silently ignored.
-- [ ] Search defaults and required fields have one framework-light owner.
-- [ ] Ginko production code no longer reads Nuxt's private `_layers` field.
-- [ ] Nuxt module detection uses the supported Nuxt Kit helper.
-- [ ] Stale `payloadExtraction ??= false` setup code is deleted and a real fixture
+- [x] `ContentRenderer` forwards Vue fallthrough attributes exactly once.
+- [x] Direct and client-navigated missing content routes produce a Nuxt 404.
+- [x] A non-empty initial Pagefind query performs no browser-only work during SSR.
+- [x] The Comark conformance matrix covers all default and advertised syntax.
+- [x] Supported raw AST normalizes into a public-policy-valid AST.
+- [x] Comments never leak through renderer, search, summary, portable, or agent paths.
+- [x] Typed portable MDC values survive asset rewrite and reparse.
+- [x] Inline SSR, hydration, and reactive updates use one documented safe profile.
+- [x] Math and Mermaid work in a production browser with no bare package imports.
+- [x] `comark` and `@comark/vue` resolve one matched `0.6.x` line.
+- [x] No documented option is silently ignored.
+- [x] Search defaults and required fields have one framework-light owner.
+- [x] Ginko production code no longer reads Nuxt's private `_layers` field.
+- [x] Nuxt module detection uses the supported Nuxt Kit helper.
+- [x] Stale `payloadExtraction ??= false` setup code is deleted and a real fixture
   proves Nuxt's effective generated payload behavior.
-- [ ] Public runtime config contains no provider specifiers, filesystem globs, CMS
+- [x] Public runtime config contains no provider specifiers, filesystem globs, CMS
   settings, agent definitions, schema inventories, or other server-only metadata.
-- [ ] Comark bundling overrides are removed only after the full optional-plugin
+- [x] Comark bundling overrides are removed only after the full optional-plugin
   artifact matrix passes without them.
-- [ ] Parser reuse is retained only if it is configuration-isolated and measurably
+- [x] Parser reuse is retained only if it is configuration-isolated and measurably
   improves representative multi-document ingestion.
-- [ ] Package export documentation classifies every manifest export.
-- [ ] False-shared scripts and fixtures have clear owners and no new common dump.
-- [ ] Public docs, examples, migration notes, README, changelog, and generated API
+- [x] Package export documentation classifies every manifest export.
+- [x] False-shared scripts and fixtures have clear owners and no new common dump.
+- [x] Public docs, examples, migration notes, README, changelog, and generated API
   reference agree with the shipped behavior.
-- [ ] `pnpm verify` passes on the frozen release commit.
+- [x] `pnpm verify` passes on the frozen release commit.
 - [ ] The exact release-metadata commit has a green CI `Release authorization` job.
 - [ ] The downloaded tarball checksum matches its certification manifests, the
   worktree is clean, and no live publish command was run by an agent.
@@ -1682,7 +1682,8 @@ tests.
 
 #### RC-19 — Final documentation, metadata, and exact-artifact authorization
 
-- **Status:** not started
+- **Status:** locally complete — metadata and exact local artifact are frozen;
+  remote review and CI authorization remain maintainer-owned
 - **Depends on:** every preceding item, including RC-01A, RC-17A, RC-17B, and
   RC-18A
 - **Risk:** high release consequence; low implementation risk
@@ -1737,6 +1738,17 @@ authoritative.
 **Cutover/rollback:** if any release lane fails, unfreeze, fix the owning work item,
 increment the prerelease when needed, and rerun authorization. Never tag a nearby
 SHA or repack locally after authorization.
+
+Execution note (2026-08-11): package metadata now targets `0.4.0-rc.1`; the root
+and package READMEs distinguish the RC from stable `0.3`, use the exact install
+specifier, describe opt-in Markdown plugins and optional render peers, and link
+to current docs paths. The curated changelog and `0.3` → `0.4` guide cover the
+explicit plugin profile, `highlight` deprecation, valid Shiki options, fixed
+inline profile, optional-plugin peers/CSS, universal Nuxt 404 recipe, minimal
+public runtime config, cache rebuild, and unchanged portable/CMS wire formats.
+Generated API docs were rebuilt without a diff. Repo policies, 10 docs-drift
+checks, docs build (177 routes), and docs smoke pass. Local frozen-SHA artifact
+gates and authoritative CI authorization remain deliberately outstanding.
 
 ## 9. Validation matrix
 
@@ -1895,7 +1907,7 @@ only the decisive verification result, not a full command log.
 | RC-17B | complete | `codex/rc-test-support-ownership` | Full core 121 files/1,217 tests; server e2e 15/15; browser e2e 6/6; selection guard and changed-file ESLint | Deleted fixture pass-through and mixed `_utils`; provider scenarios, content documents, and memory storage have explicit owners |
 | RC-18 | complete | `codex/rc-fixture-sharing-cleanup` | Four shared-layer playground builds; docs build/smoke/drift; targeted browser navigation 3/3; changed-component ESLint | Shared layer is neutral; i18n owns docs navigation; three unused docs auto-import utilities deleted |
 | RC-18A | complete | `codex/rc-policy-scan-scope` | Ignored-worktree exclusion; non-ignored untracked violation probe; full `pnpm verify` | Policy scope now follows Git ownership without weakening pre-commit checks |
-| RC-19 | not started | — | — | RC authorization |
+| RC-19 | locally complete | `codex/rc-release-candidate` | `pnpm release:verify`: full verify; browser 5 files/6 tests; static generation 1 file/5 tests; production audit 0 vulnerabilities; two reproducible packs; pure Node/Chromium-worker probes; pnpm/Nuxt 4.5 and npm/Nuxt 4.4.7 consumers | Exact local artifact certified as `0.4.0-rc.1`; remote review, CI `Release authorization`, downloaded-artifact comparison, and human publish remain pending |
 
 ## 14. Stop conditions
 
