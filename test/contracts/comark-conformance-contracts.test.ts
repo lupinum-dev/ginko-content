@@ -10,7 +10,7 @@ import type { PortableComponentPolicyV1 } from '../../packages/content/src/cms-c
 import { createAgentMarkdownRegistry } from '../../packages/content/src/features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../packages/content/src/features/agent/walker'
 import { normalizeComarkNodes } from '../../packages/content/src/core/markdown/normalize-comark'
-import { parseComark } from '../../packages/content/src/core/markdown/parse-comark'
+import { createComarkParser } from '../../packages/content/src/core/markdown/parse-comark'
 import { toMarkdownRoot } from '../../packages/content/src/core/markdown/tree'
 import { resolveMarkdownPlugins } from '../../packages/content/src/parsers/markdown-plugins'
 import { parsePortableMdc, serializePortableMdc } from '../../packages/content/src/portability/mdc'
@@ -147,7 +147,7 @@ const corpus: CorpusCase[] = [
 const fixturesRoot = resolve('test/fixtures/markdown-conformance')
 const readFixture = (fixture: string) => readFile(resolve(fixturesRoot, fixture), 'utf8')
 const parseConfigured = async (source: string, plugins: ResolvedMarkdownPlugin[]) =>
-  await parseComark(source, await resolveMarkdownPlugins(plugins))
+  await createComarkParser(await resolveMarkdownPlugins(plugins))(source)
 
 const snapshotValue = (value: unknown): unknown => {
   if (typeof value === 'string' && value.length > 500) {

@@ -1277,7 +1277,7 @@ rejects unresolved browser imports for both `comark/*` and `@comark/vue/*`.
 
 #### RC-15 — Reuse parsers within an explicit configuration lifecycle
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-13
 - **Risk:** medium
 - **Change type:** measured performance optimization
@@ -1320,6 +1320,23 @@ pnpm test:e2e
 
 **Cutover/rollback:** no dual cached/uncached path or feature flag. Revert the
 optimization if isolation or measured benefit is uncertain.
+
+Execution note (2026-08-11): fixed-profile CMS, portability, and inline parsing
+now share one baseline parser. Configured filesystem ingestion stores the parser
+initialization promise in a `WeakMap` keyed by the resolved Markdown-options
+object identity; this prevents duplicate construction during concurrent calls
+without introducing a mutable current profile, a lossy option hash, or streaming
+state. Rejected initialization is evicted so a corrected development/HMR profile
+can retry, while a new options identity always receives a new parser.
+
+Lifecycle contracts prove concurrent reuse, separation between two configuration
+identities, byte-identical concurrent baseline/configured results, and recovery
+after a rejected profile. The unchanged conformance snapshots and full core suite
+(121 files/1,221 tests) prove output parity; Nuxt e2e passes 15/15. A representative
+1,500-document configured-TOC benchmark measured 406.2 ms when constructing a
+parser per document and 21.8 ms with lifecycle reuse (18.66x faster), with
+byte-identical output. The benchmark result is recorded here rather than adding
+permanent benchmark infrastructure for this isolated construction cost.
 
 ### Phase 6 — Public navigation and repository navigability
 
@@ -1723,7 +1740,7 @@ only the decisive verification result, not a full command log.
 | RC-12 | complete | `codex/rc-public-runtime-config` | Exact nine-key public projection; full core 120 files/1,215 tests; e2e 15/15; exact tarball `ad201d2b…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with SSR payload leakage checks | Server navigation/sitemap/site policy moved private; legacy site URL remains input-only |
 | RC-13 | complete | `codex/rc-comark-06` | Matched Comark `0.6.2` graph; corpus 27/27 reviewed; full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `c6f57946…` passed pure runtimes and both consumers | Canonical `shiki`; `highlight` is warning-only alias; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-14 | complete | `codex/rc-comark-build-cleanup` | Full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `adb783e4…` passed pure runtimes and both optional-plugin consumers | Deleted all three blanket Comark override categories; user bundling config remains untouched |
-| RC-15 | not started | — | — | Parser reuse |
+| RC-15 | complete | `codex/rc-parser-lifecycle` | Lifecycle isolation/retry contracts; full core 121 files/1,221 tests; e2e 15/15; 1,500-document configured-parser benchmark improved 406.2 ms to 21.8 ms with byte-identical output | One baseline parser plus configuration-identity-owned `WeakMap`; no mutable current profile or permanent benchmark harness |
 | RC-16 | not started | — | — | Public docs/exports |
 | RC-17A | not started | — | — | Script ownership |
 | RC-17B | not started | — | — | Test-support ownership |
