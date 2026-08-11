@@ -84,7 +84,7 @@ const { page } = await useContentPage(pages)
 - Route-aware page loading with `useContentPage(handle)`.
 - Server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
   and `surround`.
-- Route and search composables, plus pure client query functions for other
+- Route and search composables, plus one-shot async client query functions for other
   reads.
 - Locale-aware content routing with explicit fallback behavior.
 - Search helpers for MiniSearch, Pagefind, and provider-owned search.

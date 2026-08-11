@@ -1342,7 +1342,7 @@ permanent benchmark infrastructure for this isolated construction cost.
 
 #### RC-16 — Correct public terminology and export documentation
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-07, RC-12, RC-13
 - **Risk:** low
 - **Change type:** public documentation and generated metadata
@@ -1392,6 +1392,24 @@ pnpm docs-drift
 
 **Cutover/rollback:** generated docs remain manifest-led. Do not hand-maintain a
 second public export list or broaden package exports for documentation convenience.
+
+Execution note (2026-08-11): the generated export reference now derives all 18
+subpaths and declaration targets from `packages/content/package.json` and keeps
+one exhaustive metadata map only for environment, purpose, and focused guide.
+Missing or stale classifications fail generation, and a contract proves every
+manifest specifier occurs exactly once. The former source-regex symbol table was
+deleted; it missed re-exports. The public data-source guide now directly explains
+`createContentDataSourceError`, `ContentDataSourceErrorCode`, and the deliberate
+fixed portable CMS profile versus application-configured filesystem parsing.
+
+Public README, module-option, composable, migration, and facade language now calls
+Nuxt-context reads one-shot async query functions/snapshot promises and reserves
+“pure” for framework-free derivations or JSON-pure wire values. Focused export and
+documentation contracts pass 25/25; API generation/check, docs build, docs smoke,
+and all 10 docs-drift checks pass. The required integrated `pnpm verify` completed
+package/workspace preparation and docs drift, then stopped only because the
+user-owned ignored `.claude/worktrees/nervous-dubinsky-1ffc48/` copy triggers the
+repository policy scanner; no release code or documentation failure preceded it.
 
 #### RC-17A — Replace the false-shared script library with owned homes
 
@@ -1741,7 +1759,7 @@ only the decisive verification result, not a full command log.
 | RC-13 | complete | `codex/rc-comark-06` | Matched Comark `0.6.2` graph; corpus 27/27 reviewed; full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `c6f57946…` passed pure runtimes and both consumers | Canonical `shiki`; `highlight` is warning-only alias; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-14 | complete | `codex/rc-comark-build-cleanup` | Full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `adb783e4…` passed pure runtimes and both optional-plugin consumers | Deleted all three blanket Comark override categories; user bundling config remains untouched |
 | RC-15 | complete | `codex/rc-parser-lifecycle` | Lifecycle isolation/retry contracts; full core 121 files/1,221 tests; e2e 15/15; 1,500-document configured-parser benchmark improved 406.2 ms to 21.8 ms with byte-identical output | One baseline parser plus configuration-identity-owned `WeakMap`; no mutable current profile or permanent benchmark harness |
-| RC-16 | not started | — | — | Public docs/exports |
+| RC-16 | complete | `codex/rc-public-docs-exports` | Every one of 18 manifest exports occurs once; focused contracts 25/25; API docs check, docs build/smoke, and docs drift 10/10 pass | Deleted regex symbol ledger; published one canonical data-source guide; integrated verify locally contaminated only by ignored `.claude/worktrees/` content |
 | RC-17A | not started | — | — | Script ownership |
 | RC-17B | not started | — | — | Test-support ownership |
 | RC-18 | not started | — | — | Fixture sharing cleanup |

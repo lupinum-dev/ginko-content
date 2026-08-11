@@ -99,7 +99,7 @@ const { page } = await useContentPage(pages)
 - semantic previous/next route-page data through `useContentPage(pages, { surround })`
 - server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
   and `surround`
-- route and search composables, plus pure client query functions for other
+- route and search composables, plus one-shot async client query functions for other
   reads
 - search helpers for MiniSearch, Pagefind, and provider-owned search
 - sitemap integration for public content routes

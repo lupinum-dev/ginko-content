@@ -135,7 +135,7 @@ describe('package export contracts', () => {
     expect(client.getCollectionPath).toBeTypeOf('function')
     // The public composable surface is exactly `useContentPage` and
     // `useContentSearch` — every other wrapper is a
-    // hard-cut deletion, replaced by these pure operations + useAsyncData.
+    // hard-cut deletion, replaced by these query functions + useAsyncData.
     expect(client.useContentPage).toBeTypeOf('function')
     expect(client.useContentSearch).toBeTypeOf('function')
     expect(client).not.toHaveProperty('queryCollection')

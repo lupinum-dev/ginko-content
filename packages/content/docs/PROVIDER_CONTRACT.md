@@ -5,7 +5,7 @@ is the canonical behavioral and author-facing documentation. Do not duplicate
 the wire shape, provider examples, or response-envelope reference here.
 
 For a framework-free backend adapter, use the
-[data-source adapter author guide](./DATA_SOURCE_ADAPTER_GUIDE.md).
+[public data-source adapter guide](../../../docs/content/docs/4.guides/13.data-source-adapters.md).
 
 ## Ownership
 

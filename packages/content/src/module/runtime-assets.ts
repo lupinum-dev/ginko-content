@@ -7,7 +7,7 @@ import type { Nuxt } from '@nuxt/schema'
 /**
  * The final app function auto-import list: exactly
  * `useContentPage` and the collision-safe `useGinkoContentSearch` alias.
- * The package export remains `useContentSearch`; pure query helpers are
+ * The package export remains `useContentSearch`; one-shot query functions are
  * imported explicitly from `/client` instead.
  */
 export const runtimeAppImportSpecs = [
