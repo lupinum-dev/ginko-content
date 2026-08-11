@@ -33,7 +33,7 @@ const expectations = [
 
 for (const expectation of expectations) {
   const result = spawnSync('pnpm', [
-    'exec', 'vitest', 'list', '--config', 'vitest.config.ts', '--project', expectation.project
+    'exec', 'vitest', 'list', '--filesOnly', '--config', 'vitest.config.ts', '--project', expectation.project
   ], { encoding: 'utf8', shell: process.platform === 'win32' })
   const output = `${result.stdout || ''}${result.stderr || ''}`
   if (result.status !== 0) {

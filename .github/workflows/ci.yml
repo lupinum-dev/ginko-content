@@ -308,6 +308,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
+      - uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
+        id: chrome
       - run: npm install --global corepack@0.35.0
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
@@ -321,6 +323,8 @@ jobs:
         run: |
           pnpm release:pack
           pnpm test:package-consumer
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
 
   windows-portability:
     name: Windows portability and packed consumer
