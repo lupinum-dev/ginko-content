@@ -7,12 +7,12 @@ import process from 'node:process'
 import MiniSearch from 'minisearch'
 import { create, insertMultiple, load, save, search } from '@orama/orama'
 import { loadNuxtConfig } from '@nuxt/kit'
-import { createSearchSections } from '../packages/content/dist/features/search/sections.js'
-import { toSearchIndexRecord } from '../packages/content/dist/features/search/records.js'
-import { createSearchExcerpt } from '../packages/content/dist/features/search/snippet.js'
-import { readBenchmarkCorpus, resolveNuxtBuildArtifact, shapeBenchmarkResults } from './lib/search-benchmark.mjs'
+import { createSearchSections } from '../../packages/content/dist/features/search/sections.js'
+import { toSearchIndexRecord } from '../../packages/content/dist/features/search/records.js'
+import { createSearchExcerpt } from '../../packages/content/dist/features/search/snippet.js'
+import { readBenchmarkCorpus, resolveNuxtBuildArtifact, shapeBenchmarkResults } from './support.mjs'
 
-const root = resolve(import.meta.dirname, '..')
+const root = resolve(import.meta.dirname, '../..')
 const outputDirectory = resolve(root, '.benchmarks/search')
 const docsRoot = resolve(root, 'docs')
 const docsSnapshot = await resolveNuxtBuildArtifact(

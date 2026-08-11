@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import {
   assertReproduciblePacks,
   normalizeArchiveEntry,
-} from './lib/release-artifact.mjs'
+} from './release/artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')

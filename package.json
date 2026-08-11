@@ -28,7 +28,7 @@
     "dev:fixtures": "pnpm --filter @lupinum/ginko-content-test-typecheck dev",
     "build": "pnpm --dir packages/content build",
     "build:packages": "pnpm build",
-    "benchmark:search": "pnpm build:packages && pnpm docs:build && pnpm --filter @lupinum/ginko-content-playground-i18n build && node --expose-gc scripts/benchmark-search.mjs",
+    "benchmark:search": "pnpm build:packages && pnpm docs:build && pnpm --filter @lupinum/ginko-content-playground-i18n build && node --expose-gc benchmarks/search/benchmark.mjs",
     "examples:build": "pnpm --filter './examples/**' --workspace-concurrency=1 build",
     "example": "node --input-type=module -e \"import { spawnSync } from 'node:child_process'; const target = process.argv[1]; if (!target) { console.error('Usage: pnpm example <group>/<name>'); process.exit(1); } const result = spawnSync('pnpm', ['--dir', `examples/${target}`, 'dev'], { stdio: 'inherit', shell: process.platform === 'win32' }); process.exit(result.status ?? 1);\"",
     "format": "eslint . --fix",

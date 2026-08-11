@@ -260,8 +260,8 @@ with ownership-only moves.
 - **Risk:** high release risk; low-to-medium code risk
 - **Change type:** supply-chain judgment
 - **Public impact:** none unless an upstream dependency floor changes
-- **Paths:** `scripts/lib/production-audit.mjs`, `scripts/audit-production.mjs`,
-  `test/unit/production-audit.test.ts`, `MAINTAINING.md`, `package.json`,
+- **Paths:** `scripts/release/production-audit.mjs`, `scripts/audit-production.mjs`,
+  `test/unit/release/production-audit.test.ts`, `MAINTAINING.md`, `package.json`,
   `pnpm-lock.yaml`, and only the manifest owning an affected dependency
 
 Implementation:
@@ -288,7 +288,7 @@ Validation:
 
 ```bash
 pnpm audit:prod
-pnpm exec vitest run --config vitest.config.ts --project unit test/unit/production-audit.test.ts
+pnpm exec vitest run --config vitest.config.ts --project unit test/unit/release/production-audit.test.ts
 pnpm lint
 ```
 
@@ -1467,7 +1467,7 @@ override, compatibility shim, or behavior change was introduced.
 
 #### RC-17A — Replace the false-shared script library with owned homes
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-00
 - **Risk:** low-to-medium
 - **Change type:** mechanical navigability refactor
@@ -1509,6 +1509,21 @@ pnpm test:pure-runtimes
 
 **Cutover/rollback:** use direct moves/import updates in one owner at a time. Do not
 leave compatibility files at old paths.
+
+Execution note (2026-08-11): the generic `scripts/lib/` directory was deleted.
+Search benchmark command/support now lives in `benchmarks/search/`; documentation
+asset-budget and generated-link validation live in `scripts/docs/`; production
+audit, artifact, publish, and pure-runtime support live in `scripts/release/`.
+Their six tests moved under matching unit-test domains, while execution-lane
+configuration remains unchanged. There are no bridge exports or replacement
+common folder.
+
+Moved tests pass 18/18, the full core suite passes 121 files/1,217 tests, and the
+test-selection guard is green after package build. Changed-file ESLint, docs build
+and smoke, reproducible release packing (`f5621acb…`), and packed Node/browser
+pure-runtime probes pass. Aggregate `pnpm lint` stops only at the known ignored
+`.claude/worktrees/` policy-scan contamination before it reaches branch-owned
+files.
 
 #### RC-17B — Give shared test support explicit domain owners
 
@@ -1815,7 +1830,7 @@ only the decisive verification result, not a full command log.
 | RC-15 | complete | `codex/rc-parser-lifecycle` | Lifecycle isolation/retry contracts; full core 121 files/1,221 tests; e2e 15/15; 1,500-document configured-parser benchmark improved 406.2 ms to 21.8 ms with byte-identical output | One baseline parser plus configuration-identity-owned `WeakMap`; no mutable current profile or permanent benchmark harness |
 | RC-16 | complete | `codex/rc-public-docs-exports` | Every one of 18 manifest exports occurs once; focused contracts 25/25; API docs check, docs build/smoke, and docs drift 10/10 pass | Deleted regex symbol ledger; published one canonical data-source guide; integrated verify locally contaminated only by ignored `.claude/worktrees/` content |
 | RC-16A | complete | `codex/rc-example-dependency-cleanup` | All four focused example production builds pass; frozen lockfile install accepts the pruned graph | Deleted three unused Nuxt UI registrations and their unnecessary UI/editor dependency graph; no override |
-| RC-17A | not started | — | — | Script ownership |
+| RC-17A | complete | `codex/rc-script-ownership` | Moved tests 18/18; full core 121 files/1,217 tests; selection guard; docs build/smoke; reproducible pack `f5621acb…`; packed Node/browser probes | Deleted `scripts/lib/`; search, docs, and release support have explicit owners with no bridges |
 | RC-17B | not started | — | — | Test-support ownership |
 | RC-18 | not started | — | — | Fixture sharing cleanup |
 | RC-19 | not started | — | — | RC authorization |

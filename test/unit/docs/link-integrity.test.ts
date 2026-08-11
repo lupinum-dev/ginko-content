@@ -6,7 +6,7 @@ import {
   assertGeneratedLinkIntegrity,
   collectGeneratedLinkFailures,
   generatedFileCandidates
-} from '../../scripts/lib/generated-link-integrity.mjs'
+} from '../../../scripts/docs/generated-link-integrity.mjs'
 
 const tempRoots: string[] = []
 

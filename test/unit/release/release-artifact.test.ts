@@ -3,7 +3,7 @@ import {
   assertReproduciblePacks,
   normalizeArchiveEntry,
   parsePackageManagerVersion,
-} from '../../scripts/lib/release-artifact.mjs'
+} from '../../../scripts/release/artifact.mjs'
 
 describe('release artifact reproducibility', () => {
   test('accepts two byte-identical package archives', () => {

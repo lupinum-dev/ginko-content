@@ -16,7 +16,7 @@ import {
 } from '../helpers/generated-artifacts'
 import { generateStaticFixture } from '../helpers/production-fixture'
 import { assertRouteManifestMatchesGolden } from '../helpers/route-manifest'
-import { assertGeneratedLinkIntegrity } from '../../scripts/lib/generated-link-integrity.mjs'
+import { assertGeneratedLinkIntegrity } from '../../scripts/docs/generated-link-integrity.mjs'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const basicFixtureDir = resolve(rootDir, 'playground/ginko-basic')

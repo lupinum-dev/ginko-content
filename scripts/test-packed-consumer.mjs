@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
-import { parsePackageManagerVersion } from './lib/release-artifact.mjs'
+import { parsePackageManagerVersion } from './release/artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')

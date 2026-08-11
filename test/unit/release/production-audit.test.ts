@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { assertProductionAuditClean } from '../../scripts/lib/production-audit.mjs'
+import { assertProductionAuditClean } from '../../../scripts/release/production-audit.mjs'
 
 describe('production audit policy', () => {
   test('accepts a clean report', () => {

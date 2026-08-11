@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { collectReferencedAssets, measurePageAssetBudget } from '../../scripts/lib/asset-budget.mjs'
+import { collectReferencedAssets, measurePageAssetBudget } from '../../../scripts/docs/asset-budget.mjs'
 
 describe('docs initial asset budget', () => {
   test('counts referenced scripts and styles once while ignoring lazy chunks', async () => {

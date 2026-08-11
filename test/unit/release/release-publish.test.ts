@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
   assertContentReleaseCertification,
   npmTagForVersion
-} from '../../scripts/lib/release-publish.mjs'
+} from '../../../scripts/release/publish.mjs'
 
 describe('release publish policy', () => {
   test('selects the npm channel from the package version', () => {

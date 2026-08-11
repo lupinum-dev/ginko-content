@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { assertGeneratedLinkIntegrity } from './lib/generated-link-integrity.mjs'
-import { measurePageAssetBudget } from './lib/asset-budget.mjs'
+import { assertGeneratedLinkIntegrity } from './docs/generated-link-integrity.mjs'
+import { measurePageAssetBudget } from './docs/asset-budget.mjs'
 
 const root = 'docs/.output/public'
 const offenders = []
