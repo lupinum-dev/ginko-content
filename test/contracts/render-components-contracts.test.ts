@@ -34,6 +34,12 @@ vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () =>
   useSwitchLocalePath: () => () => ''
 }))
 
+vi.mock('../../packages/content/src/runtime/utils/content-components', () => ({
+  globalComponents: [],
+  localComponents: [],
+  localComponentLoaders: {}
+}))
+
 describe('render component contracts', () => {
   test.each([
     ['string', 'prose featured'],

@@ -20,6 +20,11 @@ export default defineNuxtConfig({
     '@lupinum/ginko-content'
   ],
   content: {
+    componentPolicy: {
+      components: {
+        'layer-priority': { kind: 'block', props: {}, slots: [], media: null }
+      }
+    },
     navigation: {
       fields: ['icon']
     },

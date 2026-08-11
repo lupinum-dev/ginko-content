@@ -1,4 +1,5 @@
 import type { Nuxt } from '@nuxt/schema'
+import { hasNuxtModule } from '@nuxt/kit'
 import type { ContentMiniSearchOptions, ContentSearchEngine, ContentSearchPublicRuntimeConfig } from '../types/search'
 import type { ContentSearchOptions, ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
 import { resolveLocalePolicy } from '../features/localization/locale-policy'
@@ -13,26 +14,12 @@ type NuxtI18nConfig = {
   strategy?: string
 }
 
-function hasNuxtModule(modules: unknown[] = [], name: string): boolean {
-  return modules.some((entry) => {
-    if (typeof entry === 'string') {
-      return entry === name
-    }
-
-    if (Array.isArray(entry) && typeof entry[0] === 'string') {
-      return entry[0] === name
-    }
-
-    return false
-  })
+export function hasNuxtI18nModule(nuxt: Nuxt): boolean {
+  return hasNuxtModule('@nuxtjs/i18n', nuxt)
 }
 
-export function hasNuxtI18nModule(modules: unknown[] = []): boolean {
-  return hasNuxtModule(modules, '@nuxtjs/i18n')
-}
-
-export function hasNuxtSitemapModule(modules: unknown[] = []): boolean {
-  return hasNuxtModule(modules, '@nuxtjs/sitemap')
+export function hasNuxtSitemapModule(nuxt: Nuxt): boolean {
+  return hasNuxtModule('@nuxtjs/sitemap', nuxt)
 }
 
 export function configureNuxtSitemapSource(
@@ -40,7 +27,7 @@ export function configureNuxtSitemapSource(
   apiBaseURL: string,
   sitemapPath = '/sitemap'
 ) {
-  if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+  if (!hasNuxtSitemapModule(nuxt)) {
     return
   }
 
@@ -62,7 +49,7 @@ export function configureNuxtSitemapSource(
 }
 
 export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
-  if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+  if (!hasNuxtSitemapModule(nuxt)) {
     return []
   }
 
@@ -72,7 +59,7 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
   }
 
   const nuxtI18n = (nuxt.options as { i18n?: NuxtI18nConfig }).i18n || {}
-  if (!hasNuxtI18nModule(nuxt.options.modules) || !Array.isArray(nuxtI18n.locales) || nuxtI18n.locales.length === 0) {
+  if (!hasNuxtI18nModule(nuxt) || !Array.isArray(nuxtI18n.locales) || nuxtI18n.locales.length === 0) {
     return ['/sitemap.xml']
   }
 
@@ -107,7 +94,7 @@ export function resolveContentLocalePolicy(
 
   return resolveLocalePolicy({
     nuxtI18n: {
-      installed: hasNuxtI18nModule(nuxt.options.modules),
+      installed: hasNuxtI18nModule(nuxt),
       locales: nuxtLocales,
       defaultLocale: nuxtI18n.defaultLocale,
       strategy: nuxtI18n.strategy

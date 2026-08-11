@@ -747,7 +747,7 @@ passes 119 files/1,204 tests.
 
 #### RC-08 — Use supported Nuxt Kit module and layer APIs
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** medium
 - **Change type:** Nuxt alignment
@@ -791,6 +791,22 @@ pnpm test:generate:static
 
 **Cutover/rollback:** delete local detection and private-layer logic in the same PR.
 Do not wrap the supported helpers behind another generic compatibility utility.
+
+Execution note (2026-08-11): module detection now delegates directly to Nuxt
+Kit's `hasNuxtModule`, including configured object metadata and installed-module
+records. Layer-owned component and public directories come from
+`getLayerDirectories`; one registration hook preserves Nuxt's application-first
+ordering, and no production module code reads `_layers`. The renderer now consumes
+the generated lazy loader catalog for non-global authored content components, so a
+real two-layer generation proves the application component renders in SSR while
+the same-named base component does not. The stale payload-extraction assignment is
+deleted, and the same generated fixture proves Nuxt 4 emits `_payload.json`.
+Focused module/runtime-assets/validation contracts pass 42/42, renderer contracts
+pass 14/14, the real generate assertion passes, source typecheck and changed-file
+ESLint pass, test-lane selection remains isolated, and the warm full suite passes
+119 files/1,205 tests. Four unrelated runtime tests exceeded their shared five-
+second limit on the first parallel run; the exact 28 tests passed in isolation and
+the complete lane then passed without code changes.
 
 #### RC-09 — Give search defaults and normalization one owner
 
@@ -1556,8 +1572,8 @@ only the decisive verification result, not a full command log.
 | RC-04 | not started | — | — | Pagefind SSR |
 | RC-05 | complete | `codex/rc-markdown-policy` | Focused matrix 112/112; full suite 119 files/1,198 tests; source typecheck and changed-file ESLint | Reviewed CMS/raw/pipeline snapshots; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-06 | complete | `codex/rc-portable-typed-props` | Portability 21/21; source typecheck; full suite 119 files/1,199 tests | One serializer/options source; portable formats remain v1 |
-| RC-07 | not started | — | — | Markdown config |
-| RC-08 | not started | — | — | Nuxt Kit alignment |
+| RC-07 | complete | `codex/rc-markdown-config` | Focused contracts 60/60; docs build/smoke/drift; four examples; full suite 119 files/1,204 tests | Explicit plugin list; invalid Shiki keys fail setup |
+| RC-08 | complete | `codex/rc-nuxt-kit` | Real layered generate and payload assertion; focused contracts 56/56; full suite 119 files/1,205 tests | Supported Kit APIs; application component wins in SSR |
 | RC-09 | not started | — | — | Search ownership |
 | RC-10 | not started | — | — | Inline profile |
 | RC-11 | not started | — | — | Optional/custom plugin bundling |

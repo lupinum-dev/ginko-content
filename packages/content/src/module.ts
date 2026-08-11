@@ -2,6 +2,7 @@ import {
   createResolver,
   defineNuxtModule,
   addTemplate,
+  getLayerDirectories,
   useLogger
 } from '@nuxt/kit'
 import { defu } from 'defu'
@@ -94,7 +95,6 @@ export default defineNuxtModule<ModuleOptions>({
     const runtimeInlineDependencies = ['comark', '@comark/vue']
     validateContentConfigOnlyOptions(options)
     validateRemovedMarkdownOptions(options)
-    nuxt.options.experimental.payloadExtraction ??= false
     nuxt.options.build.transpile ||= []
     for (const dependency of runtimeInlineDependencies) {
       if (!nuxt.options.build.transpile.includes(dependency)) {
@@ -198,13 +198,13 @@ export default defineNuxtModule<ModuleOptions>({
     } else {
       await rm(resolveFilePath(contentCacheDir, 'validation.json'), { force: true })
     }
-    const layers = nuxt.options._layers || [{ cwd: nuxt.options.rootDir, config: {} }]
+    const layerDirectories = getLayerDirectories(nuxt)
     const nitroPublicAssets = (nuxt.options as typeof nuxt.options & {
       nitro?: { publicAssets?: Array<{ dir: string, baseURL?: string }> }
     }).nitro?.publicAssets || []
     contentContext.validationPublicAssets = await collectContentValidationPublicAssets({
       rootDir: nuxt.options.rootDir,
-      layers: layers.map(layer => ({ cwd: layer.cwd, publicDir: layer.config.dir?.public || 'public' })),
+      publicDirectories: layerDirectories.map(layer => layer.public),
       nitroPublicAssets
     })
     let resolvedContentContext: ResolvedContentContext | undefined
@@ -216,7 +216,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (resolvedSitemap !== false) {
-      if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+      if (!hasNuxtSitemapModule(nuxt)) {
         logger.warn('content.sitemap is enabled, but the "@nuxtjs/sitemap" module is not registered in nuxt.config modules. No sitemap will be generated until "@nuxtjs/sitemap" is installed and added to modules (see ADR-0009).')
       }
       configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
@@ -255,7 +255,7 @@ export default defineNuxtModule<ModuleOptions>({
     const { transformersTemplate, virtualConfigTemplate, virtualProvidersTemplate, virtualCacheAdapterTemplate } = createVirtualContentTemplates(contentContext, nuxt, contentConfigPath, addTemplate)
     registerVirtualContentAliases(nuxt, transformersTemplate, virtualConfigTemplate, virtualProvidersTemplate, virtualCacheAdapterTemplate, resolveRuntimeModule)
     registerContentServerHandlers(nuxt, options, resolveRuntimeModule, buildIntegrity)
-    registerContentI18nTemplate(addTemplate, hasNuxtI18nModule(nuxt.options.modules))
+    registerContentI18nTemplate(addTemplate, hasNuxtI18nModule(nuxt))
     registerRuntimeImports(resolveRuntimeModule)
     registerRuntimeComponents(resolve)
     registerContentComponentsTemplate(addTemplate)
@@ -265,7 +265,7 @@ export default defineNuxtModule<ModuleOptions>({
       Object.keys(appContentConfig.collections),
       Object.entries(appContentConfig.collections).filter(([, collection]) => Boolean(collection.i18n)).map(([name]) => name)
     )
-    await registerUserContentComponents(nuxt, resolve)
+    await registerUserContentComponents(nuxt)
     const getSearchRuntime = () => contentContext.search === false
       ? false
       : createSearchRuntimeConfig(contentContext.search, options.api.baseURL)

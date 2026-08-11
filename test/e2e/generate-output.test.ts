@@ -40,6 +40,10 @@ describe('generate lane output (nuxi generate)', () => {
 
     expect(existsSync(resolve(outputPublicDir, 'guide/getting-started/index.html'))).toBe(true)
     expect(await readGeneratedArtifact(outputPublicDir, 'guide/getting-started/index.html')).toContain('Getting Started')
+    expect(textArtifacts.some(artifact => artifact.path.endsWith('_payload.json'))).toBe(true)
+    const rootHtml = await readGeneratedArtifact(outputPublicDir, 'index.html')
+    expect(rootHtml).toContain('app-layer-content-component')
+    expect(rootHtml).not.toContain('base-layer-content-component')
 
     const searchIndex = await readSearchIndex(outputPublicDir)
     expect(searchIndex).toEqual(expect.arrayContaining([

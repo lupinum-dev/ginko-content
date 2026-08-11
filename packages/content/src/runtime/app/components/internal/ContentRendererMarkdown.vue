@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue'
+import { computed, defineAsyncComponent, useAttrs } from 'vue'
+import { pascalCase } from 'scule'
 import { useRuntimeConfig } from '#imports'
 import { useContentPreview } from '../../composables/preview'
 import { useUnwrap } from '../../composables/useUnwrap'
@@ -8,6 +9,7 @@ import { useLocalePath } from '../../composables/content-i18n'
 import { resolveMarkdownRenderRefs, rewriteMarkdownRefLinks } from '../../../../core/references/resolve'
 import { loadContentComponentEntries } from '../../../../integrations/vue/content-components'
 import { resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } from '../../../markdown/plugins'
+import { localComponentLoaders, localComponents } from '../../../utils/content-components'
 import { isMarkdownRoot } from '../../../../core/markdown/tree'
 
 defineOptions({
@@ -113,7 +115,12 @@ const resolvedComponents = computed(() => {
   }
 
   return {
-    ...Object.fromEntries(loadContentComponentEntries(renderedBody.value as any, runtimeContent.markdown?.tags || {})),
+    ...Object.fromEntries(loadContentComponentEntries(renderedBody.value as any, runtimeContent.markdown?.tags || {}).map(([tag, component]) => {
+      if (typeof component !== 'string') return [tag, component]
+      const componentName = pascalCase(component)
+      const loader = localComponents.includes(componentName) ? localComponentLoaders[componentName] : undefined
+      return [tag, loader ? defineAsyncComponent(loader) : component]
+    })),
     ...resolveMarkdownRendererComponents(runtimeContent.markdown?.plugins || []),
     ...props.components
   }

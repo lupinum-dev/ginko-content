@@ -24,6 +24,7 @@ function createNuxt() {
       experimental: {},
       ignore: [] as string[],
       modules: ['@nuxtjs/i18n', '@nuxtjs/sitemap'],
+      _installedModules: [] as Array<{ meta: { name?: string } }>,
       i18n: {
         defaultLocale: 'en',
         locales: [{ code: 'en', language: 'en-US' }, { code: 'de', language: 'de-DE' }]
@@ -96,7 +97,19 @@ describe('module contracts', () => {
       useLogger: vi.fn(() => ({
         info: vi.fn(),
         warn: sitemapLoggerWarn
-      }))
+      })),
+      hasNuxtModule: (name: string, nuxt: any) => {
+        const configured = nuxt.options.modules.some((entry: any) => {
+          const moduleEntry = Array.isArray(entry) ? entry[0] : entry
+          return moduleEntry === name || (moduleEntry && typeof moduleEntry === 'object' && moduleEntry.name === name)
+        })
+        return configured || nuxt.options._installedModules.some((entry: any) => entry.meta?.name === name)
+      },
+      getLayerDirectories: (nuxt: any) => [{
+        root: nuxt.options.rootDir,
+        app: nuxt.options.srcDir,
+        public: resolve(nuxt.options.srcDir, 'public')
+      }]
     }))
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig: vi.fn(async () => ({
@@ -583,6 +596,17 @@ describe('module contracts', () => {
     const { resolveNuxtSitemapPrerenderRoutes } = await import('../../packages/content/src/module/options')
 
     expect(resolveNuxtSitemapPrerenderRoutes(nuxt as any)).toEqual(['/sitemap.xml'])
+  })
+
+  test('uses Nuxt Kit module detection for configured objects and installed module metadata', async () => {
+    const { hasNuxtI18nModule, hasNuxtSitemapModule } = await import('../../packages/content/src/module/options')
+    const { nuxt } = createNuxt()
+
+    nuxt.options.modules = [{ name: '@nuxtjs/i18n' } as any]
+    nuxt.options._installedModules = [{ meta: { name: '@nuxtjs/sitemap' } }]
+
+    expect(hasNuxtI18nModule(nuxt as any)).toBe(true)
+    expect(hasNuxtSitemapModule(nuxt as any)).toBe(true)
   })
 
   test('normalizes sitemap assertion defaults and exposes them to module internals', async () => {

@@ -3,7 +3,7 @@ import { globby } from 'globby'
 
 interface ValidationAssetOptions {
   rootDir: string
-  layers: Array<{ cwd: string, publicDir: string }>
+  publicDirectories: string[]
   nitroPublicAssets: Array<{ dir: string, baseURL?: string }>
 }
 
@@ -23,8 +23,8 @@ export const collectContentValidationPublicAssets = async (
     }
   }
 
-  for (const layer of options.layers) {
-    await addDirectory(resolve(layer.cwd, layer.publicDir), '/')
+  for (const directory of options.publicDirectories) {
+    await addDirectory(directory, '/')
   }
   for (const asset of options.nitroPublicAssets) {
     const directory = isAbsolute(asset.dir) ? asset.dir : resolve(options.rootDir, asset.dir)
