@@ -1,7 +1,6 @@
 export default defineNuxtConfig({
   modules: [
-    '@lupinum/ginko-content',
-    '@nuxt/ui'
+    '@lupinum/ginko-content'
   ],
   content: {
     componentPolicy: {

@@ -1426,6 +1426,44 @@ package/workspace preparation and docs drift, then stopped only because the
 user-owned ignored `.claude/worktrees/nervous-dubinsky-1ffc48/` copy triggers the
 repository policy scanner; no release code or documentation failure preceded it.
 
+#### RC-16A — Delete unused Nuxt UI dependencies from focused examples
+
+- **Status:** complete
+- **Depends on:** none
+- **Risk:** low
+- **Change type:** dependency and example-build cleanup
+- **Public impact:** none; no example used a Nuxt UI component or composable
+- **Paths:** `examples/essentials/hello-world`, `examples/mdc/components`,
+  `examples/queries/querying`, `pnpm-lock.yaml`
+
+Implementation:
+
+- Remove `@nuxt/ui` from the three focused examples that register it but use no
+  Nuxt UI API.
+- Regenerate the lockfile so the unused UI/editor graph is no longer installed
+  solely for those examples.
+- Do not add a Tiptap override for dependencies that the examples do not need.
+
+Acceptance criteria:
+
+- A repository search finds no Nuxt UI API usage in the affected examples.
+- All focused example production builds pass with only their required modules.
+- A frozen lockfile install accepts the regenerated graph.
+
+Validation:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm examples:build
+```
+
+Execution note (2026-08-11): the aggregate examples build exposed an incompatible
+Tiptap peer graph pulled only by unused `@nuxt/ui` registrations. Repository-wide
+search confirmed the hello-world, MDC-components, and query examples use no Nuxt
+UI component or composable. Removing those three manifest and Nuxt-module entries
+deleted the unnecessary graph; all four example production builds now pass. No
+override, compatibility shim, or behavior change was introduced.
+
 #### RC-17A — Replace the false-shared script library with owned homes
 
 - **Status:** not started
@@ -1775,6 +1813,7 @@ only the decisive verification result, not a full command log.
 | RC-14 | complete | `codex/rc-comark-build-cleanup` | Full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `adb783e4…` passed pure runtimes and both optional-plugin consumers | Deleted all three blanket Comark override categories; user bundling config remains untouched |
 | RC-15 | complete | `codex/rc-parser-lifecycle` | Lifecycle isolation/retry contracts; full core 121 files/1,221 tests; e2e 15/15; 1,500-document configured-parser benchmark improved 406.2 ms to 21.8 ms with byte-identical output | One baseline parser plus configuration-identity-owned `WeakMap`; no mutable current profile or permanent benchmark harness |
 | RC-16 | complete | `codex/rc-public-docs-exports` | Every one of 18 manifest exports occurs once; focused contracts 25/25; API docs check, docs build/smoke, and docs drift 10/10 pass | Deleted regex symbol ledger; published one canonical data-source guide; integrated verify locally contaminated only by ignored `.claude/worktrees/` content |
+| RC-16A | complete | `codex/rc-example-dependency-cleanup` | All four focused example production builds pass; frozen lockfile install accepts the pruned graph | Deleted three unused Nuxt UI registrations and their unnecessary UI/editor dependency graph; no override |
 | RC-17A | not started | — | — | Script ownership |
 | RC-17B | not started | — | — | Test-support ownership |
 | RC-18 | not started | — | — | Fixture sharing cleanup |
