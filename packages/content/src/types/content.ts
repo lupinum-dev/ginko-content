@@ -174,10 +174,29 @@ export interface Toc {
  * Options object passed to a markdown plugin.
  */
 export type MarkdownPluginOptions = Record<string, unknown>
+
+export interface MarkdownHighlightPluginOptions extends MarkdownPluginOptions {
+  registerDefaultLanguages?: boolean
+  registerDefaultThemes?: boolean
+  themes?: { light?: unknown, dark?: unknown }
+  languages?: unknown[]
+  transformers?: unknown[]
+  preStyles?: boolean
+}
+
+export interface MarkdownTocPluginOptions extends MarkdownPluginOptions {
+  title?: string
+  depth?: number
+  searchDepth?: number
+}
+
+export type MarkdownBuiltinPluginDescriptor =
+  | ['highlight', MarkdownHighlightPluginOptions]
+  | ['toc', MarkdownTocPluginOptions]
 /**
  * User-authored plugin declaration in module options.
  */
-export type MarkdownPluginDescriptor = string | [string, MarkdownPluginOptions]
+export type MarkdownPluginDescriptor = string | MarkdownBuiltinPluginDescriptor | [string, MarkdownPluginOptions]
 /**
  * Normalized plugin declaration after resolution.
  */

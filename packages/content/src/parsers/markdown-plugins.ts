@@ -87,6 +87,7 @@ export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) =
   }
 
   const options = plugin.options || {}
+  assertCanonicalHighlightOptionNames(options)
   const normalizedOptions = cloneMarkdownPluginOptionValue(options)
   const themes = (options as Record<string, unknown>).themes
   if (typeof themes !== 'object' || themes === null) {
@@ -105,6 +106,15 @@ export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) =
     ...normalizedOptions,
     registerDefaultThemes: false,
     themes: cloneMarkdownPluginOptionValue(themes)
+  }
+}
+
+export const assertCanonicalHighlightOptionNames = (options: Record<string, unknown>) => {
+  if ('theme' in options) {
+    throw new TypeError('[ginko-content] Markdown plugin "highlight" does not accept "theme". Use "themes: { light, dark }" with Shiki theme registration objects.')
+  }
+  if ('langs' in options) {
+    throw new TypeError('[ginko-content] Markdown plugin "highlight" does not accept "langs". Use "languages" with Shiki language registration objects.')
   }
 }
 

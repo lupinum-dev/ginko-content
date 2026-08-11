@@ -682,7 +682,7 @@ manifest and document schemas are unchanged. Focused portability contracts pass
 
 #### RC-07 — Make Markdown configuration truthful and typed
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-01
 - **Risk:** medium
 - **Change type:** configuration and documentation judgment
@@ -731,6 +731,19 @@ pnpm examples:build
 
 **Cutover/rollback:** one resolver replaces implicit fallback behavior. Do not
 silently translate invalid options or create parallel default lists.
+
+Execution note (2026-08-11): omitted and explicit-empty plugin configuration now
+both resolve to no plugins; the hidden `toc`/`summary` fallback is deleted. Public
+types describe the built-in Highlight and TOC options without closing the custom
+plugin tuple, while setup rejects the known non-options `theme` and `langs` with
+their canonical `themes` and `languages` replacements. Docs, examples, and the
+shared playground use truthful zero-config Highlight or explicit TOC/Summary
+configuration, and docs drift prevents the invalid spellings from returning. The
+MDC example also uses Comark's canonical kebab-case named-slot key and no longer
+misregisters structural `template` nodes as a component. Focused unit and module
+contracts pass 60/60, typecheck and docs drift pass, docs build/package and smoke
+pass with 173 prerendered routes, all four examples build, and the full suite
+passes 119 files/1,204 tests.
 
 #### RC-08 — Use supported Nuxt Kit module and layer APIs
 

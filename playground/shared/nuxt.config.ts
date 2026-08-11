@@ -25,10 +25,7 @@ export default defineNuxtConfig({
     },
     markdown: {
       plugins: [
-        ['highlight', {
-          theme: 'material-theme-palenight',
-          langs: ['json', 'js', 'ts', 'html', 'css', 'vue', 'shell', 'mdc', 'md', 'yaml']
-        }],
+        'highlight',
         ['toc', { depth: 2, searchDepth: 2 }],
         'summary'
       ]

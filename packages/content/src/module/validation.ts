@@ -1,4 +1,5 @@
 import type { ResolvedMarkdownPlugin } from '../types/content'
+import { assertCanonicalHighlightOptionNames } from '../parsers/markdown-plugins'
 import type { ContentCollectionConfig } from '../types/config'
 import { normalizeContentConfigCollectionNames } from '../types/config'
 import type { ContentContext, ModuleOptions } from '../types/module'
@@ -50,6 +51,7 @@ export async function validateBuiltinMarkdownPlugins(
   resolvePath: (path: string) => Promise<string>
 ) {
   for (const plugin of plugins) {
+    if (plugin.name === 'highlight') assertCanonicalHighlightOptionNames(plugin.options)
     const peerDependency = BUILTIN_PLUGIN_PEER_DEPS[plugin.name]
     if (!peerDependency) {
       continue

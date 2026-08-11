@@ -13,7 +13,7 @@ Use a :github-button in the middle of a paragraph.
 ::app-slot
 Rendered in the default slot.
 
-#namedSlot
+#named-slot
 Rendered in the named slot.
 ::
 

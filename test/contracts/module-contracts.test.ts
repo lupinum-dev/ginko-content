@@ -143,6 +143,25 @@ describe('module contracts', () => {
     }))
   })
 
+  test.each([
+    [{ theme: 'github-dark' }, 'themes: { light, dark }'],
+    [{ langs: ['ts'] }, 'languages'],
+  ])('rejects invalid highlight options during module setup', async (pluginOptions, replacement) => {
+    const { nuxt, hooks } = createNuxt()
+    const mod = await import('../../packages/content/src/module')
+    await mod.default.setup(createOptions({
+      markdown: {
+        // The module-contract harness mocks processMarkdownOptions as identity,
+        // so provide the resolved shape that production normalization supplies.
+        plugins: [{ name: 'highlight', options: pluginOptions }],
+        tags: {},
+        anchorLinks: { depth: 4, exclude: [1] },
+      },
+    }), nuxt as any)
+
+    await expect(hooks.get('modules:done')?.()).rejects.toThrow(replacement)
+  })
+
   test.each(['collections', 'provider', 'providers'])('rejects nuxt.config content.%s as a second source of truth', async (key) => {
     const { validateContentConfigOnlyOptions } = await import('../../packages/content/src/module/validation')
     expect(() => validateContentConfigOnlyOptions({
