@@ -884,7 +884,7 @@ tests.
 
 #### RC-10 — Give `ContentRendererInline` one honest safe contract
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-05, RC-07
 - **Risk:** medium
 - **Change type:** public component behavior
@@ -919,12 +919,26 @@ Validation:
 
 ```bash
 pnpm exec vitest run --config vitest.config.ts --project nuxt test/contracts/render-components-contracts.test.ts test/contracts/mdc-alert-contracts.test.ts
-pnpm exec vitest run --config vitest.config.ts --project contracts-node test/contracts/runtime-config-contracts.test.ts
+pnpm exec vitest run --config vitest.config.ts --project nuxt test/contracts/runtime-config-contracts.test.ts
 pnpm test:e2e:browser
 ```
 
 **Cutover/rollback:** remove the misleading configured-inline path; do not preserve
 it behind a flag or add a public `renderPolicy` escape hatch.
+
+Execution note (2026-08-11): `ContentRendererInline` now parses only Comark's
+fixed baseline, runs the canonical normalization once, converts once, unwraps,
+and relies on `MarkdownRenderer`'s fixed empty component policy. It no longer
+reads public runtime plugin/tag config, loads build-time parser plugins, installs
+plugin renderer components, or includes unrelated config in its payload key and
+watchers. The `components` prop remains a renderer override for already-safe tags
+only. A monotonically increasing refresh id makes rapid reactive updates
+latest-write-wins. Focused baseline/alert/runtime-config contracts pass 38/38; a
+real generate proves normalized alert SSR with comments removed, and production
+Chrome proves hydration without errors plus a rapid two-value update committing
+only the final task list. Source typecheck and changed-file ESLint pass, and the
+docs drift/build/smoke pass with 173 prerendered routes. The full core suite
+passes 119 files/1,209 tests.
 
 #### RC-11 — Generate bundle-safe optional and custom plugin imports
 
@@ -1601,7 +1615,7 @@ only the decisive verification result, not a full command log.
 | RC-07 | complete | `codex/rc-markdown-config` | Focused contracts 60/60; docs build/smoke/drift; four examples; full suite 119 files/1,204 tests | Explicit plugin list; invalid Shiki keys fail setup |
 | RC-08 | complete | `codex/rc-nuxt-kit` | Real layered generate and payload assertion; focused contracts 56/56; full suite 119 files/1,205 tests | Supported Kit APIs; application component wins in SSR |
 | RC-09 | complete | `codex/rc-search-options` | Consumer parity 41/41; docs build/smoke/drift; full suite 119 files/1,208 tests | One feature-owned normalizer; required result fields cannot be removed |
-| RC-10 | not started | — | — | Inline profile |
+| RC-10 | complete | `codex/rc-inline-contract` | Baseline contracts 38/38; real generate/browser; docs build/smoke/drift; full suite 119 files/1,209 tests | Fixed safe profile; render overrides cannot authorize syntax |
 | RC-11 | not started | — | — | Optional/custom plugin bundling |
 | RC-12 | not started | — | — | Public runtime config |
 | RC-13 | not started | — | — | Comark `0.6.x` |

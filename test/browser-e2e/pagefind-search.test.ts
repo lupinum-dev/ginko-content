@@ -55,6 +55,12 @@ describe('Pagefind browser lifecycle', () => {
       await page.waitForFunction(() => document.querySelector('#results')?.textContent?.includes('Searchable Guide'))
       await expect(page.locator('#pending').textContent()).resolves.toBe('false')
       expect(await page.locator('#results').textContent()).toContain('/guide/getting-started')
+      await expect(page.locator('#inline-baseline').getAttribute('data-alert')).resolves.toBe(null)
+      expect(await page.locator('#inline-baseline').innerHTML()).toContain('data-alert="note"')
+      await page.locator('#update-inline').click()
+      await page.waitForFunction(() => document.querySelector('#inline-baseline')?.textContent?.includes('Updated inline value'))
+      expect(await page.locator('#inline-baseline').textContent()).not.toContain('Stale intermediate value')
+      await expect(page.locator('#inline-baseline input[type="checkbox"]').getAttribute('checked')).resolves.not.toBeNull()
       expect(requests.filter(url => url.endsWith('/pagefind/ginko-locales.json'))).toHaveLength(1)
       expect(failures).toEqual([])
     } finally {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { createSSRApp, h } from 'vue'
+import { createApp, createSSRApp, h, ref } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -16,7 +16,8 @@ const runtimeConfig = vi.hoisted(() => ({
 }))
 
 vi.mock('#imports', () => ({
-  useRuntimeConfig: () => runtimeConfig
+  useRuntimeConfig: () => runtimeConfig,
+  useState: <T>(_key: string, init: () => T) => ({ value: init() })
 }))
 
 vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () => ({
@@ -41,6 +42,38 @@ vi.mock('../../packages/content/src/runtime/utils/content-components', () => ({
 }))
 
 describe('render component contracts', () => {
+  test('ContentRendererInline renders the fixed normalized safe baseline', async () => {
+    const ContentRendererInline = (await import('../../packages/content/src/runtime/app/components/ContentRendererInline.vue')).default
+    const StrongOverride = {
+      render: () => h('mark', { 'data-inline-override': 'true' }, 'important')
+    }
+    const source = ref('<!-- hidden -->\n\n> [!NOTE]\n> **important**\n\n- [x] Done')
+    const host = document.createElement('div')
+    const app = createApp({
+      render: () => h(ContentRendererInline, {
+        tag: 'div',
+        value: source.value,
+        components: { strong: StrongOverride }
+      })
+    })
+    app.mount(host)
+
+    await vi.waitFor(() => expect(host.innerHTML).toContain('data-alert="note"'))
+    const html = host.innerHTML
+
+    expect(html).toContain('data-alert="note"')
+    expect(html).toContain('data-inline-override="true"')
+    expect(html).toContain('type="checkbox"')
+    expect(html).toContain('disabled')
+    expect(html).toContain('checked')
+    expect(html).not.toContain('hidden')
+
+    source.value = '- [ ] Updated'
+    await vi.waitFor(() => expect(host.textContent).toContain('Updated'))
+    expect(host.textContent).not.toContain('important')
+    app.unmount()
+  })
+
   test.each([
     ['string', 'prose featured'],
     ['array', ['prose', { featured: true, hidden: false }]],

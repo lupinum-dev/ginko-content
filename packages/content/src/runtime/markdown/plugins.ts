@@ -1,6 +1,5 @@
 import { defineAsyncComponent } from 'vue'
 import type { ResolvedMarkdownPlugin } from '../../types/content'
-export { resolveMarkdownPlugins } from '../../parsers/markdown-plugins'
 
 type BuiltinMarkdownPluginSpec = {
   componentName?: string
