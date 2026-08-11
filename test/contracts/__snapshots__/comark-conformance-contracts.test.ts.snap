@@ -93,6 +93,128 @@ inline HTML
 .",
     "status": "accepted",
   },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Parser baseline",
+            },
+          ],
+          "props": {
+            "id": "parser-baseline",
+          },
+          "tag": "h1",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Overview",
+            },
+          ],
+          "props": {
+            "id": "custom-overview",
+          },
+          "tag": "h2",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "This is ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "renderable",
+                },
+              ],
+              "props": {},
+              "tag": "strong",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": " with an ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "internal link",
+                },
+              ],
+              "props": {
+                "href": "/guide",
+              },
+              "tag": "a",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": " and ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "inline HTML",
+                },
+              ],
+              "props": {
+                "$": {
+                  "block": 0,
+                  "html": 1,
+                },
+              },
+              "tag": "mark",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": ".",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "toc": {
+        "depth": 2,
+        "links": [
+          {
+            "depth": 2,
+            "id": "custom-overview",
+            "text": "Overview",
+          },
+        ],
+        "searchDepth": 3,
+        "title": "",
+      },
+      "type": "root",
+    },
+    "searchText": "Parser baseline Overview This is renderable with an internal link and inline HTML .",
+    "status": "accepted",
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "custom-overview",
+          "text": "Overview",
+        },
+      ],
+      "searchDepth": 3,
+      "title": "",
+    },
+  },
   "normalizedNodes": [
     [
       "h1",
@@ -215,10 +337,53 @@ exports[`Comark conformance corpus > 'comments-summary' freezes the Ginko pipeli
 
 Visible before the delimiter.
 
-moreVisible after the delimiter.
-
-private editorial note",
+Visible after the delimiter.",
     "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Summary boundary",
+            },
+          ],
+          "props": {
+            "id": "summary-boundary",
+          },
+          "tag": "h1",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Visible before the delimiter.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Visible after the delimiter.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Summary boundary Visible before the delimiter. Visible after the delimiter.",
+    "status": "accepted",
+    "toc": undefined,
   },
   "normalizedNodes": [
     [
@@ -234,70 +399,39 @@ private editorial note",
       "Visible before the delimiter.",
     ],
     [
-      null,
-      {},
-      " more ",
-    ],
-    [
       "p",
       {},
       "Visible after the delimiter.",
     ],
-    [
-      null,
-      {},
-      " private editorial note ",
-    ],
   ],
   "portable": {
-    "error": {
-      "issues": undefined,
-      "message": "MDC syntax is unsupported.",
-      "name": "GinkoBoundaryError",
-    },
-    "status": "rejected",
+    "nodes": [
+      [
+        "h1",
+        {
+          "id": "summary-boundary",
+        },
+        "Summary boundary",
+      ],
+      [
+        "p",
+        {},
+        "Visible before the delimiter.",
+      ],
+      [
+        "p",
+        {},
+        "Visible after the delimiter.",
+      ],
+    ],
+    "status": "accepted",
   },
   "public": {
-    "issues": [
-      {
-        "code": "invalid_node",
-        "path": [
-          "children",
-          2,
-        ],
-      },
-      {
-        "code": "invalid_node",
-        "path": [
-          "children",
-          4,
-        ],
-      },
-    ],
-    "status": "rejected",
+    "status": "accepted",
   },
   "ssr": {
-    "error": {
-      "issues": [
-        {
-          "code": "invalid_node",
-          "path": [
-            "children",
-            2,
-          ],
-        },
-        {
-          "code": "invalid_node",
-          "path": [
-            "children",
-            4,
-          ],
-        },
-      ],
-      "message": "Public Markdown AST is not render-safe.",
-      "name": "PublicMarkdownValidationError",
-    },
-    "status": "rejected",
+    "html": "<div class=""><h1 id="summary-boundary">Summary boundary</h1><p>Visible before the delimiter.</p><p>Visible after the delimiter.</p></div>",
+    "status": "accepted",
   },
 }
 `;
@@ -373,6 +507,70 @@ Run the production build.
 </callout>",
     "status": "accepted",
   },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Run the production build.",
+                },
+              ],
+              "props": {
+                "name": "default",
+              },
+              "tag": "template",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "Open the deployment guide",
+                    },
+                  ],
+                  "props": {
+                    "href": "/deployment",
+                  },
+                  "tag": "a",
+                  "type": "element",
+                },
+              ],
+              "props": {
+                "name": "actions",
+              },
+              "tag": "template",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "count": 2,
+            "featured": true,
+            "options": {
+              "regions": [
+                "eu",
+                "us",
+              ],
+              "retries": 3,
+            },
+            "title": "Before deployment",
+            "tone": "warning",
+          },
+          "tag": "callout",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Run the production build. Open the deployment guide",
+    "status": "accepted",
+    "toc": undefined,
+  },
   "normalizedNodes": [
     [
       "callout",
@@ -412,110 +610,52 @@ Run the production build.
     ],
   ],
   "portable": {
-    "error": {
-      "issues": undefined,
-      "message": "MDC syntax is unsupported.",
-      "name": "GinkoBoundaryError",
-    },
-    "status": "rejected",
+    "nodes": [
+      [
+        "callout",
+        {
+          "count": 2,
+          "featured": true,
+          "options": {
+            "regions": [
+              "eu",
+              "us",
+            ],
+            "retries": 3,
+          },
+          "title": "Before deployment",
+          "tone": "warning",
+        },
+        [
+          "template",
+          {
+            "name": "default",
+          },
+          "Run the production build.",
+        ],
+        [
+          "template",
+          {
+            "name": "actions",
+          },
+          [
+            "a",
+            {
+              "href": "/deployment",
+            },
+            "Open the deployment guide",
+          ],
+        ],
+      ],
+    ],
+    "status": "accepted",
   },
   "public": {
-    "issues": [
-      {
-        "code": "unknown_component",
-        "path": [
-          "children",
-          0,
-          "children",
-          0,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          0,
-          "children",
-          0,
-          "props",
-          "name",
-        ],
-      },
-      {
-        "code": "unknown_component",
-        "path": [
-          "children",
-          0,
-          "children",
-          1,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          0,
-          "children",
-          1,
-          "props",
-          "name",
-        ],
-      },
-    ],
-    "status": "rejected",
+    "status": "accepted",
   },
   "ssr": {
-    "error": {
-      "issues": [
-        {
-          "code": "unknown_component",
-          "path": [
-            "children",
-            0,
-            "children",
-            0,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            0,
-            "children",
-            0,
-            "props",
-            "name",
-          ],
-        },
-        {
-          "code": "unknown_component",
-          "path": [
-            "children",
-            0,
-            "children",
-            1,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            0,
-            "children",
-            1,
-            "props",
-            "name",
-          ],
-        },
-      ],
-      "message": "Public Markdown AST is not render-safe.",
-      "name": "PublicMarkdownValidationError",
-    },
-    "status": "rejected",
+    "html": "<div class=""><aside data-callout="true" title="Before deployment" tone="warning" count="2" featured="true"><div data-slot="default">Run the production build.</div><footer data-slot="actions"><a href="/deployment">Open the deployment guide</a></footer></aside></div>",
+    "status": "accepted",
   },
 }
 `;
@@ -699,10 +839,8 @@ exports[`Comark conformance corpus > 'gfm' freezes the Ginko pipeline contract >
     "markdown": "> [!NOTE]
 > Keep the generated output reviewable.
 
-- <input type="checkbox" disabled="true" checked="true" />
-   Parsed
-- <input type="checkbox" disabled="true" />
-   Published
+- [x] Parsed
+- [ ] Published
 
 | Left | Center | Right |
 | --- | --- | --- |
@@ -720,6 +858,242 @@ A statement with a footnote.<sup>
 1. The contract is explicit. [↩](#fnref-contract)
 </section>",
     "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Keep the generated output reviewable.",
+            },
+          ],
+          "props": {
+            "data-alert": "note",
+          },
+          "tag": "blockquote",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "props": {
+                    "checked": true,
+                    "class": "task-list-item-checkbox",
+                    "disabled": true,
+                    "type": "checkbox",
+                  },
+                  "tag": "input",
+                  "type": "element",
+                },
+                {
+                  "type": "text",
+                  "value": " Parsed",
+                },
+              ],
+              "props": {
+                "class": "task-list-item",
+              },
+              "tag": "li",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [],
+                  "props": {
+                    "class": "task-list-item-checkbox",
+                    "disabled": true,
+                    "type": "checkbox",
+                  },
+                  "tag": "input",
+                  "type": "element",
+                },
+                {
+                  "type": "text",
+                  "value": " Published",
+                },
+              ],
+              "props": {
+                "class": "task-list-item",
+              },
+              "tag": "li",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "class": "contains-task-list",
+          },
+          "tag": "ul",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Left",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:left",
+                      },
+                      "tag": "th",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Center",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:center",
+                      },
+                      "tag": "th",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Right",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:right",
+                      },
+                      "tag": "th",
+                      "type": "element",
+                    },
+                  ],
+                  "props": {},
+                  "tag": "tr",
+                  "type": "element",
+                },
+              ],
+              "props": {},
+              "tag": "thead",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "one",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:left",
+                      },
+                      "tag": "td",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "two",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:center",
+                      },
+                      "tag": "td",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "three",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:right",
+                      },
+                      "tag": "td",
+                      "type": "element",
+                    },
+                  ],
+                  "props": {},
+                  "tag": "tr",
+                  "type": "element",
+                },
+              ],
+              "props": {},
+              "tag": "tbody",
+              "type": "element",
+            },
+          ],
+          "props": {},
+          "tag": "table",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "A statement with a footnote.",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "^contract",
+                },
+              ],
+              "props": {},
+              "tag": "span",
+              "type": "element",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "^contract",
+                },
+              ],
+              "props": {},
+              "tag": "span",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": ": The contract is explicit.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Keep the generated output reviewable. Parsed Published Left Center Right one two three A statement with a footnote. ^contract ^contract : The contract is explicit.",
+    "status": "accepted",
+    "toc": undefined,
   },
   "normalizedNodes": [
     [
@@ -742,9 +1116,9 @@ A statement with a footnote.<sup>
         [
           "input",
           {
-            ":checked": "true",
-            ":disabled": "true",
+            "checked": true,
             "class": "task-list-item-checkbox",
+            "disabled": true,
             "type": "checkbox",
           },
         ],
@@ -758,8 +1132,8 @@ A statement with a footnote.<sup>
         [
           "input",
           {
-            ":disabled": "true",
             "class": "task-list-item-checkbox",
+            "disabled": true,
             "type": "checkbox",
           },
         ],
@@ -888,384 +1262,145 @@ A statement with a footnote.<sup>
     ],
   ],
   "portable": {
-    "error": {
-      "issues": undefined,
-      "message": "MDC syntax is unsupported.",
-      "name": "GinkoBoundaryError",
-    },
-    "status": "rejected",
+    "nodes": [
+      [
+        "blockquote",
+        {
+          "data-alert": "note",
+        },
+        "Keep the generated output reviewable.",
+      ],
+      [
+        "ul",
+        {
+          "class": "contains-task-list",
+        },
+        [
+          "li",
+          {
+            "class": "task-list-item",
+          },
+          [
+            "input",
+            {
+              "checked": true,
+              "class": "task-list-item-checkbox",
+              "disabled": true,
+              "type": "checkbox",
+            },
+          ],
+          " Parsed",
+        ],
+        [
+          "li",
+          {
+            "class": "task-list-item",
+          },
+          [
+            "input",
+            {
+              "class": "task-list-item-checkbox",
+              "disabled": true,
+              "type": "checkbox",
+            },
+          ],
+          " Published",
+        ],
+      ],
+      [
+        "table",
+        {},
+        [
+          "thead",
+          {},
+          [
+            "tr",
+            {},
+            [
+              "th",
+              {
+                "style": "text-align:left",
+              },
+              "Left",
+            ],
+            [
+              "th",
+              {
+                "style": "text-align:center",
+              },
+              "Center",
+            ],
+            [
+              "th",
+              {
+                "style": "text-align:right",
+              },
+              "Right",
+            ],
+          ],
+        ],
+        [
+          "tbody",
+          {},
+          [
+            "tr",
+            {},
+            [
+              "td",
+              {
+                "style": "text-align:left",
+              },
+              "one",
+            ],
+            [
+              "td",
+              {
+                "style": "text-align:center",
+              },
+              "two",
+            ],
+            [
+              "td",
+              {
+                "style": "text-align:right",
+              },
+              "three",
+            ],
+          ],
+        ],
+      ],
+      [
+        "p",
+        {},
+        "A statement with a footnote.",
+        [
+          "span",
+          {},
+          "^contract",
+        ],
+      ],
+      [
+        "p",
+        {},
+        [
+          "span",
+          {},
+          "^contract",
+        ],
+        ": The contract is explicit.",
+      ],
+    ],
+    "status": "accepted",
   },
   "public": {
-    "issues": [
-      {
-        "code": "unsafe_tag",
-        "path": [
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          0,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          0,
-          "props",
-          "type",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          0,
-          "props",
-          ":disabled",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          0,
-          "props",
-          ":checked",
-        ],
-      },
-      {
-        "code": "unsafe_tag",
-        "path": [
-          "children",
-          1,
-          "children",
-          1,
-          "children",
-          0,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          1,
-          "children",
-          1,
-          "children",
-          0,
-          "props",
-          "type",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          1,
-          "children",
-          1,
-          "children",
-          0,
-          "props",
-          ":disabled",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          2,
-          "children",
-          0,
-          "children",
-          0,
-          "children",
-          0,
-          "props",
-          "style",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          2,
-          "children",
-          0,
-          "children",
-          0,
-          "children",
-          1,
-          "props",
-          "style",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          2,
-          "children",
-          0,
-          "children",
-          0,
-          "children",
-          2,
-          "props",
-          "style",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          2,
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          0,
-          "props",
-          "style",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          2,
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          1,
-          "props",
-          "style",
-        ],
-      },
-      {
-        "code": "unsafe_prop",
-        "path": [
-          "children",
-          2,
-          "children",
-          1,
-          "children",
-          0,
-          "children",
-          2,
-          "props",
-          "style",
-        ],
-      },
-    ],
-    "status": "rejected",
+    "status": "accepted",
   },
   "ssr": {
-    "error": {
-      "issues": [
-        {
-          "code": "unsafe_tag",
-          "path": [
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            0,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            0,
-            "props",
-            "type",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            0,
-            "props",
-            ":disabled",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            0,
-            "props",
-            ":checked",
-          ],
-        },
-        {
-          "code": "unsafe_tag",
-          "path": [
-            "children",
-            1,
-            "children",
-            1,
-            "children",
-            0,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            1,
-            "children",
-            1,
-            "children",
-            0,
-            "props",
-            "type",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            1,
-            "children",
-            1,
-            "children",
-            0,
-            "props",
-            ":disabled",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            2,
-            "children",
-            0,
-            "children",
-            0,
-            "children",
-            0,
-            "props",
-            "style",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            2,
-            "children",
-            0,
-            "children",
-            0,
-            "children",
-            1,
-            "props",
-            "style",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            2,
-            "children",
-            0,
-            "children",
-            0,
-            "children",
-            2,
-            "props",
-            "style",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            2,
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            0,
-            "props",
-            "style",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            2,
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            1,
-            "props",
-            "style",
-          ],
-        },
-        {
-          "code": "unsafe_prop",
-          "path": [
-            "children",
-            2,
-            "children",
-            1,
-            "children",
-            0,
-            "children",
-            2,
-            "props",
-            "style",
-          ],
-        },
-      ],
-      "message": "Public Markdown AST is not render-safe.",
-      "name": "PublicMarkdownValidationError",
+    "html": {
+      "length": 977,
+      "sha256": "21bab3105268d2bb48e7b532e13b63e856dfe94c409ff3b97c943c23b897d1da",
     },
-    "status": "rejected",
+    "status": "accepted",
   },
 }
 `;
@@ -1430,6 +1565,45 @@ const skipped = false
 export { state }
 \`\`\`",
     "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "const state = 'ready'
+const skipped = false
+export { state }",
+                },
+              ],
+              "props": {
+                "class": "language-ts",
+              },
+              "tag": "code",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "filename": "parser.ts",
+            "highlights": [
+              1,
+              3,
+            ],
+            "language": "ts",
+          },
+          "tag": "pre",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "const state = 'ready' const skipped = false export { state }",
+    "status": "accepted",
+    "toc": undefined,
   },
   "normalizedNodes": [
     [
@@ -1601,36 +1775,14 @@ export { state }",
     "status": "accepted",
   },
   "public": {
-    "issues": [
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          0,
-          "props",
-          "highlights",
-        ],
-      },
-    ],
-    "status": "rejected",
+    "status": "accepted",
   },
   "ssr": {
-    "error": {
-      "issues": [
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            0,
-            "props",
-            "highlights",
-          ],
-        },
-      ],
-      "message": "Public Markdown AST is not render-safe.",
-      "name": "PublicMarkdownValidationError",
+    "html": {
+      "length": 1314,
+      "sha256": "6f64fd81cb601bf552a2ac6b28ce87847b157de3db0ca3fc6a1ae9b889cfd354",
     },
-    "status": "rejected",
+    "status": "accepted",
   },
 }
 `;
@@ -1668,6 +1820,59 @@ exports[`Comark conformance corpus > 'inline' freezes the Ginko pipeline contrac
   "agent": {
     "markdown": "Inline **safe** content with an [internal link](/raw/inline.md).",
     "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Inline ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "safe",
+                },
+              ],
+              "props": {},
+              "tag": "strong",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": " content with an ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "internal link",
+                },
+              ],
+              "props": {
+                "href": "/inline",
+              },
+              "tag": "a",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": ".",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Inline safe content with an internal link .",
+    "status": "accepted",
+    "toc": undefined,
   },
   "normalizedNodes": [
     [
@@ -1741,6 +1946,18 @@ exports[`Comark conformance corpus > 'malformed' freezes the Ginko pipeline cont
   "agent": {
     "status": "not-reached",
   },
+  "cms": {
+    "error": {
+      "issues": undefined,
+      "message": "unexpected end of the stream within a flow collection (2:1)
+
+ 1 | count: [unterminated
+ 2 |
+-----^",
+      "name": "YAMLException",
+    },
+    "status": "rejected",
+  },
   "normalizedNodes": undefined,
   "portable": {
     "error": {
@@ -1803,6 +2020,40 @@ x^2 + y^2
 E = mc^2
 </math>",
     "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Inline math $x^2 + y^2$.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "$$
+E = mc^2
+$$",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Inline math $x^2 + y^2$. $$ E = mc^2 $$",
+    "status": "accepted",
+    "toc": undefined,
   },
   "normalizedNodes": [
     [
@@ -1964,6 +2215,40 @@ exports[`Comark conformance corpus > 'mermaid' freezes the Ginko pipeline contra
   B --&gt; C[Validate]
 " />",
     "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]",
+                },
+              ],
+              "props": {
+                "class": "language-mermaid",
+              },
+              "tag": "code",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "language": "mermaid",
+          },
+          "tag": "pre",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "graph TD A[Parse] --> B[Normalize] B --> C[Validate]",
+    "status": "accepted",
+    "toc": undefined,
   },
   "normalizedNodes": [
     [

@@ -8,7 +8,7 @@ import type { MarkdownOptions, ResolvedMarkdownPlugin } from './types/content'
  * Internal version that represents cache format.
  * This is used to invalidate cache when the format changes.
  */
-export const CACHE_VERSION = 3
+export const CACHE_VERSION = 4
 
 export const MOUNT_PREFIX = 'content:source:'
 

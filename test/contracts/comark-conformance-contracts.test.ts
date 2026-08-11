@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { createSSRApp, h } from 'vue'
+import { createSSRApp, defineComponent, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test } from 'vitest'
 import { validatePublicMarkdownAst } from '../../packages/content/src/cms-contract/render-policy'
+import { parseMdcBody } from '../../packages/content/src/cms-contract/mdc'
 import type { PortableComponentPolicyV1 } from '../../packages/content/src/cms-contract/types'
 import { createAgentMarkdownRegistry } from '../../packages/content/src/features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../packages/content/src/features/agent/walker'
@@ -27,6 +28,7 @@ interface CorpusCase {
   plugins: ResolvedMarkdownPlugin[]
   expected: {
     raw: StageStatus
+    cms: StageStatus
     public: StageStatus
     portable: StageStatus
     ssr: StageStatus
@@ -51,6 +53,14 @@ const componentPolicy: PortableComponentPolicyV1 = {
   }
 }
 
+const CalloutFixture = defineComponent({
+  name: 'CalloutFixture',
+  setup: (_, { slots }) => () => h('aside', { 'data-callout': 'true' }, [
+    h('div', { 'data-slot': 'default' }, slots.default?.()),
+    h('footer', { 'data-slot': 'actions' }, slots.actions?.()),
+  ]),
+})
+
 const plugin = (name: string, options: Record<string, unknown> = {}): ResolvedMarkdownPlugin => ({
   name,
   options
@@ -63,39 +73,39 @@ const corpus: CorpusCase[] = [
     profile: 'filesystem-configured',
     support: 'known-gap',
     plugins: [plugin('toc')],
-    expected: { raw: 'accepted', public: 'accepted', portable: 'rejected', ssr: 'accepted', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'rejected', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'comments-summary',
     fixture: 'comments-summary.md',
     profile: 'filesystem-configured',
-    support: 'known-gap',
+    support: 'supported',
     plugins: [plugin('summary')],
-    expected: { raw: 'accepted', public: 'rejected', portable: 'rejected', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'components',
     fixture: 'components.md',
     profile: 'portable-baseline',
-    support: 'known-gap',
+    support: 'supported',
     plugins: [],
-    expected: { raw: 'accepted', public: 'rejected', portable: 'rejected', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'gfm',
     fixture: 'gfm.md',
     profile: 'portable-baseline',
-    support: 'known-gap',
+    support: 'supported',
     plugins: [plugin('footnotes')],
-    expected: { raw: 'accepted', public: 'rejected', portable: 'rejected', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'highlight',
     fixture: 'highlight.md',
     profile: 'filesystem-configured',
-    support: 'known-gap',
+    support: 'supported',
     plugins: [plugin('highlight')],
-    expected: { raw: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'inline',
@@ -103,7 +113,7 @@ const corpus: CorpusCase[] = [
     profile: 'inline-client-safe',
     support: 'supported',
     plugins: [],
-    expected: { raw: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'math',
@@ -111,7 +121,7 @@ const corpus: CorpusCase[] = [
     profile: 'filesystem-configured',
     support: 'known-gap',
     plugins: [plugin('math')],
-    expected: { raw: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
   },
   {
     id: 'mermaid',
@@ -119,7 +129,7 @@ const corpus: CorpusCase[] = [
     profile: 'filesystem-configured',
     support: 'known-gap',
     plugins: [plugin('mermaid')],
-    expected: { raw: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
   },
   {
     id: 'malformed',
@@ -127,7 +137,7 @@ const corpus: CorpusCase[] = [
     profile: 'portable-baseline',
     support: 'malformed',
     plugins: [],
-    expected: { raw: 'rejected', public: 'not-reached', portable: 'rejected', ssr: 'not-reached', agent: 'not-reached' }
+    expected: { raw: 'rejected', cms: 'rejected', public: 'not-reached', portable: 'rejected', ssr: 'not-reached', agent: 'not-reached' }
   }
 ]
 
@@ -169,7 +179,7 @@ describe('Comark conformance corpus', () => {
   test.each(corpus)('$id names its profile and current support contract', (entry) => {
     expect(entry.profile).toMatch(/^(?:filesystem-configured|portable-baseline|inline-client-safe)$/)
     expect(entry.support).toMatch(/^(?:supported|known-gap|malformed)$/)
-    expect(Object.keys(entry.expected)).toEqual(['raw', 'public', 'portable', 'ssr', 'agent'])
+    expect(Object.keys(entry.expected)).toEqual(['raw', 'cms', 'public', 'portable', 'ssr', 'agent'])
   })
 
   test.each(corpus)('$id freezes raw Comark 0.4 output separately', async (entry) => {
@@ -219,6 +229,22 @@ describe('Comark conformance corpus', () => {
           }
       : { status: 'not-reached' as const }
 
+    let cmsContract: { status: StageStatus; body?: unknown; toc?: unknown; searchText?: string; error?: unknown }
+    try {
+      const cms = await parseMdcBody(source)
+      const validation = validatePublicMarkdownAst(cms.body, componentPolicy)
+      if (!validation.ok) throw Object.assign(new Error('CMS baseline AST failed the public render policy.'), { issues: validation.issues })
+      cmsContract = {
+        status: 'accepted',
+        body: snapshotValue(cms.body),
+        toc: snapshotValue(cms.toc),
+        searchText: cms.searchText,
+      }
+    }
+    catch (error) {
+      cmsContract = { status: 'rejected', error: errorContract(error) }
+    }
+
     let portableContract: { status: StageStatus; nodes?: unknown; error?: unknown }
     try {
       const portable = await parsePortableMdc(source, componentPolicy)
@@ -239,7 +265,8 @@ describe('Comark conformance corpus', () => {
           render: () => h(MarkdownRenderer, {
             tree: body,
             prose: false,
-            renderPolicy: componentPolicy
+            renderPolicy: componentPolicy,
+            components: { callout: CalloutFixture },
           })
         }))
         ssrContract = { status: 'accepted', html: snapshotValue(html) }
@@ -267,6 +294,7 @@ describe('Comark conformance corpus', () => {
 
     const actual = {
       raw: rawStatus,
+      cms: statusOf(cmsContract),
       public: statusOf(publicContract),
       portable: statusOf(portableContract),
       ssr: statusOf(ssrContract),
@@ -275,6 +303,7 @@ describe('Comark conformance corpus', () => {
     expect(actual).toEqual(entry.expected)
     expect(snapshotValue({
       normalizedNodes,
+      cms: cmsContract,
       public: publicContract,
       portable: portableContract,
       ssr: ssrContract,

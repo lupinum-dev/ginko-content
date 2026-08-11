@@ -180,6 +180,26 @@ describe('portable content contract', () => {
     await expect(classifyPortableMdc('<script>alert(1)</script>', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected', issues: [{ code: 'MDC_UNSUPPORTED' }] })
   })
 
+  it('accepts normalized Comark structures but rejects authored active equivalents', async () => {
+    const policy = contract.collections.docs.componentPolicy
+    await expect(classifyPortableMdc('- [x] Complete', policy)).resolves.toMatchObject({
+      classification: 'portable',
+      ast: {
+        nodes: [[
+          'ul',
+          { class: 'contains-task-list' },
+          ['li', { class: 'task-list-item' }, [
+            'input',
+            { checked: true, class: 'task-list-item-checkbox', disabled: true, type: 'checkbox' },
+          ], ' Complete'],
+        ]],
+      },
+    })
+    await expect(classifyPortableMdc('<input type="checkbox">', policy)).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc('| A |\n| :-: |\n| B |', policy)).resolves.toMatchObject({ classification: 'portable' })
+    await expect(classifyPortableMdc('::callout{tone="info"}\n#actions\n[Open](/docs)\n::', policy)).resolves.toMatchObject({ classification: 'rejected' })
+  })
+
   it('collects and rewrites only structural Markdown and MDC asset sources', async () => {
     const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
     const local = `/ginko-assets/${sha256}.png`

@@ -75,6 +75,14 @@ const applyRuntimeConfig = async (
 }
 
 describe('runtime config contracts', () => {
+  test('publishes cache format version 4 after canonical Markdown normalization changed', async () => {
+    const nuxt = createNuxt()
+
+    await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
+
+    expect((nuxt.options.runtimeConfig.content as { cacheVersion?: number }).cacheVersion).toBe(4)
+  })
+
   test('keeps search disabled until an application opts in', () => {
     expect(contentModuleDefaults.search).toBe(false)
   })

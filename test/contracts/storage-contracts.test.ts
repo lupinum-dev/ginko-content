@@ -5,6 +5,7 @@ import { createEvent, doc } from './_utils'
 import type { ResolvedCollectionLocalePolicy } from '../../packages/content/src/features/localization/locale-policy'
 import pathMeta from '../../packages/content/src/parsers/path-meta'
 import { validateCollectionDocument } from '../../packages/content/src/runtime/server/validation'
+import { CACHE_VERSION } from '../../packages/content/src/utils'
 
 describe('storage contracts', () => {
   const runtimeContent = {
@@ -14,7 +15,7 @@ describe('storage contracts', () => {
     translatedSlugs: false,
     strictTranslatedSlugs: false,
     respectPathCase: false,
-    cacheVersion: 'v1',
+    cacheVersion: CACHE_VERSION,
     cacheIntegrity: 'integrity',
     ignores: [],
     collections: {}

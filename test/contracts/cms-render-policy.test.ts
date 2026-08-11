@@ -80,6 +80,81 @@ describe('canonical public Markdown render policy', () => {
     })
   })
 
+  it('accepts only the exact inert task checkbox shape emitted by normalization', () => {
+    expect(validatePublicMarkdownAst(root(element('input', {
+      type: 'checkbox',
+      class: 'task-list-item-checkbox',
+      disabled: true,
+      checked: true,
+    })))).toMatchObject({ ok: true })
+    for (const props of [
+      { type: 'text', class: 'task-list-item-checkbox', disabled: true },
+      { type: 'checkbox', class: 'task-list-item-checkbox' },
+      { type: 'checkbox', class: 'task-list-item-checkbox', disabled: true, onChange: 'run()' },
+    ]) {
+      expect(validatePublicMarkdownAst(root(element('input', props)))).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_tag' })]),
+      })
+    }
+  })
+
+  it('allows named-slot templates only directly under their declared component slot', () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: {
+        Callout: {
+          kind: 'block',
+          props: {},
+          slots: ['default', 'actions'],
+          media: null,
+        },
+      },
+    }
+    const template = (name: string) => ({
+      ...element('template', { name }),
+      children: [{ type: 'text', value: 'Slot content' }],
+    })
+    const callout = (child: Record<string, unknown>) => ({ ...element('callout'), children: [child] })
+    expect(validatePublicMarkdownAst(root(callout(template('actions'))), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(template('actions')), policy)).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_tag' })],
+    })
+    expect(validatePublicMarkdownAst(root(callout(template('admin'))), policy)).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_tag' })],
+    })
+  })
+
+  it('allows only parser-owned table alignment and bounded code metadata', () => {
+    for (const style of ['text-align:left', 'text-align:center', 'text-align:right']) {
+      expect(validatePublicMarkdownAst(root(element('th', { style })))).toMatchObject({ ok: true })
+    }
+    for (const style of ['text-align:justify', 'color:red', 'text-align:center;background:red']) {
+      expect(validatePublicMarkdownAst(root(element('td', { style })))).toMatchObject({
+        ok: false,
+        issues: [expect.objectContaining({ code: 'unsafe_prop' })],
+      })
+    }
+    expect(validatePublicMarkdownAst(root(element('pre', {
+      language: 'ts', meta: 'demo', highlights: [1, 3],
+    })))).toMatchObject({ ok: true })
+    for (const highlights of [[0], [-1], [1.5], [1_000_001], ['1']]) {
+      expect(validatePublicMarkdownAst(root(element('pre', { highlights })))).toMatchObject({
+        ok: false,
+        issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+      })
+    }
+    expect(validatePublicMarkdownAst(root(element('pre', { highlights: Array.from({ length: 257 }, (_, index) => index + 1) })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+    })
+    expect(validatePublicMarkdownAst(root(element('pre', { meta: 'x'.repeat(2049) })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+    })
+  })
+
   it('applies the canonical URL policy to registered asset props', () => {
     const policy: PortableComponentPolicyV1 = {
       components: {

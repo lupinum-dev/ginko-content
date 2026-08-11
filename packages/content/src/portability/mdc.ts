@@ -1,6 +1,11 @@
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
 import type { PortableComponentPolicyV1 } from '../cms-contract/types.js'
-import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
+import {
+  isNormalizedTaskCheckboxProps,
+  isSafeCodeHighlights,
+  isSafeTableAlignmentStyle,
+  normalizeComarkNodes,
+} from '../core/markdown/normalize-comark.js'
 import { parseComark } from '../core/markdown/parse-comark.js'
 import { portabilityError, type GinkoBoundaryError } from './errors.js'
 
@@ -68,18 +73,36 @@ export function portableMdcSemanticallyEqual(left: PortableMdcAstV1, right: Port
   return JSON.stringify(left.nodes) === JSON.stringify(right.nodes)
 }
 
-function validateNodes(nodes: unknown[], policy: PortableComponentPolicyV1, allowStoredAssets: boolean): void {
+function validateNodes(
+  nodes: unknown[],
+  policy: PortableComponentPolicyV1,
+  allowStoredAssets: boolean,
+  parentComponent?: PortableComponentPolicyV1['components'][string],
+): void {
   for (const node of nodes) {
     if (typeof node === 'string') continue
     if (!Array.isArray(node) || typeof node[0] !== 'string') throw unsupported()
     const tag = node[0]
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as Record<string, unknown> : {}
+    if (tag === 'template') {
+      const slotName = Object.keys(props).length === 1 && typeof props.name === 'string' ? props.name : undefined
+      if (!parentComponent || !slotName || !parentComponent.slots.includes(slotName)) throw unsupported()
+      validateNodes(node.slice(2), policy, allowStoredAssets)
+      continue
+    }
     if ('$' in props || tag === 'script' || tag === 'style' || tag === 'iframe' || tag === 'object' || tag === 'embed' || tag === 'svg') throw unsupported()
     const component = policy.components[tag]
+    const taskCheckbox = tag === 'input' && isNormalizedTaskCheckboxProps(props) && node.length === 2
+    if (tag === 'input' && !taskCheckbox) throw unsupported()
     if (!builtins.has(tag) && !component) throw unsupported()
     for (const [key, value] of Object.entries(props)) {
+      if (taskCheckbox) continue
       if (/^(?:on|v-|[:@#])/i.test(key)) throw unsupported()
-      if (!component && (key === 'as' || key === 'style')) throw unsupported()
+      if (!component && key === 'as') throw unsupported()
+      if (!component && key === 'style' && !((tag === 'th' || tag === 'td') && isSafeTableAlignmentStyle(value))) throw unsupported()
+      if (tag === 'pre' && (key === 'language' || key === 'filename') && typeof value !== 'string') throw unsupported()
+      if (tag === 'pre' && key === 'meta' && (typeof value !== 'string' || value.length > 2048)) throw unsupported()
+      if (tag === 'pre' && key === 'highlights' && !isSafeCodeHighlights(value)) throw unsupported()
       if (tag === 'blockquote' && key === 'data-alert' && !isGfmAlert(value)) throw unsupported()
       if (component) {
         const rule = component.props[key]
@@ -94,7 +117,7 @@ function validateNodes(nodes: unknown[], policy: PortableComponentPolicyV1, allo
       ) throw unsupported()
     }
     if (component) for (const [key, rule] of Object.entries(component.props)) if (rule.required && !(key in props)) throw unsupported()
-    validateNodes(node.slice(2), policy, allowStoredAssets)
+    validateNodes(node.slice(2), policy, allowStoredAssets, component)
   }
 }
 

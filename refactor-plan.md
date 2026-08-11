@@ -564,7 +564,7 @@ Pagefind loader or hide the failure with absolute URL construction.
 
 #### RC-05 — Close Comark's default AST under Ginko's safety policy
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-01
 - **Risk:** medium-high
 - **Change type:** domain and security-policy judgment
@@ -621,6 +621,18 @@ pnpm test
 **Cutover/rollback:** exact parser-owned allowances land together. If one syntax
 cannot be made inert, mark it unsupported and document the rejection; never widen
 the global policy to make a test pass.
+
+Execution note (2026-08-11): the existing normalizer is now mandatory for every
+tuple-to-object path, including inline rendering. It drops comment tuples,
+canonicalizes Comark task checkboxes, and remains the single owner of exact table
+alignment and code-highlight predicates used by both public and portable
+validators. Named slots are accepted only beneath a declared component/slot;
+arbitrary inputs, active tags, unsafe styles, and Math/Mermaid remain closed. The
+reviewed corpus now records CMS portable-baseline output separately and proves
+declared slots through a real Vue SSR component. `CACHE_VERSION` is `4`. The full
+suite passes 119 files/1,198 tests; `pnpm verify` reaches `verify:static` and then
+fails only because the ignored local `.claude/worktrees/` checkout contains a
+forbidden private-name fixture already recorded under RC-02.
 
 #### RC-06 — Preserve typed props during portable asset rewriting
 
@@ -1521,7 +1533,7 @@ only the decisive verification result, not a full command log.
 | RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
 | RC-03 | not started | — | — | Catch-all 404 |
 | RC-04 | not started | — | — | Pagefind SSR |
-| RC-05 | not started | — | — | AST/policy closure |
+| RC-05 | complete | `codex/rc-markdown-policy` | Focused matrix 112/112; full suite 119 files/1,198 tests; source typecheck and changed-file ESLint | Reviewed CMS/raw/pipeline snapshots; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-06 | not started | — | — | Portable typed props |
 | RC-07 | not started | — | — | Markdown config |
 | RC-08 | not started | — | — | Nuxt Kit alignment |

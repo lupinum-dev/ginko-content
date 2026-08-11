@@ -7,6 +7,7 @@ import MarkdownRenderer from './internal/MarkdownRenderer.js'
 import { useUnwrap } from '../composables/useUnwrap'
 import { resolveMarkdownPlugins, resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } from '../../markdown/plugins'
 import { toMarkdownRoot } from '../../../core/markdown/tree'
+import { normalizeComarkNodes } from '../../../core/markdown/normalize-comark'
 import { parseComark } from '../../../core/markdown/parse-comark'
 import { loadContentComponentEntries } from '../../../integrations/vue/content-components'
 
@@ -76,7 +77,7 @@ const refresh = async () => {
   const plugins = await resolveMarkdownPlugins(runtimeContent.markdown.plugins)
   const parsed = await parseComark(props.value || '', plugins)
   const body = unwrapRoot({
-    ...toMarkdownRoot(parsed.nodes as any[])
+    ...toMarkdownRoot(normalizeComarkNodes(parsed.nodes as unknown[]) as any[])
   }, props.unwrap)
 
   tree.value = body

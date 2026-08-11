@@ -20,11 +20,15 @@ export function toMarkdownNode (node: ComarkTupleNode): MarkdownNode {
   }
 
   const [tag, props = {}, ...children] = node
+  if (!tag) {
+    return {
+      type: 'text',
+      value: ''
+    }
+  }
   return {
     type: 'element',
-    // `undefined` is not a JSON-pure value: omit `tag` entirely
-    // rather than set it to `undefined` when the tuple carries no tag.
-    ...(tag ? { tag } : {}),
+    tag,
     props: { ...props },
     children: children.map(child => toMarkdownNode(child))
   }

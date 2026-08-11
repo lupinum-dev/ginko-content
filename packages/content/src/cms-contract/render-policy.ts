@@ -1,5 +1,10 @@
 import type { MarkdownNode, MarkdownRoot } from '../types/content.js'
 import type { PortableComponentPolicyV1 } from './types.js'
+import {
+  isNormalizedTaskCheckboxProps,
+  isSafeCodeHighlights,
+  isSafeTableAlignmentStyle,
+} from '../core/markdown/normalize-comark.js'
 
 export type PublicMarkdownIssueCode =
   | 'invalid_node'
@@ -61,7 +66,7 @@ const HTML_PROPS: Record<string, Set<string>> = {
   ins: new Set(['cite', 'datetime']),
   li: new Set(['value']),
   ol: new Set(['start', 'reversed', 'type']),
-  pre: new Set(['language', 'filename']),
+  pre: new Set(['language', 'filename', 'meta', 'highlights']),
   td: new Set(['colspan', 'rowspan', 'headers']),
   th: new Set(['colspan', 'rowspan', 'headers', 'scope']),
   time: new Set(['datetime']),
@@ -159,11 +164,12 @@ export function validatePublicMarkdownAst(
   const components = new Map(
     Object.entries(policy.components).map(([name, component]) => [componentName(name), component]),
   )
+  type ComponentPolicy = PortableComponentPolicyV1['components'][string]
 
   const validateProps = (
     node: MarkdownNode,
     path: Array<string | number>,
-    component: PortableComponentPolicyV1['components'][string] | undefined,
+    component: ComponentPolicy | undefined,
   ) => {
     const props = node.props ?? {}
     if (!isRecord(props)) {
@@ -183,6 +189,7 @@ export function validatePublicMarkdownAst(
         continue
       }
       if (name === 'style' && tag === 'span' && isSafeShikiStyle(propValue)) continue
+      if ((tag === 'th' || tag === 'td') && name === 'style' && isSafeTableAlignmentStyle(propValue)) continue
       if (tag === 'blockquote' && name === 'data-alert') {
         if (
           typeof propValue !== 'string' ||
@@ -226,8 +233,16 @@ export function validatePublicMarkdownAst(
         report('unknown_prop', propPath, `HTML property "${name}" is not allowed on <${tag}>.`)
         continue
       }
-      if (tag === 'pre' && (name === 'language' || name === 'filename') && typeof propValue !== 'string') {
+      if (tag === 'pre' && (name === 'language' || name === 'filename' || name === 'meta') && typeof propValue !== 'string') {
         report('invalid_prop_value', propPath, `HTML property "${name}" on <pre> must be a string.`)
+        continue
+      }
+      if (tag === 'pre' && name === 'highlights' && !isSafeCodeHighlights(propValue)) {
+        report('invalid_prop_value', propPath, 'HTML property "highlights" on <pre> contains invalid line numbers.')
+        continue
+      }
+      if (tag === 'pre' && name === 'meta' && typeof propValue === 'string' && propValue.length > 2048) {
+        report('invalid_prop_value', propPath, 'HTML property "meta" on <pre> is too long.')
         continue
       }
       if (URL_PROPS.has(lower) && typeof propValue === 'string') {
@@ -246,7 +261,11 @@ export function validatePublicMarkdownAst(
     }
   }
 
-  const visit = (node: unknown, path: Array<string | number>): void => {
+  const visit = (
+    node: unknown,
+    path: Array<string | number>,
+    parentComponent?: ComponentPolicy,
+  ): void => {
     if (!isRecord(node) || typeof node.type !== 'string') {
       report('invalid_node', path, 'Markdown nodes must be objects with a type.')
       return
@@ -266,14 +285,27 @@ export function validatePublicMarkdownAst(
       report('invalid_node', path, 'Element nodes contain unsupported fields.')
     }
     const normalizedTag = componentName(node.tag)
+    if (normalizedTag === 'template') {
+      const props = node.props ?? {}
+      const slotName = isRecord(props) && Object.keys(props).length === 1 && typeof props.name === 'string'
+        ? props.name
+        : undefined
+      if (!parentComponent || !slotName || !parentComponent.slots.includes(slotName)) {
+        report('unsafe_tag', [...path, 'tag'], 'Named slot templates must be direct children of a component and declare an allowed slot name.')
+      }
+      node.children.forEach((child, index) => visit(child, [...path, 'children', index]))
+      return
+    }
     const component = components.get(normalizedTag)
-    if (ACTIVE_TAGS.has(normalizedTag)) {
+    const isTaskCheckbox = normalizedTag === 'input' &&
+      isNormalizedTaskCheckboxProps(node.props) && node.children.length === 0
+    if (ACTIVE_TAGS.has(normalizedTag) && !isTaskCheckbox) {
       report('unsafe_tag', [...path, 'tag'], `Tag <${node.tag}> is not render-safe.`)
-    } else if (!SAFE_HTML_TAGS.has(normalizedTag) && !component) {
+    } else if (!isTaskCheckbox && !SAFE_HTML_TAGS.has(normalizedTag) && !component) {
       report('unknown_component', [...path, 'tag'], `Component <${node.tag}> is not registered.`)
     }
-    validateProps(node as unknown as MarkdownNode, path, component)
-    node.children.forEach((child, index) => visit(child, [...path, 'children', index]))
+    if (!isTaskCheckbox) validateProps(node as unknown as MarkdownNode, path, component)
+    node.children.forEach((child, index) => visit(child, [...path, 'children', index], component))
   }
 
   if (!isRecord(value) || value.type !== 'root' || !Array.isArray(value.children)) {
