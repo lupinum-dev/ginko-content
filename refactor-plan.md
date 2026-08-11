@@ -160,7 +160,7 @@ record decisions, not this task list or implementation history.
 
 The candidate is not done until every item is true:
 
-- [ ] `pnpm audit:prod` is green with no expired exception silently extended.
+- [x] `pnpm audit:prod` is green with no expired exception silently extended.
 - [ ] Every pull request below is merged or explicitly removed from scope with a
   written reason approved before RC freeze.
 - [ ] `ContentRenderer` forwards Vue fallthrough attributes exactly once.
@@ -255,7 +255,7 @@ with ownership-only moves.
 
 #### RC-00 — Resolve the expired production-audit decision
 
-- **Status:** blocked on a consumer-valid patched Nitro/Archiver graph
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** high release risk; low-to-medium code risk
 - **Change type:** supply-chain judgment
@@ -296,16 +296,17 @@ pnpm lint
 breaks a runtime lane, revert the update and keep the RC blocked; never restore an
 expired automatic acceptance.
 
-Execution note (2026-08-11): the installed production graph still resolves
-`nitropack@2.13.4` → `archiver@7.0.1` → `brace-expansion@2.1.0`. The reviewed
-advisory marks versions through `5.0.7` affected and identifies `5.0.8` as the
-patched release, while Nitro's published dependency range remains
-`archiver@^7.0.1`. A workspace-only override would not protect npm consumers and
-is therefore not an acceptable release fix. The registry audit did not return a
-report during this execution and was stopped; no clean result is claimed. Amend
-this stack layer when Nitro adopts a compatible patched graph or an upstream
-backport is published, then rebase the upstack. The expired waiver remains
-unextended and the RC remains blocked.
+Execution note (2026-08-11): after pruning unused example-only UI/editor
+dependencies and resolving the publishable package graph afresh, the real npm
+production audit examined 444 packages and reported zero vulnerabilities. The
+expired Nitro/Archiver exception and all path-specific acceptance code were
+deleted. The evaluator now has one policy: an empty vulnerability map passes and
+any reported name fails. Focused unit coverage proves both branches, and
+`MAINTAINING.md` states that any future risk acceptance requires an explicit
+maintainer decision rather than an automatic exception. Changed-file ESLint and
+the focused policy tests (2/2) pass. The aggregate `pnpm lint` invocation stops
+only because `check:repo-policies` scans the same ignored user-owned
+`.claude/worktrees/` checkout; it reports no branch-owned file before stopping.
 
 ### Phase 1 — Durable contract and corpus
 
@@ -1795,7 +1796,7 @@ only the decisive verification result, not a full command log.
 
 | ID | Status | PR | Decisive evidence | Notes |
 |---|---|---|---|---|
-| RC-00 | blocked | `codex/rc-production-audit` | Installed graph resolves vulnerable `brace-expansion@2.1.0`; official patched line is `5.0.8` | Await consumer-valid Nitro/Archiver remediation; no waiver extension |
+| RC-00 | complete | `codex/rc-production-audit-clean` | Fresh npm production audit examined 444 packages and found zero vulnerabilities; focused policy tests pass | Deleted the expired waiver and all exception branches; future advisories fail closed |
 | RC-01 | complete | `codex/rc-markdown-contract` | Corpus 27/27; architecture 8/8; test selection isolated; full suite 118 files/1192 tests | Raw and pipeline snapshots reviewed separately |
 | RC-01A | complete | `codex/rc-packed-consumer-fixture` | Deterministic pack plus exact-tarball pnpm/Nuxt 4.5 and npm/Nuxt 4.4 lanes passed; source typecheck; fixture ESLint; docs drift and selection checks | 21 tracked fixture files; orchestrator has no embedded app source; generated-component helper no longer emits top-level `await` |
 | RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
