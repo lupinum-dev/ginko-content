@@ -49,7 +49,7 @@ interface ModulePublicRuntimeConfig {
 
   strictTranslatedSlugs: ContentContext['strictTranslatedSlugs']
 
-  markdown: MarkdownOptions
+  markdown: Omit<MarkdownOptions, 'plugins'>
 
   navigation: ModuleOptions['navigation']
 

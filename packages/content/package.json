@@ -167,12 +167,20 @@
     "vue-docgen-web-types": "^0.1.8"
   },
   "peerDependencies": {
+    "beautiful-mermaid": "^1.1.3",
+    "katex": "^0.16.45",
     "nuxt": ">=4.4.7 <5",
     "pagefind": "^1.5.2",
     "vitest": ">=4.1.6 <5",
     "vue": "^3.5.35"
   },
   "peerDependenciesMeta": {
+    "beautiful-mermaid": {
+      "optional": true
+    },
+    "katex": {
+      "optional": true
+    },
     "pagefind": {
       "optional": true
     },

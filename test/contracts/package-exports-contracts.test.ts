@@ -352,6 +352,18 @@ describe('package export contracts', () => {
     expect(manifest.peerDependenciesMeta?.vitest?.optional).toBe(true)
   })
 
+  test('optional Markdown integrations declare their direct application peers', async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      peerDependencies?: Record<string, string>
+      peerDependenciesMeta?: Record<string, { optional?: boolean }>
+    }
+
+    expect(manifest.peerDependencies?.katex).toMatch(/^\^0\.16\./)
+    expect(manifest.peerDependencies?.['beautiful-mermaid']).toMatch(/^\^1\./)
+    expect(manifest.peerDependenciesMeta?.katex?.optional).toBe(true)
+    expect(manifest.peerDependenciesMeta?.['beautiful-mermaid']?.optional).toBe(true)
+  })
+
   test('published runtime floors match the supported Nuxt dependency graph', async () => {
     const [manifest, workspaceManifest] = await Promise.all([
       readFile('packages/content/package.json', 'utf8').then(JSON.parse),

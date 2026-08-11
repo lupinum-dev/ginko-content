@@ -194,7 +194,7 @@ describe('runtime config contracts', () => {
     expect(nuxt.options.runtimeConfig.public.content.links.main.stale).toBeUndefined()
   })
 
-  test('keeps markdown transformer runtime config serializable', async () => {
+  test('keeps parser descriptors private and serializable', async () => {
     const nuxt = createNuxt()
     const transformer = {
       name: '@shikijs/transformers:notation-highlight',
@@ -224,18 +224,7 @@ describe('runtime config contracts', () => {
 
     await applyRuntimeConfig(nuxt, createOptions(), context as any)
 
-    expect(nuxt.options.runtimeConfig.public.content.markdown.plugins).toEqual([
-      {
-        name: 'highlight',
-        options: {
-          preStyles: false,
-          themes: {
-            light: { name: 'light' },
-            dark: { name: 'dark' }
-          }
-        }
-      }
-    ])
+    expect((nuxt.options.runtimeConfig.public.content.markdown as Record<string, unknown>).plugins).toBeUndefined()
     expect(nuxt.options.runtimeConfig.content.markdown.plugins[0].options.transformers).toEqual([
       { name: '@shikijs/transformers:notation-highlight' }
     ])

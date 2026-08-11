@@ -2,6 +2,8 @@ import type { MarkdownNode, MarkdownRoot } from '../types/content.js'
 import type { PortableComponentPolicyV1 } from './types.js'
 import {
   isNormalizedTaskCheckboxProps,
+  isNormalizedMathProps,
+  isNormalizedMermaidProps,
   isSafeCodeHighlights,
   isSafeTableAlignmentStyle,
 } from '../core/markdown/normalize-comark.js'
@@ -297,6 +299,12 @@ export function validatePublicMarkdownAst(
       return
     }
     const component = components.get(normalizedTag)
+    if (normalizedTag === 'ginko-math' && component && !isNormalizedMathProps(node.props)) {
+      report('invalid_prop_value', [...path, 'props'], 'Generated Math props are malformed.')
+    }
+    if (normalizedTag === 'ginko-mermaid' && component && !isNormalizedMermaidProps(node.props)) {
+      report('invalid_prop_value', [...path, 'props'], 'Generated Mermaid props are malformed.')
+    }
     const isTaskCheckbox = normalizedTag === 'input' &&
       isNormalizedTaskCheckboxProps(node.props) && node.children.length === 0
     if (ACTIVE_TAGS.has(normalizedTag) && !isTaskCheckbox) {

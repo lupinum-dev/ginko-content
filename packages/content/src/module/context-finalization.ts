@@ -6,7 +6,7 @@ import { processMarkdownOptions } from '../utils'
 import { collectTopLevelReferenceFieldsByTarget, collectTopLevelSchemaFields } from '../core/references/schema'
 import { applyContentRuntimeConfig } from './runtime-config'
 import { registerContentSearchServerHandlers } from './server-handlers'
-import { assertConfiguredProviderAvailable, validateBuiltinMarkdownPlugins } from './validation'
+import { assertConfiguredProviderAvailable } from './validation'
 
 interface ContentContextFinalizationOptions {
   nuxt: Nuxt
@@ -14,7 +14,6 @@ interface ContentContextFinalizationOptions {
   appContentConfig: ContentConfig
   contentContext: ContentContext
   buildIntegrity: number | undefined
-  resolvePath: (path: string) => Promise<string>
   resolveRuntimeModule: (path: string) => string
   onResolved: (context: ResolvedContentContext) => void
 }
@@ -25,7 +24,6 @@ export const registerContentContextFinalization = ({
   appContentConfig,
   contentContext,
   buildIntegrity,
-  resolvePath,
   resolveRuntimeModule,
   onResolved
 }: ContentContextFinalizationOptions) => {
@@ -63,8 +61,6 @@ export const registerContentContextFinalization = ({
     // validate or derive their own artifacts from it; they may not mutate
     // collections, locales, provider selection, or routing policy.
     await nuxt.callHook('content:context', contextForObservers)
-    await validateBuiltinMarkdownPlugins(resolvedContentContext.markdown.plugins, resolvePath)
-
     const collectionEntries = Object.entries(contentContext.collections).map(([name, collection]) => {
       const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
       const schemaFields = collectTopLevelSchemaFields(collection.schema)

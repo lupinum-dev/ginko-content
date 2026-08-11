@@ -8,6 +8,8 @@ import {
   type PortableComponentPolicyV1,
 } from '../../packages/content/src/cms-contract'
 import MarkdownRenderer from '../../packages/content/src/runtime/app/components/internal/MarkdownRenderer'
+import { normalizeComarkNodes } from '../../packages/content/src/core/markdown/normalize-comark'
+import { withMarkdownPluginComponentPolicy } from '../../packages/content/src/module/markdown-plugin-templates'
 
 const root = (node: Record<string, unknown>) => ({ type: 'root', children: [node] })
 const element = (tag: string, props: Record<string, unknown> = {}) => ({
@@ -97,6 +99,40 @@ describe('canonical public Markdown render policy', () => {
         issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_tag' })]),
       })
     }
+  })
+
+  it('accepts Math and Mermaid only through enabled reserved component contracts', () => {
+    const policy = withMarkdownPluginComponentPolicy(undefined, [
+      { name: 'math', parserPath: '', renderer: { path: '', exportName: 'Math', tag: 'ginko-math' } },
+      { name: 'mermaid', parserPath: '', renderer: { path: '', exportName: 'Mermaid', tag: 'ginko-mermaid' } },
+    ])
+    const math = element('ginko-math', { class: 'math inline', content: 'x^2' })
+    const mermaid = element('ginko-mermaid', { content: 'graph TD; A-->B' })
+
+    expect(validatePublicMarkdownAst(root(math), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(mermaid), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(math))).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unknown_component' })]),
+    })
+    expect(validatePublicMarkdownAst(root(element('ginko-math', { class: 'arbitrary', content: 'x^2' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+    })
+    expect(validatePublicMarkdownAst(root(element('ginko-mermaid', { content: 'graph TD', width: '200%' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+    })
+
+    expect(normalizeComarkNodes([
+      ['math', { class: 'math inline', content: 'x^2' }, 'x^2'],
+      ['mermaid', { content: 'graph TD' }],
+      ['math', { class: 'arbitrary', content: 'authored' }, 'authored'],
+    ], { enabledPlugins: ['math', 'mermaid'] })).toEqual([
+      ['ginko-math', { class: 'math inline', content: 'x^2' }, 'x^2'],
+      ['ginko-mermaid', { content: 'graph TD' }],
+      ['math', { class: 'arbitrary', content: 'authored' }, 'authored'],
+    ])
   })
 
   it('allows named-slot templates only directly under their declared component slot', () => {

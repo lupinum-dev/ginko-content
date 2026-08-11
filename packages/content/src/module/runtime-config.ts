@@ -47,38 +47,6 @@ type RuntimeCollectionConfig = {
   schemaFields?: string[]
 }
 
-const sanitizePublicMarkdownPluginValue = (value: unknown): unknown => {
-  if (typeof value === 'function' || typeof value === 'symbol') {
-    return undefined
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .map(item => sanitizePublicMarkdownPluginValue(item))
-      .filter(item => item !== undefined)
-  }
-
-  if (typeof value !== 'object' || value === null) {
-    return value
-  }
-
-  const prototype = Object.getPrototypeOf(value)
-  if (prototype !== Object.prototype && prototype !== null) {
-    return value
-  }
-
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-    .filter(([key]) => key !== 'transformers')
-    .map(([key, item]) => [key, sanitizePublicMarkdownPluginValue(item)])
-    .filter(([, item]) => item !== undefined))
-}
-
-export const sanitizePublicMarkdownPlugins = (plugins: ResolvedMarkdownPlugin[]) =>
-  plugins.map(plugin => ({
-    name: plugin.name,
-    options: sanitizePublicMarkdownPluginValue(plugin.options || {}) as Record<string, unknown>
-  }))
-
 const sanitizePrivateMarkdownPluginValue = (value: unknown): unknown => {
   if (typeof value === 'function' || typeof value === 'symbol') {
     return undefined
@@ -220,7 +188,6 @@ export const applyContentRuntimeConfig = async (
       baseURL: options.api.baseURL
     },
     markdown: {
-      plugins: sanitizePublicMarkdownPlugins(contentContext.markdown.plugins),
       tags: contentContext.markdown.tags,
       anchorLinks: contentContext.markdown.anchorLinks,
       image: contentContext.markdown.image || 'auto'

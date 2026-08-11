@@ -3,6 +3,7 @@ import {
   defineNuxtModule,
   addTemplate,
   getLayerDirectories,
+  resolvePath as resolveNuxtPath,
   useLogger
 } from '@nuxt/kit'
 import { defu } from 'defu'
@@ -35,6 +36,8 @@ import './module/augmentations'
 import { registerContentContextFinalization } from './module/context-finalization'
 import { createContentValidationRouteFacts } from './module/validation-routes'
 import { collectContentValidationPublicAssets } from './module/validation-assets'
+import { processMarkdownOptions } from './utils'
+import { createMarkdownPluginTemplates, resolveMarkdownPluginRegistry, withMarkdownPluginComponentPolicy } from './module/markdown-plugin-templates'
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -89,7 +92,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: contentModuleDefaults,
   async setup (options, nuxt) {
-    const { resolve, resolvePath } = createResolver(import.meta.url)
+    const { resolve, resolvePath: resolveModulePath } = createResolver(import.meta.url)
     const logger = useLogger(name)
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path)
     const runtimeInlineDependencies = ['comark', '@comark/vue']
@@ -136,6 +139,18 @@ export default defineNuxtModule<ModuleOptions>({
     const resolvedSearch = normalizeSearchOptions(options)
     await assertPagefindAvailable(resolvedSearch)
 
+    const resolvedMarkdown = processMarkdownOptions(options.markdown)
+    const markdownPluginRegistry = await resolveMarkdownPluginRegistry(
+      resolvedMarkdown.plugins,
+      {
+        resolveAppPath: specifier => resolveNuxtPath(specifier, {
+          cwd: nuxt.options.rootDir,
+          alias: nuxt.options.alias
+        }),
+        resolveModulePath
+      }
+    )
+
     validateCollectionNames(appContentConfig.collections)
     if (!hasAgentSurface(appContentConfig)) {
       options.agent = false
@@ -166,7 +181,7 @@ export default defineNuxtModule<ModuleOptions>({
         locales: resolvedI18n.locales.length ? resolvedI18n.locales : [resolvedI18n.defaultLocale],
         localeFallbacks: resolvedI18n.fallback,
         translatedSlugs: resolvedI18n.translatedSlugs,
-        componentPolicy: options.componentPolicy,
+        componentPolicy: withMarkdownPluginComponentPolicy(options.componentPolicy, markdownPluginRegistry),
       },
     )
     // Disable cache in dev mode
@@ -207,6 +222,8 @@ export default defineNuxtModule<ModuleOptions>({
       publicDirectories: layerDirectories.map(layer => layer.public),
       nitroPublicAssets
     })
+    const { parserTemplate: markdownParserPluginsTemplate, rendererTemplate: markdownRendererComponentsTemplate } =
+      createMarkdownPluginTemplates(markdownPluginRegistry, addTemplate)
     let resolvedContentContext: ResolvedContentContext | undefined
     const getResolvedContentContext = () => {
       if (!resolvedContentContext) {
@@ -253,7 +270,16 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
     const { transformersTemplate, virtualConfigTemplate, virtualProvidersTemplate, virtualCacheAdapterTemplate } = createVirtualContentTemplates(contentContext, nuxt, contentConfigPath, addTemplate)
-    registerVirtualContentAliases(nuxt, transformersTemplate, virtualConfigTemplate, virtualProvidersTemplate, virtualCacheAdapterTemplate, resolveRuntimeModule)
+    registerVirtualContentAliases(
+      nuxt,
+      transformersTemplate,
+      virtualConfigTemplate,
+      virtualProvidersTemplate,
+      virtualCacheAdapterTemplate,
+      markdownParserPluginsTemplate,
+      markdownRendererComponentsTemplate,
+      resolveRuntimeModule
+    )
     registerContentServerHandlers(nuxt, options, resolveRuntimeModule, buildIntegrity)
     registerContentI18nTemplate(addTemplate, hasNuxtI18nModule(nuxt))
     registerRuntimeImports(resolveRuntimeModule)
@@ -298,7 +324,6 @@ export default defineNuxtModule<ModuleOptions>({
       appContentConfig,
       contentContext,
       buildIntegrity,
-      resolvePath,
       resolveRuntimeModule,
       onResolved: context => {
         resolvedContentContext = context

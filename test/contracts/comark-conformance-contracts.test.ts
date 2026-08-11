@@ -16,6 +16,9 @@ import { resolveMarkdownPlugins } from '../../packages/content/src/parsers/markd
 import { parsePortableMdc, serializePortableMdc } from '../../packages/content/src/portability/mdc'
 import MarkdownRenderer from '../../packages/content/src/runtime/app/components/internal/MarkdownRenderer'
 import type { ResolvedMarkdownPlugin } from '../../packages/content/src/types/content'
+import { withMarkdownPluginComponentPolicy } from '../../packages/content/src/module/markdown-plugin-templates'
+import { Math as MathComponent } from '../../packages/content/node_modules/@comark/vue/dist/components/Math.js'
+import { Mermaid as MermaidComponent } from '../../packages/content/node_modules/@comark/vue/dist/components/Mermaid.js'
 
 type Profile = 'filesystem-configured' | 'portable-baseline' | 'inline-client-safe'
 type StageStatus = 'accepted' | 'rejected' | 'not-reached'
@@ -71,7 +74,7 @@ const corpus: CorpusCase[] = [
     id: 'basic',
     fixture: 'basic.md',
     profile: 'filesystem-configured',
-    support: 'known-gap',
+    support: 'supported',
     plugins: [plugin('toc')],
     expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'rejected', ssr: 'accepted', agent: 'accepted' }
   },
@@ -121,15 +124,15 @@ const corpus: CorpusCase[] = [
     profile: 'filesystem-configured',
     support: 'known-gap',
     plugins: [plugin('math')],
-    expected: { raw: 'accepted', cms: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'mermaid',
     fixture: 'mermaid.md',
     profile: 'filesystem-configured',
-    support: 'known-gap',
+    support: 'supported',
     plugins: [plugin('mermaid')],
-    expected: { raw: 'accepted', cms: 'accepted', public: 'rejected', portable: 'accepted', ssr: 'rejected', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'malformed',
@@ -211,14 +214,24 @@ describe('Comark conformance corpus', () => {
     }
 
     const normalizedNodes = parsed
-      ? normalizeComarkNodes(parsed.nodes as unknown[])
+      ? normalizeComarkNodes(parsed.nodes as unknown[], { enabledPlugins: entry.plugins.map(plugin => plugin.name) })
       : undefined
     const body = normalizedNodes
       ? toMarkdownRoot(normalizedNodes as Parameters<typeof toMarkdownRoot>[0])
       : undefined
+    const enabledPluginRegistry = entry.plugins.flatMap(plugin => {
+      if (plugin.name === 'math') {
+        return [{ name: 'math', parserPath: '', renderer: { path: '', exportName: 'Math', tag: 'ginko-math' } }]
+      }
+      if (plugin.name === 'mermaid') {
+        return [{ name: 'mermaid', parserPath: '', renderer: { path: '', exportName: 'Mermaid', tag: 'ginko-mermaid' } }]
+      }
+      return []
+    })
+    const renderPolicy = withMarkdownPluginComponentPolicy(componentPolicy, enabledPluginRegistry)
 
     const publicResult = body
-      ? validatePublicMarkdownAst(body, componentPolicy)
+      ? validatePublicMarkdownAst(body, renderPolicy)
       : undefined
     const publicContract = publicResult
       ? publicResult.ok
@@ -232,7 +245,7 @@ describe('Comark conformance corpus', () => {
     let cmsContract: { status: StageStatus; body?: unknown; toc?: unknown; searchText?: string; error?: unknown }
     try {
       const cms = await parseMdcBody(source)
-      const validation = validatePublicMarkdownAst(cms.body, componentPolicy)
+      const validation = validatePublicMarkdownAst(cms.body, renderPolicy)
       if (!validation.ok) throw Object.assign(new Error('CMS baseline AST failed the public render policy.'), { issues: validation.issues })
       cmsContract = {
         status: 'accepted',
@@ -247,9 +260,9 @@ describe('Comark conformance corpus', () => {
 
     let portableContract: { status: StageStatus; nodes?: unknown; error?: unknown }
     try {
-      const portable = await parsePortableMdc(source, componentPolicy)
-      const serialized = await serializePortableMdc(portable, componentPolicy)
-      const reparsed = await parsePortableMdc(serialized, componentPolicy)
+      const portable = await parsePortableMdc(source, renderPolicy)
+      const serialized = await serializePortableMdc(portable, renderPolicy)
+      const reparsed = await parsePortableMdc(serialized, renderPolicy)
       expect(reparsed.nodes).toEqual(portable.nodes)
       portableContract = { status: 'accepted', nodes: snapshotValue(portable.nodes) }
     }
@@ -265,8 +278,12 @@ describe('Comark conformance corpus', () => {
           render: () => h(MarkdownRenderer, {
             tree: body,
             prose: false,
-            renderPolicy: componentPolicy,
-            components: { callout: CalloutFixture },
+            renderPolicy,
+            components: {
+              callout: CalloutFixture,
+              'ginko-math': MathComponent,
+              'ginko-mermaid': MermaidComponent
+            },
           })
         }))
         ssrContract = { status: 'accepted', html: snapshotValue(html) }

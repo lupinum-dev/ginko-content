@@ -1,14 +1,6 @@
-import type { ResolvedMarkdownPlugin } from '../types/content'
-import { assertCanonicalHighlightOptionNames } from '../parsers/markdown-plugins'
 import type { ContentCollectionConfig } from '../types/config'
 import { normalizeContentConfigCollectionNames } from '../types/config'
 import type { ContentContext, ModuleOptions } from '../types/module'
-
-const BUILTIN_PLUGIN_PEER_DEPS: Record<string, string | undefined> = {
-  highlight: 'shiki',
-  math: 'katex',
-  mermaid: 'beautiful-mermaid'
-}
 
 export function assertConfiguredProviderAvailable(contentContext: Pick<ContentContext, 'provider' | 'providers'>) {
   const provider = contentContext.provider || 'filesystem'
@@ -43,26 +35,5 @@ export function validateRemovedMarkdownOptions(options: ModuleOptions) {
 
   if (removed.length) {
     throw new Error(`Removed markdown options: ${removed.map(option => `content.markdown.${String(option)}`).join(', ')}. Use ordered \`content.markdown.plugins\` entries instead.`)
-  }
-}
-
-export async function validateBuiltinMarkdownPlugins(
-  plugins: ResolvedMarkdownPlugin[],
-  resolvePath: (path: string) => Promise<string>
-) {
-  for (const plugin of plugins) {
-    if (plugin.name === 'highlight') assertCanonicalHighlightOptionNames(plugin.options)
-    const peerDependency = BUILTIN_PLUGIN_PEER_DEPS[plugin.name]
-    if (!peerDependency) {
-      continue
-    }
-
-    try {
-      await resolvePath(peerDependency)
-    } catch (error: unknown) {
-      const next = new Error(`Markdown plugin "${plugin.name}" requires "${peerDependency}" to be installed.`)
-      ;(next as Error & { cause?: unknown }).cause = error
-      throw next
-    }
   }
 }

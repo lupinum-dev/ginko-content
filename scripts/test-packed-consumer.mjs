@@ -4,13 +4,30 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { chromium } from 'playwright-core'
 
 import { parsePackageManagerVersion } from './lib/release-artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')
 const pagefindFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/pagefind-app')
+const markdownPluginsFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/markdown-plugins-app')
 const cliArgs = process.argv.slice(2)
+
+function resolveChromiumExecutable() {
+  const candidates = [
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+    chromium.executablePath(),
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+  ].filter(Boolean)
+  const executable = candidates.find(candidate => existsSync(candidate))
+  if (!executable) {
+    throw new Error('No Chromium executable found for the packed optional-plugin browser check.')
+  }
+  return executable
+}
 
 function optionValue(name, fallback) {
   const index = cliArgs.indexOf(name)
@@ -161,6 +178,11 @@ function assertNoWorkspaceRanges(tarball, tempRoot) {
   if (offenders.length) {
     throw new Error(`Packed tarball contains workspace ranges:\n${offenders.map(item => `  - ${item}`).join('\n')}`)
   }
+  for (const peer of ['beautiful-mermaid', 'katex']) {
+    if (typeof manifest.peerDependencies?.[peer] !== 'string' || manifest.peerDependenciesMeta?.[peer]?.optional !== true) {
+      throw new Error(`Packed tarball does not declare optional Markdown peer "${peer}".`)
+    }
+  }
 }
 
 function assertDeclarations(appDir) {
@@ -219,6 +241,7 @@ async function stopServer(child) {
 async function main() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'ginko-packed-consumer-'))
   let server
+  let markdownPluginsServer
 
   try {
     const appDir = resolve(tempRoot, 'app')
@@ -249,7 +272,7 @@ async function main() {
         nuxt: nuxtVersion,
         pagefind: process.env.GINKO_CONSUMER_PAGEFIND_VERSION || '1.5.2',
         typescript: '6.0.3',
-        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '3.5.35',
+        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '^3.5.35',
         'vue-tsc': '3.2.9',
         vitest: process.env.GINKO_CONSUMER_VITEST_VERSION || '4.1.6'
       }
@@ -300,6 +323,92 @@ async function main() {
     const pagefindManifest = JSON.parse(readFileSync(pagefindManifestPath, 'utf8'))
     if (pagefindManifest.version !== 1 || pagefindManifest.defaultLocale !== 'en' || pagefindManifest.indexes?.en !== 'pagefind.js') {
       throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(pagefindManifest)}`)
+    }
+
+    for (const peer of ['beautiful-mermaid', 'katex']) {
+      if (existsSync(resolve(appDir, 'node_modules', peer))) {
+        throw new Error(`Base packed consumer unexpectedly installed disabled optional peer "${peer}".`)
+      }
+    }
+    const optionalPeerSpecs = [
+      `beautiful-mermaid@${process.env.GINKO_CONSUMER_BEAUTIFUL_MERMAID_VERSION || '^1.1.3'}`,
+      `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.16.45'}`
+    ]
+    if (packageManager === 'pnpm') {
+      run('pnpm', ['add', '--save-exact', ...optionalPeerSpecs], appDir)
+    } else {
+      run('npm', ['install', '--save-exact', '--no-audit', '--no-fund', ...optionalPeerSpecs], appDir)
+    }
+
+    // Keep this fixture below the installed consumer so Node resolves through
+    // the real parent node_modules tree. A sibling junction makes Nitro trace
+    // pnpm's Vue peer symlinks recursively instead of exercising a publishable
+    // consumer layout.
+    const markdownPluginsDir = resolve(appDir, 'markdown-plugins-check')
+    cpSync(markdownPluginsFixtureDir, markdownPluginsDir, { recursive: true })
+    packageExecAndRejectOutput('nuxt', ['build'], markdownPluginsDir, [
+      /could not be resolved[\s\S]*treating it as an external dependency/i,
+      /\bNUXT_E\d{4}\b/
+    ])
+    const browserChunksDir = resolve(markdownPluginsDir, '.output/public/_nuxt')
+    const browserChunkSource = readdirSync(browserChunksDir, { recursive: true })
+      .map(String)
+      .filter(path => path.endsWith('.js'))
+      .map(path => readFileSync(resolve(browserChunksDir, path), 'utf8'))
+      .join('\n')
+    if (/import\(["'](?:comark|@comark\/vue)\//.test(browserChunkSource)) {
+      throw new Error('Packed optional-plugin browser chunks retained a bare Comark package import.')
+    }
+    if (browserChunkSource.includes('custom-markdown')) {
+      throw new Error('Packed optional-plugin browser chunks imported the server-only custom parser plugin.')
+    }
+
+    const markdownPluginsPort = 4600
+    const markdownPluginsBaseURL = `http://127.0.0.1:${markdownPluginsPort}`
+    markdownPluginsServer = spawn('node', ['.output/server/index.mjs'], {
+      cwd: markdownPluginsDir,
+      env: {
+        ...process.env,
+        HOST: '127.0.0.1',
+        PORT: String(markdownPluginsPort),
+        NODE_ENV: 'production'
+      },
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    await waitForServer(markdownPluginsServer, markdownPluginsBaseURL)
+    const markdownPluginsResponse = await fetch(markdownPluginsBaseURL)
+    const markdownPluginsHtml = await markdownPluginsResponse.text()
+    const hasKatexSSR = markdownPluginsHtml.includes('katex')
+    const hasMermaidSSR = markdownPluginsHtml.includes('class="mermaid')
+    const hasCustomPluginSSR = markdownPluginsHtml.includes('Custom parser plugin active')
+    if (!markdownPluginsResponse.ok || !hasKatexSSR || !hasMermaidSSR || !hasCustomPluginSSR) {
+      await stopServer(markdownPluginsServer)
+      throw new Error(`Packed optional-plugin SSR failed: status=${markdownPluginsResponse.status} katex=${hasKatexSSR} mermaid=${hasMermaidSSR} custom=${hasCustomPluginSSR}\n${markdownPluginsHtml.slice(0, 2000)}`)
+    }
+
+    const browser = await chromium.launch({
+      executablePath: resolveChromiumExecutable(),
+      headless: true
+    })
+    try {
+      const page = await browser.newPage()
+      const browserFailures = []
+      page.on('pageerror', error => browserFailures.push(`pageerror: ${error.message}`))
+      page.on('console', (message) => {
+        if (message.type() === 'error' || /hydration/i.test(message.text())) {
+          browserFailures.push(`console ${message.type()}: ${message.text()}`)
+        }
+      })
+      page.on('requestfailed', request => browserFailures.push(`request failed: ${request.failure()?.errorText || 'unknown'} ${request.url()}`))
+      const response = await page.goto(markdownPluginsBaseURL, { waitUntil: 'domcontentloaded' })
+      await page.locator('.mermaid svg').waitFor({ timeout: 30_000 })
+      if (response?.status() !== 200 || await page.locator('.katex').count() === 0 || browserFailures.length) {
+        throw new Error(`Packed optional-plugin browser check failed:\n${browserFailures.join('\n')}`)
+      }
+    } finally {
+      await browser.close()
+      await stopServer(markdownPluginsServer)
+      markdownPluginsServer = undefined
     }
 
     const port = 4599
@@ -470,6 +579,9 @@ async function main() {
     )
     console.log(`Packed consumer ${packageManager} ${packageManagerVersion} test passed.`)
   } finally {
+    if (markdownPluginsServer && markdownPluginsServer.exitCode === null) {
+      await stopServer(markdownPluginsServer)
+    }
     if (server && server.exitCode === null) {
       await stopServer(server)
     }

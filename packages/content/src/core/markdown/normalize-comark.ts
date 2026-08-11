@@ -9,7 +9,11 @@ const MAX_CODE_LINE = 1_000_000
  * Keep this deliberately narrow: authored structural props such as `as` remain
  * untouched and are rejected by the render and portability policies.
  */
-export function normalizeComarkNodes(nodes: unknown[]): unknown[] {
+export function normalizeComarkNodes(
+  nodes: unknown[],
+  options: { enabledPlugins?: Iterable<string> } = {}
+): unknown[] {
+  const enabledPlugins = new Set(options.enabledPlugins)
   const normalize = (node: unknown): unknown | undefined => {
     if (!Array.isArray(node)) return node
 
@@ -36,10 +40,32 @@ export function normalizeComarkNodes(nodes: unknown[]): unknown[] {
       if (rawProps && isRecord(rawProps) && rawProps[':checked'] === 'true') props.checked = true
     }
 
+    if (tag === 'math' && enabledPlugins.has('math') && isComarkMathNode(props, children)) {
+      return ['ginko-math', props, ...children]
+    }
+
+    if (tag === 'mermaid' && enabledPlugins.has('mermaid') && isComarkMermaidNode(props, children)) {
+      return ['ginko-mermaid', props]
+    }
+
     return [tag, props, ...children.map(normalize).filter(isPresent)]
   }
 
   return nodes.map(normalize).filter(isPresent)
+}
+
+export const isNormalizedMathProps = (value: unknown): boolean => {
+  if (!isRecord(value)) return false
+  const keys = Object.keys(value).sort()
+  return keys.length === 2 && keys[0] === 'class' && keys[1] === 'content' &&
+    (value.class === 'math inline' || value.class === 'math block') &&
+    typeof value.content === 'string'
+}
+
+export const isNormalizedMermaidProps = (value: unknown): boolean => {
+  if (!isRecord(value)) return false
+  const keys = Object.keys(value)
+  return keys.length === 1 && keys[0] === 'content' && typeof value.content === 'string'
 }
 
 export const isNormalizedTaskCheckboxProps = (value: unknown): boolean => {
@@ -70,6 +96,12 @@ const isComarkTaskCheckboxProps = (value: unknown): value is Record<string, unkn
   return keys.length === expected.length && keys.every((key, index) => key === expected[index]) &&
     value[':disabled'] === 'true' && value.type === 'checkbox' && value.class === TASK_CHECKBOX_CLASS
 }
+
+const isComarkMathNode = (props: unknown, children: unknown[]): boolean =>
+  isNormalizedMathProps(props) && children.length === 1 && children[0] === (props as Record<string, unknown>).content
+
+const isComarkMermaidNode = (props: unknown, children: unknown[]): boolean =>
+  isNormalizedMermaidProps(props) && children.length === 0
 
 const isPresent = (value: unknown): value is Exclude<unknown, undefined> => value !== undefined
 

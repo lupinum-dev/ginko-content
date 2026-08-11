@@ -17,12 +17,14 @@ const ignored = new Set(['.git', '.nuxt', '.output', '.pack', 'dist', 'node_modu
 const fields = ['dependencies', 'devDependencies', 'optionalDependencies']
 const latestSupported = {
   '@comark/vue': '^0.4.0',
+  'beautiful-mermaid': '^1.1.3',
   '@nuxt/kit': '^4.4.7',
   '@nuxt/schema': '^4.4.7',
   '@nuxt/test-utils': '^4.0.3',
   '@nuxtjs/i18n': '^10.3.0',
   '@nuxtjs/sitemap': '>=8.0.15 <9',
   'comark': '^0.4.0',
+  'katex': '^0.16.47',
   'nuxt': '^4.4.7',
   'nuxt-site-config': '^4.0.8',
   'pagefind': '^1.5.2',

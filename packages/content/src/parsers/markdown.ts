@@ -13,13 +13,15 @@ export default defineTransformer({
   extensions: ['.md'],
   parse: async (id, content, options = {}) => {
     const config = { ...(typeof options === 'object' && options !== null ? options : {}) } as MarkdownOptions
-    const plugins = await resolveMarkdownPlugins(config.plugins || [])
+    const configuredPlugins = config.plugins || []
+    const plugins = await resolveMarkdownPlugins(configuredPlugins)
+    const normalizationOptions = { enabledPlugins: configuredPlugins.map(plugin => plugin.name) }
     const tree = await parseComark(content as string, plugins)
 
     const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 
     const body = normalizeMarkdownBody({
-      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[]) as any[]),
+      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[], normalizationOptions) as any[]),
       // `undefined` is not a JSON-pure value: omit `toc`
       // entirely when the document has none, instead of setting the key to
       // `undefined`.
@@ -27,7 +29,7 @@ export default defineTransformer({
     })
     const excerpt = Array.isArray(tree.meta?.summary)
       ? normalizeMarkdownBody({
-          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[]) as any[])
+          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[], normalizationOptions) as any[])
         })
       : undefined
 

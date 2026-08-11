@@ -93,7 +93,8 @@ describe('module contracts', () => {
         resolvePath: vi.fn(async (value: string) => value)
       }),
       defineNuxtModule: (definition: any) => definition,
-      addTemplate: vi.fn(),
+      addTemplate: vi.fn((template: { filename: string }) => ({ dst: `/generated/${template.filename}` })),
+      resolvePath: vi.fn(async (value: string) => value),
       useLogger: vi.fn(() => ({
         info: vi.fn(),
         warn: sitemapLoggerWarn
@@ -160,9 +161,9 @@ describe('module contracts', () => {
     [{ theme: 'github-dark' }, 'themes: { light, dark }'],
     [{ langs: ['ts'] }, 'languages'],
   ])('rejects invalid highlight options during module setup', async (pluginOptions, replacement) => {
-    const { nuxt, hooks } = createNuxt()
+    const { nuxt } = createNuxt()
     const mod = await import('../../packages/content/src/module')
-    await mod.default.setup(createOptions({
+    await expect(mod.default.setup(createOptions({
       markdown: {
         // The module-contract harness mocks processMarkdownOptions as identity,
         // so provide the resolved shape that production normalization supplies.
@@ -170,9 +171,7 @@ describe('module contracts', () => {
         tags: {},
         anchorLinks: { depth: 4, exclude: [1] },
       },
-    }), nuxt as any)
-
-    await expect(hooks.get('modules:done')?.()).rejects.toThrow(replacement)
+    }), nuxt as any)).rejects.toThrow(replacement)
   })
 
   test.each(['collections', 'provider', 'providers'])('rejects nuxt.config content.%s as a second source of truth', async (key) => {

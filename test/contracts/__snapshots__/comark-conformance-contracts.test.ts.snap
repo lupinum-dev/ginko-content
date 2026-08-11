@@ -2010,15 +2010,15 @@ exports[`Comark conformance corpus > 'math' freezes raw Comark 0.4 output separa
 exports[`Comark conformance corpus > 'math' freezes the Ginko pipeline contract > math 1`] = `
 {
   "agent": {
-    "markdown": "Inline math <math content="x^2 + y^2">
+    "markdown": "Inline math <ginko-math content="x^2 + y^2">
 x^2 + y^2
-</math>
+</ginko-math>
 
 .
 
-<math content="E = mc^2">
+<ginko-math content="E = mc^2">
 E = mc^2
-</math>",
+</ginko-math>",
     "status": "accepted",
   },
   "cms": {
@@ -2061,7 +2061,7 @@ $$",
       {},
       "Inline math ",
       [
-        "math",
+        "ginko-math",
         {
           "class": "math inline",
           "content": "x^2 + y^2",
@@ -2071,7 +2071,7 @@ $$",
       ".",
     ],
     [
-      "math",
+      "ginko-math",
       {
         "class": "math block",
         "content": "E = mc^2",
@@ -2097,94 +2097,14 @@ $$",
     "status": "accepted",
   },
   "public": {
-    "issues": [
-      {
-        "code": "unsafe_tag",
-        "path": [
-          "children",
-          0,
-          "children",
-          1,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          0,
-          "children",
-          1,
-          "props",
-          "content",
-        ],
-      },
-      {
-        "code": "unsafe_tag",
-        "path": [
-          "children",
-          1,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          1,
-          "props",
-          "content",
-        ],
-      },
-    ],
-    "status": "rejected",
+    "status": "accepted",
   },
   "ssr": {
-    "error": {
-      "issues": [
-        {
-          "code": "unsafe_tag",
-          "path": [
-            "children",
-            0,
-            "children",
-            1,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            0,
-            "children",
-            1,
-            "props",
-            "content",
-          ],
-        },
-        {
-          "code": "unsafe_tag",
-          "path": [
-            "children",
-            1,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            1,
-            "props",
-            "content",
-          ],
-        },
-      ],
-      "message": "Public Markdown AST is not render-safe.",
-      "name": "PublicMarkdownValidationError",
+    "html": {
+      "length": 2801,
+      "sha256": "d5ff94358a610c27fca1baa875d2bd1c2ce4d376bf169adafa136d222f01f267",
     },
-    "status": "rejected",
+    "status": "accepted",
   },
 }
 `;
@@ -2210,7 +2130,7 @@ exports[`Comark conformance corpus > 'mermaid' freezes raw Comark 0.4 output sep
 exports[`Comark conformance corpus > 'mermaid' freezes the Ginko pipeline contract > mermaid 1`] = `
 {
   "agent": {
-    "markdown": "<mermaid content="graph TD
+    "markdown": "<ginko-mermaid content="graph TD
   A[Parse] --&gt; B[Normalize]
   B --&gt; C[Validate]
 " />",
@@ -2252,7 +2172,7 @@ exports[`Comark conformance corpus > 'mermaid' freezes the Ginko pipeline contra
   },
   "normalizedNodes": [
     [
-      "mermaid",
+      "ginko-mermaid",
       {
         "content": "graph TD
   A[Parse] --> B[Normalize]
@@ -2282,52 +2202,11 @@ exports[`Comark conformance corpus > 'mermaid' freezes the Ginko pipeline contra
     "status": "accepted",
   },
   "public": {
-    "issues": [
-      {
-        "code": "unknown_component",
-        "path": [
-          "children",
-          0,
-          "tag",
-        ],
-      },
-      {
-        "code": "unknown_prop",
-        "path": [
-          "children",
-          0,
-          "props",
-          "content",
-        ],
-      },
-    ],
-    "status": "rejected",
+    "status": "accepted",
   },
   "ssr": {
-    "error": {
-      "issues": [
-        {
-          "code": "unknown_component",
-          "path": [
-            "children",
-            0,
-            "tag",
-          ],
-        },
-        {
-          "code": "unknown_prop",
-          "path": [
-            "children",
-            0,
-            "props",
-            "content",
-          ],
-        },
-      ],
-      "message": "Public Markdown AST is not render-safe.",
-      "name": "PublicMarkdownValidationError",
-    },
-    "status": "rejected",
+    "html": "<div class=""><div class="mermaid" style="display:flex;justify-content:center;width:100%;height:auto;"></div></div>",
+    "status": "accepted",
   },
 }
 `;

@@ -954,7 +954,7 @@ passes 119 files/1,209 tests.
 
 #### RC-11 — Generate bundle-safe optional and custom plugin imports
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-01A, RC-05, RC-07, RC-10
 - **Risk:** high behavior risk; medium implementation risk
 - **Change type:** Nuxt/Vite build integration and exact render policy
@@ -1029,6 +1029,30 @@ pnpm test:package-consumer:npm
 **Cutover/rollback:** literal generated imports replace variable imports completely.
 If one integration cannot satisfy the artifact/browser matrix, remove it from the
 documented supported list for the RC rather than retaining a server-only illusion.
+
+Execution note (2026-08-11): Nuxt setup now resolves one registry and emits a
+server/build parser template with static imports plus a client renderer template
+with literal async Math/Mermaid companion imports. All variable package/specifier
+`@vite-ignore` imports were deleted. Enabled Math/Mermaid nodes normalize to exact
+reserved tags and receive plugin-owned prop policies; missing optional peers and
+invalid Shiki option names fail during setup. Parser descriptors, including custom
+module specifiers and options, now remain private instead of being serialized in
+`runtimeConfig.public.content`. The package declares matched optional KaTeX and
+Beautiful Mermaid peers and documents KaTeX CSS.
+
+One tracked packed-consumer fixture covers Math, Mermaid, and a local server-only
+custom parser; a duplicate workspace fixture was intentionally not added. The base
+consumer first builds with both optional peers absent, installs them only for the
+selected integrations, then proves SSR, prerender, chunk resolution, real Chromium
+hydration, and absence of the custom module from browser chunks. Deterministic pack
+SHA `cdb7a9f1f37666722aaacb1a7f5d3844b2121ef50fde89df6906f45f0adb0faa`
+passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 consumers. Focused contracts pass 156/156;
+Nuxt e2e passes 15/15, browser e2e 5/5, static generation 5/5, source typecheck and
+changed-file ESLint pass, the full core suite passes 120 files/1,214 tests, and docs
+build/smoke/drift pass with 173 prerendered routes.
+`pnpm verify` completed workspace preparation and docs drift, then stopped only at
+the previously recorded ignored `.claude/worktrees/` repository-policy
+contamination; all downstream owning lanes were run directly above.
 
 #### RC-12 — Minimize `runtimeConfig.public.content`
 
@@ -1628,7 +1652,7 @@ only the decisive verification result, not a full command log.
 | RC-08 | complete | `codex/rc-nuxt-kit` | Real layered generate and payload assertion; focused contracts 56/56; full suite 119 files/1,205 tests | Supported Kit APIs; application component wins in SSR |
 | RC-09 | complete | `codex/rc-search-options` | Consumer parity 41/41; docs build/smoke/drift; full suite 119 files/1,208 tests | One feature-owned normalizer; required result fields cannot be removed |
 | RC-10 | complete | `codex/rc-inline-contract` | Baseline contracts 38/38; real generate/browser; docs build/smoke/drift; full suite 119 files/1,209 tests | Fixed safe profile; render overrides cannot authorize syntax |
-| RC-11 | not started | — | — | Optional/custom plugin bundling |
+| RC-11 | complete | `codex/rc-markdown-plugin-registry` | Exact tarball `cdb7a9f1…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with absent-base-peer, SSR, prerender, Chromium, chunk, and server-only custom-plugin proofs; full core 120 files/1,214 tests; e2e 15/15; browser 5/5; generate 5/5 | One generated registry; parser descriptors private; no variable package imports or duplicate workspace fixture |
 | RC-12 | not started | — | — | Public runtime config |
 | RC-13 | not started | — | — | Comark `0.6.x` |
 | RC-14 | not started | — | — | Build override deletion |

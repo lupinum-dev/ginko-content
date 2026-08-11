@@ -121,7 +121,7 @@ const resolvedComponents = computed(() => {
       const loader = localComponents.includes(componentName) ? localComponentLoaders[componentName] : undefined
       return [tag, loader ? defineAsyncComponent(loader) : component]
     })),
-    ...resolveMarkdownRendererComponents(runtimeContent.markdown?.plugins || []),
+    ...resolveMarkdownRendererComponents(),
     ...props.components
   }
 })

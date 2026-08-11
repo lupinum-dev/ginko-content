@@ -287,7 +287,7 @@ describe('render component contracts', () => {
     expect(nuxtImage).toContain('data-nuxt-img="true"')
     expect(nuxtImage).toContain('data-src="/hero.png"')
     expect(nuxtImage).toContain('data-loading="lazy"')
-    expect(resolveMarkdownRendererComponents([])).not.toHaveProperty('ProseImg')
+    expect(resolveMarkdownRendererComponents()).not.toHaveProperty('ProseImg')
     expect(resolveMarkdownRendererFallbackComponents()).toHaveProperty('ProseImg')
   })
 
