@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -57,24 +57,24 @@ const trackedIgnoredArtifactPathspecs = [
   ':(glob)**/*.tgz',
 ]
 
-function collectFiles(rootPath) {
-  const absoluteRoot = resolve(repoRoot, rootPath)
-  if (!existsSync(absoluteRoot)) return []
-  const stats = statSync(absoluteRoot)
-  if (stats.isFile()) return [absoluteRoot]
+const repositoryFiles = execFileSync(
+  'git',
+  ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+  { cwd: repoRoot, encoding: 'utf8' },
+)
+  .split('\0')
+  .filter(Boolean)
 
-  const files = []
-  for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (ignoredDirs.has(entry.name)) continue
-      files.push(...collectFiles(join(rootPath, entry.name)))
-      continue
-    }
-    if (!entry.isFile()) continue
-    const filePath = join(absoluteRoot, entry.name)
-    if (scannedExtensions.has(extname(filePath))) files.push(filePath)
-  }
-  return files
+function collectFiles(rootPath) {
+  const normalizedRoot = rootPath.replaceAll('\\', '/').replace(/^\.\//u, '')
+  return repositoryFiles
+    .filter((filePath) => normalizedRoot === '.'
+      || filePath === normalizedRoot
+      || filePath.startsWith(`${normalizedRoot}/`))
+    .filter((filePath) => !filePath.split('/').some(segment => ignoredDirs.has(segment)))
+    .filter(filePath => scannedExtensions.has(extname(filePath)))
+    .map(filePath => resolve(repoRoot, filePath))
+    .filter(filePath => existsSync(filePath) && statSync(filePath).isFile())
 }
 
 const violations = []

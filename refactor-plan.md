@@ -1646,12 +1646,45 @@ tests) pass. `pnpm verify` completed package build, every workspace prepare, and
 docs drift, then stopped only at the known ignored `.claude/worktrees/` policy
 scanner contamination before any branch-owned failure.
 
+#### RC-18A — Scope repository policy checks to repository-owned files
+
+- **Status:** complete
+- **Depends on:** none
+- **Risk:** low
+- **Change type:** release-gate correctness
+- **Public impact:** none
+- **Paths:** `scripts/check-repo-policies.mjs`
+
+Implementation:
+
+- Use Git's tracked plus non-ignored untracked file set as the policy scanner's
+  source of truth. Continue checking accidentally tracked generated artifacts in
+  the dedicated ignored-artifact query.
+- Do not enumerate ignored auxiliary worktrees, dependency trees, or generated
+  output merely because they are physically nested under the checkout.
+
+Acceptance criteria:
+
+- Ignored auxiliary worktrees cannot fail the owning repository's policy gate.
+- A non-ignored untracked source/documentation file is still checked before commit.
+- The full repository verification gate passes without exclusions or waivers.
+
+Execution note (2026-08-11): the scanner now enumerates cached and non-ignored
+untracked files through `git ls-files` and applies the existing extension/root
+filters to that set. The known ignored auxiliary worktree no longer contaminates
+the gate. A temporary non-ignored Markdown probe containing a host path failed as
+required, while direct policy check and changed-file ESLint pass. The complete
+`pnpm verify` gate passes: docs build/smoke and examples, 121 core files/1,217
+tests, source/fixture type checks, quickstart build, and server e2e 6 files/15
+tests.
+
 ### Phase 7 — Release candidate freeze
 
 #### RC-19 — Final documentation, metadata, and exact-artifact authorization
 
 - **Status:** not started
-- **Depends on:** every preceding item, including RC-01A, RC-17A, and RC-17B
+- **Depends on:** every preceding item, including RC-01A, RC-17A, RC-17B, and
+  RC-18A
 - **Risk:** high release consequence; low implementation risk
 - **Change type:** release metadata and verification
 - **Public impact:** publishes the complete `0.4` migration contract
@@ -1861,6 +1894,7 @@ only the decisive verification result, not a full command log.
 | RC-17A | complete | `codex/rc-script-ownership` | Moved tests 18/18; full core 121 files/1,217 tests; selection guard; docs build/smoke; reproducible pack `f5621acb…`; packed Node/browser probes | Deleted `scripts/lib/`; search, docs, and release support have explicit owners with no bridges |
 | RC-17B | complete | `codex/rc-test-support-ownership` | Full core 121 files/1,217 tests; server e2e 15/15; browser e2e 6/6; selection guard and changed-file ESLint | Deleted fixture pass-through and mixed `_utils`; provider scenarios, content documents, and memory storage have explicit owners |
 | RC-18 | complete | `codex/rc-fixture-sharing-cleanup` | Four shared-layer playground builds; docs build/smoke/drift; targeted browser navigation 3/3; changed-component ESLint | Shared layer is neutral; i18n owns docs navigation; three unused docs auto-import utilities deleted |
+| RC-18A | complete | `codex/rc-policy-scan-scope` | Ignored-worktree exclusion; non-ignored untracked violation probe; full `pnpm verify` | Policy scope now follows Git ownership without weakening pre-commit checks |
 | RC-19 | not started | — | — | RC authorization |
 
 ## 14. Stop conditions
