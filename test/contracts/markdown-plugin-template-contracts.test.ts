@@ -72,6 +72,7 @@ describe('generated Markdown plugin registry', () => {
       rendererTemplate: '/generated/content/virtual-markdown-renderer-components.mjs',
     })
     expect(appResolutions).toEqual(['katex', '~/server/custom-markdown'])
+    expect(registry[0]?.renderer?.componentPolicy).toMatchObject({ kind: 'inline' })
     expect(parser).toContain('import * as plugin0 from "/package/comark/plugins/math.mjs"')
     expect(parser).toContain('import * as plugin1 from "/app/server/custom-markdown.mjs"')
     expect(renderer).toContain('import("@comark/vue/plugins/math")')

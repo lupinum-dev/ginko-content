@@ -2,7 +2,7 @@ import type { Nuxt } from '@nuxt/schema'
 import { hash } from 'ohash'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { ContentConfig } from '../types/config'
-import { processMarkdownOptions } from '../utils'
+import type { PortableComponentPolicyV1 } from '../types/component-policy'
 import { collectTopLevelReferenceFieldsByTarget, collectTopLevelSchemaFields } from '../core/references/schema'
 import { applyContentRuntimeConfig } from './runtime-config'
 import { registerContentSearchServerHandlers } from './server-handlers'
@@ -13,6 +13,7 @@ interface ContentContextFinalizationOptions {
   options: ModuleOptions
   appContentConfig: ContentConfig
   contentContext: ContentContext
+  runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>
   buildIntegrity: number | undefined
   resolveRuntimeModule: (path: string) => string
   onResolved: (context: ResolvedContentContext) => void
@@ -23,6 +24,7 @@ export const registerContentContextFinalization = ({
   options,
   appContentConfig,
   contentContext,
+  runtimeRenderPolicies,
   buildIntegrity,
   resolveRuntimeModule,
   onResolved
@@ -41,7 +43,6 @@ export const registerContentContextFinalization = ({
     const resolvedContentContext = {
       ...contentContext,
       defaultLocale: contentContext.localePolicy.defaultLocale,
-      markdown: processMarkdownOptions(contentContext.markdown)
     } satisfies ResolvedContentContext
     // `resolvedContentContext` is embedded by reference into Nuxt/Nitro
     // runtime config below (module/runtime-config.ts spreads it into the
@@ -103,6 +104,16 @@ export const registerContentContextFinalization = ({
       csv: resolvedContentContext.csv
     })
 
-    await applyContentRuntimeConfig(nuxt, options, resolvedContentContext, appContentConfig, runtimeCollections, privateRuntimeCollections, buildIntegrity, cacheIntegrity)
+    await applyContentRuntimeConfig(
+      nuxt,
+      options,
+      resolvedContentContext,
+      appContentConfig,
+      runtimeRenderPolicies,
+      runtimeCollections,
+      privateRuntimeCollections,
+      buildIntegrity,
+      cacheIntegrity,
+    )
   })
 }

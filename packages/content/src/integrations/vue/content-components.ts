@@ -1,6 +1,6 @@
 import { kebabCase, pascalCase } from 'scule'
 import type { AsyncComponentLoader } from 'vue'
-import htmlTags from './html-tags.js'
+import { HTML_TAGS } from '../../core/markdown/html-tags.js'
 
 type ContentBodyNode = {
   type?: string
@@ -47,7 +47,7 @@ export function loadContentComponentEntries (
     : tag
   const components: Array<[string, unknown]> = []
 
-  if (!htmlTags.includes(mappedTag as never)) {
+  if (!HTML_TAGS.has(mappedTag)) {
     components.push([tag, mappedTag])
   }
 
@@ -65,7 +65,7 @@ export async function resolveVueContentComponent (
   let resolvedComponent = component
 
   if (typeof component === 'string') {
-    if (htmlTags.includes(component as never)) {
+    if (HTML_TAGS.has(component)) {
       return component
     }
 

@@ -2,30 +2,47 @@ import type { addTemplate } from '@nuxt/kit'
 import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { PortableComponentPolicyV1 } from '../types/component-policy'
 import { assertCanonicalHighlightOptionNames } from '../parsers/markdown-plugin-options'
+import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../core/markdown/builtin-render-contracts'
 
-const BUILTIN_PARSER_SPECIFIERS: Record<string, string> = {
-  breaks: 'comark/plugins/breaks',
-  emoji: 'comark/plugins/emoji',
-  footnotes: 'comark/plugins/footnotes',
-  shiki: 'comark/plugins/shiki',
-  'json-render': 'comark/plugins/json-render',
-  math: 'comark/plugins/math',
-  mermaid: 'comark/plugins/mermaid',
-  punctuation: 'comark/plugins/punctuation',
-  security: 'comark/plugins/security',
-  summary: 'comark/plugins/summary',
-  toc: 'comark/plugins/toc'
+interface BuiltinMarkdownPlugin {
+  parserSpecifier: string
+  peer?: string
+  renderer?: {
+    specifier: string
+    exportName: string
+    tag: string
+    componentPolicy: PortableComponentPolicyV1['components'][string]
+  }
 }
 
-const BUILTIN_PEERS: Record<string, string | undefined> = {
-  shiki: 'shiki',
-  math: 'katex',
-  mermaid: 'beautiful-mermaid'
-}
-
-const BUILTIN_RENDERERS: Record<string, { specifier: string, exportName: string, tag: string } | undefined> = {
-  math: { specifier: '@comark/vue/plugins/math', exportName: 'Math', tag: 'ginko-math' },
-  mermaid: { specifier: '@comark/vue/plugins/mermaid', exportName: 'Mermaid', tag: 'ginko-mermaid' }
+const BUILTIN_MARKDOWN_PLUGINS: Record<string, BuiltinMarkdownPlugin> = {
+  breaks: { parserSpecifier: 'comark/plugins/breaks' },
+  emoji: { parserSpecifier: 'comark/plugins/emoji' },
+  footnotes: { parserSpecifier: 'comark/plugins/footnotes' },
+  shiki: { parserSpecifier: 'comark/plugins/shiki', peer: 'shiki' },
+  'json-render': { parserSpecifier: 'comark/plugins/json-render' },
+  math: {
+    parserSpecifier: 'comark/plugins/math',
+    peer: 'katex',
+    renderer: {
+      specifier: '@comark/vue/plugins/math',
+      exportName: 'Math',
+      ...BUILTIN_MARKDOWN_RENDER_CONTRACTS.math
+    }
+  },
+  mermaid: {
+    parserSpecifier: 'comark/plugins/mermaid',
+    peer: 'beautiful-mermaid',
+    renderer: {
+      specifier: '@comark/vue/plugins/mermaid',
+      exportName: 'Mermaid',
+      ...BUILTIN_MARKDOWN_RENDER_CONTRACTS.mermaid
+    }
+  },
+  punctuation: { parserSpecifier: 'comark/plugins/punctuation' },
+  security: { parserSpecifier: 'comark/plugins/security' },
+  summary: { parserSpecifier: 'comark/plugins/summary' },
+  toc: { parserSpecifier: 'comark/plugins/toc' }
 }
 
 export interface MarkdownPluginRegistryEntry {
@@ -35,6 +52,7 @@ export interface MarkdownPluginRegistryEntry {
     path: string
     exportName: string
     tag: string
+    componentPolicy: PortableComponentPolicyV1['components'][string]
   }
 }
 
@@ -55,38 +73,18 @@ export function canonicalizeMarkdownPluginAliases(
     : plugin)
 }
 
-const PLUGIN_COMPONENT_POLICIES: Record<string, PortableComponentPolicyV1['components'][string] | undefined> = {
-  'ginko-math': {
-    kind: 'inline',
-    props: {
-      class: { type: 'string', required: true },
-      content: { type: 'string', required: true }
-    },
-    slots: [],
-    media: null
-  },
-  'ginko-mermaid': {
-    kind: 'block',
-    props: {
-      content: { type: 'string', required: true }
-    },
-    slots: [],
-    media: null
-  }
-}
-
 export function withMarkdownPluginComponentPolicy(
   policy: PortableComponentPolicyV1 | undefined,
   registry: MarkdownPluginRegistryEntry[]
 ): PortableComponentPolicyV1 {
   const components = { ...(policy?.components || {}) }
   for (const entry of registry) {
-    const tag = entry.renderer?.tag
-    if (!tag) continue
-    if (components[tag]) {
-      throw new TypeError(`Component policy name "${tag}" is reserved for the enabled Markdown plugin "${entry.name}".`)
+    const renderer = entry.renderer
+    if (!renderer) continue
+    if (components[renderer.tag]) {
+      throw new TypeError(`Component policy name "${renderer.tag}" is reserved for the enabled Markdown plugin "${entry.name}".`)
     }
-    components[tag] = PLUGIN_COMPONENT_POLICIES[tag]!
+    components[renderer.tag] = renderer.componentPolicy
   }
   return { components }
 }
@@ -106,8 +104,8 @@ export async function resolveMarkdownPluginRegistry(
     if (entries.has(plugin.name)) continue
     if (plugin.name === 'shiki') assertCanonicalHighlightOptionNames(plugin.options)
 
-    const builtinSpecifier = BUILTIN_PARSER_SPECIFIERS[plugin.name]
-    const peer = BUILTIN_PEERS[plugin.name]
+    const builtin = BUILTIN_MARKDOWN_PLUGINS[plugin.name]
+    const peer = builtin?.peer
     if (peer) {
       try {
         await resolveAppPath(peer)
@@ -120,8 +118,8 @@ export async function resolveMarkdownPluginRegistry(
 
     let parserPath: string
     try {
-      if (builtinSpecifier) {
-        parserPath = await resolveModulePath(builtinSpecifier)
+      if (builtin) {
+        parserPath = await resolveModulePath(builtin.parserSpecifier)
       } else {
         parserPath = await resolveAppPath(plugin.name)
       }
@@ -131,7 +129,7 @@ export async function resolveMarkdownPluginRegistry(
       throw next
     }
 
-    const renderer = BUILTIN_RENDERERS[plugin.name]
+    const renderer = builtin?.renderer
     entries.set(plugin.name, {
       name: plugin.name,
       parserPath,
@@ -140,7 +138,8 @@ export async function resolveMarkdownPluginRegistry(
             renderer: {
               path: renderer.specifier,
               exportName: renderer.exportName,
-              tag: renderer.tag
+              tag: renderer.tag,
+              componentPolicy: renderer.componentPolicy
             }
           }
         : {})
@@ -173,19 +172,19 @@ export function createMarkdownPluginTemplates(
     }
   }).dst
 
-  const rendererEntries = registry.filter(entry => entry.renderer)
+  const renderers = registry.flatMap(entry => entry.renderer ? [entry.renderer] : [])
   const rendererTemplate = addTemplateImpl({
     filename: 'content/virtual-markdown-renderer-components.mjs',
     write: true,
     getContents: () => {
-      if (!rendererEntries.length) {
+      if (!renderers.length) {
         return 'export const markdownRendererComponents = {}\nexport default {}'
       }
       return [
         `import { defineAsyncComponent } from 'vue'`,
         'export const markdownRendererComponents = {',
-        ...rendererEntries.map(({ renderer }) =>
-          `  ${JSON.stringify(renderer!.tag)}: defineAsyncComponent(() => import(${JSON.stringify(renderer!.path)}).then(mod => mod[${JSON.stringify(renderer!.exportName)}])),`
+        ...renderers.map(renderer =>
+          `  ${JSON.stringify(renderer.tag)}: defineAsyncComponent(() => import(${JSON.stringify(renderer.path)}).then(mod => mod[${JSON.stringify(renderer.exportName)}])),`
         ),
         '}',
         'export default {}'

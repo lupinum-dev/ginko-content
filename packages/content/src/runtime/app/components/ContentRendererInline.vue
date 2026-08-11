@@ -66,7 +66,7 @@ const refresh = async () => {
   const currentRefresh = ++refreshId
   const parsed = await parseComark(props.value || '')
   const body = unwrapRoot({
-    ...toMarkdownRoot(normalizeComarkNodes(parsed.nodes as unknown[]) as any[])
+    ...toMarkdownRoot(normalizeComarkNodes(parsed.nodes as unknown[]))
   }, props.unwrap)
 
   if (currentRefresh === refreshId) {

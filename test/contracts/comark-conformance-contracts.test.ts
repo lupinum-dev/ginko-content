@@ -10,13 +10,13 @@ import type { PortableComponentPolicyV1 } from '../../packages/content/src/cms-c
 import { createAgentMarkdownRegistry } from '../../packages/content/src/features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../packages/content/src/features/agent/walker'
 import { normalizeComarkNodes } from '../../packages/content/src/core/markdown/normalize-comark'
+import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../../packages/content/src/core/markdown/builtin-render-contracts'
 import { createComarkParser } from '../../packages/content/src/core/markdown/parse-comark'
 import { toMarkdownRoot } from '../../packages/content/src/core/markdown/tree'
 import { resolveMarkdownPlugins } from '../../packages/content/src/parsers/markdown-plugins'
 import { parsePortableMdc, serializePortableMdc } from '../../packages/content/src/portability/mdc'
 import MarkdownRenderer from '../../packages/content/src/runtime/app/components/internal/MarkdownRenderer'
 import type { ResolvedMarkdownPlugin } from '../../packages/content/src/types/content'
-import { withMarkdownPluginComponentPolicy } from '../../packages/content/src/module/markdown-plugin-templates'
 import { Math as MathComponent } from '../../packages/content/node_modules/@comark/vue/dist/components/Math.js'
 import { Mermaid as MermaidComponent } from '../../packages/content/node_modules/@comark/vue/dist/components/Mermaid.js'
 
@@ -76,7 +76,7 @@ const corpus: CorpusCase[] = [
     profile: 'filesystem-configured',
     support: 'supported',
     plugins: [plugin('toc')],
-    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'rejected', ssr: 'accepted', agent: 'accepted' }
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
   },
   {
     id: 'comments-summary',
@@ -217,18 +217,17 @@ describe('Comark conformance corpus', () => {
       ? normalizeComarkNodes(parsed.nodes as unknown[], { enabledPlugins: entry.plugins.map(plugin => plugin.name) })
       : undefined
     const body = normalizedNodes
-      ? toMarkdownRoot(normalizedNodes as Parameters<typeof toMarkdownRoot>[0])
+      ? toMarkdownRoot(normalizedNodes)
       : undefined
-    const enabledPluginRegistry = entry.plugins.flatMap(plugin => {
-      if (plugin.name === 'math') {
-        return [{ name: 'math', parserPath: '', renderer: { path: '', exportName: 'Math', tag: 'ginko-math' } }]
-      }
-      if (plugin.name === 'mermaid') {
-        return [{ name: 'mermaid', parserPath: '', renderer: { path: '', exportName: 'Mermaid', tag: 'ginko-mermaid' } }]
-      }
-      return []
-    })
-    const renderPolicy = withMarkdownPluginComponentPolicy(componentPolicy, enabledPluginRegistry)
+    const renderPolicy: PortableComponentPolicyV1 = {
+      components: {
+        ...componentPolicy.components,
+        ...Object.fromEntries(entry.plugins.flatMap((plugin) => {
+          const contract = BUILTIN_MARKDOWN_RENDER_CONTRACTS[plugin.name as keyof typeof BUILTIN_MARKDOWN_RENDER_CONTRACTS]
+          return contract ? [[contract.tag, contract.componentPolicy]] : []
+        })),
+      },
+    }
 
     const publicResult = body
       ? validatePublicMarkdownAst(body, renderPolicy)
@@ -245,7 +244,7 @@ describe('Comark conformance corpus', () => {
     let cmsContract: { status: StageStatus; body?: unknown; toc?: unknown; searchText?: string; error?: unknown }
     try {
       const cms = await parseMdcBody(source)
-      const validation = validatePublicMarkdownAst(cms.body, renderPolicy)
+      const validation = validatePublicMarkdownAst(cms.body, componentPolicy)
       if (!validation.ok) throw Object.assign(new Error('CMS baseline AST failed the public render policy.'), { issues: validation.issues })
       cmsContract = {
         status: 'accepted',
@@ -260,9 +259,9 @@ describe('Comark conformance corpus', () => {
 
     let portableContract: { status: StageStatus; nodes?: unknown; error?: unknown }
     try {
-      const portable = await parsePortableMdc(source, renderPolicy)
-      const serialized = await serializePortableMdc(portable, renderPolicy)
-      const reparsed = await parsePortableMdc(serialized, renderPolicy)
+      const portable = await parsePortableMdc(source, componentPolicy)
+      const serialized = await serializePortableMdc(portable, componentPolicy)
+      const reparsed = await parsePortableMdc(serialized, componentPolicy)
       expect(reparsed.nodes).toEqual(portable.nodes)
       portableContract = { status: 'accepted', nodes: snapshotValue(portable.nodes) }
     }

@@ -262,12 +262,53 @@ inline HTML
     ],
   ],
   "portable": {
-    "error": {
-      "issues": undefined,
-      "message": "MDC syntax is unsupported.",
-      "name": "GinkoBoundaryError",
-    },
-    "status": "rejected",
+    "nodes": [
+      [
+        "h1",
+        {
+          "id": "parser-baseline",
+        },
+        "Parser baseline",
+      ],
+      [
+        "h2",
+        {
+          "id": "custom-overview",
+        },
+        "Overview",
+      ],
+      [
+        "p",
+        {},
+        "This is ",
+        [
+          "strong",
+          {},
+          "renderable",
+        ],
+        " with an ",
+        [
+          "a",
+          {
+            "href": "/guide",
+          },
+          "internal link",
+        ],
+        " and ",
+        [
+          "mark",
+          {
+            "$": {
+              "block": 0,
+              "html": 1,
+            },
+          },
+          "inline HTML",
+        ],
+        ".",
+      ],
+    ],
+    "status": "accepted",
   },
   "public": {
     "status": "accepted",

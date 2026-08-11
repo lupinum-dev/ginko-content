@@ -126,6 +126,71 @@ describe('resolved content contract v1', () => {
     })).toThrow(/asset prop/)
   })
 
+  it('canonicalizes component names once and rejects collisions', () => {
+    const component = { kind: 'block' as const, props: {}, slots: [], media: null }
+    const contract = buildResolvedContentContract({ collections: { docs: { type: 'page' } } }, {
+      defaultLocale: 'en',
+      locales: ['en'],
+      componentPolicy: { components: { QuizQuestion: component } },
+    })
+    expect(contract.collections.docs?.componentPolicy.components).toEqual({ 'quiz-question': component })
+
+    const nativeAlias = buildResolvedContentContract({ collections: { docs: { type: 'page' } } }, {
+      defaultLocale: 'en',
+      locales: ['en'],
+      componentPolicy: { components: { aside: component } },
+    })
+    expect(nativeAlias.collections.docs?.componentPolicy.components).toEqual({ aside: component })
+
+    const acronymNames = buildResolvedContentContract({ collections: { docs: { type: 'page' } } }, {
+      defaultLocale: 'en',
+      locales: ['en'],
+      componentPolicy: { components: { XMLHttp: component, APIResponse: component } },
+    })
+    expect(acronymNames.collections.docs?.componentPolicy.components).toEqual({
+      'xml-http': component,
+      'api-response': component,
+    })
+
+    expect(() => buildResolvedContentContract({ collections: {} }, {
+      defaultLocale: 'en',
+      locales: ['en'],
+      componentPolicy: { components: { QuizQuestion: component, 'quiz-question': component } },
+    })).toThrow(/conflicts after canonicalization/)
+
+    expect(() => buildResolvedContentContract({ collections: {} }, {
+      defaultLocale: 'en',
+      locales: ['en'],
+      componentPolicy: { components: { XMLHttp: component, 'xml-http': component } },
+    })).toThrow(/conflicts after canonicalization/)
+
+    for (const reservedName of ['input', 'script', 'IFrame', 'TextArea', 'sCrIpT', 'template', 'teMplate', 'ginko-math', 'ginko-mermaid']) {
+      expect(() => buildResolvedContentContract({ collections: {} }, {
+        defaultLocale: 'en',
+        locales: ['en'],
+        componentPolicy: { components: { [reservedName]: component } },
+      })).toThrow(/is reserved/)
+    }
+
+    for (const invalidName of ['.', '123', '$x', 'x/y', 'x#y', '💣', '-leading', 'trailing-', 'double--hyphen']) {
+      expect(() => buildResolvedContentContract({ collections: {} }, {
+        defaultLocale: 'en',
+        locales: ['en'],
+        componentPolicy: { components: { [invalidName]: component } },
+      })).toThrow(/Invalid portable component name/)
+    }
+
+    const noncanonical = structuredClone(contract)
+    noncanonical.collections.docs!.componentPolicy.components = { QuizQuestion: component }
+    expect(() => assertResolvedContentContract(noncanonical)).toThrow(/canonicalization/)
+
+    for (const invalidName of ['123', '$x', 'double--hyphen']) {
+      const invalid = structuredClone(contract)
+      invalid.collections.docs!.componentPolicy.components = { [invalidName]: component }
+      expect(() => assertResolvedContentContract(invalid)).toThrow(/canonicalization/)
+    }
+  })
+
   it('rejects malformed resolved artifacts and cyclic fallback chains', () => {
     const contract = buildResolvedContentContract({ collections: {} }, {
       defaultLocale: 'en',

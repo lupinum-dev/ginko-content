@@ -35,7 +35,7 @@ interface ModulePrivateRuntimeConfig {
    * Internal version that represents cache format.
    * This is used to invalidate cache when the format changes.
    */
-  cacheVersion: string;
+  cacheVersion: number;
   cacheIntegrity: string;
   revalidate?: false | ContentRevalidateOptions;
   siteUrl?: string;

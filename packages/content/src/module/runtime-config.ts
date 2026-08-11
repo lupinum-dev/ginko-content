@@ -11,10 +11,10 @@ import type {
   ContentConfig
 } from '../types/config'
 import type { ResolvedMarkdownPlugin } from '../types/content'
-import type { ContentSearchPublicRuntimeConfig } from '../types/search'
+import type { PortableComponentPolicyV1 } from '../types/component-policy'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 import { CACHE_VERSION } from '../utils'
-import { normalizeMiniSearchOptions } from '../features/search/options'
+import { createSearchRuntimeConfig } from './options'
 
 const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
   const privateRuntime = nuxt.options.runtimeConfig as Record<string, any>
@@ -151,6 +151,7 @@ export const applyContentRuntimeConfig = async (
   options: ModuleOptions,
   contentContext: ResolvedContentContext,
   appContentConfig: Pick<ContentConfig, 'agent'>,
+  runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>,
   runtimeCollections: Record<string, RuntimeCollectionConfig>,
   privateRuntimeCollections: Record<string, RuntimeCollectionConfig>,
   buildIntegrity: number | undefined,
@@ -160,12 +161,7 @@ export const applyContentRuntimeConfig = async (
   const defaultLocale = contentContext.localePolicy.defaultLocale
   const searchRuntime = contentContext.search === false
     ? false
-    : {
-        apiBaseURL: contentContext.search.apiBaseURL || `${options.api.baseURL.replace(/\/$/, '')}/search`,
-        indexURL: `${(contentContext.search.apiBaseURL || `${options.api.baseURL.replace(/\/$/, '')}/search`).replace(/\/$/, '')}/index.json`,
-        engine: contentContext.search.engine || 'minisearch',
-        minisearch: normalizeMiniSearchOptions(contentContext.search.minisearch)
-      } satisfies ContentSearchPublicRuntimeConfig
+    : createSearchRuntimeConfig(contentContext.search, options.api.baseURL)
   const siteUrl = resolveNuxtSiteUrl(nuxt)
   const publicCollections = Object.fromEntries(
     Object.entries(runtimeCollections).map(([name, collection]) => [
@@ -180,12 +176,7 @@ export const applyContentRuntimeConfig = async (
     locales: contentContext.locales,
     defaultLocale,
     collections: publicCollections,
-    renderPolicies: Object.fromEntries(
-      Object.entries(contentContext.contract.collections).map(([id, collection]) => [
-        id,
-        collection.componentPolicy,
-      ]),
-    ),
+    renderPolicies: runtimeRenderPolicies,
     links: contentContext.links || {},
     integrity: buildIntegrity as number,
     api: {

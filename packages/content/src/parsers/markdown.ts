@@ -42,7 +42,7 @@ export default defineTransformer({
     const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 
     const body = normalizeMarkdownBody({
-      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[], normalizationOptions) as any[]),
+      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[], normalizationOptions)),
       // `undefined` is not a JSON-pure value: omit `toc`
       // entirely when the document has none, instead of setting the key to
       // `undefined`.
@@ -50,7 +50,7 @@ export default defineTransformer({
     })
     const excerpt = Array.isArray(tree.meta?.summary)
       ? normalizeMarkdownBody({
-          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[], normalizationOptions) as any[])
+          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[], normalizationOptions))
         })
       : undefined
 

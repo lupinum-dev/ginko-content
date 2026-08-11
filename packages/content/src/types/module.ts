@@ -502,11 +502,12 @@ export interface ResolvedContentI18nOptions {
   strictTranslatedSlugs: boolean
 }
 
-export interface ContentContext extends Omit<ModuleOptions, 'search'> {
+export interface ContentContext extends Omit<ModuleOptions, 'search' | 'markdown'> {
   collections: Record<string, ContentCollectionConfig>
   provider: ContentProviderName
   providers: Record<string, string>
   search: false | ResolvedContentSearchOptions
+  markdown: MarkdownOptions
   transformers: Array<string>
   sitemap: false | ContentSitemapOptions
   validation: 'report' | 'error'
@@ -529,7 +530,6 @@ export interface ContentContext extends Omit<ModuleOptions, 'search'> {
   contract: ResolvedContentContractV1
 }
 
-export type ResolvedContentContext = Omit<ContentContext, 'markdown' | 'defaultLocale'> & {
+export type ResolvedContentContext = Omit<ContentContext, 'defaultLocale'> & {
   defaultLocale: string
-  markdown: MarkdownOptions
 }

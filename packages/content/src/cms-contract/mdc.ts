@@ -37,7 +37,7 @@ export async function parseMdcBody(
   options: ParseMdcBodyOptions = {},
 ): Promise<ParseMdcBodyResult> {
   const tree = await parseComark(raw ?? '')
-  const nodes = normalizeComarkNodes(tree.nodes as unknown[]) as Parameters<typeof toMarkdownRoot>[0]
+  const nodes = normalizeComarkNodes(tree.nodes as unknown[])
   const toc = deriveToc(nodes, options)
   const body = toMarkdownRoot(nodes, toc)
   const searchText = renderPlainText(body)

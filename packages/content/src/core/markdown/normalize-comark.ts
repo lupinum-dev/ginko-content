@@ -1,3 +1,5 @@
+import type { NormalizedComarkNode } from './tree'
+
 const GFM_ALERTS = new Set(['note', 'tip', 'important', 'warning', 'caution'])
 const TASK_CHECKBOX_CLASS = 'task-list-item-checkbox'
 const TABLE_ALIGNMENT = /^text-align:(?:left|center|right)$/
@@ -12,17 +14,21 @@ const MAX_CODE_LINE = 1_000_000
 export function normalizeComarkNodes(
   nodes: unknown[],
   options: { enabledPlugins?: Iterable<string> } = {}
-): unknown[] {
+): NormalizedComarkNode[] {
   const enabledPlugins = new Set(options.enabledPlugins)
-  const normalize = (node: unknown): unknown | undefined => {
-    if (!Array.isArray(node)) return node
+  const normalize = (node: unknown): NormalizedComarkNode | undefined => {
+    if (typeof node === 'string') return node
+    if (!Array.isArray(node)) throw new TypeError('Comark emitted a malformed Markdown node.')
 
     const [tag, rawProps, ...children] = node
     // Comark represents comments as tagless tuples. They are parser metadata,
     // not authored content, and must not enter render, portable, or agent ASTs.
     if (tag === null) return undefined
+    if (typeof tag !== 'string' || (rawProps !== undefined && !isRecord(rawProps))) {
+      throw new TypeError('Comark emitted a malformed Markdown tuple.')
+    }
 
-    const props = isRecord(rawProps) ? { ...rawProps } : rawProps
+    const props = isRecord(rawProps) ? { ...rawProps } : {}
     if (
       tag === 'blockquote' &&
       isRecord(props) &&
@@ -103,7 +109,7 @@ const isComarkMathNode = (props: unknown, children: unknown[]): boolean =>
 const isComarkMermaidNode = (props: unknown, children: unknown[]): boolean =>
   isNormalizedMermaidProps(props) && children.length === 0
 
-const isPresent = (value: unknown): value is Exclude<unknown, undefined> => value !== undefined
+const isPresent = (value: NormalizedComarkNode | undefined): value is NormalizedComarkNode => value !== undefined
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)

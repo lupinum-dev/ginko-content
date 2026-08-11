@@ -170,18 +170,21 @@ export default defineNuxtModule<ModuleOptions>({
         locales: resolvedI18n.locales.length ? resolvedI18n.locales : [resolvedI18n.defaultLocale],
         localeFallbacks: resolvedI18n.fallback,
         translatedSlugs: resolvedI18n.translatedSlugs,
-        componentPolicy: withMarkdownPluginComponentPolicy(options.componentPolicy, markdownPluginRegistry),
+        componentPolicy: options.componentPolicy,
       },
+    )
+    const runtimeRenderPolicies = Object.fromEntries(
+      Object.entries(contract.collections).map(([id, collection]) => [
+        id,
+        withMarkdownPluginComponentPolicy(collection.componentPolicy, markdownPluginRegistry),
+      ]),
     )
     // Disable cache in dev mode
     const buildIntegrity = nuxt.options.dev ? undefined : Date.now()
 
     const contentContext: ContentContext = {
       ...options,
-      markdown: {
-        ...options.markdown,
-        plugins: resolvedMarkdown.plugins.map(plugin => [plugin.name, plugin.options])
-      },
+      markdown: resolvedMarkdown,
       collections,
       provider,
       providers: providerRegistry,
@@ -315,6 +318,7 @@ export default defineNuxtModule<ModuleOptions>({
       options,
       appContentConfig,
       contentContext,
+      runtimeRenderPolicies,
       buildIntegrity,
       resolveRuntimeModule,
       onResolved: context => {

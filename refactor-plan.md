@@ -189,7 +189,7 @@ The candidate is not done until every item is true:
 - [x] False-shared scripts and fixtures have clear owners and no new common dump.
 - [x] Public docs, examples, migration notes, README, changelog, and generated API
   reference agree with the shipped behavior.
-- [x] `pnpm verify` passes on the frozen release commit.
+- [ ] `pnpm verify` passes on the final post-review frozen release commit.
 - [ ] The exact release-metadata commit has a green CI `Release authorization` job.
 - [ ] The downloaded tarball checksum matches its certification manifests, the
   worktree is clean, and no live publish command was run by an agent.
@@ -1682,8 +1682,8 @@ tests.
 
 #### RC-19 — Final documentation, metadata, and exact-artifact authorization
 
-- **Status:** locally complete — metadata and exact local artifact are frozen;
-  remote review and CI authorization remain maintainer-owned
+- **Status:** metadata complete; the earlier local freeze was superseded by the
+  post-review hardening in RC-20
 - **Depends on:** every preceding item, including RC-01A, RC-17A, RC-17B, and
   RC-18A
 - **Risk:** high release consequence; low implementation risk
@@ -1747,8 +1747,82 @@ explicit plugin profile, `highlight` deprecation, valid Shiki options, fixed
 inline profile, optional-plugin peers/CSS, universal Nuxt 404 recipe, minimal
 public runtime config, cache rebuild, and unchanged portable/CMS wire formats.
 Generated API docs were rebuilt without a diff. Repo policies, 10 docs-drift
-checks, docs build (177 routes), and docs smoke pass. Local frozen-SHA artifact
-gates and authoritative CI authorization remain deliberately outstanding.
+checks, docs build (177 routes), and docs smoke pass. The earlier exact local
+artifact certification was valid for that implementation, but RC-20 deliberately
+supersedes it. Final exact-SHA certification and authoritative CI authorization
+must therefore be regenerated after the post-review changes are committed.
+
+#### RC-20 — Post-review contract closure and release-harness simplification
+
+- **Status:** implementation complete; final commit freeze and exact-SHA
+  authorization pending
+- **Depends on:** RC-19 metadata and the completed thermo-nuclear review
+- **Risk:** high contract consequence; medium implementation risk
+- **Change type:** safety-boundary consolidation, source-of-truth cleanup, and
+  release-harness simplification
+- **Public impact:** portable MDC now enforces the same closed render contract as
+  public Markdown; invalid or ambiguous component-policy names fail early
+- **Paths:** `packages/content/src/cms-contract/`,
+  `packages/content/src/core/markdown/`, `packages/content/src/portability/`,
+  `packages/content/src/module/`, runtime search, module/runtime types,
+  `scripts/test-packed-consumer.mjs`, and owning contract tests
+
+Implementation:
+
+- Delete the second portable tuple-policy interpreter. Normalize once, convert to
+  the typed Markdown root, and invoke the canonical public validator with one
+  explicit stored-asset mode.
+- Canonicalize authored component-policy names once during contract construction;
+  match Vue/Comark acronym casing, reject unreachable grammar, canonical
+  collisions, prototype-like names, active HTML names, and reserved renderer
+  names before they can become policy keys.
+- Keep Vue component-name lookup distinct from case-insensitive native HTML
+  identity. Safe native-named aliases such as `aside`, `figure`, and `kbd`
+  remain compatible with the released docs layer, while native URL/parser
+  invariants, active tags, mixed-case HTML spellings, and every declared asset
+  prop remain non-overridable.
+- Keep the public validator two-argument and closed. Isolate stored-asset
+  identities behind the package-private portability validator, use one narrow
+  identity grammar, and require the exact generated Math/Mermaid node shape.
+- Keep the provider-neutral CMS/portable contract authored-policy-only. Derive the
+  configured filesystem/runtime render policy separately so Math and Mermaid do
+  not leak into portable capabilities.
+- Give normalized Comark nodes an exported exact tuple type and reject malformed
+  post-normalization states instead of relying on caller casts.
+- Replace parallel built-in Markdown maps with one typed descriptor registry. Own
+  exact Math/Mermaid render contracts in framework-neutral core code; leave only
+  literal import generation in the Nuxt setup layer.
+- Resolve Markdown options once, reuse the feature-owned search runtime builder,
+  delete the unreachable client search branch, and correct the public cache-version
+  augmentation type.
+- Give each packed-consumer production server one lifecycle owner and split the
+  release orchestration into named behavioral scenarios without changing the
+  fixture or release matrix.
+
+Acceptance criteria:
+
+- Public and portable validation agree for HTML props, component-name casing,
+  reserved renderer tags, URL safety, and stored-asset handling.
+- CMS and portable parsing remain fixed-profile and independent of configured Nuxt
+  parser plugins; configured filesystem/inline rendering retains required plugin
+  component policies.
+- One built-in plugin descriptor owns parser, peer, renderer, tag, and policy
+  metadata without non-null assertions or cross-map joins.
+- No Markdown option or search runtime projection is normalized by two owners.
+- Every spawned packed-consumer server is stopped exactly once by its owner.
+- The complete core, server, browser, static, audit, reproducible-pack, pure-runtime,
+  and two exact-consumer lanes pass before the final freeze.
+
+Execution note (2026-08-11): the implementation and adversarial corpus are green.
+`pnpm verify` passed with 121 core files/1,223 tests and server e2e 6 files/15
+tests. Production browser tests passed 5 files/6 tests; static generation passed
+1 file/5 tests; the production audit examined 444 packages and found zero
+vulnerabilities. Two independent packs matched at SHA-256
+`e704a1c6f2ec5423bceee3f0290b2ef073ecbb6bacbadbb009bce43f15fdb3d0`.
+Pure Node/Chromium-worker probes and exact pnpm/Nuxt 4.5.0 plus npm/Nuxt 4.4.7
+consumer lanes passed that tarball. This is pre-freeze working-tree evidence, not
+authorization: commit the reviewed diff, rerun the exact-SHA release gate, and let
+CI plus a human maintainer authorize the downloaded artifact.
 
 ## 9. Validation matrix
 
@@ -1907,7 +1981,8 @@ only the decisive verification result, not a full command log.
 | RC-17B | complete | `codex/rc-test-support-ownership` | Full core 121 files/1,217 tests; server e2e 15/15; browser e2e 6/6; selection guard and changed-file ESLint | Deleted fixture pass-through and mixed `_utils`; provider scenarios, content documents, and memory storage have explicit owners |
 | RC-18 | complete | `codex/rc-fixture-sharing-cleanup` | Four shared-layer playground builds; docs build/smoke/drift; targeted browser navigation 3/3; changed-component ESLint | Shared layer is neutral; i18n owns docs navigation; three unused docs auto-import utilities deleted |
 | RC-18A | complete | `codex/rc-policy-scan-scope` | Ignored-worktree exclusion; non-ignored untracked violation probe; full `pnpm verify` | Policy scope now follows Git ownership without weakening pre-commit checks |
-| RC-19 | locally complete | `codex/rc-release-candidate` | `pnpm release:verify`: full verify; browser 5 files/6 tests; static generation 1 file/5 tests; production audit 0 vulnerabilities; two reproducible packs; pure Node/Chromium-worker probes; pnpm/Nuxt 4.5 and npm/Nuxt 4.4.7 consumers | Exact local artifact certified as `0.4.0-rc.1`; remote review, CI `Release authorization`, downloaded-artifact comparison, and human publish remain pending |
+| RC-19 | metadata complete; local freeze superseded | `codex/rc-release-candidate` | Curated `0.4.0-rc.1` metadata, docs, migration contract, and generated references passed their owning gates; its exact local artifact certification was valid before RC-20 | RC-20 intentionally changes the candidate, so the final exact-SHA certification must be regenerated |
+| RC-20 | implementation complete; final freeze pending | `codex/rc-release-candidate` | `pnpm verify`: 121 core files/1,223 tests and server e2e 15/15; browser 6/6; static 5/5; audit 0 vulnerabilities; reproducible tarball `e704a1c6…f15fdb3d0`; pure runtimes and both exact consumers passed | Adversarial validator/profile closure and release-harness simplification are green on the working tree; commit, exact-SHA CI authorization, downloaded-artifact comparison, and human publish remain pending |
 
 ## 14. Stop conditions
 

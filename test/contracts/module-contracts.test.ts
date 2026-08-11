@@ -334,6 +334,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         provider: 'remote'
       }),
+      expect.objectContaining({ docs: expect.any(Object) }),
       expect.any(Object),
       expect.any(Object),
       expect.anything(),
@@ -377,6 +378,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         collections: expect.any(Object)
       }),
+      expect.any(Object),
       expect.objectContaining({
         posts: expect.objectContaining({
           source: 'posts/*.md',
@@ -404,11 +406,11 @@ describe('module contracts', () => {
       expect.anything()
     )
 
-    const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    const privateCollections = applyContentRuntimeConfig.mock.calls[0][6]
     expect(privateCollections.posts).not.toHaveProperty('schema')
     expect(privateCollections.authors).not.toHaveProperty('schemaFields')
     expect(privateCollections.empty).not.toHaveProperty('schema')
-    const publicCollections = applyContentRuntimeConfig.mock.calls[0][4]
+    const publicCollections = applyContentRuntimeConfig.mock.calls[0][5]
     expect(publicCollections.posts).not.toHaveProperty('schemaFields')
   })
 
@@ -430,8 +432,8 @@ describe('module contracts', () => {
     await hooks.get('modules:done')?.()
 
     const resolvedContext = applyContentRuntimeConfig.mock.calls[0][2]
-    const publicCollections = applyContentRuntimeConfig.mock.calls[0][4]
-    const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    const publicCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    const privateCollections = applyContentRuntimeConfig.mock.calls[0][6]
     expect(resolvedContext.collections.legal.i18n).toBe(false)
     expect(publicCollections.legal.i18n).toBe(false)
     expect(privateCollections.legal.i18n).toBe(false)
@@ -655,6 +657,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         collections: expect.any(Object)
       }),
+      expect.any(Object),
       expect.objectContaining({
         docs: expect.objectContaining({
           source: '**/*.md'
@@ -686,6 +689,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         collections: expect.any(Object)
       }),
+      expect.any(Object),
       expect.objectContaining({
         docs: expect.objectContaining({
           source: '**/*.md'
@@ -825,7 +829,7 @@ describe('module contracts', () => {
     }).toThrow()
   })
 
-  test('uses the configured component policy as the contract and renderer source of truth', async () => {
+  test('keeps authored portable policy separate from configured renderer policy', async () => {
     const { nuxt, hooks } = createNuxt()
     let observed: any
     nuxt.hook('content:context', (ctx: any) => {
@@ -843,9 +847,30 @@ describe('module contracts', () => {
       },
     }
     const mod = await import('../../packages/content/src/module')
-    await mod.default.setup(createOptions({ componentPolicy }), nuxt as any)
+    await mod.default.setup(createOptions({
+      componentPolicy,
+      markdown: {
+        plugins: [{ name: 'math', options: {} }],
+        tags: {},
+        anchorLinks: { depth: 4, exclude: [1] },
+      },
+    }), nuxt as any)
     await hooks.get('modules:done')?.()
 
     expect(observed.contract.collections.docs.componentPolicy).toEqual(componentPolicy)
+    expect(applyContentRuntimeConfig.mock.calls[0][4]).toMatchObject({
+      docs: {
+        components: {
+          callout: componentPolicy.components.callout,
+          'ginko-math': {
+            kind: 'inline',
+            props: {
+              class: { type: 'string', required: true },
+              content: { type: 'string', required: true },
+            },
+          },
+        },
+      },
+    })
   })
 })

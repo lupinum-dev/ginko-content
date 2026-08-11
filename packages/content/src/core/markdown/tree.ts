@@ -1,6 +1,7 @@
 import type { MarkdownNode, MarkdownRoot, Toc } from '../../types/content'
 
-type ComarkTupleNode = string | [string | null, Record<string, unknown>, ...ComarkTupleNode[]]
+/** The exact normalized tuple shape accepted at the Comark boundary. */
+export type NormalizedComarkNode = string | [string, Record<string, unknown>, ...NormalizedComarkNode[]]
 
 export function isMarkdownRoot (value: unknown): value is MarkdownRoot {
   return Boolean(
@@ -11,7 +12,7 @@ export function isMarkdownRoot (value: unknown): value is MarkdownRoot {
   )
 }
 
-export function toMarkdownNode (node: ComarkTupleNode): MarkdownNode {
+export function toMarkdownNode (node: NormalizedComarkNode): MarkdownNode {
   if (typeof node === 'string') {
     return {
       type: 'text',
@@ -20,12 +21,6 @@ export function toMarkdownNode (node: ComarkTupleNode): MarkdownNode {
   }
 
   const [tag, props = {}, ...children] = node
-  if (!tag) {
-    return {
-      type: 'text',
-      value: ''
-    }
-  }
   return {
     type: 'element',
     tag,
@@ -34,7 +29,7 @@ export function toMarkdownNode (node: ComarkTupleNode): MarkdownNode {
   }
 }
 
-export function toMarkdownRoot (nodes: ComarkTupleNode[], toc?: Toc): MarkdownRoot {
+export function toMarkdownRoot (nodes: NormalizedComarkNode[], toc?: Toc): MarkdownRoot {
   return {
     type: 'root',
     children: nodes.map(node => toMarkdownNode(node)),

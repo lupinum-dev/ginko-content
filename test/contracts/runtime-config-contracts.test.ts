@@ -67,6 +67,7 @@ const applyRuntimeConfig = async (
     options as any,
     context as any,
     appContentConfig as any,
+    Object.fromEntries(Object.entries(context.contract.collections).map(([id, collection]) => [id, collection.componentPolicy])),
     collections,
     privateCollections,
     1,

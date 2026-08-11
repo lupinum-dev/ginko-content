@@ -6,6 +6,11 @@ import type {
   ResolvedContentFieldV1,
 } from '../cms-contract/types.js'
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
+import {
+  canonicalizePortableComponentName,
+  indexPortableComponentPolicies,
+  isStoredPortableAssetIdentity,
+} from '../cms-contract/render-policy.js'
 import { renderMarkdown } from 'comark/render'
 import type { RenderMarkdownOptions } from 'comark/render'
 import { portabilityError } from './errors.js'
@@ -136,7 +141,7 @@ export async function rewritePortableMdcAssetReferencesForStorage(
 ): Promise<string> {
   return await renderRewrittenPortableMdc(source, policy, (reference) => {
     const target = rewrite(reference)
-    if (!/^[a-z0-9;:_-]{1,512}$/i.test(target)) {
+    if (!isStoredPortableAssetIdentity(target)) {
       throw portabilityError(
         'ASSET_INTEGRITY_FAILED',
         'portability.validateAssets',
@@ -215,17 +220,18 @@ function visitMdcAssetSources(
   nodes: JsonValue[],
   policy: PortableComponentPolicyV1,
   visit: (reference: PortableMdcAssetReferenceV1) => string,
+  components = indexPortableComponentPolicies(policy),
 ): void {
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : policy.components[node[0]]?.media?.sourceProp
+    const sourceProp = node[0] === 'img' ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string') {
       const reference = portableMdcAssetReference(source)
       if (reference) props[sourceProp] = visit(reference)
     }
-    visitMdcAssetSources(node.slice(2) as JsonValue[], policy, visit)
+    visitMdcAssetSources(node.slice(2) as JsonValue[], policy, visit, components)
   }
 }
 
@@ -233,16 +239,17 @@ async function visitStoredMdcAssetSources(
   nodes: JsonValue[],
   policy: PortableComponentPolicyV1,
   rewrite: (identity: string) => string | Promise<string>,
+  components = indexPortableComponentPolicies(policy),
 ): Promise<void> {
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : policy.components[node[0]]?.media?.sourceProp
+    const sourceProp = node[0] === 'img' ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
     const source = sourceProp ? props[sourceProp] : undefined
-    if (sourceProp && typeof source === 'string' && /^[a-z0-9;:_-]{1,512}$/i.test(source)) {
+    if (sourceProp && typeof source === 'string' && isStoredPortableAssetIdentity(source)) {
       props[sourceProp] = await rewrite(source)
     }
-    await visitStoredMdcAssetSources(node.slice(2) as JsonValue[], policy, rewrite)
+    await visitStoredMdcAssetSources(node.slice(2) as JsonValue[], policy, rewrite, components)
   }
 }
 

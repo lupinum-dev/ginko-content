@@ -238,10 +238,263 @@ async function stopServer(child) {
   child.kill('SIGKILL')
 }
 
+async function withProductionServer({ cwd, port }, verify) {
+  const baseURL = `http://127.0.0.1:${port}`
+  const server = spawn('node', ['.output/server/index.mjs'], {
+    cwd,
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      NODE_ENV: 'production'
+    },
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  try {
+    await waitForServer(server, baseURL)
+    return await verify(baseURL)
+  } finally {
+    await stopServer(server)
+  }
+}
+
+function verifyBaseConsumerBuild(appDir) {
+  assertDeclarations(appDir)
+  run('node', ['scripts/import-public-subpaths.mjs'], appDir)
+  packageExec('nuxi', ['prepare'], appDir)
+  packageExec('nuxi', ['typecheck'], appDir)
+  packageExecAndRejectOutput('nuxt', ['build'], appDir, [
+    /could not be resolved[\s\S]*treating it as an external dependency/i,
+    /\bNUXT_E\d{4}\b/
+  ])
+  const prerenderedContentApiDir = resolve(appDir, '.output/public/api/_content')
+  const prerenderedContentApiFiles = existsSync(prerenderedContentApiDir)
+    ? readdirSync(prerenderedContentApiDir, { recursive: true }).map(String)
+    : []
+  if (
+    !prerenderedContentApiFiles.some(path => path.startsWith('query/')) ||
+    !prerenderedContentApiFiles.some(path => path.startsWith('navigation/'))
+  ) {
+    throw new Error('Packed consumer surround() did not prerender both query and navigation API dependencies.')
+  }
+
+  const cliHelp = packageExecAndCapture('ginko-content', ['--help'], appDir)
+  if (!cliHelp.includes('validate [root]')) {
+    throw new Error(`Packed CLI help does not expose content validation:\n${cliHelp}`)
+  }
+}
+
+function verifyPagefindConsumer(appDir, tempRoot) {
+  const filesystemDir = resolve(tempRoot, 'filesystem-check')
+  cpSync(pagefindFixtureDir, filesystemDir, { recursive: true })
+  symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
+  packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
+    /could not be resolved[\s\S]*treating it as an external dependency/i,
+    /\bNUXT_E\d{4}\b/
+  ])
+
+  const pagefindDir = resolve(filesystemDir, '.output/public/pagefind')
+  const manifestPath = resolve(pagefindDir, 'ginko-locales.json')
+  if (!existsSync(resolve(pagefindDir, 'pagefind.js')) || !existsSync(manifestPath)) {
+    throw new Error('Packed consumer build did not emit Pagefind entry and locale manifest artifacts')
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  if (manifest.version !== 1 || manifest.defaultLocale !== 'en' || manifest.indexes?.en !== 'pagefind.js') {
+    throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(manifest)}`)
+  }
+}
+
+function installOptionalMarkdownPeers(appDir) {
+  for (const peer of ['beautiful-mermaid', 'katex']) {
+    if (existsSync(resolve(appDir, 'node_modules', peer))) {
+      throw new Error(`Base packed consumer unexpectedly installed disabled optional peer "${peer}".`)
+    }
+  }
+  const specs = [
+    `beautiful-mermaid@${process.env.GINKO_CONSUMER_BEAUTIFUL_MERMAID_VERSION || '^1.1.3'}`,
+    `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.17.0'}`
+  ]
+  if (packageManager === 'pnpm') {
+    run('pnpm', ['add', '--save-exact', ...specs], appDir)
+  } else {
+    run('npm', ['install', '--save-exact', '--no-audit', '--no-fund', ...specs], appDir)
+  }
+}
+
+async function verifyMarkdownPluginConsumer(appDir) {
+  // Keep this fixture below the installed consumer so Node resolves through
+  // the real parent node_modules tree.
+  const fixtureDir = resolve(appDir, 'markdown-plugins-check')
+  cpSync(markdownPluginsFixtureDir, fixtureDir, { recursive: true })
+  packageExecAndRejectOutput('nuxt', ['build'], fixtureDir, [
+    /could not be resolved[\s\S]*treating it as an external dependency/i,
+    /\bNUXT_E\d{4}\b/
+  ])
+
+  const browserChunksDir = resolve(fixtureDir, '.output/public/_nuxt')
+  const browserChunkSource = readdirSync(browserChunksDir, { recursive: true })
+    .map(String)
+    .filter(path => path.endsWith('.js'))
+    .map(path => readFileSync(resolve(browserChunksDir, path), 'utf8'))
+    .join('\n')
+  if (/import\(["'](?:comark|@comark\/vue)\//.test(browserChunkSource)) {
+    throw new Error('Packed optional-plugin browser chunks retained a bare Comark package import.')
+  }
+  if (browserChunkSource.includes('custom-markdown')) {
+    throw new Error('Packed optional-plugin browser chunks imported the server-only custom parser plugin.')
+  }
+
+  await withProductionServer({ cwd: fixtureDir, port: 4600 }, async (baseURL) => {
+    const response = await fetch(baseURL)
+    const html = await response.text()
+    const hasKatexSSR = html.includes('katex')
+    const hasMermaidSSR = html.includes('class="mermaid')
+    const hasCustomPluginSSR = html.includes('Custom parser plugin active')
+    if (!response.ok || !hasKatexSSR || !hasMermaidSSR || !hasCustomPluginSSR) {
+      throw new Error(`Packed optional-plugin SSR failed: status=${response.status} katex=${hasKatexSSR} mermaid=${hasMermaidSSR} custom=${hasCustomPluginSSR}\n${html.slice(0, 2000)}`)
+    }
+
+    const browser = await chromium.launch({ executablePath: resolveChromiumExecutable(), headless: true })
+    try {
+      const page = await browser.newPage()
+      const failures = []
+      page.on('pageerror', error => failures.push(`pageerror: ${error.message}`))
+      page.on('console', (message) => {
+        if (message.type() === 'error' || /hydration/i.test(message.text())) {
+          failures.push(`console ${message.type()}: ${message.text()}`)
+        }
+      })
+      page.on('requestfailed', request => failures.push(`request failed: ${request.failure()?.errorText || 'unknown'} ${request.url()}`))
+      const navigation = await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
+      await page.locator('.mermaid svg').waitFor({ timeout: 30_000 })
+      if (navigation?.status() !== 200 || await page.locator('.katex').count() === 0 || failures.length) {
+        throw new Error(`Packed optional-plugin browser check failed:\n${failures.join('\n')}`)
+      }
+    } finally {
+      await browser.close()
+    }
+  })
+}
+
+async function readJsonResponse(response, label) {
+  const body = await response.text()
+  if (!response.ok) throw new Error(`${label} failed: ${response.status}\n${body.slice(0, 500)}`)
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`${label} did not return JSON: ${response.headers.get('content-type')}`)
+  }
+  if (!body) throw new Error(`${label} returned an unexpected empty body`)
+  return JSON.parse(body)
+}
+
+async function verifyLiveApiContract(appDir) {
+  await withProductionServer({ cwd: appDir, port: 4599 }, async (baseURL) => {
+    const pageResponse = await fetch(baseURL)
+    const html = await pageResponse.text()
+    if (!pageResponse.ok || !html.includes('Package Consumer Page') || !html.includes('Second Page')) {
+      throw new Error(`Packed consumer page failed: ${pageResponse.status}\n${html.slice(0, 500)}`)
+    }
+    const leakedServerRuntimeMarkers = [
+      '~/server/providers/memory',
+      'Packed package consumer smoke app.',
+      '"provider":"memory"',
+      '"source":"*.md"'
+    ].filter(marker => html.includes(marker))
+    if (leakedServerRuntimeMarkers.length) {
+      throw new Error(`Packed consumer serialized server-only runtime config into the public payload: ${leakedServerRuntimeMarkers.join(', ')}`)
+    }
+
+    const cachePageResponse = await fetch(`${baseURL}/cache-live`)
+    const cachePageBody = await cachePageResponse.text()
+    if (!cachePageResponse.ok || !cachePageBody.includes('Package Consumer Page') || !cachePageResponse.headers.get('cache-control')?.includes('max-age=60')) {
+      throw new Error(`Live SSR page omitted provider cache metadata: ${cachePageResponse.status} ${cachePageResponse.headers.get('cache-control')}`)
+    }
+
+    const encodeQuery = value => Buffer.from(JSON.stringify(value)).toString('base64url')
+    const queryUrl = params => `${baseURL}/api/_content/query/packed/${encodeQuery(params)}.json`
+    const foundBody = await readJsonResponse(await fetch(queryUrl({ collection: 'pages', where: [{ path: '/' }], first: true })), 'found first query')
+    if (foundBody.result?.title !== 'Package Consumer Page') {
+      throw new Error(`Found first query returned an invalid envelope: ${JSON.stringify(foundBody)}`)
+    }
+    const missingResponse = await fetch(queryUrl({ collection: 'pages', where: [{ path: '/missing' }], first: true }))
+    const missingBody = await readJsonResponse(missingResponse, 'missing first query')
+    if (missingResponse.status !== 200 || Object.keys(missingBody).join() !== 'result' || missingBody.result !== null) {
+      throw new Error(`Missing first query did not return { result: null }: ${JSON.stringify(missingBody)}`)
+    }
+
+    const listBody = await readJsonResponse(await fetch(queryUrl({ collection: 'pages', limit: 2 })), 'list query')
+    if (!Array.isArray(listBody.result) || listBody.result.length !== 2) {
+      throw new Error(`List query returned an invalid envelope: ${JSON.stringify(listBody)}`)
+    }
+    const serverQueryBody = await readJsonResponse(await fetch(`${baseURL}/api/query-contract`), 'server query contract')
+    if (
+      serverQueryBody.found?.title !== 'Package Consumer Page' ||
+      serverQueryBody.missing !== null ||
+      serverQueryBody.list?.length !== 2 ||
+      serverQueryBody.cursorFirst?.endCursor !== 'page-2' ||
+      serverQueryBody.cursorSecond?.data?.[0]?.title !== 'Second Page'
+    ) {
+      throw new Error(`Server one/many/paginate contract failed: ${JSON.stringify(serverQueryBody)}`)
+    }
+    const ofetchBody = await readJsonResponse(await fetch(`${baseURL}/api/ofetch-contract`), '$fetch query contract')
+    if (ofetchBody.result !== null) throw new Error(`$fetch did not preserve the missing result envelope: ${JSON.stringify(ofetchBody)}`)
+
+    const missingPageResponse = await fetch(`${baseURL}/missing`)
+    const missingPageHtml = await missingPageResponse.text()
+    if (!missingPageResponse.ok || !missingPageHtml.includes('Missing document')) {
+      throw new Error(`Client-facing missing query failed: ${missingPageResponse.status}\n${missingPageHtml.slice(0, 500)}`)
+    }
+
+    const providerFailureResponse = await fetch(queryUrl({ collection: 'pages', where: [{ path: '/provider-failure' }], first: true }))
+    const providerFailureText = await providerFailureResponse.text()
+    if (providerFailureResponse.status !== 502 || !providerFailureText.includes('BACKEND_FAILURE') || providerFailureText.includes('memory')) {
+      throw new Error(`Provider failure was not sanitized: ${providerFailureResponse.status}\n${providerFailureText.slice(0, 500)}`)
+    }
+
+    const navigationResponse = await fetch(`${baseURL}/api/_content/navigation?collection=pages`)
+    const navigationBody = await navigationResponse.text()
+    if (!navigationResponse.ok || !navigationBody.includes('"path":"/"')) {
+      throw new Error(`Packed consumer content API failed: ${navigationResponse.status}\n${navigationBody.slice(0, 500)}`)
+    }
+    const searchBody = await readJsonResponse(await fetch(`${baseURL}/api/_content/search?q=Package`), 'search query')
+    if (!Array.isArray(searchBody)) throw new TypeError(`Packed consumer search returned an invalid response: ${JSON.stringify(searchBody)}`)
+    const siteDataBody = await readJsonResponse(await fetch(`${baseURL}/api/_content/site-data?key=settings`), 'site-data query')
+    if (siteDataBody.data?.fixture !== 'packed-memory') {
+      throw new Error(`Packed consumer site data did not use the in-memory provider: ${JSON.stringify(siteDataBody)}`)
+    }
+    const sitemapApiBody = await readJsonResponse(await fetch(`${baseURL}/api/_content/sitemap`), 'sitemap route enumeration')
+    if (!Array.isArray(sitemapApiBody) || sitemapApiBody.length !== 2) {
+      throw new Error(`Packed consumer route enumeration lost routes: ${JSON.stringify(sitemapApiBody)}`)
+    }
+    const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
+    const importSmokeBody = await importSmokeResponse.text()
+    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentRegistry":"function"')) {
+      throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
+    }
+  })
+}
+
+function verifyGeneratedOutputs(appDir) {
+  const sitemapPath = resolve(appDir, '.output/public/sitemap.xml')
+  if (!existsSync(sitemapPath)) throw new Error('Packed consumer build did not emit .output/public/sitemap.xml')
+  const sitemap = readFileSync(sitemapPath, 'utf8')
+  if (!sitemap.includes('https://packed-consumer.example.test/')) {
+    throw new Error(`Packed consumer sitemap is missing the content page URL:\n${sitemap.slice(0, 500)}`)
+  }
+
+  const llmsPath = resolve(appDir, '.output/public/llms.txt')
+  const rawMarkdownPath = resolve(appDir, '.output/public/raw/index.md')
+  if (!existsSync(llmsPath) || !existsSync(rawMarkdownPath)) {
+    throw new Error('Packed consumer build did not emit agent markdown outputs')
+  }
+  const llms = readFileSync(llmsPath, 'utf8')
+  const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
+  if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
+    throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
+  }
+}
+
 async function main() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'ginko-packed-consumer-'))
-  let server
-  let markdownPluginsServer
 
   try {
     const appDir = resolve(tempRoot, 'app')
@@ -283,297 +536,13 @@ async function main() {
     } else {
       run('npm', ['install', '--no-audit', '--no-fund'], appDir)
     }
-    assertDeclarations(appDir)
-    run('node', ['scripts/import-public-subpaths.mjs'], appDir)
-    packageExec('nuxi', ['prepare'], appDir)
-    packageExec('nuxi', ['typecheck'], appDir)
-    packageExecAndRejectOutput('nuxt', ['build'], appDir, [
-      /could not be resolved[\s\S]*treating it as an external dependency/i,
-      /\bNUXT_E\d{4}\b/
-    ])
-    const prerenderedContentApiDir = resolve(appDir, '.output/public/api/_content')
-    const prerenderedContentApiFiles = existsSync(prerenderedContentApiDir)
-      ? readdirSync(prerenderedContentApiDir, { recursive: true }).map(String)
-      : []
-    if (
-      !prerenderedContentApiFiles.some(path => path.startsWith('query/')) ||
-      !prerenderedContentApiFiles.some(path => path.startsWith('navigation/'))
-    ) {
-      throw new Error('Packed consumer surround() did not prerender both query and navigation API dependencies.')
-    }
+    verifyBaseConsumerBuild(appDir)
+    verifyPagefindConsumer(appDir, tempRoot)
+    installOptionalMarkdownPeers(appDir)
 
-    const cliHelp = packageExecAndCapture('ginko-content', ['--help'], appDir)
-    if (!cliHelp.includes('validate [root]')) {
-      throw new Error(`Packed CLI help does not expose content validation:\n${cliHelp}`)
-    }
-
-    const filesystemDir = resolve(tempRoot, 'filesystem-check')
-    cpSync(pagefindFixtureDir, filesystemDir, { recursive: true })
-    symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
-    packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
-      /could not be resolved[\s\S]*treating it as an external dependency/i,
-      /\bNUXT_E\d{4}\b/
-    ])
-
-    const pagefindDir = resolve(filesystemDir, '.output/public/pagefind')
-    const pagefindManifestPath = resolve(pagefindDir, 'ginko-locales.json')
-    if (!existsSync(resolve(pagefindDir, 'pagefind.js')) || !existsSync(pagefindManifestPath)) {
-      throw new Error('Packed consumer build did not emit Pagefind entry and locale manifest artifacts')
-    }
-    const pagefindManifest = JSON.parse(readFileSync(pagefindManifestPath, 'utf8'))
-    if (pagefindManifest.version !== 1 || pagefindManifest.defaultLocale !== 'en' || pagefindManifest.indexes?.en !== 'pagefind.js') {
-      throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(pagefindManifest)}`)
-    }
-
-    for (const peer of ['beautiful-mermaid', 'katex']) {
-      if (existsSync(resolve(appDir, 'node_modules', peer))) {
-        throw new Error(`Base packed consumer unexpectedly installed disabled optional peer "${peer}".`)
-      }
-    }
-    const optionalPeerSpecs = [
-      `beautiful-mermaid@${process.env.GINKO_CONSUMER_BEAUTIFUL_MERMAID_VERSION || '^1.1.3'}`,
-      `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.17.0'}`
-    ]
-    if (packageManager === 'pnpm') {
-      run('pnpm', ['add', '--save-exact', ...optionalPeerSpecs], appDir)
-    } else {
-      run('npm', ['install', '--save-exact', '--no-audit', '--no-fund', ...optionalPeerSpecs], appDir)
-    }
-
-    // Keep this fixture below the installed consumer so Node resolves through
-    // the real parent node_modules tree. A sibling junction makes Nitro trace
-    // pnpm's Vue peer symlinks recursively instead of exercising a publishable
-    // consumer layout.
-    const markdownPluginsDir = resolve(appDir, 'markdown-plugins-check')
-    cpSync(markdownPluginsFixtureDir, markdownPluginsDir, { recursive: true })
-    packageExecAndRejectOutput('nuxt', ['build'], markdownPluginsDir, [
-      /could not be resolved[\s\S]*treating it as an external dependency/i,
-      /\bNUXT_E\d{4}\b/
-    ])
-    const browserChunksDir = resolve(markdownPluginsDir, '.output/public/_nuxt')
-    const browserChunkSource = readdirSync(browserChunksDir, { recursive: true })
-      .map(String)
-      .filter(path => path.endsWith('.js'))
-      .map(path => readFileSync(resolve(browserChunksDir, path), 'utf8'))
-      .join('\n')
-    if (/import\(["'](?:comark|@comark\/vue)\//.test(browserChunkSource)) {
-      throw new Error('Packed optional-plugin browser chunks retained a bare Comark package import.')
-    }
-    if (browserChunkSource.includes('custom-markdown')) {
-      throw new Error('Packed optional-plugin browser chunks imported the server-only custom parser plugin.')
-    }
-
-    const markdownPluginsPort = 4600
-    const markdownPluginsBaseURL = `http://127.0.0.1:${markdownPluginsPort}`
-    markdownPluginsServer = spawn('node', ['.output/server/index.mjs'], {
-      cwd: markdownPluginsDir,
-      env: {
-        ...process.env,
-        HOST: '127.0.0.1',
-        PORT: String(markdownPluginsPort),
-        NODE_ENV: 'production'
-      },
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
-    await waitForServer(markdownPluginsServer, markdownPluginsBaseURL)
-    const markdownPluginsResponse = await fetch(markdownPluginsBaseURL)
-    const markdownPluginsHtml = await markdownPluginsResponse.text()
-    const hasKatexSSR = markdownPluginsHtml.includes('katex')
-    const hasMermaidSSR = markdownPluginsHtml.includes('class="mermaid')
-    const hasCustomPluginSSR = markdownPluginsHtml.includes('Custom parser plugin active')
-    if (!markdownPluginsResponse.ok || !hasKatexSSR || !hasMermaidSSR || !hasCustomPluginSSR) {
-      await stopServer(markdownPluginsServer)
-      throw new Error(`Packed optional-plugin SSR failed: status=${markdownPluginsResponse.status} katex=${hasKatexSSR} mermaid=${hasMermaidSSR} custom=${hasCustomPluginSSR}\n${markdownPluginsHtml.slice(0, 2000)}`)
-    }
-
-    const browser = await chromium.launch({
-      executablePath: resolveChromiumExecutable(),
-      headless: true
-    })
-    try {
-      const page = await browser.newPage()
-      const browserFailures = []
-      page.on('pageerror', error => browserFailures.push(`pageerror: ${error.message}`))
-      page.on('console', (message) => {
-        if (message.type() === 'error' || /hydration/i.test(message.text())) {
-          browserFailures.push(`console ${message.type()}: ${message.text()}`)
-        }
-      })
-      page.on('requestfailed', request => browserFailures.push(`request failed: ${request.failure()?.errorText || 'unknown'} ${request.url()}`))
-      const response = await page.goto(markdownPluginsBaseURL, { waitUntil: 'domcontentloaded' })
-      await page.locator('.mermaid svg').waitFor({ timeout: 30_000 })
-      if (response?.status() !== 200 || await page.locator('.katex').count() === 0 || browserFailures.length) {
-        throw new Error(`Packed optional-plugin browser check failed:\n${browserFailures.join('\n')}`)
-      }
-    } finally {
-      await browser.close()
-      await stopServer(markdownPluginsServer)
-      markdownPluginsServer = undefined
-    }
-
-    const port = 4599
-    const baseURL = `http://127.0.0.1:${port}`
-    server = spawn('node', ['.output/server/index.mjs'], {
-      cwd: appDir,
-      env: {
-        ...process.env,
-        HOST: '127.0.0.1',
-        PORT: String(port),
-        NODE_ENV: 'production'
-      },
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
-
-    await waitForServer(server, baseURL)
-
-    const pageResponse = await fetch(baseURL)
-    const html = await pageResponse.text()
-    if (!pageResponse.ok || !html.includes('Package Consumer Page') || !html.includes('Second Page')) {
-      throw new Error(`Packed consumer page failed: ${pageResponse.status}\n${html.slice(0, 500)}`)
-    }
-    const leakedServerRuntimeMarkers = [
-      '~/server/providers/memory',
-      'Packed package consumer smoke app.',
-      '"provider":"memory"',
-      '"source":"*.md"'
-    ].filter(marker => html.includes(marker))
-    if (leakedServerRuntimeMarkers.length) {
-      throw new Error(`Packed consumer serialized server-only runtime config into the public payload: ${leakedServerRuntimeMarkers.join(', ')}`)
-    }
-    const cachePageResponse = await fetch(`${baseURL}/cache-live`)
-    const cachePageBody = await cachePageResponse.text()
-    if (
-      !cachePageResponse.ok ||
-      !cachePageBody.includes('Package Consumer Page') ||
-      !cachePageResponse.headers.get('cache-control')?.includes('max-age=60')
-    ) {
-      throw new Error(`Live SSR page omitted provider cache metadata: ${cachePageResponse.status} ${cachePageResponse.headers.get('cache-control')}`)
-    }
-
-    const encodeQuery = value => Buffer.from(JSON.stringify(value)).toString('base64url')
-    const queryUrl = params => `${baseURL}/api/_content/query/packed/${encodeQuery(params)}.json`
-    const readJsonResponse = async (response, label) => {
-      const body = await response.text()
-      if (!response.ok) throw new Error(`${label} failed: ${response.status}\n${body.slice(0, 500)}`)
-      if (!response.headers.get('content-type')?.includes('application/json')) {
-        throw new Error(`${label} did not return JSON: ${response.headers.get('content-type')}`)
-      }
-      if (!body) throw new Error(`${label} returned an unexpected empty body`)
-      return JSON.parse(body)
-    }
-
-    const foundResponse = await fetch(queryUrl({ collection: 'pages', where: [{ path: '/' }], first: true }))
-    const foundBody = await readJsonResponse(foundResponse, 'found first query')
-    if (foundBody.result?.title !== 'Package Consumer Page') {
-      throw new Error(`Found first query returned an invalid envelope: ${JSON.stringify(foundBody)}`)
-    }
-    const missingResponse = await fetch(queryUrl({ collection: 'pages', where: [{ path: '/missing' }], first: true }))
-    const missingBody = await readJsonResponse(missingResponse, 'missing first query')
-    if (missingResponse.status !== 200 || Object.keys(missingBody).join() !== 'result' || missingBody.result !== null) {
-      throw new Error(`Missing first query did not return { result: null }: ${JSON.stringify(missingBody)}`)
-    }
-
-    const listBody = await readJsonResponse(
-      await fetch(queryUrl({ collection: 'pages', limit: 2 })),
-      'list query'
-    )
-    if (!Array.isArray(listBody.result) || listBody.result.length !== 2) {
-      throw new Error(`List query returned an invalid envelope: ${JSON.stringify(listBody)}`)
-    }
-
-    const serverQueryBody = await readJsonResponse(await fetch(`${baseURL}/api/query-contract`), 'server query contract')
-    if (
-      serverQueryBody.found?.title !== 'Package Consumer Page' ||
-      serverQueryBody.missing !== null ||
-      serverQueryBody.list?.length !== 2 ||
-      serverQueryBody.cursorFirst?.endCursor !== 'page-2' ||
-      serverQueryBody.cursorSecond?.data?.[0]?.title !== 'Second Page'
-    ) {
-      throw new Error(`Server one/many/paginate contract failed: ${JSON.stringify(serverQueryBody)}`)
-    }
-
-    const ofetchBody = await readJsonResponse(await fetch(`${baseURL}/api/ofetch-contract`), '$fetch query contract')
-    if (ofetchBody.result !== null) {
-      throw new Error(`$fetch did not preserve the missing result envelope: ${JSON.stringify(ofetchBody)}`)
-    }
-
-    const missingPageResponse = await fetch(`${baseURL}/missing`)
-    const missingPageHtml = await missingPageResponse.text()
-    if (!missingPageResponse.ok || !missingPageHtml.includes('Missing document')) {
-      throw new Error(`Client-facing missing query failed: ${missingPageResponse.status}\n${missingPageHtml.slice(0, 500)}`)
-    }
-
-    const providerFailureResponse = await fetch(queryUrl({
-      collection: 'pages',
-      where: [{ path: '/provider-failure' }],
-      first: true
-    }))
-    const providerFailureText = await providerFailureResponse.text()
-    if (
-      providerFailureResponse.status !== 502 ||
-      !providerFailureText.includes('BACKEND_FAILURE') ||
-      providerFailureText.includes('memory')
-    ) {
-      throw new Error(`Provider failure was not sanitized: ${providerFailureResponse.status}\n${providerFailureText.slice(0, 500)}`)
-    }
-
-    const navigationResponse = await fetch(`${baseURL}/api/_content/navigation?collection=pages`)
-    const navigationBody = await navigationResponse.text()
-    if (!navigationResponse.ok || !navigationBody.includes('"path":"/"')) {
-      throw new Error(`Packed consumer content API failed: ${navigationResponse.status}\n${navigationBody.slice(0, 500)}`)
-    }
-
-    const searchBody = await readJsonResponse(
-      await fetch(`${baseURL}/api/_content/search?q=Package`),
-      'search query'
-    )
-    if (!Array.isArray(searchBody)) {
-      throw new TypeError(`Packed consumer search returned an invalid response: ${JSON.stringify(searchBody)}`)
-    }
-
-    const siteDataBody = await readJsonResponse(
-      await fetch(`${baseURL}/api/_content/site-data?key=settings`),
-      'site-data query'
-    )
-    if (siteDataBody.data?.fixture !== 'packed-memory') {
-      throw new Error(`Packed consumer site data did not use the in-memory provider: ${JSON.stringify(siteDataBody)}`)
-    }
-
-    const sitemapApiBody = await readJsonResponse(
-      await fetch(`${baseURL}/api/_content/sitemap`),
-      'sitemap route enumeration'
-    )
-    if (!Array.isArray(sitemapApiBody) || sitemapApiBody.length !== 2) {
-      throw new Error(`Packed consumer route enumeration lost routes: ${JSON.stringify(sitemapApiBody)}`)
-    }
-
-    const importSmokeResponse = await fetch(`${baseURL}/api/import-smoke`)
-    const importSmokeBody = await importSmokeResponse.text()
-    // Assert that the trimmed /agent subpath is usable from a real Nitro
-    // handler, not merely importable in an isolated Node process.
-    if (!importSmokeResponse.ok || !importSmokeBody.includes('"agentRegistry":"function"')) {
-      throw new Error(`Packed consumer Nuxt import smoke failed: ${importSmokeResponse.status}\n${importSmokeBody.slice(0, 500)}`)
-    }
-
-    const sitemapPath = resolve(appDir, '.output/public/sitemap.xml')
-    if (!existsSync(sitemapPath)) {
-      throw new Error('Packed consumer build did not emit .output/public/sitemap.xml')
-    }
-    const sitemap = readFileSync(sitemapPath, 'utf8')
-    if (!sitemap.includes('https://packed-consumer.example.test/')) {
-      throw new Error(`Packed consumer sitemap is missing the content page URL:\n${sitemap.slice(0, 500)}`)
-    }
-
-    const llmsPath = resolve(appDir, '.output/public/llms.txt')
-    const rawMarkdownPath = resolve(appDir, '.output/public/raw/index.md')
-    if (!existsSync(llmsPath) || !existsSync(rawMarkdownPath)) {
-      throw new Error('Packed consumer build did not emit agent markdown outputs')
-    }
-    const llms = readFileSync(llmsPath, 'utf8')
-    const rawMarkdown = readFileSync(rawMarkdownPath, 'utf8')
-    if (!llms.includes('/raw/index.md') || !rawMarkdown.includes('# Package Consumer Page')) {
-      throw new Error(`Packed consumer agent markdown output is invalid:\n${llms.slice(0, 300)}\n${rawMarkdown.slice(0, 300)}`)
-    }
+    await verifyMarkdownPluginConsumer(appDir)
+    await verifyLiveApiContract(appDir)
+    verifyGeneratedOutputs(appDir)
 
     writeFileSync(
       resolve(dirname(tarball), `release-lane-consumer-${packageManager}.json`),
@@ -588,12 +557,6 @@ async function main() {
     )
     console.log(`Packed consumer ${packageManager} ${packageManagerVersion} test passed.`)
   } finally {
-    if (markdownPluginsServer && markdownPluginsServer.exitCode === null) {
-      await stopServer(markdownPluginsServer)
-    }
-    if (server && server.exitCode === null) {
-      await stopServer(server)
-    }
     rmSync(tempRoot, { recursive: true, force: true })
   }
 }

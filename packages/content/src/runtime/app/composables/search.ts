@@ -69,11 +69,6 @@ export interface UseContentSearchResult extends SearchLoadResult {
   searchNavigation: ComputedRef<ContentNavigationItem[]>
 }
 
-type ContentRuntimeConfig = {
-  locales?: string[]
-  search?: ContentSearchPublicRuntimeConfig | false
-}
-
 type AppRuntimeConfig = {
   baseURL?: string
 }
@@ -111,29 +106,6 @@ const resolveSearchConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>)
     indexURL: typeof value.indexURL === 'string' ? value.indexURL : defaultSearchConfig.indexURL,
     engine: value.engine === 'pagefind' || value.engine === 'provider' ? value.engine : 'minisearch',
     minisearch: normalizeMiniSearchOptions(value.minisearch)
-  }
-}
-
-const resolveContentConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>): ContentRuntimeConfig | undefined => {
-  const value = runtimeConfig.public.content
-  if (!isRecord(value)) {
-    return undefined
-  }
-
-  return {
-    locales: Array.isArray(value.locales)
-      ? value.locales.filter((locale): locale is string => typeof locale === 'string')
-      : undefined,
-    search: value.search === false
-      ? false
-      : (isRecord(value.search)
-          ? {
-              apiBaseURL: typeof value.search.apiBaseURL === 'string' ? value.search.apiBaseURL : defaultSearchConfig.apiBaseURL,
-              indexURL: typeof value.search.indexURL === 'string' ? value.search.indexURL : defaultSearchConfig.indexURL,
-              engine: value.search.engine === 'pagefind' || value.search.engine === 'provider' ? value.search.engine : 'minisearch',
-              minisearch: normalizeMiniSearchOptions(value.search.minisearch)
-            }
-          : undefined)
   }
 }
 
@@ -374,20 +346,10 @@ const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: s
 }
 
 const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string, options: SearchLoadOptions): SearchLoadResult => {
-  const runtimeConfig = useRuntimeConfig()
-  const contentConfig = resolveContentConfig(runtimeConfig)
   const locale = computed(() => toValue(options.locale))
   const results = ref<ContentSearchResult[]>([])
   const pending = ref(false)
   const error = shallowRef<unknown>(null)
-  if (contentConfig?.search === false) {
-    return {
-      results: computed(() => []),
-      pending: computed(() => false),
-      error: computed(() => disabledSearchError)
-    }
-  }
-
   if (import.meta.client) {
     onMounted(() => {
       const client = createPagefindSearchClient({

@@ -13,6 +13,11 @@ import type {
   ResolvedContentFieldV1,
   ResolvedContentValidationV1,
 } from './types.js'
+import {
+  canonicalizePortableComponentName,
+  isReservedPortableComponentName,
+  isValidPortableComponentName,
+} from './render-policy.js'
 
 export const RESOLVED_CONTENT_CONTRACT_VERSION = 1 as const
 
@@ -468,9 +473,23 @@ function portableMediaTypes(values: string[] | undefined): PortableMediaType[] {
 
 function normalizeComponentPolicy(policy: PortableComponentPolicyV1): PortableComponentPolicyV1 {
   const components: PortableComponentPolicyV1['components'] = {}
-  for (const [componentName, component] of Object.entries(policy.components)) {
-    if (!componentName || eventLike(componentName) || /[:@]/.test(componentName)) {
-      throw new Error(`Invalid portable component name "${componentName}".`)
+  for (const [authoredName, component] of Object.entries(policy.components)) {
+    if (!authoredName || eventLike(authoredName) || /[:@]/.test(authoredName)) {
+      throw new Error(`Invalid portable component name "${authoredName}".`)
+    }
+    const componentName = canonicalizePortableComponentName(authoredName)
+    if (!isValidPortableComponentName(componentName)) {
+      throw new Error(`Invalid portable component name "${authoredName}".`)
+    }
+    if (isReservedPortableComponentName(authoredName)) {
+      throw new Error(`Portable component name "${authoredName}" is reserved.`)
+    }
+    if (
+      !componentName ||
+      ['__proto__', 'prototype', 'constructor'].includes(authoredName.toLowerCase()) ||
+      Object.prototype.hasOwnProperty.call(components, componentName)
+    ) {
+      throw new Error(`Portable component name "${authoredName}" conflicts after canonicalization.`)
     }
     const props: typeof component.props = {}
     for (const [propName, prop] of Object.entries(component.props)) {
