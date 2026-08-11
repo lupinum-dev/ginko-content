@@ -32,7 +32,8 @@ const exampleRoots = [
 const exampleImportRoots = [
   ...exampleRoots,
   'playground',
-  'test/fixtures'
+  'test/fixtures',
+  'test/consumer-fixtures'
 ]
 
 const sourceExampleFiles = [

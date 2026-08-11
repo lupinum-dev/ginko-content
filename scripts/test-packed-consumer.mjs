@@ -1,6 +1,6 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url'
 import { parsePackageManagerVersion } from './lib/release-artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')
+const pagefindFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/pagefind-app')
 const cliArgs = process.argv.slice(2)
 
 function optionValue(name, fallback) {
@@ -41,21 +43,6 @@ function resolveReleaseTarball() {
   }
   return resolve(directory, tarballs[0])
 }
-
-const nodeImportableSubpaths = [
-  '@lupinum/ginko-content/config',
-  '@lupinum/ginko-content/navigation',
-  '@lupinum/ginko-content/provider',
-  '@lupinum/ginko-content/data-source',
-  '@lupinum/ginko-content/portability',
-  '@lupinum/ginko-content/portability/node',
-  '@lupinum/ginko-content/transformers',
-  '@lupinum/ginko-content/cms-contract',
-  '@lupinum/ginko-content/testing/provider-fixture',
-  '@lupinum/ginko-content/testing/provider-contract',
-  '@lupinum/ginko-content/testing/data-source-contract',
-  '@lupinum/ginko-content/testing/portability-contract'
-]
 
 // The root module export and client/server facades are verified from Nuxt
 // config, generated Vue, and Nitro files below. They depend on Nuxt/Nitro
@@ -151,10 +138,6 @@ function packageExecAndCapture(command, args, cwd) {
   return runAndCapture(packageManager, commandArgs, cwd)
 }
 
-function writeFile(path, content) {
-  writeFileSync(path, content.trimStart())
-}
-
 function assertNoWorkspaceRanges(tarball, tempRoot) {
   const extractDir = resolve(tempRoot, 'extract')
   mkdirSync(extractDir, { recursive: true })
@@ -239,7 +222,7 @@ async function main() {
 
   try {
     const appDir = resolve(tempRoot, 'app')
-    mkdirSync(appDir, { recursive: true })
+    cpSync(packedFixtureDir, appDir, { recursive: true })
     const tarball = resolveReleaseTarball()
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
     const packageManagerVersion = parsePackageManagerVersion(
@@ -252,7 +235,7 @@ async function main() {
     mkdirSync(resolve(installedTarball, '..'), { recursive: true })
     copyFileSync(tarball, installedTarball)
 
-    writeFile(resolve(appDir, 'package.json'), JSON.stringify({
+    writeFileSync(resolve(appDir, 'package.json'), JSON.stringify({
       type: 'module',
       private: true,
       scripts: {
@@ -271,418 +254,6 @@ async function main() {
         vitest: process.env.GINKO_CONSUMER_VITEST_VERSION || '4.1.6'
       }
     }, null, 2))
-
-    mkdirSync(resolve(appDir, 'content'), { recursive: true })
-    mkdirSync(resolve(appDir, 'pages'), { recursive: true })
-    mkdirSync(resolve(appDir, 'server/api'), { recursive: true })
-    mkdirSync(resolve(appDir, 'server/plugins'), { recursive: true })
-    mkdirSync(resolve(appDir, 'server/providers'), { recursive: true })
-    mkdirSync(resolve(appDir, 'scripts'), { recursive: true })
-
-    writeFile(resolve(appDir, 'nuxt.config.ts'), `
-      export default defineNuxtConfig({
-        modules: ['@lupinum/ginko-content', '@nuxtjs/sitemap'],
-        site: {
-          url: 'https://packed-consumer.example.test',
-          name: 'Packed Consumer'
-        },
-        routeRules: {
-          '/cache-live': { prerender: false }
-        },
-        content: {
-          cache: '~/server/content-cache',
-          agent: {
-            linkHeaders: true,
-            markdownNegotiation: true
-          },
-          search: {
-            engine: 'provider'
-          },
-          sitemap: true,
-          validation: 'report'
-        },
-        compatibilityDate: '2026-04-14'
-      })
-    `)
-
-    writeFile(resolve(appDir, 'tsconfig.json'), JSON.stringify({
-      extends: './.nuxt/tsconfig.json'
-    }, null, 2))
-
-    writeFile(resolve(appDir, 'content.config.ts'), `
-      import { defineAgentSection, defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
-
-      export const pages = defineCollection({
-        type: 'page',
-        source: '*.md',
-        agent: {
-          section: 'docs',
-          markdown: true
-        }
-      })
-
-      export default defineContentConfig({
-        provider: 'memory',
-        providers: {
-          memory: '~/server/providers/memory'
-        },
-        agent: {
-          site: {
-            title: 'Packed Consumer',
-            description: 'Packed package consumer smoke app.',
-            url: 'https://packed-consumer.example.test',
-            defaultLocale: 'en',
-            locales: ['en']
-          },
-          sections: [
-            defineAgentSection({ id: 'docs', title: 'Docs', order: 10 })
-          ]
-        },
-        collections: { pages }
-      })
-    `)
-
-    writeFile(resolve(appDir, 'content/index.md'), `
----
-title: Package Consumer Page
----
-
-# Package Consumer Page
-
-The packed package rendered this page.
-
-    `)
-
-    writeFile(resolve(appDir, 'server/providers/memory.ts'), `
-      import {
-        CONTENT_DATA_SOURCE_LIMITS,
-        createContentDataSourceError,
-        type ContentDataSource
-      } from '@lupinum/ginko-content/data-source'
-      import { bindContentProvider } from '@lupinum/ginko-content/provider'
-
-      const documents = [
-        {
-          collection: 'pages',
-          canonicalKey: 'pages:index',
-          locale: 'en',
-          contentPath: '/',
-          body: null,
-          title: 'Package Consumer Page'
-        },
-        {
-          collection: 'pages',
-          canonicalKey: 'pages:second',
-          locale: 'en',
-          contentPath: '/second',
-          body: null,
-          title: 'Second Page'
-        }
-      ] as const
-
-      const cache = {
-        tags: ['content:pages'],
-        paths: ['/'],
-        maxAge: 60,
-        swr: 30,
-        etag: 'packed-fixture-v1',
-        lastModified: 1_700_000_000_000
-      }
-
-      const source = {
-        name: 'memory',
-        capabilities: {
-          protocol: 'ginko-content-data-source/v1',
-          query: {
-            operators: ['$eq'],
-            pagination: ['offset', 'cursor'],
-            maxPageSize: CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize
-          }
-        },
-        async query(_context, query) {
-          const serialized = JSON.stringify(query.plan)
-          if (serialized.includes('/provider-failure')) {
-            throw createContentDataSourceError('BACKEND_FAILURE')
-          }
-          const selected = serialized.includes('/missing')
-            ? []
-            : serialized.includes('/second')
-              ? [documents[1]]
-              : [...documents]
-          if (query.plan.mode === 'count') return { data: { result: selected.length }, cache }
-          if (query.plan.mode === 'first') return { data: { result: selected[0] }, cache }
-          if (query.plan.pagination.mode === 'cursor') {
-            const start = query.plan.pagination.after === 'page-2' ? 1 : 0
-            const result = selected.slice(start, start + query.plan.pagination.limit)
-            return {
-              data: {
-                mode: 'cursor',
-                result,
-                limit: query.plan.pagination.limit,
-                pageInfo: {
-                  endCursor: start + result.length < selected.length ? 'page-2' : null,
-                  hasNext: start + result.length < selected.length
-                }
-              },
-              cache
-            }
-          }
-          const skip = query.plan.pagination.skip
-          const limit = query.plan.pagination.limit ?? 0
-          return {
-            data: {
-              ...(query.plan.pagination.mode === 'offset' ? { mode: 'offset' as const } : {}),
-              result: limit ? selected.slice(skip, skip + limit) : selected.slice(skip),
-              skip,
-              limit,
-              total: selected.length
-            },
-            cache
-          }
-        },
-        async navigation() {
-          return {
-            data: documents.map(document => ({
-              title: document.title,
-              route: {
-                collection: document.collection,
-                canonicalKey: document.canonicalKey,
-                locale: document.locale,
-                contentPath: document.contentPath
-              }
-            })),
-            cache
-          }
-        },
-        async search(_context, request) {
-          return {
-            data: documents.slice(0, request.limit).map((document, index) => ({
-              title: document.title,
-              excerpt: 'Packed provider search result',
-              score: 1 - index / 10,
-              route: {
-                collection: document.collection,
-                canonicalKey: document.canonicalKey,
-                locale: document.locale,
-                contentPath: document.contentPath
-              }
-            })),
-            cache
-          }
-        },
-        async siteData(_context, request) {
-          return {
-            data: {
-              key: request.key,
-              locale: request.locale ?? null,
-              data: { fixture: 'packed-memory' },
-              updatedAt: 1_700_000_000_000
-            },
-            cache
-          }
-        },
-        async routes(_context, request) {
-          const start = request.cursor === 'route-2' ? 1 : 0
-          const items = documents.slice(start, start + 1).map(document => ({
-            collection: document.collection,
-            canonicalKey: document.canonicalKey,
-            locale: document.locale,
-            contentPath: document.contentPath
-          }))
-          return {
-            data: {
-              items,
-              nextCursor: start === 0 ? 'route-2' : null,
-              snapshot: 'packed-route-inventory-v1'
-            },
-            cache
-          }
-        }
-      } satisfies ContentDataSource<{ requestId: string }>
-
-      export default bindContentProvider({
-        source,
-        createContext: async () => ({ requestId: 'packed-consumer' })
-      })
-    `)
-
-    writeFile(resolve(appDir, 'server/content-cache.ts'), `
-      import { headersContentCache } from '@lupinum/ginko-content/server'
-      export default headersContentCache()
-    `)
-
-    writeFile(
-      resolve(appDir, 'server/plugins/agent-contract.ts'),
-      `
-      import {
-        agentRawPathForRoute
-      } from '@lupinum/ginko-content/agent'
-
-      if (agentRawPathForRoute('/docs/intro') !== '/raw/docs/intro.md') {
-        throw new Error('Packed agent path helper export is invalid')
-      }
-
-      export default defineNitroPlugin((nitroApp) => {
-        nitroApp.hooks.hook('error', (error) => {
-          console.error('PACKED_CONSUMER_SERVER_ERROR', error)
-        })
-      })
-    `)
-
-    writeFile(
-      resolve(appDir, 'server/data-source-adapter.ts'),
-      readFileSync(
-        resolve(repoRoot, 'test/fixtures/typecheck/types/data-source-adapter.ts'),
-        'utf8'
-      )
-    )
-
-    writeFile(resolve(appDir, 'pages/index.vue'), `
-      <script setup lang="ts">
-      import { useContentPage } from '#imports'
-      import { pages } from '../content.config'
-
-      const { page, next } = await useContentPage(pages, { surround: true })
-      </script>
-
-      <template>
-        <main>
-          <h1>{{ page?.title }}</h1>
-          <p data-testid="next-page">{{ next?.title }}</p>
-        </main>
-      </template>
-    `)
-
-    writeFile(resolve(appDir, 'server/api/query-contract.get.ts'), `
-      import { many, one, paginate } from '@lupinum/ginko-content/server'
-      import { pages } from '../../content.config'
-
-      export default defineEventHandler(async (event) => ({
-        found: await one(event, pages, { by: { path: '/' } }),
-        missing: await one(event, pages, { by: { path: '/missing' } }),
-        list: await many(event, pages, { limit: 2 }),
-        cursorFirst: await paginate(event, pages, { mode: 'cursor', after: null, limit: 1 }),
-        cursorSecond: await paginate(event, pages, { mode: 'cursor', after: 'page-2', limit: 1 })
-      }))
-    `)
-
-    writeFile(resolve(appDir, 'server/api/ofetch-contract.get.ts'), `
-      const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
-
-      export default defineEventHandler(async (event) => {
-        const missing = encode({ collection: 'pages', where: [{ path: '/missing' }], first: true })
-        return await event.$fetch('/api/_content/query/packed/' + missing + '.json')
-      })
-    `)
-
-    writeFile(resolve(appDir, 'pages/missing.vue'), `
-      <script setup lang="ts">
-      import { useContentPage } from '#imports'
-      import { pages } from '../content.config'
-
-      const { page } = await useContentPage(pages)
-      </script>
-
-      <template><main>{{ page == null ? 'Missing document' : 'Unexpected document' }}</main></template>
-    `)
-
-    writeFile(resolve(appDir, 'pages/second.vue'), `
-      <script setup lang="ts">
-      import { useContentPage } from '#imports'
-      import { pages } from '../content.config'
-
-      const { page } = await useContentPage(pages)
-      </script>
-
-      <template><main><h1>{{ page?.title }}</h1></main></template>
-    `)
-
-    writeFile(resolve(appDir, 'pages/cache-live.vue'), `
-      <script setup lang="ts">
-      import { one } from '@lupinum/ginko-content/client'
-      import { pages } from '../content.config'
-      const page = await one(pages, { by: { path: '/' } })
-      </script>
-      <template><main>{{ page?.title }}</main></template>
-    `)
-
-    writeFile(resolve(appDir, 'pages/import-smoke.vue'), `
-      <script setup lang="ts">
-      import { one, useContentPage, useContentSearch, extractContentToc } from '@lupinum/ginko-content/client'
-
-      void [one, useContentPage, useContentSearch, extractContentToc]
-      </script>
-
-      <template>
-        <main>
-          <h1>Import Smoke</h1>
-        </main>
-      </template>
-    `)
-
-    writeFile(resolve(appDir, 'server/api/import-smoke.get.ts'), `
-      import { one, many } from '@lupinum/ginko-content/server'
-      import { createAgentMarkdownRegistry } from '@lupinum/ginko-content/agent'
-
-      export default defineEventHandler(() => ({
-        server: typeof one,
-        many: typeof many,
-        agentRegistry: typeof createAgentMarkdownRegistry
-      }))
-    `)
-
-    writeFile(resolve(appDir, 'scripts/import-public-subpaths.mjs'), `
-      const subpaths = ${JSON.stringify(nodeImportableSubpaths, null, 2)}
-
-      for (const subpath of subpaths) {
-        console.log(\`Importing \${subpath}\`)
-        await import(subpath)
-      }
-
-      try {
-        await import('@lupinum/ginko-content/cms-import')
-        throw new Error('Superseded CMS import subpath unexpectedly resolved')
-      } catch (error) {
-        if (error?.code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw error
-      }
-
-      const { mkdtemp, readFile, rm } = await import('node:fs/promises')
-      const { tmpdir } = await import('node:os')
-      const { join } = await import('node:path')
-      const { collectPortableMdcAssetReferences, parsePortableDocument, rewritePortableMdcAssetReferences } = await import('@lupinum/ginko-content/portability')
-      const { readPortableDirectory, rebuildPortableDirectoryManifest, writePortableDirectory } = await import('@lupinum/ginko-content/portability/node')
-      const { PORTABILITY_CONTRACT_FIXTURES, createPortabilityContractFixture, runPortabilityContract, runPortableDirectoryContract } = await import('@lupinum/ginko-content/testing/portability-contract')
-      const parent = await mkdtemp(join(tmpdir(), 'ginko-packed-portability-'))
-      try {
-        const contract = createPortabilityContractFixture()
-        const document = await parsePortableDocument(PORTABILITY_CONTRACT_FIXTURES.document, contract)
-        const result = await runPortabilityContract()
-        if (result.checks !== 9) throw new Error('Packed portability codec contract failed')
-        const localPath = '/ginko-assets/' + PORTABILITY_CONTRACT_FIXTURES.png.sha256 + '.png'
-        const codeDelimiter = String.fromCharCode(96)
-        const body = '![Packed](' + localPath + ')\\n\\n' + codeDelimiter + localPath + codeDelimiter
-        const references = await collectPortableMdcAssetReferences(body, contract.collections.docs.componentPolicy)
-        const rewritten = await rewritePortableMdcAssetReferences(
-          body,
-          contract.collections.docs.componentPolicy,
-          reference => 'https://assets.example.test/' + reference.sha256 + '.png'
-        )
-        if (references.length !== 1 || !rewritten.includes('https://assets.example.test/') || !rewritten.includes(codeDelimiter + localPath + codeDelimiter)) {
-          throw new Error('Packed portability MDC asset contract failed')
-        }
-        const directory = await runPortableDirectoryContract({
-          firstDestination: join(parent, 'first'),
-          secondDestination: join(parent, 'second'),
-          write: writePortableDirectory,
-          read: readPortableDirectory,
-          rebuildManifest: rebuildPortableDirectoryManifest,
-          readManifestBytes: destination => readFile(join(destination, '.ginko/portable.json'))
-        })
-        if (directory.checks !== 3 || document.canonicalKey !== 'docs.introduction') throw new Error('Packed portability directory contract failed')
-      } finally {
-        await rm(parent, { recursive: true, force: true })
-      }
-    `)
 
     if (packageManager === 'pnpm') {
       run('pnpm', ['install', '--frozen-lockfile=false', '--config.dangerously-allow-all-builds=true'], appDir)
@@ -714,33 +285,8 @@ The packed package rendered this page.
     }
 
     const filesystemDir = resolve(tempRoot, 'filesystem-check')
-    mkdirSync(resolve(filesystemDir, 'content'), { recursive: true })
+    cpSync(pagefindFixtureDir, filesystemDir, { recursive: true })
     symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
-    writeFile(resolve(filesystemDir, 'package.json'), JSON.stringify({ type: 'module', private: true }, null, 2))
-    writeFile(resolve(filesystemDir, 'nuxt.config.ts'), `
-      export default defineNuxtConfig({
-        modules: ['@lupinum/ginko-content'],
-        content: {
-          agent: false,
-          search: { engine: 'pagefind' },
-          sitemap: false,
-          validation: 'report'
-        },
-        compatibilityDate: '2026-04-14'
-      })
-    `)
-    writeFile(resolve(filesystemDir, 'content.config.ts'), `
-      import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/config'
-      export const pages = defineCollection({ type: 'page', source: '*.md' })
-      export default defineContentConfig({ collections: { pages } })
-    `)
-    writeFile(resolve(filesystemDir, 'content/index.md'), `
----
-title: Pagefind Package Check
----
-
-# Pagefind Package Check
-    `)
     packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
       /could not be resolved[\s\S]*treating it as an external dependency/i,
       /\bNUXT_E\d{4}\b/

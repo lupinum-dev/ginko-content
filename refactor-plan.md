@@ -369,7 +369,7 @@ browser-bundling contract remains owned by RC-11.
 
 #### RC-01A — Extract the packed consumer before adding new artifact cases
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** low-to-medium because the lane is release-critical
 - **Change type:** mechanical fixture extraction
@@ -416,6 +416,18 @@ pnpm test:package-consumer:npm
 **Cutover/rollback:** extract in one hard cut with no string-based fallback. If
 workspace selection includes the fixture, fix its location before merging rather
 than adding install exceptions.
+
+Execution note (2026-08-11): the packed application and Pagefind package probe
+now live as 21 directly lintable files under `test/consumer-fixtures/`; the
+orchestrator only copies them, writes the exact-tarball manifest, executes the
+lanes, and inspects results. The new root is covered by `docs-drift` and remains
+outside every workspace selector. The first Nuxt 4.5 packed run also exposed a
+pre-existing top-level `await` in the renderer's generated-component helper;
+deleting its unreachable fallback in favor of the always-generated Nuxt module
+made the production target compatible without adding a build override. The
+deterministic tarball (`sha256
+7c771623f5f12665acd6cc6ce2bb215691b9500adf6042273fbbc588d1d1286e`) passed
+the complete pnpm/Nuxt 4.5 and npm/Nuxt 4.4 consumer lanes.
 
 ### Phase 2 — Current correctness before dependency migration
 
@@ -1606,7 +1618,7 @@ only the decisive verification result, not a full command log.
 |---|---|---|---|---|
 | RC-00 | blocked | `codex/rc-production-audit` | Installed graph resolves vulnerable `brace-expansion@2.1.0`; official patched line is `5.0.8` | Await consumer-valid Nitro/Archiver remediation; no waiver extension |
 | RC-01 | complete | `codex/rc-markdown-contract` | Corpus 27/27; architecture 8/8; test selection isolated; full suite 118 files/1192 tests | Raw and pipeline snapshots reviewed separately |
-| RC-01A | not started | — | — | Packed consumer extraction |
+| RC-01A | complete | `codex/rc-packed-consumer-fixture` | Deterministic pack plus exact-tarball pnpm/Nuxt 4.5 and npm/Nuxt 4.4 lanes passed; source typecheck; fixture ESLint; docs drift and selection checks | 21 tracked fixture files; orchestrator has no embedded app source; generated-component helper no longer emits top-level `await` |
 | RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
 | RC-03 | not started | — | — | Catch-all 404 |
 | RC-04 | complete | `codex/rc-pagefind-ssr` | Non-empty-query generate; production browser 5/5; search matrix 4/4; full suite 119 files/1,206 tests | Pagefind is client-lifecycle-owned; SSR is inert |
