@@ -518,7 +518,7 @@ do not move 404 policy into Ginko or ship an untested watcher recipe.
 
 #### RC-04 — Make Pagefind explicitly client-owned
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** none
 - **Risk:** medium
 - **Change type:** SSR lifecycle correction
@@ -561,6 +561,19 @@ pnpm test:generate:static
 
 **Cutover/rollback:** keep the server branch inert; do not introduce a second SSR
 Pagefind loader or hide the failure with absolute URL construction.
+
+Execution note (2026-08-11): Pagefind now creates its browser-asset client and
+registers its reactive search effect only from `onMounted` in a client build. SSR
+therefore returns stable empty results with `pending: false` and no error, without
+calling native `fetch`; the existing cancellation cleanup, locale keying, manifest
+and module caches, base URL, and result normalization stay on the sole client path.
+A real `nuxi generate` fixture with a non-empty initial query proves inert SSR HTML
+and emitted Pagefind assets. A production Chrome fixture proves hydration performs
+the search, fetches the locale manifest once, resolves the expected result, and
+reports no hydration, console, page, or request failures. Focused client tests pass
+14/14, the four-engine production search matrix passes 4/4, the complete browser
+lane passes 5/5, source typecheck and changed-file ESLint pass, and the full core
+suite passes 119 files/1,206 tests.
 
 #### RC-05 — Close Comark's default AST under Ginko's safety policy
 
@@ -1569,7 +1582,7 @@ only the decisive verification result, not a full command log.
 | RC-01A | not started | — | — | Packed consumer extraction |
 | RC-02 | complete | `codex/rc-vue-fallthrough` | Nuxt contract 14/14; `pnpm typecheck`; changed-file ESLint | Full verify is locally contaminated by ignored `.claude/worktrees/` content |
 | RC-03 | not started | — | — | Catch-all 404 |
-| RC-04 | not started | — | — | Pagefind SSR |
+| RC-04 | complete | `codex/rc-pagefind-ssr` | Non-empty-query generate; production browser 5/5; search matrix 4/4; full suite 119 files/1,206 tests | Pagefind is client-lifecycle-owned; SSR is inert |
 | RC-05 | complete | `codex/rc-markdown-policy` | Focused matrix 112/112; full suite 119 files/1,198 tests; source typecheck and changed-file ESLint | Reviewed CMS/raw/pipeline snapshots; verify locally contaminated by ignored `.claude/worktrees/` content |
 | RC-06 | complete | `codex/rc-portable-typed-props` | Portability 21/21; source typecheck; full suite 119 files/1,199 tests | One serializer/options source; portable formats remain v1 |
 | RC-07 | complete | `codex/rc-markdown-config` | Focused contracts 60/60; docs build/smoke/drift; four examples; full suite 119 files/1,204 tests | Explicit plugin list; invalid Shiki keys fail setup |

@@ -1,4 +1,5 @@
 import type { ComputedRef, Ref } from 'vue'
+import { onMounted } from 'vue'
 import type { MaybeRefOrGetter } from '#imports'
 import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRequestFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
@@ -408,10 +409,6 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
   const results = ref<ContentSearchResult[]>([])
   const pending = ref(false)
   const error = shallowRef<unknown>(null)
-  const client = createPagefindSearchClient({
-    manifestUrl: pagefindUrl.replace(/pagefind\.js(?:\?.*)?$/, 'ginko-locales.json')
-  })
-
   if (contentConfig?.search === false) {
     return {
       results: computed(() => []),
@@ -420,43 +417,51 @@ const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string
     }
   }
 
-  watchEffect(async (onCleanup) => {
-    const term = toValue(search).trim()
-    let cancelled = false
-    onCleanup(() => {
-      cancelled = true
-    })
-
-    if (!term) {
-      results.value = []
-      pending.value = false
-      error.value = null
-      return
-    }
-
-    pending.value = true
-    error.value = null
-
-    try {
-      const normalized = await client.search(term, {
-        locale: locale.value,
-        limit: toValue(options.limit)
+  if (import.meta.client) {
+    onMounted(() => {
+      const client = createPagefindSearchClient({
+        manifestUrl: pagefindUrl.replace(/pagefind\.js(?:\?.*)?$/, 'ginko-locales.json')
       })
 
-      if (!cancelled) {
-        results.value = normalized
-      }
-    } catch (err) {
-      if (!cancelled) {
-        error.value = err
-        results.value = []
-      }
-    } finally {
-      if (!cancelled) {
-        pending.value = false
-      }
-    }
-  })
+      watchEffect(async (onCleanup) => {
+        const term = toValue(search).trim()
+        let cancelled = false
+        onCleanup(() => {
+          cancelled = true
+        })
+
+        if (!term) {
+          results.value = []
+          pending.value = false
+          error.value = null
+          return
+        }
+
+        pending.value = true
+        error.value = null
+
+        try {
+          const normalized = await client.search(term, {
+            locale: locale.value,
+            limit: toValue(options.limit)
+          })
+
+          if (!cancelled) {
+            results.value = normalized
+          }
+        } catch (err) {
+          if (!cancelled) {
+            error.value = err
+            results.value = []
+          }
+        } finally {
+          if (!cancelled) {
+            pending.value = false
+          }
+        }
+      })
+    })
+  }
 
   return {
     results: computed(() => results.value),

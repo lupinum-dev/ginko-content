@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const fetchCalls: unknown[] = []
 let fetchPayload: unknown = []
@@ -17,6 +17,10 @@ const setRuntimeSearch = (search: unknown) => {
 }
 
 describe('public search composable', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
     vi.resetModules()
     fetchCalls.length = 0
@@ -213,5 +217,18 @@ describe('public search composable', () => {
     expect(search.hasQuery.value).toBe(true)
     expect(search.hasResults.value).toBe(false)
     expect(search.isEmpty.value).toBe(false)
+  })
+
+  test('useContentSearch keeps Pagefind inert during server rendering', async () => {
+    setRuntimeSearch({ engine: 'pagefind' })
+    const nativeFetch = vi.spyOn(globalThis, 'fetch')
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    const search = await useContentSearch({ initialQuery: 'guide', locale: 'en' })
+
+    expect(nativeFetch).not.toHaveBeenCalled()
+    expect(search.results.value).toEqual([])
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toBe(null)
   })
 })

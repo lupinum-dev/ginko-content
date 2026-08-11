@@ -20,6 +20,7 @@ import { assertGeneratedLinkIntegrity } from '../../scripts/lib/generated-link-i
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const basicFixtureDir = resolve(rootDir, 'playground/ginko-basic')
+const searchFixtureDir = resolve(rootDir, 'playground/ginko-search')
 const i18nFixtureDir = resolve(rootDir, 'playground/ginko-i18n')
 const routeInvariantsFixtureDir = resolve(rootDir, 'test/fixtures/route-invariants')
 const siteUrl = 'https://ginko-content.example.test'
@@ -58,6 +59,19 @@ describe('generate lane output (nuxi generate)', () => {
     assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.basic)
     await assertRouteManifestMatchesGolden(outputPublicDir, basicGolden, 'generate')
     await assertGeneratedLinkIntegrity(outputPublicDir)
+  }, 300000)
+
+  test('ginko-search: Pagefind stays inert during SSR and searches after hydration', async () => {
+    const fixture = await generateStaticFixture(searchFixtureDir, {
+      CONTENT_SEARCH_ENGINE: 'pagefind'
+    })
+    const rootHtml = await readGeneratedArtifact(fixture.publicDir, 'index.html')
+
+    expect(rootHtml).toContain('Built-in Search Playground')
+    expect(rootHtml).toContain('<p id="pending">false</p>')
+    expect(rootHtml).toContain('<pre id="results">[]</pre>')
+    expect(existsSync(resolve(fixture.publicDir, 'pagefind/ginko-locales.json'))).toBe(true)
+    expect(existsSync(resolve(fixture.publicDir, 'pagefind/pagefind.js'))).toBe(true)
   }, 300000)
 
   test('ginko-i18n: static generate emits localized HTML/sitemap/search/agent artifacts and fires the generate sitemap-assert hook', async () => {
