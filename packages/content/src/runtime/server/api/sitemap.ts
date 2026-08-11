@@ -4,7 +4,7 @@ import { queryCollectionsSitemapEntries } from '../sitemap-provider'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const runtimeSitemap = useRuntimeConfig(event).public.content?.sitemap
+  const runtimeSitemap = useRuntimeConfig(event).content?.sitemap
   const include = typeof query.include === 'string'
     ? query.include.split(',').map(item => item.trim()).filter(Boolean)
     : runtimeSitemap?.include

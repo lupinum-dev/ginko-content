@@ -27,15 +27,15 @@ const localeLanguageMap = (event: H3Event): Record<string, string> => {
 const resolveSiteUrl = (event: H3Event, explicit?: string) => {
   if (explicit) return withoutTrailingSlash(explicit)
   const runtime = useRuntimeConfig(event) as unknown as {
-    public?: { content?: { siteUrl?: string }, siteUrl?: string }
+    content?: { siteUrl?: string }
   }
-  const configured = runtime.public?.content?.siteUrl || runtime.public?.siteUrl
+  const configured = runtime.content?.siteUrl
   if (configured) return withoutTrailingSlash(configured)
   if (resolveRuntimeEnvironment() === 'development') {
     const url = getRequestURL(event)
     return `${url.protocol}//${url.host}`
   }
-  throw new Error('Content sitemap generation requires site.url or runtimeConfig.public.content.siteUrl in production.')
+  throw new Error('Content sitemap generation requires site.url or runtimeConfig.content.siteUrl in production.')
 }
 
 /** Build final sitemap entries from provider route facts. Providers never receive consumer policy. */

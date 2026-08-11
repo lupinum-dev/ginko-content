@@ -17,8 +17,8 @@ type SitemapSourcesHookContext = {
 export default defineNitroPlugin((nitro) => {
   ;(nitro.hooks.hook as any)('sitemap:sources', (ctx: SitemapSourcesHookContext) => {
     const runtimeConfig = getContentRuntimeConfig()
-    const sitemap = runtimeConfig.public.content?.sitemap
-    const apiBaseURL = runtimeConfig.public.content?.api?.baseURL
+    const sitemap = runtimeConfig.content?.sitemap
+    const apiBaseURL = runtimeConfig.content?.api?.baseURL
 
     if (!sitemap || !apiBaseURL) {
       return

@@ -14,8 +14,8 @@ const rootLocalePolicy = {
 }
 
 const runtimeConfig: any = {
-  public: { content: { navigation: { fields: ['icon', 'badge'] } } },
   content: {
+    navigation: { fields: ['icon', 'badge'] },
     defaultLocale: 'en',
     localeFallback: { de: ['fr'] },
     collections: {

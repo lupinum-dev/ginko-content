@@ -87,16 +87,17 @@ describe('runtime config contracts', () => {
     expect(contentModuleDefaults.search).toBe(false)
   })
 
-  test('exposes Nuxt site.url as runtimeConfig.public.content.siteUrl for runtime content features', async () => {
+  test('keeps the resolved Nuxt site URL private for server runtime features', async () => {
     const nuxt = createNuxt({ url: 'https://docs.example.test' })
 
     await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
 
-    expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBe('https://docs.example.test')
+    expect(nuxt.options.runtimeConfig.content.siteUrl).toBe('https://docs.example.test')
+    expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBeUndefined()
     expect(nuxt.options.runtimeConfig.public.siteUrl).toBeUndefined()
   })
 
-  test('uses explicit runtimeConfig.public.siteUrl as legacy input without writing a global output key', async () => {
+  test('accepts explicit runtimeConfig.public.siteUrl as legacy input without copying it into the content payload', async () => {
     const nuxt = createNuxt(
       { url: 'https://site-config.example.test' },
       'https://runtime.example.test'
@@ -104,8 +105,56 @@ describe('runtime config contracts', () => {
 
     await applyRuntimeConfig(nuxt, createOptions(), createContentContext())
 
-    expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBe('https://runtime.example.test')
+    expect(nuxt.options.runtimeConfig.content.siteUrl).toBe('https://runtime.example.test')
+    expect(nuxt.options.runtimeConfig.public.content.siteUrl).toBeUndefined()
     expect(nuxt.options.runtimeConfig.public.siteUrl).toBe('https://runtime.example.test')
+  })
+
+  test('publishes only the exact client contract and keeps collection internals private', async () => {
+    const nuxt = createNuxt()
+    const localePolicy = {
+      localized: false,
+      locales: [],
+      defaultLocale: 'en',
+      fallback: {},
+      translatedSlugs: false,
+      routeMounts: { en: '/' }
+    }
+    const collection = {
+      source: 'private/**/*.md',
+      exclude: ['private/drafts/**'],
+      type: 'page',
+      strict: true,
+      localePolicy,
+      sitemap: true,
+      route: '/docs',
+      cms: { adapter: 'private-cms', settings: { token: 'server-only' } },
+      agent: { section: 'private-agent' },
+      references: { authors: ['author'] },
+      schemaFields: ['title', 'author']
+    }
+
+    await applyRuntimeConfig(nuxt, createOptions(), createContentContext(), {}, { docs: collection }, { docs: collection })
+
+    expect(Object.keys(nuxt.options.runtimeConfig.public.content).sort()).toEqual([
+      'api',
+      'collections',
+      'defaultLocale',
+      'integrity',
+      'links',
+      'locales',
+      'markdown',
+      'renderPolicies',
+      'search'
+    ])
+    expect(nuxt.options.runtimeConfig.public.content.collections.docs).toEqual({
+      localePolicy,
+      references: { authors: ['author'] }
+    })
+    expect(JSON.stringify(nuxt.options.runtimeConfig.public.content)).not.toMatch(
+      /private\/\*\*|private-cms|server-only|private-agent|schemaFields|providers|sitemap|navigation/
+    )
+    expect(nuxt.options.runtimeConfig.content.collections.docs).toEqual(collection)
   })
 
   test('publishes markdown image and MiniSearch runtime options', async () => {

@@ -17,9 +17,11 @@ import { CACHE_VERSION } from '../utils'
 import { normalizeMiniSearchOptions } from '../features/search/options'
 
 const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
+  const privateRuntime = nuxt.options.runtimeConfig as Record<string, any>
+  const privateContentRuntime = privateRuntime.content as Record<string, any> | undefined
   const publicRuntime = nuxt.options.runtimeConfig.public as Record<string, any>
   const publicContentRuntime = publicRuntime.content as Record<string, any> | undefined
-  const configuredSiteUrl = publicContentRuntime?.siteUrl || publicRuntime.siteUrl
+  const configuredSiteUrl = privateContentRuntime?.siteUrl || publicContentRuntime?.siteUrl || publicRuntime.siteUrl
   if (typeof configuredSiteUrl === 'string' && configuredSiteUrl.length > 0) {
     return configuredSiteUrl
   }
@@ -165,16 +167,19 @@ export const applyContentRuntimeConfig = async (
         minisearch: normalizeMiniSearchOptions(contentContext.search.minisearch)
       } satisfies ContentSearchPublicRuntimeConfig
   const siteUrl = resolveNuxtSiteUrl(nuxt)
-  const contentRuntime = defu(nuxt.options.runtimeConfig.public.content, {
-    ...(siteUrl ? { siteUrl } : {}),
+  const publicCollections = Object.fromEntries(
+    Object.entries(runtimeCollections).map(([name, collection]) => [
+      name,
+      {
+        localePolicy: collection.localePolicy,
+        ...(collection.references ? { references: collection.references } : {})
+      }
+    ])
+  )
+  const contentRuntime = {
     locales: contentContext.locales,
-    provider: contentContext.provider || 'filesystem',
-    providers: contentContext.providers || {},
     defaultLocale,
-    localeFallback: contentContext.localeFallback || {},
-    translatedSlugs: contentContext.translatedSlugs ?? false,
-    strictTranslatedSlugs: contentContext.strictTranslatedSlugs ?? false,
-    collections: runtimeCollections,
+    collections: publicCollections,
     renderPolicies: Object.fromEntries(
       Object.entries(contentContext.contract.collections).map(([id, collection]) => [
         id,
@@ -183,30 +188,20 @@ export const applyContentRuntimeConfig = async (
     ),
     links: contentContext.links || {},
     integrity: buildIntegrity as number,
-    respectPathCase: options.respectPathCase ?? false,
     api: {
       baseURL: options.api.baseURL
     },
     markdown: {
       tags: contentContext.markdown.tags,
-      anchorLinks: contentContext.markdown.anchorLinks,
       image: contentContext.markdown.image || 'auto'
     },
-    sitemap: contentContext.sitemap
-      ? {
-          path: contentContext.sitemap.path || '/sitemap',
-          ...(contentContext.sitemap.include?.length ? { include: contentContext.sitemap.include } : {}),
-          ...(contentContext.sitemap.exclude?.length ? { exclude: contentContext.sitemap.exclude } : {}),
-          ...(typeof contentContext.sitemap.includeDrafts === 'boolean' ? { includeDrafts: contentContext.sitemap.includeDrafts } : {})
-        }
-      : false,
-    search: searchRuntime,
-    navigation: contentContext.navigation as any
-  })
+    search: searchRuntime
+  }
 
   const runtimeAgent = await sanitizeAgentConfig(appContentConfig.agent, contentContext, siteUrl)
   const privateContentRuntime = {
     ...contentContext as any,
+    ...(siteUrl ? { siteUrl } : {}),
     ...(runtimeAgent ? { agent: runtimeAgent } : {}),
     markdown: {
       ...contentContext.markdown,

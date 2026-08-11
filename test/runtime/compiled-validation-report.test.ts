@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const runtimeContent = {
+  navigation: { fields: [] },
   collections: {
     docs: {
       type: 'page',
@@ -54,7 +55,6 @@ vi.mock('../../packages/content/src/integrations/nitro/storage', () => ({
 
 vi.mock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
   getContentRuntimeConfig: () => ({
-    public: { content: { navigation: { fields: [] } } },
     content: runtimeContent
   })
 }))

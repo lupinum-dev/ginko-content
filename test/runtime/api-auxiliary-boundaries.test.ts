@@ -10,15 +10,11 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const runtime = vi.hoisted(() => ({
-  public: {
-    content: {
-      siteUrl: 'https://example.test',
-      sitemap: {
-        include: ['docs']
-      }
-    }
-  },
   content: {
+    siteUrl: 'https://example.test',
+    sitemap: {
+      include: ['docs']
+    },
     search: {
       engine: 'provider',
       collections: ['docs']
@@ -66,7 +62,7 @@ describe('runtime auxiliary API provider boundaries', () => {
       engine: 'provider',
       collections: ['docs']
     }
-    runtime.public.content.sitemap = {
+    runtime.content.sitemap = {
       include: ['docs']
     }
   })

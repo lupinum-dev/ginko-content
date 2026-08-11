@@ -15,8 +15,8 @@ const docsLocalePolicy = {
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({
-    public: { content: { navigation: { fields: [] } } },
     content: {
+      navigation: { fields: [] },
       defaultLocale: 'en',
       localeFallback: { de: ['en'] },
       collections: {

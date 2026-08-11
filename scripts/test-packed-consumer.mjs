@@ -431,6 +431,15 @@ async function main() {
     if (!pageResponse.ok || !html.includes('Package Consumer Page') || !html.includes('Second Page')) {
       throw new Error(`Packed consumer page failed: ${pageResponse.status}\n${html.slice(0, 500)}`)
     }
+    const leakedServerRuntimeMarkers = [
+      '~/server/providers/memory',
+      'Packed package consumer smoke app.',
+      '"provider":"memory"',
+      '"source":"*.md"'
+    ].filter(marker => html.includes(marker))
+    if (leakedServerRuntimeMarkers.length) {
+      throw new Error(`Packed consumer serialized server-only runtime config into the public payload: ${leakedServerRuntimeMarkers.join(', ')}`)
+    }
     const cachePageResponse = await fetch(`${baseURL}/cache-live`)
     const cachePageBody = await cachePageResponse.text()
     if (

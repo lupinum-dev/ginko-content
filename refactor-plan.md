@@ -1056,7 +1056,7 @@ contamination; all downstream owning lanes were run directly above.
 
 #### RC-12 — Minimize `runtimeConfig.public.content`
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-09, RC-10, RC-11
 - **Risk:** medium-high
 - **Change type:** public runtime boundary hard cut
@@ -1110,6 +1110,29 @@ pnpm test:package-consumer:npm
 **Cutover/rollback:** move each server reader before deleting its public field. If a
 client requirement is proven, add only that explicit serializable fact; never spread
 the full context or preserve the old projection.
+
+Execution note (2026-08-11): module setup now constructs the public projection
+explicitly from nine client-owned keys: API base, collection locale/reference
+facts, default/global locales, integrity, links, Markdown tag/image mappings,
+render policies, and resolved search config. Per-collection public data contains
+only the canonical `localePolicy` plus optional relation metadata. Provider names
+and module specifiers, source/exclude globs, strict/type/route/sitemap facts, CMS
+settings, agent definitions, schema inventories, navigation/sitemap/site policy,
+cache/revalidation state, parser descriptors, and every other resolved module fact
+remain private. Server navigation and sitemap readers now consume
+`runtimeConfig.content`; resolved `site.url` is emitted only there. The released
+legacy public site-URL inputs remain accepted as inputs but are not copied into the
+content payload. Runtime types match the explicit projection, with no parallel
+public `i18n` representation or compatibility output.
+
+An exact-key contract verifies the projection and forbidden collection internals,
+while the packed consumer rejects provider specifiers, filesystem patterns, and
+agent/provider configuration in serialized SSR HTML. Source typecheck and
+changed-file ESLint pass; the full core suite passes 120 files/1,215 tests, Nuxt
+e2e passes 15/15, and deterministic release pack SHA
+`ad201d2b707ef9e4883f0e9bfda7d1b1dc88d758a377323496be895e93b65574`
+passes the exact pnpm/Nuxt 4.5 and npm/Nuxt 4.4 consumer lanes, including private
+navigation/sitemap/agent/provider behavior and the public-payload leakage gate.
 
 ### Phase 5 — Comark migration and measured simplification
 
@@ -1653,7 +1676,7 @@ only the decisive verification result, not a full command log.
 | RC-09 | complete | `codex/rc-search-options` | Consumer parity 41/41; docs build/smoke/drift; full suite 119 files/1,208 tests | One feature-owned normalizer; required result fields cannot be removed |
 | RC-10 | complete | `codex/rc-inline-contract` | Baseline contracts 38/38; real generate/browser; docs build/smoke/drift; full suite 119 files/1,209 tests | Fixed safe profile; render overrides cannot authorize syntax |
 | RC-11 | complete | `codex/rc-markdown-plugin-registry` | Exact tarball `cdb7a9f1…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with absent-base-peer, SSR, prerender, Chromium, chunk, and server-only custom-plugin proofs; full core 120 files/1,214 tests; e2e 15/15; browser 5/5; generate 5/5 | One generated registry; parser descriptors private; no variable package imports or duplicate workspace fixture |
-| RC-12 | not started | — | — | Public runtime config |
+| RC-12 | complete | `codex/rc-public-runtime-config` | Exact nine-key public projection; full core 120 files/1,215 tests; e2e 15/15; exact tarball `ad201d2b…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with SSR payload leakage checks | Server navigation/sitemap/site policy moved private; legacy site URL remains input-only |
 | RC-13 | not started | — | — | Comark `0.6.x` |
 | RC-14 | not started | — | — | Build override deletion |
 | RC-15 | not started | — | — | Parser reuse |

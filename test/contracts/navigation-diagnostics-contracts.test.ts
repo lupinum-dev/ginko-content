@@ -14,8 +14,8 @@ const localePolicy = {
 }
 
 const runtimeConfig = {
-  public: { content: { navigation: { fields: [] } } },
   content: {
+    navigation: { fields: [] },
     defaultLocale: 'en',
     localeFallback: {},
     collections: {} as Record<string, { schemaFields?: string[], localePolicy?: typeof localePolicy }>
