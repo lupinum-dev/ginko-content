@@ -1216,7 +1216,7 @@ checks pass independently.
 
 #### RC-14 — Remove obsolete Comark bundling overrides
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-11, RC-13
 - **Risk:** medium
 - **Change type:** deletion and build simplification
@@ -1257,6 +1257,23 @@ pnpm test:package-consumer:npm
 **Cutover/rollback:** if one flag is still proven necessary for a supported matrix
 row, retain only that exact flag with the failing artifact test and rationale. Do
 not keep all three defensively.
+
+Execution note (2026-08-11): the module no longer adds `comark` or
+`@comark/vue` to Nuxt `build.transpile`, Vite `ssr.noExternal`, or Nitro
+`externals.inline`; the `runtimeInlineDependencies` plumbing and its `defu`
+configuration were deleted rather than replaced. Nitro still bundles the package
+root and generated content-template directory for their separately proven
+TypeScript/alias requirements, and contracts prove user-authored transpile,
+Vite, and Nitro inline entries remain byte-for-byte owned by the application.
+
+PR e2e smoke, the full core suite (120 files/1,217 tests), Nuxt e2e 15/15,
+production browser 5/5, and static generation 5/5 pass with all three override
+categories absent. Deterministic tarball
+`adb783e4f87d34d18a642aedf0a79ffe9d2552efea790e7d9fd68665008b6925`
+passes pure Node/worker/browser probes and both pnpm/Nuxt 4.5 and npm/Nuxt 4.4
+consumers. The packed optional-plugin fixture proves Shiki, KaTeX SSR/hydration,
+Mermaid SVG rendering, and a server-only custom plugin; its output inspection
+rejects unresolved browser imports for both `comark/*` and `@comark/vue/*`.
 
 #### RC-15 — Reuse parsers within an explicit configuration lifecycle
 
@@ -1705,7 +1722,7 @@ only the decisive verification result, not a full command log.
 | RC-11 | complete | `codex/rc-markdown-plugin-registry` | Exact tarball `cdb7a9f1…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with absent-base-peer, SSR, prerender, Chromium, chunk, and server-only custom-plugin proofs; full core 120 files/1,214 tests; e2e 15/15; browser 5/5; generate 5/5 | One generated registry; parser descriptors private; no variable package imports or duplicate workspace fixture |
 | RC-12 | complete | `codex/rc-public-runtime-config` | Exact nine-key public projection; full core 120 files/1,215 tests; e2e 15/15; exact tarball `ad201d2b…` passed pnpm/Nuxt 4.5 and npm/Nuxt 4.4 with SSR payload leakage checks | Server navigation/sitemap/site policy moved private; legacy site URL remains input-only |
 | RC-13 | complete | `codex/rc-comark-06` | Matched Comark `0.6.2` graph; corpus 27/27 reviewed; full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `c6f57946…` passed pure runtimes and both consumers | Canonical `shiki`; `highlight` is warning-only alias; verify locally contaminated by ignored `.claude/worktrees/` content |
-| RC-14 | not started | — | — | Build override deletion |
+| RC-14 | complete | `codex/rc-comark-build-cleanup` | Full core 120 files/1,217 tests; e2e 15/15; browser/static 5/5 each; exact tarball `adb783e4…` passed pure runtimes and both optional-plugin consumers | Deleted all three blanket Comark override categories; user bundling config remains untouched |
 | RC-15 | not started | — | — | Parser reuse |
 | RC-16 | not started | — | — | Public docs/exports |
 | RC-17A | not started | — | — | Script ownership |

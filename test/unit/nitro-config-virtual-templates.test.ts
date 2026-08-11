@@ -37,7 +37,6 @@ function createHarness() {
     options: { api: { baseURL: '/api/_content' } } as any,
     appContentConfig: {} as any,
     contentContext: { provider: 'filesystem', sources: {}, sitemap: false, cache: false } as any,
-    runtimeInlineDependencies: ['comark'],
     buildIntegrity: 123,
     resolvedI18n: { locales: [], defaultLocale: undefined },
     resolveRuntimeModule: (path: string) => `/resolved/runtime/${path}`,
@@ -60,11 +59,12 @@ describe('nitro-config virtual template bundling', () => {
     expect(inlineEntries(nitroConfig).some(entry => entry.endsWith('/.nuxt/content/'))).toBe(true)
   })
 
-  test('keeps the runtime module and inline dependencies alongside it', () => {
+  test('keeps the runtime module alongside it without blanket dependency overrides', () => {
     const nitroConfig = createHarness()
 
     expect(nitroConfig.externals.inline).toContain('/resolved/module/.')
-    expect(nitroConfig.externals.inline).toContain('comark')
+    expect(nitroConfig.externals.inline).not.toContain('comark')
+    expect(nitroConfig.externals.inline).not.toContain('@comark/vue')
   })
 
   test('preserves inline entries the app configured itself', () => {
@@ -87,7 +87,6 @@ describe('nitro-config virtual template bundling', () => {
       options: { api: { baseURL: '/api/_content' } } as any,
       appContentConfig: {} as any,
       contentContext: { provider: 'filesystem', sources: {}, sitemap: false, cache: false } as any,
-      runtimeInlineDependencies: [],
       buildIntegrity: 123,
       resolvedI18n: { locales: [], defaultLocale: undefined },
       resolveRuntimeModule: (path: string) => `/resolved/runtime/${path}`,

@@ -699,22 +699,27 @@ describe('module contracts', () => {
     )
   })
 
-  test('inlines the complete package implementation and runtime dependencies into Nitro', async () => {
+  test('preserves user bundling config without adding Comark overrides', async () => {
     const { nuxt, hooks } = createNuxt()
+    nuxt.options.build.transpile = ['user-transpile']
+    nuxt.options.vite = { ssr: { noExternal: ['user-vite-external'] } }
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
 
-    const nitroConfig: Record<string, any> = {}
+    const nitroConfig: Record<string, any> = {
+      externals: { inline: ['user-nitro-inline'] }
+    }
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.externals?.inline).toEqual(expect.arrayContaining([
       '/resolved/.',
-      'comark',
-      '@comark/vue'
+      'user-nitro-inline'
     ]))
-    expect(nuxt.options.build.transpile).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
-    expect((nuxt.options.vite as any).ssr.noExternal).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
+    expect(nitroConfig.externals?.inline).not.toContain('comark')
+    expect(nitroConfig.externals?.inline).not.toContain('@comark/vue')
+    expect(nuxt.options.build.transpile).toEqual(['user-transpile'])
+    expect((nuxt.options.vite as any).ssr.noExternal).toEqual(['user-vite-external'])
   })
 
   // Nuxt I18n is the sole locale/default-locale authority

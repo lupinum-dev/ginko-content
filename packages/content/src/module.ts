@@ -6,7 +6,6 @@ import {
   resolvePath as resolveNuxtPath,
   useLogger
 } from '@nuxt/kit'
-import { defu } from 'defu'
 import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
 import { name, peerDependencies, version } from '../package.json'
@@ -95,19 +94,8 @@ export default defineNuxtModule<ModuleOptions>({
     const { resolve, resolvePath: resolveModulePath } = createResolver(import.meta.url)
     const logger = useLogger(name)
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path)
-    const runtimeInlineDependencies = ['comark', '@comark/vue']
     validateContentConfigOnlyOptions(options)
     validateRemovedMarkdownOptions(options)
-    nuxt.options.build.transpile ||= []
-    for (const dependency of runtimeInlineDependencies) {
-      if (!nuxt.options.build.transpile.includes(dependency)) {
-        nuxt.options.build.transpile.push(dependency)
-      }
-    }
-    nuxt.options.vite = nuxt.options.vite || {}
-    nuxt.options.vite.ssr = defu(nuxt.options.vite.ssr || {}, {
-      noExternal: runtimeInlineDependencies
-    })
     const contentConfigPath = resolveContentConfigPath(nuxt)
     if (nuxt.options.dev && options.watch !== false && contentConfigPath) {
       nuxt.options.watch ||= []
@@ -305,7 +293,6 @@ export default defineNuxtModule<ModuleOptions>({
       options,
       appContentConfig,
       contentContext,
-      runtimeInlineDependencies,
       buildIntegrity,
       resolvedI18n,
       resolveRuntimeModule,

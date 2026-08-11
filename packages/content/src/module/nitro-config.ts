@@ -31,7 +31,6 @@ interface ContentNitroConfigOptions {
   options: ModuleOptions
   appContentConfig: ContentConfig
   contentContext: ContentContext
-  runtimeInlineDependencies: string[]
   buildIntegrity: number | undefined
   resolvedI18n: Pick<ContentContext, 'locales' | 'defaultLocale'>
   resolveRuntimeModule: (path: string) => string
@@ -46,7 +45,6 @@ export const registerContentNitroConfig = ({
   options,
   appContentConfig,
   contentContext,
-  runtimeInlineDependencies,
   buildIntegrity,
   resolvedI18n,
   resolveRuntimeModule,
@@ -121,8 +119,7 @@ export const registerContentNitroConfig = ({
         // transformers). Nitro's dev server externalizes them by default, which hands raw
         // TypeScript to Node's ESM loader and fails on any import Node cannot resolve on its
         // own — extensionless relative imports, aliases. They must be bundled instead.
-        withTrailingSlash(resolve(nuxt.options.buildDir, 'content')),
-        ...runtimeInlineDependencies
+        withTrailingSlash(resolve(nuxt.options.buildDir, 'content'))
       ]
     })
     if (searchRuntime !== false && searchRuntime.engine !== 'provider' && usesFilesystemProvider) {

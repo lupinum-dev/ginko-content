@@ -36,7 +36,6 @@ function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 
     options: { api: { baseURL: '/api/_content' } } as any,
     appContentConfig: {} as any,
     contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
-    runtimeInlineDependencies: [],
     buildIntegrity: 123,
     resolvedI18n: { locales: [], defaultLocale: undefined },
     resolveRuntimeModule: (path: string) => `/resolved/runtime/${path}`,
