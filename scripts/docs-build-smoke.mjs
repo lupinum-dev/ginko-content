@@ -87,10 +87,12 @@ const retiredOutputs = [
   'docs/api-reference/index.html',
   'docs/cms-cache/index.html'
 ]
+const publicSansOutputs = [400, 500, 600, 700]
+  .map(weight => `fonts/public-sans/public-sans-${weight}-normal-latin.woff`)
 const missingOutputs = []
 const unexpectedRetiredOutputs = []
 
-for (const output of requiredOutputs) {
+for (const output of [...requiredOutputs, ...publicSansOutputs, 'fonts/public-sans/LICENSE', 'fonts/public-sans/README.md']) {
   if (!await outputExists(output)) missingOutputs.push(output)
 }
 
@@ -160,6 +162,24 @@ if (accessibilityOffenders.length > 0) {
 }
 
 const assetDirectory = join(root, '_nuxt')
+const cssAssets = (await readdir(assetDirectory)).filter(asset => asset.endsWith('.css'))
+const cssSources = await Promise.all(cssAssets.map(asset => readFile(join(assetDirectory, asset), 'utf8')))
+const missingFontReferences = publicSansOutputs.filter(output => !cssSources.some(source => source.includes(output.split('/').at(-1))))
+const remoteFontOrigins = [
+  'fonts.gstatic.com',
+  'fonts.google.com',
+  'api.fontsource.org',
+  'fonts.bunny.net',
+  'cdn.jsdelivr.net/npm/@fontsource'
+].filter(origin => cssSources.some(source => source.includes(origin)))
+
+if (missingFontReferences.length > 0 || remoteFontOrigins.length > 0) {
+  console.error('docs-build-smoke: documentation fonts are not fully self-hosted')
+  for (const output of missingFontReferences) console.error(`  missing CSS reference for ${output}`)
+  for (const origin of remoteFontOrigins) console.error(`  remote font origin present: ${origin}`)
+  process.exit(1)
+}
+
 const { maxPage, largestAsset } = await measurePageAssetBudget(generatedPages, asset => readFile(join(assetDirectory, asset)))
 const totalBudget = 700 * 1024
 const individualBudget = 230 * 1024
