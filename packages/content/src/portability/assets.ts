@@ -7,6 +7,7 @@ import type {
 } from '../cms-contract/types.js'
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
 import { renderMarkdown } from 'comark/render'
+import type { RenderMarkdownOptions } from 'comark/render'
 import { portabilityError } from './errors.js'
 import { parsePortableMdc, parseStoredMdc } from './mdc.js'
 import type { JsonObject, PortableAssetBlobV1, PortableAssetReferenceV1, PortableDocumentV1 } from './model.js'
@@ -24,6 +25,11 @@ const mediaTypesByExtension: Record<string, PortableMediaType> = {
   gif: 'image/gif',
   webp: 'image/webp',
 }
+
+const PORTABLE_MDC_RENDER_OPTIONS = {
+  maxInlineAttributes: 0,
+  blockAttributesStyle: 'frontmatter',
+} satisfies RenderMarkdownOptions
 
 export interface PortableMdcAssetReferenceV1 {
   path: `/ginko-assets/${string}`
@@ -148,7 +154,10 @@ export async function rewriteStoredMdcAssetReferences(
 ): Promise<string> {
   const ast = await parseStoredMdc(source, policy)
   await visitStoredMdcAssetSources(ast.nodes, policy, rewrite)
-  const rewritten = await renderMarkdown({ nodes: ast.nodes as never, frontmatter: {}, meta: {} })
+  const rewritten = await renderMarkdown(
+    { nodes: ast.nodes as never, frontmatter: {}, meta: {} },
+    PORTABLE_MDC_RENDER_OPTIONS,
+  )
   const normalized = rewritten.replace(/\n+$/g, '')
   await parsePortableMdc(normalized, policy)
   return normalized
@@ -161,7 +170,10 @@ async function renderRewrittenPortableMdc(
 ) {
   const ast = await parsePortableMdc(source, policy)
   visitMdcAssetSources(ast.nodes, policy, rewrite)
-  const rewritten = await renderMarkdown({ nodes: ast.nodes as never, frontmatter: {}, meta: {} })
+  const rewritten = await renderMarkdown(
+    { nodes: ast.nodes as never, frontmatter: {}, meta: {} },
+    PORTABLE_MDC_RENDER_OPTIONS,
+  )
   return rewritten.replace(/\n+$/g, '')
 }
 

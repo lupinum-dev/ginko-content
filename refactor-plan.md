@@ -636,7 +636,7 @@ forbidden private-name fixture already recorded under RC-02.
 
 #### RC-06 — Preserve typed props during portable asset rewriting
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-05
 - **Risk:** low
 - **Change type:** mechanical correctness
@@ -669,6 +669,14 @@ pnpm test
 
 **Cutover/rollback:** replace the current stringify options directly. Do not keep
 an old lossy path for compatibility.
+
+Execution note (2026-08-11): both portable-to-public and stored-to-portable
+rewrites now use one private Comark render option constant with block frontmatter
+and zero inline attributes. A single asset-bearing fixture proves boolean, number,
+array, and nested object props survive public rewrite, storage rewrite, restoration,
+and a deterministic second rewrite. The portable MDC AST remains version `1`;
+manifest and document schemas are unchanged. Focused portability contracts pass
+21/21 and the full suite passes 119 files/1,199 tests.
 
 ### Phase 3 — Nuxt and configuration boundaries
 
@@ -1534,7 +1542,7 @@ only the decisive verification result, not a full command log.
 | RC-03 | not started | — | — | Catch-all 404 |
 | RC-04 | not started | — | — | Pagefind SSR |
 | RC-05 | complete | `codex/rc-markdown-policy` | Focused matrix 112/112; full suite 119 files/1,198 tests; source typecheck and changed-file ESLint | Reviewed CMS/raw/pipeline snapshots; verify locally contaminated by ignored `.claude/worktrees/` content |
-| RC-06 | not started | — | — | Portable typed props |
+| RC-06 | complete | `codex/rc-portable-typed-props` | Portability 21/21; source typecheck; full suite 119 files/1,199 tests | One serializer/options source; portable formats remain v1 |
 | RC-07 | not started | — | — | Markdown config |
 | RC-08 | not started | — | — | Nuxt Kit alignment |
 | RC-09 | not started | — | — | Search ownership |

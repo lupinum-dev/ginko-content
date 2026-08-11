@@ -9,9 +9,11 @@ import {
   decodePortableIdentitySegment,
   encodePortableIdentitySegment,
   normalizePortableModel,
+  parsePortableMdc,
   parsePortableDocument,
   parsePortableManifest,
   portableDocumentPath,
+  portableMdcSemanticallyEqual,
   rebuildPortableManifest,
   rewritePortableMdcAssetReferences,
   rewritePortableMdcAssetReferencesForStorage,
@@ -227,7 +229,7 @@ describe('portable content contract', () => {
       (reference) => `https://assets.example.test/${reference.sha256}.png`,
     )
     expect(rewritten).toContain(`![Hero](https://assets.example.test/${sha256}.png)`)
-    expect(rewritten).toContain(`::media{src="https://assets.example.test/${sha256}.png"}`)
+    expect(rewritten).toContain(`::media\n---\nsrc: https://assets.example.test/${sha256}.png\n---\n::`)
     expect(rewritten).toContain(`\`${local}\` remains authored text.`)
     expect(rewritten).toContain('![External](https://images.example.test/external.png)')
 
@@ -237,7 +239,7 @@ describe('portable content contract', () => {
       () => 'opaqueassetid1234567890',
     )
     expect(stored).toContain('![Hero](opaqueassetid1234567890)')
-    expect(stored).toContain('::media{src="opaqueassetid1234567890"}')
+    expect(stored).toContain('::media\n---\nsrc: opaqueassetid1234567890\n---\n::')
     expect(stored).toContain(`\`${local}\` remains authored text.`)
     const roundTrip = await rewriteStoredMdcAssetReferences(
       stored,
@@ -245,7 +247,7 @@ describe('portable content contract', () => {
       async () => local,
     )
     expect(roundTrip).toContain(`![Hero](${local})`)
-    expect(roundTrip).toContain(`::media{src="${local}"}`)
+    expect(roundTrip).toContain(`::media\n---\nsrc: ${local}\n---\n::`)
     await expect(
       rewritePortableMdcAssetReferencesForStorage(
         source,
@@ -253,6 +255,71 @@ describe('portable content contract', () => {
         () => 'javascript:alert(1)',
       ),
     ).rejects.toMatchObject({ code: 'ASSET_INTEGRITY_FAILED' })
+  })
+
+  it('preserves typed component props across deterministic asset rewrites', async () => {
+    const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const local = `/ginko-assets/${sha256}.png`
+    const policy = {
+      components: {
+        media: {
+          kind: 'block' as const,
+          props: {
+            src: { type: 'asset' as const, required: true },
+            count: { type: 'number' as const, required: true },
+            featured: { type: 'boolean' as const, required: true },
+            tags: { type: 'json' as const, required: true },
+            config: { type: 'json' as const, required: true },
+          },
+          slots: [],
+          media: { sourceProp: 'src', altProp: null, titleProp: null, filenameProp: null },
+        },
+      },
+    }
+    const source = [
+      '::media',
+      '---',
+      `src: ${local}`,
+      'count: 2',
+      'featured: true',
+      'tags:',
+      '  - docs',
+      '  - release',
+      'config:',
+      '  crop: cover',
+      '  focalPoint:',
+      '    x: 0.4',
+      '    y: 0.6',
+      '---',
+      '::',
+    ].join('\n')
+
+    const rewritten = await rewritePortableMdcAssetReferences(
+      source,
+      policy,
+      reference => `https://assets.example.test/${reference.sha256}.png`,
+    )
+    const reparsed = await parsePortableMdc(rewritten, policy)
+    const props = (reparsed.nodes[0] as unknown[])[1]
+    expect(props).toEqual({
+      src: `https://assets.example.test/${sha256}.png`,
+      count: 2,
+      featured: true,
+      tags: ['docs', 'release'],
+      config: { crop: 'cover', focalPoint: { x: 0.4, y: 0.6 } },
+    })
+    expect(reparsed.version).toBe(1)
+
+    const rewrittenAgain = await rewritePortableMdcAssetReferences(rewritten, policy, () => {
+      throw new Error('An external asset must not be rewritten as a portable local asset.')
+    })
+    const reparsedAgain = await parsePortableMdc(rewrittenAgain, policy)
+    expect(rewrittenAgain).toBe(rewritten)
+    expect(portableMdcSemanticallyEqual(reparsedAgain, reparsed)).toBe(true)
+
+    const stored = await rewritePortableMdcAssetReferencesForStorage(source, policy, () => 'opaqueassetid1234567890')
+    const restored = await rewriteStoredMdcAssetReferences(stored, policy, () => local)
+    expect((await parsePortableMdc(restored, policy)).nodes).toEqual((await parsePortableMdc(source, policy)).nodes)
   })
 
   it('normalizes ordering without deriving identity from paths', async () => {
