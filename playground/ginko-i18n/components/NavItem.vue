@@ -21,12 +21,11 @@ const icon = computed(() => {
   return '📄'
 })
 
-const to = computed(() => props.navItem.path)
 </script>
 
 <template>
   <li class="nav-item">
-    <NuxtLink v-if="to" :to="to" class="nav-item__link">
+    <NuxtLink v-if="navItem.path" :to="navItem.path" class="nav-item__link">
       <span class="nav-item__icon">{{ icon }}</span>
       <span class="nav-item__title">{{ navItem.title }}</span>
     </NuxtLink>

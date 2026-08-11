@@ -12,10 +12,6 @@
     </header>
 
     <div class="shell__body">
-      <aside class="shell__sidebar">
-        <PageNav />
-      </aside>
-
       <main class="shell__main">
         <div class="page">
           <slot />
@@ -83,14 +79,7 @@ code, pre {
 }
 
 .shell__body {
-  display: grid;
-  grid-template-columns: 18rem minmax(0, 1fr);
   min-height: calc(100vh - 96px);
-}
-
-.shell__sidebar {
-  border-right: 1px solid #d7c9b6;
-  background: rgba(250, 244, 235, 0.92);
 }
 
 .shell__main {
@@ -126,15 +115,6 @@ code, pre {
 }
 
 @media (max-width: 900px) {
-  .shell__body {
-    grid-template-columns: 1fr;
-  }
-
-  .shell__sidebar {
-    border-right: 0;
-    border-bottom: 1px solid #d7c9b6;
-  }
-
   .shell__main {
     padding: 1.25rem;
   }
