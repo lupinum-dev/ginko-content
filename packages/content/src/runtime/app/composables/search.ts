@@ -9,6 +9,7 @@ import type { ContentCollectionStringName, ContentSearchSection } from '../../..
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
 import { createMiniSearchIndex } from '../../shared/search'
 import { createContentSearchNavigation } from '../../../features/search/navigation'
+import { normalizeMiniSearchOptions } from '../../../features/search/options'
 import { resolveCollectionSearchSectionsData } from '../../../features/collections/resolve'
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { many, navigation as fetchNavigation } from './query-api'
@@ -81,17 +82,7 @@ const defaultSearchConfig: ContentSearchPublicRuntimeConfig = {
   apiBaseURL: '/api/_content/search',
   indexURL: '/api/_content/search/index.json',
   engine: 'minisearch',
-  minisearch: {
-    fields: ['title', 'content', 'headings'],
-    storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
-    boost: {
-      title: 4,
-      headings: 2,
-      content: 1
-    },
-    fuzzy: 0.2,
-    prefix: true
-  }
+  minisearch: normalizeMiniSearchOptions()
 }
 
 const disabledSearchError = new Error('Ginko search is disabled. Enable it with `content.search`.')
@@ -119,27 +110,7 @@ const resolveSearchConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>)
     apiBaseURL: typeof value.apiBaseURL === 'string' ? value.apiBaseURL : defaultSearchConfig.apiBaseURL,
     indexURL: typeof value.indexURL === 'string' ? value.indexURL : defaultSearchConfig.indexURL,
     engine: value.engine === 'pagefind' || value.engine === 'provider' ? value.engine : 'minisearch',
-    minisearch: resolveMiniSearchRuntimeOptions(value.minisearch)
-  }
-}
-
-const resolveMiniSearchRuntimeOptions = (value: unknown): ContentSearchPublicRuntimeConfig['minisearch'] => {
-  if (!isRecord(value)) {
-    return defaultSearchConfig.minisearch
-  }
-
-  const fields = Array.isArray(value.fields) ? value.fields.filter((field): field is string => typeof field === 'string' && field.length > 0) : []
-  const storeFields = Array.isArray(value.storeFields) ? value.storeFields.filter((field): field is string => typeof field === 'string' && field.length > 0) : []
-  const boost = isRecord(value.boost)
-    ? Object.fromEntries(Object.entries(value.boost).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1])))
-    : {}
-
-  return {
-    fields: fields.length ? fields : defaultSearchConfig.minisearch.fields,
-    storeFields: storeFields.length ? storeFields : defaultSearchConfig.minisearch.storeFields,
-    boost: Object.keys(boost).length ? boost : defaultSearchConfig.minisearch.boost,
-    fuzzy: typeof value.fuzzy === 'boolean' || typeof value.fuzzy === 'number' ? value.fuzzy : defaultSearchConfig.minisearch.fuzzy,
-    prefix: typeof value.prefix === 'boolean' ? value.prefix : defaultSearchConfig.minisearch.prefix
+    minisearch: normalizeMiniSearchOptions(value.minisearch)
   }
 }
 
@@ -160,7 +131,7 @@ const resolveContentConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>
               apiBaseURL: typeof value.search.apiBaseURL === 'string' ? value.search.apiBaseURL : defaultSearchConfig.apiBaseURL,
               indexURL: typeof value.search.indexURL === 'string' ? value.search.indexURL : defaultSearchConfig.indexURL,
               engine: value.search.engine === 'pagefind' || value.search.engine === 'provider' ? value.search.engine : 'minisearch',
-              minisearch: resolveMiniSearchRuntimeOptions(value.search.minisearch)
+              minisearch: normalizeMiniSearchOptions(value.search.minisearch)
             }
           : undefined)
   }

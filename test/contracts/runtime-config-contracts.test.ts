@@ -137,7 +137,7 @@ describe('runtime config contracts', () => {
       engine: 'minisearch',
       minisearch: {
         fields: ['title', 'content', 'tags'],
-        storeFields: ['path', 'title', 'excerpt', 'tags'],
+        storeFields: ['path', 'title', 'excerpt', 'collection', 'tags'],
         boost: { tags: 5, title: 1 },
         fuzzy: false,
         prefix: false

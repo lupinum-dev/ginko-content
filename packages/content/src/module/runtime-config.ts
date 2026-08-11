@@ -14,7 +14,7 @@ import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { ContentSearchPublicRuntimeConfig } from '../types/search'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 import { CACHE_VERSION } from '../utils'
-import { normalizeMiniSearchOptions } from './options'
+import { normalizeMiniSearchOptions } from '../features/search/options'
 
 const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
   const publicRuntime = nuxt.options.runtimeConfig.public as Record<string, any>

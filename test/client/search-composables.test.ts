@@ -85,6 +85,43 @@ describe('public search composable', () => {
     expect(search.searchNavigation.value).toEqual([])
   })
 
+  test('useContentSearch preserves required result fields with custom MiniSearch storage', async () => {
+    setRuntimeSearch({
+      engine: 'minisearch',
+      indexURL: '/api/_content/search/index.json',
+      minisearch: {
+        fields: ['tags'],
+        storeFields: ['tags'],
+        boost: { tags: 5 },
+        fuzzy: false,
+        prefix: false
+      }
+    })
+    fetchPayload = [{
+      id: '/docs/search',
+      collection: 'docs',
+      path: '/docs/search',
+      title: 'Search',
+      excerpt: 'Search configuration',
+      content: '',
+      headings: [],
+      tags: ['important']
+    }]
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    const search = await useContentSearch({ initialQuery: 'important' })
+
+    expect(search.results.value).toEqual([
+      expect.objectContaining({
+        path: '/docs/search',
+        title: 'Search',
+        excerpt: 'Search configuration',
+        collection: 'docs',
+        tags: ['important']
+      })
+    ])
+  })
+
   test('useContentSearch delegates CMS searches to the configured endpoint', async () => {
     setRuntimeSearch({
       engine: 'provider',

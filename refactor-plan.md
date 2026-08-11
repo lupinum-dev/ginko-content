@@ -823,7 +823,7 @@ the complete lane then passed without code changes.
 
 #### RC-09 — Give search defaults and normalization one owner
 
-- **Status:** not started
+- **Status:** complete
 - **Depends on:** RC-04
 - **Risk:** medium
 - **Change type:** domain consolidation within layered architecture
@@ -860,12 +860,25 @@ Validation:
 pnpm exec vitest run --config vitest.config.ts --project unit test/unit/search-behavior.test.ts
 pnpm exec vitest run --config vitest.config.ts --project runtime test/runtime/api-search-boundaries.test.ts test/runtime/search-collection-defaults.test.ts
 pnpm exec vitest run --config vitest.config.ts --project client test/client/search-composables.test.ts
-pnpm exec vitest run --config vitest.config.ts --project contracts-node test/contracts/runtime-config-contracts.test.ts
+pnpm exec vitest run --config vitest.config.ts --project nuxt test/contracts/runtime-config-contracts.test.ts
 pnpm test
 ```
 
 **Cutover/rollback:** delete duplicated constants as each consumer moves. Do not
 leave re-exported legacy owners.
+
+Execution note (2026-08-11): `features/search/options.ts` is now the sole owner
+of MiniSearch defaults, required stored result fields, input validation, and
+normalization. Module setup, generated public runtime config, server index
+construction, and the browser composable all consume it directly; the three
+copied default/normalizer implementations are deleted. `collection` joins `path`,
+`title`, and `excerpt` in the required set, while duplicate/empty field names,
+non-finite boosts, and non-finite fuzzy values normalize deterministically. The
+public reference documents the same canonical order and required set. Focused
+module/server/browser/runtime-config parity and behavior contracts pass 41/41,
+source typecheck and changed-file ESLint pass, docs drift/build/smoke pass with
+173 prerendered routes, and the freshly built full suite passes 119 files/1,208
+tests.
 
 ### Phase 4 — Inline contract and bundle-safe optional integrations
 
@@ -1587,7 +1600,7 @@ only the decisive verification result, not a full command log.
 | RC-06 | complete | `codex/rc-portable-typed-props` | Portability 21/21; source typecheck; full suite 119 files/1,199 tests | One serializer/options source; portable formats remain v1 |
 | RC-07 | complete | `codex/rc-markdown-config` | Focused contracts 60/60; docs build/smoke/drift; four examples; full suite 119 files/1,204 tests | Explicit plugin list; invalid Shiki keys fail setup |
 | RC-08 | complete | `codex/rc-nuxt-kit` | Real layered generate and payload assertion; focused contracts 56/56; full suite 119 files/1,205 tests | Supported Kit APIs; application component wins in SSR |
-| RC-09 | not started | — | — | Search ownership |
+| RC-09 | complete | `codex/rc-search-options` | Consumer parity 41/41; docs build/smoke/drift; full suite 119 files/1,208 tests | One feature-owned normalizer; required result fields cannot be removed |
 | RC-10 | not started | — | — | Inline profile |
 | RC-11 | not started | — | — | Optional/custom plugin bundling |
 | RC-12 | not started | — | — | Public runtime config |
