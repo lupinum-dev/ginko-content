@@ -24,6 +24,16 @@ declare module '#content/virtual/cache-adapter' {
   export const loadContentCacheAdapter: () => Promise<ContentCacheAdapter | undefined> | ContentCacheAdapter | undefined
 }
 
+declare module '#content/virtual/markdown-parser-plugins' {
+  import type { ComarkPlugin } from 'comark'
+
+  export const markdownPluginFactories: Record<string, (options: Record<string, unknown>) => ComarkPlugin>
+}
+
+declare module '#content/virtual/markdown-renderer-components' {
+  export const markdownRendererComponents: Record<string, unknown>
+}
+
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
 

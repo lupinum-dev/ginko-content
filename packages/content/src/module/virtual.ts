@@ -114,6 +114,8 @@ export const registerVirtualContentAliases = (
   virtualConfigTemplate: string,
   virtualProvidersTemplate: string,
   virtualCacheAdapterTemplate: string,
+  markdownParserPluginsTemplate: string,
+  markdownRendererComponentsTemplate: string,
   resolveRuntimeModule: (path: string) => string
 ) => {
   nuxt.options.alias = nuxt.options.alias || {}
@@ -121,6 +123,8 @@ export const registerVirtualContentAliases = (
   nuxt.options.alias['#content/virtual/config'] = virtualConfigTemplate
   nuxt.options.alias['#content/virtual/providers'] = virtualProvidersTemplate
   nuxt.options.alias['#content/virtual/cache-adapter'] = virtualCacheAdapterTemplate
+  nuxt.options.alias['#content/virtual/markdown-parser-plugins'] = markdownParserPluginsTemplate
+  nuxt.options.alias['#content/virtual/markdown-renderer-components'] = markdownRendererComponentsTemplate
 
   ;(nuxt.hook as any)('nitro:config', (nitroConfig: any) => {
     nitroConfig.alias = nitroConfig.alias || {}
@@ -129,5 +133,7 @@ export const registerVirtualContentAliases = (
     nitroConfig.alias['#content/virtual/config'] = virtualConfigTemplate
     nitroConfig.alias['#content/virtual/providers'] = virtualProvidersTemplate
     nitroConfig.alias['#content/virtual/cache-adapter'] = virtualCacheAdapterTemplate
+    nitroConfig.alias['#content/virtual/markdown-parser-plugins'] = markdownParserPluginsTemplate
+    nitroConfig.alias['#content/virtual/markdown-renderer-components'] = markdownRendererComponentsTemplate
   })
 }

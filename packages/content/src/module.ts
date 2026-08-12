@@ -2,9 +2,10 @@ import {
   createResolver,
   defineNuxtModule,
   addTemplate,
+  getLayerDirectories,
+  resolvePath as resolveNuxtPath,
   useLogger
 } from '@nuxt/kit'
-import { defu } from 'defu'
 import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
 import { name, peerDependencies, version } from '../package.json'
@@ -34,6 +35,8 @@ import './module/augmentations'
 import { registerContentContextFinalization } from './module/context-finalization'
 import { createContentValidationRouteFacts } from './module/validation-routes'
 import { collectContentValidationPublicAssets } from './module/validation-assets'
+import { processMarkdownOptions } from './utils'
+import { canonicalizeMarkdownPluginAliases, createMarkdownPluginTemplates, resolveMarkdownPluginRegistry, withMarkdownPluginComponentPolicy } from './module/markdown-plugin-templates'
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -88,23 +91,11 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: contentModuleDefaults,
   async setup (options, nuxt) {
-    const { resolve, resolvePath } = createResolver(import.meta.url)
+    const { resolve, resolvePath: resolveModulePath } = createResolver(import.meta.url)
     const logger = useLogger(name)
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path)
-    const runtimeInlineDependencies = ['comark', '@comark/vue']
     validateContentConfigOnlyOptions(options)
     validateRemovedMarkdownOptions(options)
-    nuxt.options.experimental.payloadExtraction ??= false
-    nuxt.options.build.transpile ||= []
-    for (const dependency of runtimeInlineDependencies) {
-      if (!nuxt.options.build.transpile.includes(dependency)) {
-        nuxt.options.build.transpile.push(dependency)
-      }
-    }
-    nuxt.options.vite = nuxt.options.vite || {}
-    nuxt.options.vite.ssr = defu(nuxt.options.vite.ssr || {}, {
-      noExternal: runtimeInlineDependencies
-    })
     const contentConfigPath = resolveContentConfigPath(nuxt)
     if (nuxt.options.dev && options.watch !== false && contentConfigPath) {
       nuxt.options.watch ||= []
@@ -135,6 +126,19 @@ export default defineNuxtModule<ModuleOptions>({
     const resolvedSitemap = normalizeSitemapOptions(options)
     const resolvedSearch = normalizeSearchOptions(options)
     await assertPagefindAvailable(resolvedSearch)
+
+    const resolvedMarkdown = processMarkdownOptions(options.markdown)
+    resolvedMarkdown.plugins = canonicalizeMarkdownPluginAliases(resolvedMarkdown.plugins, message => logger.warn(message))
+    const markdownPluginRegistry = await resolveMarkdownPluginRegistry(
+      resolvedMarkdown.plugins,
+      {
+        resolveAppPath: specifier => resolveNuxtPath(specifier, {
+          cwd: nuxt.options.rootDir,
+          alias: nuxt.options.alias
+        }),
+        resolveModulePath
+      }
+    )
 
     validateCollectionNames(appContentConfig.collections)
     if (!hasAgentSurface(appContentConfig)) {
@@ -169,11 +173,18 @@ export default defineNuxtModule<ModuleOptions>({
         componentPolicy: options.componentPolicy,
       },
     )
+    const runtimeRenderPolicies = Object.fromEntries(
+      Object.entries(contract.collections).map(([id, collection]) => [
+        id,
+        withMarkdownPluginComponentPolicy(collection.componentPolicy, markdownPluginRegistry),
+      ]),
+    )
     // Disable cache in dev mode
     const buildIntegrity = nuxt.options.dev ? undefined : Date.now()
 
     const contentContext: ContentContext = {
       ...options,
+      markdown: resolvedMarkdown,
       collections,
       provider,
       providers: providerRegistry,
@@ -198,15 +209,17 @@ export default defineNuxtModule<ModuleOptions>({
     } else {
       await rm(resolveFilePath(contentCacheDir, 'validation.json'), { force: true })
     }
-    const layers = nuxt.options._layers || [{ cwd: nuxt.options.rootDir, config: {} }]
+    const layerDirectories = getLayerDirectories(nuxt)
     const nitroPublicAssets = (nuxt.options as typeof nuxt.options & {
       nitro?: { publicAssets?: Array<{ dir: string, baseURL?: string }> }
     }).nitro?.publicAssets || []
     contentContext.validationPublicAssets = await collectContentValidationPublicAssets({
       rootDir: nuxt.options.rootDir,
-      layers: layers.map(layer => ({ cwd: layer.cwd, publicDir: layer.config.dir?.public || 'public' })),
+      publicDirectories: layerDirectories.map(layer => layer.public),
       nitroPublicAssets
     })
+    const { parserTemplate: markdownParserPluginsTemplate, rendererTemplate: markdownRendererComponentsTemplate } =
+      createMarkdownPluginTemplates(markdownPluginRegistry, addTemplate)
     let resolvedContentContext: ResolvedContentContext | undefined
     const getResolvedContentContext = () => {
       if (!resolvedContentContext) {
@@ -216,7 +229,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (resolvedSitemap !== false) {
-      if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+      if (!hasNuxtSitemapModule(nuxt)) {
         logger.warn('content.sitemap is enabled, but the "@nuxtjs/sitemap" module is not registered in nuxt.config modules. No sitemap will be generated until "@nuxtjs/sitemap" is installed and added to modules (see ADR-0009).')
       }
       configureNuxtSitemapSource(nuxt, options.api.baseURL, resolvedSitemap.path)
@@ -253,9 +266,18 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
     const { transformersTemplate, virtualConfigTemplate, virtualProvidersTemplate, virtualCacheAdapterTemplate } = createVirtualContentTemplates(contentContext, nuxt, contentConfigPath, addTemplate)
-    registerVirtualContentAliases(nuxt, transformersTemplate, virtualConfigTemplate, virtualProvidersTemplate, virtualCacheAdapterTemplate, resolveRuntimeModule)
+    registerVirtualContentAliases(
+      nuxt,
+      transformersTemplate,
+      virtualConfigTemplate,
+      virtualProvidersTemplate,
+      virtualCacheAdapterTemplate,
+      markdownParserPluginsTemplate,
+      markdownRendererComponentsTemplate,
+      resolveRuntimeModule
+    )
     registerContentServerHandlers(nuxt, options, resolveRuntimeModule, buildIntegrity)
-    registerContentI18nTemplate(addTemplate, hasNuxtI18nModule(nuxt.options.modules))
+    registerContentI18nTemplate(addTemplate, hasNuxtI18nModule(nuxt))
     registerRuntimeImports(resolveRuntimeModule)
     registerRuntimeComponents(resolve)
     registerContentComponentsTemplate(addTemplate)
@@ -265,7 +287,7 @@ export default defineNuxtModule<ModuleOptions>({
       Object.keys(appContentConfig.collections),
       Object.entries(appContentConfig.collections).filter(([, collection]) => Boolean(collection.i18n)).map(([name]) => name)
     )
-    await registerUserContentComponents(nuxt, resolve)
+    await registerUserContentComponents(nuxt)
     const getSearchRuntime = () => contentContext.search === false
       ? false
       : createSearchRuntimeConfig(contentContext.search, options.api.baseURL)
@@ -274,7 +296,6 @@ export default defineNuxtModule<ModuleOptions>({
       options,
       appContentConfig,
       contentContext,
-      runtimeInlineDependencies,
       buildIntegrity,
       resolvedI18n,
       resolveRuntimeModule,
@@ -297,8 +318,8 @@ export default defineNuxtModule<ModuleOptions>({
       options,
       appContentConfig,
       contentContext,
+      runtimeRenderPolicies,
       buildIntegrity,
-      resolvePath,
       resolveRuntimeModule,
       onResolved: context => {
         resolvedContentContext = context

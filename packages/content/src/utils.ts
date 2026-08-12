@@ -8,7 +8,7 @@ import type { MarkdownOptions, ResolvedMarkdownPlugin } from './types/content'
  * Internal version that represents cache format.
  * This is used to invalidate cache when the format changes.
  */
-export const CACHE_VERSION = 3
+export const CACHE_VERSION = 4
 
 export const MOUNT_PREFIX = 'content:source:'
 
@@ -41,18 +41,11 @@ export function processMarkdownOptions (options: ModuleOptions['markdown']): Mar
   const anchorLinks = typeof options.anchorLinks === 'boolean'
     ? { depth: options.anchorLinks ? 6 : 0, exclude: [] }
     : { depth: 4, exclude: [1], ...options.anchorLinks }
-  const plugins = options.plugins?.length
-    ? options.plugins
-    : [
-        ['toc', { depth: 2, searchDepth: 2 }],
-        'summary'
-      ] satisfies ModuleOptions['markdown']['plugins']
-
   return {
     anchorLinks,
     tags: options.tags || {},
     image: options.image,
-    plugins: resolveMarkdownPlugins(plugins)
+    plugins: resolveMarkdownPlugins(options.plugins || [])
   }
 }
 

@@ -1,7 +1,6 @@
 export default defineNuxtConfig({
   modules: [
-    '@lupinum/ginko-content',
-    '@nuxt/ui'
+    '@lupinum/ginko-content'
   ],
   content: {
     componentPolicy: {
@@ -13,20 +12,14 @@ export default defineNuxtConfig({
           slots: [],
           media: null
         },
-        'app-slot': { kind: 'block', props: {}, slots: ['default', 'namedSlot'], media: null },
+        'app-slot': { kind: 'block', props: {}, slots: ['default', 'named-slot'], media: null },
         'app-parent': { kind: 'block', props: {}, slots: ['default'], media: null },
-        'app-nested': { kind: 'block', props: {}, slots: ['default'], media: null },
-        template: {
-          kind: 'block',
-          props: { name: { type: 'string', required: true } },
-          slots: ['default'],
-          media: null
-        }
+        'app-nested': { kind: 'block', props: {}, slots: ['default'], media: null }
       }
     },
     markdown: {
       plugins: [
-        ['highlight', { theme: 'one-dark-pro' }],
+        'shiki',
         ['toc', { depth: 2, searchDepth: 2 }],
         'summary'
       ]

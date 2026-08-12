@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { createSSRApp, h } from 'vue'
+import { createApp, createSSRApp, h, ref } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -16,7 +16,8 @@ const runtimeConfig = vi.hoisted(() => ({
 }))
 
 vi.mock('#imports', () => ({
-  useRuntimeConfig: () => runtimeConfig
+  useRuntimeConfig: () => runtimeConfig,
+  useState: <T>(_key: string, init: () => T) => ({ value: init() })
 }))
 
 vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () => ({
@@ -34,7 +35,101 @@ vi.mock('../../packages/content/src/runtime/app/composables/content-i18n', () =>
   useSwitchLocalePath: () => () => ''
 }))
 
+vi.mock('../../packages/content/src/runtime/utils/content-components', () => ({
+  globalComponents: [],
+  localComponents: [],
+  localComponentLoaders: {}
+}))
+
 describe('render component contracts', () => {
+  test('ContentRendererInline renders the fixed normalized safe baseline', async () => {
+    const ContentRendererInline = (await import('../../packages/content/src/runtime/app/components/ContentRendererInline.vue')).default
+    const StrongOverride = {
+      render: () => h('mark', { 'data-inline-override': 'true' }, 'important')
+    }
+    const source = ref('<!-- hidden -->\n\n> [!NOTE]\n> **important**\n\n- [x] Done')
+    const host = document.createElement('div')
+    const app = createApp({
+      render: () => h(ContentRendererInline, {
+        tag: 'div',
+        value: source.value,
+        components: { strong: StrongOverride }
+      })
+    })
+    app.mount(host)
+
+    await vi.waitFor(() => expect(host.innerHTML).toContain('data-alert="note"'))
+    const html = host.innerHTML
+
+    expect(html).toContain('data-alert="note"')
+    expect(html).toContain('data-inline-override="true"')
+    expect(html).toContain('type="checkbox"')
+    expect(html).toContain('disabled')
+    expect(html).toContain('checked')
+    expect(html).not.toContain('hidden')
+
+    source.value = '- [ ] Updated'
+    await vi.waitFor(() => expect(host.textContent).toContain('Updated'))
+    expect(host.textContent).not.toContain('important')
+    app.unmount()
+  })
+
+  test.each([
+    ['string', 'prose featured'],
+    ['array', ['prose', { featured: true, hidden: false }]],
+    ['object', { prose: true, featured: true, hidden: false }]
+  ])('ContentRenderer forwards %s class bindings and other attrs exactly once', async (_kind, className) => {
+    const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
+
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentRenderer, {
+        id: 'article-body',
+        class: className,
+        value: {
+          collection: 'docs',
+          locale: 'en',
+          resolvedRefs: {},
+          route: {},
+          body: {
+            type: 'root',
+            children: [{
+              type: 'element',
+              tag: 'p',
+              props: {},
+              children: [{ type: 'text', value: 'Rendered content' }]
+            }]
+          }
+        }
+      })
+    }))
+
+    expect(html.match(/id="article-body"/g)).toHaveLength(1)
+    expect(html.match(/class="prose featured"/g)).toHaveLength(1)
+    expect(html).not.toContain('[object Object]')
+  })
+
+  test.each(['default', 'empty'] as const)('ContentRenderer exposes fallthrough attrs to the %s slot', async (slotName) => {
+    const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
+    const slots = {
+      [slotName]: (scope: Record<string, unknown>) => h('section', {
+        id: scope.id,
+        class: scope.class
+      }, `${slotName} content`)
+    }
+
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentRenderer, {
+        value: {},
+        id: `${slotName}-slot`,
+        class: ['slot', { active: true }]
+      }, slots)
+    }))
+
+    expect(html).toContain(`id="${slotName}-slot"`)
+    expect(html).toContain('class="slot active"')
+    expect(html.match(new RegExp(`id="${slotName}-slot"`, 'g'))).toHaveLength(1)
+  })
+
   test('ContentRenderer does not serialize unsupported values into HTML', async () => {
     const ContentRenderer = (await import('../../packages/content/src/runtime/app/components/ContentRenderer.vue')).default
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -192,7 +287,7 @@ describe('render component contracts', () => {
     expect(nuxtImage).toContain('data-nuxt-img="true"')
     expect(nuxtImage).toContain('data-src="/hero.png"')
     expect(nuxtImage).toContain('data-loading="lazy"')
-    expect(resolveMarkdownRendererComponents([])).not.toHaveProperty('ProseImg')
+    expect(resolveMarkdownRendererComponents()).not.toHaveProperty('ProseImg')
     expect(resolveMarkdownRendererFallbackComponents()).toHaveProperty('ProseImg')
   })
 

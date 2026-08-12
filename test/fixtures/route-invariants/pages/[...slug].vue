@@ -2,6 +2,10 @@
 import { useContentPage } from '#imports'
 import { docs } from '../content.config'
 
+// Noncanonical fixture policy: static route-invariant coverage intentionally
+// renders a local 200 fallback for missing paths instead of Nuxt's error page.
+definePageMeta({ key: route => route.path })
+
 const { page } = await useContentPage(docs, {
   fallback: true
 })

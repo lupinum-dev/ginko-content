@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { createTestEvent } from '../harness/event'
+import { createTestEvent } from '../support/provider-scenarios/event'
 import type { ContentCacheInvalidateInput } from '../../packages/content/src/public/provider'
 
 /**

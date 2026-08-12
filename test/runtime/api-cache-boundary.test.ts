@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { createTestEvent } from '../harness/event'
-import { doc } from '../contracts/_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
 import { ContentError } from '../../packages/content/src/core/errors'
 import { fail, ok } from '../../packages/content/src/core/result'
 
@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const runtimeContent = {
+  navigation: { fields: [] },
   collections: {
     docs: {
       type: 'page',
@@ -69,7 +70,6 @@ vi.mock('../../packages/content/src/integrations/nitro/storage', () => ({
 
 vi.mock('../../packages/content/src/integrations/nitro/runtime-config', () => ({
   getContentRuntimeConfig: () => ({
-    public: { content: { navigation: { fields: [] } } },
     content: runtimeContent
   })
 }))

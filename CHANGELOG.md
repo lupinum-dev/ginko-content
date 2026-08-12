@@ -1,5 +1,66 @@
 # Changelog
 
+## v0.4.0-rc.1
+
+This prerelease aligns Ginko Content with Vue 3.5, Nuxt 4, Nuxt Kit, and Comark
+0.6 while tightening the Markdown contract from configuration through browser
+rendering. Install it from npm's `next` channel and rebuild generated content.
+
+- Upgrade `comark` and `@comark/vue` together to `0.6.2`. `shiki` is the
+  canonical highlighting plugin; `highlight` remains a setup-time deprecated
+  alias for the `0.4.x` line. Markdown plugins now have an explicit empty
+  default. Add `toc`, `summary`, `shiki`, or another supported plugin when the
+  application needs it.
+- Validate built-in Markdown options during Nuxt setup. Shiki configuration
+  uses `themes: { light, dark }` and `languages`; the formerly documented
+  singular `theme` and `langs` spellings now fail instead of being silently
+  ignored.
+- Close the parser-to-render contract over supported Comark output, including
+  task lists, table alignment, fenced-code metadata, named component slots, GFM
+  alerts, and comments. Comments are discarded before renderer, search,
+  summary, portable, or agent output can expose them. Typed component
+  frontmatter survives portable asset rewrite and reparse.
+- Give each Markdown boundary one truthful profile. Filesystem ingestion uses
+  the configured build-time plugin list; CMS and portability use a deterministic
+  framework-free baseline; `ContentRendererInline` uses a fixed client-safe
+  baseline for SSR, hydration, and reactive updates. Inline strings do not load
+  build-time plugins, custom components, syntax highlighting, footnotes, Math,
+  Mermaid, or `markdown.tags` mappings.
+- Generate literal optional-plugin imports at build time so Math and Mermaid
+  work in production browsers and packed consumers. Math requires the optional
+  `katex` peer plus `katex/dist/katex.min.css`; Mermaid requires the optional
+  `beautiful-mermaid` peer. Remove blanket Comark transpile, Vite `noExternal`,
+  and Nitro inline overrides.
+- Reuse parsers by isolated resolved configuration. Representative
+  1,500-document ingestion improved from 406.2 ms to 21.8 ms with byte-identical
+  output and no mutable cross-profile state.
+- Forward Vue fallthrough attributes through `ContentRenderer` exactly once,
+  including the declared `class` prop. The documented catch-all route recipe now
+  keys pages by route path and throws a fatal Nuxt 404 after `useContentPage`, so
+  direct requests, client navigation, and recovery agree.
+- Keep Pagefind browser work behind the client lifecycle, including a non-empty
+  initial query. Search defaults and mandatory result fields now have one
+  framework-light owner shared by module, server, and client boundaries.
+- Replace Nuxt private `_layers` access and custom module detection with
+  supported Nuxt Kit APIs. Remove stale payload-extraction setup and verify real
+  generated payload behavior. Preserve application-over-layer component
+  precedence.
+- Reduce `runtimeConfig.public.content` to the client-owned projection. Provider
+  module specifiers, filesystem sources and excludes, CMS settings, agent
+  definitions, schema inventories, and other server/build metadata remain in
+  private runtime config and are no longer serialized into client payloads.
+- Publish a manifest-derived classification of all 18 package exports and the
+  data-source adapter guide. Move the packed consumer into a tracked,
+  behavior-oriented fixture and verify exact tarballs with pnpm/Nuxt 4.5 and
+  npm/Nuxt 4.4 consumers.
+- Remove false-shared script, test-support, playground-navigation, and docs-app
+  utility files. Repository policy checks now scan Git-owned files, so ignored
+  auxiliary worktrees cannot contaminate release verification while normal
+  untracked files remain checked.
+- Bump the content cache format for normalized Markdown changes. Rebuild content,
+  search indexes, and deployment caches after upgrading. The portable document
+  and CMS wire formats do not change in this release candidate.
+
 ## v0.3.6
 
 - Bundle the generated content virtual modules into the Nitro server instead of

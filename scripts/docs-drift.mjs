@@ -32,7 +32,8 @@ const exampleRoots = [
 const exampleImportRoots = [
   ...exampleRoots,
   'playground',
-  'test/fixtures'
+  'test/fixtures',
+  'test/consumer-fixtures'
 ]
 
 const sourceExampleFiles = [
@@ -240,6 +241,15 @@ const findNuxtContentImports = (file, source) =>
     return specifiers.includes('@nuxt/content') ? [`${file}:${index + 1}`] : []
   })
 
+const findLegacyHighlightOptionLines = (file, source) => {
+  const lines = source.split('\n')
+  return lines.flatMap((line, index) => {
+    if (!/\b(?:theme|langs)\s*:/.test(line)) return []
+    const context = lines.slice(Math.max(0, index - 5), index + 6).join('\n')
+    return /['"]highlight['"]/.test(context) ? [`${file}:${index + 1}`] : []
+  })
+}
+
 const peerRequirementLabel = (name, range) => {
   const version = range.match(/\d+(?:\.\d+)*/)?.[0]
   if (!version) return null
@@ -399,6 +409,13 @@ const checks = [
       offenders.push(...findNuxtContentImports(file, await readFile(file, 'utf8')))
     }
     return { name: 'examples do not import Nuxt Content directly', offenders }
+  },
+  async () => {
+    const offenders = []
+    for (const file of await collectTextFiles(['docs/content/docs', 'examples', 'playground'])) {
+      offenders.push(...findLegacyHighlightOptionLines(file, await readFile(file, 'utf8')))
+    }
+    return { name: 'highlight examples use canonical themes and languages option names', offenders }
   },
   async () => {
     const [manifestSource, workspaceManifestSource] = await Promise.all([

@@ -2,6 +2,16 @@ import { spawnSync } from 'node:child_process'
 
 const expectations = [
   {
+    project: 'contracts-node',
+    includes: ['test/contracts/comark-conformance-contracts.test.ts'],
+    excludes: []
+  },
+  {
+    project: 'nuxt',
+    includes: ['test/contracts/render-components-contracts.test.ts'],
+    excludes: ['test/contracts/comark-conformance-contracts.test.ts']
+  },
+  {
     project: 'e2e',
     includes: ['test/e2e/search-matrix.test.ts', 'test/e2e/sitemap-static.test.ts'],
     excludes: ['test/e2e/generate-output.test.ts']
@@ -23,7 +33,7 @@ const expectations = [
 
 for (const expectation of expectations) {
   const result = spawnSync('pnpm', [
-    'exec', 'vitest', 'list', '--config', 'vitest.config.ts', '--project', expectation.project
+    'exec', 'vitest', 'list', '--filesOnly', '--config', 'vitest.config.ts', '--project', expectation.project
   ], { encoding: 'utf8', shell: process.platform === 'win32' })
   const output = `${result.stdout || ''}${result.stderr || ''}`
   if (result.status !== 0) {

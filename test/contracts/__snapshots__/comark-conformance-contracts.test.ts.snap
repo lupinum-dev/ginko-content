@@ -1,0 +1,2251 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Comark conformance corpus > 'basic' freezes raw Comark 0.6 output separately > basic 1`] = `
+{
+  "frontmatter": {
+    "count": 2,
+    "featured": true,
+    "title": "Parser baseline",
+  },
+  "meta": {
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "custom-overview",
+          "text": "Overview",
+        },
+      ],
+      "searchDepth": 2,
+      "title": "",
+    },
+  },
+  "nodes": [
+    [
+      "h1",
+      {
+        "id": "parser-baseline",
+      },
+      "Parser baseline",
+    ],
+    [
+      "h2",
+      {
+        "id": "custom-overview",
+      },
+      "Overview",
+    ],
+    [
+      "p",
+      {},
+      "This is ",
+      [
+        "strong",
+        {},
+        "renderable",
+      ],
+      " with an ",
+      [
+        "a",
+        {
+          "href": "/guide",
+        },
+        "internal link",
+      ],
+      " and ",
+      [
+        "mark",
+        {
+          "$": {
+            "block": 0,
+            "html": 1,
+          },
+        },
+        "inline HTML",
+      ],
+      ".",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'basic' freezes the Ginko pipeline contract > basic 1`] = `
+{
+  "agent": {
+    "markdown": "# Parser baseline
+
+## Overview
+
+This is **renderable** with an [internal link](/raw/guide.md) and <mark>
+\`\`\`json
+{
+  "$": {
+    "html": 1,
+    "block": 0
+  }
+}
+\`\`\`
+
+inline HTML
+</mark>
+
+.",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Parser baseline",
+            },
+          ],
+          "props": {
+            "id": "parser-baseline",
+          },
+          "tag": "h1",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Overview",
+            },
+          ],
+          "props": {
+            "id": "custom-overview",
+          },
+          "tag": "h2",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "This is ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "renderable",
+                },
+              ],
+              "props": {},
+              "tag": "strong",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": " with an ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "internal link",
+                },
+              ],
+              "props": {
+                "href": "/guide",
+              },
+              "tag": "a",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": " and ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "inline HTML",
+                },
+              ],
+              "props": {
+                "$": {
+                  "block": 0,
+                  "html": 1,
+                },
+              },
+              "tag": "mark",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": ".",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "toc": {
+        "depth": 2,
+        "links": [
+          {
+            "depth": 2,
+            "id": "custom-overview",
+            "text": "Overview",
+          },
+        ],
+        "searchDepth": 3,
+        "title": "",
+      },
+      "type": "root",
+    },
+    "searchText": "Parser baseline Overview This is renderable with an internal link and inline HTML .",
+    "status": "accepted",
+    "toc": {
+      "depth": 2,
+      "links": [
+        {
+          "depth": 2,
+          "id": "custom-overview",
+          "text": "Overview",
+        },
+      ],
+      "searchDepth": 3,
+      "title": "",
+    },
+  },
+  "normalizedNodes": [
+    [
+      "h1",
+      {
+        "id": "parser-baseline",
+      },
+      "Parser baseline",
+    ],
+    [
+      "h2",
+      {
+        "id": "custom-overview",
+      },
+      "Overview",
+    ],
+    [
+      "p",
+      {},
+      "This is ",
+      [
+        "strong",
+        {},
+        "renderable",
+      ],
+      " with an ",
+      [
+        "a",
+        {
+          "href": "/guide",
+        },
+        "internal link",
+      ],
+      " and ",
+      [
+        "mark",
+        {
+          "$": {
+            "block": 0,
+            "html": 1,
+          },
+        },
+        "inline HTML",
+      ],
+      ".",
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "h1",
+        {
+          "id": "parser-baseline",
+        },
+        "Parser baseline",
+      ],
+      [
+        "h2",
+        {
+          "id": "custom-overview",
+        },
+        "Overview",
+      ],
+      [
+        "p",
+        {},
+        "This is ",
+        [
+          "strong",
+          {},
+          "renderable",
+        ],
+        " with an ",
+        [
+          "a",
+          {
+            "href": "/guide",
+          },
+          "internal link",
+        ],
+        " and ",
+        [
+          "mark",
+          {
+            "$": {
+              "block": 0,
+              "html": 1,
+            },
+          },
+          "inline HTML",
+        ],
+        ".",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><h1 id="parser-baseline">Parser baseline</h1><h2 id="custom-overview">Overview</h2><p>This is <strong>renderable</strong> with an <a href="/guide">internal link</a> and <mark>inline HTML</mark>.</p></div>",
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'comments-summary' freezes raw Comark 0.6 output separately > comments-summary 1`] = `
+{
+  "frontmatter": {},
+  "meta": {
+    "summary": [
+      [
+        "h1",
+        {
+          "id": "summary-boundary",
+        },
+        "Summary boundary",
+      ],
+      [
+        "p",
+        {},
+        "Visible before the delimiter.",
+      ],
+    ],
+  },
+  "nodes": [
+    [
+      "h1",
+      {
+        "id": "summary-boundary",
+      },
+      "Summary boundary",
+    ],
+    [
+      "p",
+      {},
+      "Visible before the delimiter.",
+    ],
+    [
+      null,
+      {},
+      " more ",
+    ],
+    [
+      "p",
+      {},
+      "Visible after the delimiter.",
+    ],
+    [
+      null,
+      {},
+      " private editorial note ",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'comments-summary' freezes the Ginko pipeline contract > comments-summary 1`] = `
+{
+  "agent": {
+    "markdown": "# Summary boundary
+
+Visible before the delimiter.
+
+Visible after the delimiter.",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Summary boundary",
+            },
+          ],
+          "props": {
+            "id": "summary-boundary",
+          },
+          "tag": "h1",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Visible before the delimiter.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Visible after the delimiter.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Summary boundary Visible before the delimiter. Visible after the delimiter.",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "h1",
+      {
+        "id": "summary-boundary",
+      },
+      "Summary boundary",
+    ],
+    [
+      "p",
+      {},
+      "Visible before the delimiter.",
+    ],
+    [
+      "p",
+      {},
+      "Visible after the delimiter.",
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "h1",
+        {
+          "id": "summary-boundary",
+        },
+        "Summary boundary",
+      ],
+      [
+        "p",
+        {},
+        "Visible before the delimiter.",
+      ],
+      [
+        "p",
+        {},
+        "Visible after the delimiter.",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><h1 id="summary-boundary">Summary boundary</h1><p>Visible before the delimiter.</p><p>Visible after the delimiter.</p></div>",
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'components' freezes raw Comark 0.6 output separately > components 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "callout",
+      {
+        "count": 2,
+        "featured": true,
+        "options": {
+          "regions": [
+            "eu",
+            "us",
+          ],
+          "retries": 3,
+        },
+        "title": "Before deployment",
+        "tone": "warning",
+      },
+      [
+        "template",
+        {
+          "name": "default",
+        },
+        "Run the production build.",
+      ],
+      [
+        "template",
+        {
+          "name": "actions",
+        },
+        [
+          "a",
+          {
+            "href": "/deployment",
+          },
+          "Open the deployment guide",
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'components' freezes the Ginko pipeline contract > components 1`] = `
+{
+  "agent": {
+    "markdown": "<callout title="Before deployment" tone="warning" count="2" featured="true">
+\`\`\`json
+{
+  "options": {
+    "retries": 3,
+    "regions": [
+      "eu",
+      "us"
+    ]
+  }
+}
+\`\`\`
+
+<template name="default">
+Run the production build.
+</template>
+
+<template name="actions">
+[Open the deployment guide](/raw/deployment.md)
+</template>
+</callout>",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Run the production build.",
+                },
+              ],
+              "props": {
+                "name": "default",
+              },
+              "tag": "template",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "Open the deployment guide",
+                    },
+                  ],
+                  "props": {
+                    "href": "/deployment",
+                  },
+                  "tag": "a",
+                  "type": "element",
+                },
+              ],
+              "props": {
+                "name": "actions",
+              },
+              "tag": "template",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "count": 2,
+            "featured": true,
+            "options": {
+              "regions": [
+                "eu",
+                "us",
+              ],
+              "retries": 3,
+            },
+            "title": "Before deployment",
+            "tone": "warning",
+          },
+          "tag": "callout",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Run the production build. Open the deployment guide",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "callout",
+      {
+        "count": 2,
+        "featured": true,
+        "options": {
+          "regions": [
+            "eu",
+            "us",
+          ],
+          "retries": 3,
+        },
+        "title": "Before deployment",
+        "tone": "warning",
+      },
+      [
+        "template",
+        {
+          "name": "default",
+        },
+        "Run the production build.",
+      ],
+      [
+        "template",
+        {
+          "name": "actions",
+        },
+        [
+          "a",
+          {
+            "href": "/deployment",
+          },
+          "Open the deployment guide",
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "callout",
+        {
+          "count": 2,
+          "featured": true,
+          "options": {
+            "regions": [
+              "eu",
+              "us",
+            ],
+            "retries": 3,
+          },
+          "title": "Before deployment",
+          "tone": "warning",
+        },
+        [
+          "template",
+          {
+            "name": "default",
+          },
+          "Run the production build.",
+        ],
+        [
+          "template",
+          {
+            "name": "actions",
+          },
+          [
+            "a",
+            {
+              "href": "/deployment",
+            },
+            "Open the deployment guide",
+          ],
+        ],
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><aside data-callout="true" title="Before deployment" tone="warning" count="2" featured="true"><div data-slot="default">Run the production build.</div><footer data-slot="actions"><a href="/deployment">Open the deployment guide</a></footer></aside></div>",
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'gfm' freezes raw Comark 0.6 output separately > gfm 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "blockquote",
+      {
+        "as": "note",
+      },
+      "Keep the generated output reviewable.",
+    ],
+    [
+      "ul",
+      {
+        "class": "contains-task-list",
+      },
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            ":checked": "true",
+            ":disabled": "true",
+            "class": "task-list-item-checkbox",
+            "type": "checkbox",
+          },
+        ],
+        " Parsed",
+      ],
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            ":disabled": "true",
+            "class": "task-list-item-checkbox",
+            "type": "checkbox",
+          },
+        ],
+        " Published",
+      ],
+    ],
+    [
+      "table",
+      {},
+      [
+        "thead",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "th",
+            {
+              "style": "text-align:left",
+            },
+            "Left",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:center",
+            },
+            "Center",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:right",
+            },
+            "Right",
+          ],
+        ],
+      ],
+      [
+        "tbody",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "td",
+            {
+              "style": "text-align:left",
+            },
+            "one",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:center",
+            },
+            "two",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:right",
+            },
+            "three",
+          ],
+        ],
+      ],
+    ],
+    [
+      "p",
+      {},
+      "A statement with a footnote.",
+      [
+        "sup",
+        {
+          "class": "footnote-ref",
+        },
+        [
+          "a",
+          {
+            "href": "#fn-contract",
+            "id": "fnref-contract",
+          },
+          "[1]",
+        ],
+      ],
+    ],
+    [
+      "section",
+      {
+        "class": "footnotes",
+      },
+      [
+        "hr",
+        {},
+      ],
+      [
+        "h2",
+        {
+          "id": "footnotes",
+        },
+        "Footnotes",
+      ],
+      [
+        "ol",
+        {
+          "class": "footnotes-list",
+        },
+        [
+          "li",
+          {
+            "id": "fn-contract",
+          },
+          "The contract is explicit.",
+          " ",
+          [
+            "a",
+            {
+              "class": "footnote-backref",
+              "href": "#fnref-contract",
+            },
+            "↩",
+          ],
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'gfm' freezes the Ginko pipeline contract > gfm 1`] = `
+{
+  "agent": {
+    "markdown": "> [!NOTE]
+> Keep the generated output reviewable.
+
+- [x] Parsed
+- [ ] Published
+
+| Left | Center | Right |
+| --- | --- | --- |
+| one | two | three |
+
+A statement with a footnote.<sup>
+[\\[1\\]](#fn-contract)
+</sup>
+
+<section>
+---
+
+## Footnotes
+
+1. The contract is explicit. [↩](#fnref-contract)
+</section>",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Keep the generated output reviewable.",
+            },
+          ],
+          "props": {
+            "data-alert": "note",
+          },
+          "tag": "blockquote",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "props": {
+                    "checked": true,
+                    "class": "task-list-item-checkbox",
+                    "disabled": true,
+                    "type": "checkbox",
+                  },
+                  "tag": "input",
+                  "type": "element",
+                },
+                {
+                  "type": "text",
+                  "value": " Parsed",
+                },
+              ],
+              "props": {
+                "class": "task-list-item",
+              },
+              "tag": "li",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [],
+                  "props": {
+                    "class": "task-list-item-checkbox",
+                    "disabled": true,
+                    "type": "checkbox",
+                  },
+                  "tag": "input",
+                  "type": "element",
+                },
+                {
+                  "type": "text",
+                  "value": " Published",
+                },
+              ],
+              "props": {
+                "class": "task-list-item",
+              },
+              "tag": "li",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "class": "contains-task-list",
+          },
+          "tag": "ul",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Left",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:left",
+                      },
+                      "tag": "th",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Center",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:center",
+                      },
+                      "tag": "th",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Right",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:right",
+                      },
+                      "tag": "th",
+                      "type": "element",
+                    },
+                  ],
+                  "props": {},
+                  "tag": "tr",
+                  "type": "element",
+                },
+              ],
+              "props": {},
+              "tag": "thead",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "one",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:left",
+                      },
+                      "tag": "td",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "two",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:center",
+                      },
+                      "tag": "td",
+                      "type": "element",
+                    },
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "three",
+                        },
+                      ],
+                      "props": {
+                        "style": "text-align:right",
+                      },
+                      "tag": "td",
+                      "type": "element",
+                    },
+                  ],
+                  "props": {},
+                  "tag": "tr",
+                  "type": "element",
+                },
+              ],
+              "props": {},
+              "tag": "tbody",
+              "type": "element",
+            },
+          ],
+          "props": {},
+          "tag": "table",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "A statement with a footnote.",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "^contract",
+                },
+              ],
+              "props": {},
+              "tag": "span",
+              "type": "element",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "^contract",
+                },
+              ],
+              "props": {},
+              "tag": "span",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": ": The contract is explicit.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Keep the generated output reviewable. Parsed Published Left Center Right one two three A statement with a footnote. ^contract ^contract : The contract is explicit.",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "blockquote",
+      {
+        "data-alert": "note",
+      },
+      "Keep the generated output reviewable.",
+    ],
+    [
+      "ul",
+      {
+        "class": "contains-task-list",
+      },
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            "checked": true,
+            "class": "task-list-item-checkbox",
+            "disabled": true,
+            "type": "checkbox",
+          },
+        ],
+        " Parsed",
+      ],
+      [
+        "li",
+        {
+          "class": "task-list-item",
+        },
+        [
+          "input",
+          {
+            "class": "task-list-item-checkbox",
+            "disabled": true,
+            "type": "checkbox",
+          },
+        ],
+        " Published",
+      ],
+    ],
+    [
+      "table",
+      {},
+      [
+        "thead",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "th",
+            {
+              "style": "text-align:left",
+            },
+            "Left",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:center",
+            },
+            "Center",
+          ],
+          [
+            "th",
+            {
+              "style": "text-align:right",
+            },
+            "Right",
+          ],
+        ],
+      ],
+      [
+        "tbody",
+        {},
+        [
+          "tr",
+          {},
+          [
+            "td",
+            {
+              "style": "text-align:left",
+            },
+            "one",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:center",
+            },
+            "two",
+          ],
+          [
+            "td",
+            {
+              "style": "text-align:right",
+            },
+            "three",
+          ],
+        ],
+      ],
+    ],
+    [
+      "p",
+      {},
+      "A statement with a footnote.",
+      [
+        "sup",
+        {
+          "class": "footnote-ref",
+        },
+        [
+          "a",
+          {
+            "href": "#fn-contract",
+            "id": "fnref-contract",
+          },
+          "[1]",
+        ],
+      ],
+    ],
+    [
+      "section",
+      {
+        "class": "footnotes",
+      },
+      [
+        "hr",
+        {},
+      ],
+      [
+        "h2",
+        {
+          "id": "footnotes",
+        },
+        "Footnotes",
+      ],
+      [
+        "ol",
+        {
+          "class": "footnotes-list",
+        },
+        [
+          "li",
+          {
+            "id": "fn-contract",
+          },
+          "The contract is explicit.",
+          " ",
+          [
+            "a",
+            {
+              "class": "footnote-backref",
+              "href": "#fnref-contract",
+            },
+            "↩",
+          ],
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "blockquote",
+        {
+          "data-alert": "note",
+        },
+        "Keep the generated output reviewable.",
+      ],
+      [
+        "ul",
+        {
+          "class": "contains-task-list",
+        },
+        [
+          "li",
+          {
+            "class": "task-list-item",
+          },
+          [
+            "input",
+            {
+              "checked": true,
+              "class": "task-list-item-checkbox",
+              "disabled": true,
+              "type": "checkbox",
+            },
+          ],
+          " Parsed",
+        ],
+        [
+          "li",
+          {
+            "class": "task-list-item",
+          },
+          [
+            "input",
+            {
+              "class": "task-list-item-checkbox",
+              "disabled": true,
+              "type": "checkbox",
+            },
+          ],
+          " Published",
+        ],
+      ],
+      [
+        "table",
+        {},
+        [
+          "thead",
+          {},
+          [
+            "tr",
+            {},
+            [
+              "th",
+              {
+                "style": "text-align:left",
+              },
+              "Left",
+            ],
+            [
+              "th",
+              {
+                "style": "text-align:center",
+              },
+              "Center",
+            ],
+            [
+              "th",
+              {
+                "style": "text-align:right",
+              },
+              "Right",
+            ],
+          ],
+        ],
+        [
+          "tbody",
+          {},
+          [
+            "tr",
+            {},
+            [
+              "td",
+              {
+                "style": "text-align:left",
+              },
+              "one",
+            ],
+            [
+              "td",
+              {
+                "style": "text-align:center",
+              },
+              "two",
+            ],
+            [
+              "td",
+              {
+                "style": "text-align:right",
+              },
+              "three",
+            ],
+          ],
+        ],
+      ],
+      [
+        "p",
+        {},
+        "A statement with a footnote.",
+        [
+          "span",
+          {},
+          "^contract",
+        ],
+      ],
+      [
+        "p",
+        {},
+        [
+          "span",
+          {},
+          "^contract",
+        ],
+        ": The contract is explicit.",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": {
+      "length": 977,
+      "sha256": "21bab3105268d2bb48e7b532e13b63e856dfe94c409ff3b97c943c23b897d1da",
+    },
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'highlight' freezes raw Comark 0.6 output separately > highlight 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "pre",
+      {
+        "class": "shiki shiki-themes material-theme-lighter material-theme-palenight dark:material-theme-palenight",
+        "filename": "parser.ts",
+        "highlights": [
+          1,
+          3,
+        ],
+        "language": "ts",
+      },
+      [
+        "code",
+        {
+          "class": "language-ts",
+        },
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " '",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#91B859;--shiki-dark:#C3E88D",
+            },
+            "ready",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "'",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line",
+            "style": "display: inline",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " skipped ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#FF5370;--shiki-dark:#FF9CAC",
+            },
+            " false",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-light-font-style:italic;--shiki-dark:#89DDFF;--shiki-dark-font-style:italic",
+            },
+            "export",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " {",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " }",
+          ],
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'highlight' freezes the Ginko pipeline contract > highlight 1`] = `
+{
+  "agent": {
+    "markdown": "\`\`\`
+const state = 'ready'
+const skipped = false
+export { state }
+\`\`\`",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "const state = 'ready'
+const skipped = false
+export { state }",
+                },
+              ],
+              "props": {
+                "class": "language-ts",
+              },
+              "tag": "code",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "filename": "parser.ts",
+            "highlights": [
+              1,
+              3,
+            ],
+            "language": "ts",
+          },
+          "tag": "pre",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "const state = 'ready' const skipped = false export { state }",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "pre",
+      {
+        "class": "shiki shiki-themes material-theme-lighter material-theme-palenight dark:material-theme-palenight",
+        "filename": "parser.ts",
+        "highlights": [
+          1,
+          3,
+        ],
+        "language": "ts",
+      },
+      [
+        "code",
+        {
+          "class": "language-ts",
+        },
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " '",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#91B859;--shiki-dark:#C3E88D",
+            },
+            "ready",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "'",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line",
+            "style": "display: inline",
+          },
+          [
+            "span",
+            {
+              "style": "color:#9C3EDA;--shiki-dark:#C792EA",
+            },
+            "const",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " skipped ",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            "=",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#FF5370;--shiki-dark:#FF9CAC",
+            },
+            " false",
+          ],
+        ],
+        "
+",
+        [
+          "span",
+          {
+            "class": "line highlight",
+            "style": "display: inline-block",
+          },
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-light-font-style:italic;--shiki-dark:#89DDFF;--shiki-dark-font-style:italic",
+            },
+            "export",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " {",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#90A4AE;--shiki-dark:#BABED8",
+            },
+            " state",
+          ],
+          [
+            "span",
+            {
+              "style": "color:#39ADB5;--shiki-dark:#89DDFF",
+            },
+            " }",
+          ],
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "pre",
+        {
+          "filename": "parser.ts",
+          "highlights": [
+            1,
+            3,
+          ],
+          "language": "ts",
+        },
+        [
+          "code",
+          {
+            "class": "language-ts",
+          },
+          "const state = 'ready'
+const skipped = false
+export { state }",
+        ],
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": {
+      "length": 1301,
+      "sha256": "a4a7919d73f7f9d548c260cabd00a5d40636b07263ac1b36b47a84fc0cd62aea",
+    },
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'inline' freezes raw Comark 0.6 output separately > inline 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "p",
+      {},
+      "Inline ",
+      [
+        "strong",
+        {},
+        "safe",
+      ],
+      " content with an ",
+      [
+        "a",
+        {
+          "href": "/inline",
+        },
+        "internal link",
+      ],
+      ".",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'inline' freezes the Ginko pipeline contract > inline 1`] = `
+{
+  "agent": {
+    "markdown": "Inline **safe** content with an [internal link](/raw/inline.md).",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Inline ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "safe",
+                },
+              ],
+              "props": {},
+              "tag": "strong",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": " content with an ",
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "internal link",
+                },
+              ],
+              "props": {
+                "href": "/inline",
+              },
+              "tag": "a",
+              "type": "element",
+            },
+            {
+              "type": "text",
+              "value": ".",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Inline safe content with an internal link .",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "p",
+      {},
+      "Inline ",
+      [
+        "strong",
+        {},
+        "safe",
+      ],
+      " content with an ",
+      [
+        "a",
+        {
+          "href": "/inline",
+        },
+        "internal link",
+      ],
+      ".",
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "p",
+        {},
+        "Inline ",
+        [
+          "strong",
+          {},
+          "safe",
+        ],
+        " content with an ",
+        [
+          "a",
+          {
+            "href": "/inline",
+          },
+          "internal link",
+        ],
+        ".",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><p>Inline <strong>safe</strong> content with an <a href="/inline">internal link</a>.</p></div>",
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'malformed' freezes raw Comark 0.6 output separately > malformed 1`] = `
+{
+  "issues": undefined,
+  "message": "unexpected end of the stream within a flow collection (2:1)
+
+ 1 | count: [unterminated
+ 2 |
+-----^",
+  "name": "YAMLException",
+}
+`;
+
+exports[`Comark conformance corpus > 'malformed' freezes the Ginko pipeline contract > malformed 1`] = `
+{
+  "agent": {
+    "status": "not-reached",
+  },
+  "cms": {
+    "error": {
+      "issues": undefined,
+      "message": "unexpected end of the stream within a flow collection (2:1)
+
+ 1 | count: [unterminated
+ 2 |
+-----^",
+      "name": "YAMLException",
+    },
+    "status": "rejected",
+  },
+  "normalizedNodes": undefined,
+  "portable": {
+    "error": {
+      "issues": undefined,
+      "message": "MDC syntax is unsupported.",
+      "name": "GinkoBoundaryError",
+    },
+    "status": "rejected",
+  },
+  "public": {
+    "status": "not-reached",
+  },
+  "ssr": {
+    "status": "not-reached",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'math' freezes raw Comark 0.6 output separately > math 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "p",
+      {},
+      "Inline math ",
+      [
+        "math",
+        {
+          "class": "math inline",
+          "content": "x^2 + y^2",
+        },
+        "x^2 + y^2",
+      ],
+      ".",
+    ],
+    [
+      "math",
+      {
+        "class": "math block",
+        "content": "E = mc^2",
+      },
+      "E = mc^2",
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'math' freezes the Ginko pipeline contract > math 1`] = `
+{
+  "agent": {
+    "markdown": "Inline math <ginko-math content="x^2 + y^2">
+x^2 + y^2
+</ginko-math>
+
+.
+
+<ginko-math content="E = mc^2">
+E = mc^2
+</ginko-math>",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Inline math $x^2 + y^2$.",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "$$
+E = mc^2
+$$",
+            },
+          ],
+          "props": {},
+          "tag": "p",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Inline math $x^2 + y^2$. $$ E = mc^2 $$",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "p",
+      {},
+      "Inline math ",
+      [
+        "ginko-math",
+        {
+          "class": "math inline",
+          "content": "x^2 + y^2",
+        },
+        "x^2 + y^2",
+      ],
+      ".",
+    ],
+    [
+      "ginko-math",
+      {
+        "class": "math block",
+        "content": "E = mc^2",
+      },
+      "E = mc^2",
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "p",
+        {},
+        "Inline math $x^2 + y^2$.",
+      ],
+      [
+        "p",
+        {},
+        "$$
+E = mc^2
+$$",
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": {
+      "length": 2801,
+      "sha256": "d5ff94358a610c27fca1baa875d2bd1c2ce4d376bf169adafa136d222f01f267",
+    },
+    "status": "accepted",
+  },
+}
+`;
+
+exports[`Comark conformance corpus > 'mermaid' freezes raw Comark 0.6 output separately > mermaid 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "mermaid",
+      {
+        "content": "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]
+",
+      },
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'mermaid' freezes the Ginko pipeline contract > mermaid 1`] = `
+{
+  "agent": {
+    "markdown": "<ginko-mermaid content="graph TD
+  A[Parse] --&gt; B[Normalize]
+  B --&gt; C[Validate]
+" />",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]",
+                },
+              ],
+              "props": {
+                "class": "language-mermaid",
+              },
+              "tag": "code",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "language": "mermaid",
+          },
+          "tag": "pre",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "graph TD A[Parse] --> B[Normalize] B --> C[Validate]",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "ginko-mermaid",
+      {
+        "content": "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]
+",
+      },
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "pre",
+        {
+          "language": "mermaid",
+        },
+        [
+          "code",
+          {
+            "class": "language-mermaid",
+          },
+          "graph TD
+  A[Parse] --> B[Normalize]
+  B --> C[Validate]",
+        ],
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><div class="mermaid" style="display:flex;justify-content:center;width:100%;height:auto;"></div></div>",
+    "status": "accepted",
+  },
+}
+`;

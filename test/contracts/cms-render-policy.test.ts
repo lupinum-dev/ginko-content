@@ -8,13 +8,15 @@ import {
   type PortableComponentPolicyV1,
 } from '../../packages/content/src/cms-contract'
 import MarkdownRenderer from '../../packages/content/src/runtime/app/components/internal/MarkdownRenderer'
+import { normalizeComarkNodes } from '../../packages/content/src/core/markdown/normalize-comark'
+import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../../packages/content/src/core/markdown/builtin-render-contracts'
 
 const root = (node: Record<string, unknown>) => ({ type: 'root', children: [node] })
-const element = (tag: string, props: Record<string, unknown> = {}) => ({
+const element = (tag: string, props: Record<string, unknown> = {}, children: unknown[] = []) => ({
   type: 'element',
   tag,
   props,
-  children: [],
+  children,
 })
 
 describe('canonical public Markdown render policy', () => {
@@ -40,7 +42,7 @@ describe('canonical public Markdown render policy', () => {
     },
   )
 
-  it.each(['javascript:alert(1)', 'data:text/html,boom', 'blob:https://example.test/id', '//evil.test/x', '/\\evil.test/x']) (
+  it.each(['javascript:alert(1)', 'data:text/html,boom', 'blob:https://example.test/id', '//evil.test/x', '/\\evil.test/x', `./${String.fromCharCode(127)}`]) (
     'rejects unsafe URL %s',
     (src) => {
       expect(validatePublicMarkdownAst(root(element('img', { src, alt: '' })))).toMatchObject({
@@ -72,9 +74,231 @@ describe('canonical public Markdown render policy', () => {
     })
   })
 
+  it('never lets component policy shadow native HTML safety rules', () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: {
+        a: {
+          kind: 'inline',
+          props: { href: { type: 'string', required: true } },
+          slots: [],
+          media: null,
+        },
+      },
+    }
+    expect(validatePublicMarkdownAst(root(element('a', { href: 'javascript:alert(1)' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_url' })]),
+    })
+    expect(validatePublicMarkdownAst(root(element('A', { href: 'javascript:alert(1)' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_url' })]),
+    })
+
+    const iframePolicy: PortableComponentPolicyV1 = {
+      components: {
+        'i-frame': {
+          kind: 'block',
+          props: { srcdoc: { type: 'string', required: true } },
+          slots: [],
+          media: null,
+        },
+      },
+    }
+    for (const tag of ['iFrame', 'textArea', 'sCrIpT', 'teMplate']) {
+      expect(validatePublicMarkdownAst(root(element(tag, { srcdoc: '<script>alert(1)</script>' })), iframePolicy)).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_tag' })]),
+      })
+    }
+    expect(validatePublicMarkdownAst(root(element('a', { href: '/docs' })), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('a', { href: '/docs', ping: 'https://tracker.example' })), {
+      components: {
+        a: {
+          ...policy.components.a!,
+          props: { ...policy.components.a!.props, ping: { type: 'string', required: false } },
+        },
+      },
+    })).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_prop' })]),
+    })
+  })
+
+  it('supports passive native-named components without weakening their URL rules', () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: {
+        aside: {
+          kind: 'block',
+          props: {
+            label: { type: 'string', required: false },
+            media: { type: 'asset', required: false },
+          },
+          slots: ['default'],
+          media: null,
+        },
+      },
+    }
+    expect(validatePublicMarkdownAst(root(element('aside', { label: 'Note' })), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('aside', { media: 'javascript:alert(1)' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_url' })]),
+    })
+
+    const unsafeHrefPolicy: PortableComponentPolicyV1 = {
+      components: {
+        a: {
+          kind: 'inline',
+          props: { href: { type: 'json', required: true } },
+          slots: [],
+          media: null,
+        },
+      },
+    }
+    expect(validatePublicMarkdownAst(root(element('a', { href: { value: '/docs' } })), unsafeHrefPolicy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+    })
+
+    const prePolicy: PortableComponentPolicyV1 = {
+      components: {
+        pre: {
+          kind: 'block',
+          props: { highlights: { type: 'json', required: false } },
+          slots: ['default'],
+          media: null,
+        },
+      },
+    }
+    expect(validatePublicMarkdownAst(root(element('pre', { highlights: [0] })), prePolicy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+    })
+  })
+
   it('accepts only normalized GFM alert metadata on blockquotes', () => {
     expect(validatePublicMarkdownAst(root(element('blockquote', { 'data-alert': 'note' })))).toMatchObject({ ok: true })
     expect(validatePublicMarkdownAst(root(element('blockquote', { 'data-alert': 'custom' })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+    })
+  })
+
+  it('accepts only the exact inert task checkbox shape emitted by normalization', () => {
+    expect(validatePublicMarkdownAst(root(element('input', {
+      type: 'checkbox',
+      class: 'task-list-item-checkbox',
+      disabled: true,
+      checked: true,
+    })))).toMatchObject({ ok: true })
+    for (const props of [
+      { type: 'text', class: 'task-list-item-checkbox', disabled: true },
+      { type: 'checkbox', class: 'task-list-item-checkbox' },
+      { type: 'checkbox', class: 'task-list-item-checkbox', disabled: true, onChange: 'run()' },
+    ]) {
+      expect(validatePublicMarkdownAst(root(element('input', props)))).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_tag' })]),
+      })
+    }
+  })
+
+  it('accepts Math and Mermaid only through enabled reserved component contracts', () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: Object.fromEntries(Object.values(BUILTIN_MARKDOWN_RENDER_CONTRACTS).map(contract => [
+        contract.tag,
+        contract.componentPolicy,
+      ])),
+    }
+    const math = element('ginko-math', { class: 'math inline', content: 'x^2' }, [{ type: 'text', value: 'x^2' }])
+    const mermaid = element('ginko-mermaid', { content: 'graph TD; A-->B' })
+
+    expect(validatePublicMarkdownAst(root(math), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(mermaid), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(math))).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unknown_component' })]),
+    })
+    expect(validatePublicMarkdownAst(root(element('ginko-math', { class: 'arbitrary', content: 'x^2' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+    })
+    expect(validatePublicMarkdownAst(root(element('ginko-mermaid', { content: 'graph TD', width: '200%' })), policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+    })
+    for (const malformed of [
+      element('ginko-math', { class: 'math inline', content: 'x^2' }),
+      element('ginko-math', { class: 'math inline', content: 'x^2' }, [{ type: 'text', value: 'y' }]),
+      element('ginko-mermaid', { content: 'graph TD' }, [{ type: 'text', value: 'authored' }]),
+    ]) {
+      expect(validatePublicMarkdownAst(root(malformed), policy)).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_prop_value' })]),
+      })
+    }
+
+    expect(normalizeComarkNodes([
+      ['math', { class: 'math inline', content: 'x^2' }, 'x^2'],
+      ['mermaid', { content: 'graph TD' }],
+      ['math', { class: 'arbitrary', content: 'authored' }, 'authored'],
+    ], { enabledPlugins: ['math', 'mermaid'] })).toEqual([
+      ['ginko-math', { class: 'math inline', content: 'x^2' }, 'x^2'],
+      ['ginko-mermaid', { content: 'graph TD' }],
+      ['math', { class: 'arbitrary', content: 'authored' }, 'authored'],
+    ])
+  })
+
+  it('allows named-slot templates only directly under their declared component slot', () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: {
+        Callout: {
+          kind: 'block',
+          props: {},
+          slots: ['default', 'actions'],
+          media: null,
+        },
+      },
+    }
+    const template = (name: string) => ({
+      ...element('template', { name }),
+      children: [{ type: 'text', value: 'Slot content' }],
+    })
+    const callout = (child: Record<string, unknown>) => ({ ...element('callout'), children: [child] })
+    expect(validatePublicMarkdownAst(root(callout(template('actions'))), policy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(template('actions')), policy)).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_tag' })],
+    })
+    expect(validatePublicMarkdownAst(root(callout(template('admin'))), policy)).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'unsafe_tag' })],
+    })
+  })
+
+  it('allows only parser-owned table alignment and bounded code metadata', () => {
+    for (const style of ['text-align:left', 'text-align:center', 'text-align:right']) {
+      expect(validatePublicMarkdownAst(root(element('th', { style })))).toMatchObject({ ok: true })
+    }
+    for (const style of ['text-align:justify', 'color:red', 'text-align:center;background:red']) {
+      expect(validatePublicMarkdownAst(root(element('td', { style })))).toMatchObject({
+        ok: false,
+        issues: [expect.objectContaining({ code: 'unsafe_prop' })],
+      })
+    }
+    expect(validatePublicMarkdownAst(root(element('pre', {
+      language: 'ts', meta: 'demo', highlights: [1, 3],
+    })))).toMatchObject({ ok: true })
+    for (const highlights of [[0], [-1], [1.5], [1_000_001], ['1']]) {
+      expect(validatePublicMarkdownAst(root(element('pre', { highlights })))).toMatchObject({
+        ok: false,
+        issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+      })
+    }
+    expect(validatePublicMarkdownAst(root(element('pre', { highlights: Array.from({ length: 257 }, (_, index) => index + 1) })))).toMatchObject({
+      ok: false,
+      issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
+    })
+    expect(validatePublicMarkdownAst(root(element('pre', { meta: 'x'.repeat(2049) })))).toMatchObject({
       ok: false,
       issues: [expect.objectContaining({ code: 'invalid_prop_value' })],
     })

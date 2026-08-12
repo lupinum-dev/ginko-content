@@ -11,15 +11,17 @@ import type {
   ContentConfig
 } from '../types/config'
 import type { ResolvedMarkdownPlugin } from '../types/content'
-import type { ContentSearchPublicRuntimeConfig } from '../types/search'
+import type { PortableComponentPolicyV1 } from '../types/component-policy'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 import { CACHE_VERSION } from '../utils'
-import { normalizeMiniSearchOptions } from './options'
+import { createSearchRuntimeConfig } from './options'
 
 const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
+  const privateRuntime = nuxt.options.runtimeConfig as Record<string, any>
+  const privateContentRuntime = privateRuntime.content as Record<string, any> | undefined
   const publicRuntime = nuxt.options.runtimeConfig.public as Record<string, any>
   const publicContentRuntime = publicRuntime.content as Record<string, any> | undefined
-  const configuredSiteUrl = publicContentRuntime?.siteUrl || publicRuntime.siteUrl
+  const configuredSiteUrl = privateContentRuntime?.siteUrl || publicContentRuntime?.siteUrl || publicRuntime.siteUrl
   if (typeof configuredSiteUrl === 'string' && configuredSiteUrl.length > 0) {
     return configuredSiteUrl
   }
@@ -46,38 +48,6 @@ type RuntimeCollectionConfig = {
   /** Top-level schema membership derived at build time for server diagnostics. */
   schemaFields?: string[]
 }
-
-const sanitizePublicMarkdownPluginValue = (value: unknown): unknown => {
-  if (typeof value === 'function' || typeof value === 'symbol') {
-    return undefined
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .map(item => sanitizePublicMarkdownPluginValue(item))
-      .filter(item => item !== undefined)
-  }
-
-  if (typeof value !== 'object' || value === null) {
-    return value
-  }
-
-  const prototype = Object.getPrototypeOf(value)
-  if (prototype !== Object.prototype && prototype !== null) {
-    return value
-  }
-
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-    .filter(([key]) => key !== 'transformers')
-    .map(([key, item]) => [key, sanitizePublicMarkdownPluginValue(item)])
-    .filter(([, item]) => item !== undefined))
-}
-
-export const sanitizePublicMarkdownPlugins = (plugins: ResolvedMarkdownPlugin[]) =>
-  plugins.map(plugin => ({
-    name: plugin.name,
-    options: sanitizePublicMarkdownPluginValue(plugin.options || {}) as Record<string, unknown>
-  }))
 
 const sanitizePrivateMarkdownPluginValue = (value: unknown): unknown => {
   if (typeof value === 'function' || typeof value === 'symbol') {
@@ -181,6 +151,7 @@ export const applyContentRuntimeConfig = async (
   options: ModuleOptions,
   contentContext: ResolvedContentContext,
   appContentConfig: Pick<ContentConfig, 'agent'>,
+  runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>,
   runtimeCollections: Record<string, RuntimeCollectionConfig>,
   privateRuntimeCollections: Record<string, RuntimeCollectionConfig>,
   buildIntegrity: number | undefined,
@@ -190,56 +161,38 @@ export const applyContentRuntimeConfig = async (
   const defaultLocale = contentContext.localePolicy.defaultLocale
   const searchRuntime = contentContext.search === false
     ? false
-    : {
-        apiBaseURL: contentContext.search.apiBaseURL || `${options.api.baseURL.replace(/\/$/, '')}/search`,
-        indexURL: `${(contentContext.search.apiBaseURL || `${options.api.baseURL.replace(/\/$/, '')}/search`).replace(/\/$/, '')}/index.json`,
-        engine: contentContext.search.engine || 'minisearch',
-        minisearch: normalizeMiniSearchOptions(contentContext.search.minisearch)
-      } satisfies ContentSearchPublicRuntimeConfig
+    : createSearchRuntimeConfig(contentContext.search, options.api.baseURL)
   const siteUrl = resolveNuxtSiteUrl(nuxt)
-  const contentRuntime = defu(nuxt.options.runtimeConfig.public.content, {
-    ...(siteUrl ? { siteUrl } : {}),
+  const publicCollections = Object.fromEntries(
+    Object.entries(runtimeCollections).map(([name, collection]) => [
+      name,
+      {
+        localePolicy: collection.localePolicy,
+        ...(collection.references ? { references: collection.references } : {})
+      }
+    ])
+  )
+  const contentRuntime = {
     locales: contentContext.locales,
-    provider: contentContext.provider || 'filesystem',
-    providers: contentContext.providers || {},
     defaultLocale,
-    localeFallback: contentContext.localeFallback || {},
-    translatedSlugs: contentContext.translatedSlugs ?? false,
-    strictTranslatedSlugs: contentContext.strictTranslatedSlugs ?? false,
-    collections: runtimeCollections,
-    renderPolicies: Object.fromEntries(
-      Object.entries(contentContext.contract.collections).map(([id, collection]) => [
-        id,
-        collection.componentPolicy,
-      ]),
-    ),
+    collections: publicCollections,
+    renderPolicies: runtimeRenderPolicies,
     links: contentContext.links || {},
     integrity: buildIntegrity as number,
-    respectPathCase: options.respectPathCase ?? false,
     api: {
       baseURL: options.api.baseURL
     },
     markdown: {
-      plugins: sanitizePublicMarkdownPlugins(contentContext.markdown.plugins),
       tags: contentContext.markdown.tags,
-      anchorLinks: contentContext.markdown.anchorLinks,
       image: contentContext.markdown.image || 'auto'
     },
-    sitemap: contentContext.sitemap
-      ? {
-          path: contentContext.sitemap.path || '/sitemap',
-          ...(contentContext.sitemap.include?.length ? { include: contentContext.sitemap.include } : {}),
-          ...(contentContext.sitemap.exclude?.length ? { exclude: contentContext.sitemap.exclude } : {}),
-          ...(typeof contentContext.sitemap.includeDrafts === 'boolean' ? { includeDrafts: contentContext.sitemap.includeDrafts } : {})
-        }
-      : false,
-    search: searchRuntime,
-    navigation: contentContext.navigation as any
-  })
+    search: searchRuntime
+  }
 
   const runtimeAgent = await sanitizeAgentConfig(appContentConfig.agent, contentContext, siteUrl)
   const privateContentRuntime = {
     ...contentContext as any,
+    ...(siteUrl ? { siteUrl } : {}),
     ...(runtimeAgent ? { agent: runtimeAgent } : {}),
     markdown: {
       ...contentContext.markdown,

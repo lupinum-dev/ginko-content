@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const fetchCalls: unknown[] = []
 let fetchPayload: unknown = []
@@ -17,6 +17,10 @@ const setRuntimeSearch = (search: unknown) => {
 }
 
 describe('public search composable', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
     vi.resetModules()
     fetchCalls.length = 0
@@ -79,6 +83,43 @@ describe('public search composable', () => {
     // `collection` keeps them empty with no extra request.
     expect(search.files.value).toEqual([])
     expect(search.searchNavigation.value).toEqual([])
+  })
+
+  test('useContentSearch preserves required result fields with custom MiniSearch storage', async () => {
+    setRuntimeSearch({
+      engine: 'minisearch',
+      indexURL: '/api/_content/search/index.json',
+      minisearch: {
+        fields: ['tags'],
+        storeFields: ['tags'],
+        boost: { tags: 5 },
+        fuzzy: false,
+        prefix: false
+      }
+    })
+    fetchPayload = [{
+      id: '/docs/search',
+      collection: 'docs',
+      path: '/docs/search',
+      title: 'Search',
+      excerpt: 'Search configuration',
+      content: '',
+      headings: [],
+      tags: ['important']
+    }]
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    const search = await useContentSearch({ initialQuery: 'important' })
+
+    expect(search.results.value).toEqual([
+      expect.objectContaining({
+        path: '/docs/search',
+        title: 'Search',
+        excerpt: 'Search configuration',
+        collection: 'docs',
+        tags: ['important']
+      })
+    ])
   })
 
   test('useContentSearch delegates CMS searches to the configured endpoint', async () => {
@@ -213,5 +254,18 @@ describe('public search composable', () => {
     expect(search.hasQuery.value).toBe(true)
     expect(search.hasResults.value).toBe(false)
     expect(search.isEmpty.value).toBe(false)
+  })
+
+  test('useContentSearch keeps Pagefind inert during server rendering', async () => {
+    setRuntimeSearch({ engine: 'pagefind' })
+    const nativeFetch = vi.spyOn(globalThis, 'fetch')
+    const { useContentSearch } = await import('../../packages/content/src/runtime/app/composables/search')
+
+    const search = await useContentSearch({ initialQuery: 'guide', locale: 'en' })
+
+    expect(nativeFetch).not.toHaveBeenCalled()
+    expect(search.results.value).toEqual([])
+    expect(search.pending.value).toBe(false)
+    expect(search.error.value).toBe(null)
   })
 })

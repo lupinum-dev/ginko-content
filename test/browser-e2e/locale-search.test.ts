@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from 'playwright-core'
-import { startFixtureServer } from '../helpers/fixture-server'
+import { startProductionFixtureServer } from '../helpers/production-fixture'
 import { buildRouteManifest, navigableRoutesFromManifest } from '../helpers/route-manifest'
 import { isExpectedNuxtPayloadCancellation } from '../helpers/browser-failures'
 
@@ -80,7 +80,7 @@ function captureBrowserFailures (page: Page, baseURL: string) {
 
 describe('browser production confidence', () => {
   test('clicks translated locale links and localized search results', async () => {
-    const server = await startFixtureServer(fixtureDir)
+    const server = await startProductionFixtureServer(fixtureDir)
     let browser: Browser | undefined
 
     try {
@@ -130,7 +130,7 @@ describe('browser production confidence', () => {
   }, 240000)
 
   test('hydrates every emitted i18n HTML route without browser or same-origin failures', async () => {
-    const server = await startFixtureServer(fixtureDir)
+    const server = await startProductionFixtureServer(fixtureDir)
     let browser: Browser | undefined
 
     try {

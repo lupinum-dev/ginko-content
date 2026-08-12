@@ -93,7 +93,7 @@ export async function resolveContentNavigation (
   return await resolveContentNavigationData({
     defaultLocale: runtimeConfig.content.defaultLocale,
     localeFallback: runtimeConfig.content.localeFallback,
-    navigation: runtimeConfig.public.content.navigation
+    navigation: runtimeConfig.content.navigation
   }, {
     request: query.plan.resolveLocale || {},
     loadLocaleNavigation: async (locale?: string) => {
@@ -170,7 +170,7 @@ export async function resolveContentNavigation (
         return accumulator
       }, {} as Record<string, ParsedContentMeta>)
 
-      const configuredFields = runtimeConfig.public.content.navigation === false ? [] : runtimeConfig.public.content.navigation.fields
+      const configuredFields = runtimeConfig.content.navigation === false ? [] : runtimeConfig.content.navigation.fields
       return buildCanonicalNavigation(contents, configs, [...new Set([...configuredFields, ...requestedFields])])
     },
     resolveLocaleChain

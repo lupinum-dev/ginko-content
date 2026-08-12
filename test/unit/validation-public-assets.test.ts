@@ -17,7 +17,7 @@ describe('content validation public assets', () => {
 
       await expect(collectContentValidationPublicAssets({
         rootDir,
-        layers: [{ cwd: rootDir, publicDir: 'public' }],
+        publicDirectories: [publicDir],
         nitroPublicAssets: [{ dir: 'shared-media', baseURL: '/media/' }]
       })).resolves.toEqual(['/favicon.svg', '/media/hero wide.png'])
     } finally {

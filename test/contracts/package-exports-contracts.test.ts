@@ -135,7 +135,7 @@ describe('package export contracts', () => {
     expect(client.getCollectionPath).toBeTypeOf('function')
     // The public composable surface is exactly `useContentPage` and
     // `useContentSearch` — every other wrapper is a
-    // hard-cut deletion, replaced by these pure operations + useAsyncData.
+    // hard-cut deletion, replaced by these query functions + useAsyncData.
     expect(client.useContentPage).toBeTypeOf('function')
     expect(client.useContentSearch).toBeTypeOf('function')
     expect(client).not.toHaveProperty('queryCollection')
@@ -350,6 +350,18 @@ describe('package export contracts', () => {
 
     expect(manifest.peerDependencies?.vitest).toBeTypeOf('string')
     expect(manifest.peerDependenciesMeta?.vitest?.optional).toBe(true)
+  })
+
+  test('optional Markdown integrations declare their direct application peers', async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8')) as {
+      peerDependencies?: Record<string, string>
+      peerDependenciesMeta?: Record<string, { optional?: boolean }>
+    }
+
+    expect(manifest.peerDependencies?.katex).toMatch(/^\^0\.17\./)
+    expect(manifest.peerDependencies?.['beautiful-mermaid']).toMatch(/^\^1\./)
+    expect(manifest.peerDependenciesMeta?.katex?.optional).toBe(true)
+    expect(manifest.peerDependenciesMeta?.['beautiful-mermaid']?.optional).toBe(true)
   })
 
   test('published runtime floors match the supported Nuxt dependency graph', async () => {

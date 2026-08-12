@@ -10,7 +10,7 @@ export interface ContentMiniSearchOptions {
   /**
    * Fields copied into search result payloads.
    *
-   * @default ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection']
+   * @default ['path', 'title', 'excerpt', 'collection', 'anchor', 'locale']
    */
   storeFields: string[]
   /**

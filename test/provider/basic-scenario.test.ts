@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
-import { createInMemoryProvider } from '../harness/provider'
-import { createBasicScenario } from '../harness/scenarios'
-import { createTestEvent } from '../harness/event'
+import { createInMemoryProvider } from '../support/provider-scenarios/provider'
+import { createBasicScenario } from '../support/provider-scenarios/scenarios'
+import { createTestEvent } from '../support/provider-scenarios/event'
 
 describe('basic in-memory provider scenario', () => {
   const scenario = createBasicScenario()

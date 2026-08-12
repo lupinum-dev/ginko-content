@@ -24,6 +24,7 @@ function createNuxt() {
       experimental: {},
       ignore: [] as string[],
       modules: ['@nuxtjs/i18n', '@nuxtjs/sitemap'],
+      _installedModules: [] as Array<{ meta: { name?: string } }>,
       i18n: {
         defaultLocale: 'en',
         locales: [{ code: 'en', language: 'en-US' }, { code: 'de', language: 'de-DE' }]
@@ -92,11 +93,24 @@ describe('module contracts', () => {
         resolvePath: vi.fn(async (value: string) => value)
       }),
       defineNuxtModule: (definition: any) => definition,
-      addTemplate: vi.fn(),
+      addTemplate: vi.fn((template: { filename: string }) => ({ dst: `/generated/${template.filename}` })),
+      resolvePath: vi.fn(async (value: string) => value),
       useLogger: vi.fn(() => ({
         info: vi.fn(),
         warn: sitemapLoggerWarn
-      }))
+      })),
+      hasNuxtModule: (name: string, nuxt: any) => {
+        const configured = nuxt.options.modules.some((entry: any) => {
+          const moduleEntry = Array.isArray(entry) ? entry[0] : entry
+          return moduleEntry === name || (moduleEntry && typeof moduleEntry === 'object' && moduleEntry.name === name)
+        })
+        return configured || nuxt.options._installedModules.some((entry: any) => entry.meta?.name === name)
+      },
+      getLayerDirectories: (nuxt: any) => [{
+        root: nuxt.options.rootDir,
+        app: nuxt.options.srcDir,
+        public: resolve(nuxt.options.srcDir, 'public')
+      }]
     }))
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig: vi.fn(async () => ({
@@ -141,6 +155,23 @@ describe('module contracts', () => {
     vi.doMock('../../packages/content/src/module/content-components-template', () => ({
       registerContentComponentsTemplate: vi.fn()
     }))
+  })
+
+  test.each([
+    [{ theme: 'github-dark' }, 'themes: { light, dark }'],
+    [{ langs: ['ts'] }, 'languages'],
+  ])('rejects invalid highlight options during module setup', async (pluginOptions, replacement) => {
+    const { nuxt } = createNuxt()
+    const mod = await import('../../packages/content/src/module')
+    await expect(mod.default.setup(createOptions({
+      markdown: {
+        // The module-contract harness mocks processMarkdownOptions as identity,
+        // so provide the resolved shape that production normalization supplies.
+        plugins: [{ name: 'highlight', options: pluginOptions }],
+        tags: {},
+        anchorLinks: { depth: 4, exclude: [1] },
+      },
+    }), nuxt as any)).rejects.toThrow(replacement)
   })
 
   test.each(['collections', 'provider', 'providers'])('rejects nuxt.config content.%s as a second source of truth', async (key) => {
@@ -303,6 +334,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         provider: 'remote'
       }),
+      expect.objectContaining({ docs: expect.any(Object) }),
       expect.any(Object),
       expect.any(Object),
       expect.anything(),
@@ -346,6 +378,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         collections: expect.any(Object)
       }),
+      expect.any(Object),
       expect.objectContaining({
         posts: expect.objectContaining({
           source: 'posts/*.md',
@@ -373,11 +406,11 @@ describe('module contracts', () => {
       expect.anything()
     )
 
-    const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    const privateCollections = applyContentRuntimeConfig.mock.calls[0][6]
     expect(privateCollections.posts).not.toHaveProperty('schema')
     expect(privateCollections.authors).not.toHaveProperty('schemaFields')
     expect(privateCollections.empty).not.toHaveProperty('schema')
-    const publicCollections = applyContentRuntimeConfig.mock.calls[0][4]
+    const publicCollections = applyContentRuntimeConfig.mock.calls[0][5]
     expect(publicCollections.posts).not.toHaveProperty('schemaFields')
   })
 
@@ -399,8 +432,8 @@ describe('module contracts', () => {
     await hooks.get('modules:done')?.()
 
     const resolvedContext = applyContentRuntimeConfig.mock.calls[0][2]
-    const publicCollections = applyContentRuntimeConfig.mock.calls[0][4]
-    const privateCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    const publicCollections = applyContentRuntimeConfig.mock.calls[0][5]
+    const privateCollections = applyContentRuntimeConfig.mock.calls[0][6]
     expect(resolvedContext.collections.legal.i18n).toBe(false)
     expect(publicCollections.legal.i18n).toBe(false)
     expect(privateCollections.legal.i18n).toBe(false)
@@ -566,6 +599,17 @@ describe('module contracts', () => {
     expect(resolveNuxtSitemapPrerenderRoutes(nuxt as any)).toEqual(['/sitemap.xml'])
   })
 
+  test('uses Nuxt Kit module detection for configured objects and installed module metadata', async () => {
+    const { hasNuxtI18nModule, hasNuxtSitemapModule } = await import('../../packages/content/src/module/options')
+    const { nuxt } = createNuxt()
+
+    nuxt.options.modules = [{ name: '@nuxtjs/i18n' } as any]
+    nuxt.options._installedModules = [{ meta: { name: '@nuxtjs/sitemap' } }]
+
+    expect(hasNuxtI18nModule(nuxt as any)).toBe(true)
+    expect(hasNuxtSitemapModule(nuxt as any)).toBe(true)
+  })
+
   test('normalizes sitemap assertion defaults and exposes them to module internals', async () => {
     const { nuxt, hooks } = createNuxt()
 
@@ -613,6 +657,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         collections: expect.any(Object)
       }),
+      expect.any(Object),
       expect.objectContaining({
         docs: expect.objectContaining({
           source: '**/*.md'
@@ -644,6 +689,7 @@ describe('module contracts', () => {
       expect.objectContaining({
         collections: expect.any(Object)
       }),
+      expect.any(Object),
       expect.objectContaining({
         docs: expect.objectContaining({
           source: '**/*.md'
@@ -657,22 +703,27 @@ describe('module contracts', () => {
     )
   })
 
-  test('inlines the complete package implementation and runtime dependencies into Nitro', async () => {
+  test('preserves user bundling config without adding Comark overrides', async () => {
     const { nuxt, hooks } = createNuxt()
+    nuxt.options.build.transpile = ['user-transpile']
+    nuxt.options.vite = { ssr: { noExternal: ['user-vite-external'] } }
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
 
-    const nitroConfig: Record<string, any> = {}
+    const nitroConfig: Record<string, any> = {
+      externals: { inline: ['user-nitro-inline'] }
+    }
     hooks.get('nitro:config')?.(nitroConfig)
 
     expect(nitroConfig.externals?.inline).toEqual(expect.arrayContaining([
       '/resolved/.',
-      'comark',
-      '@comark/vue'
+      'user-nitro-inline'
     ]))
-    expect(nuxt.options.build.transpile).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
-    expect((nuxt.options.vite as any).ssr.noExternal).toEqual(expect.arrayContaining(['comark', '@comark/vue']))
+    expect(nitroConfig.externals?.inline).not.toContain('comark')
+    expect(nitroConfig.externals?.inline).not.toContain('@comark/vue')
+    expect(nuxt.options.build.transpile).toEqual(['user-transpile'])
+    expect((nuxt.options.vite as any).ssr.noExternal).toEqual(['user-vite-external'])
   })
 
   // Nuxt I18n is the sole locale/default-locale authority
@@ -778,7 +829,7 @@ describe('module contracts', () => {
     }).toThrow()
   })
 
-  test('uses the configured component policy as the contract and renderer source of truth', async () => {
+  test('keeps authored portable policy separate from configured renderer policy', async () => {
     const { nuxt, hooks } = createNuxt()
     let observed: any
     nuxt.hook('content:context', (ctx: any) => {
@@ -796,9 +847,30 @@ describe('module contracts', () => {
       },
     }
     const mod = await import('../../packages/content/src/module')
-    await mod.default.setup(createOptions({ componentPolicy }), nuxt as any)
+    await mod.default.setup(createOptions({
+      componentPolicy,
+      markdown: {
+        plugins: [{ name: 'math', options: {} }],
+        tags: {},
+        anchorLinks: { depth: 4, exclude: [1] },
+      },
+    }), nuxt as any)
     await hooks.get('modules:done')?.()
 
     expect(observed.contract.collections.docs.componentPolicy).toEqual(componentPolicy)
+    expect(applyContentRuntimeConfig.mock.calls[0][4]).toMatchObject({
+      docs: {
+        components: {
+          callout: componentPolicy.components.callout,
+          'ginko-math': {
+            kind: 'inline',
+            props: {
+              class: { type: 'string', required: true },
+              content: { type: 'string', required: true },
+            },
+          },
+        },
+      },
+    })
   })
 })

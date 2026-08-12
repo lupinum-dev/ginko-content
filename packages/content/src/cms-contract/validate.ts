@@ -6,6 +6,11 @@ import type {
   ResolvedContentFieldV1,
   ResolvedContentValidationV1,
 } from './types.js'
+import {
+  canonicalizePortableComponentName,
+  isReservedPortableComponentName,
+  isValidPortableComponentName,
+} from './render-policy.js'
 
 const fieldTypes = new Set<ResolvedContentFieldTypeV1>([
   'text', 'textarea', 'richtext', 'slug', 'email', 'url', 'number', 'range', 'select',
@@ -143,7 +148,18 @@ function validateFieldPolicy(input: ResolvedContentFieldV1, path: string): void 
 function componentPolicy(value: unknown, path: string): PortableComponentPolicyV1 {
   const input = record(value, path)
   exact(input, ['components'], path)
+  const canonicalNames = new Set<string>()
   for (const [name, rawComponent] of Object.entries(record(input.components, `${path}.components`))) {
+    const canonicalName = canonicalizePortableComponentName(name)
+    if (
+      !canonicalName ||
+      name !== canonicalName ||
+      !isValidPortableComponentName(canonicalName) ||
+      isReservedPortableComponentName(canonicalName) ||
+      ['__proto__', 'prototype', 'constructor'].includes(name.toLowerCase()) ||
+      canonicalNames.has(canonicalName)
+    ) throw new Error(`${path}.components.${name} conflicts after canonicalization.`)
+    canonicalNames.add(canonicalName)
     const component = record(rawComponent, `${path}.components.${name}`)
     exact(component, ['kind', 'props', 'slots', 'media'], `${path}.components.${name}`)
     if (!['block', 'inline'].includes(String(component.kind))) throw new Error(`${path}.components.${name}.kind is invalid.`)

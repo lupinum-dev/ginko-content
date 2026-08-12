@@ -1,7 +1,6 @@
 import type { StorageValue } from 'unstorage'
 import type { ParsedContent, MarkdownOptions } from '../types/content'
-import type { ContentCollectionConfig, ContentCollectionI18nConfig } from '../types/config'
-import type { ContentContext, ContentRevalidateOptions, ModuleOptions, ResolvedContentContext } from '../types/module'
+import type { ContentContext, ContentRevalidateOptions, ResolvedContentContext } from '../types/module'
 import type { createSearchRuntimeConfig } from './options'
 import type { PortableComponentPolicyV1 } from '../cms-contract/types'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
@@ -11,47 +10,22 @@ interface ModulePublicRuntimeConfig {
     baseURL: string
   }
 
-  sitemap: {
-    path: string
-    include?: string[]
-    exclude?: string[]
-    includeDrafts?: boolean
-  } | false
-
   integrity: number | undefined
-
-  respectPathCase: boolean
 
   defaultLocale: ContentContext['defaultLocale']
 
   locales: ContentContext['locales']
 
-  provider: ContentContext['provider']
-
-  providers: ContentContext['providers']
-
   links: ContentContext['links']
 
   collections: Record<string, {
-    source: ContentCollectionConfig['source']
-    exclude?: ContentCollectionConfig['exclude']
-    strict: boolean
-    i18n?: false | ContentCollectionI18nConfig
     localePolicy: ResolvedCollectionLocalePolicy
-    sitemap?: boolean
+    references?: Record<string, string[]>
   }>
 
   renderPolicies: Record<string, PortableComponentPolicyV1>
 
-  localeFallback: ContentContext['localeFallback']
-
-  translatedSlugs: ContentContext['translatedSlugs']
-
-  strictTranslatedSlugs: ContentContext['strictTranslatedSlugs']
-
-  markdown: MarkdownOptions
-
-  navigation: ModuleOptions['navigation']
+  markdown: Pick<MarkdownOptions, 'tags' | 'image'>
 
   search: ReturnType<typeof createSearchRuntimeConfig> | false
 }
@@ -61,9 +35,10 @@ interface ModulePrivateRuntimeConfig {
    * Internal version that represents cache format.
    * This is used to invalidate cache when the format changes.
    */
-  cacheVersion: string;
+  cacheVersion: number;
   cacheIntegrity: string;
   revalidate?: false | ContentRevalidateOptions;
+  siteUrl?: string;
 }
 
 declare module '@nuxt/schema' {

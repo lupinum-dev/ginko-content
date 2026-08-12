@@ -10,6 +10,8 @@ import { docs } from '../content.config'
 // text at the default 200 status, exactly as it must stay in the
 // prerendered/static build. The shared layout's route-only locale switcher
 // still gives every one of these routes a real link.
+definePageMeta({ key: route => route.path })
+
 const { page } = await useContentPage(docs, { fallback: true })
 
 // This content-aware locale switcher complements the layout's always-present

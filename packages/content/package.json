@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "0.3.6",
+  "version": "0.4.0-rc.1",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://github.com/lupinum-dev/ginko-content",
   "bugs": {
@@ -135,10 +135,10 @@
     "prepublishOnly": "node -e \"console.error('Direct source publication is disabled. Publish the inspected CI tarball described in MAINTAINING.md.'); process.exit(1)\""
   },
   "dependencies": {
-    "@comark/vue": "^0.4.0",
+    "@comark/vue": "^0.6.2",
     "@nuxt/kit": "^4.4.8",
-    "@shikijs/transformers": "^4.2.0",
-    "comark": "^0.4.0",
+    "@shikijs/transformers": "^4.3.1",
+    "comark": "^0.6.2",
     "defu": "^6.1.7",
     "destr": "^2.0.5",
     "globby": "^16.2.0",
@@ -153,7 +153,7 @@
     "pathe": "^2.0.3",
     "picomatch": "^4.0.4",
     "scule": "^1.3.0",
-    "shiki": "^4.2.0",
+    "shiki": "^4.3.1",
     "ufo": "^1.6.4",
     "unstorage": "^1.17.5",
     "vue-router": "^5.0.2",
@@ -161,17 +161,26 @@
   },
   "devDependencies": {
     "@nuxt/module-builder": "1.0.2",
+    "katex": "^0.17.0",
     "nuxt": "4.4.8",
     "unbuild": "^3.6.1",
     "vue-docgen-web-types": "^0.1.8"
   },
   "peerDependencies": {
+    "beautiful-mermaid": "^1.1.3",
+    "katex": "^0.17.0",
     "nuxt": ">=4.4.7 <5",
     "pagefind": "^1.5.2",
     "vitest": ">=4.1.6 <5",
     "vue": "^3.5.35"
   },
   "peerDependenciesMeta": {
+    "beautiful-mermaid": {
+      "optional": true
+    },
+    "katex": {
+      "optional": true
+    },
     "pagefind": {
       "optional": true
     },

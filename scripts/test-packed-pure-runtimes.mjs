@@ -17,7 +17,7 @@ import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { chromium } from 'playwright-core'
 
-import { runPureRuntimeProbe } from './lib/pure-runtime-probe.mjs'
+import { runPureRuntimeProbe } from './release/pure-runtime-probe.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 const args = process.argv.slice(2)
@@ -83,7 +83,7 @@ async function loadPackedApi(packageRoot) {
 async function runWorkerProbe(packageRoot, tempRoot) {
   const entry = resolve(tempRoot, 'worker-entry.mjs')
   const bundle = resolve(tempRoot, 'worker-bundle.js')
-  const helper = resolve(repoRoot, 'scripts/lib/pure-runtime-probe.mjs')
+  const helper = resolve(repoRoot, 'scripts/release/pure-runtime-probe.mjs')
   writeFileSync(
     entry,
     [

@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { createPagefindSearchClient } from '../../packages/content/src/runtime/app/pagefind-client'
-import { startFixtureServer } from '../helpers/fixture-server'
+import { startProductionFixtureServer } from '../helpers/production-fixture'
 import { readSearchIndex } from '../helpers/generated-artifacts'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -34,7 +34,7 @@ async function loadGeneratedPagefind (entry: string, basePath: string) {
 
 describe('search matrix', () => {
   test('MiniSearch indexes route-safe public paths and supports runtime search', async () => {
-    const server = await startFixtureServer(searchFixtureDir, undefined, {
+    const server = await startProductionFixtureServer(searchFixtureDir, undefined, {
       CONTENT_SEARCH_ENGINE: 'minisearch'
     })
     try {
@@ -67,7 +67,7 @@ describe('search matrix', () => {
   }, 240000)
 
   test('Pagefind static output emits and searches default, selected German, and all-language indexes', async () => {
-    const server = await startFixtureServer(searchI18nFixtureDir, undefined, {
+    const server = await startProductionFixtureServer(searchI18nFixtureDir, undefined, {
       CONTENT_SEARCH_ENGINE: 'pagefind'
     })
     try {
@@ -145,7 +145,7 @@ describe('search matrix', () => {
   }, 240000)
 
   test('provider-owned search delegates to provider search and skips local index routes', async () => {
-    const server = await startFixtureServer(providerSearchFixtureDir)
+    const server = await startProductionFixtureServer(providerSearchFixtureDir)
     try {
       const results = await getJson<Array<Record<string, unknown>>>(`${server.baseURL}/api/_content/search?q=provider&locale=de`)
       expect(results).toEqual([
@@ -165,7 +165,7 @@ describe('search matrix', () => {
   }, 240000)
 
   test('disabled search omits production search endpoints', async () => {
-    const server = await startFixtureServer(searchFixtureDir, undefined, {
+    const server = await startProductionFixtureServer(searchFixtureDir, undefined, {
       CONTENT_SEARCH_DISABLED: '1'
     })
     try {

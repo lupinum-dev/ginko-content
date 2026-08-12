@@ -1,4 +1,4 @@
-import { createParse, defineComarkPlugin, parseFrontmatter } from 'comark'
+import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
 import type { ComarkPlugin } from 'comark'
 
 type ComponentTokenState = {
@@ -48,13 +48,19 @@ const typedComponentFrontmatter = defineComarkPlugin(() => ({
   ],
 }))
 
-/** The single configured Comark entry point used by every parsing boundary. */
-export const parseComark = async (
-  markdown: string,
+export type ComarkParser = ReturnType<typeof createMarkdownParser>
+
+/** Create one parser for one resolved plugin-profile lifecycle. */
+export const createComarkParser = (
   plugins: readonly ComarkPlugin[] = [],
-) => {
-  const parse = createParse({
-    plugins: [typedComponentFrontmatter(), ...plugins],
-  })
-  return await parse(markdown)
-}
+) => createMarkdownParser({
+  plugins: [typedComponentFrontmatter(), ...plugins],
+})
+
+// CMS, portability, and inline rendering all use this fixed safe profile. A
+// single immutable parser avoids recompiling Comark's default plugin pipeline
+// for every document without introducing a mutable process-wide profile.
+const baselineComarkParser = createComarkParser()
+
+/** The fixed-profile Comark entry point used by baseline parsing boundaries. */
+export const parseComark = async (markdown: string) => await baselineComarkParser(markdown)

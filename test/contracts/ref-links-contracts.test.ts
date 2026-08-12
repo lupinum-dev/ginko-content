@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createEvent, doc } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
 import {
   collectMarkdownRefLinks,
   parseRefLink,
@@ -114,7 +115,7 @@ describe('ref link contracts', () => {
       }
     })
 
-    await expect(withResolvedRefs(createEvent(), content, 'de')).resolves.toMatchObject({
+    await expect(withResolvedRefs(createTestEvent(), content, 'de')).resolves.toMatchObject({
       resolved: {
         resolvedRefs: {
           '$guide/advanced#deep-dive': '/de/leitfaden/fortgeschritten#deep-dive'
@@ -149,7 +150,8 @@ describe('ref link contracts', () => {
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
-    const resolved = await withResolvedRefs(createEvent(), doc({
+    const event = createTestEvent()
+    const resolved = await withResolvedRefs(event, doc({
       body: {
         type: 'root',
         children: [
@@ -182,7 +184,8 @@ describe('ref link contracts', () => {
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
-    const resolved = await withResolvedRefs(createEvent(), doc({
+    const event = createTestEvent()
+    const resolved = await withResolvedRefs(event, doc({
       body: {
         type: 'root',
         children: [
@@ -196,7 +199,7 @@ describe('ref link contracts', () => {
       }
     }), 'en')
 
-    expect(resolveVariant).toHaveBeenCalledWith(createEvent(), '1', 'en', {
+    expect(resolveVariant).toHaveBeenCalledWith(event, '1', 'en', {
       collection: 'docs'
     })
     expect((resolved as any).resolved?.resolvedRefs).toEqual({
@@ -217,7 +220,7 @@ describe('ref link contracts', () => {
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
-    await expect(withResolvedRefs(createEvent(), doc({
+    await expect(withResolvedRefs(createTestEvent(), doc({
       file: { path: '/de/guide/missing-translation.md' },
       body: {
         type: 'root',
@@ -244,11 +247,11 @@ describe('ref link contracts', () => {
 
     const { withResolvedRefs, withResolvedRefsList, withResolvedRefsQueryResponse } = await import('../../packages/content/src/storage/references')
 
-    await expect(withResolvedRefs(createEvent(), doc({ type: 'yaml', body: null as any }), 'de')).resolves.toMatchObject({
+    await expect(withResolvedRefs(createTestEvent(), doc({ type: 'yaml', body: null as any }), 'de')).resolves.toMatchObject({
       type: 'yaml'
     })
 
-    const unresolved = await withResolvedRefs(createEvent(), doc({
+    const unresolved = await withResolvedRefs(createTestEvent(), doc({
       body: {
         type: 'root',
         children: [
@@ -265,9 +268,9 @@ describe('ref link contracts', () => {
     expect((unresolved as any).resolved?.resolvedRefs).toEqual({
       '$missing/ref': '$missing/ref'
     })
-    await expect(withResolvedRefsList(createEvent(), [doc(), doc({ type: 'yaml', body: null as any })], 'de')).resolves.toHaveLength(2)
+    await expect(withResolvedRefsList(createTestEvent(), [doc(), doc({ type: 'yaml', body: null as any })], 'de')).resolves.toHaveLength(2)
 
-    const firstResponse = await withResolvedRefsQueryResponse(createEvent(), {
+    const firstResponse = await withResolvedRefsQueryResponse(createTestEvent(), {
       result: doc({
         body: {
           type: 'root',
@@ -297,7 +300,7 @@ describe('ref link contracts', () => {
     }
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
-    const resolved = await withResolvedRefs(createEvent(), doc({
+    const resolved = await withResolvedRefs(createTestEvent(), doc({
       body: {
         type: 'root',
         children: [
@@ -336,7 +339,7 @@ describe('ref link contracts', () => {
     })
 
     const { withResolvedRefs } = await import('../../packages/content/src/storage/references')
-    const resolved = await withResolvedRefs(createEvent(), doc({
+    const resolved = await withResolvedRefs(createTestEvent(), doc({
       body: {
         type: 'root',
         children: [

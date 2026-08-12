@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createEvent, doc } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
 import { createProviderQuery } from '../../packages/content/src/runtime/server/provider-query'
 import { compileQueryParams } from '../../packages/content/src/core/query/filter'
 import { fromContentProviderQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
@@ -15,8 +16,8 @@ const docsLocalePolicy = {
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({
-    public: { content: { navigation: { fields: [] } } },
     content: {
+      navigation: { fields: [] },
       defaultLocale: 'en',
       localeFallback: { de: ['en'] },
       collections: {
@@ -112,7 +113,7 @@ describe('query execution contracts', () => {
       } as any)
       return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
     }
-    const event = createEvent()
+    const event = createTestEvent()
 
     const list = await executeContentQuery(event, {
       collection: 'docs',
@@ -246,7 +247,7 @@ describe('query execution contracts', () => {
       } as any)
       return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
     }
-    const event = createEvent()
+    const event = createTestEvent()
 
     await expect(executeContentQuery(event, {
       collection: 'docs',
@@ -351,7 +352,7 @@ describe('query execution contracts', () => {
       return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
     }
 
-    const result = await executeContentQuery(createEvent(), {
+    const result = await executeContentQuery(createTestEvent(), {
       collection: 'docs',
       first: true,
       resolveVariant: {
@@ -419,7 +420,7 @@ describe('query execution contracts', () => {
     ]
     getContentsList.mockResolvedValue(dataset)
 
-    const result = await executeContentQuery(createEvent(), { collection: 'docs' })
+    const result = await executeContentQuery(createTestEvent(), { collection: 'docs' })
     const titles = (result.result as any[]).map(item => item.title).sort()
 
     // Structural non-routes never reach the public query, and an explicit
@@ -441,7 +442,7 @@ describe('query execution contracts', () => {
     // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
-    await expect(executeContentQuery(createEvent(), {
+    await expect(executeContentQuery(createTestEvent(), {
       where: [{ path: '/guide/intro' }]
     } as any)).rejects.toMatchObject({
       statusCode: 400,
@@ -454,7 +455,7 @@ describe('query execution contracts', () => {
     // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
-    await expect(Promise.resolve().then(() => executeContentQuery(createEvent(), {
+    await expect(Promise.resolve().then(() => executeContentQuery(createTestEvent(), {
       collection: 'docs',
       where: [{ title: { $regex: 'intro' } }]
     } as any))).rejects.toMatchObject({
@@ -462,7 +463,7 @@ describe('query execution contracts', () => {
       statusMessage: 'unsupported_query_operator'
     })
 
-    await expect(Promise.resolve().then(() => executeContentQuery(createEvent(), {
+    await expect(Promise.resolve().then(() => executeContentQuery(createTestEvent(), {
       collection: 'docs',
       where: [{ title: /intro/ }]
     } as any))).rejects.toMatchObject({
@@ -522,7 +523,7 @@ describe('query execution contracts', () => {
     // Adapt builder parameters to the lowered plan expected by this helper.
     const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
 
-    await expect(executeContentQuery(createEvent(), {
+    await expect(executeContentQuery(createTestEvent(), {
       collection: 'docs',
       where: [{ path: { $prefix: '/guide' } }],
       sort: [{ title: 1 }],

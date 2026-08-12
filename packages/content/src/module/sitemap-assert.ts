@@ -241,7 +241,7 @@ export async function assertGeneratedSitemaps ({
       failures.push([
         `- Placeholder sitemap URLs found: ${placeholderSiteUrls.join(', ')}`,
         'Expected production URLs in generated sitemap loc values.',
-        'Set site.url or runtimeConfig.public.content.siteUrl to the deployed origin for production release checks.'
+        'Set site.url or runtimeConfig.content.siteUrl to the deployed origin for production release checks.'
       ].join(' '))
     }
   }

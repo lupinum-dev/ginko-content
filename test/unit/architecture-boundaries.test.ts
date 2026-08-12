@@ -63,6 +63,11 @@ const importsRuntimeFramework = (specifier: string) =>
   || specifier.startsWith('@nuxt/')
   || specifier.startsWith('nitropack/')
 
+const importsMarkdownOuterLayer = (specifier: string) =>
+  ['/runtime/', '/storage/', '/integrations/', '/provider/']
+    .some(segment => specifier.includes(segment))
+  || importsRuntimeFramework(specifier)
+
 describe('architecture boundaries', () => {
   test('core does not import runtime modules', async () => {
     await expect(importsFrom('core', importsSourceSegment('runtime'))).resolves.toEqual([])
@@ -82,6 +87,10 @@ describe('architecture boundaries', () => {
 
   test('core does not import runtime framework modules', async () => {
     await expect(importsFrom('core', importsRuntimeFramework)).resolves.toEqual([])
+  })
+
+  test('core markdown normalization stays framework and provider neutral', async () => {
+    await expect(importsFrom('core/markdown', importsMarkdownOuterLayer)).resolves.toEqual([])
   })
 
   test('features do not import runtime framework modules', async () => {

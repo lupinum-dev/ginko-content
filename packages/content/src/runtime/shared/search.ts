@@ -2,35 +2,10 @@ import MiniSearch from 'minisearch'
 import type { SearchResult as MiniSearchResult } from 'minisearch'
 import type { ContentMiniSearchOptions, ContentSearchIndexRecord, ContentSearchResult } from '../../types/search'
 import { createSearchExcerpt } from '../../features/search/snippet'
-
-const DEFAULT_SEARCH_OPTIONS: ContentMiniSearchOptions = {
-  fields: ['title', 'content', 'headings'],
-  storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
-  boost: {
-    title: 4,
-    headings: 2,
-    content: 1
-  },
-  fuzzy: 0.2,
-  prefix: true
-}
-const REQUIRED_STORE_FIELDS = ['path', 'title', 'excerpt', 'collection'] as const
+import { normalizeMiniSearchOptions } from '../../features/search/options'
 interface SearchIndexEntry {
   index: MiniSearch<ContentSearchIndexRecord>
   recordsById: Map<string, ContentSearchIndexRecord>
-}
-
-const resolveSearchOptions = (options: Partial<ContentMiniSearchOptions> = {}): ContentMiniSearchOptions => {
-  const fields = options.fields?.length ? options.fields : DEFAULT_SEARCH_OPTIONS.fields
-  const storeFields = options.storeFields?.length ? options.storeFields : DEFAULT_SEARCH_OPTIONS.storeFields
-
-  return {
-    fields,
-    storeFields: Array.from(new Set([...REQUIRED_STORE_FIELDS, ...storeFields])),
-    boost: options.boost && Object.keys(options.boost).length ? options.boost : DEFAULT_SEARCH_OPTIONS.boost,
-    fuzzy: typeof options.fuzzy === 'boolean' || typeof options.fuzzy === 'number' ? options.fuzzy : DEFAULT_SEARCH_OPTIONS.fuzzy,
-    prefix: typeof options.prefix === 'boolean' ? options.prefix : DEFAULT_SEARCH_OPTIONS.prefix
-  }
 }
 
 const createSearchIndex = (options: ContentMiniSearchOptions) => {
@@ -53,7 +28,7 @@ export const createMiniSearchIndex = (
   records: readonly ContentSearchIndexRecord[],
   searchOptions?: Partial<ContentMiniSearchOptions>
 ) => {
-  const options = resolveSearchOptions(searchOptions)
+  const options = normalizeMiniSearchOptions(searchOptions)
   const snapshot = records.map(record => ({
     ...record,
     headings: [...record.headings]

@@ -148,7 +148,7 @@ describe('transformer contracts', () => {
     ].join('\n'), {
       plugins: [
         {
-          name: 'highlight',
+          name: 'shiki',
           options: {
             preStyles: false,
             transformers: [

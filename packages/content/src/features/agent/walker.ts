@@ -14,6 +14,7 @@ import {
 } from './agent-markdown'
 import { agentRawPathForRoute, normalizeAgentRoutePath } from './agent-paths'
 import { pathHasLocalePrefix, prefixPathWithLocale } from '../../core/content/path'
+import { isNormalizedTaskCheckboxProps } from '../../core/markdown/normalize-comark'
 
 const textValue = (node: MarkdownNode): string => {
   if (node.type === 'text') return node.value || ''
@@ -27,8 +28,15 @@ const block = (value: string) => value.trim() ? `${value.trim()}\n\n` : ''
 
 const renderList = (node: MarkdownNode, ctx: AgentMarkdownContext, ordered = false) =>
   block((node.children || []).map((child, index) => {
-    const body = renderChildren(child, ctx).replace(/\n+/g, '\n  ').trim()
-    return `${ordered ? `${index + 1}.` : '-'} ${body}`
+    const [first, ...rest] = child.children || []
+    let task = ''
+    if (first?.tag === 'input' && isNormalizedTaskCheckboxProps(first.props)) {
+      task = first.props?.checked === true ? '[x] ' : '[ ] '
+    }
+    const children = task ? rest : child.children || []
+    const body = children.map(item => renderNode(item, ctx)).join('').trim().replace(/\n+/g, '\n  ')
+    const prefix = ordered ? `${index + 1}.` : '-'
+    return `${prefix} ${task}${body}`
   }).join('\n'))
 
 const renderTable = (node: MarkdownNode, ctx: AgentMarkdownContext) => {
@@ -138,7 +146,9 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     if (typeof rendered === 'string') return block(rendered)
   }
 
-  if (!tag) return renderChildren(node, ctx)
+  // Tagless element nodes are invalid at the public boundary. Ignore them
+  // defensively so legacy/corrupt ASTs cannot expose parser comment text.
+  if (!tag) return ''
 
   if (/^h[1-6]$/.test(tag)) {
     const depth = Number(tag.slice(1))

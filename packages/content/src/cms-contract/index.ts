@@ -15,7 +15,8 @@
  *    (`unwrapSchema`, `getObjectShape`, `getReferenceDescriptor`, ...),
  *  - generate paths consistently with how the filesystem provider does
  *    (`generatePath`, `generateCanonicalKey`, `slugifyUrlSegment`),
- *  - parse MDC into the same AST the filesystem provider uses (`parseMdcBody`).
+ *  - parse MDC with the fixed portable-baseline profile (`parseMdcBody`); site
+ *    filesystem plugins may intentionally produce an enriched AST.
  *
  * If a future change introduces a Node/Nuxt dependency anywhere in this
  * tree, isolate builds will break loudly. That's intentional.

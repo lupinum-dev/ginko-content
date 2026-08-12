@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createEvent, doc, navDoc } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc, navDoc } from '../support/content-documents'
 import { toContentProviderNavigationQuery } from '../../packages/content/src/public/provider-query'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 import { fromContentProviderQueryPlan } from '../../packages/content/src/features/query/query-plan-boundary'
@@ -14,8 +15,8 @@ const rootLocalePolicy = {
 }
 
 const runtimeConfig: any = {
-  public: { content: { navigation: { fields: ['icon', 'badge'] } } },
   content: {
+    navigation: { fields: ['icon', 'badge'] },
     defaultLocale: 'en',
     localeFallback: { de: ['fr'] },
     collections: {
@@ -373,7 +374,7 @@ describe('navigation contracts', () => {
     useGraph(Object.values(docsByLocale).flat())
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const nav = await resolveNavigation(createEvent(), {
+    const nav = await resolveNavigation(createTestEvent(), {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['fr', 'en'] }
     })
@@ -413,7 +414,7 @@ describe('navigation contracts', () => {
     ])
     resolveLocaleChain.mockReturnValue(['en'])
 
-    const navigation = await resolveNavigation(createEvent(), {
+    const navigation = await resolveNavigation(createTestEvent(), {
       collection: 'docs',
       where: [{ $not: { views: { $gt: 5, $lt: 10 } } }]
     } as any)
@@ -443,7 +444,7 @@ describe('navigation contracts', () => {
     } as any)])
     resolveLocaleChain.mockReturnValue(['en'])
 
-    await expect(resolveNavigation(createEvent(), {
+    await expect(resolveNavigation(createTestEvent(), {
       collection: 'docs',
       resolveLocale: { locale: 'en', exact: true }
     })).resolves.toEqual([
@@ -535,7 +536,7 @@ describe('navigation contracts', () => {
       collection: 'docs',
       only: ['icon', 'badge', 'sidebar']
     })
-    const raw = await filesystemProvider.navigation!(createEvent(), wire)
+    const raw = await filesystemProvider.navigation!(createTestEvent(), wire)
 
     expect(querySpy).not.toHaveBeenCalled()
     expect(raw).toEqual([
@@ -612,7 +613,7 @@ describe('navigation contracts', () => {
       } as any)
     ])
 
-    await expect(resolveNavigation(createEvent(), { collection: 'docs' }))
+    await expect(resolveNavigation(createTestEvent(), { collection: 'docs' }))
       .rejects.toThrow(
         'Navigation configuration conflict: more than one file resolves to canonical directory "/guide".'
       )
@@ -624,7 +625,7 @@ describe('navigation contracts', () => {
       doc({ id: 'content:en:docs:draft.md', collection: 'docs', canonicalKey: 'draft', path: '/docs/draft', title: 'Draft', draft: true })
     ])
     resolveRuntimeEnvironment.mockReturnValue('production')
-    await expect(resolveNavigation(createEvent(), { collection: 'docs' })).resolves.toEqual([
+    await expect(resolveNavigation(createTestEvent(), { collection: 'docs' })).resolves.toEqual([
       expect.objectContaining({
         title: 'Docs',
         children: [
@@ -634,7 +635,7 @@ describe('navigation contracts', () => {
     ])
 
     resolveRuntimeEnvironment.mockReturnValue('development')
-    await expect(resolveNavigation(createEvent(), { collection: 'docs' })).resolves.toEqual([
+    await expect(resolveNavigation(createTestEvent(), { collection: 'docs' })).resolves.toEqual([
       expect.objectContaining({
         title: 'Docs',
         children: [
@@ -677,7 +678,7 @@ describe('navigation contracts', () => {
     useGraph(Object.values(docsByLocale).flat())
     resolveLocaleChain.mockReturnValue(['de', 'en'])
 
-    const nav = await resolveNavigation(createEvent(), {
+    const nav = await resolveNavigation(createTestEvent(), {
       collection: 'docs',
       resolveLocale: { locale: 'de', fallback: ['en'] }
     })
@@ -710,7 +711,7 @@ describe('navigation contracts', () => {
       navDoc({ id: 'content:en:guide:index.md', file: { path: '/en/guide/index.md' }, path: '/guide', locale: 'en', canonicalKey: 'guide', title: 'Guide', featured: true } as any)
     ])
 
-    const nav = await resolveNavigation(createEvent(), {
+    const nav = await resolveNavigation(createTestEvent(), {
       collection: 'docs',
       where: [{ $and: [{ locale: 'de' }, { featured: true }] }]
     } as any)
@@ -733,7 +734,7 @@ describe('navigation contracts', () => {
     ])
     resolveLocaleChain.mockReturnValue(['de'])
 
-    const navigation = await resolveNavigation(createEvent(), {
+    const navigation = await resolveNavigation(createTestEvent(), {
       collection: 'docs',
       resolveLocale: { locale: 'de', exact: true }
     })
@@ -748,7 +749,7 @@ describe('navigation contracts', () => {
       doc({ id: 'content:docs:getting-started:index.md', collection: 'docs', file: { path: '/docs/getting-started/index.md' }, path: '/docs/getting-started', title: 'Getting Started' })
     ])
 
-    const nav = await resolveNavigation(createEvent(), { collection: 'docs' })
+    const nav = await resolveNavigation(createTestEvent(), { collection: 'docs' })
 
     expect(nav).toEqual([
       expect.objectContaining({

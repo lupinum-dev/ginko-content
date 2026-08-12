@@ -3,11 +3,39 @@ import { describe, expect, test, vi } from 'vitest'
 import { createSearchSections } from '../../packages/content/src/features/search/sections'
 import { createMiniSearchIndex } from '../../packages/content/src/runtime/shared/search'
 import { createSearchExcerpt } from '../../packages/content/src/features/search/snippet'
+import { DEFAULT_MINISEARCH_OPTIONS, normalizeMiniSearchOptions } from '../../packages/content/src/features/search/options'
+import { createSearchRuntimeConfig, normalizeSearchOptions } from '../../packages/content/src/module/options'
 
 const searchWithFreshIndex = (records: Parameters<typeof createMiniSearchIndex>[0], term: string, locale?: string, options?: Parameters<typeof createMiniSearchIndex>[1]) =>
   createMiniSearchIndex(records, options).search(term, { locale })
 
 describe('search behavior', () => {
+  test('one canonical normalizer owns MiniSearch defaults and required result fields', () => {
+    const input = {
+      fields: ['tags', '', 'tags'],
+      storeFields: ['tags', '', 'tags'],
+      boost: { tags: 5, invalid: Number.NaN },
+      fuzzy: Number.POSITIVE_INFINITY,
+      prefix: false
+    }
+    const canonical = normalizeMiniSearchOptions(input)
+
+    expect(normalizeMiniSearchOptions()).toEqual(DEFAULT_MINISEARCH_OPTIONS)
+    expect(canonical).toEqual({
+      fields: ['tags'],
+      storeFields: ['path', 'title', 'excerpt', 'collection', 'tags'],
+      boost: { tags: 5 },
+      fuzzy: 0.2,
+      prefix: false
+    })
+    expect(normalizeSearchOptions({ search: { minisearch: input } }).minisearch).toEqual(canonical)
+    expect(createSearchRuntimeConfig({
+      engine: 'minisearch',
+      apiBaseURL: undefined,
+      minisearch: input
+    }, '/api/_content').minisearch).toEqual(canonical)
+  })
+
   test('the index shapes a contextual plain-text excerpt around the query', () => {
     const records = [{
       id: '/docs/search#lifecycle',

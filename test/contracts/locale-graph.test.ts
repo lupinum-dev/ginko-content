@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { createEvent, createStorage, doc } from './_utils'
+import { createTestEvent } from '../support/provider-scenarios/event'
+import { doc } from '../support/content-documents'
+import { createStorage } from '../support/memory-storage'
 
 const route = { path: '/' }
 const nuxtApp = { $i18n: { locale: undefined as any } }
@@ -153,7 +155,7 @@ describe('locale graph contracts', () => {
     ])
 
     const { getContentGraph, resolveVariant, resolveRouteVariant } = await import('../../packages/content/src/storage/graph')
-    const event = createEvent()
+    const event = createTestEvent()
     const graph = await getContentGraph(event)
 
     expect(Object.keys(graph.byCanonical['guide/advanced'] || {})).toEqual(['en', 'fr'])

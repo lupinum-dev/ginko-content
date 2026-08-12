@@ -19,7 +19,8 @@ const kitMocks = vi.hoisted(() => ({
   addServerImports: vi.fn(),
   addComponentsDir: vi.fn(),
   addPlugin: vi.fn(),
-  addTypeTemplate: vi.fn()
+  addTypeTemplate: vi.fn(),
+  getLayerDirectories: vi.fn((nuxt: any) => nuxt.options.layerDirectories)
 }))
 
 vi.mock('@nuxt/kit', () => kitMocks)
@@ -30,7 +31,7 @@ const createNuxt = (layers: string[]) => {
   return {
     nuxt: {
       options: {
-        _layers: layers.map(srcDir => ({ config: { srcDir } }))
+        layerDirectories: layers.map(app => ({ app }))
       },
       hook(name: string, handler: (payload: any) => void) {
         hooks.set(name, [...(hooks.get(name) || []), handler])
@@ -147,7 +148,7 @@ describe('runtime asset contracts', () => {
     expect(contents).toContain('if (typeof value === \'string\') return normalizeRoutePath(value)')
   })
 
-  test('registers user content component dirs as non-global and preserves app override order', async () => {
+  test('registers user content component dirs as renderer-owned locals and preserves app override order', async () => {
     const root = await mkdtemp(join(tmpdir(), 'content-runtime-assets-'))
     const baseLayer = join(root, 'base')
     const appLayer = join(root, 'app')
@@ -156,8 +157,8 @@ describe('runtime asset contracts', () => {
     await mkdir(join(baseLayer, 'components/content'), { recursive: true })
     await mkdir(join(appLayer, 'components/content'), { recursive: true })
 
-    const { nuxt, hooks } = createNuxt([baseLayer, appLayer])
-    await registerUserContentComponents(nuxt as any, join)
+    const { nuxt, hooks } = createNuxt([appLayer, baseLayer])
+    await registerUserContentComponents(nuxt as any)
 
     const dirs: Array<Record<string, unknown>> = []
     for (const handler of hooks.get('components:dirs') || []) {
@@ -188,8 +189,8 @@ describe('runtime asset contracts', () => {
 
     await mkdir(join(appLayer, 'components/content'), { recursive: true })
 
-    const { nuxt, hooks } = createNuxt([baseLayer, appLayer])
-    await registerUserContentComponents(nuxt as any, join)
+    const { nuxt, hooks } = createNuxt([appLayer, baseLayer])
+    await registerUserContentComponents(nuxt as any)
 
     const dirs: Array<Record<string, unknown>> = []
     for (const handler of hooks.get('components:dirs') || []) {

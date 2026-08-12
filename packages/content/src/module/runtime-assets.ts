@@ -1,13 +1,13 @@
 import fs from 'fs'
 import { join } from 'pathe'
-import { addComponentsDir, addImports, addPlugin, addServerImports, addTypeTemplate } from '@nuxt/kit'
+import { addComponentsDir, addImports, addPlugin, addServerImports, addTypeTemplate, getLayerDirectories } from '@nuxt/kit'
 import type { addTemplate } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
 /**
  * The final app function auto-import list: exactly
  * `useContentPage` and the collision-safe `useGinkoContentSearch` alias.
- * The package export remains `useContentSearch`; pure query helpers are
+ * The package export remains `useContentSearch`; one-shot query functions are
  * imported explicitly from `/client` instead.
  */
 export const runtimeAppImportSpecs = [
@@ -115,11 +115,10 @@ export const registerContentI18nTemplate = (
   })
 }
 
-export const registerUserContentComponents = async (nuxt: Nuxt, _resolve: (path: string) => string) => {
-  const layers = [...nuxt.options._layers]
-  for (const layer of layers) {
-    const srcDir = layer.config.srcDir
-    const globalComponents = join(srcDir, 'components/content')
+export const registerUserContentComponents = async (nuxt: Nuxt) => {
+  const contentDirectories: Array<{ path: string, global: false, pathPrefix: false, prefix: '' }> = []
+  for (const layer of getLayerDirectories(nuxt)) {
+    const globalComponents = join(layer.app, 'components/content')
     const dirStat = await fs.promises.stat(globalComponents).catch((error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') {
         return null
@@ -128,15 +127,18 @@ export const registerUserContentComponents = async (nuxt: Nuxt, _resolve: (path:
       throw error
     })
     if (dirStat && dirStat.isDirectory()) {
-      nuxt.hook('components:dirs', (dirs) => {
-        dirs.unshift({
-          path: globalComponents,
-          global: false,
-          pathPrefix: false,
-          prefix: ''
-        })
+      contentDirectories.push({
+        path: globalComponents,
+        global: false,
+        pathPrefix: false,
+        prefix: ''
       })
     }
+  }
+  if (contentDirectories.length) {
+    nuxt.hook('components:dirs', (dirs) => {
+      dirs.unshift(...contentDirectories)
+    })
   }
 }
 

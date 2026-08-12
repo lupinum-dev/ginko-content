@@ -61,15 +61,20 @@ status file. Never end an agent task while a gate is still running.
 
 ## Release Safety
 
-Never run live publish commands from an agent session. `release:publish` is
-disabled on purpose. The release flow is:
+Never run live publish commands from an agent session. The normal release flow
+uses the protected `Publish` GitHub Actions workflow with the successful CI run
+ID and exact package version. A human reviewer approves its `npm` environment.
+The workflow publishes only the previously certified tarball.
+
+Use these commands only to prepare and verify release metadata:
 
 ```bash
 pnpm run release:notes
 pnpm run release:verify
 ```
 
-Then a human maintainer inspects `.pack/*.tgz` and follows `MAINTAINING.md`.
+The local `release:publish` script is a manual recovery path only. Follow
+`MAINTAINING.md` if the protected workflow cannot be used.
 Do not commit `.pack/`, `dist/`, `.nuxt/`, `.output/`, or generated tarballs.
 
 ## Provider Contract Rules

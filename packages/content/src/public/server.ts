@@ -2,7 +2,7 @@
  * Server-side public API surface (Nitro / H3 contexts).
  *
  * The unified query API (ADR-0016) is the same on the server as on the client
- * — same option shapes, same handle objects, same types. Pure functions are
+ * — same option shapes, same handle objects, same types. Query functions are
  * re-exported here for ergonomic discoverability from `@lupinum/ginko-content/server`.
  */
 export {

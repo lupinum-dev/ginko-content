@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { evaluateProductionAudit } from './lib/production-audit.mjs'
+import { assertProductionAuditClean } from './release/production-audit.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
@@ -65,19 +65,19 @@ try {
     throw new Error('npm audit did not return valid JSON.')
   }
 
-  const result = evaluateProductionAudit(report)
-  if (audit.status === 0) {
-    console.log('Production dependency audit found no vulnerabilities.')
+  try {
+    assertProductionAuditClean(report)
   }
-  else if (result.acceptedException) {
-    console.warn(
-      `TEMPORARY SECURITY EXCEPTION: ${result.advisory} is accepted only for the exact Nitro/Archiver dependency path until ${result.expiresAt}.`,
-    )
-  }
-  else {
+  catch (error) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+    throw error
+  }
+
+  if (audit.status !== 0) {
     throw new Error(`npm audit failed with exit code ${audit.status}.`)
   }
+
+  console.log('Production dependency audit found no vulnerabilities.')
 }
 finally {
   rmSync(auditRoot, { recursive: true, force: true })

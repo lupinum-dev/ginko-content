@@ -2,19 +2,19 @@ import type { Nuxt } from '@nuxt/schema'
 import { hash } from 'ohash'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { ContentConfig } from '../types/config'
-import { processMarkdownOptions } from '../utils'
+import type { PortableComponentPolicyV1 } from '../types/component-policy'
 import { collectTopLevelReferenceFieldsByTarget, collectTopLevelSchemaFields } from '../core/references/schema'
 import { applyContentRuntimeConfig } from './runtime-config'
 import { registerContentSearchServerHandlers } from './server-handlers'
-import { assertConfiguredProviderAvailable, validateBuiltinMarkdownPlugins } from './validation'
+import { assertConfiguredProviderAvailable } from './validation'
 
 interface ContentContextFinalizationOptions {
   nuxt: Nuxt
   options: ModuleOptions
   appContentConfig: ContentConfig
   contentContext: ContentContext
+  runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>
   buildIntegrity: number | undefined
-  resolvePath: (path: string) => Promise<string>
   resolveRuntimeModule: (path: string) => string
   onResolved: (context: ResolvedContentContext) => void
 }
@@ -24,8 +24,8 @@ export const registerContentContextFinalization = ({
   options,
   appContentConfig,
   contentContext,
+  runtimeRenderPolicies,
   buildIntegrity,
-  resolvePath,
   resolveRuntimeModule,
   onResolved
 }: ContentContextFinalizationOptions) => {
@@ -43,7 +43,6 @@ export const registerContentContextFinalization = ({
     const resolvedContentContext = {
       ...contentContext,
       defaultLocale: contentContext.localePolicy.defaultLocale,
-      markdown: processMarkdownOptions(contentContext.markdown)
     } satisfies ResolvedContentContext
     // `resolvedContentContext` is embedded by reference into Nuxt/Nitro
     // runtime config below (module/runtime-config.ts spreads it into the
@@ -63,8 +62,6 @@ export const registerContentContextFinalization = ({
     // validate or derive their own artifacts from it; they may not mutate
     // collections, locales, provider selection, or routing policy.
     await nuxt.callHook('content:context', contextForObservers)
-    await validateBuiltinMarkdownPlugins(resolvedContentContext.markdown.plugins, resolvePath)
-
     const collectionEntries = Object.entries(contentContext.collections).map(([name, collection]) => {
       const references = collectTopLevelReferenceFieldsByTarget(collection.schema)
       const schemaFields = collectTopLevelSchemaFields(collection.schema)
@@ -107,6 +104,16 @@ export const registerContentContextFinalization = ({
       csv: resolvedContentContext.csv
     })
 
-    await applyContentRuntimeConfig(nuxt, options, resolvedContentContext, appContentConfig, runtimeCollections, privateRuntimeCollections, buildIntegrity, cacheIntegrity)
+    await applyContentRuntimeConfig(
+      nuxt,
+      options,
+      resolvedContentContext,
+      appContentConfig,
+      runtimeRenderPolicies,
+      runtimeCollections,
+      privateRuntimeCollections,
+      buildIntegrity,
+      cacheIntegrity,
+    )
   })
 }

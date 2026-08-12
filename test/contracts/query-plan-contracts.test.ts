@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { doc } from './_utils'
+import { doc } from '../support/content-documents'
 
 describe('query plan contracts', () => {
   test('lowers grouped where clauses into an explicit AST', async () => {

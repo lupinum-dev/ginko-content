@@ -236,6 +236,8 @@ jobs:
           node-version: 24
       - uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
         id: chrome
+      - name: Export Chromium path for release probes
+        run: echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE=${{ steps.chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: Initialize release summary
@@ -255,8 +257,6 @@ jobs:
           throw new Error('Release artifact is not eligible for '+process.env.GITHUB_SHA)"
       - name: Test pure runtimes
         run: node scripts/timed-command.mjs pure-runtimes pnpm test:pure-runtimes
-        env:
-          PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
       - name: Test exact tarball with pnpm
         run: node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer
       - name: Test exact tarball with npm
@@ -308,6 +308,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26
+      - uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
+        id: chrome
       - run: npm install --global corepack@0.35.0
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
@@ -321,6 +323,8 @@ jobs:
         run: |
           pnpm release:pack
           pnpm test:package-consumer
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
 
   windows-portability:
     name: Windows portability and packed consumer

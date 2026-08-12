@@ -20,15 +20,17 @@ export default defineNuxtConfig({
     '@lupinum/ginko-content'
   ],
   content: {
+    componentPolicy: {
+      components: {
+        'layer-priority': { kind: 'block', props: {}, slots: [], media: null }
+      }
+    },
     navigation: {
       fields: ['icon']
     },
     markdown: {
       plugins: [
-        ['highlight', {
-          theme: 'material-theme-palenight',
-          langs: ['json', 'js', 'ts', 'html', 'css', 'vue', 'shell', 'mdc', 'md', 'yaml']
-        }],
+        'shiki',
         ['toc', { depth: 2, searchDepth: 2 }],
         'summary'
       ]

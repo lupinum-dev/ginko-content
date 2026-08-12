@@ -8,6 +8,8 @@ const alias = {
   '#content/virtual/config': resolve('./test/mock/content-config.ts'),
   '#content/virtual/transformers': resolve('./test/mock/content-transformers.ts'),
   '#content/virtual/providers': resolve('./test/mock/content-provider-registry.ts'),
+  '#content/virtual/markdown-parser-plugins': resolve('./test/mock/markdown-parser-plugins-baseline.ts'),
+  '#content/virtual/markdown-renderer-components': resolve('./test/mock/markdown-renderer-components.ts'),
   '@lupinum/ginko-content/transformers': resolve('./packages/content/src/runtime/transformers/define.ts'),
   'pagefind': resolve('./test/mock/pagefind.ts'),
   'magic-string': resolve('./node_modules/magic-string/dist/magic-string.cjs.js')
@@ -35,6 +37,7 @@ const generateLaneTests = [
 
 const nodeAlias = {
   ...alias,
+  '#content/virtual/markdown-parser-plugins': resolve('./test/mock/markdown-parser-plugins.ts'),
   'nitropack/runtime': resolve('./test/mock/nitropack-runtime.ts')
 }
 
@@ -45,13 +48,15 @@ const nodeContractTests = [
   // vitest-environment-nuxt sandbox cannot resolve those paths, so this runs
   // under a plain Node environment instead.
   'test/contracts/integration-hooks-contracts.test.ts',
+  'test/contracts/markdown-plugin-template-contracts.test.ts',
   'test/contracts/module-contracts.test.ts',
   'test/contracts/portability-contracts.test.ts',
   'test/contracts/portability-directory-contracts.test.ts',
   'test/contracts/runtime-assets-contracts.test.ts',
   'test/contracts/server-handlers-contracts.test.ts',
   'test/contracts/transformers-contracts.test.ts',
-  'test/contracts/provider-route-golden.test.ts'
+  'test/contracts/provider-route-golden.test.ts',
+  'test/contracts/comark-conformance-contracts.test.ts'
 ]
 
 export default defineConfig({

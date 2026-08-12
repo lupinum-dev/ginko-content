@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { createInMemoryProvider } from '../harness/provider'
-import { createBasicScenario, createSaasI18nScenario } from '../harness/scenarios'
-import { createTestEvent } from '../harness/event'
+import { createInMemoryProvider } from '../support/provider-scenarios/provider'
+import { createBasicScenario, createSaasI18nScenario } from '../support/provider-scenarios/scenarios'
+import { createTestEvent } from '../support/provider-scenarios/event'
 import { encodeQueryParams } from '../../packages/content/src/runtime/utils/query'
 import {
   MAX_QUERY_REQUEST_BYTES,

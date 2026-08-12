@@ -1,15 +1,11 @@
 import type { ComarkPlugin } from 'comark'
-import highlightPlugin from 'comark/plugins/highlight'
-import summaryPlugin from 'comark/plugins/summary'
-import tocPlugin from 'comark/plugins/toc'
-import footnotesPlugin from 'comark/plugins/footnotes'
 import materialThemeLighter from 'shiki/dist/themes/material-theme-lighter.mjs'
 import materialThemePalenight from 'shiki/dist/themes/material-theme-palenight.mjs'
 import type { ResolvedMarkdownPlugin } from '../types/content'
+import { markdownPluginFactories } from '#content/virtual/markdown-parser-plugins'
+import { assertCanonicalHighlightOptionNames } from './markdown-plugin-options'
 
-type BuiltinMarkdownPluginSpec = {
-  load: () => Promise<any>
-}
+export { assertCanonicalHighlightOptionNames } from './markdown-plugin-options'
 
 type ShikiTransformer = {
   name?: string
@@ -82,11 +78,12 @@ const restoreSerializedShikiTransformers = async (transformers: unknown): Promis
 }
 
 export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) => {
-  if (plugin.name !== 'highlight') {
+  if (plugin.name !== 'shiki' && plugin.name !== 'highlight') {
     return plugin.options
   }
 
   const options = plugin.options || {}
+  assertCanonicalHighlightOptionNames(options)
   const normalizedOptions = cloneMarkdownPluginOptionValue(options)
   const themes = (options as Record<string, unknown>).themes
   if (typeof themes !== 'object' || themes === null) {
@@ -110,7 +107,7 @@ export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) =
 
 const resolveMarkdownPluginOptions = async (plugin: ResolvedMarkdownPlugin) => {
   const normalized = normalizeMarkdownPluginOptions(plugin)
-  if (plugin.name !== 'highlight' || typeof normalized !== 'object' || normalized === null) {
+  if ((plugin.name !== 'shiki' && plugin.name !== 'highlight') || typeof normalized !== 'object' || normalized === null) {
     return normalized
   }
 
@@ -121,77 +118,12 @@ const resolveMarkdownPluginOptions = async (plugin: ResolvedMarkdownPlugin) => {
   }
 }
 
-// Two loading strategies live side by side here on purpose:
-//   - Most builtin comark plugins use a literal `import('comark/plugins/x')`
-//     (via `loadBuiltinModule`). These are statically analyzable, so the
-//     bundler resolves them at build time and they pull in zero optional peers.
-//   - `math` and `mermaid` stay behind the `@vite-ignore` `loadModule` path
-//     because they hard-import optional peers (katex / mermaid) that are not
-//     installed by default; a literal import would make the bundler try to
-//     resolve those absent peers and fail. Deferring to a runtime `loadModule`
-//     keeps them opt-in — they only load when an app actually installs the peer.
-const builtinMarkdownPlugins: Record<string, BuiltinMarkdownPluginSpec> = {
-  breaks: {
-    load: () => loadBuiltinModule(() => import('comark/plugins/breaks'))
-  },
-  emoji: {
-    load: () => loadBuiltinModule(() => import('comark/plugins/emoji'))
-  },
-  footnotes: {
-    load: async () => footnotesPlugin
-  },
-  highlight: {
-    load: async () => highlightPlugin
-  },
-  'json-render': {
-    load: () => loadBuiltinModule(() => import('comark/plugins/json-render'))
-  },
-  math: {
-    load: () => loadModule('comark/plugins/math')
-  },
-  mermaid: {
-    load: () => loadModule('comark/plugins/mermaid')
-  },
-  punctuation: {
-    load: () => loadBuiltinModule(() => import('comark/plugins/punctuation'))
-  },
-  security: {
-    load: () => loadBuiltinModule(() => import('comark/plugins/security'))
-  },
-  summary: {
-    load: async () => summaryPlugin
-  },
-  toc: {
-    load: async () => tocPlugin
-  }
-}
-
 export async function resolveMarkdownPlugins (plugins: ResolvedMarkdownPlugin[]): Promise<ComarkPlugin[]> {
   return await Promise.all(plugins.map(async (plugin) => {
-    const factory = await loadMarkdownPluginFactory(plugin.name)
+    const factory = markdownPluginFactories[plugin.name]
+    if (typeof factory !== 'function') {
+      throw new TypeError(`Markdown plugin "${plugin.name}" is not present in the generated Nuxt plugin registry.`)
+    }
     return factory(await resolveMarkdownPluginOptions(plugin))
   }))
-}
-
-async function loadMarkdownPluginFactory (name: string) {
-  const builtin = builtinMarkdownPlugins[name]
-  if (builtin) {
-    return await builtin.load()
-  }
-
-  return await loadModule(name)
-}
-
-async function loadModule (specifier: string) {
-  const imported = await import(/* @vite-ignore */ specifier)
-  return resolveModule(imported)
-}
-
-async function loadBuiltinModule (loader: () => Promise<unknown>) {
-  const imported = await loader()
-  return resolveModule(imported)
-}
-
-function resolveModule<T> (imported: T) {
-  return (imported as Record<string, unknown>).default || imported
 }

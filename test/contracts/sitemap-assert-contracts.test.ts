@@ -266,7 +266,7 @@ describe('sitemap assertion contracts', () => {
     })).rejects.toThrow([
       'Placeholder sitemap URLs found: https://example.com/docs/getting-started, https://docs.localhost/blog/static-docs-pipeline',
       'Expected production URLs in generated sitemap loc values.',
-      'Set site.url or runtimeConfig.public.content.siteUrl to the deployed origin for production release checks.'
+      'Set site.url or runtimeConfig.content.siteUrl to the deployed origin for production release checks.'
     ].join(' '))
   })
 })

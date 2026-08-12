@@ -1,11 +1,13 @@
 import type { Nuxt } from '@nuxt/schema'
-import type { ContentMiniSearchOptions, ContentSearchEngine, ContentSearchPublicRuntimeConfig } from '../types/search'
+import { hasNuxtModule } from '@nuxt/kit'
+import type { ContentSearchEngine, ContentSearchPublicRuntimeConfig } from '../types/search'
 import type { ContentSearchOptions, ModuleOptions, ResolvedContentI18nOptions } from '../types/module'
 import { resolveLocalePolicy } from '../features/localization/locale-policy'
 import type { LocalePolicyCollectionInput, ResolvedLocalePolicy } from '../features/localization/locale-policy'
 import { normalizeContentSitemapAssertOptions } from './sitemap-assert'
 import { GINKO_SITEMAP_SOURCE_NAME, resolveContentSitemapSource } from '../runtime/utils/sitemap-source'
 import { compileWhere } from '../core/query/filter'
+import { normalizeMiniSearchOptions } from '../features/search/options'
 
 type NuxtI18nConfig = {
   defaultLocale?: string
@@ -13,26 +15,12 @@ type NuxtI18nConfig = {
   strategy?: string
 }
 
-function hasNuxtModule(modules: unknown[] = [], name: string): boolean {
-  return modules.some((entry) => {
-    if (typeof entry === 'string') {
-      return entry === name
-    }
-
-    if (Array.isArray(entry) && typeof entry[0] === 'string') {
-      return entry[0] === name
-    }
-
-    return false
-  })
+export function hasNuxtI18nModule(nuxt: Nuxt): boolean {
+  return hasNuxtModule('@nuxtjs/i18n', nuxt)
 }
 
-export function hasNuxtI18nModule(modules: unknown[] = []): boolean {
-  return hasNuxtModule(modules, '@nuxtjs/i18n')
-}
-
-export function hasNuxtSitemapModule(modules: unknown[] = []): boolean {
-  return hasNuxtModule(modules, '@nuxtjs/sitemap')
+export function hasNuxtSitemapModule(nuxt: Nuxt): boolean {
+  return hasNuxtModule('@nuxtjs/sitemap', nuxt)
 }
 
 export function configureNuxtSitemapSource(
@@ -40,7 +28,7 @@ export function configureNuxtSitemapSource(
   apiBaseURL: string,
   sitemapPath = '/sitemap'
 ) {
-  if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+  if (!hasNuxtSitemapModule(nuxt)) {
     return
   }
 
@@ -62,7 +50,7 @@ export function configureNuxtSitemapSource(
 }
 
 export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
-  if (!hasNuxtSitemapModule(nuxt.options.modules)) {
+  if (!hasNuxtSitemapModule(nuxt)) {
     return []
   }
 
@@ -72,7 +60,7 @@ export function resolveNuxtSitemapPrerenderRoutes(nuxt: Nuxt): string[] {
   }
 
   const nuxtI18n = (nuxt.options as { i18n?: NuxtI18nConfig }).i18n || {}
-  if (!hasNuxtI18nModule(nuxt.options.modules) || !Array.isArray(nuxtI18n.locales) || nuxtI18n.locales.length === 0) {
+  if (!hasNuxtI18nModule(nuxt) || !Array.isArray(nuxtI18n.locales) || nuxtI18n.locales.length === 0) {
     return ['/sitemap.xml']
   }
 
@@ -107,7 +95,7 @@ export function resolveContentLocalePolicy(
 
   return resolveLocalePolicy({
     nuxtI18n: {
-      installed: hasNuxtI18nModule(nuxt.options.modules),
+      installed: hasNuxtI18nModule(nuxt),
       locales: nuxtLocales,
       defaultLocale: nuxtI18n.defaultLocale,
       strategy: nuxtI18n.strategy
@@ -205,39 +193,6 @@ export async function assertPagefindAvailable (
     await importPagefind()
   } catch {
     throw new Error('Content search engine "pagefind" is enabled but the optional "pagefind" package is not installed. Install it: pnpm add -D pagefind')
-  }
-}
-
-export const defaultMiniSearchOptions = {
-  fields: ['title', 'content', 'headings'],
-  storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
-  boost: {
-    title: 4,
-    headings: 2,
-    content: 1
-  },
-  fuzzy: 0.2,
-  prefix: true
-} as const
-const requiredMiniSearchStoreFields = ['path', 'title', 'excerpt'] as const
-
-export function normalizeMiniSearchOptions (options: Partial<ContentMiniSearchOptions> = {}) {
-  const fields = options?.fields?.filter((field): field is string => typeof field === 'string' && field.length > 0)
-  const storeFields = options?.storeFields?.filter((field): field is string => typeof field === 'string' && field.length > 0)
-  const boost = Object.fromEntries(
-    Object.entries(options?.boost || {})
-      .filter((entry): entry is [string, number] => typeof entry[0] === 'string' && entry[0].length > 0 && typeof entry[1] === 'number' && Number.isFinite(entry[1]))
-  )
-
-  const resolvedFields = fields?.length ? fields : [...defaultMiniSearchOptions.fields]
-  const resolvedStoreFields = storeFields?.length ? storeFields : defaultMiniSearchOptions.storeFields
-
-  return {
-    fields: resolvedFields,
-    storeFields: Array.from(new Set([...requiredMiniSearchStoreFields, ...resolvedStoreFields])),
-    boost: Object.keys(boost).length ? boost : { ...defaultMiniSearchOptions.boost },
-    fuzzy: typeof options?.fuzzy === 'boolean' || typeof options?.fuzzy === 'number' ? options.fuzzy : defaultMiniSearchOptions.fuzzy,
-    prefix: typeof options?.prefix === 'boolean' ? options.prefix : defaultMiniSearchOptions.prefix
   }
 }
 

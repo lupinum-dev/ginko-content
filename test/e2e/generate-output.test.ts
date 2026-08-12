@@ -16,10 +16,11 @@ import {
 } from '../helpers/generated-artifacts'
 import { generateStaticFixture } from '../helpers/production-fixture'
 import { assertRouteManifestMatchesGolden } from '../helpers/route-manifest'
-import { assertGeneratedLinkIntegrity } from '../../scripts/lib/generated-link-integrity.mjs'
+import { assertGeneratedLinkIntegrity } from '../../scripts/docs/generated-link-integrity.mjs'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const basicFixtureDir = resolve(rootDir, 'playground/ginko-basic')
+const searchFixtureDir = resolve(rootDir, 'playground/ginko-search')
 const i18nFixtureDir = resolve(rootDir, 'playground/ginko-i18n')
 const routeInvariantsFixtureDir = resolve(rootDir, 'test/fixtures/route-invariants')
 const siteUrl = 'https://ginko-content.example.test'
@@ -40,6 +41,10 @@ describe('generate lane output (nuxi generate)', () => {
 
     expect(existsSync(resolve(outputPublicDir, 'guide/getting-started/index.html'))).toBe(true)
     expect(await readGeneratedArtifact(outputPublicDir, 'guide/getting-started/index.html')).toContain('Getting Started')
+    expect(textArtifacts.some(artifact => artifact.path.endsWith('_payload.json'))).toBe(true)
+    const rootHtml = await readGeneratedArtifact(outputPublicDir, 'index.html')
+    expect(rootHtml).toContain('app-layer-content-component')
+    expect(rootHtml).not.toContain('base-layer-content-component')
 
     const searchIndex = await readSearchIndex(outputPublicDir)
     expect(searchIndex).toEqual(expect.arrayContaining([
@@ -54,6 +59,23 @@ describe('generate lane output (nuxi generate)', () => {
     assertNoPrivateContentLeaks(textArtifacts, fixtureLeakSentinels.basic)
     await assertRouteManifestMatchesGolden(outputPublicDir, basicGolden, 'generate')
     await assertGeneratedLinkIntegrity(outputPublicDir)
+  }, 300000)
+
+  test('ginko-search: Pagefind stays inert during SSR and searches after hydration', async () => {
+    const fixture = await generateStaticFixture(searchFixtureDir, {
+      CONTENT_SEARCH_ENGINE: 'pagefind'
+    })
+    const rootHtml = await readGeneratedArtifact(fixture.publicDir, 'index.html')
+
+    expect(rootHtml).toContain('Built-in Search Playground')
+    expect(rootHtml).toContain('<p id="pending">false</p>')
+    expect(rootHtml).toContain('<pre id="results">[]</pre>')
+    expect(rootHtml).toContain('id="inline-baseline"')
+    expect(rootHtml).toContain('data-alert="note"')
+    expect(rootHtml).toContain('Inline baseline')
+    expect(rootHtml).not.toContain('inline-secret')
+    expect(existsSync(resolve(fixture.publicDir, 'pagefind/ginko-locales.json'))).toBe(true)
+    expect(existsSync(resolve(fixture.publicDir, 'pagefind/pagefind.js'))).toBe(true)
   }, 300000)
 
   test('ginko-i18n: static generate emits localized HTML/sitemap/search/agent artifacts and fires the generate sitemap-assert hook', async () => {

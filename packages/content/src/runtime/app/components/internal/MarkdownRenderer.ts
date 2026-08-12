@@ -2,7 +2,7 @@ import type { PropType, VNode } from 'vue'
 import { defineComponent, getCurrentInstance, h } from 'vue'
 import type { MarkdownNode, MarkdownRoot } from '../../../../types/content'
 import { kebabCase, pascalCase } from 'scule'
-import htmlTags from '../../../../integrations/vue/html-tags.js'
+import { HTML_TAGS } from '../../../../core/markdown/html-tags.js'
 import { localizeLinkProps } from '../../../../features/localization/links'
 import {
   assertPublicMarkdownAst,
@@ -62,7 +62,7 @@ function resolveVueComponent (
   for (const candidate of candidates) {
     const explicit = components[candidate]
     if (explicit) {
-      if (typeof explicit === 'string' && explicit !== candidate && !htmlTags.includes(explicit as never)) {
+      if (typeof explicit === 'string' && explicit !== candidate && !HTML_TAGS.has(explicit)) {
         return resolveVueComponent(explicit, components, registry, fallbacks, prose, seen) || explicit
       }
 
@@ -128,7 +128,7 @@ function renderNode (
     const resolvedComponent = resolvedAs || resolveVueComponent(tag, options.components, options.registry, options.fallbacks, options.prose)
     if (resolvedComponent) {
       component = resolvedComponent
-    } else if (htmlTags.includes(tag as never)) {
+    } else if (HTML_TAGS.has(tag)) {
       component = tag
     }
   }
@@ -193,7 +193,7 @@ function renderNode (
     }
   }
 
-  if (typeof component !== 'string' || !htmlTags.includes(component as never)) {
+  if (typeof component !== 'string' || !HTML_TAGS.has(component)) {
     if (regularChildren.length > 0) {
       slots.default = () => regularChildren
     }

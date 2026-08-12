@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import {
   assertContentReleaseCertification,
   npmTagForVersion
-} from './lib/release-publish.mjs'
+} from './release/publish.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const registry = 'https://registry.npmjs.org/'

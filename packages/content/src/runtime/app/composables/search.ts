@@ -1,4 +1,5 @@
 import type { ComputedRef, Ref } from 'vue'
+import { onMounted } from 'vue'
 import type { MaybeRefOrGetter } from '#imports'
 import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRequestFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
@@ -8,6 +9,7 @@ import type { ContentCollectionStringName, ContentSearchSection } from '../../..
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
 import { createMiniSearchIndex } from '../../shared/search'
 import { createContentSearchNavigation } from '../../../features/search/navigation'
+import { normalizeMiniSearchOptions } from '../../../features/search/options'
 import { resolveCollectionSearchSectionsData } from '../../../features/collections/resolve'
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { many, navigation as fetchNavigation } from './query-api'
@@ -67,11 +69,6 @@ export interface UseContentSearchResult extends SearchLoadResult {
   searchNavigation: ComputedRef<ContentNavigationItem[]>
 }
 
-type ContentRuntimeConfig = {
-  locales?: string[]
-  search?: ContentSearchPublicRuntimeConfig | false
-}
-
 type AppRuntimeConfig = {
   baseURL?: string
 }
@@ -80,17 +77,7 @@ const defaultSearchConfig: ContentSearchPublicRuntimeConfig = {
   apiBaseURL: '/api/_content/search',
   indexURL: '/api/_content/search/index.json',
   engine: 'minisearch',
-  minisearch: {
-    fields: ['title', 'content', 'headings'],
-    storeFields: ['path', 'title', 'excerpt', 'anchor', 'locale', 'collection'],
-    boost: {
-      title: 4,
-      headings: 2,
-      content: 1
-    },
-    fuzzy: 0.2,
-    prefix: true
-  }
+  minisearch: normalizeMiniSearchOptions()
 }
 
 const disabledSearchError = new Error('Ginko search is disabled. Enable it with `content.search`.')
@@ -118,50 +105,7 @@ const resolveSearchConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>)
     apiBaseURL: typeof value.apiBaseURL === 'string' ? value.apiBaseURL : defaultSearchConfig.apiBaseURL,
     indexURL: typeof value.indexURL === 'string' ? value.indexURL : defaultSearchConfig.indexURL,
     engine: value.engine === 'pagefind' || value.engine === 'provider' ? value.engine : 'minisearch',
-    minisearch: resolveMiniSearchRuntimeOptions(value.minisearch)
-  }
-}
-
-const resolveMiniSearchRuntimeOptions = (value: unknown): ContentSearchPublicRuntimeConfig['minisearch'] => {
-  if (!isRecord(value)) {
-    return defaultSearchConfig.minisearch
-  }
-
-  const fields = Array.isArray(value.fields) ? value.fields.filter((field): field is string => typeof field === 'string' && field.length > 0) : []
-  const storeFields = Array.isArray(value.storeFields) ? value.storeFields.filter((field): field is string => typeof field === 'string' && field.length > 0) : []
-  const boost = isRecord(value.boost)
-    ? Object.fromEntries(Object.entries(value.boost).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1])))
-    : {}
-
-  return {
-    fields: fields.length ? fields : defaultSearchConfig.minisearch.fields,
-    storeFields: storeFields.length ? storeFields : defaultSearchConfig.minisearch.storeFields,
-    boost: Object.keys(boost).length ? boost : defaultSearchConfig.minisearch.boost,
-    fuzzy: typeof value.fuzzy === 'boolean' || typeof value.fuzzy === 'number' ? value.fuzzy : defaultSearchConfig.minisearch.fuzzy,
-    prefix: typeof value.prefix === 'boolean' ? value.prefix : defaultSearchConfig.minisearch.prefix
-  }
-}
-
-const resolveContentConfig = (runtimeConfig: ReturnType<typeof useRuntimeConfig>): ContentRuntimeConfig | undefined => {
-  const value = runtimeConfig.public.content
-  if (!isRecord(value)) {
-    return undefined
-  }
-
-  return {
-    locales: Array.isArray(value.locales)
-      ? value.locales.filter((locale): locale is string => typeof locale === 'string')
-      : undefined,
-    search: value.search === false
-      ? false
-      : (isRecord(value.search)
-          ? {
-              apiBaseURL: typeof value.search.apiBaseURL === 'string' ? value.search.apiBaseURL : defaultSearchConfig.apiBaseURL,
-              indexURL: typeof value.search.indexURL === 'string' ? value.search.indexURL : defaultSearchConfig.indexURL,
-              engine: value.search.engine === 'pagefind' || value.search.engine === 'provider' ? value.search.engine : 'minisearch',
-              minisearch: resolveMiniSearchRuntimeOptions(value.search.minisearch)
-            }
-          : undefined)
+    minisearch: normalizeMiniSearchOptions(value.minisearch)
   }
 }
 
@@ -402,61 +346,55 @@ const useProviderSearch = async (search: MaybeRefOrGetter<string>, apiBaseURL: s
 }
 
 const usePagefindSearch = (search: MaybeRefOrGetter<string>, pagefindUrl: string, options: SearchLoadOptions): SearchLoadResult => {
-  const runtimeConfig = useRuntimeConfig()
-  const contentConfig = resolveContentConfig(runtimeConfig)
   const locale = computed(() => toValue(options.locale))
   const results = ref<ContentSearchResult[]>([])
   const pending = ref(false)
   const error = shallowRef<unknown>(null)
-  const client = createPagefindSearchClient({
-    manifestUrl: pagefindUrl.replace(/pagefind\.js(?:\?.*)?$/, 'ginko-locales.json')
-  })
-
-  if (contentConfig?.search === false) {
-    return {
-      results: computed(() => []),
-      pending: computed(() => false),
-      error: computed(() => disabledSearchError)
-    }
-  }
-
-  watchEffect(async (onCleanup) => {
-    const term = toValue(search).trim()
-    let cancelled = false
-    onCleanup(() => {
-      cancelled = true
-    })
-
-    if (!term) {
-      results.value = []
-      pending.value = false
-      error.value = null
-      return
-    }
-
-    pending.value = true
-    error.value = null
-
-    try {
-      const normalized = await client.search(term, {
-        locale: locale.value,
-        limit: toValue(options.limit)
+  if (import.meta.client) {
+    onMounted(() => {
+      const client = createPagefindSearchClient({
+        manifestUrl: pagefindUrl.replace(/pagefind\.js(?:\?.*)?$/, 'ginko-locales.json')
       })
 
-      if (!cancelled) {
-        results.value = normalized
-      }
-    } catch (err) {
-      if (!cancelled) {
-        error.value = err
-        results.value = []
-      }
-    } finally {
-      if (!cancelled) {
-        pending.value = false
-      }
-    }
-  })
+      watchEffect(async (onCleanup) => {
+        const term = toValue(search).trim()
+        let cancelled = false
+        onCleanup(() => {
+          cancelled = true
+        })
+
+        if (!term) {
+          results.value = []
+          pending.value = false
+          error.value = null
+          return
+        }
+
+        pending.value = true
+        error.value = null
+
+        try {
+          const normalized = await client.search(term, {
+            locale: locale.value,
+            limit: toValue(options.limit)
+          })
+
+          if (!cancelled) {
+            results.value = normalized
+          }
+        } catch (err) {
+          if (!cancelled) {
+            error.value = err
+            results.value = []
+          }
+        } finally {
+          if (!cancelled) {
+            pending.value = false
+          }
+        }
+      })
+    })
+  }
 
   return {
     results: computed(() => results.value),

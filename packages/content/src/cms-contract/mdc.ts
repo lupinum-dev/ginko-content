@@ -24,7 +24,9 @@ export interface ParseMdcBodyResult {
 }
 
 /**
- * Parse a raw MDC string into a normalized AST + TOC + searchable plaintext.
+ * Parse a raw MDC string with Ginko's fixed portable-baseline profile into a
+ * normalized AST + TOC + searchable plaintext. Site-configured filesystem
+ * plugins are intentionally not applied at this CMS publishing boundary.
  *
  * The function is async because comark's parser is async (frontmatter
  * extraction, plugin pipeline). It is safe to call from a Convex mutation
@@ -35,7 +37,7 @@ export async function parseMdcBody(
   options: ParseMdcBodyOptions = {},
 ): Promise<ParseMdcBodyResult> {
   const tree = await parseComark(raw ?? '')
-  const nodes = normalizeComarkNodes(tree.nodes as unknown[]) as Parameters<typeof toMarkdownRoot>[0]
+  const nodes = normalizeComarkNodes(tree.nodes as unknown[])
   const toc = deriveToc(nodes, options)
   const body = toMarkdownRoot(nodes, toc)
   const searchText = renderPlainText(body)

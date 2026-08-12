@@ -6,20 +6,43 @@ import { resolveMarkdownPlugins } from './markdown-plugins'
 import { stripReservedContentKeys } from './reserved'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark'
-import { parseComark } from '../core/markdown/parse-comark'
+import { createComarkParser, parseComark } from '../core/markdown/parse-comark'
+import type { ComarkParser } from '../core/markdown/parse-comark'
+
+const configuredParsers = new WeakMap<object, Promise<ComarkParser>>()
+
+/** Resolve one parser for the lifetime of one immutable resolved option object. */
+export const getConfiguredComarkParser = (options: MarkdownOptions): Promise<ComarkParser> => {
+  const existing = configuredParsers.get(options)
+  if (existing) return existing
+
+  const parser = resolveMarkdownPlugins(options.plugins || [])
+    .then(plugins => createComarkParser(plugins))
+  configuredParsers.set(options, parser)
+  void parser.catch(() => {
+    // A setup error belongs to this attempted profile, not to the option
+    // object's lifetime. Dev/HMR or a caller may correct the same object.
+    if (configuredParsers.get(options) === parser) configuredParsers.delete(options)
+  })
+  return parser
+}
 
 export default defineTransformer({
   name: 'markdown',
   extensions: ['.md'],
   parse: async (id, content, options = {}) => {
-    const config = { ...(typeof options === 'object' && options !== null ? options : {}) } as MarkdownOptions
-    const plugins = await resolveMarkdownPlugins(config.plugins || [])
-    const tree = await parseComark(content as string, plugins)
+    const optionOwner = (typeof options === 'object' && options !== null ? options : {}) as MarkdownOptions
+    const config = { ...optionOwner } as MarkdownOptions
+    const configuredPlugins = config.plugins || []
+    const normalizationOptions = { enabledPlugins: configuredPlugins.map(plugin => plugin.name) }
+    const tree = configuredPlugins.length
+      ? await (await getConfiguredComarkParser(optionOwner))(content as string)
+      : await parseComark(content as string)
 
     const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 
     const body = normalizeMarkdownBody({
-      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[]) as any[]),
+      ...toMarkdownRoot(normalizeComarkNodes(tree.nodes as unknown[], normalizationOptions)),
       // `undefined` is not a JSON-pure value: omit `toc`
       // entirely when the document has none, instead of setting the key to
       // `undefined`.
@@ -27,7 +50,7 @@ export default defineTransformer({
     })
     const excerpt = Array.isArray(tree.meta?.summary)
       ? normalizeMarkdownBody({
-          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[]) as any[])
+          ...toMarkdownRoot(normalizeComarkNodes(tree.meta.summary as unknown[], normalizationOptions))
         })
       : undefined
 

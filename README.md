@@ -15,7 +15,8 @@ Use Ginko when you want content files to stay simple, but your Nuxt app still
 needs explicit APIs for route resolution, typed frontmatter, localized content,
 and server-side reads.
 
-- The current stable line is `0.3`.
+- The current release candidate is `0.4.0-rc.1`; install it from npm's `next`
+  channel. The stable line remains `0.3` until the RC is promoted.
 - [Getting started](./docs/content/docs/1.get-started/1.quickstart.md)
 - [Package README](./packages/content/README.md)
 - [Contributing](./CONTRIBUTING.md)
@@ -28,7 +29,7 @@ and server-side reads.
 Install the module:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content
+npx nuxi module add @lupinum/ginko-content@0.4.0-rc.1
 ```
 
 Define a collection:
@@ -68,7 +69,13 @@ Render route-backed content:
 <script setup lang="ts">
 import { pages } from '~~/content.config'
 
+definePageMeta({ key: route => route.path })
+
 const { page } = await useContentPage(pages)
+
+if (!page.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
+}
 </script>
 
 <template>
@@ -84,7 +91,7 @@ const { page } = await useContentPage(pages)
 - Route-aware page loading with `useContentPage(handle)`.
 - Server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
   and `surround`.
-- Route and search composables, plus pure client query functions for other
+- Route and search composables, plus one-shot async client query functions for other
   reads.
 - Locale-aware content routing with explicit fallback behavior.
 - Search helpers for MiniSearch, Pagefind, and provider-owned search.
@@ -106,7 +113,10 @@ slugs need correct sitemap alternates.
 MiniSearch, Shiki, and built-in Shiki transformer support are runtime
 dependencies of `@lupinum/ginko-content`. Apps that use Pagefind install the
 optional `pagefind` peer. Apps that use Nuxt locale routing install
-`@nuxtjs/i18n`; apps that publish sitemap XML install `@nuxtjs/sitemap`.
+`@nuxtjs/i18n`; apps that publish sitemap XML install `@nuxtjs/sitemap`. Apps
+that enable the opt-in `math` or `mermaid` Markdown plugins install `katex` or
+`beautiful-mermaid` respectively. Markdown plugins are never enabled
+implicitly.
 
 ## Scope
 

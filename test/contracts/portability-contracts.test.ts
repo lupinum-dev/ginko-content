@@ -9,9 +9,11 @@ import {
   decodePortableIdentitySegment,
   encodePortableIdentitySegment,
   normalizePortableModel,
+  parsePortableMdc,
   parsePortableDocument,
   parsePortableManifest,
   portableDocumentPath,
+  portableMdcSemanticallyEqual,
   rebuildPortableManifest,
   rewritePortableMdcAssetReferences,
   rewritePortableMdcAssetReferencesForStorage,
@@ -22,6 +24,7 @@ import {
 } from '../../packages/content/src/portability'
 import { PORTABILITY_CONTRACT_FIXTURES, runPortabilityContract } from '../../packages/content/src/testing/portability-contract'
 import { parsePortableJson } from '../../packages/content/src/portability/json'
+import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../../packages/content/src/core/markdown/builtin-render-contracts'
 
 const absent = { present: false } as const
 const field = (key: string, type: ResolvedContentFieldV1['type'], localized: boolean, extra: Partial<ResolvedContentFieldV1> = {}): ResolvedContentFieldV1 => ({
@@ -180,6 +183,52 @@ describe('portable content contract', () => {
     await expect(classifyPortableMdc('<script>alert(1)</script>', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected', issues: [{ code: 'MDC_UNSUPPORTED' }] })
   })
 
+  it('uses the exact public render policy at the portable boundary', async () => {
+    const policy = contract.collections.docs.componentPolicy
+    const canonicalPolicy = {
+      components: {
+        QuizQuestion: {
+          kind: 'block' as const,
+          props: {},
+          slots: [],
+          media: null,
+        },
+      },
+    }
+    const configuredPolicy = {
+      components: {
+        [BUILTIN_MARKDOWN_RENDER_CONTRACTS.math.tag]: BUILTIN_MARKDOWN_RENDER_CONTRACTS.math.componentPolicy,
+      },
+    }
+
+    await expect(classifyPortableMdc('[x]{foo="bar"}', policy)).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc('::constructor\n::', { components: {} })).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc('::quiz-question\nSafe\n::', canonicalPolicy)).resolves.toMatchObject({ classification: 'portable' })
+    await expect(classifyPortableMdc(':ginko-math{class="attacker" content="x"}', configuredPolicy)).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc(':ginko-math{class="math inline" content="x"}', configuredPolicy)).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc('::ginko-math{class="math inline" content="x"}\ny\n::', configuredPolicy)).resolves.toMatchObject({ classification: 'rejected' })
+  })
+
+  it('accepts normalized Comark structures but rejects authored active equivalents', async () => {
+    const policy = contract.collections.docs.componentPolicy
+    await expect(classifyPortableMdc('- [x] Complete', policy)).resolves.toMatchObject({
+      classification: 'portable',
+      ast: {
+        nodes: [[
+          'ul',
+          { class: 'contains-task-list' },
+          ['li', { class: 'task-list-item' }, [
+            'input',
+            { checked: true, class: 'task-list-item-checkbox', disabled: true, type: 'checkbox' },
+          ], ' Complete'],
+        ]],
+      },
+    })
+    await expect(classifyPortableMdc('<input type="checkbox">', policy)).resolves.toMatchObject({ classification: 'rejected' })
+    await expect(classifyPortableMdc('| A |\n| :-: |\n| B |', policy)).resolves.toMatchObject({ classification: 'portable' })
+    await expect(classifyPortableMdc('::callout{tone="info"}\n#actions\n[Open](/docs)\n::', policy)).resolves.toMatchObject({ classification: 'rejected' })
+  })
+
   it('collects and rewrites only structural Markdown and MDC asset sources', async () => {
     const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
     const local = `/ginko-assets/${sha256}.png`
@@ -207,7 +256,7 @@ describe('portable content contract', () => {
       (reference) => `https://assets.example.test/${reference.sha256}.png`,
     )
     expect(rewritten).toContain(`![Hero](https://assets.example.test/${sha256}.png)`)
-    expect(rewritten).toContain(`::media{src="https://assets.example.test/${sha256}.png"}`)
+    expect(rewritten).toContain(`::media\n---\nsrc: https://assets.example.test/${sha256}.png\n---\n::`)
     expect(rewritten).toContain(`\`${local}\` remains authored text.`)
     expect(rewritten).toContain('![External](https://images.example.test/external.png)')
 
@@ -217,7 +266,7 @@ describe('portable content contract', () => {
       () => 'opaqueassetid1234567890',
     )
     expect(stored).toContain('![Hero](opaqueassetid1234567890)')
-    expect(stored).toContain('::media{src="opaqueassetid1234567890"}')
+    expect(stored).toContain('::media\n---\nsrc: opaqueassetid1234567890\n---\n::')
     expect(stored).toContain(`\`${local}\` remains authored text.`)
     const roundTrip = await rewriteStoredMdcAssetReferences(
       stored,
@@ -225,14 +274,105 @@ describe('portable content contract', () => {
       async () => local,
     )
     expect(roundTrip).toContain(`![Hero](${local})`)
-    expect(roundTrip).toContain(`::media{src="${local}"}`)
+    expect(roundTrip).toContain(`::media\n---\nsrc: ${local}\n---\n::`)
     await expect(
       rewritePortableMdcAssetReferencesForStorage(
         source,
         contract.collections.docs.componentPolicy,
-        () => 'javascript:alert(1)',
+        () => 'javascript:alert',
       ),
     ).rejects.toMatchObject({ code: 'ASSET_INTEGRITY_FAILED' })
+  })
+
+  it('preserves typed component props across deterministic asset rewrites', async () => {
+    const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const local = `/ginko-assets/${sha256}.png`
+    const policy = {
+      components: {
+        Media: {
+          kind: 'block' as const,
+          props: {
+            src: { type: 'asset' as const, required: true },
+            count: { type: 'number' as const, required: true },
+            featured: { type: 'boolean' as const, required: true },
+            tags: { type: 'json' as const, required: true },
+            config: { type: 'json' as const, required: true },
+          },
+          slots: [],
+          media: { sourceProp: 'src', altProp: null, titleProp: null, filenameProp: null },
+        },
+      },
+    }
+    const source = [
+      '::media',
+      '---',
+      `src: ${local}`,
+      'count: 2',
+      'featured: true',
+      'tags:',
+      '  - docs',
+      '  - release',
+      'config:',
+      '  crop: cover',
+      '  focalPoint:',
+      '    x: 0.4',
+      '    y: 0.6',
+      '---',
+      '::',
+    ].join('\n')
+
+    const rewritten = await rewritePortableMdcAssetReferences(
+      source,
+      policy,
+      reference => `https://assets.example.test/${reference.sha256}.png`,
+    )
+    const reparsed = await parsePortableMdc(rewritten, policy)
+    const props = (reparsed.nodes[0] as unknown[])[1]
+    expect(props).toEqual({
+      src: `https://assets.example.test/${sha256}.png`,
+      count: 2,
+      featured: true,
+      tags: ['docs', 'release'],
+      config: { crop: 'cover', focalPoint: { x: 0.4, y: 0.6 } },
+    })
+    expect(reparsed.version).toBe(1)
+
+    const rewrittenAgain = await rewritePortableMdcAssetReferences(rewritten, policy, () => {
+      throw new Error('An external asset must not be rewritten as a portable local asset.')
+    })
+    const reparsedAgain = await parsePortableMdc(rewrittenAgain, policy)
+    expect(rewrittenAgain).toBe(rewritten)
+    expect(portableMdcSemanticallyEqual(reparsedAgain, reparsed)).toBe(true)
+
+    const stored = await rewritePortableMdcAssetReferencesForStorage(source, policy, () => 'opaqueassetid1234567890')
+    const restored = await rewriteStoredMdcAssetReferences(stored, policy, () => local)
+    expect((await parsePortableMdc(restored, policy)).nodes).toEqual((await parsePortableMdc(source, policy)).nodes)
+  })
+
+  it('collects and restores assets for passive native-named component policies', async () => {
+    const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const local = `/ginko-assets/${sha256}.png`
+    const policy = {
+      components: {
+        figure: {
+          kind: 'block' as const,
+          props: {
+            src: { type: 'asset' as const, required: true },
+            alt: { type: 'string' as const, required: true },
+          },
+          slots: ['default'],
+          media: { sourceProp: 'src', altProp: 'alt', titleProp: null, filenameProp: null },
+        },
+      },
+    }
+    const source = `::figure{src="${local}" alt="Hero"}\n::`
+
+    await expect(collectPortableMdcAssetReferences(source, policy)).resolves.toEqual([
+      { path: local, sha256, mediaType: 'image/png' },
+    ])
+    const stored = await rewritePortableMdcAssetReferencesForStorage(source, policy, () => 'opaqueassetid1234567890')
+    const restored = await rewriteStoredMdcAssetReferences(stored, policy, () => local)
+    expect((await parsePortableMdc(restored, policy)).nodes).toEqual((await parsePortableMdc(source, policy)).nodes)
   })
 
   it('normalizes ordering without deriving identity from paths', async () => {

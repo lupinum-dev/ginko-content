@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import { doc } from './_utils'
+import { doc } from '../support/content-documents'
 import pathMeta from '../../packages/content/src/parsers/path-meta'
 import { validateContentGraph } from '../../packages/content/src/runtime/server/validation'
 import { reference } from '../../packages/content/src/types/config'
