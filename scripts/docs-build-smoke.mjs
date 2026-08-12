@@ -114,11 +114,11 @@ const whyGinkoMarkdown = await readFile(join(root, 'raw/docs/concepts/why-ginko.
 const agentOutputProblems = []
 
 for (const expected of [
-  '[Quickstart](https://ginko-content.nuxt.dev/raw/docs/get-started/quickstart.md)',
-  '[Why Ginko (and when not)](https://ginko-content.nuxt.dev/raw/docs/concepts/why-ginko.md)',
-  '[Build a documentation site](https://ginko-content.nuxt.dev/raw/docs/build/documentation-site.md)',
-  '[Query API](https://ginko-content.nuxt.dev/raw/docs/reference/query-api.md)',
-  '[From Nuxt Content v3](https://ginko-content.nuxt.dev/raw/docs/migration/from-nuxt-content-v3.md)'
+  '[Quickstart](https://ginko-content.lupinum.com/raw/docs/get-started/quickstart.md)',
+  '[Why Ginko (and when not)](https://ginko-content.lupinum.com/raw/docs/concepts/why-ginko.md)',
+  '[Build a documentation site](https://ginko-content.lupinum.com/raw/docs/build/documentation-site.md)',
+  '[Query API](https://ginko-content.lupinum.com/raw/docs/reference/query-api.md)',
+  '[From Nuxt Content v3](https://ginko-content.lupinum.com/raw/docs/migration/from-nuxt-content-v3.md)'
 ]) {
   if (!llms.includes(expected)) agentOutputProblems.push(`llms.txt is missing ${expected}`)
 }

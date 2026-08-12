@@ -46,11 +46,11 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)" = "$GITHUB_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .conclusion)" = "success"
 
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: ginko-content-release
           path: .release
@@ -76,7 +76,7 @@ jobs:
           awk -v version="v$RELEASE_VERSION" '$0 == "## " version { capture=1 } capture && /^## / && $0 != "## " version { exit } capture' CHANGELOG.md > .release/release-notes.md
           test -s .release/release-notes.md
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: verified-ginko-content-release
           path: .release
@@ -96,12 +96,12 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.11.0
           registry-url: https://registry.npmjs.org
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: verified-ginko-content-release
           path: .release
@@ -113,7 +113,7 @@ jobs:
           node -e "const {spawnSync}=require('node:child_process');const [major,minor]=spawnSync('npm',['--version'],{encoding:'utf8'}).stdout.trim().split('.').map(Number);if(major<11||(major===11&&minor<5))throw new Error('npm 11.5.1 or newer is required')"
           TARBALL=$(node -e "process.stdout.write(require('./.release/release-artifact.json').tarball)")
           case "$RELEASE_VERSION" in *-*) NPM_TAG=next ;; *) NPM_TAG=latest ;; esac
-          npm publish ".release/$TARBALL" --access public --tag "$NPM_TAG"
+          npm publish ".release/$TARBALL" --access public --tag "$NPM_TAG" --ignore-scripts --provenance
 
   github-release:
     name: Create GitHub release
@@ -125,7 +125,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: verified-ginko-content-release
           path: .release

@@ -1,7 +1,7 @@
 import { useNuxt } from 'nuxt/kit'
 import type { NuxtConfig } from 'nuxt/schema'
 
-const siteUrl = 'https://ginko-content.nuxt.dev'
+const siteUrl = 'https://ginko-content.lupinum.com'
 const publicSansFonts = {
   defaults: {
     formats: ['woff'],

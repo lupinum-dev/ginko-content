@@ -159,6 +159,8 @@ include a CMS UI, Studio, admin panel, or content editing workflow.
 - Issues: [GitHub issues](https://github.com/lupinum-dev/ginko-content/issues)
 - Contributing: [CONTRIBUTING.md](https://github.com/lupinum-dev/ginko-content/blob/main/CONTRIBUTING.md)
 - Security: [SECURITY.md](https://github.com/lupinum-dev/ginko-content/blob/main/SECURITY.md)
+- Community: [Lupinum OSS Discord](https://discord.gg/RPH6SeA36N)
+- Maintainer: [Lupinum OG](https://lupinum.com)
 
 ## Credits
 
