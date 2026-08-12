@@ -4,7 +4,7 @@ export default defineGinkoDocsConfig({
   site: {
     name: 'Ginko Content',
     description: 'Filesystem-first content for Nuxt sites with coherent routes, types, localization, search, SEO, and agent output.',
-    url: 'https://ginko-content.nuxt.dev'
+    url: 'https://ginko-content.lupinum.com'
   },
   locales: ['en'],
   blog: false

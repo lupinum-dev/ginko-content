@@ -1,7 +1,7 @@
 export default {
   ginkoDocs: {
     site: {
-      url: 'https://ginko-content.nuxt.dev',
+      url: 'https://ginko-content.lupinum.com',
       name: { en: 'Ginko Content' },
       description: { en: 'Filesystem-first content for Nuxt 4.' },
       logo: { light: '/icon.png', dark: '/icon.png' },
@@ -9,7 +9,8 @@ export default {
       docsSidebarSwitcher: 'tabs'
     },
     social: {
-      github: 'https://github.com/lupinum-dev/ginko-content'
+      github: 'https://github.com/lupinum-dev/ginko-content',
+      discord: 'https://discord.gg/RPH6SeA36N'
     },
     repository: {
       url: 'https://github.com/lupinum-dev/ginko-content',
