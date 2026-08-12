@@ -77,6 +77,14 @@ The local `release:publish` script is a manual recovery path only. Follow
 `MAINTAINING.md` if the protected workflow cannot be used.
 Do not commit `.pack/`, `dist/`, `.nuxt/`, `.output/`, or generated tarballs.
 
+Use a short branch name that describes the work, such as
+`fix/provider-pagination`. Do not require an agent or tool prefix such as
+`codex/`, `claude/`, or `cursor/`.
+
+Follow `docs/WRITING.md` for human-authored documentation. Do not rewrite legal
+text, code, API identifiers, quotations, or generated reports to match the
+controlled-English profile.
+
 ## Provider Contract Rules
 
 Provider capabilities are a source of truth. If docs or types expose an

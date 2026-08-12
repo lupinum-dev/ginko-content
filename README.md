@@ -171,6 +171,15 @@ Run a specific example directly from the workspace with `pnpm --dir examples/<gr
 
 [MIT](./LICENSE)  
 
+## Support
+
+Open a [GitHub issue](https://github.com/lupinum-dev/ginko-content/issues) for a
+reproducible defect. Discuss usage with the community in the
+[Lupinum OSS Discord](https://discord.gg/RPH6SeA36N). Report vulnerabilities
+through the process in [SECURITY.md](./SECURITY.md).
+
+Ginko Content is developed by [Lupinum OG](https://lupinum.com).
+
 [npm-version-src]: https://img.shields.io/npm/v/@lupinum/ginko-content/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
 [npm-version-href]: https://npmjs.com/package/@lupinum/ginko-content
 

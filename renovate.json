@@ -1,5 +1,9 @@
 {
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["github>nuxt/renovate-config-nuxt"],
+  "dependencyDashboard": true,
+  "minimumReleaseAge": "3 days",
+  "schedule": ["before 6am on Monday"],
   "lockFileMaintenance": {
     "enabled": true
   },
