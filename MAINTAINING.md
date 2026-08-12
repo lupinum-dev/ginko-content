@@ -51,11 +51,40 @@ exceptions; any future risk acceptance requires an explicit maintainer decision.
 
 ## Release Runbook
 
-Publishing is intentionally maintainer-triggered. The package's
+Publishing is intentionally maintainer-triggered. The normal path is the
+protected `Publish` GitHub Actions workflow. The package's
 `prepublishOnly` hook rejects source-directory publication. The
 `release:publish` script accepts only the exact clean, certified tarball for the
 current commit, refuses an already-published version, publishes that tarball,
-and confirms the result from npm.
+and confirms the result from npm. It is a manual recovery path, not the normal
+release command.
+
+### Protected release
+
+1. Merge the release PR into `main`.
+2. Wait for the `Release authorization` job on the resulting `main` commit.
+3. Open **Actions → Publish → Run workflow** on `main`.
+4. Enter the successful CI run ID and the exact package version.
+5. Approve the `npm` environment when GitHub requests review.
+
+The workflow verifies that the CI run is successful, belongs to the current
+`main` commit, and produced the certified tarball. The OIDC-capable job does not
+check out the repository, install dependencies, or execute repository scripts.
+It publishes that tarball with `next` for prereleases or `latest` for stable
+versions. A separate job creates the matching GitHub release from the committed
+changelog section.
+
+Configure the npm trusted publisher once for this repository:
+
+- package: `@lupinum/ginko-content`
+- repository: `lupinum-dev/ginko-content`
+- workflow: `publish.yml`
+- environment: `npm`
+- allowed action: `npm publish`
+
+Do not add an `NPM_TOKEN`.
+
+### Manual recovery
 
 Set the release version once and reuse it in the commands below:
 
@@ -249,16 +278,14 @@ rm -rf .pack
 git status --short --branch
 ```
 
-When npm trusted publishing and staged publishing are configured, prefer them
-over the manual publish step above:
+The protected workflow requires:
 
 - GitHub Actions must use a protected environment with human approval.
 - The release job must use Node 24.11 or newer on the Node 24 LTS line and npm
-  11.15 or newer.
+  11.5.1 or newer.
 - Do not use package-manager caches in release jobs.
 - Use OIDC trusted publishing instead of long-lived npm publish tokens.
 - Configure npm package settings to require 2FA and disallow traditional tokens.
-- Stage the tarball, download/inspect the staged package, then approve with 2FA.
 
 ## Supply-Chain Policy
 
