@@ -41,7 +41,6 @@
     "release:verify": "node scripts/timed-command.mjs verify pnpm verify && node scripts/timed-command.mjs browser-e2e pnpm test:e2e:browser:prepared && node scripts/timed-command.mjs generate pnpm test:generate:static:prepared && node scripts/timed-command.mjs audit:prod pnpm audit:prod && node scripts/timed-command.mjs release:pack pnpm release:pack && node scripts/timed-command.mjs pure-runtimes pnpm test:pure-runtimes && node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer && node scripts/timed-command.mjs consumer:npm pnpm test:package-consumer:npm && pnpm release:certify",
     "release:pack": "node scripts/release-pack.mjs",
     "release:certify": "node scripts/write-release-certification.mjs",
-    "release:notes": "changelogen --output CHANGELOG.md",
     "release:prepare": "changelogen --dir packages/content --output ../../CHANGELOG.md --bump --clean --hideAuthorEmail",
     "release": "pnpm run release:verify",
     "audit:prod": "node scripts/audit-production.mjs",
