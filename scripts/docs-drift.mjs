@@ -326,6 +326,19 @@ const findBodyTitleLines = (file, source) => {
   })
 }
 
+const findGenericHeadingLines = (file, source) => {
+  let inFence = false
+  return source.split('\n').flatMap((line, index) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      return []
+    }
+    return !inFence && /^## (Summary|Conclusion|Related|Next steps)$/.test(line)
+      ? [`${file}:${index + 1}`]
+      : []
+  })
+}
+
 const findAppRelativeContentConfigImports = (file, source) =>
   source.split('\n').flatMap((line, index) =>
     /from\s+['"]~\/content\.config(?:\.[cm]?[jt]s)?['"]/.test(line)
@@ -460,6 +473,13 @@ const checks = [
       offenders.push(...findBodyTitleLines(file, await readFile(file, 'utf8')))
     }
     return { name: 'docs use frontmatter titles without duplicate body h1 headings', offenders }
+  },
+  async () => {
+    const offenders = []
+    for (const file of await collectTextFiles(['docs/content/docs'])) {
+      offenders.push(...findGenericHeadingLines(file, await readFile(file, 'utf8')))
+    }
+    return { name: 'docs do not use generic closing sections', offenders }
   },
   async () => {
     const offenders = []
