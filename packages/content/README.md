@@ -42,7 +42,7 @@ export default defineNuxtConfig({
 })
 ```
 
-## Quick Start
+## Quick start
 
 Define a collection:
 
@@ -112,7 +112,7 @@ if (!page.value) {
 - sitemap integration for public content routes
 - a server-side provider contract for advanced custom sources
 
-## I18n, Sitemap, and Prerender Ownership
+## I18n, sitemap, and prerender ownership
 
 For localized Nuxt apps, keep one source of truth per route type:
 
@@ -130,7 +130,7 @@ and `/en/pricing` need cross-locale sitemap alternates.
 See the public guide:
 [Sitemap and prerender](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/4.guides/9.sitemap-and-prerender.md).
 
-## Integration Dependencies
+## Integration dependencies
 
 | Feature | Dependency model |
 | --- | --- |

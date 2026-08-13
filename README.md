@@ -24,7 +24,7 @@ and server-side reads.
 - [i18n playground](./playground/ginko-i18n)
 - [Search playground](./playground/ginko-search)
 
-## Quick Start
+## Quick start
 
 Install the module:
 
@@ -83,7 +83,7 @@ if (!page.value) {
 </template>
 ```
 
-## What You Get
+## What you get
 
 - Collection definitions as the source of truth for content shape and source
   files.
@@ -97,7 +97,7 @@ if (!page.value) {
 - Search helpers for MiniSearch, Pagefind, and provider-owned search.
 - Sitemap integration for public content routes.
 
-## I18n, Sitemap, and Prerender Ownership
+## I18n, sitemap, and prerender ownership
 
 Localized apps should not keep a duplicate route table for sitemap or prerender
 output. Static Nuxt page paths belong in Nuxt I18n `i18n.pages`; content paths
@@ -108,7 +108,7 @@ Ginko registers the content sitemap source and contributes content prerender
 routes. Use `@nuxtjs/sitemap >= 8.0.15 < 9` when Nuxt I18n translated static page
 slugs need correct sitemap alternates.
 
-## Integration Dependencies
+## Integration dependencies
 
 MiniSearch, Shiki, and built-in Shiki transformer support are runtime
 dependencies of `@lupinum/ginko-content`. Apps that use Pagefind install the
@@ -149,7 +149,7 @@ retaining upstream-derived parser, MDC, and rendering foundations. Credits to
 [Nuxt UI](https://ui.nuxt.com/), and [Comark](https://comark.dev/), the
 successor to the previous MDC work.
 
-## 💻 Development
+## Development
 
 - Clone repository
 - Install dependencies using `pnpm install`
