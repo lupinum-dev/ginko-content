@@ -26,6 +26,21 @@ Use `pnpm audit:all` after dependency changes. Keep `pnpm audit:prod` as the
 additional check for the published package graph. Do not accept an advisory
 without an explicit maintainer decision.
 
+## Quick fixes
+
+Keep one cause and one verification path in the pull request. Add a regression
+test when the defect can return. Run `pnpm verify` before handoff.
+
+## Large changes
+
+Open an issue first. Split the work by public behavior and keep provider,
+runtime, types, tests, and documentation in the same focused change.
+
+## Documentation changes
+
+Follow [docs/WRITING.md](./docs/WRITING.md). Build the documentation with
+`pnpm docs:build`, and run `pnpm verify` before merge.
+
 ## Prepare a release
 
 1. Prepare the intended version and changelog draft:
@@ -71,6 +86,20 @@ The npm trusted publisher must use this exact identity:
 
 Do not add an `NPM_TOKEN`. If the protected workflow is unavailable, repair the
 workflow. Do not create a second publication path.
+
+## Roll back a defective release
+
+Do not unpublish unless npm policy and a confirmed security incident require
+it. Restore the last known-good dist-tag, deprecate the defective version, and
+publish a forward fix with a new version. Never rebuild different bytes for an
+existing version.
+
+## Respond to a credential incident
+
+Stop release workflows and revoke the affected credential or trusted-publisher
+binding. Review GitHub audit logs, workflow changes, tags, releases, and npm
+access. Restore publishing only after the source commit and retained artifacts
+are verified.
 
 ## Release gate
 

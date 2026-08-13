@@ -145,6 +145,20 @@ for (const heading of [
   }
 }
 
+const maintaining = readFileSync(join(repoRoot, 'MAINTAINING.md'), 'utf8')
+for (const heading of [
+  'Quick fixes',
+  'Large changes',
+  'Documentation changes',
+  'Prepare a release',
+  'Roll back a defective release',
+  'Respond to a credential incident',
+]) {
+  if (!maintaining.includes(`## ${heading}`)) {
+    violations.push(`MAINTAINING.md is missing the playbook: ${heading}`)
+  }
+}
+
 const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
 const changelogLines = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8').split(/\r?\n/u)
 const releaseHeading = `## v${packageManifest.version}`
