@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact package version, for example 0.4.0-rc.1
+        description: Exact package version from packages/content/package.json
         required: true
         type: string
 
