@@ -78,38 +78,78 @@ function collectFiles(rootPath) {
 }
 
 const violations = []
+const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
 
-function assertOrderedHeadings(filePath, headings) {
-  const source = readFileSync(join(repoRoot, filePath), 'utf8')
+function withoutFencedCode(source) {
+  let fence = null
+  return source
+    .split(/\r?\n/u)
+    .map((line) => {
+      const opening = line.match(/^ {0,3}(`{3,}|~{3,})/u)?.[1]
+      const closing = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/u)?.[1]
+      if (!fence && opening) {
+        fence = opening[0]
+        return ''
+      }
+      if (fence && closing?.[0] === fence) {
+        fence = null
+        return ''
+      }
+      return fence ? '' : line
+    })
+    .join('\n')
+}
+
+function validatePublicReadme(filePath, source, headings) {
+  const errors = []
+  const markdown = withoutFencedCode(source)
+  const actualHeadings = Array.from(markdown.matchAll(/^## (.+)$/gmu), match => match[1].trim())
   let cursor = -1
   for (const heading of headings) {
-    const index = source.indexOf(`## ${heading}`)
+    const index = actualHeadings.indexOf(heading)
     if (index === -1) {
-      violations.push(`${filePath} is missing the section: ${heading}`)
+      errors.push(`${filePath} is missing the section: ${heading}`)
       continue
     }
-    if (index < cursor) violations.push(`${filePath} has ${heading} out of order`)
+    if (index < cursor) errors.push(`${filePath} has ${heading} out of order`)
     cursor = index
   }
 
-  if ((source.match(/<h1\b/gu) ?? []).length !== 1) {
-    violations.push(`${filePath} must contain one centered HTML h1`)
+  const header = source.match(
+    /^<p align="center">\s*<img src="[^"]+" width="128" alt="[^"]+">\s*<\/p>\s*<h1 align="center">[^<\n]+<\/h1>\s*<p align="center">[\s\S]+?<\/p>\s*<p align="center">(?<badges>[\s\S]+?)<\/p>/u,
+  )
+  if (!header?.groups?.badges) {
+    errors.push(`${filePath} must start with the centered icon, h1, value proposition, and badges`)
+  } else {
+    const badgeBlock = header.groups.badges
+    for (const marker of [
+      'href="https://www.npmjs.com/package/@lupinum/ginko-content"',
+      'src="https://img.shields.io/npm/v/@lupinum/ginko-content',
+      'href="https://github.com/lupinum-dev/ginko-content/actions/workflows/ci.yml"',
+      'src="https://github.com/lupinum-dev/ginko-content/actions/workflows/ci.yml/badge.svg"',
+      'license-MIT',
+    ]) {
+      if (!badgeBlock.includes(marker)) errors.push(`${filePath} is missing header badge marker: ${marker}`)
+    }
   }
-  if (!/<img[^>]+width="128"[^>]*>/u.test(source)) {
-    violations.push(`${filePath} must contain a 128 px product icon`)
+
+  const releaseStatus = source.match(/^> Version `(?<version>[^`]+)` is a release candidate\./mu)
+  if (packageManifest.version.includes('-')) {
+    if (releaseStatus?.groups?.version !== packageManifest.version) {
+      errors.push(`${filePath} must identify release candidate ${packageManifest.version}`)
+    }
+  } else if (releaseStatus) {
+    errors.push(`${filePath} must not show a release-candidate notice for a stable version`)
   }
-  for (const marker of ['align="center"', 'npmjs.com/package/@lupinum/ginko-content', 'actions/workflows/ci.yml', 'MIT']) {
-    if (!source.includes(marker)) violations.push(`${filePath} is missing README marker: ${marker}`)
-  }
+
   if (/\b(?:TODO|TBD|placeholder)\b/iu.test(source)) {
-    violations.push(`${filePath} contains unfinished placeholder text`)
+    errors.push(`${filePath} contains unfinished placeholder text`)
   }
-  if (source.includes('0.4.0-rc.1')) {
-    violations.push(`${filePath} contains the previous release-candidate version`)
-  }
+  return errors
 }
 
-assertOrderedHeadings('README.md', [
+const readmeContracts = new Map([
+  ['README.md', [
   'Why use Ginko Content?',
   'When to use it',
   'Requirements',
@@ -120,8 +160,8 @@ assertOrderedHeadings('README.md', [
   'Contributing and development',
   'Support and security',
   'License',
-])
-assertOrderedHeadings('packages/content/README.md', [
+  ]],
+  ['packages/content/README.md', [
   'Why use this package?',
   'Requirements',
   'Installation',
@@ -130,7 +170,39 @@ assertOrderedHeadings('packages/content/README.md', [
   'Documentation',
   'Support and security',
   'License',
+  ]],
 ])
+
+for (const [filePath, headings] of readmeContracts) {
+  const source = readFileSync(join(repoRoot, filePath), 'utf8')
+  violations.push(...validatePublicReadme(filePath, source, headings))
+}
+
+const rootReadme = readFileSync(join(repoRoot, 'README.md'), 'utf8')
+const rootHeadings = readmeContracts.get('README.md')
+const failureProbes = [
+  {
+    name: 'a required heading that exists only inside a code fence',
+    source: `${rootReadme.replace('## Why use Ginko Content?', 'Why use Ginko Content?')}\n\`\`\`md\n## Why use Ginko Content?\n\`\`\`\n`,
+    expected: 'missing the section: Why use Ginko Content?',
+  },
+  {
+    name: 'an uncentered product heading',
+    source: rootReadme.replace('<h1 align="center">', '<h1>'),
+    expected: 'must start with the centered icon',
+  },
+  {
+    name: 'a stale release status',
+    source: rootReadme.replace(packageManifest.version, '0.0.0-stale.1'),
+    expected: `must identify release candidate ${packageManifest.version}`,
+  },
+]
+for (const probe of failureProbes) {
+  const errors = validatePublicReadme('README.md', probe.source, rootHeadings)
+  if (!errors.some(error => error.includes(probe.expected))) {
+    violations.push(`README policy failure probe did not reject ${probe.name}`)
+  }
+}
 
 const pullRequestTemplate = readFileSync(join(repoRoot, '.github/pull_request_template.md'), 'utf8')
 for (const heading of [
@@ -159,7 +231,6 @@ for (const heading of [
   }
 }
 
-const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
 const changelogLines = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8').split(/\r?\n/u)
 const releaseHeading = `## v${packageManifest.version}`
 const releaseHeadingIndex = changelogLines.indexOf(releaseHeading)
