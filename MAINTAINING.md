@@ -126,3 +126,27 @@ Update these surfaces together when query operators change:
 Ginko Content owns the content engine. It does not own Studio, CMS workflows,
 MCP tools, Convex component code, private consumer scripts, or host-specific
 release canaries.
+
+## Audit external settings
+
+Review these settings in January and July, and after an ownership or release
+workflow change.
+
+GitHub must have:
+
+- a protected `main` branch with pull requests, linear history, resolved review
+  threads, and the repository's required CI checks;
+- squash merge as the only merge method, auto-merge enabled, and merged branches
+  deleted automatically;
+- protected release tags;
+- an `npm` environment that allows only `main`, requires a reviewer, and has no
+  package token;
+- private vulnerability reporting, secret scanning, push protection, automated
+  security fixes, and CodeQL Default Setup for JavaScript and TypeScript;
+- Renovate for routine dependency updates and CodeRabbit as an advisory reviewer.
+
+npm must bind `@lupinum/ginko-content` to `publish.yml` and the `npm`
+environment through trusted publishing.
+
+Vercel must deploy the documentation from `main` to
+`ginko-content.lupinum.com` and create pull-request previews.
