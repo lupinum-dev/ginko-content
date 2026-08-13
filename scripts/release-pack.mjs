@@ -14,6 +14,10 @@ const packageRoot = resolve(repoRoot, 'packages/content')
 const packDir = resolve(repoRoot, '.pack')
 const sourceManifest = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'))
 
+if (readFileSync(resolve(packageRoot, 'LICENSE'), 'utf8') !== readFileSync(resolve(repoRoot, 'LICENSE'), 'utf8')) {
+  throw new Error('The package LICENSE must match the repository LICENSE.')
+}
+
 function run(command, args, cwd = repoRoot, stdio = 'inherit') {
   return execFileSync(command, args, {
     cwd,
