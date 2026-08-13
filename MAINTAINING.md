@@ -27,17 +27,18 @@ advisory without an explicit maintainer decision.
 
 ## Prepare a release
 
-1. Update `packages/content/package.json` with the intended version.
-2. Generate a changelog draft:
+1. Prepare the intended version and changelog draft:
 
    ```bash
-   pnpm run release:notes
+   pnpm run release:prepare -- -r 0.4.0-rc.2
    ```
 
-3. Review and edit the matching `CHANGELOG.md` section. Changelogen creates a
+   Replace the example version. The command does not commit, tag, push, or
+   publish.
+2. Review and edit the matching `CHANGELOG.md` section. Changelogen creates a
    draft; the committed changelog is the source of truth.
-4. Update the README, public docs, and examples when public behavior changed.
-5. Open a release pull request and merge it only after all required checks pass.
+3. Update the README, public docs, and examples when public behavior changed.
+4. Open a release pull request and merge it only after all required checks pass.
 
 Do not create a release tag or publish from a workstation. Do not run
 `npm publish`. The protected workflow owns npm publication, the release tag,
@@ -49,10 +50,10 @@ Publishing is intentionally maintainer-triggered:
 
 1. Wait for the `Release authorization` job on the merged `main` commit.
 2. Open **Actions → Publish → Run workflow** on `main`.
-3. Enter the successful CI run ID and the exact package version.
+3. Enter the exact package version.
 4. Approve the protected `npm` environment when GitHub requests review.
 
-The workflow proves that the CI run belongs to the current `main` commit and
+The workflow finds the successful CI run for the current `main` commit and
 downloads its certified tarball. The OIDC-capable publication job does not
 check out the repository, install dependencies, or execute repository scripts.
 It publishes the tarball with `next` for prereleases or `latest` for stable
@@ -138,6 +139,10 @@ GitHub must have:
   threads, and the repository's required CI checks;
 - squash merge as the only merge method, auto-merge enabled, and merged branches
   deleted automatically;
+- GitHub Actions restricted to full commit-SHA references, with default
+  workflow permissions read-only;
+- Issues enabled for public reports, with Wikis and Discussions disabled so
+  versioned repository documentation remains authoritative;
 - protected release tags;
 - an `npm` environment that allows only `main`, requires a reviewer, and has no
   package token;

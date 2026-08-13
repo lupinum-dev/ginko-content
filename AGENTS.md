@@ -63,13 +63,14 @@ status file. Never end an agent task while a gate is still running.
 
 Never run live publish commands from an agent session. The normal release flow
 uses the protected `Publish` GitHub Actions workflow with the successful CI run
-ID and exact package version. A human reviewer approves its `npm` environment.
-The workflow publishes only the previously certified tarball.
+for the current `main` commit and the exact package version. A human reviewer
+approves its `npm` environment. The workflow publishes only the previously
+certified tarball.
 
 Use these commands only to prepare and verify release metadata:
 
 ```bash
-pnpm run release:notes
+pnpm run release:prepare -- -r <version>
 pnpm run release:verify
 ```
 
