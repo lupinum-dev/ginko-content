@@ -14,9 +14,9 @@ branch is explicitly announced.
 ## Release Security
 
 - No long-lived npm publish tokens in CI.
-- Prefer npm trusted publishing plus staged publishing when those controls are
-  configured; otherwise publishing is an owner-controlled manual action with
-  2FA.
+- npm trusted publishing is bound to the protected `publish.yml` workflow and
+  `npm` environment. The publication job consumes only the certified tarball.
+- Do not add an `NPM_TOKEN` or publish from a maintainer workstation.
 - Release jobs must not use package-manager caches.
 - Tags may only target a commit whose CI `Release authorization` job is green;
   `pnpm run release:verify` is the corresponding local pre-check.
