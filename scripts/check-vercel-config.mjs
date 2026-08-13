@@ -10,7 +10,10 @@ check(!existsSync(resolve(root, 'vercel.json')), 'Keep vercel.json in the deploy
 check(config.framework === 'nuxtjs', 'Select the Nuxt framework explicitly.')
 check(config.outputDirectory === null, 'Let Nuxt and Vercel detect .vercel/output.')
 check(config.buildCommand === 'pnpm --dir .. docs:build:vercel', 'Build the package before the docs app.')
-check(config.installCommand?.includes('pnpm --dir .. install --frozen-lockfile'), 'Install the locked root workspace.')
+check(
+  config.installCommand === 'corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm --dir .. install --frozen-lockfile',
+  'Install the locked root workspace with the pinned package manager.',
+)
 
 if (failures.length) {
   console.error(failures.join('\n'))

@@ -64,6 +64,13 @@ const repositoryFiles = execFileSync(
 )
   .split('\0')
   .filter(Boolean)
+const trackedRepositoryFiles = execFileSync(
+  'git',
+  ['ls-files', '--cached', '-z'],
+  { cwd: repoRoot, encoding: 'utf8' },
+)
+  .split('\0')
+  .filter(Boolean)
 
 function collectFiles(rootPath) {
   const normalizedRoot = rootPath.replaceAll('\\', '/').replace(/^\.\//u, '')
@@ -87,7 +94,7 @@ for (const requiredFile of [
   '.github/ISSUE_TEMPLATE/proposal.md',
   '.github/pull_request_template.md',
 ]) {
-  if (!repositoryFiles.includes(requiredFile)) {
+  if (!trackedRepositoryFiles.includes(requiredFile)) {
     violations.push(`${requiredFile}: required contributor template is missing`)
   }
 }
@@ -100,10 +107,10 @@ function withoutFencedCode(source) {
       const opening = line.match(/^ {0,3}(`{3,}|~{3,})/u)?.[1]
       const closing = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/u)?.[1]
       if (!fence && opening) {
-        fence = opening[0]
+        fence = opening
         return ''
       }
-      if (fence && closing?.[0] === fence) {
+      if (fence && closing?.[0] === fence[0] && closing.length >= fence.length) {
         fence = null
         return ''
       }
@@ -143,6 +150,12 @@ function validatePublicReadme(filePath, source, headings) {
     ]) {
       if (!badgeBlock.includes(marker)) errors.push(`${filePath} is missing header badge marker: ${marker}`)
     }
+  }
+
+  const htmlH1Count = Array.from(markdown.matchAll(/<h1\b[^>]*>/giu)).length
+  const markdownH1Count = Array.from(markdown.matchAll(/^#\s+\S.+$/gmu)).length
+  if (htmlH1Count !== 1 || markdownH1Count !== 0) {
+    errors.push(`${filePath} must contain exactly one centered HTML h1 and no Markdown h1`)
   }
 
   const releaseStatus = source.match(/^> Version `(?<version>[^`]+)` is a release candidate\./mu)
@@ -211,12 +224,33 @@ const failureProbes = [
     source: rootReadme.replace(packageManifest.version, '0.0.0-stale.1'),
     expected: `must identify release candidate ${packageManifest.version}`,
   },
+  {
+    name: 'a second product heading',
+    source: `${rootReadme}\n# Duplicate product heading\n`,
+    expected: 'must contain exactly one centered HTML h1',
+  },
+  {
+    name: 'a shorter closing fence that exposes a hidden heading',
+    source: `${rootReadme.replace('## Why use Ginko Content?', 'Why use Ginko Content?')}\n\`\`\`\`md\n\`\`\`\n## Why use Ginko Content?\n\`\`\`\`\n`,
+    expected: 'missing the section: Why use Ginko Content?',
+  },
 ]
 for (const probe of failureProbes) {
   const errors = validatePublicReadme('README.md', probe.source, rootHeadings)
   if (!errors.some(error => error.includes(probe.expected))) {
     violations.push(`README policy failure probe did not reject ${probe.name}`)
   }
+}
+
+const docsAppConfig = readFileSync(join(repoRoot, 'docs/app/app.config.ts'), 'utf8')
+for (const marker of [
+  "plausible: { scriptId: 'H5REVQ79vAvFqyHLSC2Ve' }",
+  'feedback: { enabled: true }',
+  'https://discord.gg/RPH6SeA36N',
+  'https://lupinum.com/impressum',
+  'https://lupinum.com/datenschutz',
+]) {
+  if (!docsAppConfig.includes(marker)) violations.push(`docs/app/app.config.ts is missing: ${marker}`)
 }
 
 const pullRequestTemplate = readFileSync(join(repoRoot, '.github/pull_request_template.md'), 'utf8')
@@ -229,6 +263,14 @@ for (const heading of [
 ]) {
   if (!pullRequestTemplate.includes(`## ${heading}`)) {
     violations.push(`.github/pull_request_template.md is missing the section: ${heading}`)
+  }
+}
+for (const marker of [
+  '- [ ] I ran `pnpm verify`, or I explained why it does not apply.',
+  '- [ ] I updated versions, migration guidance, and compatibility notes when the public contract changed.',
+]) {
+  if (!pullRequestTemplate.includes(marker)) {
+    violations.push(`.github/pull_request_template.md is missing: ${marker}`)
   }
 }
 
