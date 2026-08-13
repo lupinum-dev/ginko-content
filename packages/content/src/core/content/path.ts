@@ -3,11 +3,36 @@ import { withLeadingSlash, withoutTrailingSlash } from 'ufo'
 import { slugifyUrlSegment } from './slug'
 
 const SEMVER_REGEX = /^(\d+)(\.\d+)*(\.x)?$/
-const NUMERIC_PREFIX_RE = /^(\d+)\.(.+)$/
+
+export const trimSlashes = (value: string): string => {
+  let start = 0
+  let end = value.length
+  while (start < end && value[start] === '/') start += 1
+  while (end > start && value[end - 1] === '/') end -= 1
+  return value.slice(start, end)
+}
+
+export const trimTrailingSlashes = (value: string): string => {
+  let end = value.length
+  while (end > 0 && value[end - 1] === '/') end -= 1
+  return value.slice(0, end)
+}
+
+const splitNumericPrefix = (value: string): { number?: string, value: string } => {
+  const separator = value.indexOf('.')
+  if (separator <= 0 || separator === value.length - 1) return { value }
+  const prefix = value.slice(0, separator)
+  if (![...prefix].every(character => character >= '0' && character <= '9')) return { value }
+  return { number: prefix, value: value.slice(separator + 1) }
+}
 
 export const describeId = (id: string) => {
   const [source, ...parts] = id.split(':')
-  const [, basename, extension] = parts[parts.length - 1]?.match(/(.*)\.([^.]+)$/) || []
+  const lastPart = parts[parts.length - 1] || ''
+  const extensionSeparator = lastPart.lastIndexOf('.')
+  const hasExtension = extensionSeparator > 0 && extensionSeparator < lastPart.length - 1
+  const basename = hasExtension ? lastPart.slice(0, extensionSeparator) : ''
+  const extension = hasExtension ? lastPart.slice(extensionSeparator + 1) : undefined
 
   if (basename) {
     parts[parts.length - 1] = basename
@@ -100,10 +125,9 @@ export function refineUrlPart(name: string): string {
     return name
   }
 
-  return name
-    .replace(/(\d+\.)?(.*)/, '$2')
-    .replace(/^index(\.draft)?$/, '')
-    .replace(/\.draft$/, '')
+  const refined = splitNumericPrefix(name).value
+  if (refined === 'index' || refined === 'index.draft') return ''
+  return refined.endsWith('.draft') ? refined.slice(0, -'.draft'.length) : refined
 }
 
 export const generatePath = (
@@ -121,11 +145,11 @@ export const generatePath = (
 const parseSegment = (part: string) => {
   const base = part.split(/[/:]/).pop() || ''
   const refined = refineUrlPart(base)
-  const match = base.match(NUMERIC_PREFIX_RE)
+  const { number } = splitNumericPrefix(base)
 
   return {
     refined,
-    number: match?.[1]
+    number
   }
 }
 

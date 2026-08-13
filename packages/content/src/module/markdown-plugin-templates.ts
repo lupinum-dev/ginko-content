@@ -1,4 +1,5 @@
 import type { addTemplate } from '@nuxt/kit'
+import { genDynamicImport, genImport, genString } from 'knitwork'
 import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { PortableComponentPolicyV1 } from '../types/component-policy'
 import { assertCanonicalHighlightOptionNames } from '../parsers/markdown-plugin-options'
@@ -158,10 +159,10 @@ export function createMarkdownPluginTemplates(
     write: true,
     getContents: () => {
       const imports = registry.map((entry, index) =>
-        `import * as plugin${index} from ${JSON.stringify(entry.parserPath)}`
+        genImport(entry.parserPath, { name: '*', as: `plugin${index}` })
       )
       const entries = registry.map((entry, index) =>
-        `${JSON.stringify(entry.name)}: resolvePluginFactory(plugin${index})`
+        `${genString(entry.name)}: resolvePluginFactory(plugin${index})`
       )
       return [
         ...imports,
@@ -184,7 +185,7 @@ export function createMarkdownPluginTemplates(
         `import { defineAsyncComponent } from 'vue'`,
         'export const markdownRendererComponents = {',
         ...renderers.map(renderer =>
-          `  ${JSON.stringify(renderer.tag)}: defineAsyncComponent(() => import(${JSON.stringify(renderer.path)}).then(mod => mod[${JSON.stringify(renderer.exportName)}])),`
+          `  ${genString(renderer.tag)}: defineAsyncComponent(() => ${genDynamicImport(renderer.path, { wrapper: false })}.then(mod => mod[${genString(renderer.exportName)}])),`
         ),
         '}',
         'export default {}'

@@ -32,6 +32,7 @@ import { isNavigationFile } from './structural'
 import type { ContentVariantIdentity, ResolvedVariant } from '../../types/runtime'
 import { normalizeReferenceValue, buildReferenceTargets } from '../references/resolve'
 import { resolveLocaleChain, sortLocalesCanonically } from './locale'
+import { trimTrailingSlashes } from './path'
 
 export interface ContentGraphVariant extends ContentVariantIdentity {
   document: ParsedContent
@@ -73,7 +74,8 @@ const normalizePath = (path: string) => {
     return '/'
   }
 
-  return path.startsWith('/') ? (path.endsWith('/') ? path.slice(0, -1) || '/' : path) : `/${path.replace(/\/+$/, '')}`
+  const normalized = trimTrailingSlashes(path) || '/'
+  return normalized.startsWith('/') ? normalized : `/${normalized}`
 }
 
 /**

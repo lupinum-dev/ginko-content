@@ -49,7 +49,7 @@ const renderTable = (node: MarkdownNode, ctx: AgentMarkdownContext) => {
 
   const cells = rows.map(row => (row.children || [])
     .filter(cell => cell.tag === 'th' || cell.tag === 'td')
-    .map(cell => renderChildren(cell, ctx).replace(/\|/g, '\\|').trim())
+    .map(cell => renderChildren(cell, ctx).split('|').join('\\|').trim())
   )
   const width = Math.max(...cells.map(row => row.length))
   const normalized = cells.map(row => [...row, ...Array.from({ length: width - row.length }, () => '')])

@@ -1,4 +1,4 @@
-const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
+import { trimSlashes } from '../../core/content/path'
 
 const decodeRoutePath = (path: string) => {
   let decoded = path

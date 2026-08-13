@@ -1,7 +1,7 @@
 import type { ContentFileMeta, ParsedContent } from '../types/content'
 import { ContentError } from '../core/errors'
 import { collectJsonPurityViolations, formatJsonPurityViolations } from '../core/json-value'
-import { normalizeSiteRelativeContentPath } from '../core/content/path'
+import { normalizeSiteRelativeContentPath, trimSlashes } from '../core/content/path'
 import { isMarkdownRoot } from '../core/markdown/tree'
 
 /**
@@ -13,7 +13,6 @@ import { isMarkdownRoot } from '../core/markdown/tree'
  * route shaping metadata themselves.
  */
 
-const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 const providerDocumentTypes = new Set<NonNullable<ParsedContent['type']>>(['markdown', 'yaml', 'json', 'csv'])
 const providerDerivedKeys = ['path', 'resolved', 'variants', 'localePaths', 'unprefixedPath', 'dir', 'route', 'resolution'] as const
 

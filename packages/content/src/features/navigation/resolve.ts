@@ -1,5 +1,6 @@
 import type { ContentNavigationItem, ParsedContentMeta } from '../../types/content'
 import type { ContentNavigationTreeItem, ResolvedContentNavigationItem } from '../../types/query'
+import { trimTrailingSlashes } from '../../core/content/path'
 
 export type ContentNavigationMatch = {
   path?: string
@@ -17,7 +18,7 @@ export type NavigationPageNode<T> = T & {
   path: string
 }
 
-export const normalizeNavigationPath = (path: string) => path !== '/' && path.endsWith('/') ? path.replace(/\/+$/, '') : path
+export const normalizeNavigationPath = (path: string) => path !== '/' && path.endsWith('/') ? trimTrailingSlashes(path) : path
 
 const stringValue = (value: unknown) => typeof value === 'string' && value.length ? value : undefined
 

@@ -1,6 +1,6 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { addTemplate } from '@nuxt/kit'
-import { genImport, genSafeVariableName } from 'knitwork'
+import { genDynamicImport, genImport, genSafeVariableName, genString } from 'knitwork'
 import { hash } from 'ohash'
 import { relative } from 'pathe'
 import { fileURLToPath } from 'node:url'
@@ -49,7 +49,7 @@ export const createVirtualContentTemplates = (
       }
 
       return [
-        `import config from ${JSON.stringify(contentConfigPath)}`,
+        `import config from ${genString(contentConfigPath)}`,
         'export default config'
       ].join('\n')
     }
@@ -62,10 +62,10 @@ export const createVirtualContentTemplates = (
       const providers = Object.entries(contentContext.providers || {})
       const imports = providers.map(([, specifier], index) => {
         const importPath = specifier.startsWith('file:') ? fileURLToPath(specifier) : specifier
-        return `import * as provider${index} from ${JSON.stringify(importPath)}`
+        return genImport(importPath, { name: '*', as: `provider${index}` })
       })
       const entries = providers.map(
-        ([name], index) => `${JSON.stringify(name)}: resolveProviderModule(provider${index})`
+        ([name], index) => `${genString(name)}: resolveProviderModule(provider${index})`
       )
 
       return [
@@ -94,7 +94,7 @@ export const createVirtualContentTemplates = (
 
       return [
         'const resolveCacheAdapterModule = (mod) => mod.default || mod.contentCacheAdapter || mod.cacheAdapter',
-        `export const loadContentCacheAdapter = () => import(${JSON.stringify(cache)}).then(resolveCacheAdapterModule)`,
+        `export const loadContentCacheAdapter = () => ${genDynamicImport(cache, { wrapper: false })}.then(resolveCacheAdapterModule)`,
         'export default {}'
       ].join('\n')
     }

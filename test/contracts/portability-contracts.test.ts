@@ -24,6 +24,7 @@ import {
 } from '../../packages/content/src/portability'
 import { PORTABILITY_CONTRACT_FIXTURES, runPortabilityContract } from '../../packages/content/src/testing/portability-contract'
 import { parsePortableJson } from '../../packages/content/src/portability/json'
+import { parsePortableYaml } from '../../packages/content/src/portability/yaml'
 import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../../packages/content/src/core/markdown/builtin-render-contracts'
 
 const absent = { present: false } as const
@@ -433,5 +434,16 @@ describe('portable content contract', () => {
     await expect(parsePortableDocument(`${yaml}\nfields: {}`, contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
     await expect(parsePortableDocument('{"ginko":{},"ginko":{},"fields":{}}', contract, 'content/example.json')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
     await expect(parsePortableDocument(yaml.replace('https://files.example.test/portrait.png', 'https://user:secret@files.example.test/portrait.png'), contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
+  })
+
+  it('ignores YAML control syntax inside quoted scalars only', () => {
+    expect(parsePortableYaml('title: "literal &anchor !tag *alias"\ncount: 1')).toEqual({
+      title: 'literal &anchor !tag *alias',
+      count: 1
+    })
+    expect(() => parsePortableYaml('title: value\ncopy: &anchor value')).toThrow()
+    expect(parsePortableYaml(`title: "${'safe '.repeat(20_000)}&anchor"`)).toEqual({
+      title: `${'safe '.repeat(20_000)}&anchor`
+    })
   })
 })
