@@ -134,7 +134,9 @@ function assertReleaseTarball(tarball) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
     const expectedManifestFields = {
       name: '@lupinum/ginko-content',
-      license: 'MIT'
+      license: 'MIT',
+      author: 'Lupinum OG <info@lupinum.com> (https://lupinum.com)',
+      homepage: 'https://ginko-content.lupinum.com'
     }
     for (const [field, expected] of Object.entries(expectedManifestFields)) {
       if (manifest[field] !== expected) {
