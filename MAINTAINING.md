@@ -138,6 +138,8 @@ GitHub must have:
   threads, and the repository's required CI checks;
 - squash merge as the only merge method, auto-merge enabled, and merged branches
   deleted automatically;
+- Issues enabled for public reports, with Wikis and Discussions disabled so
+  versioned repository documentation remains authoritative;
 - protected release tags;
 - an `npm` environment that allows only `main`, requires a reviewer, and has no
   package token;
