@@ -27,17 +27,18 @@ advisory without an explicit maintainer decision.
 
 ## Prepare a release
 
-1. Update `packages/content/package.json` with the intended version.
-2. Generate a changelog draft:
+1. Prepare the intended version and changelog draft:
 
    ```bash
-   pnpm run release:notes
+   pnpm run release:prepare -- -r 0.4.0-rc.2
    ```
 
-3. Review and edit the matching `CHANGELOG.md` section. Changelogen creates a
+   Replace the example version. The command does not commit, tag, push, or
+   publish.
+2. Review and edit the matching `CHANGELOG.md` section. Changelogen creates a
    draft; the committed changelog is the source of truth.
-4. Update the README, public docs, and examples when public behavior changed.
-5. Open a release pull request and merge it only after all required checks pass.
+3. Update the README, public docs, and examples when public behavior changed.
+4. Open a release pull request and merge it only after all required checks pass.
 
 Do not create a release tag or publish from a workstation. Do not run
 `npm publish`. The protected workflow owns npm publication, the release tag,
