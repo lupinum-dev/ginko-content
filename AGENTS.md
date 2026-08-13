@@ -73,8 +73,8 @@ pnpm run release:notes
 pnpm run release:verify
 ```
 
-The local `release:publish` script is a manual recovery path only. Follow
-`MAINTAINING.md` if the protected workflow cannot be used.
+There is no workstation publication path. If the protected workflow cannot be
+used, repair it instead of creating a second release path.
 Do not commit `.pack/`, `dist/`, `.nuxt/`, `.output/`, or generated tarballs.
 
 Use a short branch name that describes the work, such as

@@ -5,13 +5,18 @@ export default {
       name: { en: 'Ginko Content' },
       description: { en: 'Filesystem-first content for Nuxt 4.' },
       logo: { light: '/icon.png', dark: '/icon.png' },
-      localeSwitcher: 'dropdown',
-      docsSidebarSwitcher: 'tabs'
+      docsSidebarSwitcher: 'tabs',
+      legalLinks: [
+        { label: { en: 'Legal notice' }, to: 'https://lupinum.com/impressum' },
+        { label: { en: 'Privacy' }, to: 'https://lupinum.com/datenschutz' }
+      ]
     },
     social: {
       github: 'https://github.com/lupinum-dev/ginko-content',
       discord: 'https://discord.gg/RPH6SeA36N'
     },
+    analytics: { plausible: { scriptId: 'XxT9ZOr0ZLg10B4KV40xH' } },
+    feedback: { enabled: true },
     repository: {
       url: 'https://github.com/lupinum-dev/ginko-content',
       branch: 'main',
