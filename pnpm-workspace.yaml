@@ -6,10 +6,9 @@ packages:
   - examples/*/*
   - test/fixtures/*
 minimumReleaseAge: 1440
-# Remove this exception after 2026-08-15. This exact version is the reviewed
-# Ginko Docs release candidate used by the Lupinum documentation fleet.
 minimumReleaseAgeExclude:
-  - '@lupinum/ginko-docs@0.3.0-rc.4'
+  # Reviewed first-party release required by the docs app. Remove after 2026-08-14 17:36 Europe/Vienna.
+  - '@lupinum/ginko-docs@0.3.0-rc.5'
 linkWorkspacePackages: deep
 onlyBuiltDependencies:
   - esbuild
