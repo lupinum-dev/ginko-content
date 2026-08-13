@@ -138,6 +138,8 @@ GitHub must have:
   threads, and the repository's required CI checks;
 - squash merge as the only merge method, auto-merge enabled, and merged branches
   deleted automatically;
+- GitHub Actions restricted to full commit-SHA references, with default
+  workflow permissions read-only;
 - Issues enabled for public reports, with Wikis and Discussions disabled so
   versioned repository documentation remains authoritative;
 - protected release tags;
