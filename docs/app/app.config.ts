@@ -15,7 +15,7 @@ export default {
       github: 'https://github.com/lupinum-dev/ginko-content',
       discord: 'https://discord.gg/RPH6SeA36N'
     },
-    analytics: { plausible: { scriptId: 'XxT9ZOr0ZLg10B4KV40xH' } },
+    analytics: { plausible: { scriptId: 'H5REVQ79vAvFqyHLSC2Ve' } },
     feedback: { enabled: true },
     repository: {
       url: 'https://github.com/lupinum-dev/ginko-content',
