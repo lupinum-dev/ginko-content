@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.0-rc.2
+
+This release candidate updates the supported Nuxt dependency graph and the
+package documentation. It also makes the complete workspace audit part of the
+release gate and makes cold documentation deployments build the package first.
+
+- Update Nuxt and Nuxt Kit to the patched 4.5 line.
+- Keep development hot reload compatible with Nuxt 4.5 import-meta types.
+- Update `js-yaml` and vulnerable transitive tools to patched releases.
+- Add commit-addressed package previews for pull requests from this repository.
+- Standardize the root and package READMEs around user outcomes and a minimal
+  Nuxt quick start.
+- Build the package before Vercel builds the documentation application.
+
 ## v0.4.0-rc.1
 
 This prerelease aligns Ginko Content with Vue 3.5, Nuxt 4, Nuxt Kit, and Comark

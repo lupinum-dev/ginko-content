@@ -22,8 +22,9 @@ This command builds the package, prepares fixtures, checks repository policy,
 builds the docs and maintained examples, runs the test suites, and typechecks
 the workspace.
 
-Use `pnpm audit:prod` after dependency changes. Do not accept a production
-advisory without an explicit maintainer decision.
+Use `pnpm audit:all` after dependency changes. Keep `pnpm audit:prod` as the
+additional check for the published package graph. Do not accept an advisory
+without an explicit maintainer decision.
 
 ## Prepare a release
 
@@ -78,9 +79,9 @@ green. The gate requires static quality, core contracts, docs and examples,
 server e2e, browser behavior, static generation, the exact artifact, the
 minimum runtime, Node 26, and Windows portability evidence.
 
-The Windows packed Nuxt consumer remains a visible non-blocking canary while
-the Nuxt 4.4.7-4.4.8 drive-letter prerender issue documented in the migration
-guide remains open.
+The Windows lane verifies package creation and path portability. The supported
+Nuxt floor excludes the older drive-letter prerender issue documented in the
+migration guide.
 
 Local `pnpm run release:verify` is a diagnostic pre-check. It does not replace
 the authoritative CI gate on the exact final SHA.

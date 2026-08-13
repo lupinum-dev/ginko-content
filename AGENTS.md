@@ -29,6 +29,8 @@ Use pnpm through Corepack.
 
 ```bash
 pnpm verify
+pnpm docs:build
+pnpm audit:all
 pnpm run release:verify
 ```
 
@@ -85,6 +87,9 @@ Use a short branch name that describes the work, such as
 Follow `docs/WRITING.md` for human-authored documentation. Do not rewrite legal
 text, code, API identifiers, quotations, or generated reports to match the
 controlled-English profile.
+
+Root and public package READMEs follow the public README contract in
+`docs/WRITING.md`. Internal evidence and fixture READMEs remain technical.
 
 ## Provider Contract Rules
 

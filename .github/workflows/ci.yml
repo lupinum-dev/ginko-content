@@ -39,6 +39,8 @@ jobs:
         run: node scripts/timed-command.mjs docs-drift pnpm docs-drift
       - name: Check repository policies
         run: node scripts/timed-command.mjs repository-policy pnpm check:repo-policies
+      - name: Audit the full workspace
+        run: node scripts/timed-command.mjs audit-all pnpm audit:all
       - name: Check test selection
         run: node scripts/timed-command.mjs test-selection pnpm check:test-selection
       - name: Check generated API documentation

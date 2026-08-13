@@ -1,44 +1,58 @@
-# @lupinum/ginko-content
+<p align="center">
+  <img src="https://raw.githubusercontent.com/lupinum-dev/ginko-content/main/docs/public/icon.png" width="128" alt="Ginko Content">
+</p>
 
-Filesystem-first content for Nuxt 4.
+<h1 align="center">@lupinum/ginko-content</h1>
 
-Write Markdown and data files in `content/`, define collections once in
-`content.config.ts`, then use those collection handles for route pages, lists,
-navigation, search, i18n, and sitemap output.
+<p align="center">
+  Use one typed content model for Nuxt pages, queries, navigation, search, localization, and build output.
+</p>
 
-Use it when you want content files to stay simple, but your Nuxt app still
-needs explicit APIs for route resolution, typed frontmatter, localized content,
-and server-side reads.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lupinum/ginko-content"><img src="https://img.shields.io/npm/v/@lupinum/ginko-content?color=315d3b" alt="npm version"></a>
+  <a href="https://github.com/lupinum-dev/ginko-content/actions/workflows/ci.yml"><img src="https://github.com/lupinum-dev/ginko-content/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/lupinum-dev/ginko-content/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-315d3b" alt="MIT license"></a>
+</p>
 
-This README describes the `0.4.0-rc.1` release candidate. Install it from npm's
-`next` channel; the stable line remains `0.3` until the RC is promoted.
+> [!IMPORTANT]
+> Version `0.4.0-rc.2` is a release candidate. Install it from npm's `next`
+> channel. The stable `0.3` line remains on `latest`.
+
+## Why use this package?
+
+Content features become difficult to maintain when routes, lists, search, and
+localization use separate data. This package makes the collection definition
+the source of truth for those features.
+
+Keep Markdown and data files in `content/`. Use typed collection handles in the
+Nuxt application. The same handles also drive server queries and generated
+output.
 
 ## Requirements
 
 - Node.js 22.18–22.x, 24.11–24.x, or 26+
-- Nuxt 4.4.7 through Nuxt 4.x
+- Nuxt 4.5.1 through Nuxt 4.x
 - Vue 3.5.35 through Vue 3.x
 - ESM; CommonJS `require()` is not supported
 
-## Install
+## Installation
+
+Use the Nuxt CLI:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@0.4.0-rc.1
+npx nuxi module add @lupinum/ginko-content@0.4.0-rc.2
 ```
 
-The Nuxt CLI installs the package and registers the module in `nuxt.config.ts`.
-If you prefer to install by hand:
+Or install and register the module by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@0.4.0-rc.1
+pnpm add @lupinum/ginko-content@0.4.0-rc.2
 ```
 
 ```ts
+// nuxt.config.ts
 export default defineNuxtConfig({
   modules: ['@lupinum/ginko-content'],
-  imports: {
-    autoImport: true
-  }
 })
 ```
 
@@ -52,13 +66,11 @@ import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/co
 
 export const pages = defineCollection({
   type: 'page',
-  source: '**/*.md'
+  source: '**/*.md',
 })
 
 export default defineContentConfig({
-  collections: {
-    pages
-  }
+  collections: { pages },
 })
 ```
 
@@ -70,11 +82,9 @@ title: Welcome
 ---
 
 # Welcome
-
-This file renders at `/`.
 ```
 
-Render the current route through the collection:
+Render the active route:
 
 ```vue
 <!-- pages/[...slug].vue -->
@@ -95,81 +105,37 @@ if (!page.value) {
 </template>
 ```
 
-## Features
+## Main capabilities
 
-- file-authored pages and navigation from `content/`
-- collection definitions as the source of truth for content shape and source
-  files
-- Markdown, Comark component tags, YAML, JSON, and CSV ingestion
-- locale-aware content routing
-- route-aware page loading with `useContentPage(pages)`
-- semantic previous/next route-page data through `useContentPage(pages, { surround })`
-- server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
-  and `surround`
-- route and search composables, plus one-shot async client query functions for other
-  reads
-- search helpers for MiniSearch, Pagefind, and provider-owned search
-- sitemap integration for public content routes
-- a server-side provider contract for advanced custom sources
+- Markdown and Comark component rendering.
+- YAML, JSON, and CSV ingestion.
+- Typed collections and frontmatter.
+- Route-aware pages and server-side queries.
+- Locale-aware routes and fallback rules.
+- Navigation, search, sitemap, and prerender helpers.
+- A provider contract for remote or database-backed sources.
 
-## I18n, sitemap, and prerender ownership
+Optional features stay explicit. Install `pagefind`, `katex`, or
+`beautiful-mermaid` only when the application uses the related search, math, or
+diagram integration.
 
-For localized Nuxt apps, keep one source of truth per route type:
+## Documentation
 
-- Static Nuxt page paths belong in Nuxt I18n `i18n.pages`.
-- Content page paths belong in Ginko collection routes and content files.
-- Sitemap XML is generated by `@nuxtjs/sitemap`.
-- Ginko registers the content sitemap source and contributes content prerender
-  routes.
+- [Documentation](https://ginko-content.lupinum.com)
+- [Quick start](https://ginko-content.lupinum.com/docs/get-started/quickstart)
+- [Guides](https://ginko-content.lupinum.com/docs/guides)
+- [API reference](https://ginko-content.lupinum.com/docs/reference)
+- [Repository](https://github.com/lupinum-dev/ginko-content)
 
-Do not duplicate docs, blog, pricing, privacy, or translated locale paths in
-`sitemap.urls` or app-owned `nitro.prerender.routes` arrays. Use
-`@nuxtjs/sitemap >= 8.0.15 < 9` when translated static app slugs such as `/preise`
-and `/en/pricing` need cross-locale sitemap alternates.
+## Support and security
 
-See the public guide:
-[Sitemap and prerender](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/4.guides/9.sitemap-and-prerender.md).
+Open a [GitHub issue](https://github.com/lupinum-dev/ginko-content/issues) for a
+reproducible defect. Join the [Lupinum OSS Discord](https://discord.gg/RPH6SeA36N)
+for usage questions.
 
-## Integration dependencies
-
-| Feature | Dependency model |
-| --- | --- |
-| Markdown highlighting and built-in Shiki transformers | Included as runtime dependencies of `@lupinum/ginko-content`. |
-| Math Markdown | Install the optional `katex` peer and add `katex/dist/katex.min.css` to Nuxt's `css` array. |
-| Mermaid Markdown | Install the optional `beautiful-mermaid` peer. |
-| MiniSearch backend | Included as a runtime dependency and used by the default search backend. |
-| Pagefind backend | Install the optional `pagefind` peer when `content.search.engine` is `'pagefind'`. |
-| Provider-owned search | No extra package. The active content provider must advertise and implement `search`. |
-| Content i18n | Install and configure `@nuxtjs/i18n` 10.x when the app uses Nuxt locale routes. |
-| Sitemap XML output | Install and configure `@nuxtjs/sitemap`; Ginko contributes the content sitemap source. |
-
-Markdown plugins are opt-in. Omitting `content.markdown.plugins` is identical
-to `plugins: []`; add `shiki`, `math`, `mermaid`, `toc`, or `summary` only when
-the application needs that behavior.
-
-## Scope
-
-The default provider reads files from your Nuxt project. The package does not
-include a CMS UI, Studio, admin panel, or content editing workflow.
-
-## Project links
-
-- Documentation source: [Getting started](https://github.com/lupinum-dev/ginko-content/blob/main/docs/content/docs/1.get-started/1.quickstart.md)
-- Repository: [github.com/lupinum-dev/ginko-content](https://github.com/lupinum-dev/ginko-content)
-- Issues: [GitHub issues](https://github.com/lupinum-dev/ginko-content/issues)
-- Contributing: [CONTRIBUTING.md](https://github.com/lupinum-dev/ginko-content/blob/main/CONTRIBUTING.md)
-- Security: [SECURITY.md](https://github.com/lupinum-dev/ginko-content/blob/main/SECURITY.md)
-- Community: [Lupinum OSS Discord](https://discord.gg/RPH6SeA36N)
-- Maintainer: [Lupinum OG](https://lupinum.com)
-
-## Credits
-
-Ginko Content is an independently maintained fork derived from
-[Nuxt Content](https://content.nuxt.com/). It has substantially diverged while
-retaining upstream-derived parser, MDC, and rendering foundations. Credits also
-go to [Nuxt UI](https://ui.nuxt.com/) and [Comark](https://comark.dev/), the
-successor to the previous MDC work.
+Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/lupinum-dev/ginko-content/security/advisories/new).
 
 ## License
 
-[MIT](./LICENSE)
+This package is available under the [MIT License](https://github.com/lupinum-dev/ginko-content/blob/main/LICENSE).
+It is developed by [Lupinum OG](https://lupinum.com).

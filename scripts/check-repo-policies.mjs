@@ -79,6 +79,59 @@ function collectFiles(rootPath) {
 
 const violations = []
 
+function assertOrderedHeadings(filePath, headings) {
+  const source = readFileSync(join(repoRoot, filePath), 'utf8')
+  let cursor = -1
+  for (const heading of headings) {
+    const index = source.indexOf(`## ${heading}`)
+    if (index === -1) {
+      violations.push(`${filePath} is missing the section: ${heading}`)
+      continue
+    }
+    if (index < cursor) violations.push(`${filePath} has ${heading} out of order`)
+    cursor = index
+  }
+
+  if ((source.match(/<h1\b/gu) ?? []).length !== 1) {
+    violations.push(`${filePath} must contain one centered HTML h1`)
+  }
+  if (!/<img[^>]+width="128"[^>]*>/u.test(source)) {
+    violations.push(`${filePath} must contain a 128 px product icon`)
+  }
+  for (const marker of ['align="center"', 'npmjs.com/package/@lupinum/ginko-content', 'actions/workflows/ci.yml', 'MIT']) {
+    if (!source.includes(marker)) violations.push(`${filePath} is missing README marker: ${marker}`)
+  }
+  if (/\b(?:TODO|TBD|placeholder)\b/iu.test(source)) {
+    violations.push(`${filePath} contains unfinished placeholder text`)
+  }
+  if (source.includes('0.4.0-rc.1')) {
+    violations.push(`${filePath} contains the previous release-candidate version`)
+  }
+}
+
+assertOrderedHeadings('README.md', [
+  'Why use Ginko Content?',
+  'When to use it',
+  'Requirements',
+  'Installation',
+  'Quick start',
+  'What the package provides',
+  'Documentation',
+  'Contributing and development',
+  'Support and security',
+  'License',
+])
+assertOrderedHeadings('packages/content/README.md', [
+  'Why use this package?',
+  'Requirements',
+  'Installation',
+  'Quick start',
+  'Main capabilities',
+  'Documentation',
+  'Support and security',
+  'License',
+])
+
 const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
 const changelogLines = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8').split(/\r?\n/u)
 const releaseHeading = `## v${packageManifest.version}`

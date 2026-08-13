@@ -40,7 +40,7 @@ if (!['pnpm', 'npm'].includes(packageManager)) {
 }
 const nuxtVersion = optionValue(
   '--nuxt-version',
-  process.env.GINKO_CONSUMER_NUXT_VERSION || '4.4.7'
+  process.env.GINKO_CONSUMER_NUXT_VERSION || '4.5.1'
 )
 
 function resolveReleaseTarball() {
