@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import type { ContentQueryFindResponse, ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, ParsedContent } from '../types/content'
 import { buildContentGraph, type ContentGraph } from '../core/content/graph'
+import { trimSlashes } from '../core/content/path'
 import { executeQueryPlan } from '../core/query/execute'
 import { PROVIDER_CAPABILITY_OPERATORS } from '../core/query/operators'
 import { mergeContentCacheHints } from '../core/cache-hints'
@@ -82,8 +83,6 @@ export interface ProviderFixtureEventOptions {
   params?: Record<string, string>
   context?: Record<string, unknown>
 }
-
-const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, '')
 
 /**
  * Every fixture document must belong to a declared collection, because the

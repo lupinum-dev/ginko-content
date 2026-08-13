@@ -1,4 +1,5 @@
 import type { addTemplate } from '@nuxt/kit'
+import { genDynamicImport, genString } from 'knitwork'
 import { isAbsolute, relative } from 'pathe'
 
 export const registerContentComponentsTemplate = (
@@ -56,10 +57,10 @@ export const registerContentComponentsTemplate = (
         '}',
         'export const localComponentLoaders = {',
         ...localComponents.map(([pascalName, path, , exp]) => {
-          const pathLiteral = JSON.stringify(path)
-          const exportLiteral = JSON.stringify(exp)
-          const nameLiteral = JSON.stringify(pascalName)
-          return `  ${nameLiteral}: () => import(${pathLiteral}).then(mod => pickExport(mod, ${exportLiteral}, ${nameLiteral}, ${pathLiteral})),`
+          const pathLiteral = genString(path)
+          const exportLiteral = genString(exp)
+          const nameLiteral = genString(pascalName)
+          return `  ${nameLiteral}: () => ${genDynamicImport(path, { wrapper: false })}.then(mod => pickExport(mod, ${exportLiteral}, ${nameLiteral}, ${pathLiteral})),`
         }),
         '}',
         `export const globalComponents = ${JSON.stringify(globalComponents)}`,

@@ -154,7 +154,7 @@ const isPublicPage = (page: ParsedContent, config: ContentCollectionConfig | und
   )
 
 const escapeMarkdownText = (value: string) =>
-  value.replace(/\*/g, '\\*').replace(/_/g, '\\_').replace(/\[/g, '\\[').replace(/\]/g, '\\]')
+  value.replace(/[*_[\]]/g, character => `\\${character}`)
 
 // --- Document assembly (thin handlers over the pure walker) -----------------
 

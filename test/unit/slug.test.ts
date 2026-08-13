@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { generatePath } from '../../packages/content/src/core/content/path'
+import {
+  describeId,
+  generatePath,
+  refineUrlPart,
+  trimSlashes,
+  trimTrailingSlashes
+} from '../../packages/content/src/core/content/path'
 import { slugifyUrlSegment } from '../../packages/content/src/core/content/slug'
 import pathMeta from '../../packages/content/src/parsers/path-meta'
 import { collectTranslatedSlugValidationIssues } from '../../packages/content/src/features/localization/translated-slugs'
@@ -18,6 +24,19 @@ describe('content slug helpers', () => {
   test('uses the same slugification for generated content paths', () => {
     expect(generatePath('blog/Hallo Welt Übersetzt')).toBe('/blog/hallo-welt-uebersetzt')
     expect(generatePath('Docs/Über Uns', { respectPathCase: true })).toBe('/Docs/Ueber-Uns')
+  })
+
+  test('normalizes path metadata with deterministic string scans', () => {
+    expect(describeId('content:en:docs:1.guide.md')).toMatchObject({
+      basename: '1.guide',
+      extension: 'md',
+      file: 'en/docs/1.guide.md',
+      path: 'en/docs/1.guide'
+    })
+    expect(refineUrlPart('12.getting-started.draft')).toBe('getting-started')
+    expect(refineUrlPart('1.2.3')).toBe('1.2.3')
+    expect(trimSlashes('///docs/intro///')).toBe('docs/intro')
+    expect(trimTrailingSlashes('/docs/intro///')).toBe('/docs/intro')
   })
 })
 

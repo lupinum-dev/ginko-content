@@ -9,7 +9,7 @@ export function parsePortableYaml(source: string): JsonValue {
     return code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31)
   })) throw invalidYaml()
   for (const line of source.split(/\r?\n/)) {
-    const plain = line.replace(/"(?:[^"\\]|\\.)*"/g, '')
+    const plain = removeDoubleQuotedSegments(line)
     if (/(^|\s)(?:[&*!]|<<\s*:)/.test(plain) || /^\s*(?:[-+]?\d+(?:\.\d+)?|true|false|null)\s*:/.test(plain)) throw invalidYaml()
   }
   try {
@@ -19,6 +19,35 @@ export function parsePortableYaml(source: string): JsonValue {
   } catch {
     throw invalidYaml()
   }
+}
+
+const removeDoubleQuotedSegments = (line: string): string => {
+  let output = ''
+  let plainStart = 0
+  let cursor = 0
+  while (cursor < line.length) {
+    if (line[cursor] !== '"') {
+      cursor += 1
+      continue
+    }
+    let quotedEnd = cursor + 1
+    let escaped = false
+    for (; quotedEnd < line.length; quotedEnd += 1) {
+      const character = line[quotedEnd]
+      if (escaped) {
+        escaped = false
+      } else if (character === '\\') {
+        escaped = true
+      } else if (character === '"') {
+        break
+      }
+    }
+    if (quotedEnd === line.length) break
+    output += line.slice(plainStart, cursor)
+    plainStart = quotedEnd + 1
+    cursor = quotedEnd + 1
+  }
+  return output + line.slice(plainStart)
 }
 
 const invalidYaml = () => portabilityError('DOCUMENT_INVALID', 'portability.parse', 'Portable YAML is invalid.')
