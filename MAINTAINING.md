@@ -183,5 +183,8 @@ GitHub must have:
 npm must bind `@lupinum/ginko-content` to `publish.yml` and the `npm`
 environment through trusted publishing.
 
-Vercel must deploy the documentation from `main` to
-`ginko-content.lupinum.com` and create pull-request previews.
+Vercel must deploy `docs/` from `main` to `ginko-content.lupinum.com` and
+create pull-request previews. Set the Root Directory to `docs`. Enable
+**Include source files outside of the Root Directory in the Build Step** so the
+documentation build can use the locked workspace package. Do not set an Output
+Directory override.

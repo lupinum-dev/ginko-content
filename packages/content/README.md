@@ -14,7 +14,7 @@
   <a href="https://github.com/lupinum-dev/ginko-content/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-315d3b" alt="MIT license"></a>
 </p>
 
-> [!IMPORTANT]
+> [!WARNING]
 > Version `0.4.0-rc.2` is a release candidate. Install it from npm's `next`
 > channel. The stable `0.3` line remains on `latest`.
 

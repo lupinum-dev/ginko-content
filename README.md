@@ -14,7 +14,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-315d3b" alt="MIT license"></a>
 </p>
 
-> [!IMPORTANT]
+> [!WARNING]
 > Version `0.4.0-rc.2` is a release candidate. Install it from the `next`
 > channel. The stable `0.3` line remains on the `latest` channel.
 

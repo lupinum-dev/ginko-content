@@ -80,6 +80,18 @@ function collectFiles(rootPath) {
 const violations = []
 const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
 
+for (const requiredFile of [
+  '.github/ISSUE_TEMPLATE/bug.md',
+  '.github/ISSUE_TEMPLATE/config.yml',
+  '.github/ISSUE_TEMPLATE/documentation.md',
+  '.github/ISSUE_TEMPLATE/proposal.md',
+  '.github/pull_request_template.md',
+]) {
+  if (!repositoryFiles.includes(requiredFile)) {
+    violations.push(`${requiredFile}: required contributor template is missing`)
+  }
+}
+
 function withoutFencedCode(source) {
   let fence = null
   return source
@@ -135,6 +147,9 @@ function validatePublicReadme(filePath, source, headings) {
 
   const releaseStatus = source.match(/^> Version `(?<version>[^`]+)` is a release candidate\./mu)
   if (packageManifest.version.includes('-')) {
+    if (!source.includes('> [!WARNING]\n')) {
+      errors.push(`${filePath} must use a warning for prerelease status`)
+    }
     if (releaseStatus?.groups?.version !== packageManifest.version) {
       errors.push(`${filePath} must identify release candidate ${packageManifest.version}`)
     }

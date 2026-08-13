@@ -70,6 +70,7 @@ Temporary Items
 .apdisk
 
 .vercel_build_output
+.vercel
 .build-*
 .env
 .netlify
