@@ -5,7 +5,11 @@ export default {
       name: { en: 'Ginko Content' },
       description: { en: 'Filesystem-first content for Nuxt 4.' },
       logo: { light: '/icon.png', dark: '/icon.png' },
-      docsSidebarSwitcher: 'tabs'
+      docsSidebarSwitcher: 'tabs',
+      legalLinks: [
+        { label: { en: 'Legal notice' }, to: 'https://lupinum.com/impressum' },
+        { label: { en: 'Privacy' }, to: 'https://lupinum.com/datenschutz' }
+      ]
     },
     social: {
       github: 'https://github.com/lupinum-dev/ginko-content',
