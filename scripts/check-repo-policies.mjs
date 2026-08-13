@@ -132,6 +132,19 @@ assertOrderedHeadings('packages/content/README.md', [
   'License',
 ])
 
+const pullRequestTemplate = readFileSync(join(repoRoot, '.github/pull_request_template.md'), 'utf8')
+for (const heading of [
+  'Result',
+  'Verification',
+  'Documentation and compatibility',
+  'Release note',
+  'Risk',
+]) {
+  if (!pullRequestTemplate.includes(`## ${heading}`)) {
+    violations.push(`.github/pull_request_template.md is missing the section: ${heading}`)
+  }
+}
+
 const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
 const changelogLines = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8').split(/\r?\n/u)
 const releaseHeading = `## v${packageManifest.version}`

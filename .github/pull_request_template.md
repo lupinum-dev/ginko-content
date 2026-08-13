@@ -15,6 +15,10 @@
 - [ ] I kept this pull request focused on one concern.
 - [ ] I did not include credentials, private content, or generated output.
 
+## Release note
+
+<!-- State the changelog entry. Write "None" and explain why when no package release note is required. -->
+
 ## Risk
 
 <!-- State the failure mode and the rollback or forward-fix path. -->
