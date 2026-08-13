@@ -49,10 +49,10 @@ Publishing is intentionally maintainer-triggered:
 
 1. Wait for the `Release authorization` job on the merged `main` commit.
 2. Open **Actions → Publish → Run workflow** on `main`.
-3. Enter the successful CI run ID and the exact package version.
+3. Enter the exact package version.
 4. Approve the protected `npm` environment when GitHub requests review.
 
-The workflow proves that the CI run belongs to the current `main` commit and
+The workflow finds the successful CI run for the current `main` commit and
 downloads its certified tarball. The OIDC-capable publication job does not
 check out the repository, install dependencies, or execute repository scripts.
 It publishes the tarball with `next` for prereleases or `latest` for stable

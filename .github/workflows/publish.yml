@@ -3,10 +3,6 @@ name: Publish
 on:
   workflow_dispatch:
     inputs:
-      ci_run_id:
-        description: Successful CI run ID for the current main commit
-        required: true
-        type: string
       version:
         description: Exact package version, for example 0.4.0-rc.1
         required: true
@@ -35,16 +31,14 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           node -e "if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.RELEASE_VERSION)) throw new Error('Invalid release version')"
 
-      - name: Verify CI run
+      - name: Find successful CI for this commit
+        id: ci
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.ci_run_id }}
         run: |
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .name)" = "CI"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .event)" = "push"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_branch)" = "main"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)" = "$GITHUB_SHA"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .conclusion)" = "success"
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=completed&per_page=20" --jq '.workflow_runs | map(select(.conclusion == "success" and .head_branch == "main")) | first | .id // empty')"
+          test -n "$run_id"
+          printf 'run-id=%s\n' "$run_id" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -55,7 +49,7 @@ jobs:
           name: ginko-content-release
           path: .release
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.ci_run_id }}
+          run-id: ${{ steps.ci.outputs.run-id }}
 
       - name: Verify exact artifact
         env:
