@@ -1,0 +1,75 @@
+name: Package preview
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.11.0
+          package-manager-cache: false
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the disposable certified tarball
+        id: artifact
+        run: node scripts/build-package-preview.mjs
+
+      - name: Publish the commit-addressed preview
+        id: publish
+        run: >-
+          pnpm exec pkg-pr-new publish
+          --no-compact
+          --comment=update
+          --commentWithSha
+          --no-template
+          --packageManager=pnpm,npm
+          "${{ steps.artifact.outputs.tarball }}"
+
+      - name: Verify the hosted preview bytes
+        env:
+          ARTIFACT_SHA256: ${{ steps.artifact.outputs.sha256 }}
+          PACKAGE_NAME: ${{ steps.artifact.outputs.package_name }}
+          PREVIEW_SHA: ${{ steps.publish.outputs.sha }}
+          PREVIEW_URL: ${{ steps.publish.outputs.urls }}
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$PREVIEW_SHA" = "$SOURCE_COMMIT"
+          test "$PREVIEW_URL" = "https://pkg.pr.new/${GITHUB_REPOSITORY}/${PACKAGE_NAME}@${SOURCE_COMMIT}"
+          curl --fail --location --silent --show-error --retry 5 --retry-all-errors \
+            --proto '=https' --tlsv1.2 --output "$RUNNER_TEMP/package-preview.tgz" "$PREVIEW_URL"
+          echo "$ARTIFACT_SHA256  $RUNNER_TEMP/package-preview.tgz" | sha256sum --check --strict
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: package-preview-${{ github.run_id }}
+          path: ${{ steps.artifact.outputs.directory }}/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14

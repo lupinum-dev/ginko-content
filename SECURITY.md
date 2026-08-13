@@ -3,15 +3,14 @@
 Report security issues privately to [info@lupinum.com](mailto:info@lupinum.com).
 Do not open a public issue for suspected content injection, path traversal,
 cache poisoning, package compromise, token leaks, or provider capability
-bypasses. GitHub private vulnerability reporting may also be used when it is
-enabled for this repository.
+bypasses. You can also use GitHub private vulnerability reporting.
 
-## Maintained Versions
+## Maintained versions
 
 Only the latest published release line is maintained unless a separate support
 branch is explicitly announced.
 
-## Release Security
+## Release security
 
 - No long-lived npm publish tokens in CI.
 - npm trusted publishing is bound to the protected `publish.yml` workflow and

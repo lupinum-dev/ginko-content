@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nuxtjs",
+  "buildCommand": "pnpm --dir .. docs:build:vercel",
+  "outputDirectory": null
+}

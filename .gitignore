@@ -24,6 +24,7 @@ node-compile-cache
 # Generated dirs
 dist
 .pack
+.package-preview
 .nuxt
 .nuxt-*
 .output
@@ -69,6 +70,7 @@ Temporary Items
 .apdisk
 
 .vercel_build_output
+.vercel
 .build-*
 .env
 .netlify

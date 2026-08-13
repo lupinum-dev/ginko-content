@@ -21,5 +21,5 @@ export function registerContentHotReload (
 }
 
 export default defineNuxtPlugin(() => {
-  registerContentHotReload(import.meta.hot, import.meta.client, refreshNuxtData)
+  registerContentHotReload(import.meta.hot, import.meta.client === true, refreshNuxtData)
 })

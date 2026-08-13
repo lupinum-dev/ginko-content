@@ -7,6 +7,8 @@ const applyContentRuntimeConfig = vi.fn()
 const registerContentServerHandlers = vi.fn()
 const sitemapLoggerWarn = vi.fn()
 const removeBuildArtifact = vi.fn(async () => {})
+const loadContentConfig = vi.fn()
+const resolveContentConfigPath = vi.fn()
 
 function createNuxt() {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
@@ -81,6 +83,12 @@ describe('module contracts', () => {
     registerContentServerHandlers.mockReset()
     sitemapLoggerWarn.mockReset()
     removeBuildArtifact.mockReset()
+    loadContentConfig.mockReset().mockResolvedValue({
+      collections: {
+        docs: { source: '**/*.md' }
+      }
+    })
+    resolveContentConfigPath.mockReset().mockReturnValue('/workspace/app/content.config.ts')
 
     vi.doMock('node:fs/promises', async () => ({
       ...await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'),
@@ -113,12 +121,8 @@ describe('module contracts', () => {
       }]
     }))
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        collections: {
-          docs: { source: '**/*.md' }
-        }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
+      loadContentConfig,
+      resolveContentConfigPath
     }))
     vi.doMock('../../packages/content/src/utils', () => ({
       processMarkdownOptions: vi.fn((value: any) => value),
@@ -217,10 +221,8 @@ describe('module contracts', () => {
   test('requires a content config with at least one collection', async () => {
     const { nuxt } = createNuxt()
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({})),
-      resolveContentConfigPath: vi.fn(() => undefined)
-    }))
+    loadContentConfig.mockResolvedValue({})
+    resolveContentConfigPath.mockReturnValue(undefined)
 
     const mod = await import('../../packages/content/src/module')
     await expect(mod.default.setup(createOptions(), nuxt as any)).rejects.toThrow(
@@ -255,14 +257,11 @@ describe('module contracts', () => {
   test('fails when collection map key and authored handle name drift', async () => {
     const { nuxt } = createNuxt()
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        collections: {
-          docs: { name: 'guides', source: '**/*.md' }
-        }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+    loadContentConfig.mockResolvedValue({
+      collections: {
+        docs: { name: 'guides', source: '**/*.md' }
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await expect(mod.default.setup(createOptions(), nuxt as any)).rejects.toThrow(
@@ -273,18 +272,15 @@ describe('module contracts', () => {
   test('validates explicit content page route metadata against collection route mounts', async () => {
     const { nuxt, hooks } = createNuxt()
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        collections: {
-          docs: {
-            source: '**/*.md',
-            route: { en: '/docs', de: '/dokumentation' },
-            i18n: { defaultLocale: 'en', locales: ['en', 'de'] }
-          }
+    loadContentConfig.mockResolvedValue({
+      collections: {
+        docs: {
+          source: '**/*.md',
+          route: { en: '/docs', de: '/dokumentation' },
+          i18n: { defaultLocale: 'en', locales: ['en', 'de'] }
         }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
@@ -308,15 +304,12 @@ describe('module contracts', () => {
       providers.remote = '~/providers/remote'
     })
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        provider: 'remote',
-        collections: {
-          docs: { source: '**/*.md' }
-        }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+    loadContentConfig.mockResolvedValue({
+      provider: 'remote',
+      collections: {
+        docs: { source: '**/*.md' }
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
@@ -346,26 +339,23 @@ describe('module contracts', () => {
     const { nuxt, hooks } = createNuxt()
     nuxt.options.dev = true
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        collections: {
-          posts: {
-            source: 'posts/*.md',
-            schema: z.object({
-              authors: fields.relations('authors')
-            })
-          },
-          authors: {
-            source: 'authors/*.yml'
-          },
-          empty: {
-            source: 'empty/*.yml',
-            schema: z.object({})
-          }
+    loadContentConfig.mockResolvedValue({
+      collections: {
+        posts: {
+          source: 'posts/*.md',
+          schema: z.object({
+            authors: fields.relations('authors')
+          })
+        },
+        authors: {
+          source: 'authors/*.yml'
+        },
+        empty: {
+          source: 'empty/*.yml',
+          schema: z.object({})
         }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
@@ -417,15 +407,12 @@ describe('module contracts', () => {
   test('preserves an explicit collection i18n opt-out through runtime serialization', async () => {
     const { nuxt, hooks } = createNuxt()
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        collections: {
-          docs: { source: 'docs/**/*.md', i18n: true },
-          legal: { source: 'legal/**/*.md', i18n: false }
-        }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+    loadContentConfig.mockResolvedValue({
+      collections: {
+        docs: { source: 'docs/**/*.md', i18n: true },
+        legal: { source: 'legal/**/*.md', i18n: false }
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
@@ -454,15 +441,12 @@ describe('module contracts', () => {
   test('fails loudly when an external provider is selected without module registration', async () => {
     const { nuxt, hooks } = createNuxt()
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        provider: 'remote',
-        collections: {
-          docs: { source: '**/*.md' }
-        }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+    loadContentConfig.mockResolvedValue({
+      provider: 'remote',
+      collections: {
+        docs: { source: '**/*.md' }
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions(), nuxt as any)
@@ -766,19 +750,16 @@ describe('module contracts', () => {
       observedContext.push(ctx)
     })
 
-    vi.doMock('../../packages/content/src/utils/content-config', () => ({
-      loadContentConfig: vi.fn(async () => ({
-        provider: 'remote',
-        collections: {
-          docs: {
-            source: '**/*.md',
-            i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
-            route: { en: '/docs', de: '/dokumentation' }
-          }
+    loadContentConfig.mockResolvedValue({
+      provider: 'remote',
+      collections: {
+        docs: {
+          source: '**/*.md',
+          i18n: { locales: ['en', 'de'], defaultLocale: 'en' },
+          route: { en: '/docs', de: '/dokumentation' }
         }
-      })),
-      resolveContentConfigPath: vi.fn(() => '/workspace/app/content.config.ts')
-    }))
+      }
+    })
 
     const mod = await import('../../packages/content/src/module')
     await mod.default.setup(createOptions({

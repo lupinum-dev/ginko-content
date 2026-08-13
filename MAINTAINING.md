@@ -22,8 +22,24 @@ This command builds the package, prepares fixtures, checks repository policy,
 builds the docs and maintained examples, runs the test suites, and typechecks
 the workspace.
 
-Use `pnpm audit:prod` after dependency changes. Do not accept a production
-advisory without an explicit maintainer decision.
+Use `pnpm audit:all` after dependency changes. Keep `pnpm audit:prod` as the
+additional check for the published package graph. Do not accept an advisory
+without an explicit maintainer decision.
+
+## Quick fixes
+
+Keep one cause and one verification path in the pull request. Add a regression
+test when the defect can return. Run `pnpm verify` before handoff.
+
+## Large changes
+
+Open an issue first. Split the work by public behavior and keep provider,
+runtime, types, tests, and documentation in the same focused change.
+
+## Documentation changes
+
+Follow [docs/WRITING.md](./docs/WRITING.md). Build the documentation with
+`pnpm docs:build`, and run `pnpm verify` before merge.
 
 ## Prepare a release
 
@@ -71,6 +87,20 @@ The npm trusted publisher must use this exact identity:
 Do not add an `NPM_TOKEN`. If the protected workflow is unavailable, repair the
 workflow. Do not create a second publication path.
 
+## Roll back a defective release
+
+Do not unpublish unless npm policy and a confirmed security incident require
+it. Restore the last known-good dist-tag, deprecate the defective version, and
+publish a forward fix with a new version. Never rebuild different bytes for an
+existing version.
+
+## Respond to a credential incident
+
+Stop release workflows and revoke the affected credential or trusted-publisher
+binding. Review GitHub audit logs, workflow changes, tags, releases, and npm
+access. Restore publishing only after the source commit and retained artifacts
+are verified.
+
 ## Release gate
 
 A release may use only the exact commit whose CI `Release authorization` job is
@@ -78,9 +108,9 @@ green. The gate requires static quality, core contracts, docs and examples,
 server e2e, browser behavior, static generation, the exact artifact, the
 minimum runtime, Node 26, and Windows portability evidence.
 
-The Windows packed Nuxt consumer remains a visible non-blocking canary while
-the Nuxt 4.4.7-4.4.8 drive-letter prerender issue documented in the migration
-guide remains open.
+The Windows lane verifies package creation and path portability. The supported
+Nuxt floor excludes the older drive-letter prerender issue documented in the
+migration guide.
 
 Local `pnpm run release:verify` is a diagnostic pre-check. It does not replace
 the authoritative CI gate on the exact final SHA.
@@ -153,5 +183,9 @@ GitHub must have:
 npm must bind `@lupinum/ginko-content` to `publish.yml` and the `npm`
 environment through trusted publishing.
 
-Vercel must deploy the documentation from `main` to
-`ginko-content.lupinum.com` and create pull-request previews.
+Vercel must deploy `docs/` from `main` to `ginko-content.lupinum.com` and
+create pull-request previews. Set the Root Directory to `docs`. Enable
+**Include source files outside of the Root Directory in the Build Step** so the
+documentation build can use the locked workspace package. Do not set an Output
+Directory or Install Command override. Vercel detects pnpm from the repository
+lockfile and installs the workspace before it runs the committed build command.

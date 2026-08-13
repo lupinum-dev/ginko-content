@@ -6,10 +6,10 @@ packages:
   - examples/*/*
   - test/fixtures/*
 minimumReleaseAge: 1440
-# Remove this exception after 2026-08-14. This exact version is the reviewed
+# Remove this exception after 2026-08-15. This exact version is the reviewed
 # Ginko Docs release candidate used by the Lupinum documentation fleet.
 minimumReleaseAgeExclude:
-  - '@lupinum/ginko-docs@0.3.0-rc.3'
+  - '@lupinum/ginko-docs@0.3.0-rc.4'
 linkWorkspacePackages: deep
 onlyBuiltDependencies:
   - esbuild
@@ -22,12 +22,26 @@ overrides:
   "@tiptap/starter-kit": 3.27.3
   "@vue/compiler-sfc": 3.5.39
   launch-editor: 2.14.1
-  tar: 7.5.16
+  tar: 7.5.22
   typescript: 5.9.3
   vue: 3.5.39
-  shell-quote: 1.8.4
+  shell-quote: 1.10.0
   ws: 8.21.0
-  js-yaml: 4.2.0
+  js-yaml: 4.3.1
+  brace-expansion@1: 1.1.18
+  brace-expansion@2: 2.1.4
+  brace-expansion@3: 5.0.9
+  brace-expansion@4: 5.0.9
+  brace-expansion@5: 5.0.9
+  nanoid@3: 3.3.18
+  '@hono/node-server@1': 1.19.17
+  hono: 4.13.1
+  svgo: 4.0.2
+  fast-uri: 3.1.5
+  sharp: 0.35.0
+  fast-xml-parser: 5.10.1
+  postcss: 8.5.23
+  ip-address: 10.3.1
   linkify-it: 5.0.2
   nuxtseo-shared: 5.3.12
 packageExtensions:

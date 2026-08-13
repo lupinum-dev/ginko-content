@@ -1,38 +1,81 @@
-[![Ginko Content](./docs/public/social-card.png)](./packages/content/README.md)
+<p align="center">
+  <img src="docs/public/icon.png" width="128" alt="Ginko Content">
+</p>
 
-# Ginko Content
+<h1 align="center">Ginko Content</h1>
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
+<p align="center">
+  Build typed Nuxt content from files without giving up routes, search, localization, or server queries.
+</p>
 
-Filesystem-first content for Nuxt 4. Write Markdown and data files in
-`content/`, define collections once in `content.config.ts`, then use those
-collection handles for pages, lists, navigation, search, i18n, and sitemap
-output.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lupinum/ginko-content"><img src="https://img.shields.io/npm/v/@lupinum/ginko-content?color=315d3b" alt="npm version"></a>
+  <a href="https://github.com/lupinum-dev/ginko-content/actions/workflows/ci.yml"><img src="https://github.com/lupinum-dev/ginko-content/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-315d3b" alt="MIT license"></a>
+</p>
 
-Use Ginko when you want content files to stay simple, but your Nuxt app still
-needs explicit APIs for route resolution, typed frontmatter, localized content,
-and server-side reads.
+> [!WARNING]
+> Version `0.4.0-rc.2` is a release candidate. Install it from the `next`
+> channel. The stable `0.3` line remains on the `latest` channel.
 
-- The current release candidate is `0.4.0-rc.1`; install it from npm's `next`
-  channel. The stable line remains `0.3` until the RC is promoted.
-- [Getting started](./docs/content/docs/1.get-started/1.quickstart.md)
-- [Package README](./packages/content/README.md)
-- [Contributing](./CONTRIBUTING.md)
-- [Basic playground](./playground/ginko-basic)
-- [i18n playground](./playground/ginko-i18n)
-- [Search playground](./playground/ginko-search)
+## Why use Ginko Content?
+
+A content site often starts with Markdown files. It becomes harder to maintain
+when pages, navigation, search, localization, and sitemaps use separate data.
+
+Ginko Content gives these features one source of truth. Define each collection
+once. Use the same typed collection handle in pages, server queries, navigation,
+search, and build output.
+
+Your content stays in readable files. Your Nuxt application gets explicit APIs
+and predictable route behavior.
+
+## When to use it
+
+Use Ginko Content when your Nuxt application needs:
+
+- Markdown or data files stored with the source code.
+- Typed frontmatter and collection rules.
+- Route-aware content pages.
+- Server-side content queries.
+- Localized routes and fallback rules.
+- Navigation, search, sitemap, or prerender output from the same content model.
+
+Do not use this package when you need a complete hosted CMS, an editorial admin
+interface, or a visual page builder. A remote CMS can implement the provider
+contract without changing the application-facing query API.
+
+## Requirements
+
+- Node.js 22.18–22.x, 24.11–24.x, or 26+
+- Nuxt 4.5.1 through Nuxt 4.x
+- Vue 3.5.35 through Vue 3.x
+- ESM; CommonJS `require()` is not supported
+
+## Installation
+
+Add the release candidate with the Nuxt CLI:
+
+```bash
+npx nuxi module add @lupinum/ginko-content@0.4.0-rc.2
+```
+
+You can also install and register it by hand:
+
+```bash
+pnpm add @lupinum/ginko-content@0.4.0-rc.2
+```
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['@lupinum/ginko-content'],
+})
+```
 
 ## Quick start
 
-Install the module:
-
-```bash
-npx nuxi module add @lupinum/ginko-content@0.4.0-rc.1
-```
-
-Define a collection:
+Define one collection:
 
 ```ts
 // content.config.ts
@@ -40,13 +83,11 @@ import { defineCollection, defineContentConfig } from '@lupinum/ginko-content/co
 
 export const pages = defineCollection({
   type: 'page',
-  source: '**/*.md'
+  source: '**/*.md',
 })
 
 export default defineContentConfig({
-  collections: {
-    pages
-  }
+  collections: { pages },
 })
 ```
 
@@ -59,10 +100,10 @@ title: Welcome
 
 # Welcome
 
-This file renders at `/`.
+This document renders at `/`.
 ```
 
-Render route-backed content:
+Render the current route:
 
 ```vue
 <!-- pages/[...slug].vue -->
@@ -83,108 +124,57 @@ if (!page.value) {
 </template>
 ```
 
-## What you get
+## What the package provides
 
-- Collection definitions as the source of truth for content shape and source
-  files.
-- Markdown and MDC rendering, plus YAML, JSON, and CSV ingestion.
-- Route-aware page loading with `useContentPage(handle)`.
-- Server reads through `one`, `many`, `paginate`, `resolveOne`, `navigation`,
-  and `surround`.
-- Route and search composables, plus one-shot async client query functions for other
-  reads.
-- Locale-aware content routing with explicit fallback behavior.
-- Search helpers for MiniSearch, Pagefind, and provider-owned search.
-- Sitemap integration for public content routes.
+- Markdown and Comark component rendering.
+- YAML, JSON, and CSV ingestion.
+- Typed collection definitions.
+- Route-aware page loading with `useContentPage()`.
+- Server reads for single records, lists, pagination, navigation, and surround
+  data.
+- Locale-aware routing with explicit fallback behavior.
+- MiniSearch, Pagefind, and provider-owned search options.
+- Sitemap and prerender integration.
+- A provider contract for advanced content sources.
 
-## I18n, sitemap, and prerender ownership
+Static Nuxt paths belong in Nuxt I18n. Content paths belong in collection
+routes. Sitemap XML belongs in `@nuxtjs/sitemap`. Do not maintain a second route
+table for the same content.
 
-Localized apps should not keep a duplicate route table for sitemap or prerender
-output. Static Nuxt page paths belong in Nuxt I18n `i18n.pages`; content paths
-belong in Ginko collection routes and content files; XML output belongs to
-`@nuxtjs/sitemap`.
+## Documentation
 
-Ginko registers the content sitemap source and contributes content prerender
-routes. Use `@nuxtjs/sitemap >= 8.0.15 < 9` when Nuxt I18n translated static page
-slugs need correct sitemap alternates.
+- [Documentation site](https://ginko-content.lupinum.com)
+- [Quick start](./docs/content/docs/1.get-started/1.quickstart.md)
+- [Guides](./docs/content/docs/4.guides)
+- [API reference](./docs/content/docs/5.reference)
+- [Package README](./packages/content/README.md)
 
-## Integration dependencies
+## Contributing and development
 
-MiniSearch, Shiki, and built-in Shiki transformer support are runtime
-dependencies of `@lupinum/ginko-content`. Apps that use Pagefind install the
-optional `pagefind` peer. Apps that use Nuxt locale routing install
-`@nuxtjs/i18n`; apps that publish sitemap XML install `@nuxtjs/sitemap`. Apps
-that enable the opt-in `math` or `mermaid` Markdown plugins install `katex` or
-`beautiful-mermaid` respectively. Markdown plugins are never enabled
-implicitly.
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before you open a pull request. Run
+the normal repository gate before handoff:
 
-## Scope
+```bash
+pnpm verify
+```
 
-Ginko Content is the content engine and default filesystem provider. It is not
-a CMS UI, Studio, admin panel, or MCP workflow host. Advanced CMS or database
-sources should integrate through the provider contract instead of changing the
-app-facing API.
+Maintainers use [MAINTAINING.md](./MAINTAINING.md) for dependency and release
+work. Protected GitHub Actions publish certified artifacts. Do not publish from
+a workstation.
 
-## Workspace
+## Support and security
 
-This repository is a pnpm workspace centered on one package:
+Open a [GitHub issue](https://github.com/lupinum-dev/ginko-content/issues) for a
+reproducible defect. Join the [Lupinum OSS Discord](https://discord.gg/RPH6SeA36N)
+for usage questions.
 
-- `@lupinum/ginko-content` in [`packages/content`](./packages/content)
-
-Development apps and fixtures also live in the workspace:
-
-- `docs`
-- `playground/ginko-basic`
-- `playground/ginko-i18n`
-- `playground/ginko-search`
-- `test/fixtures/quickstart`
-- `examples/*/*`
-- `test/fixtures/typecheck`
-
-## Credits
-
-Ginko Content is an independently maintained fork derived from
-[Nuxt Content](https://content.nuxt.com/). It has substantially diverged while
-retaining upstream-derived parser, MDC, and rendering foundations. Credits to
-[Nuxt UI](https://ui.nuxt.com/), and [Comark](https://comark.dev/), the
-successor to the previous MDC work.
-
-## Development
-
-- Clone repository
-- Install dependencies using `pnpm install`
-- Prepare using `pnpm dev:prepare`
-- Try playground using `pnpm dev`
-- Start docs using `pnpm docs`
-- Build packages using `pnpm build:packages`
-- Build docs using `pnpm docs:build`
-- Build maintained examples using `pnpm examples:build`
-- Test using `pnpm test`
-- Typecheck using `pnpm typecheck`
-- Run the full verification pipeline using `pnpm verify`
-- Leave `pnpm run release:verify` to the exact final release SHA in CI
-- Before publishing or changing public API behavior, follow [MAINTAINING.md](./MAINTAINING.md)
-
-Run a specific example directly from the workspace with `pnpm --dir examples/<group>/<name> dev` or use `pnpm example <group>/<name>`.
+Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/lupinum-dev/ginko-content/security/advisories/new)
+or follow [SECURITY.md](./SECURITY.md).
 
 ## License
 
-[MIT](./LICENSE)  
+Ginko Content is available under the [MIT License](./LICENSE). It is developed
+by [Lupinum OG](https://lupinum.com).
 
-## Support
-
-Open a [GitHub issue](https://github.com/lupinum-dev/ginko-content/issues) for a
-reproducible defect. Discuss usage with the community in the
-[Lupinum OSS Discord](https://discord.gg/RPH6SeA36N). Report vulnerabilities
-through the process in [SECURITY.md](./SECURITY.md).
-
-Ginko Content is developed by [Lupinum OG](https://lupinum.com).
-
-[npm-version-src]: https://img.shields.io/npm/v/@lupinum/ginko-content/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
-[npm-version-href]: https://npmjs.com/package/@lupinum/ginko-content
-
-[npm-downloads-src]: https://img.shields.io/npm/dm/@lupinum/ginko-content.svg?style=flat&colorA=18181B&colorB=28CF8D
-[npm-downloads-href]: https://npm.chart.dev/@lupinum/ginko-content
-
-[license-src]: https://img.shields.io/github/license/lupinum-dev/ginko-content.svg?style=flat&colorA=18181B&colorB=28CF8D
-[license-href]: https://github.com/lupinum-dev/ginko-content/blob/main/LICENSE
+Ginko Content is derived from Nuxt Content and has substantially diverged.
+Nuxt Content, Nuxt UI, and Comark retain their respective licenses and credits.

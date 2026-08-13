@@ -47,3 +47,27 @@ release approval steps in `MAINTAINING.md`.
 
 Do not rewrite license text, code, API identifiers, command output, quotations,
 changelog identifiers, or generated API reports.
+
+## Structure public READMEs
+
+Use the repository icon in a centered 128 px header. Follow it with the product
+name, one result-focused sentence, and npm, CI, and MIT badges.
+
+Use this section order in the root README:
+
+1. Release status when the package is not stable.
+2. Why a Nuxt user needs the package.
+3. When to use it, including when not to use it.
+4. Requirements.
+5. Installation.
+6. Quick start.
+7. Product concepts and benefits.
+8. Packages, when the repository publishes more than one package.
+9. Documentation.
+10. Contributing and development.
+11. Support and security.
+12. License.
+
+Public package READMEs use the same compact entry and exit sections. Internal
+fixture, benchmark, font, proof, migration, and ADR index files do not use the
+product header.

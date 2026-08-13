@@ -13,7 +13,7 @@
     "@lupinum/ginko-content": "workspace:*",
     "@nuxtjs/i18n": "10.3.0",
     "nitropack": "2.13.4",
-    "nuxt": "4.4.8",
+    "nuxt": "4.5.2",
     "vue-i18n": "^11.4.2",
     "zod": "4.4.3"
   }

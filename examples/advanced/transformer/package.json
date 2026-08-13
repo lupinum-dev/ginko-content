@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
-    "@nuxt/kit": "4.4.8",
-    "nuxt": "4.4.8"
+    "@nuxt/kit": "4.5.2",
+    "nuxt": "4.5.2"
   }
 }
