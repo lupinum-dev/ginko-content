@@ -6,9 +6,6 @@ packages:
   - examples/*/*
   - test/fixtures/*
 minimumReleaseAge: 1440
-minimumReleaseAgeExclude:
-  # Reviewed first-party release required by the docs app. Remove after 2026-08-14 17:36 Europe/Vienna.
-  - '@lupinum/ginko-docs@0.3.0-rc.5'
 linkWorkspacePackages: deep
 onlyBuiltDependencies:
   - esbuild
