@@ -13,3 +13,18 @@ export function isExpectedNuxtPayloadCancellation (
     return false
   }
 }
+
+export function removeExpectedNuxtPayloadCancellationDiagnostics (
+  failures: string[],
+  cancellationCount: number
+) {
+  const remaining = [...failures]
+
+  for (let index = 0; index < cancellationCount; index++) {
+    const diagnosticIndex = remaining.findIndex(failure => failure === 'console error: [NUXT_E7002]')
+    if (diagnosticIndex === -1) break
+    remaining.splice(diagnosticIndex, 1)
+  }
+
+  return remaining
+}
