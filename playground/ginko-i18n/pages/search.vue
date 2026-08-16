@@ -16,7 +16,7 @@ const { query, results, pending } = await useContentSearch({
     <p v-if="pending">Searching</p>
     <ul aria-label="Search results">
       <li v-for="result in results" :key="`${result.path}:${result.anchor || ''}`">
-        <NuxtLink :to="result.path">
+        <NuxtLink :to="result.path" :prefetch="false">
           {{ result.title }}
         </NuxtLink>
       </li>
