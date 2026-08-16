@@ -86,6 +86,24 @@ function collectFiles(rootPath) {
 
 const violations = []
 const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
+const workspacePolicy = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8')
+const ciWorkflow = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf8')
+const renovate = JSON.parse(readFileSync(join(repoRoot, 'renovate.json'), 'utf8'))
+for (const requiredPolicy of [
+  'minimumReleaseAge: 1440',
+  'minimumReleaseAgeStrict: true',
+  'minimumReleaseAgeIgnoreMissingTime: false',
+]) {
+  if (!workspacePolicy.includes(requiredPolicy)) {
+    violations.push(`pnpm-workspace.yaml: missing dependency policy: ${requiredPolicy}`)
+  }
+}
+if (!ciWorkflow.includes('node scripts/verify-action-shas.mjs')) {
+  violations.push('.github/workflows/ci.yml: required upstream Action SHA verification is missing')
+}
+if (renovate.minimumReleaseAge !== '1 day') {
+  violations.push('renovate.json: minimumReleaseAge must match the 24-hour pnpm quarantine')
+}
 
 for (const requiredFile of [
   '.github/ISSUE_TEMPLATE/bug.md',
