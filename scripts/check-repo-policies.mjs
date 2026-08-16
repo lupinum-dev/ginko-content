@@ -106,11 +106,15 @@ for (const [name, expected] of Object.entries({
   }
 }
 const ciSteps = Object.values(ci?.jobs ?? {}).flatMap(job => job?.steps ?? [])
-if (!ciSteps.some(step =>
+const actionVerificationSteps = ciSteps.filter(step =>
   step?.run?.trim() === 'node scripts/verify-action-shas.mjs' &&
   step?.if == null
-)) {
+)
+if (actionVerificationSteps.length === 0) {
   violations.push('.github/workflows/ci.yml: required upstream Action SHA verification is missing')
+}
+if (actionVerificationSteps.some(step => step?.env?.GITHUB_TOKEN)) {
+  violations.push('.github/workflows/ci.yml: Action SHA verification must not receive GITHUB_TOKEN')
 }
 if (renovate.minimumReleaseAge !== '1 day') {
   violations.push('renovate.json: minimumReleaseAge must match the 24-hour pnpm quarantine')

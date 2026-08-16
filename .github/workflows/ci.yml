@@ -26,8 +26,6 @@ jobs:
           persist-credentials: false
       - name: Verify pinned Action commits
         run: node scripts/verify-action-shas.mjs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
