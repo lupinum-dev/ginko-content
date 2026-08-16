@@ -137,6 +137,27 @@ if (actionVerificationSteps.some(({ job, stepIndex }) =>
 )) {
   violations.push('.github/workflows/ci.yml: Action SHA verification must run after the frozen install')
 }
+const prAuthorization = ci?.jobs?.['pr-authorization']
+const requiredPrJobs = [
+  'static-quality',
+  'core-contracts',
+  'docs-examples',
+  'server-e2e',
+  'pr-e2e-smoke',
+]
+if (
+  prAuthorization?.name !== 'PR verification' ||
+  !String(prAuthorization?.if ?? '').includes('always()') ||
+  !isDeepStrictEqual(prAuthorization?.needs, requiredPrJobs)
+) {
+  violations.push('.github/workflows/ci.yml: PR verification must always evaluate every required PR lane')
+}
+const prAuthorizationSource = JSON.stringify(prAuthorization?.steps ?? [])
+for (const job of requiredPrJobs) {
+  if (!prAuthorizationSource.includes(`needs.${job}.result`)) {
+    violations.push(`.github/workflows/ci.yml: PR verification does not validate ${job}`)
+  }
+}
 if (renovate.minimumReleaseAge !== '1 day') {
   violations.push('renovate.json: minimumReleaseAge must match the 24-hour pnpm quarantine')
 }
