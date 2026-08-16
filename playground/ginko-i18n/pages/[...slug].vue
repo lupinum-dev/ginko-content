@@ -33,6 +33,7 @@ const localeSwitchLinks = computed(() => (page.value?.route.alternates ?? []).ma
         v-for="alternate in localeSwitchLinks"
         :key="alternate.locale"
         :to="alternate.path"
+        :prefetch="false"
         class="toolbar__link"
         :title="alternate.source === 'fallback'
           ? `Content falls back to ${alternate.resolvedLocale}`

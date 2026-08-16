@@ -7,10 +7,7 @@ import { describe, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from 'playwright-core'
 import { startProductionFixtureServer } from '../helpers/production-fixture'
 import { buildRouteManifest, navigableRoutesFromManifest } from '../helpers/route-manifest'
-import {
-  isExpectedNuxtPayloadCancellation,
-  removeExpectedNuxtPayloadCancellationDiagnostics
-} from '../helpers/browser-failures'
+import { isExpectedNuxtPayloadCancellation } from '../helpers/browser-failures'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureDir = resolve(rootDir, 'playground/ginko-i18n')
@@ -52,7 +49,6 @@ async function waitForRenderedNuxtApp (page: Page) {
 
 function captureBrowserFailures (page: Page, baseURL: string) {
   let failures: string[] = []
-  let expectedPayloadCancellations = 0
   const isSameOrigin = (url: string) => new URL(url).origin === new URL(baseURL).origin
 
   page.on('pageerror', error => failures.push(`pageerror: ${error.message}`))
@@ -63,9 +59,7 @@ function captureBrowserFailures (page: Page, baseURL: string) {
   })
   page.on('requestfailed', (request) => {
     const errorText = request.failure()?.errorText
-    if (isExpectedNuxtPayloadCancellation(request.url(), errorText, baseURL)) {
-      expectedPayloadCancellations++
-    } else if (isSameOrigin(request.url())) {
+    if (isSameOrigin(request.url()) && !isExpectedNuxtPayloadCancellation(request.url(), errorText, baseURL)) {
       failures.push(`request failed: ${errorText || 'unknown'} ${request.url()}`)
     }
   })
@@ -77,12 +71,8 @@ function captureBrowserFailures (page: Page, baseURL: string) {
 
   return {
     assertClean (context: string) {
-      const captured = removeExpectedNuxtPayloadCancellationDiagnostics(
-        failures,
-        expectedPayloadCancellations
-      )
+      const captured = failures
       failures = []
-      expectedPayloadCancellations = 0
       expect(captured, `browser failures while visiting ${context}`).toEqual([])
     }
   }

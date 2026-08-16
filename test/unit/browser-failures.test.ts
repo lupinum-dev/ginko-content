@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  isExpectedNuxtPayloadCancellation,
-  removeExpectedNuxtPayloadCancellationDiagnostics
-} from '../helpers/browser-failures'
+import { isExpectedNuxtPayloadCancellation } from '../helpers/browser-failures'
 
 describe('browser failure classification', () => {
   const baseURL = 'http://127.0.0.1:40457'
@@ -29,26 +26,5 @@ describe('browser failure classification', () => {
       'net::ERR_ABORTED',
       baseURL
     )).toBe(false)
-  })
-})
-
-describe('removeExpectedNuxtPayloadCancellationDiagnostics', () => {
-  it('removes one Nuxt diagnostic for each observed payload cancellation', () => {
-    expect(removeExpectedNuxtPayloadCancellationDiagnostics([
-      'console error: [NUXT_E7002]',
-      'console error: [NUXT_E7002]',
-      'console error: real failure'
-    ], 1)).toEqual([
-      'console error: [NUXT_E7002]',
-      'console error: real failure'
-    ])
-  })
-
-  it('does not hide an unpaired payload diagnostic', () => {
-    expect(removeExpectedNuxtPayloadCancellationDiagnostics([
-      'console error: [NUXT_E7002]'
-    ], 0)).toEqual([
-      'console error: [NUXT_E7002]'
-    ])
   })
 })

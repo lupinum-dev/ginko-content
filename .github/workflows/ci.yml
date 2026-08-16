@@ -120,6 +120,14 @@ jobs:
           test/browser-e2e/docs-navigation-hydration.test.ts
         env:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.docs-chrome.outputs.chrome-path }}
+      - name: Verify locale and search navigation on pull requests
+        if: github.event_name == 'pull_request'
+        run: >-
+          node scripts/timed-command.mjs locale-search
+          pnpm exec vitest run --config vitest.config.ts --project browser-e2e
+          test/browser-e2e/locale-search.test.ts
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.docs-chrome.outputs.chrome-path }}
       - name: Build every maintained example
         run: node scripts/timed-command.mjs examples pnpm examples:build
 
