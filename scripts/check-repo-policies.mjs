@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
+import { parse } from 'yaml'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const ignoredDirs = new Set([
@@ -86,6 +88,58 @@ function collectFiles(rootPath) {
 
 const violations = []
 const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
+const rootManifest = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+const workspacePolicy = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8')
+const ciWorkflow = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf8')
+const workspaceSettings = parse(workspacePolicy)
+const ci = parse(ciWorkflow)
+const renovate = JSON.parse(readFileSync(join(repoRoot, 'renovate.json'), 'utf8'))
+if (!/^pnpm@(?:1[1-9]|[2-9]\d)\./u.test(rootManifest.packageManager ?? '')) {
+  violations.push('package.json: pnpm 11 or newer is required for strict dependency quarantine')
+}
+for (const [name, expected] of Object.entries({
+  minimumReleaseAge: 1440,
+  minimumReleaseAgeStrict: true,
+  minimumReleaseAgeIgnoreMissingTime: false,
+})) {
+  if (workspaceSettings?.[name] !== expected) {
+    violations.push(`pnpm-workspace.yaml: ${name} must equal ${expected}`)
+  }
+}
+const expectedAllowBuilds = {
+  '@parcel/watcher': false,
+  esbuild: true,
+  'unrs-resolver': false,
+  'vue-demi': true,
+}
+if (!isDeepStrictEqual(workspaceSettings?.allowBuilds, expectedAllowBuilds)) {
+  violations.push('pnpm-workspace.yaml: allowBuilds must match the approved build-permission policy')
+}
+const actionVerificationSteps = Object.values(ci?.jobs ?? {})
+  .flatMap(job => (job?.steps ?? []).map((step, stepIndex) => ({ job, step, stepIndex })))
+  .filter(({ job, step }) =>
+    job?.if == null &&
+    (job?.['continue-on-error'] == null || job['continue-on-error'] === false) &&
+    step?.run?.trim() === 'node scripts/verify-action-shas.mjs' &&
+    step?.if == null &&
+    (step?.['continue-on-error'] == null || step['continue-on-error'] === false)
+  )
+if (actionVerificationSteps.length === 0) {
+  violations.push('.github/workflows/ci.yml: required upstream Action SHA verification is missing')
+}
+if (actionVerificationSteps.some(({ step }) => step?.env?.GITHUB_TOKEN)) {
+  violations.push('.github/workflows/ci.yml: Action SHA verification must not receive GITHUB_TOKEN')
+}
+if (actionVerificationSteps.some(({ job, stepIndex }) =>
+  !(job.steps ?? []).slice(0, stepIndex).some(step =>
+    step?.run?.includes('pnpm install --frozen-lockfile')
+  )
+)) {
+  violations.push('.github/workflows/ci.yml: Action SHA verification must run after the frozen install')
+}
+if (renovate.minimumReleaseAge !== '1 day') {
+  violations.push('renovate.json: minimumReleaseAge must match the 24-hour pnpm quarantine')
+}
 
 for (const requiredFile of [
   '.github/ISSUE_TEMPLATE/bug.md',

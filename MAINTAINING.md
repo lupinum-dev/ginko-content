@@ -87,6 +87,17 @@ The npm trusted publisher must use this exact identity:
 Do not add an `NPM_TOKEN`. If the protected workflow is unavailable, repair the
 workflow. Do not create a second publication path.
 
+## Recover a partial release
+
+Do not rebuild the tarball or create a replacement version for a GitHub-only
+failure. Different registry bytes stop recovery.
+
+Start a new workflow dispatch from corrected `main` for the same version.
+The workflow compares the registry SHA-1 with the retained tarball. SHA-1 is
+the npm checksum for the published bytes. It also requires npm provenance,
+which links the package to its GitHub build, and the correct dist-tag, which is
+the `next` or `latest` release channel.
+
 ## Roll back a defective release
 
 Do not unpublish unless npm policy and a confirmed security incident require

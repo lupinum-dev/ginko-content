@@ -29,6 +29,8 @@ jobs:
           node-version: 24
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      - name: Verify pinned Action commits
+        run: node scripts/verify-action-shas.mjs
       - name: Initialize timing summary
         run: |
           echo "## Static quality" >> "$GITHUB_STEP_SUMMARY"

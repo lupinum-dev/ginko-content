@@ -6,10 +6,9 @@ packages:
   - examples/*/*
   - test/fixtures/*
 minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
 linkWorkspacePackages: deep
-onlyBuiltDependencies:
-  - esbuild
-  - vue-demi
 overrides:
   "@babel/core": 7.29.6
   esbuild: 0.28.1
@@ -44,3 +43,8 @@ packageExtensions:
   vue-docgen-web-types@0.1.8:
     dependencies:
       minimist: ^1.2.8
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: true
+  unrs-resolver: false
+  vue-demi: true
