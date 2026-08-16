@@ -26,10 +26,14 @@ jobs:
     steps:
       - name: Require main
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
           node -e "if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.RELEASE_VERSION)) throw new Error('Invalid release version')"
+          tag_ref="refs/tags/v$RELEASE_VERSION"
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | .object.sha")"
+          test -z "$tag_sha" || test "$tag_sha" = "$GITHUB_SHA"
 
       - name: Find successful CI for this commit
         id: ci
@@ -82,7 +86,7 @@ jobs:
     name: Publish to npm
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     environment: npm
     permissions:
       actions: read
@@ -100,14 +104,44 @@ jobs:
           name: verified-ginko-content-release
           path: .release
 
-      - name: Publish certified tarball
+      - name: Publish or verify the certified tarball
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          node -e "const {spawnSync}=require('node:child_process');const [major,minor]=spawnSync('npm',['--version'],{encoding:'utf8'}).stdout.trim().split('.').map(Number);if(major<11||(major===11&&minor<5))throw new Error('npm 11.5.1 or newer is required')"
-          TARBALL=$(node -e "process.stdout.write(require('./.release/release-artifact.json').tarball)")
-          case "$RELEASE_VERSION" in *-*) NPM_TAG=next ;; *) NPM_TAG=latest ;; esac
-          npm publish ".release/$TARBALL" --access public --tag "$NPM_TAG" --ignore-scripts --provenance
+          node --input-type=module <<'NODE'
+          import { spawnSync } from 'node:child_process'
+          import { createHash } from 'node:crypto'
+          import { readFileSync } from 'node:fs'
+          const fail = message => { throw new Error(message) }
+          const run = (args, inherit = false) => spawnSync('npm', args, { encoding: 'utf8', stdio: inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'] })
+          const view = (spec, field) => {
+            const result = run(['view', spec, field, '--json'])
+            if (result.status === 0) return JSON.parse(result.stdout.trim() || 'null')
+            if (/E404|404 Not Found/.test(result.stderr)) return null
+            fail(`npm view failed for ${spec} ${field}: ${result.stderr.trim()}`)
+          }
+          const manifest = JSON.parse(readFileSync('.release/release-artifact.json', 'utf8'))
+          if (manifest.packageVersion !== process.env.RELEASE_VERSION) fail('Release version differs.')
+          const npmVersion = run(['--version']).stdout.trim().split('.').map(Number)
+          if (npmVersion[0] < 11 || (npmVersion[0] === 11 && npmVersion[1] < 5)) fail('npm 11.5 or newer is required.')
+          const bytes = readFileSync(`.release/${manifest.tarball}`)
+          const shasum = createHash('sha1').update(bytes).digest('hex')
+          const channel = manifest.packageVersion.includes('-') ? 'next' : 'latest'
+          const spec = `${manifest.packageName}@${manifest.packageVersion}`
+          const existing = view(spec, 'dist.shasum')
+          if (existing && existing !== shasum) fail(`${spec} exists with different bytes.`)
+          if (existing) {
+            if (!view(spec, 'dist.attestations')) fail(`${spec} exists without required provenance.`)
+          } else {
+            const result = run(['publish', `.release/${manifest.tarball}`, '--access', 'public', '--tag', channel, '--ignore-scripts', '--provenance'], true)
+            if (result.status !== 0) fail(`npm publish failed for ${spec}.`)
+          }
+          for (let attempt = 0; attempt < 240; attempt += 1) {
+            if (view(spec, 'dist.shasum') === shasum && view(spec, 'dist.attestations') && view(manifest.packageName, `dist-tags.${channel}`) === manifest.packageVersion) process.exit(0)
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)
+          }
+          fail(`${spec} did not expose the required bytes, provenance, and ${channel} tag.`)
+          NODE
 
   github-release:
     name: Create GitHub release
@@ -132,9 +166,16 @@ jobs:
           TARBALL=$(node -e "process.stdout.write(require('./.release/release-artifact.json').tarball)")
           PRERELEASE=()
           case "$RELEASE_VERSION" in *-*) PRERELEASE=(--prerelease) ;; esac
-          gh release create "v$RELEASE_VERSION" ".release/$TARBALL" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "v$RELEASE_VERSION" \
-            --notes-file .release/release-notes.md \
-            "${PRERELEASE[@]}"
+          if gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object.sha')"
+            test "$tag_sha" = "$GITHUB_SHA"
+            gh release upload "v$RELEASE_VERSION" ".release/$TARBALL" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --title "v$RELEASE_VERSION" --notes-file .release/release-notes.md
+          else
+            gh release create "v$RELEASE_VERSION" ".release/$TARBALL" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "v$RELEASE_VERSION" \
+              --notes-file .release/release-notes.md \
+              "${PRERELEASE[@]}"
+          fi
