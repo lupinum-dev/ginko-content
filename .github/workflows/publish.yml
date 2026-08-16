@@ -32,8 +32,18 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           node -e "if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.RELEASE_VERSION)) throw new Error('Invalid release version')"
           tag_ref="refs/tags/v$RELEASE_VERSION"
-          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | .object.sha")"
-          test -z "$tag_sha" || test "$tag_sha" = "$GITHUB_SHA"
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | .object | \"\\(.type) \\(.sha)\"")"
+          if test -n "$tag_object"; then
+            tag_type="${tag_object%% *}"
+            tag_sha="${tag_object#* }"
+            while test "$tag_type" = "tag"; do
+              tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object | "\\(.type) \\(.sha)"')"
+              tag_type="${tag_object%% *}"
+              tag_sha="${tag_object#* }"
+            done
+            test "$tag_type" = "commit"
+            test "$tag_sha" = "$GITHUB_SHA"
+          fi
 
       - name: Find successful CI for this commit
         id: ci
@@ -120,6 +130,40 @@ jobs:
             if (/E404|404 Not Found/.test(result.stderr)) return null
             fail(`npm view failed for ${spec} ${field}: ${result.stderr.trim()}`)
           }
+          const verifyExistingProvenance = async (manifest, bytes, spec) => {
+            const metadata = view(spec, 'dist.attestations')
+            if (!metadata?.url) fail(`${spec} exists without required provenance.`)
+            const response = await fetch(metadata.url, {
+              headers: { Accept: 'application/json' },
+            })
+            if (!response.ok) fail(`${spec} provenance lookup failed: HTTP ${response.status}.`)
+            const document = await response.json()
+            const attestation = document.attestations?.find(
+              item => item.predicateType === 'https://slsa.dev/provenance/v1',
+            )
+            if (!attestation?.signedAccessSignatureUrl || !attestation.bundle?.dsseEnvelope?.payload) {
+              fail(`${spec} has incomplete npm provenance.`)
+            }
+            const statement = JSON.parse(
+              Buffer.from(attestation.bundle.dsseEnvelope.payload, 'base64').toString('utf8'),
+            )
+            const expectedSubject = `pkg:npm/${manifest.packageName.replace('@', '%40')}@${manifest.packageVersion}`
+            const expectedSha512 = createHash('sha512').update(bytes).digest('hex')
+            const workflow = statement.predicate?.buildDefinition?.externalParameters?.workflow
+            const dependencies = statement.predicate?.buildDefinition?.resolvedDependencies ?? []
+            if (
+              statement.predicateType !== 'https://slsa.dev/provenance/v1' ||
+              !statement.subject?.some(subject =>
+                subject.name === expectedSubject && subject.digest?.sha512 === expectedSha512
+              ) ||
+              workflow?.repository !== 'https://github.com/lupinum-dev/ginko-content' ||
+              workflow?.path !== '.github/workflows/publish.yml' ||
+              workflow?.ref !== 'refs/heads/main' ||
+              !dependencies.some(dependency => dependency.digest?.gitCommit === manifest.commit)
+            ) {
+              fail(`${spec} provenance does not match the certified source and tarball.`)
+            }
+          }
           const manifest = JSON.parse(readFileSync('.release/release-artifact.json', 'utf8'))
           if (manifest.packageVersion !== process.env.RELEASE_VERSION) fail('Release version differs.')
           const npmVersion = run(['--version']).stdout.trim().split('.').map(Number)
@@ -131,7 +175,7 @@ jobs:
           const existing = view(spec, 'dist.shasum')
           if (existing && existing !== shasum) fail(`${spec} exists with different bytes.`)
           if (existing) {
-            if (!view(spec, 'dist.attestations')) fail(`${spec} exists without required provenance.`)
+            await verifyExistingProvenance(manifest, bytes, spec)
           } else {
             const result = run(['publish', `.release/${manifest.tarball}`, '--access', 'public', '--tag', channel, '--ignore-scripts', '--provenance'], true)
             if (result.status !== 0) fail(`npm publish failed for ${spec}.`)
@@ -167,7 +211,15 @@ jobs:
           PRERELEASE=()
           case "$RELEASE_VERSION" in *-*) PRERELEASE=(--prerelease) ;; esac
           if gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object.sha')"
+            tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object | "\\(.type) \\(.sha)"')"
+            tag_type="${tag_object%% *}"
+            tag_sha="${tag_object#* }"
+            while test "$tag_type" = "tag"; do
+              tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object | "\\(.type) \\(.sha)"')"
+              tag_type="${tag_object%% *}"
+              tag_sha="${tag_object#* }"
+            done
+            test "$tag_type" = "commit"
             test "$tag_sha" = "$GITHUB_SHA"
             gh release upload "v$RELEASE_VERSION" ".release/$TARBALL" --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --title "v$RELEASE_VERSION" --notes-file .release/release-notes.md

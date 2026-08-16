@@ -89,13 +89,14 @@ workflow. Do not create a second publication path.
 
 ## Recover a partial release
 
-If npm accepted the package but a later job failed, start a new workflow
-dispatch from corrected `main` for the same version. The workflow skips an
-existing version only when its registry SHA-1 matches the retained tarball and
-its provenance and dist-tag are correct. Different bytes stop the workflow.
+Do not rebuild the tarball or create a replacement version for a GitHub-only
+failure. Different registry bytes stop recovery.
 
-Do not rebuild the tarball or create a replacement package version for a
-GitHub-only failure.
+Start a new workflow dispatch from corrected `main` for the same version.
+The workflow compares the registry SHA-1 with the retained tarball. SHA-1 is
+the npm checksum for the published bytes. It also requires npm provenance,
+which links the package to its GitHub build, and the correct dist-tag, which is
+the `next` or `latest` release channel.
 
 ## Roll back a defective release
 
