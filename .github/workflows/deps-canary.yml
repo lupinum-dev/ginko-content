@@ -2,8 +2,8 @@ name: Dependency compatibility canary
 
 on:
   schedule:
-    - cron: '0 4 * * 1'
-    - cron: '0 5 1 * *'
+    - cron: "0 4 * * 1"
+    - cron: "0 5 1 * *"
   workflow_dispatch:
     inputs:
       include-future:
@@ -41,7 +41,7 @@ jobs:
             nodeTypes: ^24.11.0
             frozen: false
             nuxt: ^4.4.7
-            sitemap: '>=8.0.15 <9'
+            sitemap: ">=8.0.15 <9"
             vue: ^3.5.35
             vitest: ^4.1.6
 
@@ -70,6 +70,9 @@ jobs:
       - name: Install fresh supported resolution
         if: ${{ ! matrix.frozen }}
         run: pnpm install --no-frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright-core install --with-deps chromium
 
       - name: Record resolved versions
         run: pnpm list --recursive --depth 0 --json > dependency-versions.json
@@ -122,12 +125,15 @@ jobs:
 
       - run: pnpm install --no-frozen-lockfile
 
+      - name: Install Chromium
+        run: pnpm exec playwright-core install --with-deps chromium
+
       - name: Run future compatibility slice
         continue-on-error: true
         run: pnpm test:compatibility-slice
         env:
           GINKO_CONSUMER_NUXT_VERSION: ${{ steps.prepare-future.outputs.nuxt-version }}
-          GINKO_CONSUMER_SITEMAP_VERSION: '>=8.0.15 <9'
+          GINKO_CONSUMER_SITEMAP_VERSION: ">=8.0.15 <9"
           GINKO_CONSUMER_VUE_VERSION: ^3.5.35
           GINKO_CONSUMER_VITEST_VERSION: ^4.1.6
 
