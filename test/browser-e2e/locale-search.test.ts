@@ -49,6 +49,7 @@ async function waitForRenderedNuxtApp (page: Page) {
 
 function captureBrowserFailures (page: Page, baseURL: string) {
   let failures: string[] = []
+  let expectedPayloadCancellations: string[] = []
   const isSameOrigin = (url: string) => new URL(url).origin === new URL(baseURL).origin
 
   page.on('pageerror', error => failures.push(`pageerror: ${error.message}`))
@@ -59,7 +60,9 @@ function captureBrowserFailures (page: Page, baseURL: string) {
   })
   page.on('requestfailed', (request) => {
     const errorText = request.failure()?.errorText
-    if (isSameOrigin(request.url()) && !isExpectedNuxtPayloadCancellation(request.url(), errorText, baseURL)) {
+    if (isExpectedNuxtPayloadCancellation(request.url(), errorText, baseURL)) {
+      expectedPayloadCancellations.push(request.url())
+    } else if (isSameOrigin(request.url())) {
       failures.push(`request failed: ${errorText || 'unknown'} ${request.url()}`)
     }
   })
@@ -72,8 +75,13 @@ function captureBrowserFailures (page: Page, baseURL: string) {
   return {
     assertClean (context: string) {
       const captured = failures
+      const cancellations = expectedPayloadCancellations
       failures = []
-      expect(captured, `browser failures while visiting ${context}`).toEqual([])
+      expectedPayloadCancellations = []
+      expect(
+        captured,
+        `browser failures while visiting ${context}; canceled payload requests: ${cancellations.join(', ') || 'none'}`
+      ).toEqual([])
     }
   }
 }
@@ -91,17 +99,20 @@ describe('browser production confidence', () => {
       await page.goto(`${server.baseURL}/de/leitfaden/erste-schritte`, { waitUntil: 'domcontentloaded' })
       await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
+      browserFailures.assertClean('the initial German route')
 
       await page.getByRole('link', { name: 'English' }).click()
       await page.waitForURL('**/guide/getting-started')
       await waitForRenderedNuxtApp(page)
       expect(contentPath(page.url())).toBe('/guide/getting-started')
       await assertHeading(page, 'Getting Started')
+      browserFailures.assertClean('the English locale link')
 
       await page.getByRole('link', { name: 'Deutsch' }).click()
       await page.waitForURL('**/de/leitfaden/erste-schritte')
       await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
+      browserFailures.assertClean('the German locale link')
 
       await page.goto(`${server.baseURL}/de/search`, { waitUntil: 'domcontentloaded' })
       await waitForRenderedNuxtApp(page)
@@ -113,16 +124,17 @@ describe('browser production confidence', () => {
       await page.waitForURL('**/de/leitfaden/erste-schritte')
       await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
+      browserFailures.assertClean('the localized search result')
 
       await page.goBack({ waitUntil: 'domcontentloaded' })
       await waitForRenderedNuxtApp(page)
       expect(contentPath(page.url())).toBe('/de/search')
+      browserFailures.assertClean('browser history back')
       await page.goForward({ waitUntil: 'domcontentloaded' })
       await waitForRenderedNuxtApp(page)
       expect(contentPath(page.url())).toBe('/de/leitfaden/erste-schritte')
       await assertHeading(page, 'Einstieg')
-
-      browserFailures.assertClean('locale/search interaction')
+      browserFailures.assertClean('browser history forward')
     } finally {
       await browser?.close()
       await server.stop()
