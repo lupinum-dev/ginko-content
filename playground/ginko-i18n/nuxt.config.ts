@@ -11,6 +11,16 @@ const sitemapAssertMode = (process.env.CONTENT_SITEMAP_ASSERT_MODE as 'generate'
 
 export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
+  // This fixture verifies explicit locale, search, and history navigation.
+  // Disable unrelated visibility prefetches so canceled background payloads
+  // cannot obscure failures in the requested navigation.
+  experimental: {
+    defaults: {
+      nuxtLink: {
+        prefetch: false
+      }
+    }
+  },
   extends: ['../shared'],
 
   modules: [
