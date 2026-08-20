@@ -94,6 +94,35 @@ const ciWorkflow = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf
 const workspaceSettings = parse(workspacePolicy)
 const ci = parse(ciWorkflow)
 const renovate = JSON.parse(readFileSync(join(repoRoot, 'renovate.json'), 'utf8'))
+const classifyScript = ci?.jobs?.classify?.steps?.find(
+  step => step?.name === 'Select required lanes',
+)?.with?.script
+if (typeof classifyScript !== 'string') {
+  violations.push('.github/workflows/ci.yml: expensive pull-request lanes must use one classifier')
+}
+else {
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+  for (const scenario of [
+    { name: 'public docs', event: 'pull_request', paths: ['docs/content/1.index.md'], full: 'false', docs: 'true' },
+    { name: 'top-level prose', event: 'pull_request', paths: ['README.md'], full: 'false', docs: 'false' },
+    { name: 'package source', event: 'pull_request', paths: ['packages/content/src/index.ts'], full: 'true', docs: 'true' },
+    { name: 'workflow policy', event: 'pull_request', paths: ['.github/workflows/ci.yml'], full: 'true', docs: 'true' },
+    { name: 'main certification', event: 'push', paths: [], full: 'true', docs: 'true' },
+  ]) {
+    const outputs = new Map()
+    await new AsyncFunction('context', 'github', 'core', classifyScript)(
+      { eventName: scenario.event, issue: { number: 1 }, repo: { owner: 'lupinum-dev', repo: 'ginko-content' } },
+      {
+        paginate: async () => scenario.paths.map(filename => ({ filename })),
+        rest: { pulls: { listFiles() {} } },
+      },
+      { setOutput: (name, value) => outputs.set(name, value) },
+    )
+    if (outputs.get('full') !== scenario.full || outputs.get('docs') !== scenario.docs) {
+      violations.push(`.github/workflows/ci.yml: classification failed the ${scenario.name} fixture`)
+    }
+  }
+}
 if (!/^pnpm@(?:1[1-9]|[2-9]\d)\./u.test(rootManifest.packageManager ?? '')) {
   violations.push('package.json: pnpm 11 or newer is required for strict dependency quarantine')
 }
@@ -139,6 +168,7 @@ if (actionVerificationSteps.some(({ job, stepIndex }) =>
 }
 const prAuthorization = ci?.jobs?.['pr-authorization']
 const requiredPrJobs = [
+  'classify',
   'static-quality',
   'core-contracts',
   'docs-examples',
@@ -146,14 +176,20 @@ const requiredPrJobs = [
   'pr-e2e-smoke',
 ]
 const expectedPrGateEnv = {
+  CLASSIFY_RESULT: '${{ needs.classify.result }}',
+  FULL: '${{ needs.classify.outputs.full }}',
+  DOCS: '${{ needs.classify.outputs.docs }}',
   STATIC_QUALITY: '${{ needs.static-quality.result }}',
   CORE_CONTRACTS: '${{ needs.core-contracts.result }}',
   DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
   SERVER_E2E: '${{ needs.server-e2e.result }}',
   PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
 }
-const expectedPrGateRun = `for result in "$STATIC_QUALITY" "$CORE_CONTRACTS" "$DOCS_EXAMPLES" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
-  test "$result" = success
+const expectedPrGateRun = `test "$CLASSIFY_RESULT" = success
+test "$STATIC_QUALITY" = success
+if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
+for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
+  if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
 done
 echo "All required PR verification lanes passed."`
 
@@ -188,6 +224,7 @@ const validPrAuthorizationFixture = {
   name: 'PR verification',
   if: "always() && github.event_name == 'pull_request'",
   needs: [
+    'classify',
     'static-quality',
     'core-contracts',
     'docs-examples',
@@ -197,14 +234,20 @@ const validPrAuthorizationFixture = {
   steps: [{
     name: 'Require every PR lane',
     env: {
+      CLASSIFY_RESULT: '${{ needs.classify.result }}',
+      FULL: '${{ needs.classify.outputs.full }}',
+      DOCS: '${{ needs.classify.outputs.docs }}',
       STATIC_QUALITY: '${{ needs.static-quality.result }}',
       CORE_CONTRACTS: '${{ needs.core-contracts.result }}',
       DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
       SERVER_E2E: '${{ needs.server-e2e.result }}',
       PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
     },
-    run: `for result in "$STATIC_QUALITY" "$CORE_CONTRACTS" "$DOCS_EXAMPLES" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
-  test "$result" = success
+    run: `test "$CLASSIFY_RESULT" = success
+test "$STATIC_QUALITY" = success
+if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
+for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
+  if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
 done
 echo "All required PR verification lanes passed."`,
   }],

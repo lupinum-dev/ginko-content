@@ -15,6 +15,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: read
+    outputs:
+      full: ${{ steps.paths.outputs.full }}
+      docs: ${{ steps.paths.outputs.docs }}
+    steps:
+      - name: Select required lanes
+        id: paths
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const runAll = context.eventName !== 'pull_request'
+            const files = runAll
+              ? []
+              : await github.paginate(github.rest.pulls.listFiles, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  per_page: 100,
+                })
+            const paths = files.map((file) => file.filename)
+            const publicDocsOnly =
+              paths.length > 0 &&
+              paths.every((path) =>
+                /^(?:docs\/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
+              )
+            const topLevelProseOnly =
+              paths.length > 0 &&
+              paths.every((path) =>
+                /^(?:README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
+              )
+            core.setOutput('full', String(runAll || !publicDocsOnly))
+            core.setOutput('docs', String(runAll || !topLevelProseOnly))
+
   static-quality:
     name: Static quality
     runs-on: ubuntu-latest
@@ -52,6 +90,8 @@ jobs:
 
   core-contracts:
     name: Core contracts
+    needs: classify
+    if: needs.classify.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -83,6 +123,8 @@ jobs:
 
   docs-examples:
     name: Docs and examples
+    needs: classify
+    if: needs.classify.outputs.docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -133,6 +175,8 @@ jobs:
 
   server-e2e:
     name: Server e2e
+    needs: classify
+    if: needs.classify.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -158,9 +202,10 @@ jobs:
 
   pr-e2e-smoke:
     name: PR e2e smoke
+    needs: classify
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.classify.outputs.full == 'true'
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -182,6 +227,7 @@ jobs:
     timeout-minutes: 5
     if: always() && github.event_name == 'pull_request'
     needs:
+      - classify
       - static-quality
       - core-contracts
       - docs-examples
@@ -191,14 +237,20 @@ jobs:
     steps:
       - name: Require every PR lane
         env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          FULL: ${{ needs.classify.outputs.full }}
+          DOCS: ${{ needs.classify.outputs.docs }}
           STATIC_QUALITY: ${{ needs.static-quality.result }}
           CORE_CONTRACTS: ${{ needs.core-contracts.result }}
           DOCS_EXAMPLES: ${{ needs.docs-examples.result }}
           SERVER_E2E: ${{ needs.server-e2e.result }}
           PR_E2E_SMOKE: ${{ needs.pr-e2e-smoke.result }}
         run: |
-          for result in "$STATIC_QUALITY" "$CORE_CONTRACTS" "$DOCS_EXAMPLES" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
-            test "$result" = success
+          test "$CLASSIFY_RESULT" = success
+          test "$STATIC_QUALITY" = success
+          if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
+          for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
+            if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
           done
           echo "All required PR verification lanes passed."
 
