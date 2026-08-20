@@ -187,12 +187,30 @@ violations.push(...validatePrAuthorization(prAuthorization))
 const validPrAuthorizationFixture = {
   name: 'PR verification',
   if: "always() && github.event_name == 'pull_request'",
-  needs: requiredPrJobs,
+  needs: [
+    'static-quality',
+    'core-contracts',
+    'docs-examples',
+    'server-e2e',
+    'pr-e2e-smoke',
+  ],
   steps: [{
     name: 'Require every PR lane',
-    env: expectedPrGateEnv,
-    run: expectedPrGateRun,
+    env: {
+      STATIC_QUALITY: '${{ needs.static-quality.result }}',
+      CORE_CONTRACTS: '${{ needs.core-contracts.result }}',
+      DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
+      SERVER_E2E: '${{ needs.server-e2e.result }}',
+      PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
+    },
+    run: `for result in "$STATIC_QUALITY" "$CORE_CONTRACTS" "$DOCS_EXAMPLES" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
+  test "$result" = success
+done
+echo "All required PR verification lanes passed."`,
   }],
+}
+if (validatePrAuthorization(validPrAuthorizationFixture).length > 0) {
+  violations.push('scripts/check-repo-policies.mjs: the independent valid PR gate fixture must pass policy validation')
 }
 const invertedEventFixture = structuredClone(validPrAuthorizationFixture)
 invertedEventFixture.if = "always() && github.event_name != 'pull_request'"
@@ -200,12 +218,28 @@ if (validatePrAuthorization(invertedEventFixture).length === 0) {
   violations.push('scripts/check-repo-policies.mjs: inverted PR event conditions must fail policy validation')
 }
 const decoyGateFixture = structuredClone(validPrAuthorizationFixture)
+const independentGate = decoyGateFixture.steps[0]
 decoyGateFixture.steps = [
-  { name: 'Decoy', env: expectedPrGateEnv, run: expectedPrGateRun },
+  { name: 'Decoy', env: independentGate.env, run: independentGate.run },
   { name: 'Require every PR lane', run: 'true' },
 ]
 if (validatePrAuthorization(decoyGateFixture).length === 0) {
   violations.push('scripts/check-repo-policies.mjs: result checks outside the required gate must fail policy validation')
+}
+const missingDocsExamplesFixture = structuredClone(validPrAuthorizationFixture)
+missingDocsExamplesFixture.needs = [
+  'static-quality',
+  'core-contracts',
+  'server-e2e',
+  'pr-e2e-smoke',
+]
+delete missingDocsExamplesFixture.steps[0].env.DOCS_EXAMPLES
+missingDocsExamplesFixture.steps[0].run = `for result in "$STATIC_QUALITY" "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
+  test "$result" = success
+done
+echo "All required PR verification lanes passed."`
+if (validatePrAuthorization(missingDocsExamplesFixture).length === 0) {
+  violations.push('scripts/check-repo-policies.mjs: a PR gate without docs-examples must fail policy validation')
 }
 if (renovate.minimumReleaseAge !== '1 day') {
   violations.push('renovate.json: minimumReleaseAge must match the 24-hour pnpm quarantine')
