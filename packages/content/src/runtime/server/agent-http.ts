@@ -1,6 +1,40 @@
 import type { H3Event } from 'h3'
 import { getHeader, setHeader } from 'h3'
 
+export const shouldSkipAgentMarkdownPath = (pathname: string) =>
+  pathname.startsWith('/_')
+  || pathname.startsWith('/api/')
+  || pathname.startsWith('/raw/')
+  || pathname === '/robots.txt'
+  || pathname === '/sitemap.xml'
+  || pathname.endsWith('.txt')
+  || pathname.endsWith('.xml')
+  || pathname.endsWith('.json')
+  || pathname.endsWith('.ico')
+  || pathname.endsWith('.png')
+  || pathname.endsWith('.jpg')
+  || pathname.endsWith('.jpeg')
+  || pathname.endsWith('.webp')
+  || pathname.endsWith('.svg')
+  || pathname.endsWith('.css')
+  || pathname.endsWith('.js')
+
+export const renderAgentNotFoundMarkdown = (pathname: string) => {
+  const safePath = pathname.replace(/`/g, '\\`')
+  return [
+    '# Page not found',
+    '',
+    `No public page exists at \`${safePath}\`.`,
+    '',
+    '## Where to look next',
+    '',
+    '- [Agent content index](/llms.txt)',
+    '- [Complete agent content](/llms-full.txt)',
+    '- [Homepage](/)',
+    ''
+  ].join('\n')
+}
+
 export const appendResponseHeader = (event: H3Event, name: string, value: string) => {
   const current = event.node.res.getHeader(name)
   const existing = Array.isArray(current)

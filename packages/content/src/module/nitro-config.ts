@@ -156,6 +156,13 @@ export const registerContentNitroConfig = ({
     })
 
     const agentRoutes = normalizeAgentRouteOptions(options)
+    if (agentRoutes.routes && appContentConfig.agent) {
+      nitroConfig.plugins ||= []
+      const agentErrorsPlugin = resolveRuntimeModule('server/plugins/agent-errors.js')
+      if (!nitroConfig.plugins.includes(agentErrorsPlugin)) {
+        nitroConfig.plugins.push(agentErrorsPlugin)
+      }
+    }
     if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
       nitroConfig.prerender.routes.push('/llms.txt', '/llms-full.txt')
       for (const locale of resolvedI18n.locales || []) {
