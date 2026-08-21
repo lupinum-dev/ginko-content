@@ -5,9 +5,9 @@ import { pages } from '../content.config'
 
 definePageMeta({ key: route => route.path })
 
-const { page } = await useContentPage(pages)
+const { page, status } = await useContentPage(pages)
 
-if (!page.value) {
+if (status.value === 'not-found') {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
 </script>

@@ -112,9 +112,9 @@ import { pages } from '~~/content.config'
 
 definePageMeta({ key: route => route.path })
 
-const { page } = await useContentPage(pages)
+const { page, status } = await useContentPage(pages)
 
-if (!page.value) {
+if (status.value === 'not-found') {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
 </script>
@@ -132,9 +132,11 @@ if (!page.value) {
 - Route-aware page loading with `useContentPage()`.
 - Server reads for single records, lists, pagination, navigation, and surround
   data.
+- Exact filtered counts and server-resolved references without extra browser requests.
 - Locale-aware routing with explicit fallback behavior.
 - MiniSearch, Pagefind, and provider-owned search options.
 - Sitemap and prerender integration.
+- Agent-readable Markdown, indexes, and recoverable Markdown 404s.
 - A provider contract for advanced content sources.
 
 Static Nuxt paths belong in Nuxt I18n. Content paths belong in collection

@@ -93,9 +93,9 @@ import { pages } from '~~/content.config'
 
 definePageMeta({ key: route => route.path })
 
-const { page } = await useContentPage(pages)
+const { page, status } = await useContentPage(pages)
 
-if (!page.value) {
+if (status.value === 'not-found') {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
 </script>
@@ -111,8 +111,10 @@ if (!page.value) {
 - YAML, JSON, and CSV ingestion.
 - Typed collections and frontmatter.
 - Route-aware pages and server-side queries.
+- Exact filtered counts and server-resolved references.
 - Locale-aware routes and fallback rules.
 - Navigation, search, sitemap, and prerender helpers.
+- Agent-readable Markdown and recoverable Markdown 404s.
 - A provider contract for remote or database-backed sources.
 
 Optional features stay explicit. Install `pagefind`, `katex`, or
