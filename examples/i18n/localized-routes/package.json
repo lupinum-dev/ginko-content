@@ -1,0 +1,17 @@
+{
+  "name": "example-i18n-localized-routes",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview"
+  },
+  "devDependencies": {
+    "@lupinum/ginko-content": "workspace:*",
+    "@nuxtjs/i18n": "^10.2.0",
+    "nuxt": "4.5.2"
+  }
+}

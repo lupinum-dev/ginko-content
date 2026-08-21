@@ -53,8 +53,29 @@ export async function defineContentPage<
   const route = useRoute()
   const { notFound = 'throw', seo = true, ...pageOptions } = options as DefineContentPageOptions<H, P> & Record<string, unknown>
 
+  // Head tags must register BEFORE any await. Composables that need the
+  // Nuxt instance cannot run after an async boundary inside a plain async
+  // function — only `<script setup>` top-level awaits restore context. The
+  // getters read through a late-bound reference, so they see the document
+  // once `useContentPage` resolves.
+  let livePage: UseContentPageReturn<PopulatedDocument<DocumentFromHandle<H>, P>>['page'] | undefined
+
+  if (seo) {
+    const overrides = seo === true ? {} : seo
+    const resolveOverride = (value: string | (() => string | undefined) | undefined) =>
+      typeof value === 'function' ? value() : value
+
+    useSeoMeta({
+      title: () => resolveOverride(overrides.title) ?? (livePage?.value?.title as string | undefined),
+      description: () => resolveOverride(overrides.description) ?? (livePage?.value?.description as string | undefined),
+      ogTitle: () => livePage?.value?.title as string | undefined,
+      ogDescription: () => livePage?.value?.description as string | undefined
+    })
+  }
+
   const result = await useContentPage<H, P>(handle, pageOptions as UseContentPageOptions<H, P>)
   const { page, status } = result
+  livePage = page
 
   if (notFound === 'throw' && status.value === 'success' && !page.value) {
     throw createError({
@@ -65,19 +86,6 @@ export async function defineContentPage<
         collection: typeof handle === 'string' ? handle : (handle as { name?: string }).name,
         path: route.path
       }
-    })
-  }
-
-  if (seo) {
-    const overrides = seo === true ? {} : seo
-    const resolveOverride = (value: string | (() => string | undefined) | undefined) =>
-      typeof value === 'function' ? value() : value
-
-    useSeoMeta({
-      title: () => resolveOverride(overrides.title) ?? (page.value?.title as string | undefined),
-      description: () => resolveOverride(overrides.description) ?? (page.value?.description as string | undefined),
-      ogTitle: () => page.value?.title as string | undefined,
-      ogDescription: () => page.value?.description as string | undefined
     })
   }
 
