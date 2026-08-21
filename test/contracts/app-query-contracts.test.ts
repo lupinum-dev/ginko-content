@@ -64,12 +64,20 @@ const fetchContentApi = vi.fn(async (kind: string, params: Record<string, any>) 
           props: { href: '/leitfaden/einstieg#details' },
           children: []
         }]
-      })
+      }),
+      ...(params.populate
+        ? { result: { ...publicDocument('/de/leitfaden/einstieg', 'Einstieg'), authors: [publicDocument('/de/authors/ada', 'Ada')] } }
+        : {})
     }
   }
 
   if (params.first) {
-    return { result: publicDocument('/de/guide/advanced', 'Advanced') }
+    return {
+      result: {
+        ...publicDocument('/de/guide/advanced', 'Advanced'),
+        ...(params.populate ? { authors: [publicDocument('/de/authors/ada', 'Ada')] } : {})
+      }
+    }
   }
 
   return {
@@ -234,6 +242,21 @@ describe('app query/composable contracts', () => {
       }),
       expect.objectContaining({ previewToken: 'captured-preview-token' })
     )
+  })
+
+  test('populate crosses the browser boundary in one request', async () => {
+    const { one } = await import('../../packages/content/src/runtime/app/composables/query-api')
+
+    const page = await one('docs', {
+      by: { route: '/de/guide/advanced' },
+      populate: { authors: 'authors' }
+    })
+
+    expect(page?.authors).toEqual([expect.objectContaining({ title: 'Ada' })])
+    expect(fetchContentApi).toHaveBeenCalledOnce()
+    expect(fetchContentApi).toHaveBeenCalledWith('query', expect.objectContaining({
+      populate: { authors: 'authors' }
+    }), expect.anything())
   })
 
   test('captures one request-bound prerender writer for both phases of surround()', async () => {

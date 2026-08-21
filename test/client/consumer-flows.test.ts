@@ -6,6 +6,8 @@ import { createTestEvent } from '../support/provider-scenarios/event'
 import { createProviderQuery, normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import { projectProviderNavigation } from '../../packages/content/src/runtime/server/provider-route-facts'
 import { projectPublicQueryResponse } from '../../packages/content/src/features/query/responses'
+import { one } from '../../packages/content/src/features/query/unified'
+import { populateQueryResponse } from '../../packages/content/src/features/query/populate'
 
 const scenario = createSaasI18nScenario()
 const provider = createInMemoryProvider(scenario)
@@ -22,10 +24,11 @@ const publicDocument = (path: string, fields: Record<string, unknown> = {}) => (
 })
 const context = {
   runtime: scenario.runtime,
-  transport: (endpoint: 'query' | 'navigation', params: any) => {
+  transport: async (endpoint: 'query' | 'navigation', params: any) => {
+    const { populate: _populate, ...providerParams } = params
     if (endpoint === 'navigation') {
-      const query = createProviderQuery(params, scenario.runtime)
-      return provider.navigation!(event, query)
+      const query = createProviderQuery(providerParams, scenario.runtime)
+      return await provider.navigation!(event, query)
         .then(items => projectProviderNavigation(
           items,
           provider.name,
@@ -34,11 +37,12 @@ const context = {
           query.collection || undefined
         ))
     }
-    return provider.query(event, createProviderQuery(params, scenario.runtime))
+    const response = await provider.query(event, createProviderQuery(providerParams, scenario.runtime))
       .then(response => projectPublicQueryResponse(
-        normalizeProviderQueryResponse(params, response, provider.name, scenario.runtime),
-        params.first === true,
+        normalizeProviderQueryResponse(providerParams, response, provider.name, scenario.runtime),
+        providerParams.first === true,
       ))
+    return await populateQueryResponse(context as any, one, response, params)
   }
 }
 

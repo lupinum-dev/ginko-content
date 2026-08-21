@@ -63,7 +63,7 @@ export async function resolveOne<
   handle: H,
   options: O
 ): Promise<ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
-  return resolveDocument(context, one, handle, options)
+  return resolveDocument(context, handle, options)
 }
 
 /**
@@ -96,7 +96,7 @@ export async function many<
   ...args: OptionsArg<H, O>
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
   const options = (args[0] ?? {}) as O
-  return resolveManyDocuments(context, one, handle, options)
+  return resolveManyDocuments(context, handle, options)
 }
 
 /** Count matching documents without transferring them. */
@@ -128,7 +128,7 @@ export async function paginate<
   handle: H,
   options: O
 ): Promise<PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
-  return resolvePagination(context, one, handle, options) as unknown as PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
+  return resolvePagination(context, handle, options) as unknown as PaginationResultFor<O, PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
 }
 
 /* -------------------------------------------------------------------------- */

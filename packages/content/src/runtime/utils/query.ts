@@ -1,5 +1,5 @@
 import { type H3Event, createError } from 'h3'
-import type { ContentProviderQueryInput } from '../../types/query'
+import type { ContentQueryTransportInput } from '../../types/query'
 import { decodeQueryParams, encodeQueryParams } from '../../core/query/params'
 
 const safeDecodeQueryParams = (encoded: string) => {
@@ -10,7 +10,7 @@ const safeDecodeQueryParams = (encoded: string) => {
   }
 }
 
-export const getContentQuery = (event: H3Event): ContentProviderQueryInput => {
+export const getContentQuery = (event: H3Event): ContentQueryTransportInput => {
   const encoded = event.context.params?.params
 
   if (!encoded) {

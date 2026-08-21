@@ -1,6 +1,6 @@
 import type { NavItem, ParsedContent } from '../../../types/content'
 import type {
-  ContentProviderQueryInput,
+  ContentQueryTransportInput,
   ContentCollectionTarget,
   ContentNavigationTreeItem,
   BacklinksOptions,
@@ -57,7 +57,7 @@ export const createClientContentQueryContext = (): ContentQueryContext => {
 
   return {
     runtime,
-    transport: async <T>(endpoint: 'query' | 'navigation', params: ContentProviderQueryInput) => {
+    transport: async <T>(endpoint: 'query' | 'navigation', params: ContentQueryTransportInput) => {
       return await fetchContentApi<ContentPublicQueryResponse<T> | NavItem[]>(
         endpoint,
         params,

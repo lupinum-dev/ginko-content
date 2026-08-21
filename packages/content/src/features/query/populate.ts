@@ -4,6 +4,7 @@ import type {
   LocaleFallback,
   LocalizedDoc,
   OneOptions,
+  ContentQueryTransportInput,
   PopulateSpec,
   PopulatedDocument
 } from '../../types/query'
@@ -62,6 +63,13 @@ const createPopulateTargetMismatchError = (
   `Reference metadata declares "${sourceCollection}.${field}" points to ${expectedTargets.map(target => `"${target}"`).join(' or ')}.`,
   `Change populate.${field} to the declared target collection, or update ${sourceCollection}.schema relation metadata.`
 ].join(' '))
+
+export const serializePopulateSpec = (populate: PopulateSpec | undefined): Record<string, string> | undefined => {
+  if (!populate || !isRecord(populate)) return undefined
+  return Object.fromEntries(
+    Object.entries(populate).map(([field, target]) => [field, ensureCollectionName(target)])
+  )
+}
 
 export const validatePopulateSpec = (
   source: ContentCollectionHandle | string,
@@ -236,6 +244,32 @@ export const populateDocument = async <T extends ParsedContent, P extends Popula
     fallback
   )
   return populated!
+}
+
+export const populateQueryResponse = async (
+  context: ContentQueryContext,
+  resolveReference: PopulateReferenceResolver,
+  response: unknown,
+  params: ContentQueryTransportInput
+): Promise<unknown> => {
+  if (!params.populate || !isRecord(params.populate)) return response
+  if (!isRecord(response) || !('result' in response)) {
+    throw new TypeError('Invalid content query response: populate requires a result envelope.')
+  }
+
+  const locale = params.resolveVariant?.locale ?? params.resolveLocale?.locale
+  const fallback = params.resolveVariant?.fallback ?? params.resolveLocale?.fallback
+  const result = response.result
+  if (result === null) return response
+  if (typeof result === 'number') {
+    throw new TypeError('Content count queries cannot populate references.')
+  }
+
+  const populated = Array.isArray(result)
+    ? await populateDocuments(context, resolveReference, result as LocalizedDoc<ParsedContent>[], params.populate, locale, fallback)
+    : await populateDocument(context, resolveReference, result as LocalizedDoc<ParsedContent>, params.populate, locale, fallback)
+
+  return { ...response, result: populated }
 }
 
 export const selectWithPopulate = (

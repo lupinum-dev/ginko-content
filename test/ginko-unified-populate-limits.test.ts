@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { many, one } from '../packages/content/src/features/query/unified'
+import { populateQueryResponse } from '../packages/content/src/features/query/populate'
 import { z } from 'zod'
 
 const mocks = vi.hoisted(() => ({
@@ -26,6 +27,15 @@ const contentConfig = defineContentConfig({
 })
 
 const { authors, posts } = contentConfig.collections
+
+const createContext = () => {
+  const context = {
+    runtime: {},
+    transport: async (endpoint: 'query' | 'navigation', params: Record<string, any>) =>
+      await populateQueryResponse(context as any, one, await mocks.transport(endpoint, params), params)
+  }
+  return context
+}
 
 describe('unified query populate limits and concurrency', () => {
   beforeEach(() => {
@@ -72,10 +82,7 @@ describe('unified query populate limits and concurrency', () => {
       }
     })
 
-    const result = await many({
-      runtime: {},
-      transport: mocks.transport
-    }, posts, {
+    const result = await many(createContext(), posts, {
       populate: { authors }
     })
 
@@ -118,10 +125,7 @@ describe('unified query populate limits and concurrency', () => {
       }
     })
 
-    const result = await one({
-      runtime: {},
-      transport: mocks.transport
-    }, posts, {
+    const result = await one(createContext(), posts, {
       by: { path: '/hello' },
       populate: { authors }
     })
@@ -142,10 +146,7 @@ describe('unified query populate limits and concurrency', () => {
       }
     })
 
-    await expect(one({
-      runtime: {},
-      transport: mocks.transport
-    }, posts, {
+    await expect(one(createContext(), posts, {
       by: { path: '/hello' },
       populate: { authors }
     })).rejects.toThrow('Content population exceeds the maximum of 1000 references per result set.')

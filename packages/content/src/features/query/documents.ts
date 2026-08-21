@@ -3,6 +3,7 @@ import type { ContentCollectionHandle } from '../../types/config'
 import type {
   ContentSelector,
   CountOptions,
+  ContentQueryTransportInput,
   DocumentFromHandle,
   LocaleFallback,
   LocalizedDoc,
@@ -21,7 +22,7 @@ import type { ContentQueryContext } from './context'
 import { isNotFoundError } from './errors'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
-import { populateDocument, populateDocuments, selectWithPopulate, validatePopulateSpec } from './populate'
+import { selectWithPopulate, serializePopulateSpec, validatePopulateSpec } from './populate'
 import { unwrapCountResponse, unwrapFindResponse, unwrapOneResponse } from './responses'
 
 const explainResolution = (
@@ -62,7 +63,6 @@ export async function resolveDocument<
   O extends ResolveOneOptions<H, PopulateSpec | undefined>
 >(
   context: ContentQueryContext,
-  one: typeof resolveDocumentOnly,
   handle: H,
   options: O
 ): Promise<ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
@@ -71,13 +71,16 @@ export async function resolveDocument<
   validatePopulateSpec(handle, collection, runtime, options.populate)
   const by = options.by
   const fallback = resolveFallback(options.fallback, collection, runtime)
-  const params = compileQueryParams({
-    collection,
-    by,
-    locale: options.locale,
-    fallback,
-    select: selectWithPopulate(options.select as ReadonlyArray<string> | undefined, options.populate)
-  })
+  const params: ContentQueryTransportInput = {
+    ...compileQueryParams({
+      collection,
+      by,
+      locale: options.locale,
+      fallback,
+      select: selectWithPopulate(options.select as ReadonlyArray<string> | undefined, options.populate)
+    }),
+    ...(options.populate ? { populate: serializePopulateSpec(options.populate) } : {})
+  }
 
   params.first = true
 
@@ -93,12 +96,9 @@ export async function resolveDocument<
   }
 
   const doc = unwrapOneResponse<LocalizedDoc<ParsedContent>>(response)
-  const populated = doc
-    ? await populateDocument(context, one, doc, options.populate, options.locale, options.fallback)
-    : null
   const explain = explainResolution(collection, options.by, by, options.locale, options.fallback, doc)
   return {
-    doc: populated,
+    doc,
     explain
   } as ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
 }
@@ -111,7 +111,7 @@ export async function resolveDocumentOnly<
   handle: H,
   options: O
 ): Promise<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>> | null> {
-  const result = await resolveDocument(context, resolveDocumentOnly, handle, options)
+  const result = await resolveDocument(context, handle, options)
   return result.doc
 }
 
@@ -120,7 +120,6 @@ export async function resolveManyDocuments<
   O extends ManyOptions<H, PopulateSpec | undefined>
 >(
   context: ContentQueryContext,
-  one: typeof resolveDocumentOnly,
   handle: H,
   options: O = {} as O
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
@@ -128,16 +127,19 @@ export async function resolveManyDocuments<
   const runtime = context.runtime
   validatePopulateSpec(handle, collection, runtime, options.populate)
   const fallback = resolveFallback(options.fallback, collection, runtime)
-  const params = compileQueryParams({
-    collection,
-    where: options.where as QueryWhere | undefined,
-    sort: options.sort,
-    limit: options.limit,
-    skip: options.skip,
-    locale: options.locale,
-    fallback,
-    select: selectWithPopulate(options.select as ReadonlyArray<string> | undefined, options.populate)
-  })
+  const params: ContentQueryTransportInput = {
+    ...compileQueryParams({
+      collection,
+      where: options.where as QueryWhere | undefined,
+      sort: options.sort,
+      limit: options.limit,
+      skip: options.skip,
+      locale: options.locale,
+      fallback,
+      select: selectWithPopulate(options.select as ReadonlyArray<string> | undefined, options.populate)
+    }),
+    ...(options.populate ? { populate: serializePopulateSpec(options.populate) } : {})
+  }
 
   let response: unknown
   try {
@@ -155,8 +157,7 @@ export async function resolveManyDocuments<
       'Pass an explicit limit or use paginate() to read the rest.'
     )
   }
-  const populated = await populateDocuments(context, one, docs, options.populate, options.locale, options.fallback)
-  return populated as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>
+  return docs as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>
 }
 
 export async function resolveCount<

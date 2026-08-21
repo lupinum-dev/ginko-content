@@ -2,7 +2,7 @@ import { createError } from 'h3'
 import { withBase } from 'ufo'
 import { hash } from 'ohash'
 import { tryUseNuxtApp, useRequestEvent, useRequestFetch } from '#imports'
-import type { ContentProviderQueryInput } from '../../../types/query'
+import type { ContentQueryTransportInput } from '../../../types/query'
 import { encodeQueryParams } from '../../utils/query'
 import { useContentPreview } from './preview'
 import { getContentRuntime } from './runtime'
@@ -56,7 +56,7 @@ export const getContentApiFetcher = (fetcher?: ContentApiFetcher): ContentApiFet
 
 export const buildContentApiPath = (
   endpoint: ContentApiEndpoint,
-  params: ContentProviderQueryInput,
+  params: ContentQueryTransportInput,
   runtime: ContentRuntimeShape
 ) => {
   const encodedParams = encodeQueryParams(params)
@@ -70,7 +70,7 @@ export const isHtmlFallbackResponse = (data: unknown): data is string => {
 
 export async function fetchContentApi<T> (
   endpoint: ContentApiEndpoint,
-  params: ContentProviderQueryInput,
+  params: ContentQueryTransportInput,
   options: {
     fetcher: ContentApiFetcher
     runtime: ContentRuntimeShape

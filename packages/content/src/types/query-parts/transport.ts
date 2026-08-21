@@ -82,3 +82,8 @@ export interface ContentProviderQueryInput {
   /** Explicit wire pagination-mode request — see `ContentProviderPaging`. */
   paging?: ContentProviderPaging
 }
+
+/** HTTP/in-process orchestration input. `populate` is consumed by Ginko and never sent to providers. */
+export interface ContentQueryTransportInput extends ContentProviderQueryInput {
+  populate?: Record<string, string>
+}
