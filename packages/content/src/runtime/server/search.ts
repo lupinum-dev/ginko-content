@@ -1,14 +1,11 @@
 import type { H3Event } from 'h3'
-import type { ParsedContent } from '../../types/content'
 import type { ContentProviderQueryInput, ContentProviderQueryWhere } from '../../types/query'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import { createSearchSections } from '../../features/search/sections'
+import { createSearchSections, type SearchablePage } from '../../features/search/sections'
 import { toSearchIndexRecord } from '../../features/search/records'
 import { resolveCollectionI18n } from '../../features/localization/path'
 import { unwrapListResponse } from '../../features/query/responses'
 import { createServerContentQueryContext } from './query-api'
-
-type SearchablePage = Pick<ParsedContent, 'path' | 'locale' | 'title' | 'description' | 'body'> & Record<string, unknown>
 
 type SearchSectionWithLocale = ReturnType<typeof createSearchSections>[number] & { locale?: string, collection?: string }
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
@@ -86,16 +83,10 @@ async function loadSearchDocuments (
       const mergedFilter = mergeSearchFilter(filterQuery, queryLocale)
       const params: ContentProviderQueryInput = {
         collection,
-        only: ['path', 'locale', 'title', 'description', 'body', ...(opts.extraFields || [])],
+        only: ['locale', 'title', 'description', 'body', ...(opts.extraFields || [])],
         ...(mergedFilter ? { where: [mergedFilter] } : {})
       }
-      const pages = unwrapListResponse<Record<string, unknown>>(await context.transport('query', params))
-      return pages.map(page => ({
-        ...page,
-        path: typeof page.path === 'string'
-          ? page.path
-          : (page.route as { resolvedPath?: string } | undefined)?.resolvedPath || ''
-      }))
+      return unwrapListResponse<SearchablePage>(await context.transport('query', params))
     }
 
     if (locale) {

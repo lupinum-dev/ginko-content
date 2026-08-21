@@ -1,4 +1,4 @@
-import type { MarkdownNode, ParsedContent } from '../../types/content'
+import type { MarkdownNode } from '../../types/content'
 import type { ContentCollectionSearchSectionsOptions, ContentSearchSection } from '../../types/query'
 import { isMarkdownRoot } from '../../core/markdown/tree'
 
@@ -6,7 +6,13 @@ const HEADING = /^h([1-6])$/
 
 const headingLevel = (tag: string) => Number(tag.match(HEADING)?.[1] ?? 0)
 
-type SearchablePage = Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>
+export type SearchablePage = {
+  route?: { resolvedPath?: string }
+  path?: string
+  title?: unknown
+  description?: unknown
+  body?: unknown
+} & Record<string, unknown>
 
 /**
  * Backing option type for search-section generation.
@@ -58,7 +64,7 @@ function splitPageIntoSections (
     maxLevel: number
   }
 ) {
-  const path = page.path || ''
+  const path = page.route?.resolvedPath || page.path || ''
   const extraFieldsData = pick(extraFields, page)
   const body = page.body
 

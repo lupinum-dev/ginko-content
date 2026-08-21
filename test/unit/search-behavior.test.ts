@@ -304,6 +304,14 @@ describe('search behavior', () => {
     expect(sections.map(section => section.content).join(' ')).not.toContain('ignored code block')
   })
 
+  test('createSearchSections uses the public route envelope', () => {
+    expect(createSearchSections([{
+      route: { resolvedPath: '/docs/public-route' },
+      title: 'Public route',
+      body: { type: 'root', children: [] }
+    }])[0]?.id).toBe('/docs/public-route')
+  })
+
   test('createSearchSections normalizes inline MDC syntax in result titles', () => {
     const sections = createSearchSections([
       {
