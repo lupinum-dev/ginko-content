@@ -79,7 +79,13 @@ export const projectDocumentFields = <T extends Record<string, unknown>>(
   const stripped = excluded.length > 0 ? withoutKeys([...excluded])(document) : document
   if (selected.length === 0) return stripped as T
 
-  return withKeys([...selected, ...guaranteed])(stripped) as T
+  const projected = withKeys([...selected])(stripped)
+  if (guaranteed.length === 0) return projected as T
+
+  return {
+    ...projected,
+    ...withKeys([...guaranteed])(document)
+  } as T
 }
 
 export const sortList = <T extends Record<string, unknown>>(data: T[], params: ContentQuerySortOptions) => {

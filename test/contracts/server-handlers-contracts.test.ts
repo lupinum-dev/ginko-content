@@ -45,4 +45,23 @@ describe('content server handlers', () => {
       route: '/api/_content/revalidate'
     }))
   })
+
+  test.each([
+    { label: 'development mode', dev: true, integrity: 1 },
+    { label: 'missing integrity', dev: false, integrity: undefined }
+  ])('uses the stable cache route with $label', async ({ dev, integrity }) => {
+    const { registerContentServerHandlers } = await import('../../packages/content/src/module/server-handlers')
+
+    registerContentServerHandlers({ options: { dev } } as any, {
+      api: { baseURL: '/api/_content' },
+      sitemap: false,
+      navigation: false,
+      revalidate: false
+    } as any, path => path, integrity)
+
+    expect(addServerHandler).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'get',
+      route: '/api/_content/cache.json'
+    }))
+  })
 })

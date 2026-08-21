@@ -75,7 +75,7 @@ describe('query operator matrix (executeQueryPlan)', () => {
 
     expect(projectDocumentFields(document, {
       only: ['title', 'body'],
-      without: ['body']
+      without: ['body', 'id', 'route']
     }, ['id', 'route'])).toEqual({
       id: 'docs:one',
       title: 'One',

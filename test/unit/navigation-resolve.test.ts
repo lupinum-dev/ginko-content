@@ -45,6 +45,26 @@ describe('pure navigation traversal', () => {
     }, 'docs')).resolves.toEqual([])
   })
 
+  test('treats a nested 404 response as an empty tree', async () => {
+    await expect(resolveNavigation({
+      runtime: {},
+      transport: async () => {
+        throw Object.assign(new Error('Missing'), { response: { status: 404 } })
+      }
+    }, 'docs')).resolves.toEqual([])
+  })
+
+  test('rethrows non-404 navigation errors unchanged', async () => {
+    const error = Object.assign(new Error('Backend failure'), { statusCode: 500 })
+
+    await expect(resolveNavigation({
+      runtime: {},
+      transport: async () => {
+        throw error
+      }
+    }, 'docs')).rejects.toBe(error)
+  })
+
   test('normalizes trailing slashes without changing the root path', () => {
     expect(normalizeNavigationPath('/')).toBe('/')
     expect(normalizeNavigationPath('/docs/intro///')).toBe('/docs/intro')

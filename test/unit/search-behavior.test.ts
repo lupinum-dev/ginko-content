@@ -305,11 +305,24 @@ describe('search behavior', () => {
   })
 
   test('createSearchSections uses the public route envelope', () => {
-    expect(createSearchSections([{
-      route: { resolvedPath: '/docs/public-route' },
-      title: 'Public route',
-      body: { type: 'root', children: [] }
-    }])[0]?.id).toBe('/docs/public-route')
+    const sections = createSearchSections([
+      {
+        route: { resolvedPath: '/docs/public-route' },
+        path: '/docs/private-path',
+        title: 'Public route',
+        body: { type: 'root', children: [] }
+      },
+      {
+        path: '/docs/path-fallback',
+        title: 'Path fallback',
+        body: { type: 'root', children: [] }
+      }
+    ])
+
+    expect(sections.map(section => section.id)).toEqual([
+      '/docs/public-route',
+      '/docs/path-fallback'
+    ])
   })
 
   test('createSearchSections normalizes inline MDC syntax in result titles', () => {
