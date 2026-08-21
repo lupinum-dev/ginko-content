@@ -1,0 +1,52 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    "benchmarks/**",
+    "docs/**",
+    "examples/**",
+    "playground/**",
+    "test/**"
+  ],
+  "workspaces": {
+    "packages/content": {
+      "entry": [
+        "src/module.ts",
+        "src/cli.ts",
+        "src/cli/**/*.ts",
+        "src/public/*.ts",
+        "src/config.ts",
+        "src/testing/*.ts",
+        "src/cms-contract/index.ts",
+        "src/portability/index.ts",
+        "src/portability-node/index.ts",
+        "src/runtime/app.vue",
+        "src/runtime/server/index.ts",
+        "src/runtime/server/api/*.ts",
+        "src/runtime/server/middleware/*.ts",
+        "src/runtime/server/plugins/*.ts",
+        "src/runtime/transformers/*.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "src/**/*.vue"
+      ],
+      "ignore": [
+        "src/runtime/app/components/**/*.vue",
+        "src/runtime/server/cache-adapter.ts"
+      ]
+    }
+  },
+  "rules": {
+    "optionalPeerDependencies": "off",
+    "exports": "off",
+    "types": "off",
+    "nsExports": "off",
+    "nsTypes": "off"
+  },
+  "ignoreDependencies": [
+    "@comark/vue",
+    "vue-tsc",
+    "vitest-environment-nuxt"
+  ],
+  "includeEntryExports": false
+}
