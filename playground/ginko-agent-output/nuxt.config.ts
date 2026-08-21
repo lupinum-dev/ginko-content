@@ -40,6 +40,10 @@ const componentPolicy = {
 export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
 
+  site: {
+    url: 'https://agent-output.example.test'
+  },
+
   modules: [
     '@lupinum/ginko-content',
     '@nuxtjs/i18n'

@@ -47,6 +47,7 @@ interface StaticOutputGenerationOptions {
   resolvedI18n: Pick<ContentContext, 'locales' | 'defaultLocale'>
   resolveRuntimeModule: (path: string) => string
   getSearchRuntime: () => SearchRuntime
+  siteUrl?: string
 }
 
 export const registerStaticOutputGeneration = ({
@@ -56,7 +57,8 @@ export const registerStaticOutputGeneration = ({
   contentContext,
   resolvedI18n,
   resolveRuntimeModule,
-  getSearchRuntime
+  getSearchRuntime,
+  siteUrl
 }: StaticOutputGenerationOptions) => {
   if (nuxt.options.dev) return
 
@@ -133,7 +135,7 @@ export const registerStaticOutputGeneration = ({
             mkdirSync(dirname(outputPath), { recursive: true })
             writeFileSync(outputPath, body, 'utf8')
             if (/\/llms\.txt$/i.test(route)) {
-              collectRawMarkdownLinksFromLlms(body, appContentConfig.agent.site?.url).forEach(link => markdownRoutes.add(link))
+              collectRawMarkdownLinksFromLlms(body, siteUrl).forEach(link => markdownRoutes.add(link))
             } else if (/\/llms-full\.txt$/i.test(route)) {
               collectRawMarkdownRoutesFromGeneratedFrontmatter(body).forEach(link => markdownRoutes.add(link))
             }

@@ -166,8 +166,10 @@ export type ContentAgentLocalizedValue = string | Record<string, string>
 export interface ContentAgentSiteConfig {
   title: ContentAgentLocalizedValue
   description: ContentAgentLocalizedValue
-  url?: string
-  profile?: string
+  /** Explain the tasks for which this site is the right source. */
+  whenToUse: ContentAgentLocalizedValue
+  /** Explain important tasks or subjects that belong elsewhere. */
+  whenNotToUse?: ContentAgentLocalizedValue
   contentSignals?: {
     search?: boolean
     aiInput?: boolean
@@ -210,7 +212,7 @@ export interface ContentAgentAppPageConfig {
 }
 
 export interface ContentAgentConfig {
-  site?: ContentAgentSiteConfig
+  site: ContentAgentSiteConfig
   markdown?: ContentAgentMarkdownPolicyConfig
   sections?: ContentAgentSectionConfig[]
   pages?: ContentAgentAppPageConfig[]

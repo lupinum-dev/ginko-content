@@ -53,9 +53,10 @@ export default defineContentConfig({
         en: 'Generated output fixture for localized Ginko content.',
         de: 'Generierte Ausgabe fuer lokalisierte Ginko Inhalte.'
       },
-      url: 'https://ginko-content.example.test',
-      defaultLocale: 'en',
-      locales: ['en', 'de']
+      whenToUse: {
+        en: 'Use this site to test localized Ginko content.',
+        de: 'Diese Site testet lokalisierte Ginko-Inhalte.'
+      }
     },
     sections: [
       defineAgentSection({

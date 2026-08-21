@@ -14,15 +14,32 @@ const agentSectionIds = (sections: readonly ContentAgentSectionConfig[] | undefi
 export const validateAgentConfig = (
   config: ContentConfig,
   options: ModuleOptions,
-  context: { dev: boolean }
+  context: { dev: boolean, siteUrl?: string }
 ) => {
   if (!hasAgentSurface(config)) return
 
-  const agentRoutes = normalizeAgentRouteOptions(options)
-  if (!context.dev && agentRoutes.routes && agentRoutes.prerender && !config.agent?.site?.url) {
+  if (!config.agent?.site) {
     throw new Error(
-      '@lupinum/ginko-content agent prerender requires agent.site.url for non-dev builds. ' +
-      'Set agent.site.url in content.config.ts or disable content.agent.prerender.'
+      '@lupinum/ginko-content agent output requires agent.site with title, description, and whenToUse.'
+    )
+  }
+
+  const hasLocalizedText = (value: unknown) =>
+    typeof value === 'string'
+      ? value.trim().length > 0
+      : Boolean(value && typeof value === 'object' && Object.values(value).some(entry => typeof entry === 'string' && entry.trim().length > 0))
+
+  for (const field of ['title', 'description', 'whenToUse'] as const) {
+    if (!hasLocalizedText(config.agent.site[field])) {
+      throw new Error(`@lupinum/ginko-content agent.site.${field} must contain non-empty text.`)
+    }
+  }
+
+  const agentRoutes = normalizeAgentRouteOptions(options)
+  if (!context.dev && agentRoutes.routes && agentRoutes.prerender && !context.siteUrl) {
+    throw new Error(
+      '@lupinum/ginko-content agent prerender requires the canonical site URL for non-dev builds. ' +
+      'Set site.url in nuxt.config.ts (or runtimeConfig.content.siteUrl), or disable content.agent.prerender.'
     )
   }
 
