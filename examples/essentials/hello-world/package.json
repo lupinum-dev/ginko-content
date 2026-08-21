@@ -1,5 +1,6 @@
 {
   "name": "example-hello-world",
+  "type": "module",
   "private": true,
   "scripts": {
     "build": "nuxt build",

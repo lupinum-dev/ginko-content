@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { defineContentPage } from '@lupinum/ginko-content/client'
+import { useContentPage } from '@lupinum/ginko-content/client'
+import { createError } from '#imports'
 import { pages } from '../content.config'
 
 definePageMeta({ key: route => route.path })
 
-const { page } = await defineContentPage(pages)
+const { page } = await useContentPage(pages)
+
+if (!page.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
+}
 </script>
 
 <template>
