@@ -4,7 +4,16 @@ import type { MissingDocument, ParsedContent } from '../types/content'
 import type { ContentCacheArtifact } from '../types/runtime'
 import { isRealDocument } from '../core/content/document'
 import { splitInlineLocaleVariantId } from '../core/content/locale'
-import { memoizeRuntimeValue } from '../integrations/nitro/context'
+import {
+  buildMarkdownFeatureDiagnostics,
+  detectMarkdownFeatureUsage,
+  emptyMarkdownFeatureUsage,
+  recordMarkdownFeatureUsage,
+  type MarkdownFeatureUsage
+} from '../core/markdown/feature-detect'
+import { emitRuntimeDiagnostics, shouldEmitRuntimeDiagnostics } from '../core/runtime-diagnostics'
+import { resolveRuntimeEnvironment } from '../core/visibility'
+import { getContentRuntimeContext, memoizeRuntimeValue } from '../integrations/nitro/context'
 import { parseContentVariants } from '../integrations/nitro/ingest'
 import { cacheStoreFor } from './cache'
 import { contentConfig, contentIgnorePredicate, getContentStorageRuntime, getContentsIds, resolveStorageId } from './driver'
@@ -48,6 +57,20 @@ export const loadContentVariants = async (event: H3Event, id: string): Promise<A
   const body = await runtime.source.getItem(storageId)
   if (body === null) {
     return [{ id: contentId, body: null, missing: true }]
+  }
+
+  // Opt-in markdown features are detected from raw source so the build can
+  // warn when the matching plugin is not enabled (the rendered output would
+  // silently degrade to literal text). Aggregation lives on the request
+  // context; see `loadContents` for the emit.
+  if (typeof body === 'string' && contentId.endsWith('.md')) {
+    const context = getContentRuntimeContext(event)
+    context.memo['markdown-feature-usage'] ||= emptyMarkdownFeatureUsage()
+    recordMarkdownFeatureUsage(
+      context.memo['markdown-feature-usage'] as MarkdownFeatureUsage,
+      contentId,
+      detectMarkdownFeatureUsage(body)
+    )
   }
 
   const hash = ohash({
@@ -102,7 +125,26 @@ const loadContents = async (event: H3Event, prefix?: string) => {
     }
   }
 
+  emitMarkdownFeatureDiagnostics(event)
+
   return filtered
+}
+
+/**
+ * One diagnostic per feature per process (dev session or prerender run):
+ * documents using `$$` math or mermaid fences while the matching build-time
+ * markdown plugin is disabled would otherwise render literal text silently.
+ */
+const emitMarkdownFeatureDiagnostics = (event: H3Event) => {
+  const context = getContentRuntimeContext(event)
+  const usage = context.memo['markdown-feature-usage'] as MarkdownFeatureUsage | undefined
+  if (!usage) {
+    return
+  }
+  if (!shouldEmitRuntimeDiagnostics(resolveRuntimeEnvironment(), Boolean(import.meta.prerender))) {
+    return
+  }
+  emitRuntimeDiagnostics(buildMarkdownFeatureDiagnostics(usage, contentConfig().markdown?.plugins))
 }
 
 const snapshotDocumentsFor = async (event: H3Event, prefix?: string) => {
