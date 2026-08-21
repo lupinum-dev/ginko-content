@@ -50,11 +50,15 @@ export type UseContentPageOptions<
   surround?: ContentPageSurroundOptions<H>
 }
 
-interface UseContentPageReturn<T> {
-  page: ComputedRef<LocalizedDoc<T> | undefined>
+export type ContentPageStatus = 'pending' | 'success' | 'not-found' | 'error'
+
+export interface UseContentPageReturn<T> {
+  /** The current route's document, or `null` while absent. Read `status` to distinguish why. */
+  page: ComputedRef<LocalizedDoc<T> | null>
   previous: ComputedRef<ResolvedContentNavigationItem<T> | null>
   next: ComputedRef<ResolvedContentNavigationItem<T> | null>
-  status: ComputedRef<string>
+  /** Explicit route state; unlike Nuxt's async-data status, this distinguishes a settled miss. */
+  status: ComputedRef<ContentPageStatus>
   error: ComputedRef<unknown>
   refresh: () => Promise<void>
 }
@@ -162,12 +166,8 @@ export async function useContentPage<
   const pageAsync = await pageAsyncPromise
   const surroundAsync = surroundAsyncPromise ? await surroundAsyncPromise : undefined
 
-  // A single reactive snapshot of the last-fetched document, kept in sync
-  // with the underlying async-data ref. Stale-page flash suppression
-  // falls straight out of the `page` computed below: a
-  // snapshot that does not match the CURRENT route (because a route change
-  // has outrun its refetch, on first hydration or client navigation alike)
-  // is never shown, with no separate "is resolving" flag required.
+  // Keep the last response long enough to suppress stale content while a
+  // route change starts its next request.
   const rawPage = shallowRef<LocalizedDoc<Doc> | null>(pageAsync.data.value)
   watch(pageAsync.data, (value) => {
     rawPage.value = value
@@ -175,7 +175,16 @@ export async function useContentPage<
 
   const page = computed(() => {
     const current = rawPage.value
-    return pageMatchesRoute(current, route.path) ? (current as LocalizedDoc<Doc>) : undefined
+    return pageMatchesRoute(current, route.path) ? (current as LocalizedDoc<Doc>) : null
+  })
+
+  const error = computed(() => pageAsync.error.value ?? surroundAsync?.error.value ?? undefined)
+  const status = computed<ContentPageStatus>(() => {
+    if (error.value) return 'error'
+    if (page.value) return 'success'
+    if (rawPage.value && !pageMatchesRoute(rawPage.value, route.path)) return 'pending'
+    if (pageAsync.status.value === 'pending' || pageAsync.status.value === 'idle') return 'pending'
+    return 'not-found'
   })
 
   const previous = computed(() => {
@@ -191,8 +200,8 @@ export async function useContentPage<
     page,
     previous,
     next,
-    status: computed(() => pageAsync.status.value),
-    error: computed(() => pageAsync.error.value ?? surroundAsync?.error.value ?? undefined),
+    status,
+    error,
     refresh: async () => {
       await pageAsync.refresh()
       if (surroundAsync) await surroundAsync.refresh()
