@@ -13,7 +13,7 @@ import { compileQueryParams } from '../../core/query/filter'
 import { NAVIGATION_REQUIRED_FIELDS } from '../../types/navigation'
 import type { ContentQueryContext } from './context'
 import { ensureCollectionName } from './handles'
-import { isNotFoundError } from './errors'
+import { withNotFoundFallback } from './errors'
 import { isCollectionRouteRoot, isNavigationRootPath } from './localized-docs'
 import { resolveFallback } from './locale-options'
 
@@ -61,13 +61,10 @@ export async function resolveNavigation<
     exact: options.fallback === undefined ? false : undefined
   })
 
-  let response: unknown
-  try {
-    response = await context.transport('navigation', params)
-  } catch (error) {
-    if (isNotFoundError(error)) return []
-    throw error
-  }
+  const response = await withNotFoundFallback<unknown>(
+    () => context.transport('navigation', params),
+    []
+  )
   const list = Array.isArray(response)
     ? response
     : Array.isArray((response as { result?: unknown })?.result)

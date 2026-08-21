@@ -40,9 +40,9 @@ import {
   one as oneWithContext,
   paginate as paginateWithContext,
   resolveOne as resolveOneWithContext,
-  surround as surroundWithContext,
-  type ContentQueryContext
+  surround as surroundWithContext
 } from '../../../features/query/unified'
+import type { ContentQueryContext } from '../../../features/query/context'
 
 export const createClientContentQueryContext = (): ContentQueryContext => {
   const runtime = getContentRuntime()

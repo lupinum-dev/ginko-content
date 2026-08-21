@@ -50,6 +50,21 @@ describe('agent surface contracts', () => {
     )
 
     expect(() => validateAgentConfig({
+      agent: {
+        site: {
+          title: 'Docs',
+          description: 'Docs site.',
+          whenToUse: 'Use this site for the Docs product.'
+        }
+      },
+      collections: {}
+    } as Parameters<typeof validateAgentConfig>[0], {
+      agent: { routes: true, prerender: false }
+    } as Parameters<typeof validateAgentConfig>[1], { dev: false })).toThrow(
+      /requires the canonical site URL/
+    )
+
+    expect(() => validateAgentConfig({
       collections: {
         docs: { type: 'page', agent: { markdown: true } }
       }
@@ -69,11 +84,17 @@ describe('agent surface contracts', () => {
 
   test('parses markdown Accept headers and respects q=0', async () => {
     const { acceptsMarkdown } = await import('../../packages/content/src/runtime/server/agent-http')
+    const event = (accept: string) => ({
+      node: { req: { headers: { accept } } }
+    }) as Parameters<typeof acceptsMarkdown>[0]
 
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/markdown;q=0, text/html;q=1' } } } } as any)).toBe(false)
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/html, text/markdown;q=0.7' } } } } as any)).toBe(false)
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: '*/*;q=0.1' } } } } as any)).toBe(false)
-    expect(acceptsMarkdown({ node: { req: { headers: { accept: 'text/markdown, text/html;q=0.5' } } } } as any)).toBe(true)
+    expect(acceptsMarkdown(event('text/markdown;q=0, text/html;q=1'))).toBe(false)
+    expect(acceptsMarkdown(event('text/html, text/markdown;q=0.7'))).toBe(false)
+    expect(acceptsMarkdown(event('*/*;q=0.1'))).toBe(false)
+    expect(acceptsMarkdown(event('text/markdown, text/html;q=0.5'))).toBe(true)
+    expect(acceptsMarkdown(event('*/*;q=1, text/markdown;q=0.5'))).toBe(false)
+    expect(acceptsMarkdown(event('text/*;q=0.8, text/markdown;q=0.5'))).toBe(false)
+    expect(acceptsMarkdown(event('text/html;q=0.4, text/markdown;q=2'))).toBe(false)
   })
 
   test('exports one canonical raw markdown route helper', async () => {

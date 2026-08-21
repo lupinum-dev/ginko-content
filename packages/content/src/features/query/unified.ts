@@ -45,7 +45,6 @@ import { resolveNavigation, resolveSurround } from './navigation'
 import { resolvePagination } from './pagination'
 import { resolveCount, resolveDocument, resolveDocumentOnly, resolveManyDocuments } from './documents'
 
-export type { ContentQueryContext, ContentQueryEndpoint, RuntimeContentConfig } from './context'
 export { navigationSelectFields } from './navigation'
 
 /* -------------------------------------------------------------------------- */

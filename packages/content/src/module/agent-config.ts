@@ -36,10 +36,10 @@ export const validateAgentConfig = (
   }
 
   const agentRoutes = normalizeAgentRouteOptions(options)
-  if (!context.dev && agentRoutes.routes && agentRoutes.prerender && !context.siteUrl) {
+  if (!context.dev && agentRoutes.routes && !context.siteUrl) {
     throw new Error(
-      '@lupinum/ginko-content agent prerender requires the canonical site URL for non-dev builds. ' +
-      'Set site.url in nuxt.config.ts (or runtimeConfig.content.siteUrl), or disable content.agent.prerender.'
+      '@lupinum/ginko-content agent output requires the canonical site URL for non-dev builds. ' +
+      'Set site.url in nuxt.config.ts (or runtimeConfig.content.siteUrl), or disable content.agent routes.'
     )
   }
 

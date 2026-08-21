@@ -64,6 +64,22 @@ const createPopulateTargetMismatchError = (
   `Change populate.${field} to the declared target collection, or update ${sourceCollection}.schema relation metadata.`
 ].join(' '))
 
+const createUndeclaredPopulateFieldError = (
+  sourceCollection: string,
+  field: string
+) => new Error(
+  `Cannot populate "${sourceCollection}.${field}" because it is not a declared reference field. ` +
+  `Declare the relation in ${sourceCollection}.schema before populating it.`
+)
+
+const createUnknownPopulateTargetError = (
+  sourceCollection: string,
+  field: string,
+  target: string
+) => new Error(
+  `Cannot populate "${sourceCollection}.${field}" from unknown collection "${target}".`
+)
+
 export const serializePopulateSpec = (populate: PopulateSpec | undefined): Record<string, string> | undefined => {
   if (!populate || !isRecord(populate)) return undefined
   return Object.fromEntries(
@@ -83,27 +99,28 @@ export const validatePopulateSpec = (
 
   const references = collectReferenceFieldsByTarget(source, sourceCollection, runtime)
   const fieldTargets = invertReferenceFields(references)
-  if (!fieldTargets.size) {
-    return
-  }
 
   for (const [field, target] of Object.entries(populate)) {
     const declaredTargets = fieldTargets.get(field)
     if (!declaredTargets?.length) {
-      continue
+      throw createUndeclaredPopulateFieldError(sourceCollection, field)
     }
 
     const actualTarget = ensureCollectionName(target)
-    if (declaredTargets.includes(actualTarget) || declaredTargets.includes(wildcardReferenceTarget)) {
-      continue
+    if (!declaredTargets.includes(actualTarget) && !declaredTargets.includes(wildcardReferenceTarget)) {
+      throw createPopulateTargetMismatchError(
+        sourceCollection,
+        field,
+        declaredTargets.filter(target => target !== wildcardReferenceTarget),
+        actualTarget
+      )
     }
-
-    throw createPopulateTargetMismatchError(
-      sourceCollection,
-      field,
-      declaredTargets.filter(target => target !== wildcardReferenceTarget),
-      actualTarget
-    )
+    if (
+      runtime?.collections
+      && !Object.prototype.hasOwnProperty.call(runtime.collections, actualTarget)
+    ) {
+      throw createUnknownPopulateTargetError(sourceCollection, field, actualTarget)
+    }
   }
 }
 

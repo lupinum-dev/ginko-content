@@ -130,7 +130,8 @@ export const createSaasI18nScenario = () => createContentScenario({
     posts: {
       type: 'page',
       i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-      route: '/blog'
+      route: '/blog',
+      references: { authors: ['authors'] }
     },
     authors: {
       type: 'page',

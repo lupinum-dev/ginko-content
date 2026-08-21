@@ -187,19 +187,24 @@ describe('Comark conformance corpus', () => {
 
   test.each(corpus)('$id freezes raw Comark 0.6 output separately', async (entry) => {
     const source = await readFixture(entry.fixture)
+    let tree: Awaited<ReturnType<typeof parseConfigured>> | undefined
     try {
-      const tree = await parseConfigured(source, entry.plugins)
-      expect(entry.expected.raw).toBe('accepted')
-      expect(snapshotValue({
-        frontmatter: tree.frontmatter,
-        meta: tree.meta,
-        nodes: tree.nodes
-      })).toMatchSnapshot(entry.id)
+      tree = await parseConfigured(source, entry.plugins)
     }
     catch (error) {
-      expect(entry.expected.raw).toBe('rejected')
+      if (entry.expected.raw !== 'rejected') {
+        throw error
+      }
       expect(errorContract(error)).toMatchSnapshot(entry.id)
+      return
     }
+
+    expect(entry.expected.raw).toBe('accepted')
+    expect(snapshotValue({
+      frontmatter: tree.frontmatter,
+      meta: tree.meta,
+      nodes: tree.nodes
+    })).toMatchSnapshot(entry.id)
   })
 
   test.each(corpus)('$id freezes the Ginko pipeline contract', async (entry) => {

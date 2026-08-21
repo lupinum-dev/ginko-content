@@ -277,6 +277,17 @@ describe('unified query populate', () => {
     expect(mocks.transport).not.toHaveBeenCalled()
   })
 
+  test('rejects fields that are not declared references', async () => {
+    await expect(one(createContext(), posts, {
+      by: { path: '/hello' },
+      populate: { title: authors }
+    } as never)).rejects.toThrow(
+      'Cannot populate "posts.title" because it is not a declared reference field.'
+    )
+
+    expect(mocks.transport).not.toHaveBeenCalled()
+  })
+
   test('fails clearly when populate target disagrees with runtime relation metadata', async () => {
     await expect(one(createContext({
         collections: {

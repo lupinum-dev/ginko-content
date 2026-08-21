@@ -67,11 +67,12 @@ export const isSupportedAgentLocale = (locale: string | undefined) =>
 const resolveSiteUrl = (event?: H3Event) => {
   const configured = contentConfig().siteUrl
   if (configured) return configured
-  if (event && !import.meta.prerender) {
+  if (import.meta.dev && event && !import.meta.prerender) {
     const url = getRequestURL(event)
     return `${url.protocol}//${url.host}`
   }
-  return 'http://localhost:3000'
+  if (import.meta.dev) return 'http://localhost:3000'
+  throw new Error('Agent output requires a configured canonical site URL in production.')
 }
 
 const joinUrl = (base: string, path: string) => new URL(normalizeAgentRoutePath(path), base).toString()

@@ -12,6 +12,7 @@ export interface ContentScenarioCollection {
   i18n?: boolean | { locales?: string[], defaultLocale?: string }
   route?: string | Record<string, string>
   sitemap?: boolean
+  references?: Record<string, string[]>
   localePolicy?: ResolvedCollectionLocalePolicy
 }
 

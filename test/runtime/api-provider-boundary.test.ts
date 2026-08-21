@@ -125,6 +125,71 @@ describe('runtime API provider boundary', () => {
     }
   })
 
+  test('query API owns population selection and relation validation', async () => {
+    const query = vi.fn(provider.query.bind(provider))
+    mocks.getContentProvider.mockResolvedValue({ ...provider, query })
+    const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
+    const populatedEvent = createTestEvent({
+      scenario,
+      provider,
+      params: {
+        params: `posts/${encodeQueryParams({
+          collection: 'posts',
+          resolveVariant: {
+            route: '/de/blog/kryptowaehrungen',
+            locale: 'de',
+            fallback: ['en']
+          },
+          first: true,
+          only: ['title'],
+          populate: { authors: 'authors' }
+        } as never)}`
+      }
+    })
+
+    await expect(handler(populatedEvent)).resolves.toMatchObject({
+      result: {
+        title: 'Kryptowaehrungen',
+        authors: [expect.objectContaining({ title: 'Emily DE' })]
+      }
+    })
+    expect(query.mock.calls[0]?.[1]).toMatchObject({
+      plan: {
+        projection: {
+          only: expect.arrayContaining(['title', 'authors'])
+        }
+      }
+    })
+
+    query.mockClear()
+    const invalidEvent = createTestEvent({
+      scenario,
+      provider,
+      params: {
+        params: `posts/${encodeQueryParams({
+          collection: 'posts',
+          first: true,
+          populate: { title: 'authors' }
+        } as never)}`
+      }
+    })
+
+    let thrown: unknown
+    try {
+      await handler(invalidEvent)
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toMatchObject({
+      statusCode: 400,
+      data: {
+        code: 'invalid_content_query_request',
+        path: '$.populate'
+      }
+    })
+    expect(query).not.toHaveBeenCalled()
+  })
+
   test('query API rejects non-own collection names before external-provider lookup or dispatch', async () => {
     const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
     const event = createTestEvent({

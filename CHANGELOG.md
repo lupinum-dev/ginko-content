@@ -10,7 +10,8 @@ provider query wire at v4.
   lists.
 - Resolve populated references behind the server query boundary. Browser calls
   make one request; provider reads remain bounded, deduplicated, and limited to
-  eight concurrent operations.
+  eight concurrent operations. Population accepts declared reference fields
+  only, and the server validates and selects them before provider dispatch.
 - Give `useContentPage()` explicit `pending`, `success`, `not-found`, and
   `error` states, with `page` consistently returning a document or `null`.
 - Remove the deprecated Markdown `highlight` alias. Use `shiki`.
@@ -19,7 +20,8 @@ provider query wire at v4.
   shapes.
 - Use Nuxt's canonical site URL for all agent links. Replace
   `agent.site.url`/`profile` with required `whenToUse` and optional
-  `whenNotToUse` guidance.
+  `whenNotToUse` guidance. Production agent routes require the canonical URL
+  even when prerendering is disabled.
 - Return a real, recoverable Markdown 404 when a server-rendered public route is
   missing and the request prefers `text/markdown`. Static deployments continue
   to use generated `/raw/**.md`, `/llms.txt`, and `/llms-full.txt` files because
