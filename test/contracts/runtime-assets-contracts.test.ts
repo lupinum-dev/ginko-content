@@ -51,14 +51,15 @@ describe('runtime asset contracts', () => {
     vi.clearAllMocks()
   })
 
-  test('auto-imports useContentPage and the collision-safe Ginko search alias', () => {
+  test('auto-imports useContentPage, defineContentPage, and the collision-safe Ginko search alias', () => {
     registerRuntimeImports(path => `/runtime/${path}`)
 
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
     expect(imports.map(item => item.name).sort()).toEqual(runtimeAppImportSpecs.map(spec => spec.name).sort())
-    expect(imports.map(item => item.name).sort()).toEqual(['useContentPage', 'useContentSearch'])
+    expect(imports.map(item => item.name).sort()).toEqual(['defineContentPage', 'useContentPage', 'useContentSearch'])
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
+      expect.objectContaining({ name: 'defineContentPage', as: 'defineContentPage' }),
       expect.objectContaining({ name: 'useContentSearch', as: 'useGinkoContentSearch' })
     ]))
   })

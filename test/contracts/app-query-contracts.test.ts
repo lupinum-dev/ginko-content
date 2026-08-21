@@ -166,6 +166,7 @@ describe('app query/composable contracts', () => {
     for (const name of [
       'one',
       'many',
+      'count',
       'paginate',
       'backlinks',
       'resolveOne',
@@ -173,6 +174,7 @@ describe('app query/composable contracts', () => {
       'navigation',
       'getCollectionPath',
       'useContentPage',
+      'defineContentPage',
       'useContentSearch',
       'querySiteData',
       'extractContentToc'

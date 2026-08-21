@@ -1,6 +1,5 @@
-import type { ParsedContent } from '../../types/content'
 import { createCollectionSurroundings } from '../navigation/tree'
-import { createSearchSections, type GenerateSearchSectionsOptions } from '../search/sections'
+import { createSearchSections, type GenerateSearchSectionsOptions, type SearchablePage } from '../search/sections'
 import type { RuntimeContentI18nInput } from '../localization/config'
 import { localizePath, normalizeContentPath, resolveCollectionI18n, resolveRouteContent } from '../localization/path'
 
@@ -33,7 +32,7 @@ export const resolveCollectionSearchSectionsData = async (
   collection: string,
   runtime: CollectionResolveRuntime,
   options: (GenerateSearchSectionsOptions & { locale?: string, activeLocale?: string }) & {
-    loadPages: (extraFields: string[]) => Promise<Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>>
+    loadPages: (extraFields: string[]) => Promise<SearchablePage[]>
   }
 ) => {
   const { locales, defaultLocale } = resolveCollectionI18n(collection, runtime)

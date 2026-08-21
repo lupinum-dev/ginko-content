@@ -15,6 +15,7 @@ import { getContentRuntimeConfig } from './runtime-config'
 import { resolveLocaleChain } from '../../core/content/locale'
 import { getContentGraph } from '../../storage/graph'
 import { isPreview } from '../../integrations/nitro/preview'
+import { memoizeRuntimeValue } from '../../integrations/nitro/context'
 import { canonicalizeSourcePath, generatePath, normalizeContentPath } from '../../core/content/path'
 import { resolveRuntimeCollectionLocalePolicy } from '../../features/localization/config'
 
@@ -90,7 +91,15 @@ export async function resolveContentNavigation (
     ))
   }
 
-  return await resolveContentNavigationData({
+  // Building a navigation tree runs two full graph queries plus a directory
+  // join, and typical pages request the same tree several times (page data,
+  // sidebar, breadcrumbs). The plan is JSON-pure by contract, so it is a
+  // stable memo key. The cached tree is SHARED across callers within the
+  // request — project it (as every caller does today), never mutate it.
+  return await memoizeRuntimeValue(
+    event,
+    `navigation:${query.collection}:${isPreview(event)}:${JSON.stringify(query.plan)}`,
+    async () => await resolveContentNavigationData({
     defaultLocale: runtimeConfig.content.defaultLocale,
     localeFallback: runtimeConfig.content.localeFallback,
     navigation: runtimeConfig.content.navigation
@@ -174,5 +183,6 @@ export async function resolveContentNavigation (
       return buildCanonicalNavigation(contents, configs, [...new Set([...configuredFields, ...requestedFields])])
     },
     resolveLocaleChain
-  })
+    })
+  )
 }

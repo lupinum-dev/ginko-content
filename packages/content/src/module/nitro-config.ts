@@ -6,6 +6,7 @@ import { withTrailingSlash } from 'ufo'
 import type { ContentConfig } from '../types/config'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
 import { useContentMounts } from '../utils'
+import { contentCacheRoutePath } from './cache-route'
 import { normalizeAgentRouteOptions } from './agent-options'
 import { registerContentNitroIntegrationHooks } from './integration-hooks'
 import type { createSearchRuntimeConfig } from './options'
@@ -59,12 +60,15 @@ export const registerContentNitroConfig = ({
     nitroConfig.prerender.routes = nitroConfig.prerender.routes || []
 
     const usesFilesystemProvider = !contentContext.provider || contentContext.provider === 'filesystem'
-    // Matches `module/server-handlers.ts`'s route registration exactly (dev
-    // has no build integrity suffix; the cache/build route is otherwise only
-    // ever unshifted into the non-dev prerender route list below).
-    const cacheRoute = nuxt.options.dev
-      ? `${options.api.baseURL}/cache.json`
-      : `${options.api.baseURL}/cache.${buildIntegrity}.json`
+    // Route name comes from the shared helper so registration
+    // (`module/server-handlers.ts`) and this prerender injection can never
+    // drift. Dev has no build integrity suffix; the cache/build route is
+    // otherwise only ever unshifted into the non-dev prerender route list
+    // below.
+    const cacheRoute = contentCacheRoutePath(options.api.baseURL, {
+      dev: nuxt.options.dev,
+      integrity: buildIntegrity
+    })
 
     if (!nuxt.options.dev) {
       nitroConfig.prerender.routes.unshift(cacheRoute)

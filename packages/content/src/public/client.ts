@@ -9,6 +9,7 @@
 export {
   one,
   many,
+  count,
   paginate,
   backlinks,
   resolveOne,
@@ -23,6 +24,12 @@ export { findFirstNavigationPage } from '../features/navigation/resolve.js'
 export { useContentPage } from '../runtime/app/composables/use-content-page.js'
 export type { UseContentPageOptions } from '../runtime/app/composables/use-content-page.js'
 
+export { defineContentPage } from '../runtime/app/composables/define-content-page.js'
+export type {
+  DefineContentPageOptions,
+  DefineContentPageSeoOptions
+} from '../runtime/app/composables/define-content-page.js'
+
 export type {
   QueryWhere,
   QueryOperators,
@@ -31,6 +38,7 @@ export type {
   BacklinkSource,
   BacklinksOptions,
   BacklinksResult,
+  CountOptions,
   LocaleFallback,
   DocumentFromHandle,
   OneOptions,

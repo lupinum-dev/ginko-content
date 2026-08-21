@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
@@ -541,6 +541,25 @@ const trackedIgnoredArtifacts = execFileSync(
 
 for (const artifact of trackedIgnoredArtifacts) {
   violations.push(`${artifact} is an ignored generated/release artifact but is tracked`)
+}
+
+// Every examples/*/* directory must be a real, tracked example. Build-artifact
+// husks (untracked .nuxt/.output/node_modules leftovers of removed examples)
+// previously accumulated here and misled exploration.
+for (const groupDir of readdirSync(join(repoRoot, 'examples'), { withFileTypes: true })) {
+  if (!groupDir.isDirectory()) continue
+  for (const entry of readdirSync(join(repoRoot, 'examples', groupDir.name), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const examplePath = `examples/${groupDir.name}/${entry.name}`
+    const trackedPackageJson = execFileSync(
+      'git',
+      ['ls-files', `${examplePath}/package.json`],
+      { cwd: repoRoot, encoding: 'utf8' },
+    ).trim()
+    if (!trackedPackageJson) {
+      violations.push(`${examplePath} has no tracked package.json; delete the stale build-artifact directory or restore its source`)
+    }
+  }
 }
 
 if (violations.length > 0) {

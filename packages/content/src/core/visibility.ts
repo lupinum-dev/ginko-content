@@ -18,7 +18,7 @@
  * search opt-outs) are also intentionally NOT decided here: those affect
  * exactly one consumer each and stay owned by that consumer.
  */
-import { createContentProviderError } from './provider-errors'
+import { createCoreProviderError } from './provider-errors'
 
 /** The two build/runtime environments the visibility decision distinguishes. */
 export type ContentVisibilityEnvironment = 'development' | 'production'
@@ -103,7 +103,7 @@ export const assertFilesystemPreviewSupported = (
   context: Pick<ContentVisibilityContext, 'environment' | 'previewAuthorized'>
 ): void => {
   if (context.environment === 'production' && context.previewAuthorized) {
-    throw createContentProviderError(
+    throw createCoreProviderError(
       'unsupported_filesystem_preview',
       'Production preview requires a content provider. The filesystem provider serves an immutable sealed snapshot in production and cannot overlay draft/preview content — configure a provider-owned preview workflow, or disable preview for filesystem production deployments.',
       { provider: 'filesystem' }

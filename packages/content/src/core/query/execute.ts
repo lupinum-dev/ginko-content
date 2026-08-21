@@ -29,7 +29,7 @@ import { isPlanRegex } from './plan'
 import { resolveLocaleChain, sortLocalesCanonically } from '../content/locale'
 import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, selectGraphDocuments } from '../content/graph'
 import { ensureArray, get, sortList, withKeys, withoutKeys } from './operators'
-import { createContentProviderError } from '../provider-errors'
+import { createCoreProviderError } from '../provider-errors'
 
 interface ExecuteQueryPlanOptions {
   defaultLocale?: string
@@ -211,7 +211,7 @@ const encodeFilesystemCursor = (offset: number): string => {
 }
 
 const invalidFilesystemCursor = (): never => {
-  throw createContentProviderError(
+  throw createCoreProviderError(
     'unsupported_query_shape',
     'The filesystem provider received an invalid cursor.',
     { provider: 'filesystem', field: 'paging.after' }

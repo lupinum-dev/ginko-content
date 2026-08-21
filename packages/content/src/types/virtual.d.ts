@@ -60,6 +60,7 @@ declare module '#imports' {
   export const useAsyncData: typeof import('#app').useAsyncData
   export const useFetch: typeof import('#app').useFetch
   export const useHead: typeof import('#app').useHead
+  export const useSeoMeta: typeof import('#app').useSeoMeta
   export const useNuxtApp: typeof import('#app').useNuxtApp
   export const tryUseNuxtApp: typeof import('#app').tryUseNuxtApp
   export const useCookie: typeof import('#app').useCookie
@@ -69,6 +70,8 @@ declare module '#imports' {
   export const useRouter: typeof import('#app').useRouter
   export const useRuntimeConfig: typeof import('#app').useRuntimeConfig
   export const useState: typeof import('#app').useState
+
+  export type AsyncDataStatus = import('#app').AsyncDataRequestStatus
 }
 
 interface ImportMeta {

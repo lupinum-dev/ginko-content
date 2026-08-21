@@ -245,6 +245,7 @@ export const compileQueryParams = (input: {
   locale?: string
   fallback?: LocaleFallback
   exact?: boolean
+  count?: boolean
 }): ContentProviderQueryInput => {
   if (typeof input.collection !== 'string' || input.collection.length === 0) {
     throw new TypeError('Invalid content query collection: expected a non-empty string.')
@@ -256,6 +257,9 @@ export const compileQueryParams = (input: {
   }
   if (input.exact !== undefined && typeof input.exact !== 'boolean') {
     throw new TypeError('Invalid content query exact option: expected a boolean.')
+  }
+  if (input.count !== undefined && typeof input.count !== 'boolean') {
+    throw new TypeError('Invalid content query count option: expected a boolean.')
   }
 
   const selector = compileSelector(input.by)
@@ -273,7 +277,8 @@ export const compileQueryParams = (input: {
     ...(sort ? { sort } : {}),
     ...(input.limit !== undefined ? { limit: input.limit } : {}),
     ...(input.skip !== undefined ? { skip: input.skip } : {}),
-    ...(select ? { only: select } : {})
+    ...(select ? { only: select } : {}),
+    ...(input.count ? { count: true } : {})
   }
 
   if (input.locale || path || route || ref || fallback !== undefined) {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { isError as isH3Error } from 'h3'
 import { createContentProviderError } from '../../packages/content/src/public/provider-errors'
-import { createContentProviderError as createCoreProviderError } from '../../packages/content/src/core/provider-errors'
+import { createCoreProviderError } from '../../packages/content/src/core/provider-errors'
 import {
   assertConfiguredProviderCollection,
   createProviderQuery,

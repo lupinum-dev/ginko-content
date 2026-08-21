@@ -30,7 +30,7 @@ const sections = [
     <section v-for="section in sections" :key="section.title">
       <h2>{{ section.title }}</h2>
       <ul>
-        <li v-for="movie in section.movies" :key="movie.path">
+        <li v-for="movie in section.movies" :key="movie.id">
           {{ movie.title }}<span v-if="movie.director"> — {{ movie.director }}</span>
         </li>
       </ul>

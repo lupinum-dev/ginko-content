@@ -18,7 +18,7 @@ function normalizeBody (value: Record<string, any>, excerpt: boolean): MarkdownR
 }
 
 function warnUnsupportedValue (value: Record<string, any>, excerpt: boolean) {
-  const path = value?.path ? ` for "${value.path}"` : ''
+  const path = value?.route?.resolvedPath ? ` for "${value.route.resolvedPath}"` : ''
   const target = excerpt ? 'excerpt' : 'body'
 
   console.warn(
@@ -57,10 +57,10 @@ export default defineComponent({
     watch(
       () => props.excerpt,
       (newExcerpt) => {
-        if (newExcerpt && !props.value?.excerpt) {
-          console.warn(`No excerpt found for document content/${props?.value?.path}.${props?.value?.file?.extension}!`)
-          console.warn('Make sure to use <!--more--> in your content if you want to use excerpt feature.')
-        }
+      if (newExcerpt && !props.value?.excerpt) {
+        console.warn(`No excerpt found for document content/${props?.value?.route?.resolvedPath ?? props?.value?.id ?? '<unknown>'}!`)
+        console.warn('Make sure to use <!--more--> in your content if you want to use excerpt feature.')
+      }
       },
       {
         immediate: true

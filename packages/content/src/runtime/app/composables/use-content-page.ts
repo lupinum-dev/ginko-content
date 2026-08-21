@@ -1,6 +1,7 @@
 import { computed, shallowRef, toValue, watch } from 'vue'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
+import type { AsyncDataStatus } from '#imports'
 import type {
   ContentCollectionTarget,
   DocumentFromHandle,
@@ -50,11 +51,17 @@ export type UseContentPageOptions<
   surround?: ContentPageSurroundOptions<H>
 }
 
-interface UseContentPageReturn<T> {
+export interface UseContentPageReturn<T> {
+  /**
+   * The resolved document. `undefined` means "not (yet) resolved for the
+   * current route" — pending fetch, or a stale document suppressed during a
+   * client-side navigation. `null` means the query settled and no document
+   * matched. Use truthiness (`if (!page.value)`) to cover both.
+   */
   page: ComputedRef<LocalizedDoc<T> | undefined>
   previous: ComputedRef<ResolvedContentNavigationItem<T> | null>
   next: ComputedRef<ResolvedContentNavigationItem<T> | null>
-  status: ComputedRef<string>
+  status: ComputedRef<AsyncDataStatus>
   error: ComputedRef<unknown>
   refresh: () => Promise<void>
 }

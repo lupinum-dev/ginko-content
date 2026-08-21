@@ -208,8 +208,7 @@ export async function getContentProvider(): Promise<ContentProvider>
 export async function getContentProvider(event: H3Event): Promise<RuntimeContentProvider>
 export async function getContentProvider(event?: H3Event): Promise<ContentProvider | RuntimeContentProvider> {
   const runtime = event ? useRuntimeConfig(event) : useRuntimeConfig()
-  const eventContent = event?.context?.contentRuntime as { provider?: unknown } | undefined
-  const provider = eventContent?.provider || runtime.content?.provider || runtime.public?.content?.provider || 'filesystem'
+  const provider = runtime.content?.provider || runtime.public?.content?.provider || 'filesystem'
 
   if (provider === 'filesystem') {
     const { filesystemProvider } = await import('./filesystem.js')

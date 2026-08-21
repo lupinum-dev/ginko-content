@@ -256,6 +256,15 @@ export type ManyOptions<
 } & LocaleOption<H> & PopulateOption<P>
 
 /**
+ * Options for the public `count()` verb: the number of documents matching a
+ * filter, without transferring them. Locale is required for i18n handles.
+ */
+export type CountOptions<H = unknown> = {
+  where?: QueryWhere<HandleSchema<H>>
+  fallback?: LocaleFallback
+} & LocaleOption<H>
+
+/**
  * Two honest pagination modes: `offset` returns an exact
  * total/page count; `cursor` returns an opaque forward cursor with no
  * synthetic total. Omitting `mode` while supplying `page` means

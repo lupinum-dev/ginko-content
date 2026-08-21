@@ -22,6 +22,7 @@ import type {
   BacklinksOptions,
   BacklinksResult,
   ContentNavigationTreeItem,
+  CountOptions,
   DocumentFromHandle,
   ManyOptions,
   LocalizedDoc,
@@ -40,9 +41,9 @@ import type {
 } from '../../types/query'
 import type { ContentQueryContext } from './context'
 import { resolveBacklinks } from './backlinks'
+import { resolveCount, resolveDocument, resolveDocumentOnly, resolveManyDocuments } from './documents'
 import { resolveNavigation, resolveSurround } from './navigation'
 import { resolvePagination } from './pagination'
-import { resolveDocument, resolveDocumentOnly, resolveManyDocuments } from './documents'
 
 export type { ContentQueryContext, ContentQueryEndpoint, RuntimeContentConfig } from './context'
 export { navigationSelectFields } from './navigation'
@@ -96,6 +97,26 @@ export async function many<
 ): Promise<Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>> {
   const options = (args[0] ?? {}) as O
   return resolveManyDocuments(context, one, handle, options)
+}
+
+/* -------------------------------------------------------------------------- */
+/* count                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Count the documents matching a filter without transferring them.
+ * Locale is type-required when the handle declares i18n.
+ */
+export async function count<
+  const H extends ContentCollectionHandle | string,
+  O extends CountOptions<H>
+>(
+  context: ContentQueryContext,
+  handle: H,
+  ...args: OptionsArg<H, O>
+): Promise<number> {
+  const options = (args[0] ?? {}) as O
+  return resolveCount(context, handle, options)
 }
 
 /* -------------------------------------------------------------------------- */

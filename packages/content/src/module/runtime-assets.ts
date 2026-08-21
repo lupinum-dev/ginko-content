@@ -6,18 +6,21 @@ import type { Nuxt } from '@nuxt/schema'
 
 /**
  * The final app function auto-import list: exactly
- * `useContentPage` and the collision-safe `useGinkoContentSearch` alias.
- * The package export remains `useContentSearch`; one-shot query functions are
- * imported explicitly from `/client` instead.
+ * `useContentPage`, `defineContentPage`, and the collision-safe
+ * `useGinkoContentSearch` alias. The package export remains
+ * `useContentSearch`; one-shot query functions are imported explicitly from
+ * `/client` instead.
  */
 export const runtimeAppImportSpecs = [
   { name: 'useContentPage', as: 'useContentPage', from: './app/composables/use-content-page.js' },
+  { name: 'defineContentPage', as: 'defineContentPage', from: './app/composables/define-content-page.js' },
   { name: 'useContentSearch', as: 'useGinkoContentSearch', from: './app/composables/search.js' }
 ] as const
 
 export const runtimeServerImportSpecs = [
   { name: 'one', as: 'one' },
   { name: 'many', as: 'many' },
+  { name: 'count', as: 'count' },
   { name: 'paginate', as: 'paginate' },
   { name: 'resolveOne', as: 'resolveOne' },
   { name: 'surround', as: 'surround' },

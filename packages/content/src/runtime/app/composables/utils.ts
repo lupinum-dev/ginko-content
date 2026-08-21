@@ -1,3 +1,4 @@
+import { createError } from 'h3'
 import { withBase } from 'ufo'
 import { hash } from 'ohash'
 import { tryUseNuxtApp, useRequestEvent, useRequestFetch } from '#imports'
@@ -15,11 +16,7 @@ const readContentRuntime = (): ContentRuntimeShape => getContentRuntime()
 
 export const withContentBase = (url: string) => withBase(url, readContentRuntime().api.baseURL)
 
-export const navigationDisabled = () => {
-  console.warn('Navigation is only accessible when you enable it in module options.')
-  console.warn('Learn more in the Ginko navigation documentation.')
-  throw new Error('Navigation is only accessible when you enable it in module options.')
-}
+
 
 const addPathToEvent = (
   event: NonNullable<ReturnType<typeof useRequestEvent>>,
@@ -91,7 +88,14 @@ export async function fetchContentApi<T> (
   }) as unknown
 
   if (isHtmlFallbackResponse(data)) {
-    throw new Error('Not found')
+    // A static host answered with the SPA shell instead of a JSON payload.
+    // Model that as a 404 so `isNotFoundError` recognizes it and query verbs
+    // resolve to `null`/`[]` exactly like a live 404 from the API route.
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Content not found',
+      fatal: true
+    })
   }
 
   if (data === undefined || data === null) {

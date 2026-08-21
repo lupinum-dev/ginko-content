@@ -60,17 +60,40 @@ export const withKeys = (keys: string[] = []) => <T extends Record<string, unkno
   return pickObject(obj, key => properties.includes(key) || prefixes.includes(key.charAt(0)))
 }
 
+/**
+ * `Intl.Collator` construction is expensive relative to `.compare`, and list
+ * queries repeat the same collation options across documents and requests.
+ * Collators are immutable, so a small module-level cache keyed by the full
+ * option set is safe and keeps hot list pages from re-paying construction.
+ */
+const collatorCache = new Map<string, Intl.Collator>()
+const MAX_COLLATOR_CACHE_ENTRIES = 32
+
+const collatorFor = (sortParams: ContentQuerySortParams): Intl.Collator => {
+  const key = `${sortParams.$locale ?? ''}|${String(sortParams.$numeric)}|${sortParams.$caseFirst ?? ''}|${sortParams.$sensitivity ?? ''}`
+  let collator = collatorCache.get(key)
+  if (!collator) {
+    collator = new Intl.Collator(sortParams.$locale, {
+      numeric: sortParams.$numeric,
+      caseFirst: sortParams.$caseFirst,
+      sensitivity: sortParams.$sensitivity
+    })
+    if (collatorCache.size >= MAX_COLLATOR_CACHE_ENTRIES) {
+      const oldest = collatorCache.keys().next().value
+      if (oldest !== undefined) collatorCache.delete(oldest)
+    }
+    collatorCache.set(key, collator)
+  }
+  return collator
+}
+
 export const sortList = <T extends Record<string, unknown>>(data: T[], params: ContentQuerySortOptions) => {
   // `ContentQuerySortOptions` is a union of `ContentQuerySortParams` (the
   // `$locale`/`$numeric`/etc. knobs) and `ContentQuerySortFields` (the
   // `{ field: 1 | -1 }` map). At call-time the two shapes are always merged
   // into one object, so a narrow read-through cast is honest here.
   const sortParams = params as ContentQuerySortParams
-  const comperable = new Intl.Collator(sortParams.$locale, {
-    numeric: sortParams.$numeric,
-    caseFirst: sortParams.$caseFirst,
-    sensitivity: sortParams.$sensitivity
-  })
+  const comperable = collatorFor(sortParams)
   const keys = Object.keys(params).filter(key => !key.startsWith('$'))
   for (const key of keys) {
     data = data.sort((a, b) => {
