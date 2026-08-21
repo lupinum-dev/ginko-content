@@ -28,7 +28,7 @@ import type {
 import { isPlanRegex } from './plan'
 import { resolveLocaleChain, sortLocalesCanonically } from '../content/locale'
 import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, selectGraphDocuments } from '../content/graph'
-import { ensureArray, get, sortList, withKeys, withoutKeys } from './operators'
+import { ensureArray, get, projectDocumentFields, sortList } from './operators'
 import { createCoreProviderError } from '../provider-errors'
 
 interface ExecuteQueryPlanOptions {
@@ -190,10 +190,10 @@ const applyQueryPlanSort = <T extends Record<string, unknown>>(matched: T[], pla
 }
 
 export const applyQueryPlanProjection = <T>(items: T[], plan: CanonicalQueryPlan) => {
-  return items.map((item) => {
-    const without = withoutKeys([...plan.projection.without])(item as Record<string, unknown>)
-    return withKeys([...plan.projection.only])(without) as T
-  })
+  return items.map(item => projectDocumentFields(
+    item as Record<string, unknown>,
+    plan.projection
+  ) as T)
 }
 
 /**

@@ -60,6 +60,40 @@ export const withKeys = (keys: string[] = []) => <T extends Record<string, unkno
   return pickObject(obj, key => properties.includes(key) || prefixes.includes(key.charAt(0)))
 }
 
+export interface DocumentProjection {
+  only?: readonly string[]
+  without?: readonly string[]
+}
+
+/**
+ * The one document projector. `without` strips first, then `only` retains;
+ * an empty `only` keeps the remaining fields. `guaranteed` names fields that
+ * survive a non-empty `only` even when not selected (identity and envelope
+ * keys at the public response boundary); it never narrows an unselected
+ * document.
+ *
+ * Both projection sites — the plan executor and the public response shaper —
+ * must go through this helper so `select` semantics cannot drift apart.
+ */
+export const projectDocumentFields = <T extends Record<string, unknown>>(
+  document: T,
+  projection: DocumentProjection,
+  guaranteed: readonly string[] = []
+): T => {
+  const selected = projection.only ?? []
+  const without = projection.without ?? []
+
+  if (selected.length === 0 && without.length === 0) {
+    return document
+  }
+
+  const stripped = without.length > 0 ? withoutKeys([...without])(document) : document
+  if (selected.length === 0) {
+    return stripped as T
+  }
+  return withKeys([...selected, ...guaranteed])(stripped) as T
+}
+
 /**
  * `Intl.Collator` construction is expensive relative to `.compare`, and list
  * queries repeat the same collation options across documents and requests.

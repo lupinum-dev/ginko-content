@@ -16,8 +16,6 @@ const readContentRuntime = (): ContentRuntimeShape => getContentRuntime()
 
 export const withContentBase = (url: string) => withBase(url, readContentRuntime().api.baseURL)
 
-
-
 const addPathToEvent = (
   event: NonNullable<ReturnType<typeof useRequestEvent>>,
   path: string

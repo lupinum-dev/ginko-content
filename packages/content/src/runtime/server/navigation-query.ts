@@ -96,10 +96,7 @@ export async function resolveContentNavigation (
   // sidebar, breadcrumbs). The plan is JSON-pure by contract, so it is a
   // stable memo key. The cached tree is SHARED across callers within the
   // request — project it (as every caller does today), never mutate it.
-  return await memoizeRuntimeValue(
-    event,
-    `navigation:${query.collection}:${isPreview(event)}:${JSON.stringify(query.plan)}`,
-    async () => await resolveContentNavigationData({
+  const buildNavigationTree = async () => await resolveContentNavigationData({
     defaultLocale: runtimeConfig.content.defaultLocale,
     localeFallback: runtimeConfig.content.localeFallback,
     navigation: runtimeConfig.content.navigation
@@ -183,6 +180,11 @@ export async function resolveContentNavigation (
       return buildCanonicalNavigation(contents, configs, [...new Set([...configuredFields, ...requestedFields])])
     },
     resolveLocaleChain
-    })
+  })
+
+  return await memoizeRuntimeValue(
+    event,
+    `navigation:${query.collection}:${isPreview(event)}:${JSON.stringify(query.plan)}`,
+    buildNavigationTree
   )
 }
