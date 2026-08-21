@@ -24,6 +24,10 @@ describe('content server handlers', () => {
       middleware: true,
       handler: './server/middleware/preview.js'
     })
+    expect(addServerHandler).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'get',
+      route: '/api/_content/cache.1.json'
+    }))
   })
 
   test('registers the revalidation endpoint when a token is configured', async () => {

@@ -54,6 +54,12 @@ function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 
 }
 
 describe('nitro-config crawlLinks handling', () => {
+  test('uses the same integrity-qualified cache route as the server handler', () => {
+    const { nitroConfig } = createHarness()
+
+    expect(nitroConfig.prerender.routes[0]).toBe('/api/_content/cache.123.json')
+  })
+
   test('defaults crawlLinks to true and warns nothing when the user left it unset', () => {
     const { nitroConfig, logger } = createHarness()
 
