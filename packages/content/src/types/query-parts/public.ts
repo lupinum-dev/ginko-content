@@ -255,6 +255,12 @@ export type ManyOptions<
   select?: SelectFields<H>
 } & LocaleOption<H> & PopulateOption<P>
 
+/** Options for counting matching documents without transferring them. */
+export type CountOptions<H = unknown> = {
+  where?: QueryWhere<HandleSchema<H>>
+  fallback?: LocaleFallback
+} & LocaleOption<H>
+
 /**
  * Two honest pagination modes: `offset` returns an exact
  * total/page count; `cursor` returns an opaque forward cursor with no

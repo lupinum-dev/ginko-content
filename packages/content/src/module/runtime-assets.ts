@@ -18,6 +18,7 @@ export const runtimeAppImportSpecs = [
 export const runtimeServerImportSpecs = [
   { name: 'one', as: 'one' },
   { name: 'many', as: 'many' },
+  { name: 'count', as: 'count' },
   { name: 'paginate', as: 'paginate' },
   { name: 'resolveOne', as: 'resolveOne' },
   { name: 'surround', as: 'surround' },

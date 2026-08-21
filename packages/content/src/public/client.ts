@@ -9,6 +9,7 @@
 export {
   one,
   many,
+  count,
   paginate,
   backlinks,
   resolveOne,
@@ -31,6 +32,7 @@ export type {
   BacklinkSource,
   BacklinksOptions,
   BacklinksResult,
+  CountOptions,
   LocaleFallback,
   DocumentFromHandle,
   OneOptions,

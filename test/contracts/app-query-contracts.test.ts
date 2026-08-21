@@ -166,6 +166,7 @@ describe('app query/composable contracts', () => {
     for (const name of [
       'one',
       'many',
+      'count',
       'paginate',
       'backlinks',
       'resolveOne',
