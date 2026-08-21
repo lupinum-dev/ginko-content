@@ -50,7 +50,7 @@ describe('content API transport', () => {
       'query',
       { collection: 'docs', first: true },
       { fetcher, previewToken: null, runtime, addPrerenderPath }
-    )).rejects.toThrow('Not found')
+    )).rejects.toMatchObject({ statusCode: 404 })
 
     fetcher.mockResolvedValueOnce(undefined)
     await expect(fetchContentApi(

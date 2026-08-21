@@ -7,6 +7,7 @@ import {
   normalizeNavigationPath,
   walkNavigationTree
 } from '../../packages/content/src/public/navigation'
+import { resolveNavigation } from '../../packages/content/src/features/query/navigation'
 
 type DocsItem = {
   id: string
@@ -35,6 +36,15 @@ const createNormalizedTree = (): DocsItem[] => [
 ]
 
 describe('pure navigation traversal', () => {
+  test('treats a missing navigation endpoint as an empty tree', async () => {
+    await expect(resolveNavigation({
+      runtime: {},
+      transport: async () => {
+        throw Object.assign(new Error('Missing'), { statusCode: 404 })
+      }
+    }, 'docs')).resolves.toEqual([])
+  })
+
   test('normalizes trailing slashes without changing the root path', () => {
     expect(normalizeNavigationPath('/')).toBe('/')
     expect(normalizeNavigationPath('/docs/intro///')).toBe('/docs/intro')
