@@ -16,6 +16,12 @@ describe('agent markdown recovery', () => {
     )
   })
 
+  test('escapes backslashes before Markdown control characters', () => {
+    expect(renderAgentNotFoundMarkdown('/missing\\`page')).toContain(
+      'No public page exists at `/missing\\\\\\`page`.'
+    )
+  })
+
   test('does not replace API or asset errors with a Markdown document', () => {
     expect(shouldSkipAgentMarkdownPath('/api/example')).toBe(true)
     expect(shouldSkipAgentMarkdownPath('/image.png')).toBe(true)

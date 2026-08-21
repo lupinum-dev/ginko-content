@@ -20,7 +20,7 @@ export const shouldSkipAgentMarkdownPath = (pathname: string) =>
   || pathname.endsWith('.js')
 
 export const renderAgentNotFoundMarkdown = (pathname: string) => {
-  const safePath = pathname.replace(/`/g, '\\`')
+  const safePath = pathname.replace(/\\/g, '\\\\').replace(/`/g, '\\`')
   return [
     '# Page not found',
     '',
