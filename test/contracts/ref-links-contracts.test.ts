@@ -245,7 +245,7 @@ describe('ref link contracts', () => {
   test('withResolvedRefs leaves non-markdown content untouched and preserves unresolved refs', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const { withResolvedRefs, withResolvedRefsList, withResolvedRefsQueryResponse } = await import('../../packages/content/src/storage/references')
+    const { withResolvedRefs, withResolvedRefsList } = await import('../../packages/content/src/storage/references')
 
     await expect(withResolvedRefs(createTestEvent(), doc({ type: 'yaml', body: null as any }), 'de')).resolves.toMatchObject({
       type: 'yaml'
@@ -270,25 +270,7 @@ describe('ref link contracts', () => {
     })
     await expect(withResolvedRefsList(createTestEvent(), [doc(), doc({ type: 'yaml', body: null as any })], 'de')).resolves.toHaveLength(2)
 
-    const firstResponse = await withResolvedRefsQueryResponse(createTestEvent(), {
-      result: doc({
-        body: {
-          type: 'root',
-          children: [
-            {
-              type: 'element',
-              tag: 'a',
-              props: { href: '$missing/ref' },
-              children: []
-            }
-          ]
-        }
-      })
-    } as any, {
-      first: true,
-      resolveLocale: { locale: 'de' }
-    } as any)
-    expect((firstResponse.result as any).resolved?.resolvedRefs).toBeTruthy()
+    expect((unresolved as any).resolved?.resolvedRefs).toBeTruthy()
   })
 
   test('withResolvedRefs preserves configured quick links without unresolved-ref warnings', async () => {

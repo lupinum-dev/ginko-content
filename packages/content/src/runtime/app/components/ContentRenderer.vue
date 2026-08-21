@@ -18,11 +18,12 @@ function normalizeBody (value: Record<string, any>, excerpt: boolean): MarkdownR
 }
 
 function warnUnsupportedValue (value: Record<string, any>, excerpt: boolean) {
-  const path = value?.path ? ` for "${value.path}"` : ''
+  const path = value?.route?.resolvedPath ?? value?.path
+  const suffix = typeof path === 'string' && path ? ` for "${path}"` : ''
   const target = excerpt ? 'excerpt' : 'body'
 
   console.warn(
-    `[ginko-content] <ContentRenderer> could not render ${target}${path}. ` +
+    `[ginko-content] <ContentRenderer> could not render ${target}${suffix}. ` +
     'Pass the full content document with a markdown body, or provide an `empty` slot for empty/unsupported content.'
   )
 }
@@ -58,7 +59,8 @@ export default defineComponent({
       () => props.excerpt,
       (newExcerpt) => {
         if (newExcerpt && !props.value?.excerpt) {
-          console.warn(`No excerpt found for document content/${props?.value?.path}.${props?.value?.file?.extension}!`)
+          const path = props.value?.route?.resolvedPath ?? props.value?.path ?? '<unknown>'
+          console.warn(`No excerpt found for content document "${path}".`)
           console.warn('Make sure to use <!--more--> in your content if you want to use excerpt feature.')
         }
       },

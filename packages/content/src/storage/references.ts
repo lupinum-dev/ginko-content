@@ -1,10 +1,4 @@
 import type { H3Event } from 'h3'
-import type { ContentProviderQueryInput } from '../types/query'
-import type {
-  ContentQueryFindOneResponse,
-  ContentQueryFindResponse,
-  ContentQueryResponse
-} from '../types/api'
 import type { ParsedContent } from '../types/content'
 import { resolveGraphReferenceTarget } from '../core/content/graph'
 import { collectMarkdownRefLinks, parseRefLink } from '../core/references/resolve'
@@ -148,34 +142,4 @@ export const withResolvedRefsList = async <T>(
   requestedLocale?: string
 ): Promise<T[]> => {
   return await Promise.all(items.map(item => withResolvedRefs(event, item, requestedLocale)))
-}
-
-export const withResolvedRefsQueryResponse = async <T>(
-  event: H3Event,
-  response: ContentQueryResponse<T>,
-  params: ContentProviderQueryInput
-): Promise<ContentQueryResponse<T>> => {
-  if (typeof response.result === 'number') {
-    return response
-  }
-
-  const requestedLocale = params.resolveLocale?.locale
-
-  if (params.first) {
-    const firstResponse = response as ContentQueryFindOneResponse<T>
-    return {
-      ...firstResponse,
-      result: await withResolvedRefs(event, firstResponse.result, requestedLocale)
-    }
-  }
-
-  if (!Array.isArray(response.result)) {
-    return response
-  }
-
-  const listResponse = response as ContentQueryFindResponse<T>
-  return {
-    ...listResponse,
-    result: await withResolvedRefsList(event, listResponse.result, requestedLocale)
-  }
 }
