@@ -57,21 +57,13 @@ export interface MarkdownPluginRegistryEntry {
   }
 }
 
-export function canonicalizeMarkdownPluginAliases(
-  plugins: ResolvedMarkdownPlugin[],
-  warn: (message: string) => void
+export function validateCanonicalMarkdownPlugins(
+  plugins: ResolvedMarkdownPlugin[]
 ): ResolvedMarkdownPlugin[] {
-  const hasHighlight = plugins.some(plugin => plugin.name === 'highlight')
-  const hasShiki = plugins.some(plugin => plugin.name === 'shiki')
-  if (hasHighlight && hasShiki) {
-    throw new TypeError('Markdown plugins "highlight" and "shiki" configure the same integration. Remove "highlight" and keep only "shiki".')
+  if (plugins.some(plugin => plugin.name === 'highlight')) {
+    throw new TypeError('Markdown plugin "highlight" was removed. Rename it to "shiki".')
   }
-  if (hasHighlight) {
-    warn('[ginko-content] Markdown plugin "highlight" is deprecated. Rename it to "shiki"; the alias will be removed in the next major version.')
-  }
-  return plugins.map(plugin => plugin.name === 'highlight'
-    ? { ...plugin, name: 'shiki' }
-    : plugin)
+  return plugins
 }
 
 export function withMarkdownPluginComponentPolicy(

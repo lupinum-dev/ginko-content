@@ -1,29 +1,20 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
-  canonicalizeMarkdownPluginAliases,
   createMarkdownPluginTemplates,
   resolveMarkdownPluginRegistry,
+  validateCanonicalMarkdownPlugins,
   withMarkdownPluginComponentPolicy,
 } from '../../packages/content/src/module/markdown-plugin-templates'
 
 const plugin = (name: string) => ({ name, options: {} })
 
 describe('generated Markdown plugin registry', () => {
-  test('canonicalizes the deprecated highlight alias once and rejects duplicate Shiki configuration', () => {
-    const warn = vi.fn()
-
-    expect(canonicalizeMarkdownPluginAliases([
+  test('rejects the removed highlight alias', () => {
+    expect(() => validateCanonicalMarkdownPlugins([
       { name: 'highlight', options: { preStyles: false } }
-    ], warn)).toEqual([
-      { name: 'shiki', options: { preStyles: false } }
-    ])
-    expect(warn).toHaveBeenCalledOnce()
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('deprecated'))
+    ])).toThrow('was removed')
 
-    expect(() => canonicalizeMarkdownPluginAliases([
-      plugin('highlight'),
-      plugin('shiki')
-    ], warn)).toThrow('configure the same integration')
+    expect(validateCanonicalMarkdownPlugins([plugin('shiki')])).toEqual([plugin('shiki')])
   })
 
   test('resolves the canonical Shiki plugin and peer without importing the deprecated Comark alias', async () => {

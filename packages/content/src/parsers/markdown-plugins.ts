@@ -78,7 +78,7 @@ const restoreSerializedShikiTransformers = async (transformers: unknown): Promis
 }
 
 export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) => {
-  if (plugin.name !== 'shiki' && plugin.name !== 'highlight') {
+  if (plugin.name !== 'shiki') {
     return plugin.options
   }
 
@@ -107,7 +107,7 @@ export const normalizeMarkdownPluginOptions = (plugin: ResolvedMarkdownPlugin) =
 
 const resolveMarkdownPluginOptions = async (plugin: ResolvedMarkdownPlugin) => {
   const normalized = normalizeMarkdownPluginOptions(plugin)
-  if ((plugin.name !== 'shiki' && plugin.name !== 'highlight') || typeof normalized !== 'object' || normalized === null) {
+  if (plugin.name !== 'shiki' || typeof normalized !== 'object' || normalized === null) {
     return normalized
   }
 
