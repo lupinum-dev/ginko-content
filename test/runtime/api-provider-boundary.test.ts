@@ -139,6 +139,51 @@ describe('runtime API provider boundary', () => {
     expect(query).toHaveBeenCalledOnce()
   })
 
+  test('query API accepts large queries as a POST body and rejects oversized bodies', async () => {
+    const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
+
+    const postEvent = createTestEvent({
+      scenario,
+      provider,
+      method: 'POST',
+      body: JSON.stringify({
+        collection: 'docs',
+        first: true,
+        resolveVariant: {
+          route: '/de/dokumentation/essentials/fallback-lab',
+          locale: 'de',
+          fallback: ['en']
+        }
+      })
+    })
+    await expect(handler(postEvent)).resolves.toMatchObject({
+      result: { title: 'Fallback Lab' }
+    })
+
+    const noBodyEvent = createTestEvent({ scenario, provider, method: 'POST' })
+    await expect(handler(noBodyEvent)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'invalid_content_query_request'
+    })
+
+    const invalidJsonEvent = createTestEvent({ scenario, provider, method: 'POST', body: '{not-json' })
+    await expect(handler(invalidJsonEvent)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'invalid_content_query_request'
+    })
+
+    const oversizedEvent = createTestEvent({
+      scenario,
+      provider,
+      method: 'POST',
+      body: JSON.stringify({ collection: 'docs', where: { title: 'x'.repeat(40_000) } })
+    })
+    await expect(handler(oversizedEvent)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'invalid_content_query_request'
+    })
+  })
+
   test('query API validates canonical provider responses at the handler boundary', async () => {
     const query = vi.fn(async () => ({
       result: [{

@@ -8,6 +8,8 @@ export interface TestEventOptions {
   params?: Record<string, string>
   headers?: Record<string, string>
   context?: Record<string, unknown>
+  method?: string
+  body?: string
 }
 
 export const createTestEvent = (options: TestEventOptions = {}) => {
@@ -34,6 +36,10 @@ export const createTestEvent = (options: TestEventOptions = {}) => {
       url: options.query
         ? `/?${new URLSearchParams(Object.entries(options.query).map(([key, value]) => [key, String(value)])).toString()}`
         : '/',
+      method: options.method || 'GET',
+      // h3's `readRawBody` resolves `node.req.body` when the stream was
+      // already consumed (or in tests, stubbed).
+      ...(options.body !== undefined ? { body: options.body } : {}),
       headers: options.headers || {}
     },
     res: {
@@ -44,6 +50,7 @@ export const createTestEvent = (options: TestEventOptions = {}) => {
   web: {
     request: new Request('http://content.local/', { headers: options.headers })
   },
+  method: options.method || 'GET',
   responseHeaders,
   }) as any
 }

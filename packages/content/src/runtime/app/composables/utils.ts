@@ -40,6 +40,14 @@ export const createPrerenderPathAdder = (): ((path: string) => void) | undefined
 export type ContentApiEndpoint = 'query' | 'navigation'
 export type ContentApiFetcher = (request: string, init?: Record<string, unknown>) => Promise<unknown>
 
+/**
+ * Encoded-param length above which queries switch from the cacheable GET
+ * path-segment transport to POST with a JSON body. The threshold stays well
+ * under practical proxy/WAF URL limits (~8k) so long-tail infrastructure
+ * never sees an oversized URL.
+ */
+export const MAX_GET_QUERY_PARAM_CHARS = 1_500
+
 export const getPreviewToken = () => useContentPreview().getPreviewToken()
 
 export const getContentApiFetcher = (fetcher?: ContentApiFetcher): ContentApiFetcher => {
@@ -52,16 +60,6 @@ export const getContentApiFetcher = (fetcher?: ContentApiFetcher): ContentApiFet
   }
 
   return $fetch as unknown as ContentApiFetcher
-}
-
-export const buildContentApiPath = (
-  endpoint: ContentApiEndpoint,
-  params: ContentProviderQueryInput,
-  runtime: ContentRuntimeShape
-) => {
-  const encodedParams = encodeQueryParams(params)
-  const requestKey = import.meta.dev ? '_' : `${hash(params)}.${runtime.integrity}`
-  return withBase(`/${endpoint}/${requestKey}/${encodedParams}.json`, runtime.api.baseURL)
 }
 
 export const isHtmlFallbackResponse = (data: unknown): data is string => {
@@ -78,12 +76,32 @@ export async function fetchContentApi<T> (
     addPrerenderPath?: (path: string) => void
   }
 ): Promise<T> {
-  const apiPath = buildContentApiPath(endpoint, params, options.runtime)
-  const data = await options.fetcher(apiPath, {
-    method: 'GET',
-    responseType: 'json',
-    ...(options.previewToken ? { headers: { 'x-nuxt-content-preview': options.previewToken } } : {})
-  }) as unknown
+  const encodedParams = encodeQueryParams(params)
+  const usePost = encodedParams.length > MAX_GET_QUERY_PARAM_CHARS
+
+  let apiPath: string
+  let requestInit: Record<string, unknown>
+  if (usePost) {
+    // Large queries ride POST with a JSON body. They cannot be prerender-
+    // seeded (no stable URL to register), so the prerender-path writer is
+    // deliberately skipped.
+    apiPath = withBase(`/${endpoint}`, options.runtime.api.baseURL)
+    requestInit = {
+      method: 'POST',
+      body: params,
+      responseType: 'json'
+    }
+  } else {
+    const requestKey = import.meta.dev ? '_' : `${hash(params)}.${options.runtime.integrity}`
+    apiPath = withBase(`/${endpoint}/${requestKey}/${encodedParams}.json`, options.runtime.api.baseURL)
+    requestInit = { method: 'GET', responseType: 'json' }
+  }
+
+  if (options.previewToken) {
+    requestInit.headers = { 'x-nuxt-content-preview': options.previewToken }
+  }
+
+  const data = await options.fetcher(apiPath, requestInit) as unknown
 
   if (isHtmlFallbackResponse(data)) {
     // A static host answered with the SPA shell instead of a JSON payload.
@@ -100,7 +118,9 @@ export async function fetchContentApi<T> (
     throw new TypeError('Invalid content API response: expected a non-empty JSON body.')
   }
 
-  options.addPrerenderPath?.(apiPath)
+  if (!usePost) {
+    options.addPrerenderPath?.(apiPath)
+  }
 
   return data as T
 }

@@ -1,26 +1,14 @@
-import { createError, defineEventHandler, getQuery } from 'h3'
-import { getContentQuery } from '../../utils/query'
+import { defineEventHandler, getQuery } from 'h3'
 import { getContentProvider } from '../providers'
 import { createContentProviderError } from '../../../public/provider-errors'
 import { projectProviderNavigation } from '../provider-route-facts'
 import { getContentRuntimeConfig } from '../runtime-config'
-import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
+import { validateContentQueryRequestBody } from '../query-http-validation'
 import { assertConfiguredProviderCollection, assertConfiguredProviderQueryLocales, createProviderQuery } from '../provider-query'
-
-const invalidContentQueryRequest = (path: string, reason: string) => createError({
-  statusCode: 400,
-  statusMessage: 'invalid_content_query_request',
-  message: `Invalid content query request at ${path}: ${reason}`,
-  data: { code: 'invalid_content_query_request', path, reason }
-})
+import { invalidContentQueryRequest, readContentQueryRequest } from '../query-request'
 
 export default defineEventHandler(async (event) => {
-  const encoded = event.context.params?.params
-  if (typeof encoded === 'string' && isOversizedQueryRequestBody(encoded)) {
-    throw invalidContentQueryRequest('$', 'Request payload is too large.')
-  }
-
-  const query = getContentQuery(event)
+  const query = await readContentQueryRequest(event)
   const params = getQuery(event)
   if (typeof params.collection === 'string' && !query.collection) {
     query.collection = params.collection
