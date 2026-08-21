@@ -60,6 +60,28 @@ export const withKeys = (keys: string[] = []) => <T extends Record<string, unkno
   return pickObject(obj, key => properties.includes(key) || prefixes.includes(key.charAt(0)))
 }
 
+export interface DocumentProjection {
+  only?: readonly string[]
+  without?: readonly string[]
+}
+
+/** Apply the shared document field-selection rules at every query boundary. */
+export const projectDocumentFields = <T extends Record<string, unknown>>(
+  document: T,
+  projection: DocumentProjection,
+  guaranteed: readonly string[] = []
+): T => {
+  const selected = projection.only ?? []
+  const excluded = projection.without ?? []
+
+  if (selected.length === 0 && excluded.length === 0) return document
+
+  const stripped = excluded.length > 0 ? withoutKeys([...excluded])(document) : document
+  if (selected.length === 0) return stripped as T
+
+  return withKeys([...selected, ...guaranteed])(stripped) as T
+}
+
 export const sortList = <T extends Record<string, unknown>>(data: T[], params: ContentQuerySortOptions) => {
   // `ContentQuerySortOptions` is a union of `ContentQuerySortParams` (the
   // `$locale`/`$numeric`/etc. knobs) and `ContentQuerySortFields` (the

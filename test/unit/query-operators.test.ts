@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { buildContentGraph } from '../../packages/content/src/core/content/graph'
 import { executeQueryPlan, executeQueryPlanOnDocuments } from '../../packages/content/src/core/query/execute'
 import { lowerQueryPlan } from '../../packages/content/src/core/query/lower'
+import { projectDocumentFields } from '../../packages/content/src/core/query/operators'
 import type { ContentProviderQueryWhere } from '../../packages/content/src/types/query'
 import type { ParsedContent } from '../../packages/content/src/types/content'
 
@@ -69,6 +70,19 @@ const match = (where: ContentProviderQueryWhere): number[] => {
 }
 
 describe('query operator matrix (executeQueryPlan)', () => {
+  test('shared projection excludes first and preserves guaranteed envelope fields', () => {
+    const document = { id: 'docs:one', title: 'One', body: 'hidden', route: { resolvedPath: '/one' } }
+
+    expect(projectDocumentFields(document, {
+      only: ['title', 'body'],
+      without: ['body']
+    }, ['id', 'route'])).toEqual({
+      id: 'docs:one',
+      title: 'One',
+      route: { resolvedPath: '/one' }
+    })
+  })
+
   test('eq — hit, miss, and strict numeric-vs-string edge (no coercion)', () => {
     expect(match({ title: 'Cherry' })).toEqual([4])
     expect(match({ title: 'Nonexistent' })).toEqual([])
