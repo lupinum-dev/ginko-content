@@ -10,7 +10,7 @@ import {
 } from '../../packages/content/src/testing/data-source-contract'
 
 const query: BoundedContentProviderQuery = {
-  v: 4,
+  v: 5,
   collection: 'docs',
   plan: {
     mode: 'all',

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Generate one canonical `.ginko/content-contract.json` artifact and expose a
+  bounded Node reader for CMS and deployment tools.
+- Hard-cut the prerelease provider wire to v5. Collection identity now lives
+  only on the query envelope, and the obsolete route-guessing helper is gone.
+- Add a bounded cache-hint constructor and a sanitized `QUERY_UNSUPPORTED`
+  data-source error for backend adapters.
+
 ## v1.0.0-beta.1
 
 This beta defines the focused 1.0 contract. It removes prerelease

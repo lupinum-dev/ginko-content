@@ -164,7 +164,7 @@ describe('agent site index', () => {
     })
     const query = vi.fn(async (_event, params) => {
       expect(params).toEqual(expect.objectContaining({
-        v: 4,
+        v: 5,
         plan: expect.objectContaining({
           resolveLocale: expect.objectContaining({ locale: 'de' }),
           projection: expect.objectContaining({

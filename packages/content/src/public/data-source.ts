@@ -49,6 +49,78 @@ export interface ContentDataSourceCacheHint {
   lastModified: number | null
 }
 
+export type CreateContentDataSourceCacheHintInput = Partial<ContentDataSourceCacheHint>
+
+const cacheHintKeys = new Set(['etag', 'lastModified', 'maxAge', 'paths', 'swr', 'tags'])
+const credentialPattern = /https?:\/\/[^/@\s]+@|[?&](?:access_token|api[_-]?key|token|secret|password)=/i
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length
+
+/** Create one bounded cache hint. Ginko Content remains the sole merge authority. */
+export function createContentDataSourceCacheHint(
+  input: CreateContentDataSourceCacheHintInput = {},
+): ContentDataSourceCacheHint {
+  if (
+    !input
+    || typeof input !== 'object'
+    || Array.isArray(input)
+    || (Object.getPrototypeOf(input) !== Object.prototype && Object.getPrototypeOf(input) !== null)
+    || Object.keys(input).some(key => !cacheHintKeys.has(key))
+  ) {
+    throw new TypeError('Content data-source cache hint has an invalid shape.')
+  }
+  const tags = input.tags ?? []
+  const paths = input.paths ?? []
+  const validateKeys = (values: string[], maximum: number, label: 'tags' | 'paths') => {
+    if (!Array.isArray(values) || values.length > maximum) {
+      throw new TypeError(`Content data-source cache ${label} exceed the limit.`)
+    }
+    for (const value of values) {
+      if (
+        typeof value !== 'string'
+        || !value
+        || value !== value.normalize('NFC')
+        || utf8Bytes(value) > CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes
+        || (label === 'paths' && !value.startsWith('/'))
+      ) {
+        throw new TypeError(`Content data-source cache ${label} contain an invalid value.`)
+      }
+      if (credentialPattern.test(value)) {
+        throw new TypeError(`Content data-source cache ${label} contain credentials.`)
+      }
+    }
+  }
+  validateKeys(tags, CONTENT_DATA_SOURCE_LIMITS.maxCacheTags, 'tags')
+  validateKeys(paths, CONTENT_DATA_SOURCE_LIMITS.maxCachePaths, 'paths')
+  const maxAge = input.maxAge ?? null
+  const swr = input.swr ?? null
+  for (const value of [maxAge, swr]) {
+    if (!Number.isInteger(value) || value < 0 || value > CONTENT_DATA_SOURCE_LIMITS.maxCacheTtlSeconds) {
+      if (value !== null) throw new TypeError('Content data-source cache TTL exceeds the limit.')
+    }
+  }
+  const lastModified = input.lastModified ?? null
+  if (lastModified !== null && (!Number.isSafeInteger(lastModified) || lastModified < 0)) {
+    throw new TypeError('Content data-source lastModified is invalid.')
+  }
+  const etag = input.etag ?? null
+  if (etag !== null && (
+    typeof etag !== 'string'
+    || !etag
+    || utf8Bytes(etag) > CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes
+    || credentialPattern.test(etag)
+  )) {
+    throw new TypeError('Content data-source ETag is invalid.')
+  }
+  return {
+    tags: [...new Set(tags)],
+    paths: [...new Set(paths)],
+    maxAge,
+    swr,
+    etag,
+    lastModified,
+  }
+}
+
 export interface ContentDataSourceResult<T> {
   data: T
   cache: ContentDataSourceCacheHint | false

@@ -19,7 +19,7 @@ vi.mock('../../packages/content/src/runtime/server/providers', () => ({
   getContentProvider: mocks.getContentProvider
 }))
 
-describe('provider query wire v4 — pagination and closed variants', () => {
+describe('provider query wire v5 — pagination and closed variants', () => {
   const scenario = createSaasI18nScenario()
   const provider = createInMemoryProvider(scenario)
 
@@ -121,7 +121,7 @@ describe('provider query wire v4 — pagination and closed variants', () => {
     expect(page2.result[0]?.route?.resolvedPath).not.toBe(page1.result[0]?.route?.resolvedPath)
   })
 
-  test('v4 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {
+  test('v5 route fallback candidates are ordered requested-locale-first, each with its own collection mount', async () => {
     const { createProviderQuery } = await import('../../packages/content/src/runtime/server/provider-query')
 
     // `docs` mounts `/dokumentation` in de and `/docs` in en (harness/scenarios.ts).
@@ -142,6 +142,7 @@ describe('provider query wire v4 — pagination and closed variants', () => {
     })
     expect(query.plan).not.toHaveProperty('resolveVariant')
     expect(query.plan).not.toHaveProperty('variantSelector')
+    expect(query.plan).not.toHaveProperty('collection')
     const candidates = (query.plan.variant as { candidates: Array<{ locale: string, contentPath: string }> }).candidates
     expect(candidates[0]).toMatchObject({ locale: 'de' })
     expect(candidates.map(candidate => candidate.locale)).toContain('en')

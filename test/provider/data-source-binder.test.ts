@@ -87,6 +87,28 @@ describe('bindContentProvider', () => {
     expect(Object.keys(provider).sort()).toEqual(['capabilities', 'name', 'query'])
   })
 
+  it('surfaces a sanitized unsupported-query response without leaking backend details', async () => {
+    const provider = bindContentProvider({
+      source: {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: async () => {
+          throw createContentDataSourceError('QUERY_UNSUPPORTED')
+        },
+      } as ContentDataSource<null>,
+      createContext: () => null,
+    })
+
+    await expect(provider.query(event(), boundedQuery())).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Content data-source query is unsupported.',
+      data: { code: 'QUERY_UNSUPPORTED' },
+    })
+  })
+
   it('creates one immutable context per request and source under concurrency', async () => {
     const createContext = vi.fn(async () => Object.freeze({ requestId: 'one' }))
     const query = vi.fn(async (context) => ({

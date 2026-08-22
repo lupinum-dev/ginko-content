@@ -289,11 +289,11 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
   }
 
   const execute = (providerQuery: ContentProviderQuery) => {
-    assertCollection(providerQuery.plan.collection)
+    assertCollection(providerQuery.collection ?? undefined)
     const policy = providerQuery.collection
       ? fixture.runtime.collections[providerQuery.collection]?.localePolicy
       : undefined
-    const canonicalPlan = fromContentProviderQueryPlan(providerQuery.plan, policy)
+    const canonicalPlan = fromContentProviderQueryPlan(providerQuery.plan, providerQuery.collection, policy)
     return executeQueryPlan<ParsedContent>(
       fixture.graph,
       {

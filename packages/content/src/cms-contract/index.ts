@@ -58,7 +58,6 @@ export {
   prefixPathWithLocale,
   refineUrlPart,
   routeRemainder,
-  routeToContentPathCandidates,
   slugifyUrlSegment,
   stripLocalePrefix,
 } from './path.js'

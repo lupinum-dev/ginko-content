@@ -21,7 +21,6 @@ export {
   prefixPathWithLocale,
   stripLocalePrefix,
   refineUrlPart,
-  routeToContentPathCandidates,
 } from '../core/content/path.js'
 
 export { slugifyUrlSegment } from '../core/content/slug.js'

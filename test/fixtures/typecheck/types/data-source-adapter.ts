@@ -1,11 +1,17 @@
 import type { H3Event } from 'h3'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
+  createContentDataSourceCacheHint,
+  createContentDataSourceError,
   type BoundedContentProviderQuery,
   type ContentDataSource,
   type ContentDataSourceControl,
 } from '@lupinum/ginko-content/data-source'
 import { bindContentProvider } from '@lupinum/ginko-content/provider'
+
+const cache = createContentDataSourceCacheHint({ tags: ['content:docs'], maxAge: 60 })
+const unsupported = createContentDataSourceError('QUERY_UNSUPPORTED')
+void [cache, unsupported]
 
 interface VerifiedContext {
   tenantId: string

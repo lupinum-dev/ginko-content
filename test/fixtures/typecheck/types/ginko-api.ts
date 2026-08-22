@@ -49,6 +49,7 @@ import {
   // @ts-expect-error Description-prefix reference encoding was removed in 0.3.0.
   CONTENT_REFERENCE_PREFIX
 } from '@lupinum/ginko-content/cms-contract'
+import { readResolvedContentContract } from '@lupinum/ginko-content/cms-contract/node'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { parsePortableDocument, type PortableDocumentV1, type PortableManifestV1 } from '@lupinum/ginko-content/portability'
 import { readPortableDirectory, writePortableDirectory } from '@lupinum/ginko-content/portability/node'
@@ -80,14 +81,16 @@ const structuredProvider = {
   query: async () => ({ result: [providerRow], skip: 0, limit: 1, total: 1 })
 } satisfies ContentProvider
 
-void [parsePortableDocument, readPortableDirectory, writePortableDirectory, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest, structuredProvider, toContentProviderQuery(providerQueryInput)]
+void [parsePortableDocument, readPortableDirectory, writePortableDirectory, readResolvedContentContract, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest, structuredProvider, toContentProviderQuery(providerQueryInput)]
 void [CONTENT_REFERENCE_PREFIX]
 
 declare const providerPlan: ContentProviderQueryPlan
-// @ts-expect-error v4 pagination lives only under plan.pagination.
+// @ts-expect-error v5 pagination lives only under plan.pagination.
 void providerPlan.skip
-// @ts-expect-error v4 removed the separate paging field.
+// @ts-expect-error v5 has no separate paging field.
 void providerPlan.paging
+// @ts-expect-error v5 collection identity lives only on the query envelope.
+void providerPlan.collection
 // @ts-expect-error unresolved route policy cannot cross the public helper.
 toContentProviderQuery({ collection: 'docs', resolveVariant: { route: '/docs/intro' } })
 // @ts-expect-error unresolved reference policy cannot cross the public helper.
