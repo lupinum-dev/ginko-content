@@ -6,6 +6,7 @@ import type {
   BacklinksResult,
   BacklinkSource,
   ContentNavigationTreeItem,
+  CountOptions,
   DocumentFromHandle,
   ManyOptions,
   NavigationOptions,
@@ -24,6 +25,7 @@ import type {
 } from '../../types/query'
 import {
   backlinks as backlinksWithContext,
+  count as countWithContext,
   many as manyWithContext,
   navigation as navigationWithContext,
   one as oneWithContext,
@@ -140,6 +142,17 @@ export async function many<
 ): Promise<Array<QueryResultDocument<H, O>>> {
   const options = (args[0] ?? {}) as O
   return await manyWithContext(await createServerContentQueryContext(event), handle, options)
+}
+
+export async function count<
+  const H extends ContentCollectionHandle | string,
+  O extends CountOptions<H>
+>(
+  event: H3Event,
+  handle: H,
+  ...args: OptionsArg<H, O>
+): Promise<number> {
+  return await countWithContext(await createServerContentQueryContext(event), handle, (args[0] ?? {}) as O)
 }
 
 export async function paginate<

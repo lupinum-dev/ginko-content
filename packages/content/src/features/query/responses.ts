@@ -60,6 +60,11 @@ export const unwrapOneResponse = <T>(response: unknown): T | null => {
   throw new TypeError('Invalid content query response: expected { result: document | null }.')
 }
 
+export const unwrapCountResponse = (response: unknown): number => {
+  if (isResultOnlyEnvelope(response) && isNonNegativeInteger(response.result)) return response.result
+  throw new TypeError('Invalid content query response: expected { result: number }.')
+}
+
 /** Project the in-process provider result onto the JSON-safe public contract. */
 export const projectPublicQueryResponse = <T>(
   response: ContentQueryResponse<T>,

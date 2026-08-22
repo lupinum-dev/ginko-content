@@ -164,14 +164,14 @@ describe('module contracts', () => {
   test.each([
     [{ theme: 'github-dark' }, 'themes: { light, dark }'],
     [{ langs: ['ts'] }, 'languages'],
-  ])('rejects invalid highlight options during module setup', async (pluginOptions, replacement) => {
+  ])('rejects invalid Shiki options during module setup', async (pluginOptions, replacement) => {
     const { nuxt } = createNuxt()
     const mod = await import('../../packages/content/src/module')
     await expect(mod.default.setup(createOptions({
       markdown: {
         // The module-contract harness mocks processMarkdownOptions as identity,
         // so provide the resolved shape that production normalization supplies.
-        plugins: [{ name: 'highlight', options: pluginOptions }],
+        plugins: [{ name: 'shiki', options: pluginOptions }],
         tags: {},
         anchorLinks: { depth: 4, exclude: [1] },
       },

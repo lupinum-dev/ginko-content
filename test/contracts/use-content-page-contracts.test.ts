@@ -170,6 +170,7 @@ describe('useContentPage contracts', () => {
     expect(state.page.value?.route.requestedPath).toBe('/docs/getting-started')
     expect(state.page.value?.resolution.resolved.locale).toBe('en')
     expect(state.page.value?.resolution.usedFallback).toBe(false)
+    expect(state.status.value).toBe('success')
     expect(state.previous.value).toBeNull()
     expect(state.next.value).toBeNull()
   })
@@ -198,7 +199,8 @@ describe('useContentPage contracts', () => {
 
     route.path = '/docs/advanced'
 
-    expect(state.page.value).toBeUndefined()
+    expect(state.page.value).toBeNull()
+    expect(state.status.value).toBe('pending')
   })
 
   test('keeps statically served trailing-slash routes matched to the same page', async () => {
@@ -221,13 +223,15 @@ describe('useContentPage contracts', () => {
     route.path = '/docs/advanced'
     await nextTick()
 
-    expect(state.page.value).toBeUndefined()
+    expect(state.page.value).toBeNull()
+    expect(state.status.value).toBe('pending')
     expect(state.error.value).toBeUndefined()
 
     asyncDataStates[0]!.data.value = null
     await nextTick()
 
-    expect(state.page.value).toBeUndefined()
+    expect(state.page.value).toBeNull()
+    expect(state.status.value).toBe('not-found')
     expect(state.error.value).toBeUndefined()
 
     asyncDataStates[0]!.pending.value = true
@@ -240,13 +244,14 @@ describe('useContentPage contracts', () => {
     expect(state.error.value).toBeUndefined()
   })
 
-  test('never throws a default 404 — the application decides from an undefined page', async () => {
+  test('reports a settled miss explicitly without throwing a default 404', async () => {
     const { useContentPage } = await import('../../packages/content/src/runtime/app/composables/use-content-page')
 
     route.path = '/docs/missing'
     const state = await useContentPage('docs')
 
-    expect(state.page.value).toBeUndefined()
+    expect(state.page.value).toBeNull()
+    expect(state.status.value).toBe('not-found')
     expect(state.error.value).toBeUndefined()
   })
 
@@ -259,7 +264,8 @@ describe('useContentPage contracts', () => {
       notFound: false
     })
 
-    expect(state.page.value).toBeUndefined()
+    expect(state.page.value).toBeNull()
+    expect(state.status.value).toBe('not-found')
     expect(state.error.value).toBeUndefined()
   })
 

@@ -36,7 +36,7 @@ import { registerContentContextFinalization } from './module/context-finalizatio
 import { createContentValidationRouteFacts } from './module/validation-routes'
 import { collectContentValidationPublicAssets } from './module/validation-assets'
 import { processMarkdownOptions } from './utils'
-import { canonicalizeMarkdownPluginAliases, createMarkdownPluginTemplates, resolveMarkdownPluginRegistry, withMarkdownPluginComponentPolicy } from './module/markdown-plugin-templates'
+import { createMarkdownPluginTemplates, resolveMarkdownPluginRegistry, validateCanonicalMarkdownPlugins, withMarkdownPluginComponentPolicy } from './module/markdown-plugin-templates'
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -128,7 +128,7 @@ export default defineNuxtModule<ModuleOptions>({
     await assertPagefindAvailable(resolvedSearch)
 
     const resolvedMarkdown = processMarkdownOptions(options.markdown)
-    resolvedMarkdown.plugins = canonicalizeMarkdownPluginAliases(resolvedMarkdown.plugins, message => logger.warn(message))
+    resolvedMarkdown.plugins = validateCanonicalMarkdownPlugins(resolvedMarkdown.plugins)
     const markdownPluginRegistry = await resolveMarkdownPluginRegistry(
       resolvedMarkdown.plugins,
       {

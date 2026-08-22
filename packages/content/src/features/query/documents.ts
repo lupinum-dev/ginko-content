@@ -2,6 +2,7 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionHandle } from '../../types/config'
 import type {
   ContentSelector,
+  CountOptions,
   DocumentFromHandle,
   LocaleFallback,
   LocalizedDoc,
@@ -21,7 +22,7 @@ import { isNotFoundError } from './errors'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
 import { populateDocument, populateDocuments, selectWithPopulate, validatePopulateSpec } from './populate'
-import { unwrapListResponse, unwrapOneResponse } from './responses'
+import { unwrapCountResponse, unwrapFindResponse, unwrapOneResponse } from './responses'
 
 const explainResolution = (
   collection: string,
@@ -146,7 +147,40 @@ export async function resolveManyDocuments<
     throw error
   }
 
-  const docs = unwrapListResponse<LocalizedDoc<ParsedContent>>(response)
+  const find = unwrapFindResponse<LocalizedDoc<ParsedContent>>(response)
+  const docs = find.result
+  if (import.meta.dev && options.limit === undefined && find.total > docs.length) {
+    console.warn(
+      `[ginko-content] many("${collection}") matched ${find.total} documents but returned ${docs.length}. ` +
+      'Pass an explicit limit or use paginate() to read the rest.'
+    )
+  }
   const populated = await populateDocuments(context, one, docs, options.populate, options.locale, options.fallback)
   return populated as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>
+}
+
+export async function resolveCount<
+  const H extends ContentCollectionHandle | string,
+  O extends CountOptions<H>
+>(
+  context: ContentQueryContext,
+  handle: H,
+  options: O = {} as O
+): Promise<number> {
+  const collection = ensureCollectionName(handle)
+  const fallback = resolveFallback(options.fallback, collection, context.runtime)
+  const params = compileQueryParams({
+    collection,
+    where: options.where as QueryWhere | undefined,
+    locale: options.locale,
+    fallback,
+    count: true
+  })
+
+  try {
+    return unwrapCountResponse(await context.transport('query', params))
+  } catch (error) {
+    if (isNotFoundError(error)) return 0
+    throw error
+  }
 }
