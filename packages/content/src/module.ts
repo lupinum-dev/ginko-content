@@ -319,6 +319,10 @@ export default defineNuxtModule<ModuleOptions>({
       getSearchRuntime,
       siteUrl: resolveNuxtSiteUrl(nuxt)
     })
+    // Downstream Nuxt modules run before `modules:done`. Give CMS tooling the
+    // exact resolved contract during the same setup pass, then refresh it again
+    // after provider finalization and on content-config reloads below.
+    await writeResolvedContentContractArtifact(nuxt.options.rootDir, contentContext.contract)
     registerContentContextFinalization({
       nuxt,
       options,
