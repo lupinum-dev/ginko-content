@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.0.0-rc.1
+
+This candidate defines the focused 1.0 contract. It removes prerelease
+compatibility paths now, before applications depend on them, and keeps the
+provider query wire at v4.
+
+- Add `count()` for exact filtered totals without transferring bounded document
+  lists.
+- Resolve populated references behind the server query boundary. Browser calls
+  make one request; provider reads remain bounded, deduplicated, and limited to
+  eight concurrent operations.
+- Give `useContentPage()` explicit `pending`, `success`, `not-found`, and
+  `error` states, with `page` consistently returning a document or `null`.
+- Remove the deprecated Markdown `highlight` alias. Use `shiki`.
+- Centralize document projection, cache route naming, missing-static-content
+  behavior, and public response envelopes; remove stale document and reference
+  shapes.
+- Use Nuxt's canonical site URL for all agent links. Replace
+  `agent.site.url`/`profile` with required `whenToUse` and optional
+  `whenNotToUse` guidance.
+- Return a real, recoverable Markdown 404 when a server-rendered public route is
+  missing and the request prefers `text/markdown`. Static deployments continue
+  to use generated `/raw/**.md`, `/llms.txt`, and `/llms-full.txt` files because
+  a static host cannot negotiate response formats.
+- Align the quick start, examples, reference, migration guide, and release gates
+  with the 1.0 contract.
+
 ## v0.4.0-rc.2
 
 This release candidate updates the supported Nuxt dependency graph and the
