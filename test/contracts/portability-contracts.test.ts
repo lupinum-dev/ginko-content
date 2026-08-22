@@ -170,6 +170,22 @@ describe('portable content contract', () => {
     })
   })
 
+  it('accepts supported local images without an explicit field media policy', async () => {
+    const unrestricted = structuredClone(contract)
+    const hero = unrestricted.collections.docs.fields.find(field => field.key === 'hero')!
+    hero.media = null
+    const source = await readFile(fixture('content/docs/docs.introduction/en.md'), 'utf8')
+    const sha256 = 'a'.repeat(64)
+    const local = source.replace(
+      'hero:\n  kind: external\n  url: "https://images.example.test/hero.png"',
+      `hero:\n  kind: local\n  path: /ginko-assets/${sha256}.png\n  sha256: ${sha256}\n  bytes: 1\n  mediaType: image/png\n  originalFilename: hero.png`,
+    )
+
+    await expect(parsePortableDocument(local, unrestricted)).resolves.toMatchObject({
+      shared: { hero: { kind: 'local', mediaType: 'image/png' } },
+    })
+  })
+
   it('uses reversible NFC-safe identity path segments', () => {
     expect(encodePortableIdentitySegment('café %')).toBe('caf%C3%A9%20%25')
     expect(decodePortableIdentitySegment('caf%C3%A9%20%25')).toBe('café %')
