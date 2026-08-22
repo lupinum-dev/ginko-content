@@ -15,7 +15,7 @@
 </p>
 
 > [!WARNING]
-> Version `1.0.0-rc.1` is a release candidate. Install it from the `next`
+> Version `1.0.0-beta.1` is a prerelease. Install it from the `next`
 > channel. The stable `0.3` line remains on the `latest` channel.
 
 ## Why use Ginko Content?
@@ -54,16 +54,16 @@ contract without changing the application-facing query API.
 
 ## Installation
 
-Add the release candidate with the Nuxt CLI:
+Add the beta with the Nuxt CLI:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@1.0.0-rc.1
+npx nuxi module add @lupinum/ginko-content@1.0.0-beta.1
 ```
 
 You can also install and register it by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@1.0.0-rc.1
+pnpm add @lupinum/ginko-content@1.0.0-beta.1
 ```
 
 ```ts

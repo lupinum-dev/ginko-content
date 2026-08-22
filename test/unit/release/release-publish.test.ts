@@ -7,6 +7,7 @@ import {
 describe('release publish policy', () => {
   test('selects the npm channel from the package version', () => {
     expect(npmTagForVersion('0.3.2')).toBe('latest')
+    expect(npmTagForVersion('1.0.0-beta.1')).toBe('next')
     expect(npmTagForVersion('0.4.0-rc.1')).toBe('next')
   })
 

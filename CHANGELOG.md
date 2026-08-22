@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.0.0-rc.1
+## v1.0.0-beta.1
 
-This candidate defines the focused 1.0 contract. It removes prerelease
+This beta defines the focused 1.0 contract. It removes prerelease
 compatibility paths now, before applications depend on them, and keeps the
 provider query wire at v4.
 

@@ -359,16 +359,16 @@ function validatePublicReadme(filePath, source, headings) {
     errors.push(`${filePath} must contain exactly one centered HTML h1 and no Markdown h1`)
   }
 
-  const releaseStatus = source.match(/^> Version `(?<version>[^`]+)` is a release candidate\./mu)
+  const releaseStatus = source.match(/^> Version `(?<version>[^`]+)` is a prerelease\./mu)
   if (packageManifest.version.includes('-')) {
     if (!source.includes('> [!WARNING]\n')) {
       errors.push(`${filePath} must use a warning for prerelease status`)
     }
     if (releaseStatus?.groups?.version !== packageManifest.version) {
-      errors.push(`${filePath} must identify release candidate ${packageManifest.version}`)
+      errors.push(`${filePath} must identify prerelease ${packageManifest.version}`)
     }
   } else if (releaseStatus) {
-    errors.push(`${filePath} must not show a release-candidate notice for a stable version`)
+    errors.push(`${filePath} must not show a prerelease notice for a stable version`)
   }
 
   if (/\b(?:TODO|TBD|placeholder)\b/iu.test(source)) {
@@ -423,7 +423,7 @@ const failureProbes = [
   {
     name: 'a stale release status',
     source: rootReadme.replace(packageManifest.version, '0.0.0-stale.1'),
-    expected: `must identify release candidate ${packageManifest.version}`,
+    expected: `must identify prerelease ${packageManifest.version}`,
   },
   {
     name: 'a second product heading',

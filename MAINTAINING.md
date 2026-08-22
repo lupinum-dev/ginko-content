@@ -46,7 +46,7 @@ Follow [docs/WRITING.md](./docs/WRITING.md). Build the documentation with
 1. Prepare the intended version and changelog draft:
 
    ```bash
-   pnpm run release:prepare -- -r 1.0.0-rc.1
+   pnpm run release:prepare -- -r 1.0.0-beta.1
    ```
 
    Replace the example version. The command does not commit, tag, push, or
