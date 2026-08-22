@@ -10,6 +10,7 @@ import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
 import { name, peerDependencies, version } from '../package.json'
 import { buildResolvedContentContract } from './cms-contract/index'
+import { writeResolvedContentContractArtifact } from './cms-contract-node/artifact'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from './types/module'
 import { loadContentConfig, resolveContentConfigPath } from './utils/content-config'
 import { createVirtualContentTemplates, registerVirtualContentAliases } from './module/virtual'
@@ -326,8 +327,9 @@ export default defineNuxtModule<ModuleOptions>({
       runtimeRenderPolicies,
       buildIntegrity,
       resolveRuntimeModule,
-      onResolved: context => {
+      onResolved: async context => {
         resolvedContentContext = context
+        await writeResolvedContentContractArtifact(nuxt.options.rootDir, context.contract)
       }
     })
 

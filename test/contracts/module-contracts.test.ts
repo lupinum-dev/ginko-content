@@ -9,6 +9,7 @@ const sitemapLoggerWarn = vi.fn()
 const removeBuildArtifact = vi.fn(async () => {})
 const loadContentConfig = vi.fn()
 const resolveContentConfigPath = vi.fn()
+const writeResolvedContentContractArtifact = vi.fn(async () => ({ contract: {}, sha256: 'hash' }))
 
 function createNuxt() {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
@@ -89,6 +90,7 @@ describe('module contracts', () => {
       }
     })
     resolveContentConfigPath.mockReset().mockReturnValue('/workspace/app/content.config.ts')
+    writeResolvedContentContractArtifact.mockClear()
 
     vi.doMock('node:fs/promises', async () => ({
       ...await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'),
@@ -123,6 +125,9 @@ describe('module contracts', () => {
     vi.doMock('../../packages/content/src/utils/content-config', () => ({
       loadContentConfig,
       resolveContentConfigPath
+    }))
+    vi.doMock('../../packages/content/src/cms-contract-node/artifact', () => ({
+      writeResolvedContentContractArtifact
     }))
     vi.doMock('../../packages/content/src/utils', () => ({
       processMarkdownOptions: vi.fn((value: any) => value),
@@ -782,6 +787,7 @@ describe('module contracts', () => {
       locales: ['en', 'de'],
       collections: { docs: { id: 'docs' } },
     })
+    expect(writeResolvedContentContractArtifact).toHaveBeenCalledWith('/workspace/app', finalized.contract)
     expect(finalized.localePolicy.collections.docs).toMatchObject({
       localized: true,
       locales: ['en', 'de'],
