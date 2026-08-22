@@ -10,9 +10,13 @@ const failures = []
 const check = (condition, message) => { if (!condition) failures.push(message) }
 
 check(!existsSync(resolve(root, 'vercel.json')), 'Keep vercel.json in the deployable docs app.')
-check(previewWorkflow.includes('/v13/deployments'), 'Create previews through the Vercel deployment API.')
 check(
-  previewWorkflow.includes('checks: write') && previewWorkflow.includes('cancel-in-progress: false'),
+  previewWorkflow.includes('/v13/deployments'),
+  'Create previews through the Vercel deployment API.',
+)
+check(
+  previewWorkflow.includes('checks: write') &&
+    previewWorkflow.includes('cancel-in-progress: false'),
   'Report exact-commit preview status without canceling requested builds.',
 )
 check(
