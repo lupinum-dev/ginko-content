@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { parsePortableDocument, type PortableAssetBlobV1 } from '../../packages/content/src/portability'
 import {
   readPortableDirectory,
+  readPortableDirectoryMetadata,
   assertPortablePathSet,
   rebuildPortableDirectoryManifest,
   validatePortableRelativePath,
@@ -111,6 +112,17 @@ describe('Node portable directory contract', () => {
     expect(read.assets).toEqual([
       expect.objectContaining({ sha256: assetSha256, bytes: assetContent.byteLength }),
     ])
+    const metadata = await readPortableDirectoryMetadata(destination)
+    expect(metadata.documents).toEqual(read.documents)
+    expect(metadata.assets).toEqual([
+      {
+        sha256: assetSha256,
+        file: `public/ginko-assets/${assetSha256}.png`,
+        bytes: assetContent.byteLength,
+        mediaType: 'image/png',
+      },
+    ])
+    expect(metadata.assets[0]).not.toHaveProperty('content')
     await expect(verifyPortableDirectoryBounded(destination)).resolves.toEqual({
       contract: bundle.contract,
       manifest: read.manifest,

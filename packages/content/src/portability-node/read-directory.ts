@@ -40,12 +40,25 @@ export interface PortableDirectoryBundle {
   manifest: PortableManifestV1
 }
 
+export interface PortableDirectoryMetadata {
+  contract: ResolvedContentContractV1
+  documents: PortableDirectoryDocument[]
+  assets: PortableAssetBlobV1[]
+  manifest: PortableManifestV1
+}
+
 export async function readPortableDirectory(root: string): Promise<PortableDirectoryBundle> {
-  return inspectPortableDirectory(root, true, true)
+  return inspectPortableDirectory(root, true, 'all')
+}
+
+export async function readPortableDirectoryMetadata(
+  root: string,
+): Promise<PortableDirectoryMetadata> {
+  return inspectPortableDirectory(root, true, 'documents')
 }
 
 export async function rebuildPortableDirectoryManifest(root: string): Promise<PortableManifestV1> {
-  const result = await inspectPortableDirectory(root, false, false)
+  const result = await inspectPortableDirectory(root, false, 'none')
   const bytes = serializePortableManifest(result.manifest)
   const temporary = join(root, '.ginko', `portable.json.tmp-${process.pid}-${Date.now()}`)
   try {
@@ -67,24 +80,29 @@ export interface PortableDirectoryVerification {
 export async function verifyPortableDirectoryBounded(
   root: string,
 ): Promise<PortableDirectoryVerification> {
-  return await inspectPortableDirectory(root, true, false)
+  return await inspectPortableDirectory(root, true, 'none')
 }
 
 async function inspectPortableDirectory(
   root: string,
   verifyManifest: boolean,
-  materialize: true,
+  materialize: 'all',
 ): Promise<PortableDirectoryBundle>
 async function inspectPortableDirectory(
   root: string,
   verifyManifest: boolean,
-  materialize: false,
+  materialize: 'documents',
+): Promise<PortableDirectoryMetadata>
+async function inspectPortableDirectory(
+  root: string,
+  verifyManifest: boolean,
+  materialize: 'none',
 ): Promise<PortableDirectoryVerification>
 async function inspectPortableDirectory(
   root: string,
   verifyManifest: boolean,
-  materialize: boolean,
-): Promise<PortableDirectoryBundle | PortableDirectoryVerification> {
+  materialize: 'all' | 'documents' | 'none',
+): Promise<PortableDirectoryBundle | PortableDirectoryMetadata | PortableDirectoryVerification> {
   const rootStats = await safeLstat(root)
   if (!rootStats.isDirectory() || rootStats.isSymbolicLink()) throw unsafePath()
   const files = await scanPaths(root)
@@ -115,7 +133,7 @@ async function inspectPortableDirectory(
     if (documents.length >= limits.documents) throw limit()
     const bytes = await readPath(root, file)
     const document = await parsePortableDocument(bytes, contract, file)
-    if (materialize) materializedDocuments.push({ file, bytes, document })
+    if (materialize !== 'none') materializedDocuments.push({ file, bytes, document })
     const variant = factKey(document.collection, document.canonicalKey, document.locale)
     if (variants.has(variant)) {
       throw portabilityError(
@@ -176,7 +194,7 @@ async function inspectPortableDirectory(
   for (const file of files) {
     if (!file.startsWith('public/ginko-assets/')) continue
     const asset = await assetFromFile(file, await readPath(root, file))
-    if (materialize) materializedAssets.push(asset)
+    if (materialize === 'all') materializedAssets.push(asset)
     if (assetHashes.has(asset.sha256)) {
       throw portabilityError(
         'ASSET_INTEGRITY_FAILED',
@@ -243,9 +261,13 @@ async function inspectPortableDirectory(
       )
     }
   }
-  return materialize
-    ? { contract, documents: materializedDocuments, assets: materializedAssets, manifest }
-    : { contract, manifest }
+  if (materialize === 'all') {
+    return { contract, documents: materializedDocuments, assets: materializedAssets, manifest }
+  }
+  if (materialize === 'documents') {
+    return { contract, documents: materializedDocuments, assets, manifest }
+  }
+  return { contract, manifest }
 }
 
 function validateDocumentFacts(
