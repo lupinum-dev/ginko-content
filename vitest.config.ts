@@ -97,6 +97,11 @@ export default defineConfig({
         test: {
           name: 'contracts-node',
           environment: 'node',
+          // Comark/Shiki keeps process-level language and theme registries.
+          // Run contract files in one order so another highlighting fixture
+          // cannot mutate those registries while raw output is snapshotted.
+          fileParallelism: false,
+          maxWorkers: 1,
           include: nodeContractTests,
           exclude: commonExclude
         }
