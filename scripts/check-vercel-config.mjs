@@ -10,7 +10,12 @@ const check = (condition, message) => { if (!condition) failures.push(message) }
 
 check(!existsSync(resolve(root, 'vercel.json')), 'Keep vercel.json in the deployable docs app.')
 check(config.framework === 'nuxtjs', 'Select the Nuxt framework explicitly.')
-check(config.git?.deploymentEnabled === true, 'Create a Vercel status for every pull-request commit.')
+check(
+  config.git?.deploymentEnabled?.['*'] === false
+    && config.git.deploymentEnabled.main === true
+    && Object.keys(config.git.deploymentEnabled).length === 2,
+  'Deploy main automatically and require /vercel for pull-request previews.',
+)
 check(config.ignoreCommand === expectedIgnoreCommand, 'Skip deployments that cannot affect the documentation app.')
 const runIgnoreCommand = previousSha => spawnSync('sh', ['-c', config.ignoreCommand], {
   cwd: resolve(root, 'docs'),
