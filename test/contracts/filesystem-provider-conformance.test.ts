@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ContentProviderCapabilities } from '../../packages/content/src/public/provider'
-import { toContentProviderQuery } from '../../packages/content/src/public/provider-query'
+import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../packages/content/src/public/provider-query'
 import {
   runProviderContractSuite,
   type ProviderQueryProbe
@@ -47,7 +47,7 @@ vi.mock('../../packages/content/src/runtime/server/query-executor', () => ({
 vi.mock('../../packages/content/src/runtime/server/navigation-query', () => ({
   resolveContentNavigation: vi.fn(async () => [{
     title: 'Einstieg',
-    path: '/de/dokumentation/einstieg',
+    path: '/einstieg',
     canonicalKey: 'docs:einstieg',
     locale: 'de'
   }])
@@ -226,6 +226,34 @@ describe('filesystem provider conformance', () => {
         }),
         assertResult: assertTitles(['Einstieg'])
       }
+    },
+    operationProbes: {
+      navigation: {
+        query: toContentProviderNavigationQuery({
+          collection: 'docs',
+          resolveLocale: { locale: 'de', fallback: false },
+        }),
+        assertResult: result => expect(result).toEqual([
+          expect.objectContaining({
+            title: 'Einstieg',
+            route: expect.objectContaining({ contentPath: '/dokumentation/einstieg' }),
+          }),
+        ]),
+      },
+      surroundings: {
+        collection: 'docs',
+        contentPath: '/dokumentation/einstieg',
+        options: { locale: 'de' },
+        assertResult: result => expect(result).toEqual([
+          expect.objectContaining({ route: expect.objectContaining({ contentPath: '/dokumentation/einstieg' }) }),
+          null,
+        ]),
+      },
+      routes: {
+        assertResult: result => expect(result).toEqual([
+          expect.objectContaining({ contentPath: '/dokumentation/einstieg' }),
+        ]),
+      },
     }
   })
 

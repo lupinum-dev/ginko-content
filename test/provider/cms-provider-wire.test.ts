@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  assertCmsRequestedFacts, cmsPublicEntryWireSchema, parseCmsListWireResult, parseCmsNavWireResult,
+  CMS_PROVIDER_WIRE_PROTOCOL, assertCmsRequestedFacts, cmsPublicEntryWireSchema,
+  createCmsProviderWireEnvelope, parseCmsListWireResult, parseCmsNavWireResult,
   parseCmsPageWireResult, parseCmsRoutesWireResult, parseCmsSiteDataWireResult
 } from '../../packages/content/src/cms-contract/provider-wire'
+
+const wire = createCmsProviderWireEnvelope
 
 const locale = { requested: 'en', resolved: 'en', policy: 'strict', fallbacks: { fields: [] } }
 const entry = {
@@ -16,17 +19,23 @@ const entry = {
 
 describe('CMS provider wire decoders', () => {
   it('parses exact page and bounded cursor envelopes', () => {
-    expect(parseCmsPageWireResult({
+    expect(parseCmsPageWireResult(wire({
       status: 'found', page: entry, collection: 'docs', locale, breadcrumbs: [],
       seo: { title: 'Guide', description: '', canonical: '/guide', alternates: [], xDefault: null }
-    }).status).toBe('found')
-    expect(parseCmsListWireResult({
+    })).status).toBe('found')
+    expect(parseCmsListWireResult(wire({
       entries: [entry], pageInfo: { hasNextPage: true, endCursor: 'opaque' },
       collection: 'docs', locale
-    }).entries).toHaveLength(1)
-    expect(parseCmsRoutesWireResult({
+    })).entries).toHaveLength(1)
+    expect(parseCmsRoutesWireResult(wire({
       routes: [], pageInfo: { hasNextPage: false, endCursor: null }, snapshot: 'generation-1'
-    }).snapshot).toBe('generation-1')
+    })).snapshot).toBe('generation-1')
+    expect(() => parseCmsListWireResult({
+      protocol: 'ginko-content-cms/v0', result: {
+        entries: [], pageInfo: { hasNextPage: false, endCursor: null }, collection: 'docs', locale
+      }
+    })).toThrow(/protocol/i)
+    expect(CMS_PROVIDER_WIRE_PROTOCOL).toBe('ginko-content-cms/v1')
   })
 
   it('accepts only bounded structured asset facts with credential-free HTTPS URLs', () => {
@@ -34,42 +43,42 @@ describe('CMS provider wire decoders', () => {
       fieldPath: 'data.hero.src', assetId: 'asset-1', url: 'https://assets.example/hero.png',
       expiresAt: null, mediaType: 'image/png', bytes: 68, sha256: '0'.repeat(64)
     }
-    expect(parseCmsListWireResult({
+    expect(parseCmsListWireResult(wire({
       entries: [{ ...entry, assetFacts: [fact] }],
       pageInfo: { hasNextPage: false, endCursor: null }, collection: 'docs', locale
-    }).entries[0]?.assetFacts).toEqual([fact])
+    })).entries[0]?.assetFacts).toEqual([fact])
     for (const invalid of [
       { ...fact, fieldPath: 'data.__proto__.src' },
       { ...fact, url: 'https://user:secret@assets.example/hero.png' },
       { ...fact, url: 'http://assets.example/hero.png' }
     ]) {
-      expect(() => parseCmsListWireResult({
+      expect(() => parseCmsListWireResult(wire({
         entries: [{ ...entry, assetFacts: [invalid] }],
         pageInfo: { hasNextPage: false, endCursor: null }, collection: 'docs', locale
-      })).toThrow(/asset|credential|HTTPS|field path/i)
+      }))).toThrow(/asset|credential|HTTPS|field path/i)
     }
   })
 
   it('rejects projected fields, unsafe paths, invalid dates, and malformed cursors', () => {
-    expect(() => parseCmsListWireResult({
+    expect(() => parseCmsListWireResult(wire({
       entries: [{ ...entry, data: { path: '/injected' } }],
       pageInfo: { hasNextPage: false, endCursor: null }, collection: 'docs', locale
-    })).toThrow(/projected field/i)
-    expect(() => parseCmsPageWireResult({
+    }))).toThrow(/projected field/i)
+    expect(() => parseCmsPageWireResult(wire({
       status: 'redirect', page: null, collection: 'docs', locale, breadcrumbs: [], seo: null,
       redirectTo: { slug: 'x', path: 'https://user:secret@example.com/x', locale: 'en', source: 'published' },
       redirectedFrom: '/old'
-    })).toThrow(/site-relative path/i)
-    expect(() => parseCmsRoutesWireResult({
+    }))).toThrow(/site-relative path/i)
+    expect(() => parseCmsRoutesWireResult(wire({
       routes: [{ collection: 'docs', stableId: 'x', locale: 'en', path: '/x', sitemapIncluded: true, lastmod: 'yesterday' }],
       pageInfo: { hasNextPage: false, endCursor: null }, snapshot: 'generation-1'
-    })).toThrow(/ISO date/i)
-    expect(() => parseCmsRoutesWireResult({
+    }))).toThrow(/ISO date/i)
+    expect(() => parseCmsRoutesWireResult(wire({
       routes: [], pageInfo: { hasNextPage: false, endCursor: null }
-    })).toThrow(/snapshot/i)
-    expect(() => parseCmsListWireResult({
+    }))).toThrow(/snapshot/i)
+    expect(() => parseCmsListWireResult(wire({
       entries: [], pageInfo: { hasNextPage: true, endCursor: null }, collection: 'docs', locale
-    })).toThrow(/cursor/i)
+    }))).toThrow(/cursor/i)
   })
 
   it('rejects a collection or requested locale substitution', () => {
@@ -90,15 +99,15 @@ describe('CMS provider wire decoders', () => {
     let data: unknown = 'leaf'
     for (let depth = 0; depth < 80; depth++) data = { child: data }
 
-    expect(() => parseCmsSiteDataWireResult({
+    expect(() => parseCmsSiteDataWireResult(wire({
       key: 'deep', data, locale
-    })).toThrow(/depth|bounded|limit/i)
+    }))).toThrow(/depth|bounded|limit/i)
 
     let node: unknown = { entry, children: [] }
     for (let depth = 0; depth < 80; depth++) node = { entry, children: [node] }
-    expect(() => parseCmsNavWireResult({
+    expect(() => parseCmsNavWireResult(wire({
       tree: [node], collection: 'docs', locale
-    })).toThrow(/depth|bounded|limit/i)
+    }))).toThrow(/depth|bounded|limit/i)
   })
 
   it('rejects oversized strings and containers before Zod clones them', () => {
@@ -107,24 +116,24 @@ describe('CMS provider wire decoders', () => {
       title: 'x'.repeat(1024 * 1024 + 1)
     }).success).toBe(false)
 
-    expect(() => parseCmsSiteDataWireResult({
+    expect(() => parseCmsSiteDataWireResult(wire({
       key: 'large-string', data: 'x'.repeat(1024 * 1024 + 1), locale
-    })).toThrow(/string|bounded|limit/i)
+    }))).toThrow(/string|bounded|limit/i)
 
-    expect(() => parseCmsSiteDataWireResult({
+    expect(() => parseCmsSiteDataWireResult(wire({
       key: 'large-array', data: Array.from({ length: 2001 }, () => null), locale
-    })).toThrow(/container|array|bounded|limit/i)
+    }))).toThrow(/container|array|bounded|limit/i)
 
-    expect(() => parseCmsSiteDataWireResult({
+    expect(() => parseCmsSiteDataWireResult(wire({
       key: 'wide-object',
       data: Object.fromEntries(Array.from({ length: 257 }, (_, index) => [`key-${index}`, index])),
       locale
-    })).toThrow(/container|object|bounded|limit/i)
+    }))).toThrow(/container|object|bounded|limit/i)
 
-    expect(() => parseCmsSiteDataWireResult({
+    expect(() => parseCmsSiteDataWireResult(wire({
       key: 'many-nodes',
       data: Array.from({ length: 101 }, () => Array.from({ length: 1000 }, () => null)),
       locale
-    })).toThrow(/node count|bounded|limit/i)
+    }))).toThrow(/node count|bounded|limit/i)
   })
 })

@@ -8,6 +8,10 @@
   only on the query envelope, and the obsolete route-guessing helper is gone.
 - Add a bounded cache-hint constructor and a sanitized `QUERY_UNSUPPORTED`
   data-source error for backend adapters.
+- Version separately deployed CMS result envelopes and reject package/component
+  skew before interpreting result data.
+- Expand the public conformance suites across pagination, optional operations,
+  mounted paths, locale boundaries, and a complete in-memory reference source.
 
 ## v1.0.0-beta.1
 

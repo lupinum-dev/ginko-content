@@ -75,6 +75,7 @@ async function loadPackedApi(packageRoot) {
   return {
     ...(await load('dist/public/data-source.js')),
     ...(await load('dist/public/navigation.js')),
+    ...(await load('dist/cms-contract/index.js')),
     ...(await load('dist/portability/index.js')),
     ...(await load('dist/testing/portability-contract.js')),
   }
@@ -89,12 +90,13 @@ async function runWorkerProbe(packageRoot, tempRoot) {
     [
       `import * as dataSource from ${JSON.stringify(resolve(packageRoot, 'dist/public/data-source.js'))}`,
       `import * as navigation from ${JSON.stringify(resolve(packageRoot, 'dist/public/navigation.js'))}`,
+      `import * as cmsContract from ${JSON.stringify(resolve(packageRoot, 'dist/cms-contract/index.js'))}`,
       `import * as portability from ${JSON.stringify(resolve(packageRoot, 'dist/portability/index.js'))}`,
       `import * as testing from ${JSON.stringify(resolve(packageRoot, 'dist/testing/portability-contract.js'))}`,
       `import { runPureRuntimeProbe } from ${JSON.stringify(helper)}`,
       'globalThis.onmessage = async () => {',
       '  try {',
-      '    const result = await runPureRuntimeProbe({ ...dataSource, ...navigation, ...portability, ...testing })',
+      '    const result = await runPureRuntimeProbe({ ...dataSource, ...navigation, ...cmsContract, ...portability, ...testing })',
       "    globalThis.postMessage({ ok: true, result, runtime: { worker: typeof WorkerGlobalScope !== 'undefined', document: typeof document } })",
       '  } catch (error) {',
       "    globalThis.postMessage({ ok: false, error: error instanceof Error ? error.message : String(error) })",

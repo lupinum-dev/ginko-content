@@ -154,12 +154,15 @@ describe('runContentDataSourceContractSuite', () => {
             : null
           return { data: { result: expectedPath === contractDocument.contentPath ? contractDocument : undefined }, cache: false }
         }
+        const after = request.plan.pagination.mode === 'cursor' ? request.plan.pagination.after : null
         return {
           data: {
             mode: 'cursor',
-            result: [contractDocument],
+            result: after ? [] : [contractDocument],
             limit: request.plan.pagination.limit,
-            pageInfo: { endCursor: null, hasNext: false },
+            pageInfo: after
+              ? { endCursor: null, hasNext: false }
+              : { endCursor: 'page-2', hasNext: true },
           },
           cache: false,
         }
@@ -182,10 +185,26 @@ describe('runContentDataSourceContractSuite', () => {
       assertResult: result => expect(result).toMatchObject({ result: [{ contentPath: '/docs/intro' }] }),
     },
     cursor: {
-      query,
-      assertResult: result => expect(result).toMatchObject({
-        mode: 'cursor',
-        pageInfo: { hasNext: false, endCursor: null },
+      first: {
+        query,
+        assertResult: result => expect(result).toMatchObject({
+          mode: 'cursor',
+          pageInfo: { hasNext: true, endCursor: 'page-2' },
+        }),
+      },
+      next: cursor => ({
+        query: {
+          ...query,
+          plan: {
+            ...query.plan,
+            pagination: { mode: 'cursor', after: cursor, limit: 2 },
+          },
+        },
+        assertResult: result => expect(result).toMatchObject({
+          mode: 'cursor',
+          result: [],
+          pageInfo: { hasNext: false, endCursor: null },
+        }),
       }),
     },
   })

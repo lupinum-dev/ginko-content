@@ -75,9 +75,10 @@ const compareValues = (left: unknown, right: unknown, clause: QueryPlan['sort'][
   }).compare(String(left), String(right))
 }
 
-const selectQueryDocuments = (plan: QueryPlan) => {
+const selectQueryDocuments = (query: ContentProviderQuery) => {
+  const { plan } = query
   let selected = providerDocuments
-    .filter(document => !plan.collection || document.collection === plan.collection)
+    .filter(document => !query.collection || document.collection === query.collection)
     .filter(document => matchesFilter(document, plan.filter))
 
   const selector = plan.variant && 'by' in plan.variant ? plan.variant : undefined
@@ -130,7 +131,7 @@ export default {
     }
   },
   async query (_event, query) {
-    const selected = selectQueryDocuments(query.plan)
+    const selected = selectQueryDocuments(query)
     if (query.plan.mode === 'count') {
       return { result: selected.length }
     }

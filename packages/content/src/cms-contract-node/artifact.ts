@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -87,7 +88,7 @@ export async function writeResolvedContentContractArtifact(
   }
   const directory = join(resolve(root), '.ginko')
   const path = artifactPath(root)
-  const temporary = join(directory, `.content-contract.${process.pid}.${Date.now()}.tmp`)
+  const temporary = join(directory, `.content-contract.${process.pid}.${randomUUID()}.tmp`)
   await mkdir(directory, { recursive: true, mode: 0o700 })
   const directoryStats = await lstat(directory)
   if (!directoryStats.isDirectory() || directoryStats.isSymbolicLink()) {

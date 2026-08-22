@@ -3,8 +3,11 @@ import type {
   ContentProvider,
   ContentProviderCapabilities,
   ContentProviderQuery,
-  ContentProviderResult
+  ContentProviderResult,
+  ContentProviderSiteDataRequest,
+  ContentProviderSurroundingsOptions,
 } from '../public/provider'
+import type { ContentProviderSearchRequest } from '../types/search'
 import type { FilterExpr } from '../core/query/plan'
 import { isContentProviderResult } from '../public/provider'
 import { normalizeProviderDocument, type ProviderDocumentInput } from '../public/provider-document'
@@ -44,6 +47,21 @@ export interface ProviderContractSuiteOptions {
   sortProbe: ProviderQueryProbe
   /** First is mandatory; count is required when offset pagination is advertised. */
   terminalProbes: { first: ProviderQueryProbe, count?: ProviderQueryProbe }
+  /** One discriminating probe for every optional method the provider implements. */
+  operationProbes: ProviderOptionalOperationProbes
+}
+
+export interface ProviderOptionalOperationProbes {
+  navigation?: { query: ContentProviderQuery, assertResult: ProviderQueryProbe['assertResult'] }
+  surroundings?: {
+    collection: string
+    contentPath: string
+    options?: ContentProviderSurroundingsOptions
+    assertResult: ProviderQueryProbe['assertResult']
+  }
+  search?: { request: ContentProviderSearchRequest, assertResult: ProviderQueryProbe['assertResult'] }
+  siteData?: { request: ContentProviderSiteDataRequest, assertResult: ProviderQueryProbe['assertResult'] }
+  routes?: { assertResult: ProviderQueryProbe['assertResult'] }
 }
 
 const filterContainsNode = (filter: FilterExpr, type: ProviderLogicalFilterNode): boolean => {
@@ -192,11 +210,63 @@ export const runProviderContractSuite = (options: ProviderContractSuiteOptions) 
     })
   }
 
-  test(`${name} returns validated raw route records when routes() is present`, async () => {
+  test(`${name} has discriminating probes for every optional operation`, async () => {
     const provider = await loadProvider()
-    if (!provider.routes) return
+    for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
+      expect(Boolean(options.operationProbes[method]), `Missing conformance probe for implemented operation ${method}`).toBe(
+        typeof provider[method] === 'function'
+      )
+    }
+  })
+
+  if (options.operationProbes.navigation) {
+    test(`${name} executes navigation`, async () => {
+      const provider = await loadProvider()
+      const probe = options.operationProbes.navigation!
+      const result = unwrapProviderContractResult(await provider.navigation!(createEvent(), probe.query))
+      await probe.assertResult(result)
+    })
+  }
+
+  if (options.operationProbes.surroundings) {
+    test(`${name} executes surroundings`, async () => {
+      const provider = await loadProvider()
+      const probe = options.operationProbes.surroundings!
+      const result = unwrapProviderContractResult(await provider.surroundings!(
+        createEvent(),
+        probe.collection,
+        probe.contentPath,
+        probe.options,
+      ))
+      await probe.assertResult(result)
+    })
+  }
+
+  if (options.operationProbes.search) {
+    test(`${name} executes search`, async () => {
+      const provider = await loadProvider()
+      const probe = options.operationProbes.search!
+      const result = unwrapProviderContractResult(await provider.search!(createEvent(), probe.request))
+      await probe.assertResult(result)
+    })
+  }
+
+  if (options.operationProbes.siteData) {
+    test(`${name} executes site data`, async () => {
+      const provider = await loadProvider()
+      const probe = options.operationProbes.siteData!
+      const result = unwrapProviderContractResult(await provider.siteData!(createEvent(), probe.request))
+      await probe.assertResult(result)
+    })
+  }
+
+  if (options.operationProbes.routes) {
+    test(`${name} returns validated raw route records`, async () => {
+      const provider = await loadProvider()
+      const probe = options.operationProbes.routes!
+      const raw = unwrapProviderContractResult(await provider.routes!(createEvent()))
     const routes = normalizeProviderRoutes(
-      unwrapProviderContractResult(await provider.routes(createEvent())),
+      raw,
       provider.name
     )
     for (const route of routes) {
@@ -204,5 +274,7 @@ export const runProviderContractSuite = (options: ProviderContractSuiteOptions) 
       expect(route).not.toHaveProperty('path')
       expect(route).not.toHaveProperty('href')
     }
-  })
+      await probe.assertResult(raw)
+    })
+  }
 }

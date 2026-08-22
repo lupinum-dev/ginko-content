@@ -78,6 +78,17 @@ describe('provider-search playground conformance', () => {
         }),
         assertResult: assertTitles(['Provider English Guide'])
       }
+    },
+    operationProbes: {
+      search: {
+        request: { term: 'localized', locale: 'de', collections: ['docs'] },
+        assertResult: result => expect(result).toEqual([
+          expect.objectContaining({ title: 'Provider Deutscher Leitfaden' }),
+        ]),
+      },
+      routes: {
+        assertResult: result => expect(result).toHaveLength(2),
+      },
     }
   })
 })

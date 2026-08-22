@@ -12,6 +12,20 @@ const wireLimits = {
 } as const
 const encoder = new TextEncoder()
 
+/** Version shared by separately deployed CMS producers and Ginko Content consumers. */
+export const CMS_PROVIDER_WIRE_PROTOCOL = 'ginko-content-cms/v1' as const
+
+export type CmsProviderWireEnvelope<T> = {
+  protocol: typeof CMS_PROVIDER_WIRE_PROTOCOL
+  result: T
+}
+
+/** Wrap a CMS result at the deployment boundary without exposing backend details. */
+export const createCmsProviderWireEnvelope = <T>(result: T): CmsProviderWireEnvelope<T> => ({
+  protocol: CMS_PROVIDER_WIRE_PROTOCOL,
+  result,
+})
+
 const wireLimitError = (reason: string) => new TypeError(`CMS wire value exceeds its bounded ${reason} limit.`)
 
 function assertBoundedWireValue(root: unknown): void {
@@ -231,9 +245,13 @@ const parse = <T>(schema: z.ZodType<T>, operation: string, value: unknown): T =>
     const message = error instanceof Error ? error.message : 'CMS wire value is not bounded.'
     throw new TypeError(`Invalid CMS ${operation} wire result at result: ${message}`)
   }
-  const result = schema.safeParse(value)
-  if (result.success) return result.data
-  const issue = result.error.issues[0]
+  const envelopeSchema = z.object({
+    protocol: z.literal(CMS_PROVIDER_WIRE_PROTOCOL),
+    result: schema,
+  }).strict()
+  const parsed = envelopeSchema.safeParse(value)
+  if (parsed.success) return parsed.data.result
+  const issue = parsed.error.issues[0]
   const path = issue?.path.length ? issue.path.join('.') : 'result'
   throw new TypeError(`Invalid CMS ${operation} wire result at ${path}: ${issue?.message || 'invalid value'}`)
 }

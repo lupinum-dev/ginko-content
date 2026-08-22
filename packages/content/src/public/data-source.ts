@@ -94,8 +94,12 @@ export function createContentDataSourceCacheHint(
   const maxAge = input.maxAge ?? null
   const swr = input.swr ?? null
   for (const value of [maxAge, swr]) {
-    if (!Number.isInteger(value) || value < 0 || value > CONTENT_DATA_SOURCE_LIMITS.maxCacheTtlSeconds) {
-      if (value !== null) throw new TypeError('Content data-source cache TTL exceeds the limit.')
+    if (value !== null && (
+      !Number.isInteger(value)
+      || value < 0
+      || value > CONTENT_DATA_SOURCE_LIMITS.maxCacheTtlSeconds
+    )) {
+      throw new TypeError('Content data-source cache TTL exceeds the limit.')
     }
   }
   const lastModified = input.lastModified ?? null
