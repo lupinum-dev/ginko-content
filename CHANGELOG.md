@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.0-beta.2
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.1...v1.0.0-beta.2)
+
+This beta keeps agent-readable documentation faithful to the authored source.
+
+- Preserve code-fence language and filename metadata in raw Markdown and full
+  LLM output.
+- Order indexed pages by their natural numeric source paths so `llms.txt`
+  follows the authored documentation journey.
+
 ## v1.0.0-beta.1
 
 This beta defines the focused 1.0 contract. It removes prerelease
