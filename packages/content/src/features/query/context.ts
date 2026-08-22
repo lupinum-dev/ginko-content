@@ -17,6 +17,11 @@ export interface RuntimeContentConfig {
 
 export type ContentQueryEndpoint = 'query' | 'navigation'
 
+/**
+ * Internal execution context created only by Ginko's client and server
+ * adapters. Query transports must consume orchestration fields such as
+ * `populate` and return the fully resolved public response envelope.
+ */
 export interface ContentQueryContext {
   runtime: RuntimeContentConfig
   /** Optional direct provider operation used by server-side `surround()`. */
@@ -30,6 +35,7 @@ export interface ContentQueryContext {
       select?: readonly string[]
     }
   ) => Promise<Array<NavItem | null>>
+  /** Execute the complete public query contract, including population. */
   transport: <T>(
     endpoint: ContentQueryEndpoint,
     params: ContentQueryTransportInput

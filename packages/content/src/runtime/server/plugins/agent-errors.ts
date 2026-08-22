@@ -2,6 +2,7 @@ import { getRequestURL } from 'h3'
 import { defineNitroPlugin } from 'nitropack/runtime'
 import {
   acceptsMarkdown,
+  mergeVaryHeader,
   renderAgentNotFoundMarkdown,
   shouldSkipAgentMarkdownPath
 } from '../agent-http'
@@ -17,19 +18,11 @@ export default defineNitroPlugin((nitro) => {
       return
     }
 
-    const vary = new Set(
-      String(response.headers?.vary || '')
-        .split(',')
-        .map(value => value.trim().toLowerCase())
-        .filter(Boolean)
-    )
-    vary.add('accept')
-
     response.headers = {
       ...response.headers,
       'content-type': 'text/markdown; charset=utf-8',
       'x-robots-tag': 'noindex',
-      'vary': Array.from(vary).join(', ')
+      'vary': mergeVaryHeader(response.headers?.vary, 'accept')
     }
     response.body = renderAgentNotFoundMarkdown(pathname)
   })

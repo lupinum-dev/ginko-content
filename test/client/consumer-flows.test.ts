@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { defineCollection, defineContentConfig } from '../../packages/content/src/types/config'
+import { defineCollection, defineContentConfig, reference } from '../../packages/content/src/types/config'
+import { z } from 'zod'
 import { createInMemoryProvider } from '../support/provider-scenarios/provider'
 import { createSaasI18nScenario } from '../support/provider-scenarios/scenarios'
 import { createTestEvent } from '../support/provider-scenarios/event'
@@ -58,7 +59,8 @@ const contentConfig = defineContentConfig({
       type: 'page',
       source: 'posts/**/*',
       i18n: { defaultLocale: 'en', locales: ['en', 'de'] },
-      route: '/blog'
+      route: '/blog',
+      schema: z.object({ authors: z.array(reference('authors')) })
     }),
     authors: defineCollection({
       type: 'page',

@@ -48,8 +48,7 @@ export const appendResponseHeader = (event: H3Event, name: string, value: string
   setHeader(event, name, existing ? `${existing}, ${value}` : value)
 }
 
-export const addVaryHeader = (event: H3Event, value: string) => {
-  const current = event.node.res.getHeader('vary')
+export const mergeVaryHeader = (current: unknown, value: string) => {
   const entries = new Set(
     (typeof current === 'string' ? current : Array.isArray(current) ? current.join(',') : '')
       .split(',')
@@ -57,7 +56,11 @@ export const addVaryHeader = (event: H3Event, value: string) => {
       .filter(Boolean)
   )
   entries.add(value.toLowerCase())
-  setHeader(event, 'vary', Array.from(entries).join(', '))
+  return Array.from(entries).join(', ')
+}
+
+export const addVaryHeader = (event: H3Event, value: string) => {
+  setHeader(event, 'vary', mergeVaryHeader(event.node.res.getHeader('vary'), value))
 }
 
 const parseAcceptPart = (part: string) => {
@@ -66,8 +69,29 @@ const parseAcceptPart = (part: string) => {
   const q = qParam ? Number(qParam.slice(2)) : 1
   return {
     type: type.toLowerCase(),
-    q: Number.isFinite(q) ? q : 0
+    q: Number.isFinite(q) && q >= 0 && q <= 1 ? q : 0
   }
+}
+
+const effectiveAcceptQuality = (
+  entries: Array<{ type: string, q: number }>,
+  mediaType: string
+) => {
+  const [targetType] = mediaType.split('/')
+  const matches = entries
+    .map((entry) => {
+      if (entry.type === mediaType) return { ...entry, specificity: 2 }
+      if (entry.type === `${targetType}/*`) return { ...entry, specificity: 1 }
+      if (entry.type === '*/*') return { ...entry, specificity: 0 }
+      return null
+    })
+    .filter((entry): entry is { type: string, q: number, specificity: number } => Boolean(entry))
+
+  if (!matches.length) return 0
+  const specificity = Math.max(...matches.map(entry => entry.specificity))
+  return matches
+    .filter(entry => entry.specificity === specificity)
+    .reduce((maximum, entry) => Math.max(maximum, entry.q), 0)
 }
 
 export const acceptsMarkdown = (event: H3Event) => {
@@ -77,17 +101,15 @@ export const acceptsMarkdown = (event: H3Event) => {
   const entries = accept
     .split(',')
     .map(parseAcceptPart)
-    .filter(entry => entry.q > 0)
-  const markdownQ = entries
-    .filter(entry => entry.type === 'text/markdown')
-    .reduce((max, entry) => Math.max(max, entry.q), 0)
-  if (!markdownQ) return false
+  if (!entries.some(entry => entry.type === 'text/markdown' && entry.q > 0)) return false
 
-  const htmlQ = entries
-    .filter(entry => entry.type === 'text/html' || entry.type === 'application/xhtml+xml')
-    .reduce((max, entry) => Math.max(max, entry.q), 0)
+  const markdownQ = effectiveAcceptQuality(entries, 'text/markdown')
+  const htmlQ = Math.max(
+    effectiveAcceptQuality(entries, 'text/html'),
+    effectiveAcceptQuality(entries, 'application/xhtml+xml')
+  )
 
-  return markdownQ >= htmlQ
+  return markdownQ > 0 && markdownQ >= htmlQ
 }
 
 export const setAgentMarkdownHeaders = (event: H3Event, options: { noindex?: boolean } = {}) => {

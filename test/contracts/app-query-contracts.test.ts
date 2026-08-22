@@ -9,8 +9,10 @@ const runtime = {
           i18n: {
             defaultLocale: 'en',
             locales: ['en', 'de']
-          }
-        }
+          },
+          references: { authors: ['authors'] }
+        },
+        authors: {}
       },
       defaultLocale: 'en',
       locales: ['en', 'de'],

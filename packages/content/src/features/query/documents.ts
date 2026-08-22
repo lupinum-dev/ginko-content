@@ -19,7 +19,7 @@ import type {
 } from '../../types/query'
 import { compileQueryParams } from '../../core/query/filter'
 import type { ContentQueryContext } from './context'
-import { isNotFoundError } from './errors'
+import { withNotFoundFallback } from './errors'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
 import { selectWithPopulate, serializePopulateSpec, validatePopulateSpec } from './populate'
@@ -84,16 +84,10 @@ export async function resolveDocument<
 
   params.first = true
 
-  let response: unknown
-  try {
-    response = await context.transport('query', params)
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      const explain = explainResolution(collection, options.by, by, options.locale, options.fallback, null)
-      return { doc: null, explain } as ResolveOneResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>
-    }
-    throw error
-  }
+  const response = await withNotFoundFallback<unknown>(
+    () => context.transport('query', params),
+    { result: null }
+  )
 
   const doc = unwrapOneResponse<LocalizedDoc<ParsedContent>>(response)
   const explain = explainResolution(collection, options.by, by, options.locale, options.fallback, doc)
@@ -141,13 +135,10 @@ export async function resolveManyDocuments<
     ...(options.populate ? { populate: serializePopulateSpec(options.populate) } : {})
   }
 
-  let response: unknown
-  try {
-    response = await context.transport('query', params)
-  } catch (error) {
-    if (isNotFoundError(error)) return []
-    throw error
-  }
+  const response = await withNotFoundFallback<unknown>(
+    () => context.transport('query', params),
+    { result: [], skip: 0, limit: 0, total: 0 }
+  )
 
   const find = unwrapFindResponse<LocalizedDoc<ParsedContent>>(response)
   const docs = find.result
@@ -178,10 +169,8 @@ export async function resolveCount<
     count: true
   })
 
-  try {
-    return unwrapCountResponse(await context.transport('query', params))
-  } catch (error) {
-    if (isNotFoundError(error)) return 0
-    throw error
-  }
+  return unwrapCountResponse(await withNotFoundFallback<unknown>(
+    () => context.transport('query', params),
+    { result: 0 }
+  ))
 }

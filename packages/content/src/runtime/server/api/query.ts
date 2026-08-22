@@ -3,6 +3,8 @@ import { getContentQuery } from '../../utils/query'
 import { assertConfiguredProviderCollection } from '../provider-query'
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
 import { createServerContentQueryContext } from '../query-api'
+import { getContentRuntimeConfig } from '../runtime-config'
+import { validatePopulateSpec } from '../../../features/query/populate'
 
 /**
  * Typed 400 for a closed-boundary rejection. No internal
@@ -43,6 +45,21 @@ export default defineEventHandler(async (event) => {
     assertConfiguredProviderCollection(query.collection)
   } catch {
     throw invalidContentQueryRequest('$.collection', 'collection must name a configured content collection.')
+  }
+  try {
+    validatePopulateSpec(
+      query.collection,
+      query.collection,
+      getContentRuntimeConfig().content || {},
+      query.populate
+    )
+  } catch (error) {
+    throw invalidContentQueryRequest(
+      '$.populate',
+      error instanceof Error
+        ? error.message
+        : 'populate must use declared reference fields and configured target collections.'
+    )
   }
   const context = await createServerContentQueryContext(event)
   return await context.transport('query', query)

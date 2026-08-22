@@ -33,9 +33,9 @@ import {
   one as oneWithContext,
   paginate as paginateWithContext,
   resolveOne as resolveOneWithContext,
-  surround as surroundWithContext,
-  type ContentQueryContext
+  surround as surroundWithContext
 } from '../../features/query/unified'
+import type { ContentQueryContext } from '../../features/query/context'
 import { getContentProvider } from './providers'
 import { createContentProviderError } from '../../public/provider-errors'
 import { getContentRuntimeConfig } from './runtime-config'
@@ -49,7 +49,11 @@ import { projectPublicQueryResponse } from '../../features/query/responses'
 import { projectProviderNavigation, projectProviderSurroundings } from './provider-route-facts'
 import { stripLocalePrefix } from '../../core/content/path'
 import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
-import { populateQueryResponse } from '../../features/query/populate'
+import {
+  populateQueryResponse,
+  selectWithPopulate,
+  validatePopulateSpec
+} from '../../features/query/populate'
 
 export const createServerContentQueryContext = async (event: H3Event): Promise<ContentQueryContext> => {
   const provider = await getContentProvider(event)
@@ -107,9 +111,20 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
           query.collection || undefined
         ) as NavItem[]
       }
+      validatePopulateSpec(providerParams.collection, providerParams.collection, runtime, populate)
+      const plannedProviderParams = populate
+        ? {
+            ...providerParams,
+            only: selectWithPopulate(providerParams.only, populate)
+          }
+        : providerParams
       const response = projectPublicQueryResponse(
-        normalizeProviderQueryResponse(providerParams, await provider.query(event, createProviderQuery(providerParams)), provider.name),
-        providerParams.first === true
+        normalizeProviderQueryResponse(
+          plannedProviderParams,
+          await provider.query(event, createProviderQuery(plannedProviderParams)),
+          provider.name
+        ),
+        plannedProviderParams.first === true
       )
       return await populateQueryResponse(context, oneWithContext, response, params) as ContentPublicQueryResponse<T>
     }
