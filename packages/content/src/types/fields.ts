@@ -93,8 +93,6 @@ export type ContentFieldMetadata = {
     | 'relation'
     | 'relations'
     | 'image'
-    | 'asset'
-    | 'file'
     | 'icon'
   label?: string | Record<string, string> | null
   description?: string | null
@@ -108,10 +106,6 @@ export type ContentFieldMetadata = {
   slugFrom?: string | null
   image?: {
     aspectRatio?: string
-    accept?: ContentManagedMediaType[]
-  } | null
-  asset?: {
-    kind?: 'asset' | 'file'
     accept?: ContentManagedMediaType[]
   } | null
 }
@@ -266,26 +260,6 @@ export const fields = {
       localized: false,
       image: {
         ...(options.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
-        ...(options.accept ? { accept: options.accept } : {}),
-      },
-    })
-  },
-  asset (options: { accept?: ContentManagedMediaType[] } = {}) {
-    return optionalField(z.string(), {
-      type: 'asset',
-      localized: false,
-      asset: {
-        kind: 'asset',
-        ...(options.accept ? { accept: options.accept } : {}),
-      },
-    })
-  },
-  file (options: { accept?: ContentManagedMediaType[] } = {}) {
-    return optionalField(z.string(), {
-      type: 'file',
-      localized: false,
-      asset: {
-        kind: 'file',
         ...(options.accept ? { accept: options.accept } : {}),
       },
     })

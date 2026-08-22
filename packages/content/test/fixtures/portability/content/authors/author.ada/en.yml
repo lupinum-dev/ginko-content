@@ -57,9 +57,6 @@ fields:
       bytes: 68
       mediaType: "image/png"
       originalFilename: "duplicate.png"
-  attachment:
-    kind: "external"
-    url: "https://files.example.test/portrait.png"
   icon: "i-lucide-pen"
   snippet: "const portable = true"
   accent: "#336699"

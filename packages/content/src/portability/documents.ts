@@ -213,7 +213,7 @@ function validateFieldValue(field: ResolvedContentFieldV1, value: unknown): Json
     if (references.some(reference => reference.collection !== field.relation?.collection)) throw invalidDocument()
     return references as unknown as JsonValue
   }
-  if (field.type === 'image' || field.type === 'file') return assertPortableAssetReference(value) as unknown as JsonValue
+  if (field.type === 'image') return assertPortableAssetReference(value) as unknown as JsonValue
   if (field.type === 'images') {
     if (!Array.isArray(value)) throw invalidDocument()
     return value.map(assertPortableAssetReference) as unknown as JsonValue

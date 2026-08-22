@@ -47,7 +47,6 @@ export type ResolvedContentFieldTypeV1 =
   | 'relations'
   | 'image'
   | 'images'
-  | 'file'
   | 'icon'
   | 'code'
   | 'color'

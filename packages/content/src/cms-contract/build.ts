@@ -168,7 +168,7 @@ function fieldFromSchema(key: string, schema: unknown, localized: boolean): Reso
 }
 
 function fieldFromMetadata(key: string, metadata: ContentFieldMetadata, sourceSchema: unknown, schema: unknown, localized: boolean, required: boolean): ResolvedContentFieldV1 {
-  const type = metadata.type === 'boolean' ? 'toggle' : metadata.type === 'asset' ? 'file' : metadata.type
+  const type = metadata.type === 'boolean' ? 'toggle' : metadata.type
   const nested = type === 'object'
     ? nestedFields(schema)
     : type === 'array' && getSchemaTypeName(unwrapSchema(getSchemaDef(schema)?.element)) === 'ZodObject'
@@ -182,8 +182,8 @@ function fieldFromMetadata(key: string, metadata: ContentFieldMetadata, sourceSc
     default: defaultFromSchema(sourceSchema, key),
     options: metadata.options ?? null,
     relation: metadata.relation ? { collection: metadata.relation.collectionId, multiple: metadata.relation.multiple ?? type === 'relations' } : null,
-    media: metadata.image || metadata.asset
-      ? { mediaTypes: portableMediaTypes(metadata.image?.accept ?? metadata.asset?.accept), aspectRatio: metadata.image?.aspectRatio ?? null }
+    media: metadata.image
+      ? { mediaTypes: portableMediaTypes(metadata.image.accept), aspectRatio: metadata.image.aspectRatio ?? null }
       : null,
     fields: nested,
     validation: validationFromSchema(sourceSchema, type),
@@ -384,7 +384,7 @@ function validateFieldLevel(collection: string, fields: ResolvedContentFieldV1[]
     if (candidate.relation && (!candidate.relation.collection || candidate.relation.multiple !== (candidate.type === 'relations'))) {
       throw new Error(`Field "${candidate.key}" has invalid relation cardinality or target.`)
     }
-    if (candidate.media && !['image', 'images', 'file'].includes(candidate.type)) throw new Error(`Field "${candidate.key}" has media policy for type "${candidate.type}".`)
+    if (candidate.media && !['image', 'images'].includes(candidate.type)) throw new Error(`Field "${candidate.key}" has media policy for type "${candidate.type}".`)
     if (candidate.fields && !['object', 'array', 'blocks'].includes(candidate.type)) throw new Error(`Field "${candidate.key}" has nested fields for type "${candidate.type}".`)
     if (candidate.options && !['select', 'multiselect', 'radio'].includes(candidate.type)) throw new Error(`Field "${candidate.key}" has options for type "${candidate.type}".`)
     if ((candidate.min !== null || candidate.max !== null || candidate.step !== null) && !['number', 'range'].includes(candidate.type)) {

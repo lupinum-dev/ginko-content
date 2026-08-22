@@ -67,7 +67,7 @@ describe('resolved content contract field normalization', () => {
           source: 'content/records/*.json',
           schema: z.object({
             // @ts-expect-error Runtime validation must also protect JavaScript and untyped configs.
-            attachment: fields.file({ accept: ['application/pdf'] }),
+            attachment: fields.image({ accept: ['application/pdf'] }),
           }),
         },
       },

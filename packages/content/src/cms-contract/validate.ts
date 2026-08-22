@@ -15,7 +15,7 @@ import {
 const fieldTypes = new Set<ResolvedContentFieldTypeV1>([
   'text', 'textarea', 'richtext', 'slug', 'email', 'url', 'number', 'range', 'select',
   'multiselect', 'radio', 'checkbox', 'toggle', 'date', 'datetime', 'time', 'json',
-  'object', 'array', 'blocks', 'relation', 'relations', 'image', 'images', 'file', 'icon',
+  'object', 'array', 'blocks', 'relation', 'relations', 'image', 'images', 'icon',
   'code', 'color',
 ])
 const mediaTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
@@ -138,7 +138,7 @@ function field(value: unknown, path: string): ResolvedContentFieldV1 {
 
 function validateFieldPolicy(input: ResolvedContentFieldV1, path: string): void {
   if (input.relation && (!['relation', 'relations'].includes(input.type) || input.relation.multiple !== (input.type === 'relations'))) throw new Error(`${path} has invalid relation policy.`)
-  if (input.media && !['image', 'images', 'file'].includes(input.type)) throw new Error(`${path} has invalid media policy.`)
+  if (input.media && !['image', 'images'].includes(input.type)) throw new Error(`${path} has invalid media policy.`)
   if (input.fields && !['object', 'array', 'blocks'].includes(input.type)) throw new Error(`${path} has invalid nested field policy.`)
   if (input.options && !['select', 'multiselect', 'radio'].includes(input.type)) throw new Error(`${path} has invalid options policy.`)
   if ((input.min !== null || input.max !== null || input.step !== null) && !['number', 'range'].includes(input.type)) throw new Error(`${path} has invalid numeric policy.`)
