@@ -111,7 +111,7 @@ describe('query execution contracts', () => {
           docs: { i18n: true, localePolicy: docsLocalePolicy }
         }
       } as any)
-      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, docsLocalePolicy))
     }
     const event = createTestEvent()
 
@@ -245,7 +245,7 @@ describe('query execution contracts', () => {
           docs: { i18n: true, localePolicy: docsLocalePolicy }
         }
       } as any)
-      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, docsLocalePolicy))
     }
     const event = createTestEvent()
 
@@ -349,7 +349,7 @@ describe('query execution contracts', () => {
           docs: { i18n: true, localePolicy: docsLocalePolicy }
         }
       } as any)
-      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, docsLocalePolicy))
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, docsLocalePolicy))
     }
 
     const result = await executeContentQuery(createTestEvent(), {
@@ -410,7 +410,10 @@ describe('query execution contracts', () => {
   // while draft is the one environment-aware publication-visibility fact.
   test('executeContentQuery applies structural exclusion unconditionally and draft visibility per environment', async () => {
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, undefined))
+    }
 
     const dataset = [
       doc({ id: 'content:en:docs:published.md', collection: 'docs', canonicalKey: 'docs/published', path: '/docs/published', title: 'Published' }),
@@ -440,7 +443,10 @@ describe('query execution contracts', () => {
   test('executeContentQuery rejects empty public graph queries', async () => {
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // Adapt builder parameters to the lowered plan expected by this helper.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, undefined))
+    }
 
     await expect(executeContentQuery(createTestEvent(), {
       where: [{ path: '/guide/intro' }]
@@ -453,7 +459,10 @@ describe('query execution contracts', () => {
   test('executeContentQuery rejects public regex filters before graph execution', async () => {
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // Adapt builder parameters to the lowered plan expected by this helper.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, undefined))
+    }
 
     await expect(Promise.resolve().then(() => executeContentQuery(createTestEvent(), {
       collection: 'docs',
@@ -521,7 +530,10 @@ describe('query execution contracts', () => {
 
     const { executeFilesystemContentQuery: rawExecuteContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
     // Adapt builder parameters to the lowered plan expected by this helper.
-    const executeContentQuery = (event: any, params: any) => rawExecuteContentQuery(event, createProviderQuery(params).plan)
+    const executeContentQuery = (event: any, params: any) => {
+      const query = createProviderQuery(params)
+      return rawExecuteContentQuery(event, fromContentProviderQueryPlan(query.plan, query.collection, undefined))
+    }
 
     await expect(executeContentQuery(createTestEvent(), {
       collection: 'docs',

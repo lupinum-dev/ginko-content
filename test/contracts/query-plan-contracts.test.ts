@@ -152,7 +152,7 @@ describe('query plan contracts', () => {
       path: '/docs/intro',
       locale: 'en'
     })
-    expect(fromContentProviderQueryPlan(provider, policy).variant).toEqual(canonical.variant)
+    expect(fromContentProviderQueryPlan(provider, 'docs', policy).variant).toEqual(canonical.variant)
   })
 
 
