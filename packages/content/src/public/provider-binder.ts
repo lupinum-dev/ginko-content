@@ -11,6 +11,7 @@ import {
 } from '../core/provider-route-record'
 import {
   CONTENT_DATA_SOURCE_LIMITS,
+  createContentDataSourceCacheHint,
   type BoundedContentProviderQuery,
   type ContentDataSource,
   type ContentDataSourceCacheHint,
@@ -63,9 +64,11 @@ function normalizedBackendError(cause: unknown): Error {
   if (isContentDataSourceError(cause)) {
     return surfaced(
       cause.code,
-      cause.code === 'QUERY_CURSOR_INVALID' ? 400 : 502,
+      cause.code === 'QUERY_CURSOR_INVALID' || cause.code === 'QUERY_UNSUPPORTED' ? 400 : 502,
       cause.code === 'QUERY_CURSOR_INVALID'
         ? 'Content data-source query cursor is invalid.'
+        : cause.code === 'QUERY_UNSUPPORTED'
+          ? 'Content data-source query is unsupported.'
         : 'Content data-source operation failed.'
     )
   }
@@ -76,6 +79,7 @@ function normalizedBackendError(cause: unknown): Error {
 
 const positiveInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length
 
 const dataSourceError = (code: ContentDataSourceValidationErrorCode, message: string): Error =>
   new ContentDataSourceValidationError(code, message)
@@ -103,9 +107,6 @@ function assertBoundedQuery<Context>(
   }
 }
 
-const utf8Bytes = (value: string) => new TextEncoder().encode(value).length
-const credentialPattern = /https?:\/\/[^/@\s]+@|[?&](?:access_token|api[_-]?key|token|secret|password)=/i
-
 function navigationNodeCount(items: unknown[], limit: number): number {
   let count = 0
   const visit = (nodes: unknown[]) => {
@@ -124,54 +125,22 @@ function navigationNodeCount(items: unknown[], limit: number): number {
 
 function cacheHint(hint: ContentDataSourceCacheHint | false): ContentCacheHintInput {
   if (hint === false) return false
-  const exactKeys = ['etag', 'lastModified', 'maxAge', 'paths', 'swr', 'tags']
-  if (Object.keys(hint).sort().join('\0') !== exactKeys.join('\0')) {
-    throw dataSourceError('CACHE_HINT_INVALID', 'Content data-source cache hint has an invalid shape.')
-  }
-  const validateKeys = (values: string[], maximum: number, label: string) => {
-    if (!Array.isArray(values) || values.length > maximum) {
-      throw dataSourceError('CACHE_HINT_INVALID', `Content data-source cache ${label} exceed the limit.`)
-    }
-    for (const value of values) {
-      if (
-        typeof value !== 'string' ||
-        !value ||
-        value !== value.normalize('NFC') ||
-        utf8Bytes(value) > CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes ||
-        (label === 'paths' && !value.startsWith('/'))
-      ) {
-        throw dataSourceError('CACHE_HINT_INVALID', `Content data-source cache ${label} contain an invalid value.`)
-      }
-      if (credentialPattern.test(value)) {
-        throw dataSourceError('CACHE_HINT_INVALID', `Content data-source cache ${label} contain credentials.`)
-      }
-    }
-  }
-  validateKeys(hint.tags, CONTENT_DATA_SOURCE_LIMITS.maxCacheTags, 'tags')
-  validateKeys(hint.paths, CONTENT_DATA_SOURCE_LIMITS.maxCachePaths, 'paths')
-  for (const value of [hint.maxAge, hint.swr]) {
-    if (value !== null && (!Number.isInteger(value) || value < 0 || value > CONTENT_DATA_SOURCE_LIMITS.maxCacheTtlSeconds)) {
-      throw dataSourceError('CACHE_HINT_INVALID', 'Content data-source cache TTL exceeds the limit.')
-    }
-  }
-  if (hint.lastModified !== null && (!Number.isSafeInteger(hint.lastModified) || hint.lastModified < 0)) {
-    throw dataSourceError('CACHE_HINT_INVALID', 'Content data-source lastModified is invalid.')
-  }
-  if (hint.etag !== null && (
-    typeof hint.etag !== 'string' ||
-    !hint.etag ||
-    utf8Bytes(hint.etag) > CONTENT_DATA_SOURCE_LIMITS.maxCacheKeyBytes ||
-    credentialPattern.test(hint.etag)
-  )) {
-    throw dataSourceError('CACHE_HINT_INVALID', 'Content data-source ETag is invalid.')
+  let normalized: ContentDataSourceCacheHint
+  try {
+    normalized = createContentDataSourceCacheHint(hint)
+  } catch (error) {
+    throw dataSourceError(
+      'CACHE_HINT_INVALID',
+      error instanceof Error ? error.message : 'Content data-source cache hint is invalid.'
+    )
   }
   return {
-    tags: [...new Set(hint.tags)],
-    paths: [...new Set(hint.paths)],
-    ...(hint.maxAge === null ? {} : { maxAge: hint.maxAge }),
-    ...(hint.swr === null ? {} : { swr: hint.swr }),
-    ...(hint.etag === null ? {} : { etag: hint.etag }),
-    ...(hint.lastModified === null ? {} : { lastModified: new Date(hint.lastModified) }),
+    tags: normalized.tags,
+    paths: normalized.paths,
+    ...(normalized.maxAge === null ? {} : { maxAge: normalized.maxAge }),
+    ...(normalized.swr === null ? {} : { swr: normalized.swr }),
+    ...(normalized.etag === null ? {} : { etag: normalized.etag }),
+    ...(normalized.lastModified === null ? {} : { lastModified: new Date(normalized.lastModified) }),
   }
 }
 

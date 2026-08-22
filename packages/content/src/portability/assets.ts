@@ -86,7 +86,7 @@ export function collectPortableAssetReferences(fields: ResolvedContentFieldV1[],
 }
 
 function visitField(field: ResolvedContentFieldV1, value: JsonValue, output: PortableAssetReferenceV1[]): void {
-  if (field.type === 'image' || field.type === 'file') {
+  if (field.type === 'image') {
     if (value !== null) output.push(assertPortableAssetReference(value))
   } else if (field.type === 'images') {
     if (!Array.isArray(value)) throw invalidAsset()
@@ -264,7 +264,7 @@ function portableMdcAssetReference(value: string): PortableMdcAssetReferenceV1 |
 }
 
 function rewriteField(field: ResolvedContentFieldV1, value: JsonValue, rewrite: (reference: PortableAssetReferenceV1) => PortableAssetReferenceV1): JsonValue {
-  if (field.type === 'image' || field.type === 'file') return value === null ? null : rewrite(assertPortableAssetReference(value)) as unknown as JsonValue
+  if (field.type === 'image') return value === null ? null : rewrite(assertPortableAssetReference(value)) as unknown as JsonValue
   if (field.type === 'images') return (value as JsonValue[]).map(item => rewrite(assertPortableAssetReference(item)) as unknown as JsonValue)
   if (!field.fields || !value || typeof value !== 'object') return value
   if (Array.isArray(value)) return value.map(item => item && typeof item === 'object' && !Array.isArray(item) ? rewritePortableAssetReferences(field.fields!, item, rewrite) : item)

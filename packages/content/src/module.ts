@@ -10,6 +10,7 @@ import { rm } from 'node:fs/promises'
 import { resolve as resolveFilePath } from 'node:path'
 import { name, peerDependencies, version } from '../package.json'
 import { buildResolvedContentContract } from './cms-contract/index'
+import { writeResolvedContentContractArtifact } from './cms-contract-node/artifact'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from './types/module'
 import { loadContentConfig, resolveContentConfigPath } from './utils/content-config'
 import { createVirtualContentTemplates, registerVirtualContentAliases } from './module/virtual'
@@ -318,6 +319,10 @@ export default defineNuxtModule<ModuleOptions>({
       getSearchRuntime,
       siteUrl: resolveNuxtSiteUrl(nuxt)
     })
+    // Downstream Nuxt modules run before `modules:done`. The contract is already
+    // immutable here; provider finalization validates the selected provider but
+    // does not rebuild content policy.
+    await writeResolvedContentContractArtifact(nuxt.options.rootDir, contentContext.contract)
     registerContentContextFinalization({
       nuxt,
       options,

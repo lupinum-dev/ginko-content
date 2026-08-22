@@ -109,7 +109,7 @@ describe('navigation contracts', () => {
     const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     return resolveContentNavigation(event, {
       collection,
-      plan: fromContentProviderQueryPlan(query.plan, policy)
+      plan: fromContentProviderQueryPlan(query.plan, query.collection, policy)
     })
   }
 

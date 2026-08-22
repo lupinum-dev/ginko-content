@@ -75,7 +75,7 @@ describe('navigation diagnostics contracts', () => {
     const { resolveContentNavigation } = await import('../../packages/content/src/runtime/server/navigation-query')
     return resolveContentNavigation(createTestEvent(), {
       collection: wire.collection!,
-      plan: fromContentProviderQueryPlan(wire.plan, localePolicy)
+      plan: fromContentProviderQueryPlan(wire.plan, wire.collection, localePolicy)
     })
   }
 

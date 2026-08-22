@@ -102,9 +102,10 @@ export const toContentProviderQueryPlan = (
   plan: CanonicalQueryPlan,
   policy: ResolvedCollectionLocalePolicy | undefined
 ): ContentProviderQueryPlan => {
+  const { collection: _collection, ...withoutCollection } = plan
   const selector = plan.variant
   if (!selector) {
-    const { variant: _variant, ...provider } = plan
+    const { variant: _variant, ...provider } = withoutCollection
     return provider
   }
 
@@ -135,17 +136,22 @@ export const toContentProviderQueryPlan = (
     variant = selector
   }
 
-  return { ...plan, variant }
+  return { ...withoutCollection, variant }
 }
 
 /** Filesystem-provider boundary: mounted public wire back to canonical graph coordinates. */
 export const fromContentProviderQueryPlan = (
   plan: ContentProviderQueryPlan,
+  collection: string | null,
   policy: ResolvedCollectionLocalePolicy | undefined
 ): CanonicalQueryPlan => {
+  const planWithCollection = {
+    ...plan,
+    ...(collection ? { collection } : {})
+  }
   const selector = plan.variant
   if (!selector) {
-    const { variant: _variant, ...canonical } = plan
+    const { variant: _variant, ...canonical } = planWithCollection
     return canonical
   }
 
@@ -154,7 +160,7 @@ export const fromContentProviderQueryPlan = (
     const operation = operationLocales(selector, resolvedPolicy)
     const { path, ...options } = selector
     return {
-      ...plan,
+      ...planWithCollection,
       variant: {
         ...options,
         canonicalPath: unmountProviderContentPath(
@@ -167,7 +173,7 @@ export const fromContentProviderQueryPlan = (
   }
   if (selector.by === 'route') {
     return {
-      ...plan,
+      ...planWithCollection,
       variant: {
         ...selector,
         candidates: selector.candidates.map(candidate => ({
@@ -181,5 +187,5 @@ export const fromContentProviderQueryPlan = (
       }
     }
   }
-  return { ...plan, variant: selector }
+  return { ...planWithCollection, variant: selector }
 }

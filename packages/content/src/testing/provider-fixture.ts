@@ -1,4 +1,12 @@
 import type { ContentCacheHint, ContentProvider, ContentProviderQuery } from '../public/provider'
+import {
+  CONTENT_DATA_SOURCE_LIMITS,
+  createContentDataSourceError,
+  type ContentDataSource,
+  type ContentDataSourceControl,
+  type ContentDataSourceResult,
+} from '../public/data-source'
+import { isContentProviderResult } from '../core/provider-result'
 import type { H3Event } from 'h3'
 import type { ContentQueryFindResponse, ContentQueryResponse } from '../types/api'
 import type { ContentFileMeta, ParsedContent } from '../types/content'
@@ -289,11 +297,11 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
   }
 
   const execute = (providerQuery: ContentProviderQuery) => {
-    assertCollection(providerQuery.plan.collection)
+    assertCollection(providerQuery.collection ?? undefined)
     const policy = providerQuery.collection
       ? fixture.runtime.collections[providerQuery.collection]?.localePolicy
       : undefined
-    const canonicalPlan = fromContentProviderQueryPlan(providerQuery.plan, policy)
+    const canonicalPlan = fromContentProviderQueryPlan(providerQuery.plan, providerQuery.collection, policy)
     return executeQueryPlan<ParsedContent>(
       fixture.graph,
       {
@@ -505,6 +513,90 @@ export const createFixtureContentProvider = (fixture: ProviderFixture, name = fi
   }
 
   return Object.assign(provider as ContentProvider, { cache })
+}
+
+const fixtureResult = <T>(value: T | import('../public/provider').ContentProviderResult<T>): ContentDataSourceResult<T> => ({
+  data: isContentProviderResult(value) ? value.data : value,
+  cache: false,
+})
+
+const assertFixtureControl = (control: ContentDataSourceControl) => {
+  control.signal.throwIfAborted()
+  if (Date.now() >= control.deadlineAt) throw createContentDataSourceError('BACKEND_FAILURE')
+}
+
+/** In-memory reference adapter for tests, examples, and adapter prototyping. */
+export const createFixtureContentDataSource = (
+  fixture: ProviderFixture,
+  name = fixture.providerName,
+): ContentDataSource<unknown> => {
+  const provider = createFixtureContentProvider(fixture, name)
+  const event = () => createProviderFixtureEvent({ fixture, provider })
+  return {
+    name,
+    capabilities: {
+      protocol: 'ginko-content-data-source/v1',
+      query: {
+        operators: provider.capabilities.query.operators,
+        pagination: provider.capabilities.query.pagination,
+        maxPageSize: CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize,
+      },
+    },
+    async query(_context, query, control) {
+      assertFixtureControl(control)
+      return fixtureResult(await provider.query(event(), query))
+    },
+    async navigation(_context, query, _options, control) {
+      assertFixtureControl(control)
+      return fixtureResult(await provider.navigation!(event(), query))
+    },
+    async surroundings(_context, collection, contentPath, options, control) {
+      assertFixtureControl(control)
+      return fixtureResult(await provider.surroundings!(event(), collection, contentPath, options))
+    },
+    async search(_context, request, control) {
+      assertFixtureControl(control)
+      const value = fixtureResult(await provider.search!(event(), request))
+      return { ...value, data: value.data.slice(0, request.limit) }
+    },
+    async siteData(_context, request, control) {
+      assertFixtureControl(control)
+      const value = fixtureResult(await provider.siteData!(event(), request))
+      return {
+        ...value,
+        data: {
+          key: request.key,
+          locale: request.locale ?? null,
+          data: value.data.data,
+          updatedAt: value.data.updatedAt ?? null,
+        },
+      }
+    },
+    async routes(_context, request, control) {
+      assertFixtureControl(control)
+      const value = fixtureResult(await provider.routes!(event()))
+      const prefix = 'fixture:'
+      const token = request.cursor?.startsWith(prefix) ? request.cursor.slice(prefix.length) : null
+      const offset = request.cursor === null
+        ? 0
+        : token !== null && /^(?:0|[1-9]\d*)$/.test(token)
+          ? Number(token)
+          : Number.NaN
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > value.data.length) {
+        throw createContentDataSourceError('QUERY_CURSOR_INVALID')
+      }
+      const items = value.data.slice(offset, offset + request.limit)
+      const nextOffset = offset + items.length
+      return {
+        ...value,
+        data: {
+          items,
+          nextCursor: nextOffset < value.data.length ? `${prefix}${nextOffset}` : null,
+          snapshot: fixture.name,
+        },
+      }
+    },
+  }
 }
 
 export const createDefaultProviderFixture = () => createProviderFixture({

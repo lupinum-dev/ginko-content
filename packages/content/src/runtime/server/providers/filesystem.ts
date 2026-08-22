@@ -182,7 +182,7 @@ export const filesystemProvider: ContentProvider = {
     const policy = query.collection
       ? resolveRuntimeCollectionLocalePolicy(query.collection, config)
       : undefined
-    const canonicalPlan = fromContentProviderQueryPlan(query.plan, policy)
+    const canonicalPlan = fromContentProviderQueryPlan(query.plan, query.collection, policy)
     const plan = {
       ...canonicalPlan,
       // Provider documents must cross the seam with their complete identity
@@ -202,7 +202,7 @@ export const filesystemProvider: ContentProvider = {
     if (!localePolicy) {
       throw new Error(`Missing runtime locale policy for content collection "${collection}".`)
     }
-    const canonicalPlan = fromContentProviderQueryPlan(query.plan, localePolicy)
+    const canonicalPlan = fromContentProviderQueryPlan(query.plan, query.collection, localePolicy)
     const canonical = await resolveContentNavigation(event, {
       collection,
       plan: canonicalPlan

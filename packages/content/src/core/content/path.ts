@@ -310,43 +310,4 @@ export const lowerRouteToCanonicalCandidates = (
   }))
 }
 
-/**
- * Released CMS-contract adapter returning mounted provider coordinates.
- *
- * This function GUESSES: it unions locales from the mount map, the requested
- * chain, and the default locale, and it substitutes `/` for any locale with no
- * declared mount. The content engine deliberately does not call it — route
- * lowering goes through `lowerRouteToCandidates`
- * (`features/localization/route-projector.ts`), which validates the resolved
- * locale's configured mount and fails instead of substituting one.
- *
- * It exists only so CMS adapters compiled against the released contract keep
- * working. New code should use the resolved collection locale policy.
- */
-export const routeToContentPathCandidates = (
-  route: string,
-  requestedLocale: string | undefined,
-  localeChain: string[],
-  defaultLocale?: string,
-  mounts?: RouteMounts
-) => {
-  const locales = Array.from(new Set([...Object.keys(mounts || {}), ...localeChain, defaultLocale].filter(Boolean) as string[]))
-  if (!mounts) {
-    const stripped = stripLocalePrefix(route, locales, defaultLocale, requestedLocale)
-    return localeChain.map(locale => ({ locale, path: stripped.path }))
-  }
-
-  return lowerRouteToCanonicalCandidates(
-    route,
-    requestedLocale,
-    localeChain,
-    defaultLocale || localeChain[0] || '',
-    locales,
-    locale => mounts[locale] || '/'
-  ).map(candidate => ({
-    locale: candidate.locale,
-    path: mountContentPath(candidate.contentPath, candidate.locale, mounts)
-  }))
-}
-
 export const pathHasLocalePrefix = isLocalePrefixedPath

@@ -16,9 +16,12 @@ vi.mock('#content/virtual/providers', () => ({
 }))
 
 describe('provider query contract', () => {
-  test('uses only the v4 provider wire', () => {
-    expect(PROVIDER_QUERY_VERSION).toBe(4)
-    expect(toContentProviderQuery({ collection: 'docs' }).v).toBe(4)
+  test('uses only the v5 provider wire with one collection authority', () => {
+    expect(PROVIDER_QUERY_VERSION).toBe(5)
+    const query = toContentProviderQuery({ collection: 'docs' })
+    expect(query.v).toBe(5)
+    expect(query.collection).toBe('docs')
+    expect(query.plan).not.toHaveProperty('collection')
   })
 
   test('the context-free helper rejects selectors that require application policy', () => {

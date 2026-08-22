@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.0.0-beta.3
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.2...v1.0.0-beta.3)
+
+- Generate one canonical `.ginko/content-contract.json` artifact and expose a
+  bounded Node reader for CMS and deployment tools.
+- Hard-cut the prerelease provider wire to v5. Collection identity now lives
+  only on the query envelope, and the obsolete route-guessing helper is gone.
+- Add a bounded cache-hint constructor and a sanitized `QUERY_UNSUPPORTED`
+  data-source error for backend adapters.
+- Version separately deployed CMS result envelopes and reject package/component
+  skew before interpreting result data.
+- Expand the public conformance suites across pagination, optional operations,
+  mounted paths, locale boundaries, and a complete in-memory reference source.
+- Bound CMS import planning by document count, per-document bytes, and a
+  256 MiB cumulative document ceiling without retaining raw document or asset
+  bodies in the plan.
+- Keep managed media honest and image-only. Remove the unreleased generic
+  `fields.file()`, `fields.asset()`, and `file` contract shapes until Ginko can
+  provide their full authoring, delivery, and portability lifecycle.
+- Reuse one symlink-safe stable-file reader for generated contracts and
+  portable directories, and emit the resolved Nuxt contract artifact exactly
+  once per preparation lifecycle.
+- Add explicit backend deadline and route-snapshot consistency coverage to the
+  data-source boundary.
+- Prepare the coordinated Ginko CMS adapter for strict provider-query v5 and
+  response-envelope skew rejection.
+
 ## v1.0.0-beta.2
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.1...v1.0.0-beta.2)

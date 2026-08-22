@@ -6,7 +6,6 @@ import {
   pathHasLocalePrefix,
   prefixPathWithLocale,
   routeRemainder,
-  routeToContentPathCandidates,
   stripLocalePrefix,
   type RouteMounts
 } from '../../core/content/path'
@@ -17,7 +16,6 @@ export {
   normalizeRouteMounts,
   prefixPathWithLocale,
   routeRemainder,
-  routeToContentPathCandidates,
   stripLocalePrefix,
   type RouteMounts
 }

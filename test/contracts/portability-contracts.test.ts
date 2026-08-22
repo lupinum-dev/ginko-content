@@ -117,7 +117,6 @@ const contract: ResolvedContentContractV1 = {
         field('friends', 'relations', false, { relation: { collection: 'authors', multiple: true } }),
         field('portrait', 'image', false, { media: { mediaTypes: ['image/png'], aspectRatio: null } }),
         field('gallery', 'images', false, { media: { mediaTypes: ['image/png'], aspectRatio: null } }),
-        field('attachment', 'file', false, { media: { mediaTypes: ['image/png'], aspectRatio: null } }),
         field('icon', 'icon', false),
         field('snippet', 'code', false),
         field('accent', 'color', false),
@@ -156,6 +155,19 @@ describe('portable content contract', () => {
     expect(document.localized.title).toBe('Introduction')
     expect(portableDocumentPath(document, contract)).toBe('content/docs/docs.introduction/en.md')
     expect(await parsePortableDocument(await serializePortableDocument(document, contract), contract)).toEqual(document)
+  })
+
+  it('rejects local images outside the resolved field media policy', async () => {
+    const source = await readFile(fixture('content/docs/docs.introduction/en.md'), 'utf8')
+    const sha256 = 'a'.repeat(64)
+    const mismatched = source.replace(
+      'hero:\n  kind: external\n  url: "https://images.example.test/hero.png"',
+      `hero:\n  kind: local\n  path: /ginko-assets/${sha256}.jpg\n  sha256: ${sha256}\n  bytes: 1\n  mediaType: image/jpeg\n  originalFilename: hero.jpg`,
+    )
+
+    await expect(parsePortableDocument(mismatched, contract)).rejects.toMatchObject({
+      code: 'DOCUMENT_INVALID',
+    })
   })
 
   it('uses reversible NFC-safe identity path segments', () => {
@@ -433,7 +445,11 @@ describe('portable content contract', () => {
     const yaml = await readFile(fixture('content/authors/author.ada/en.yml'), 'utf8')
     await expect(parsePortableDocument(`${yaml}\nfields: {}`, contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
     await expect(parsePortableDocument('{"ginko":{},"ginko":{},"fields":{}}', contract, 'content/example.json')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
-    await expect(parsePortableDocument(yaml.replace('https://files.example.test/portrait.png', 'https://user:secret@files.example.test/portrait.png'), contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
+    const secretAsset = yaml.replace(
+      / {2}portrait:\n(?: {4}.+\n){6}/,
+      '  portrait:\n    kind: "external"\n    url: "https://user:secret@files.example.test/portrait.png"\n',
+    )
+    await expect(parsePortableDocument(secretAsset, contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
   })
 
   it('ignores YAML control syntax inside quoted scalars only', () => {

@@ -67,7 +67,6 @@ export type ContentCmsFieldType =
   | 'relations'
   | 'image'
   | 'images'
-  | 'file'
   | 'icon'
   | 'code'
   | 'color'

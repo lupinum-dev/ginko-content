@@ -87,6 +87,28 @@ describe('bindContentProvider', () => {
     expect(Object.keys(provider).sort()).toEqual(['capabilities', 'name', 'query'])
   })
 
+  it('surfaces a sanitized unsupported-query response without leaking backend details', async () => {
+    const provider = bindContentProvider({
+      source: {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: async () => {
+          throw createContentDataSourceError('QUERY_UNSUPPORTED')
+        },
+      } as ContentDataSource<null>,
+      createContext: () => null,
+    })
+
+    await expect(provider.query(event(), boundedQuery())).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Content data-source query is unsupported.',
+      data: { code: 'QUERY_UNSUPPORTED' },
+    })
+  })
+
   it('creates one immutable context per request and source under concurrency', async () => {
     const createContext = vi.fn(async () => Object.freeze({ requestId: 'one' }))
     const query = vi.fn(async (context) => ({
@@ -176,6 +198,41 @@ describe('bindContentProvider', () => {
     await expect(pending).rejects.toThrow(/abort|disposed/i)
     expect(observedSignal?.aborted).toBe(true)
     resolveBackend({ data: { result: [] }, cache: false })
+  })
+
+  it('aborts a backend that exceeds the fixed deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      const startedAt = Date.now()
+      let observedControl: Parameters<ContentDataSource<null>['query']>[2] | undefined
+      const source = {
+        name: 'cms',
+        capabilities: {
+          protocol: 'ginko-content-data-source/v1',
+          query: { operators: [], pagination: [], maxPageSize: 100 },
+        },
+        query: vi.fn(async (_context, _query, control) => {
+          observedControl = control
+          return await new Promise(() => {})
+        }),
+      } as unknown as ContentDataSource<null>
+      const provider = bindContentProvider({ source, createContext: () => null })
+      const pending = provider.query(event(), boundedQuery())
+      const rejected = expect(pending).rejects.toMatchObject({
+        statusCode: 504,
+        data: { code: 'BACKEND_TIMEOUT' },
+      })
+
+      await vi.advanceTimersByTimeAsync(CONTENT_DATA_SOURCE_LIMITS.maxBackendDurationMs)
+
+      await rejected
+      expect(observedControl?.signal.aborted).toBe(true)
+      expect(observedControl?.deadlineAt).toBe(
+        startedAt + CONTENT_DATA_SOURCE_LIMITS.maxBackendDurationMs,
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('never trusts or exposes backend code fields, status, causes, or secret details', async () => {
@@ -503,6 +560,40 @@ describe('bindContentProvider', () => {
       createContext: () => null,
     })
     await expect(oversizedCursor.routes!(event())).rejects.toMatchObject({ data: { code: 'ROUTE_ENUMERATION_INVALID' } })
+  })
+
+  it('rejects a route snapshot change between pages', async () => {
+    let calls = 0
+    const source = {
+      name: 'cms',
+      capabilities: {
+        protocol: 'ginko-content-data-source/v1',
+        query: { operators: [], pagination: [], maxPageSize: 100 },
+      },
+      query: vi.fn(),
+      routes: vi.fn(async () => {
+        calls += 1
+        return {
+          data: {
+            items: [{
+              collection: 'docs',
+              canonicalKey: `page-${calls}`,
+              locale: 'en',
+              contentPath: `/page-${calls}`,
+            }],
+            nextCursor: calls === 1 ? 'page-2' : null,
+            snapshot: calls === 1 ? 'generation-1' : 'generation-2',
+          },
+          cache: false as const,
+        }
+      }),
+    } as unknown as ContentDataSource<null>
+    const provider = bindContentProvider({ source, createContext: () => null })
+
+    await expect(provider.routes!(event())).rejects.toMatchObject({
+      data: { code: 'ROUTE_ENUMERATION_INVALID' },
+    })
+    expect(source.routes).toHaveBeenCalledTimes(2)
   })
 
   it('surfaces only closed data-source failures', async () => {

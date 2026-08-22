@@ -5,10 +5,12 @@ import { toContentProviderNavigationQuery, toContentProviderQuery } from '../../
 import { normalizeProviderQueryResponse } from '../../packages/content/src/runtime/server/provider-query'
 import {
   createDefaultProviderFixture,
+  createFixtureContentDataSource,
   createFixtureContentProvider,
   createProviderFixture,
   createProviderFixtureEvent
 } from '../../packages/content/src/testing/provider-fixture'
+import { runContentDataSourceContractSuite } from '../../packages/content/src/testing/data-source-contract'
 import {
   runProviderContractSuite,
   type ProviderQueryProbe
@@ -150,6 +152,38 @@ describe('provider fixture conformance', () => {
           expect(result).toMatchObject({ mode: 'cursor', limit: 1 })
         }
       }
+    },
+    operationProbes: {
+      navigation: {
+        query: toContentProviderNavigationQuery({
+          collection: 'docs',
+          resolveLocale: { locale: 'de', fallback: ['en'] },
+        }),
+        assertResult: result => expect(result).toEqual(expect.arrayContaining([
+          expect.objectContaining({ route: expect.objectContaining({ contentPath: expect.stringMatching(/^\/dokumentation/) }) }),
+        ])),
+      },
+      surroundings: {
+        collection: 'docs',
+        contentPath: '/dokumentation/einstieg/installation',
+        options: { locale: 'de' },
+        assertResult: result => expect(result).toHaveLength(2),
+      },
+      search: {
+        request: { term: 'Markdown', locale: 'de', collections: ['docs'] },
+        assertResult: result => expect(result).toEqual([
+          expect.objectContaining({ title: 'Markdown Syntax DE' }),
+        ]),
+      },
+      siteData: {
+        request: { key: 'announcement', locale: 'de' },
+        assertResult: result => expect(result).toEqual({ data: null, updatedAt: 0 }),
+      },
+      routes: {
+        assertResult: result => expect(result).toEqual(expect.arrayContaining([
+          expect.objectContaining({ collection: 'docs', contentPath: expect.stringMatching(/^\//) }),
+        ])),
+      },
     }
   })
 
@@ -449,5 +483,96 @@ describe('provider fixture conformance', () => {
         { collection: 'undeclared', canonicalKey: 'x', locale: 'en', path: '/guide/x', title: 'X' }
       ]
     })).toThrow(/collection "undeclared"/)
+  })
+})
+
+describe('in-memory data-source reference conformance', () => {
+  const fixture = createDefaultProviderFixture()
+  const first = (title: string) => toContentProviderQuery({
+    collection: 'docs',
+    where: { title },
+    first: true,
+  })
+  const cursor = (after: string | null) => toContentProviderQuery({
+    collection: 'docs',
+    sort: [{ title: 1 }],
+    paging: { mode: 'cursor', after, limit: 1 },
+  })
+
+  runContentDataSourceContractSuite({
+    name: 'in-memory reference',
+    loadSource: async () => createFixtureContentDataSource(fixture),
+    createContext: () => ({ requestId: 'contract' }),
+    firstFound: {
+      query: first('Getting Started'),
+      assertResult: result => expect(result).toMatchObject({ result: { title: 'Getting Started' } }),
+    },
+    firstMissing: {
+      query: first('Missing'),
+      assertResult: result => expect(result).toEqual({ result: undefined }),
+    },
+    list: {
+      query: toContentProviderQuery({ collection: 'docs', limit: 2 }),
+      assertResult: result => expect((result as { result: unknown[] }).result).toHaveLength(2),
+    },
+    count: {
+      query: toContentProviderQuery({ collection: 'docs', count: true }),
+      assertResult: result => expect(result).toEqual({ result: 6 }),
+    },
+    cursor: {
+      first: {
+        query: cursor(null),
+        assertResult: result => expect(result).toMatchObject({ pageInfo: { hasNext: true } }),
+      },
+      next: after => ({
+        query: cursor(after),
+        assertResult: result => expect((result as { result: unknown[] }).result).toHaveLength(1),
+      }),
+    },
+    operations: {
+      navigation: {
+        query: toContentProviderNavigationQuery({
+          collection: 'docs',
+          resolveLocale: { locale: 'de', fallback: ['en'] },
+        }),
+        assertResult: result => expect(result).toEqual(expect.arrayContaining([
+          expect.objectContaining({ route: expect.objectContaining({ contentPath: expect.stringMatching(/^\//) }) }),
+        ])),
+      },
+      surroundings: {
+        collection: 'docs',
+        contentPath: '/dokumentation/einstieg/installation',
+        options: { locale: 'de' },
+        assertResult: result => expect(result).toHaveLength(2),
+      },
+      search: {
+        request: { term: 'Markdown', locale: 'de', collections: ['docs'] },
+        assertResult: result => expect(result).toEqual([
+          expect.objectContaining({ title: 'Markdown Syntax DE' }),
+        ]),
+      },
+      siteData: {
+        request: { key: 'announcement', locale: 'de' },
+        assertResult: result => expect(result).toEqual({ data: null, updatedAt: 0 }),
+      },
+      routes: {
+        assertResult: result => expect(result).toEqual(expect.arrayContaining([
+          expect.objectContaining({ collection: 'docs', contentPath: expect.stringMatching(/^\//) }),
+        ])),
+      },
+    },
+  })
+
+  test('rejects route cursors the reference adapter never emits', async () => {
+    const source = createFixtureContentDataSource(fixture)
+    const control = {
+      signal: new AbortController().signal,
+      deadlineAt: Date.now() + 1_000,
+    }
+    for (const cursor of ['fixture:', 'fixture:01', 'fixture:+1', 'fixture:1e0', 'other:1']) {
+      await expect(source.routes!({}, { cursor, limit: 1 }, control)).rejects.toMatchObject({
+        code: 'QUERY_CURSOR_INVALID',
+      })
+    }
   })
 })

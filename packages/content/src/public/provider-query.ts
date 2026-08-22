@@ -1,5 +1,5 @@
 /**
- * Provider wire contract v4.
+ * Provider wire contract v5.
  *
  * The single query envelope crossing the `ContentProvider` boundary. It wraps
  * a provider-coordinate plan rather than the graph executor's mount-agnostic
@@ -15,13 +15,14 @@
  * Providers pattern-match `plan.filter` (a `FilterExpr` tree); they never
  * parse the low-level input again.
  *
- * v4 is the prerelease hard cutover for the closed plan contract. It preserves
+ * v5 is the prerelease hard cutover that gives collection identity one
+ * authority on the envelope. It preserves
  * `$nin` as a native comparison node and retains the honest
  * `offset`/`cursor` pagination-mode union (`ContentProviderPaging`,
  * `ContentProviderListResponse`) and closes the route/ref selector
  * (`ContentProviderVariantSelector`) so providers never strip locale prefixes
  * or guess collection mounts themselves. There is no legacy dispatch — the
- * wire is v4 only.
+ * wire is v5 only.
  *
  * This module owns both the public wire types and their lowering helpers so
  * the provider boundary has one source of truth and no public-to-runtime
@@ -62,7 +63,7 @@ export type ContentProviderVariantSelector =
       readonly localeChain: readonly string[]
     }
 
-export interface ContentProviderQueryPlan extends QueryPlanBase {
+export interface ContentProviderQueryPlan extends Omit<QueryPlanBase, 'collection'> {
   readonly variant?: ContentProviderVariantSelector
 }
 
@@ -101,14 +102,14 @@ export type ContentProviderListResponse<T> = ContentQueryFindResponse<T>
 
 /** The single wire type crossing the provider `query`/`navigation` boundary. */
 export interface ContentProviderQuery {
-  /** Wire version — always `PROVIDER_QUERY_VERSION` (4). No legacy dispatch remains. */
-  readonly v: 4
+  /** Wire version — always `PROVIDER_QUERY_VERSION` (5). No legacy dispatch remains. */
+  readonly v: 5
   /** `null` = cross-collection query (navigation / search aggregation paths). */
   readonly collection: string | null
   readonly plan: ContentProviderQueryPlan
 }
 
-export const PROVIDER_QUERY_VERSION = 4 as const
+export const PROVIDER_QUERY_VERSION = 5 as const
 
 const lowerContextFreeInput = (params: ContentProviderLoweringInput): LoweredQueryPlan => {
   if ((params.resolveLocale as { fallback?: unknown } | undefined)?.fallback === true) {
@@ -146,12 +147,13 @@ const lowerContextFreeInput = (params: ContentProviderLoweringInput): LoweredQue
 }
 
 const closeContextFreePlan = (plan: LoweredQueryPlan): ContentProviderQueryPlan => {
+  const { collection: _collection, ...withoutCollection } = plan
   if (!plan.variant) {
-    const { variant: _variant, ...closed } = plan
+    const { variant: _variant, ...closed } = withoutCollection
     return closed
   }
   if (plan.variant.by === 'path') {
-    return { ...plan, variant: plan.variant }
+    return { ...withoutCollection, variant: plan.variant }
   }
   throw new ContentQueryInputError(
     `$.resolveVariant.${plan.variant.by}`,

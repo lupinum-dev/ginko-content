@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { parsePortableDocument, type PortableAssetBlobV1 } from '../../packages/content/src/portability'
 import {
   readPortableDirectory,
+  readPortableDirectoryForPlanning,
   assertPortablePathSet,
   rebuildPortableDirectoryManifest,
   validatePortableRelativePath,
@@ -111,6 +112,28 @@ describe('Node portable directory contract', () => {
     expect(read.assets).toEqual([
       expect.objectContaining({ sha256: assetSha256, bytes: assetContent.byteLength }),
     ])
+    const planning = await readPortableDirectoryForPlanning(destination, {
+      documents: 10,
+      assets: 10,
+      documentBytes: 256 * 1024,
+      totalDocumentBytes: 1024 * 1024,
+    })
+    expect(planning.documents).toEqual(read.documents.map(({ file, document }) => ({ file, document })))
+    expect(planning.assets).toEqual([
+      {
+        sha256: assetSha256,
+        file: `public/ginko-assets/${assetSha256}.png`,
+        bytes: assetContent.byteLength,
+        mediaType: 'image/png',
+      },
+    ])
+    expect(planning.assets[0]).not.toHaveProperty('content')
+    await expect(readPortableDirectoryForPlanning(destination, {
+      documents: 10,
+      assets: 10,
+      documentBytes: 256 * 1024,
+      totalDocumentBytes: 1,
+    })).rejects.toMatchObject({ code: 'LIMIT_EXCEEDED' })
     await expect(verifyPortableDirectoryBounded(destination)).resolves.toEqual({
       contract: bundle.contract,
       manifest: read.manifest,
@@ -122,6 +145,20 @@ describe('Node portable directory contract', () => {
     const destination = join(parent, 'bundle')
     await mkdir(destination)
     await expect(writePortableDirectory(destination, await fixtureBundle())).rejects.toMatchObject({ code: 'DESTINATION_EXISTS' })
+  })
+
+  it('applies planning byte limits before parsing document content', async () => {
+    const parent = await temporary('planning-limit-before-parse')
+    const destination = join(parent, 'bundle')
+    await writePortableDirectory(destination, await fixtureBundle())
+    await writeFile(join(destination, 'content/docs/docs.introduction/en.md'), 'not portable yaml')
+
+    await expect(readPortableDirectoryForPlanning(destination, {
+      documents: 10,
+      assets: 10,
+      documentBytes: 256 * 1024,
+      totalDocumentBytes: 1,
+    })).rejects.toMatchObject({ code: 'LIMIT_EXCEEDED' })
   })
 
   it('rejects traversal, reserved paths, case-fold collisions, and extra files', async () => {

@@ -65,6 +65,11 @@ const exportMetadata = {
     purpose: 'Resolved CMS contract, schema inspection, MDC, hashing, and safety',
     guide: ['/docs/guides/data-source-adapters', 'Data-source adapters'],
   },
+  './cms-contract/node': {
+    environment: 'Node',
+    purpose: 'Read the canonical resolved Content contract artifact',
+    guide: ['/docs/guides/data-source-adapters', 'Data-source adapters'],
+  },
   './portability': {
     environment: 'Framework-free',
     purpose: 'Portable document, manifest, asset, and validation codecs',

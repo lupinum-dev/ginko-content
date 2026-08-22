@@ -80,6 +80,7 @@ const expectedDeclarations = [
   'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
   'dist/cms-contract/index.d.ts',
+  'dist/cms-contract-node/index.d.ts',
   'dist/testing/provider-fixture.d.ts',
   'dist/testing/provider-contract.d.ts',
   'dist/testing/data-source-contract.d.ts',

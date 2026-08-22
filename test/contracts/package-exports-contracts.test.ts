@@ -329,6 +329,7 @@ describe('package export contracts', () => {
 
     expect(fixtureModule.createProviderFixture).toBeTypeOf('function')
     expect(fixtureModule.createFixtureContentProvider).toBeTypeOf('function')
+    expect(fixtureModule.createFixtureContentDataSource).toBeTypeOf('function')
     expect(fixtureModule.createProviderFixtureEvent).toBeTypeOf('function')
     expect(fixtureModule.createDefaultProviderFixture).toBeTypeOf('function')
     expect(fixtureModule.createAuthorDependencyProviderFixture).toBeTypeOf('function')

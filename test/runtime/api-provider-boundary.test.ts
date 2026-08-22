@@ -88,7 +88,7 @@ describe('runtime API provider boundary', () => {
     }))
   })
 
-  test('query API populates references server-side without changing provider wire v4', async () => {
+  test('query API populates references server-side without changing provider wire v5', async () => {
     const query = vi.fn(provider.query.bind(provider))
     mocks.getContentProvider.mockResolvedValue({ ...provider, query })
     const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
@@ -120,7 +120,7 @@ describe('runtime API provider boundary', () => {
     })
     expect(query).toHaveBeenCalledTimes(2)
     for (const [, providerQuery] of query.mock.calls) {
-      expect(providerQuery).toMatchObject({ v: 4 })
+      expect(providerQuery).toMatchObject({ v: 5 })
       expect(providerQuery).not.toHaveProperty('populate')
     }
   })
@@ -285,10 +285,9 @@ describe('runtime API provider boundary', () => {
       total: 1
     })
     expect(query).toHaveBeenCalledWith(event, expect.objectContaining({
-      v: 4,
+      v: 5,
       collection: 'docs',
       plan: expect.objectContaining({
-        collection: 'docs',
         pagination: { mode: 'slice', skip: 0, limit: 10 }
       })
     }))
@@ -629,10 +628,9 @@ describe('runtime API provider boundary', () => {
     expect(navigation).toHaveBeenCalledWith(
       event,
       expect.objectContaining({
-        v: 4,
+        v: 5,
         collection: 'docs',
         plan: expect.objectContaining({
-          collection: 'docs',
           resolveLocale: { locale: 'de' }
         })
       })

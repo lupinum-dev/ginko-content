@@ -3,6 +3,7 @@ import { createTestEvent } from '../support/provider-scenarios/event'
 import { doc } from '../support/content-documents'
 import {
   collectMarkdownRefLinks,
+  normalizeReferenceValue,
   parseRefLink,
   resolveConfiguredQuickLink,
   resolveConfiguredQuickLinks,
@@ -356,6 +357,11 @@ describe('ref link contracts', () => {
     expect(parseRefLink('/guide/advanced')).toBeNull()
     expect(parseRefLink('ref:guide-advanced')).toBeNull()
     expect(parseRefLink('$#hash-only')).toBeNull()
+  })
+
+  test('normalizes bounded and repeated reference slashes without regular expressions', () => {
+    expect(normalizeReferenceValue('///guide/intro///')).toBe('guide/intro')
+    expect(normalizeReferenceValue('/'.repeat(10_000))).toBe('')
   })
 
   test('collects and rewrites markdown ref links without mutating the original body', () => {

@@ -1,4 +1,4 @@
-export type ContentDataSourceErrorCode = 'QUERY_CURSOR_INVALID' | 'BACKEND_FAILURE'
+export type ContentDataSourceErrorCode = 'QUERY_CURSOR_INVALID' | 'QUERY_UNSUPPORTED' | 'BACKEND_FAILURE'
 
 class ContentDataSourceError extends Error {
   readonly code: ContentDataSourceErrorCode
@@ -6,7 +6,9 @@ class ContentDataSourceError extends Error {
   constructor(code: ContentDataSourceErrorCode) {
     super(code === 'QUERY_CURSOR_INVALID'
       ? 'Content data-source query cursor is invalid.'
-      : 'Content data-source operation failed.')
+      : code === 'QUERY_UNSUPPORTED'
+        ? 'Content data-source query is unsupported.'
+        : 'Content data-source operation failed.')
     this.name = 'ContentDataSourceError'
     this.code = code
   }

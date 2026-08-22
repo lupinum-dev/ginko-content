@@ -2,6 +2,11 @@ import type {
   BoundedContentProviderQuery,
   ContentDataSource,
 } from '../public/data-source'
+import type { ContentProviderSearchRequest } from '../types/search'
+import type {
+  ContentProviderSiteDataRequest,
+  ContentProviderSurroundingsOptions,
+} from '../public/provider-contract'
 import { expect, test } from 'vitest'
 import { bindContentProvider } from '../public/provider-binder'
 import { isContentProviderResult } from '../public/provider'
@@ -66,6 +71,35 @@ export interface ContentDataSourceContractProbe {
   assertResult: (result: unknown) => void | Promise<void>
 }
 
+export interface ContentDataSourceCursorContractProbe {
+  first: ContentDataSourceContractProbe
+  next: (cursor: string) => ContentDataSourceContractProbe
+}
+
+export interface ContentDataSourceOptionalOperationProbes {
+  navigation?: {
+    query: BoundedContentProviderQuery
+    assertResult: (result: unknown) => void | Promise<void>
+  }
+  surroundings?: {
+    collection: string
+    contentPath: string
+    options?: ContentProviderSurroundingsOptions
+    assertResult: (result: unknown) => void | Promise<void>
+  }
+  search?: {
+    request: ContentProviderSearchRequest
+    assertResult: (result: unknown) => void | Promise<void>
+  }
+  siteData?: {
+    request: ContentProviderSiteDataRequest
+    assertResult: (result: unknown) => void | Promise<void>
+  }
+  routes?: {
+    assertResult: (result: unknown) => void | Promise<void>
+  }
+}
+
 export interface ContentDataSourceContractSuiteOptions<Context> {
   name: string
   loadSource: () => Promise<ContentDataSource<Context>>
@@ -73,7 +107,9 @@ export interface ContentDataSourceContractSuiteOptions<Context> {
   firstFound: ContentDataSourceContractProbe
   firstMissing: ContentDataSourceContractProbe
   list: ContentDataSourceContractProbe
-  cursor?: ContentDataSourceContractProbe
+  count?: ContentDataSourceContractProbe
+  cursor?: ContentDataSourceCursorContractProbe
+  operations?: ContentDataSourceOptionalOperationProbes
 }
 
 const executeProbe = async <Context>(
@@ -109,10 +145,98 @@ export function runContentDataSourceContractSuite<Context>(
     })
   }
 
-  if (options.cursor) {
-    test(`${options.name} preserves cursor pagination semantics`, async () => {
-      expect(options.cursor!.query.plan.pagination.mode).toBe('cursor')
-      await executeProbe(options, options.cursor!)
+  test(`${options.name} certifies count when offset pagination is advertised`, async () => {
+    const source = await options.loadSource()
+    const advertisesOffset = source.capabilities.query.pagination.includes('offset')
+    expect(Boolean(options.count), 'Offset data sources require a count conformance probe').toBe(advertisesOffset)
+    if (options.count) {
+      expect(options.count.query.plan.mode).toBe('count')
+      await executeProbe(options, options.count)
+    }
+  })
+
+  test(`${options.name} certifies cursor continuation when cursor pagination is advertised`, async () => {
+    const source = await options.loadSource()
+    const advertisesCursor = source.capabilities.query.pagination.includes('cursor')
+    expect(Boolean(options.cursor), 'Cursor data sources require a continuation conformance probe').toBe(
+      advertisesCursor,
+    )
+    if (options.cursor) {
+      const context = options.createContext()
+      const provider = bindContentProvider({ source, createContext: () => context })
+      const event = { context: {}, node: { req: {}, res: {} } } as never
+      const firstProbe = options.cursor!.first
+      expect(firstProbe.query.plan.pagination.mode).toBe('cursor')
+      const firstResponse = await provider.query(event, firstProbe.query)
+      const first = isContentProviderResult(firstResponse) ? firstResponse.data : firstResponse
+      assertQueryResponse(first, firstProbe.query)
+      await firstProbe.assertResult(first)
+      const cursor = (first as { pageInfo?: { endCursor?: unknown, hasNext?: unknown } }).pageInfo?.endCursor
+      expect((first as { pageInfo?: { hasNext?: unknown } }).pageInfo?.hasNext).toBe(true)
+      expect(typeof cursor).toBe('string')
+      const nextProbe = options.cursor!.next(cursor as string)
+      expect(nextProbe.query.plan.pagination.mode).toBe('cursor')
+      if (nextProbe.query.plan.pagination.mode !== 'cursor') {
+        throw new TypeError('Cursor continuation probe must use cursor pagination.')
+      }
+      expect(nextProbe.query.plan.pagination.after).toBe(cursor)
+      const nextResponse = await provider.query(event, nextProbe.query)
+      const next = isContentProviderResult(nextResponse) ? nextResponse.data : nextResponse
+      assertQueryResponse(next, nextProbe.query)
+      await nextProbe.assertResult(next)
+    }
+  })
+
+  test(`${options.name} has discriminating probes for every optional operation`, async () => {
+    const source = await options.loadSource()
+    const probes = options.operations ?? {}
+    for (const method of ['navigation', 'surroundings', 'search', 'siteData', 'routes'] as const) {
+      expect(Boolean(probes[method]), `Missing conformance probe for implemented operation ${method}`).toBe(
+        typeof source[method] === 'function'
+      )
+    }
+  })
+
+  const operations = options.operations
+  if (operations?.navigation) {
+    test(`${options.name} executes navigation`, async () => {
+      const provider = bindContentProvider({ source: await options.loadSource(), createContext: options.createContext })
+      const response = await provider.navigation!({ context: {}, node: { req: {}, res: {} } } as never, operations.navigation!.query)
+      await operations.navigation!.assertResult(isContentProviderResult(response) ? response.data : response)
+    })
+  }
+  if (operations?.surroundings) {
+    test(`${options.name} executes surroundings`, async () => {
+      const provider = bindContentProvider({ source: await options.loadSource(), createContext: options.createContext })
+      const probe = operations.surroundings!
+      const response = await provider.surroundings!(
+        { context: {}, node: { req: {}, res: {} } } as never,
+        probe.collection,
+        probe.contentPath,
+        probe.options,
+      )
+      await probe.assertResult(isContentProviderResult(response) ? response.data : response)
+    })
+  }
+  if (operations?.search) {
+    test(`${options.name} executes search`, async () => {
+      const provider = bindContentProvider({ source: await options.loadSource(), createContext: options.createContext })
+      const response = await provider.search!({ context: {}, node: { req: {}, res: {} } } as never, operations.search!.request)
+      await operations.search!.assertResult(isContentProviderResult(response) ? response.data : response)
+    })
+  }
+  if (operations?.siteData) {
+    test(`${options.name} executes site data`, async () => {
+      const provider = bindContentProvider({ source: await options.loadSource(), createContext: options.createContext })
+      const response = await provider.siteData!({ context: {}, node: { req: {}, res: {} } } as never, operations.siteData!.request)
+      await operations.siteData!.assertResult(isContentProviderResult(response) ? response.data : response)
+    })
+  }
+  if (operations?.routes) {
+    test(`${options.name} executes stable route enumeration`, async () => {
+      const provider = bindContentProvider({ source: await options.loadSource(), createContext: options.createContext })
+      const response = await provider.routes!({ context: {}, node: { req: {}, res: {} } } as never)
+      await operations.routes!.assertResult(isContentProviderResult(response) ? response.data : response)
     })
   }
 }

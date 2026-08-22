@@ -7,8 +7,9 @@
  * or browser.
  *
  * Consumers use this surface to:
- *  - normalize a host's `content.config.ts` into the one portable
- *    `ResolvedContentContractV1` artifact (`buildResolvedContentContract`),
+ *  - build a framework-free `ResolvedContentContractV1` from already resolved
+ *    inputs (`buildResolvedContentContract`); Nuxt applications consume the
+ *    generated artifact through the separate Node subpath,
  *  - produce RFC 8785 canonical JSON and incremental SHA-256 hashes without
  *    relying on Node or Web Crypto,
  *  - introspect Zod schemas without re-implementing the walker
@@ -58,7 +59,6 @@ export {
   prefixPathWithLocale,
   refineUrlPart,
   routeRemainder,
-  routeToContentPathCandidates,
   slugifyUrlSegment,
   stripLocalePrefix,
 } from './path.js'
@@ -110,8 +110,10 @@ export {
 export { assertResolvedContentContract } from './validate.js'
 
 export {
+  CMS_PROVIDER_WIRE_PROTOCOL,
   assertCmsRequestedFacts,
   cmsPublicEntryWireSchema,
+  createCmsProviderWireEnvelope,
   parseCmsListWireResult,
   parseCmsNavWireResult,
   parseCmsPageWireResult,
@@ -120,4 +122,5 @@ export {
   parseCmsSiteDataWireResult,
   parseCmsSurroundWireResult,
   type CmsPublicEntryWire,
+  type CmsProviderWireEnvelope,
 } from './provider-wire.js'
