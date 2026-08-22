@@ -50,6 +50,17 @@ type Haystack = string | readonly unknown[]
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const regexFlags = new Set(['d', 'g', 'i', 'm', 's', 'u', 'y'])
+
+const parseRegexLiteral = (value: string): [source: string, flags: string] | null => {
+  if (!value.startsWith('/')) return null
+  const closingSlash = value.lastIndexOf('/')
+  if (closingSlash <= 1) return null
+  const flags = value.slice(closingSlash + 1)
+  if ([...flags].some(flag => !regexFlags.has(flag))) return null
+  return [value.slice(1, closingSlash), flags]
+}
+
 // Reconstruct a live `RegExp` from the JSON-pure tagged wire operand produced
 // by lowering (see `PlanRegex`). Non-regex operands pass
 // through so equality/comparison semantics are unchanged.
@@ -114,8 +125,9 @@ const compareOperators: Record<CompareOperator, (item: unknown, value: unknown) 
       )
     }
 
-    const matched = String(operand).match(/\/(.*)\/([dgimsuy]*)$/)
-    const regex = matched?.[1] ? new RegExp(matched[1], matched[2] || '') : new RegExp(String(operand))
+    const serialized = String(operand)
+    const literal = parseRegexLiteral(serialized)
+    const regex = literal ? new RegExp(literal[0], literal[1]) : new RegExp(serialized)
     return regex.test(String(item || ''))
   }
 }

@@ -505,6 +505,9 @@ describe('query execution contracts', () => {
     expect(evaluateQueryPlanFilter({ title: 'Intro' }, {
       type: 'compare', field: 'title', operator: 'regex', value: '/^intro$/i'
     })).toBe(true)
+    expect(evaluateQueryPlanFilter({ title: 'Intro/v1' }, {
+      type: 'compare', field: 'title', operator: 'regex', value: '/^intro\\/v1$/i'
+    })).toBe(true)
     // ...and bare-string literal matching.
     expect(evaluateQueryPlanFilter({ title: 'Introduction' }, {
       type: 'compare', field: 'title', operator: 'regex', value: 'ntro'

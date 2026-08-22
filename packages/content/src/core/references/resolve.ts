@@ -25,7 +25,14 @@ export const CONTENT_REF_LINK_PREFIX = '$'
 const MARKDOWN_LINK_PROP_KEYS = ['href', 'to'] as const
 
 /** Strip leading/trailing slashes so `/guide/intro/` and `guide/intro` hash to the same canonical form. */
-export const normalizeReferenceValue = (value: string) => String(value).replace(/^\/+|\/+$/g, '')
+export const normalizeReferenceValue = (value: string) => {
+  const normalized = String(value)
+  let start = 0
+  let end = normalized.length
+  while (start < end && normalized[start] === '/') start += 1
+  while (end > start && normalized[end - 1] === '/') end -= 1
+  return normalized.slice(start, end)
+}
 
 export const parseRefLink = (value: string) => {
   if (typeof value !== 'string' || !value.startsWith(CONTENT_REF_LINK_PREFIX)) {
