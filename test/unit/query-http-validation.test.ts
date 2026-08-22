@@ -47,6 +47,27 @@ describe('content query HTTP request validation', () => {
     }
   })
 
+  test('accepts bounded populate orchestration and rejects malformed targets', () => {
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      populate: { authors: 'authors' }
+    })).toMatchObject({ ok: true })
+
+    for (const populate of [[], { authors: '' }, { authors: 42 }]) {
+      expect(validateContentQueryRequestBody({ collection: 'posts', populate })).toMatchObject({ ok: false })
+    }
+
+    const oversized = Object.fromEntries(
+      Array.from({ length: MAX_SELECTION_ENTRIES + 1 }, (_, index) => [`field${index}`, 'authors'])
+    )
+    expect(validateContentQueryRequestBody({ collection: 'posts', populate: oversized })).toMatchObject({ ok: false })
+    expect(validateContentQueryRequestBody({
+      collection: 'posts',
+      count: true,
+      populate: { authors: 'authors' }
+    })).toMatchObject({ ok: false })
+  })
+
   test('rejects unknown nested keys inside resolveLocale/resolveVariant/paging', () => {
     expect(validateContentQueryRequestBody({
       collection: 'posts',

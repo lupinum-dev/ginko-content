@@ -2,10 +2,10 @@ import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionHandle } from '../../types/config'
 import type {
   CursorPaginationResult,
+  ContentQueryTransportInput,
   DocumentFromHandle,
   LocalizedDoc,
   OffsetPaginationResult,
-  OneOptions,
   PaginationOptions,
   PaginationResult,
   PopulateFromOptions,
@@ -17,7 +17,7 @@ import { compileQueryParams } from '../../core/query/filter'
 import type { ContentQueryContext } from './context'
 import { ensureCollectionName } from './handles'
 import { resolveFallback } from './locale-options'
-import { populateDocuments, selectWithPopulate, validatePopulateSpec } from './populate'
+import { selectWithPopulate, serializePopulateSpec, validatePopulateSpec } from './populate'
 import {
   assertPublicPagingLimit,
   DEFAULT_PUBLIC_PAGINATION_LIMIT,
@@ -26,12 +26,6 @@ import {
 } from '../../core/query/limits'
 import { unwrapCursorFindResponse, unwrapFindResponse } from './responses'
 import { isNotFoundError } from './errors'
-
-type OneResolver = <H extends ContentCollectionHandle | string>(
-  context: ContentQueryContext,
-  handle: H,
-  options: OneOptions<H>
-) => Promise<LocalizedDoc<ParsedContent> | null>
 
 const resolvePage = (value: unknown): number => {
   if (value === undefined) return 1
@@ -73,7 +67,6 @@ export async function resolvePagination<
   O extends PaginationOptions<H, PopulateSpec | undefined>
 >(
   context: ContentQueryContext,
-  one: OneResolver,
   handle: H,
   options: O
 ): Promise<PaginationResult<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>> {
@@ -104,14 +97,17 @@ export async function resolvePagination<
         throw new TypeError(`Content pagination cursor exceeds ${MAX_PUBLIC_QUERY_CURSOR_BYTES} bytes.`)
       }
     }
-    const params = compileQueryParams({
-      collection,
-      where: options.where as QueryWhere | undefined,
-      sort: options.sort,
-      locale: options.locale,
-      fallback,
-      select
-    })
+    const params: ContentQueryTransportInput = {
+      ...compileQueryParams({
+        collection,
+        where: options.where as QueryWhere | undefined,
+        sort: options.sort,
+        locale: options.locale,
+        fallback,
+        select
+      }),
+      ...(options.populate ? { populate: serializePopulateSpec(options.populate) } : {})
+    }
     params.paging = { mode: 'cursor', after: options.after ?? null, limit }
 
     let response: unknown
@@ -125,11 +121,9 @@ export async function resolvePagination<
     }
 
     const envelope = unwrapCursorFindResponse<LocalizedDoc<ParsedContent>>(response)
-    const populated = await populateDocuments(context, one, envelope.result, options.populate, options.locale, options.fallback)
-
     return {
       mode: 'cursor',
-      data: populated as unknown as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>,
+      data: envelope.result as unknown as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>,
       limit: envelope.limit,
       endCursor: envelope.endCursor,
       hasNext: envelope.hasNext
@@ -141,14 +135,17 @@ export async function resolvePagination<
   if (!Number.isSafeInteger(skip) || skip > MAX_PUBLIC_QUERY_SKIP) {
     throw new TypeError(`Content pagination page exceeds the maximum query skip of ${MAX_PUBLIC_QUERY_SKIP}.`)
   }
-  const params = compileQueryParams({
-    collection,
-    where: options.where as QueryWhere | undefined,
-    sort: options.sort,
-    locale: options.locale,
-    fallback,
-    select
-  })
+  const params: ContentQueryTransportInput = {
+    ...compileQueryParams({
+      collection,
+      where: options.where as QueryWhere | undefined,
+      sort: options.sort,
+      locale: options.locale,
+      fallback,
+      select
+    }),
+    ...(options.populate ? { populate: serializePopulateSpec(options.populate) } : {})
+  }
   params.paging = { mode: 'offset', skip, limit }
   let response: unknown
   try {
@@ -161,12 +158,11 @@ export async function resolvePagination<
   }
 
   const envelope = unwrapFindResponse<LocalizedDoc<ParsedContent>>(response)
-  const populated = await populateDocuments(context, one, envelope.result, options.populate, options.locale, options.fallback)
   const pageCount = envelope.total > 0 ? Math.ceil(envelope.total / limit) : 0
 
   return {
     mode: 'offset',
-    data: populated as unknown as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>,
+    data: envelope.result as unknown as Array<LocalizedDoc<PopulatedDocument<DocumentFromHandle<H>, PopulateFromOptions<O>>>>,
     page,
     limit,
     total: envelope.total,

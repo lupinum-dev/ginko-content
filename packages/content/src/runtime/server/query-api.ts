@@ -1,11 +1,13 @@
 import type { H3Event } from 'h3'
 import type { NavItem, ParsedContent } from '../../types/content'
 import type { ContentCollectionHandle, __ginkoSchemaBrand } from '../../types/config'
+import type { ContentPublicQueryResponse } from '../../types/api'
 import type {
   BacklinksOptions,
   BacklinksResult,
   BacklinkSource,
   ContentNavigationTreeItem,
+  ContentQueryTransportInput,
   CountOptions,
   DocumentFromHandle,
   ManyOptions,
@@ -47,12 +49,13 @@ import { projectPublicQueryResponse } from '../../features/query/responses'
 import { projectProviderNavigation, projectProviderSurroundings } from './provider-route-facts'
 import { stripLocalePrefix } from '../../core/content/path'
 import { resolveRuntimeCollectionI18nConfig } from '../../features/localization/config'
+import { populateQueryResponse } from '../../features/query/populate'
 
 export const createServerContentQueryContext = async (event: H3Event): Promise<ContentQueryContext> => {
   const provider = await getContentProvider(event)
   const runtime = getContentRuntimeConfig().content || {}
 
-  return {
+  const context: ContentQueryContext = {
     runtime,
     ...(provider.surroundings
       ? {
@@ -80,19 +83,21 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
           }
         }
       : {}),
-    transport: async (endpoint, params) => {
-      assertConfiguredProviderCollection(params.collection, runtime)
+    transport: async <T>(endpoint: 'query' | 'navigation', params: ContentQueryTransportInput): Promise<ContentPublicQueryResponse<T> | NavItem[]> => {
+      const { populate, ...providerParams } = params
+      assertConfiguredProviderCollection(providerParams.collection, runtime)
       if (endpoint === 'navigation') {
-        assertConfiguredProviderQueryLocales(params, runtime)
+        if (populate) throw new TypeError('Navigation queries cannot populate references.')
+        assertConfiguredProviderQueryLocales(providerParams, runtime)
         if (!provider.navigation) {
           throw createContentProviderError('unsupported_provider_operation', `${provider.name} does not support navigation queries`, {
             provider: provider.name
           })
         }
-        const { resolveVariant: _resolveVariant, ...navigationParams } = params
+        const { resolveVariant: _resolveVariant, ...navigationParams } = providerParams
         const query = createProviderQuery({
           ...navigationParams,
-          collection: params.collection
+          collection: providerParams.collection
         })
         return projectProviderNavigation(
           await provider.navigation(event, query),
@@ -102,12 +107,14 @@ export const createServerContentQueryContext = async (event: H3Event): Promise<C
           query.collection || undefined
         ) as NavItem[]
       }
-      return projectPublicQueryResponse(
-        normalizeProviderQueryResponse(params, await provider.query(event, createProviderQuery(params)), provider.name),
-        params.first === true
+      const response = projectPublicQueryResponse(
+        normalizeProviderQueryResponse(providerParams, await provider.query(event, createProviderQuery(providerParams)), provider.name),
+        providerParams.first === true
       )
+      return await populateQueryResponse(context, oneWithContext, response, params) as ContentPublicQueryResponse<T>
     }
   }
+  return context
 }
 
 export async function resolveOne<

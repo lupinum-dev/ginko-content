@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineCollection, defineContentConfig, reference } from '../packages/content/src/types/config'
 import { backlinks, one, paginate } from '../packages/content/src/features/query/unified'
+import { populateQueryResponse } from '../packages/content/src/features/query/populate'
+import type { RuntimeContentConfig } from '../packages/content/src/features/query/context'
 import { z } from 'zod'
 
 const mocks = vi.hoisted(() => ({
@@ -40,6 +42,15 @@ const transport = async (endpoint: string, params: Record<string, any>) => {
         ? publicDocument(result, params)
         : result
   }
+}
+
+const createContext = (runtime: RuntimeContentConfig = {}) => {
+  const context = {
+    runtime,
+    transport: async (endpoint: 'query' | 'navigation', params: Record<string, any>) =>
+      await populateQueryResponse(context as any, one, await transport(endpoint, params), params)
+  }
+  return context
 }
 
 const contentConfig = defineContentConfig({
@@ -126,10 +137,7 @@ describe('unified query populate', () => {
   })
 
   test('resolves explicit reference fields through target collection handles', async () => {
-    const context = {
-      runtime: {},
-      transport
-    }
+    const context = createContext()
     const post = await one(context, posts, {
       by: { path: '/hello' },
       select: ['title'],
@@ -188,10 +196,7 @@ describe('unified query populate', () => {
       return null
     })
 
-    const doc = await one({
-      runtime: {},
-      transport
-    }, docs, {
+    const doc = await one(createContext(), docs, {
       by: { path: '/docs/guide' },
       select: ['title'],
       populate: { relatedAuthor: authors }
@@ -245,10 +250,7 @@ describe('unified query populate', () => {
       return null
     })
 
-    const doc = await one({
-      runtime: {},
-      transport
-    }, docs, {
+    const doc = await one(createContext(), docs, {
       by: { path: '/docs/guide' },
       populate: { relatedPost: posts }
     })
@@ -265,10 +267,7 @@ describe('unified query populate', () => {
   })
 
   test('fails clearly when populate target disagrees with typed relation metadata', async () => {
-    await expect(one({
-      runtime: {},
-      transport
-    }, docs, {
+    await expect(one(createContext(), docs, {
       by: { path: '/docs/guide' },
       populate: { relatedAuthor: posts }
     })).rejects.toThrow(
@@ -279,8 +278,7 @@ describe('unified query populate', () => {
   })
 
   test('fails clearly when populate target disagrees with runtime relation metadata', async () => {
-    await expect(one({
-      runtime: {
+    await expect(one(createContext({
         collections: {
           docs: {
             references: {
@@ -288,9 +286,7 @@ describe('unified query populate', () => {
             }
           }
         }
-      },
-      transport
-    }, 'docs', {
+      }), 'docs', {
       by: { path: '/docs/guide' },
       populate: { relatedAuthor: 'posts' }
     })).rejects.toThrow(
@@ -347,8 +343,7 @@ describe('unified query populate', () => {
       return null
     })
 
-    const post = await one({
-      runtime: {
+    const post = await one(createContext({
         defaultLocale: 'en',
         locales: ['en', 'de'],
         collections: {
@@ -377,9 +372,7 @@ describe('unified query populate', () => {
             }
           }
         }
-      },
-      transport
-    }, localizedPosts, {
+      }), localizedPosts, {
       locale: 'de',
       fallback: true,
       by: { route: '/de/blog/krypto' },

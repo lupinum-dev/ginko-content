@@ -1,6 +1,6 @@
 import type { NavItem } from '../../types/content'
 import type { ContentPublicQueryResponse } from '../../types/api'
-import type { ContentProviderQueryInput } from '../../types/query'
+import type { ContentQueryTransportInput } from '../../types/query'
 import type { ResolvedCollectionLocalePolicy } from '../localization/locale-policy'
 
 export interface RuntimeContentConfig {
@@ -32,6 +32,6 @@ export interface ContentQueryContext {
   ) => Promise<Array<NavItem | null>>
   transport: <T>(
     endpoint: ContentQueryEndpoint,
-    params: ContentProviderQueryInput
+    params: ContentQueryTransportInput
   ) => Promise<ContentPublicQueryResponse<T> | NavItem[]>
 }

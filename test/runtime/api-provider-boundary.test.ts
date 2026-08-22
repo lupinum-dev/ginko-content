@@ -88,6 +88,43 @@ describe('runtime API provider boundary', () => {
     }))
   })
 
+  test('query API populates references server-side without changing provider wire v4', async () => {
+    const query = vi.fn(provider.query.bind(provider))
+    mocks.getContentProvider.mockResolvedValue({ ...provider, query })
+    const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
+    const event = createTestEvent({
+      scenario,
+      provider,
+      params: {
+        params: `posts/${encodeQueryParams({
+          collection: 'posts',
+          resolveVariant: {
+            route: '/de/blog/kryptowaehrungen',
+            locale: 'de',
+            fallback: ['en']
+          },
+          first: true,
+          populate: { authors: 'authors' }
+        } as never)}`
+      }
+    })
+
+    await expect(handler(event)).resolves.toMatchObject({
+      result: {
+        title: 'Kryptowaehrungen',
+        authors: [expect.objectContaining({
+          title: 'Emily DE',
+          route: expect.objectContaining({ resolvedPath: '/de/autoren/emily' })
+        })]
+      }
+    })
+    expect(query).toHaveBeenCalledTimes(2)
+    for (const [, providerQuery] of query.mock.calls) {
+      expect(providerQuery).toMatchObject({ v: 4 })
+      expect(providerQuery).not.toHaveProperty('populate')
+    }
+  })
+
   test('query API rejects non-own collection names before external-provider lookup or dispatch', async () => {
     const handler = (await import('../../packages/content/src/runtime/server/api/query')).default
     const event = createTestEvent({

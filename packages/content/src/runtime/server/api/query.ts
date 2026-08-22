@@ -1,13 +1,8 @@
 import { createError, defineEventHandler } from 'h3'
 import { getContentQuery } from '../../utils/query'
-import { getContentProvider } from '../providers'
-import {
-  assertConfiguredProviderCollection,
-  createProviderQuery,
-  normalizeProviderQueryResponse
-} from '../provider-query'
+import { assertConfiguredProviderCollection } from '../provider-query'
 import { isOversizedQueryRequestBody, validateContentQueryRequestBody } from '../query-http-validation'
-import { projectPublicQueryResponse } from '../../../features/query/responses'
+import { createServerContentQueryContext } from '../query-api'
 
 /**
  * Typed 400 for a closed-boundary rejection. No internal
@@ -49,7 +44,6 @@ export default defineEventHandler(async (event) => {
   } catch {
     throw invalidContentQueryRequest('$.collection', 'collection must name a configured content collection.')
   }
-  const provider = await getContentProvider(event)
-  const response = normalizeProviderQueryResponse(query, await provider.query(event, createProviderQuery(query)), provider.name)
-  return projectPublicQueryResponse(response, query.first === true)
+  const context = await createServerContentQueryContext(event)
+  return await context.transport('query', query)
 })

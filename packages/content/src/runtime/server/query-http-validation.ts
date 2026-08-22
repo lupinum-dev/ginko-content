@@ -5,7 +5,7 @@
  * rejects transport payloads that are too large or expensive before asking
  * that canonical parser to validate and lower them.
  */
-import type { ContentProviderQueryInput } from '../../types/query'
+import type { ContentProviderQueryInput, ContentQueryTransportInput } from '../../types/query'
 import {
   ContentQueryInputError,
   lowerQueryPlan
@@ -29,7 +29,7 @@ export interface QueryValidationFailure {
 }
 
 export type QueryValidationResult =
-  | { ok: true, value: ContentProviderQueryInput }
+  | { ok: true, value: ContentQueryTransportInput }
   | { ok: false, error: QueryValidationFailure }
 
 class QueryBudgetError extends Error {
@@ -159,7 +159,7 @@ const validateLocaleBudget = (value: unknown, path: string): void => {
   }
 }
 
-const validateRequestBudget = (raw: unknown): ContentProviderQueryInput => {
+const validateRequestBudget = (raw: unknown): ContentQueryTransportInput => {
   if (!isPlainObject(raw)) {
     bad('$', 'Request body must be a JSON object.')
   }
@@ -174,6 +174,19 @@ const validateRequestBudget = (raw: unknown): ContentProviderQueryInput => {
   validateSortBudget(record.sort)
   validateLocaleBudget(record.resolveLocale, '$.resolveLocale')
   validateLocaleBudget(record.resolveVariant, '$.resolveVariant')
+  if (record.populate !== undefined) {
+    if (record.count === true) bad('$.populate', 'count queries cannot populate references.')
+    if (!isPlainObject(record.populate)) bad('$.populate', 'populate must be an object keyed by reference field.')
+    const entries = Object.entries(record.populate as Record<string, unknown>)
+    if (entries.length > MAX_SELECTION_ENTRIES) bad('$.populate', `populate exceeds ${MAX_SELECTION_ENTRIES} entries.`)
+    for (const [field, target] of entries) {
+      validateBoundedString(field, `$.populate.${field}`, MAX_FIELD_PATH_LENGTH, 'Reference field')
+      if (!field || typeof target !== 'string' || !target) {
+        bad(`$.populate.${field}`, 'populate targets must be non-empty collection names.')
+      }
+      validateBoundedString(target, `$.populate.${field}`, MAX_COLLECTION_NAME_LENGTH, 'Collection name')
+    }
+  }
 
   const paging = record.paging
   if (
@@ -183,7 +196,7 @@ const validateRequestBudget = (raw: unknown): ContentProviderQueryInput => {
   ) {
     bad('$.paging.after', `Cursor exceeds ${MAX_PUBLIC_QUERY_CURSOR_BYTES} bytes.`)
   }
-  return record as unknown as ContentProviderQueryInput
+  return record as unknown as ContentQueryTransportInput
 }
 
 /**
@@ -193,7 +206,8 @@ const validateRequestBudget = (raw: unknown): ContentProviderQueryInput => {
 export const validateContentQueryRequestBody = (raw: unknown): QueryValidationResult => {
   try {
     const query = validateRequestBudget(raw)
-    lowerQueryPlan(query, { publicOperatorsOnly: true })
+    const { populate: _populate, ...providerQuery } = query
+    lowerQueryPlan(providerQuery as ContentProviderQueryInput, { publicOperatorsOnly: true })
     return { ok: true, value: query }
   }
   catch (error) {
