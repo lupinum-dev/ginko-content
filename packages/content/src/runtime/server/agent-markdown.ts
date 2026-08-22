@@ -52,6 +52,7 @@ type AgentSourceDocument = Pick<
   partial?: boolean
   navigationFile?: boolean
   navigation?: unknown
+  order?: number
   robots?: unknown
   sitemap?: unknown
   updated?: string
@@ -80,7 +81,8 @@ const requireAgentSourceDocument = (value: unknown): AgentSourceDocument => {
     (value.updated !== undefined && typeof value.updated !== 'string') ||
     (value.draft !== undefined && typeof value.draft !== 'boolean') ||
     (value.partial !== undefined && typeof value.partial !== 'boolean') ||
-    (value.navigationFile !== undefined && typeof value.navigationFile !== 'boolean')
+    (value.navigationFile !== undefined && typeof value.navigationFile !== 'boolean') ||
+    (value.order !== undefined && typeof value.order !== 'number')
   ) {
     throw new Error(
       'Agent markdown requires the canonical localized document envelope (`route.resolvedPath` and `resolution.resolved.locale`).'
@@ -207,6 +209,7 @@ const toAgentMarkdown = (
     description,
     markdown: renderAgentMarkdown(page, collection, path, locale, options),
     ...(page.file?.path ? { sourceFile: page.file?.path } : {}),
+    ...(page.order !== undefined ? { order: page.order } : {}),
     canonicalUrl: path,
     ...(page.updated ? { lastModified: page.updated } : {}),
     metadataFields: options.metadata,
@@ -262,7 +265,7 @@ export async function queryMarkdownEnabledContent (
     const rows = await many(event, collection, {
       select: [
         'file', 'draft', 'partial', 'navigationFile', 'title', 'description',
-        'updated', 'navigation', 'robots', 'sitemap'
+        'updated', 'navigation', 'order', 'robots', 'sitemap'
       ],
       ...(options.limit ? { limit: options.limit } : {}),
       ...(options.locale ? { locale: options.locale, fallback: true } : {})
@@ -286,6 +289,7 @@ export async function queryMarkdownEnabledContent (
         title,
         description,
         ...(row.file?.path ? { sourceFile: row.file?.path } : {}),
+        ...(row.order !== undefined ? { order: row.order } : {}),
         canonicalUrl: path,
         ...(row.updated ? { lastModified: row.updated } : {}),
         metadataFields: agentOptions.metadata,

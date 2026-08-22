@@ -108,6 +108,12 @@ describe('agent markdown', () => {
       description: 'Start here.',
       body: markdownBody([
         { type: 'element', tag: 'p', children: [{ type: 'text', value: 'Hello ' }, { type: 'element', tag: 'strong', children: [{ type: 'text', value: 'there' }] }] },
+        {
+          type: 'element',
+          tag: 'pre',
+          props: { language: 'ts', filename: 'content.config.ts' },
+          children: [{ type: 'element', tag: 'code', children: [{ type: 'text', value: 'export default {}' }] }]
+        },
         { type: 'element', tag: 'business-contact' }
       ])
     } satisfies Partial<ParsedContent> & { body: ParsedContent['body'] }
@@ -154,6 +160,7 @@ describe('agent markdown', () => {
     expect(resolved?.markdown).toContain('# Intro')
     expect(resolved?.markdown).toContain('> Start here.')
     expect(resolved?.markdown).toContain('Hello **there**')
+    expect(resolved?.markdown).toContain('```ts [content.config.ts]\nexport default {}\n```')
     expect(resolved?.markdown).toContain('## Contact')
     expect(resolved?.markdown).toContain('Email: office@example.test')
   })

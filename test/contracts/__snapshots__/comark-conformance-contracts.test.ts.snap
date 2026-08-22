@@ -1599,7 +1599,7 @@ exports[`Comark conformance corpus > 'highlight' freezes raw Comark 0.6 output s
 exports[`Comark conformance corpus > 'highlight' freezes the Ginko pipeline contract > highlight 1`] = `
 {
   "agent": {
-    "markdown": "\`\`\`
+    "markdown": "\`\`\`ts [parser.ts]
 const state = 'ready'
 const skipped = false
 export { state }

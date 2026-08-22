@@ -26,6 +26,16 @@ const renderChildren = (node: MarkdownNode, ctx: AgentMarkdownContext) =>
 
 const block = (value: string) => value.trim() ? `${value.trim()}\n\n` : ''
 
+const codeFenceInfo = (node: MarkdownNode) => {
+  const language = typeof node.props?.language === 'string'
+    ? node.props.language.replace(/[\r\n]/g, ' ').trim()
+    : ''
+  const filename = typeof node.props?.filename === 'string'
+    ? node.props.filename.replace(/[\r\n]/g, ' ').trim()
+    : ''
+  return `${language}${filename ? ` [${filename.replace(/\]/g, '\\]')}]` : ''}`
+}
+
 const renderList = (node: MarkdownNode, ctx: AgentMarkdownContext, ordered = false) =>
   block((node.children || []).map((child, index) => {
     const [first, ...rest] = child.children || []
@@ -171,7 +181,7 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
     case 'code':
       return `\`${node.value || textValue(node)}\``
     case 'pre':
-      return block(`\`\`\`\n${textValue(node)}\n\`\`\``)
+      return block(`\`\`\`${codeFenceInfo(node)}\n${textValue(node)}\n\`\`\``)
     case 'a': {
       const href = typeof node.props?.href === 'string' ? node.props.href : ''
       const text = renderChildren(node, ctx) || href
