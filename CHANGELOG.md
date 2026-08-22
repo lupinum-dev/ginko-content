@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.0-beta.3
+
+- Bound CMS import planning by document count, per-document bytes, and a
+  256 MiB cumulative document ceiling without retaining raw document or asset
+  bodies in the plan.
+- Keep managed media honest and image-only. Remove the unreleased generic
+  `fields.file()`, `fields.asset()`, and `file` contract shapes until Ginko can
+  provide their full authoring, delivery, and portability lifecycle.
+- Reuse one symlink-safe stable-file reader for generated contracts and
+  portable directories, and emit the resolved Nuxt contract artifact exactly
+  once per preparation lifecycle.
+- Add explicit backend deadline and route-snapshot consistency coverage to the
+  data-source boundary.
+- Prepare the coordinated Ginko CMS adapter for strict provider-query v5 and
+  response-envelope skew rejection.
+
 ## v1.0.0-beta.2
 
 - Generate one canonical `.ginko/content-contract.json` artifact and expose a
