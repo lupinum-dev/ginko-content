@@ -6,6 +6,7 @@ import type {
   ContentCollectionConfig,
   ContentCollectionI18nConfig,
 } from '../types/config.js'
+import type { ContentManagedMediaType } from '../types/fields.js'
 import type { PortableComponentPolicyV1 } from '../types/component-policy.js'
 import type { JsonValue } from './hash.js'
 
@@ -19,7 +20,7 @@ export type {
   PortableComponentPolicyV1,
 }
 
-export type PortableMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+export type PortableMediaType = ContentManagedMediaType
 
 export type ResolvedContentFieldTypeV1 =
   | 'text'

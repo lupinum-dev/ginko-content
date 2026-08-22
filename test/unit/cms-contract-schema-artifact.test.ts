@@ -20,7 +20,8 @@ describe('resolved content contract field normalization', () => {
           i18n: true,
           schema: z.object({
             headline: z.string().min(2).max(80),
-            hero: fields.image({ aspectRatio: '16:9', accept: ['image/png', 'application/pdf'] }),
+            hero: fields.image({ aspectRatio: '16:9', accept: ['image/png'] }),
+            thumbnail: fields.image(),
             author: fields.relation('authors').required(),
             links: fields.array(fields.object({ label: fields.text(), href: fields.url() })),
             status: fields.select(['draft', 'published']),
@@ -45,6 +46,10 @@ describe('resolved content contract field normalization', () => {
     expect(byKey.hero).toMatchObject({
       type: 'image', media: { mediaTypes: ['image/png'], aspectRatio: '16:9' },
     })
+    expect(byKey.thumbnail).toMatchObject({
+      type: 'image',
+      media: { mediaTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] },
+    })
     expect(byKey.author).toMatchObject({
       type: 'relation', relation: { collection: 'authors', multiple: false },
     })
@@ -52,6 +57,21 @@ describe('resolved content contract field normalization', () => {
     expect(byKey.status).toMatchObject({ type: 'select', options: ['draft', 'published'] })
     expect(byKey.divider).toBeUndefined()
     expect(JSON.stringify(contract)).not.toMatch(/Title|Titel|Presentation only|width/)
+  })
+
+  it('rejects unsupported managed asset media types instead of silently dropping them', () => {
+    expect(() => buildResolvedContentContract({
+      collections: {
+        records: {
+          type: 'data',
+          source: 'content/records/*.json',
+          schema: z.object({
+            // @ts-expect-error Runtime validation must also protect JavaScript and untyped configs.
+            attachment: fields.file({ accept: ['application/pdf'] }),
+          }),
+        },
+      },
+    }, options)).toThrow(/managed asset media types.*application\/pdf/i)
   })
 
   it('keeps localized route maps on the one contract artifact', () => {

@@ -65,6 +65,15 @@ const datetimeSchema = z.preprocess(
 
 export const CONTENT_FIELD_METADATA_KEY = 'lupinum.ginko-content.field-metadata'
 
+export const CONTENT_MANAGED_MEDIA_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+] as const
+
+export type ContentManagedMediaType = (typeof CONTENT_MANAGED_MEDIA_TYPES)[number]
+
 export type ContentFieldMetadata = {
   type:
     | 'text'
@@ -99,11 +108,11 @@ export type ContentFieldMetadata = {
   slugFrom?: string | null
   image?: {
     aspectRatio?: string
-    accept?: string[]
+    accept?: ContentManagedMediaType[]
   } | null
   asset?: {
     kind?: 'asset' | 'file'
-    accept?: string[]
+    accept?: ContentManagedMediaType[]
   } | null
 }
 
@@ -250,7 +259,7 @@ export const fields = {
   icon: () => optionalField(z.string(), { type: 'icon' }),
   image (options: {
     aspectRatio?: string
-    accept?: string[]
+    accept?: ContentManagedMediaType[]
   } = {}) {
     return optionalField(z.string(), {
       type: 'image',
@@ -261,7 +270,7 @@ export const fields = {
       },
     })
   },
-  asset (options: { accept?: string[] } = {}) {
+  asset (options: { accept?: ContentManagedMediaType[] } = {}) {
     return optionalField(z.string(), {
       type: 'asset',
       localized: false,
@@ -271,7 +280,7 @@ export const fields = {
       },
     })
   },
-  file (options: { accept?: string[] } = {}) {
+  file (options: { accept?: ContentManagedMediaType[] } = {}) {
     return optionalField(z.string(), {
       type: 'file',
       localized: false,

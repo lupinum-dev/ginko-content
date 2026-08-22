@@ -2,7 +2,11 @@ import type { ZodType } from 'zod'
 
 import { getObjectShape, getReferenceDescriptor, getSchemaDef, getSchemaTypeName, unwrapSchema } from '../core/references/schema.js'
 import type { ContentCmsFieldConfig, ContentCollectionConfig } from '../types/config.js'
-import { getContentFieldMetadata, type ContentFieldMetadata } from '../types/fields.js'
+import {
+  CONTENT_MANAGED_MEDIA_TYPES,
+  getContentFieldMetadata,
+  type ContentFieldMetadata,
+} from '../types/fields.js'
 import { canonicalJsonBytes, type JsonValue } from './hash.js'
 import type {
   PortableComponentPolicyV1,
@@ -467,8 +471,16 @@ function dataFormat(collection: ContentCollectionConfig): 'yaml' | 'json' {
 }
 
 function portableMediaTypes(values: string[] | undefined): PortableMediaType[] {
-  const allowed = new Set<PortableMediaType>(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-  return unique(values ?? []).filter((value): value is PortableMediaType => allowed.has(value as PortableMediaType))
+  if (!values) return [...CONTENT_MANAGED_MEDIA_TYPES]
+  const allowed = new Set<string>(CONTENT_MANAGED_MEDIA_TYPES)
+  const normalized = unique(values)
+  const unsupported = normalized.filter(value => !allowed.has(value))
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Managed asset media types are limited to ${CONTENT_MANAGED_MEDIA_TYPES.join(', ')}; unsupported: ${unsupported.join(', ')}.`,
+    )
+  }
+  return normalized as PortableMediaType[]
 }
 
 function normalizeComponentPolicy(policy: PortableComponentPolicyV1): PortableComponentPolicyV1 {
