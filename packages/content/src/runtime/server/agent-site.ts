@@ -29,6 +29,8 @@ export interface AgentPage {
   locale: string
   source: AgentPageSource
   collection?: string
+  sourceFile?: string
+  order?: number
   updated?: string
   metadataFields?: readonly AgentMetadataField[]
   includeInIndex: boolean
@@ -155,6 +157,8 @@ const createGinkoAgentPage = (
     locale: meta.locale || locale,
     source: 'ginko',
     collection: meta.collection,
+    sourceFile: meta.sourceFile,
+    order: meta.order,
     updated: meta.lastModified,
     metadataFields: meta.metadataFields as any,
     includeInIndex: meta.includeInIndex,
@@ -197,10 +201,20 @@ const createAppOwnedAgentPages = async (locale: string, siteUrl: string) => {
   return result
 }
 
+const sourcePathCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
+
 const sortPages = (pages: AgentPage[]) =>
   pages.sort((a, b) => {
     const sectionDelta = a.sectionOrder - b.sectionOrder
     if (sectionDelta) return sectionDelta
+    if (a.sourceFile && b.sourceFile) {
+      const sourceDelta = sourcePathCollator.compare(a.sourceFile, b.sourceFile)
+      if (sourceDelta) return sourceDelta
+    }
+    if (a.order !== undefined && b.order !== undefined) {
+      const orderDelta = a.order - b.order
+      if (orderDelta) return orderDelta
+    }
     return a.path.localeCompare(b.path)
   })
 

@@ -20,6 +20,7 @@ describe('agent output fixture', () => {
     const deLlmsFull = await readGeneratedArtifact(fixture.publicDir, 'de/llms-full.txt')
 
     expect(enRaw).toContain('Fixture callout: Serializer contract')
+    expect(enRaw).toContain('```ts [content.config.ts]\nexport default defineContentConfig({})\n```')
     expect(enRaw).toContain('<card title="Stable Card" to="/docs/agent-components">')
     expect(enRaw).toContain('<gallery layout="rows" caption="Fixture gallery">')
     expect(enRaw).toContain('<chart>')
@@ -29,6 +30,7 @@ describe('agent output fixture', () => {
     expect(enRaw).toContain('Unknown component body.')
 
     expect(deRaw).toContain('Fixture callout: Serializer-Vertrag')
+    expect(deRaw).toContain('```ts [content.config.ts]\nexport default defineContentConfig({})\n```')
     expect(deRaw).toContain('<card title="Stabile Karte" to="/de/dokumentation/agent-komponenten">')
     expect(deRaw).toContain('<gallery layout="rows" caption="Fixture-Galerie">')
     expect(deRaw).toContain('<chart>')

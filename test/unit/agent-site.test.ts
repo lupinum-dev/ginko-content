@@ -95,6 +95,64 @@ describe('agent site index', () => {
     }))
   })
 
+  test('orders indexed pages by authored source paths before public routes', async () => {
+    const query = vi.fn(async (_event, providerQuery) => providerListResponse(providerQuery, [
+      providerDocumentFor({
+        path: '/docs/components',
+        file: { path: '2.components/1.index.md' },
+        title: 'Components'
+      }),
+      providerDocumentFor({
+        path: '/docs/getting-started/installation',
+        file: { path: '1.getting-started/10.installation.md' },
+        title: 'Installation'
+      }),
+      providerDocumentFor({
+        path: '/docs/getting-started',
+        file: { path: '1.getting-started/2.index.md' },
+        title: 'Getting Started'
+      })
+    ]))
+
+    vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
+      contentConfig: () => ({
+        siteUrl: 'https://example.test',
+        defaultLocale: 'en',
+        locales: ['en'],
+        agent: {
+          site: {
+            title: 'Docs',
+            description: 'Docs site.',
+            whenToUse: 'Use this site for Docs.'
+          },
+          sections: [{ id: 'docs', title: 'Docs', order: 10 }]
+        },
+        collections: {
+          docs: {
+            type: 'page',
+            route: '/docs',
+            agent: { section: 'docs', markdown: true }
+          }
+        }
+      })
+    }))
+    vi.doMock('../../packages/content/src/runtime/server/providers', () => ({
+      getContentProvider: async () => ({ query })
+    }))
+
+    const { buildAgentPageIndex, renderLlmsTxt } = await import('../../packages/content/src/runtime/server/agent-site')
+    const pages = await buildAgentPageIndex({ node: { req: { headers: {} } } } as any)
+
+    expect(pages.map(page => page.title)).toEqual([
+      'Getting Started',
+      'Installation',
+      'Components'
+    ])
+    expect(renderLlmsTxt(pages)).toMatch(
+      /Getting Started[\s\S]*Installation[\s\S]*Components/
+    )
+  })
+
   test('collects only raw markdown and llms prerender routes', async () => {
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
