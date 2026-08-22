@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.0-beta.2
 
 - Generate one canonical `.ginko/content-contract.json` artifact and expose a
   bounded Node reader for CMS and deployment tools.
