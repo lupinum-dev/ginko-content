@@ -33,7 +33,8 @@ const codeFenceInfo = (node: MarkdownNode) => {
   const filename = typeof node.props?.filename === 'string'
     ? node.props.filename.replace(/[\r\n]/g, ' ').trim()
     : ''
-  return `${language}${filename ? ` [${filename.replace(/\]/g, '\\]')}]` : ''}`
+  const escapedFilename = filename.replace(/\\/g, '\\\\').replace(/\]/g, '\\]')
+  return `${language}${escapedFilename ? ` [${escapedFilename}]` : ''}`
 }
 
 const renderList = (node: MarkdownNode, ctx: AgentMarkdownContext, ordered = false) =>

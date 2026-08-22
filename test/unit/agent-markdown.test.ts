@@ -111,7 +111,7 @@ describe('agent markdown', () => {
         {
           type: 'element',
           tag: 'pre',
-          props: { language: 'ts', filename: 'content.config.ts' },
+          props: { language: 'ts', filename: 'content\\config].ts\nignored' },
           children: [{ type: 'element', tag: 'code', children: [{ type: 'text', value: 'export default {}' }] }]
         },
         { type: 'element', tag: 'business-contact' }
@@ -160,7 +160,7 @@ describe('agent markdown', () => {
     expect(resolved?.markdown).toContain('# Intro')
     expect(resolved?.markdown).toContain('> Start here.')
     expect(resolved?.markdown).toContain('Hello **there**')
-    expect(resolved?.markdown).toContain('```ts [content.config.ts]\nexport default {}\n```')
+    expect(resolved?.markdown).toContain('```ts [content\\\\config\\].ts ignored]\nexport default {}\n```')
     expect(resolved?.markdown).toContain('## Contact')
     expect(resolved?.markdown).toContain('Email: office@example.test')
   })
