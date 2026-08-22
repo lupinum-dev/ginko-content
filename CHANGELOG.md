@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.0-beta.4
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.3...v1.0.0-beta.4)
+
+### 🩹 Fixes
+
+- **portability:** Allow unrestricted local images ([#63](https://github.com/lupinum-dev/ginko-content/pull/63))
+
+### ❤️ Contributors
+
+- Mat4m0
+
 ## v1.0.0-beta.3
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.2...v1.0.0-beta.3)
