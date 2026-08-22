@@ -304,6 +304,27 @@ describe('search behavior', () => {
     expect(sections.map(section => section.content).join(' ')).not.toContain('ignored code block')
   })
 
+  test('createSearchSections uses the public route envelope', () => {
+    const sections = createSearchSections([
+      {
+        route: { resolvedPath: '/docs/public-route' },
+        path: '/docs/private-path',
+        title: 'Public route',
+        body: { type: 'root', children: [] }
+      },
+      {
+        path: '/docs/path-fallback',
+        title: 'Path fallback',
+        body: { type: 'root', children: [] }
+      }
+    ])
+
+    expect(sections.map(section => section.id)).toEqual([
+      '/docs/public-route',
+      '/docs/path-fallback'
+    ])
+  })
+
   test('createSearchSections normalizes inline MDC syntax in result titles', () => {
     const sections = createSearchSections([
       {

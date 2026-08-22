@@ -47,7 +47,7 @@ export interface ContentProviderError extends Error {
   data: Record<string, unknown> & { code: ContentProviderErrorCode }
 }
 
-export const createContentProviderError = (
+export const createCoreProviderError = (
   code: ContentProviderErrorCode,
   message: string,
   details: Record<string, unknown> = {}

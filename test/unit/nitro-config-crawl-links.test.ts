@@ -27,7 +27,11 @@ function createNuxt() {
   return { nuxt, hooks }
 }
 
-function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 'filesystem') {
+function createHarness(
+  prerenderOverrides: Record<string, any> = {},
+  provider = 'filesystem',
+  integrity: number | null = 123
+) {
   const { nuxt, hooks } = createNuxt()
   const logger = { warn: vi.fn() }
 
@@ -36,7 +40,7 @@ function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 
     options: { api: { baseURL: '/api/_content' } } as any,
     appContentConfig: {} as any,
     contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
-    buildIntegrity: 123,
+    buildIntegrity: integrity ?? undefined,
     resolvedI18n: { locales: [], defaultLocale: undefined },
     resolveRuntimeModule: (path: string) => `/resolved/runtime/${path}`,
     resolveModuleFile: (path: string) => `/resolved/module/${path}`,
@@ -54,6 +58,18 @@ function createHarness(prerenderOverrides: Record<string, any> = {}, provider = 
 }
 
 describe('nitro-config crawlLinks handling', () => {
+  test('uses the same integrity-qualified cache route as the server handler', () => {
+    const { nitroConfig } = createHarness()
+
+    expect(nitroConfig.prerender.routes[0]).toBe('/api/_content/cache.123.json')
+  })
+
+  test('uses the stable cache route when build integrity is unavailable', () => {
+    const { nitroConfig } = createHarness({}, 'filesystem', null)
+
+    expect(nitroConfig.prerender.routes[0]).toBe('/api/_content/cache.json')
+  })
+
   test('defaults crawlLinks to true and warns nothing when the user left it unset', () => {
     const { nitroConfig, logger } = createHarness()
 

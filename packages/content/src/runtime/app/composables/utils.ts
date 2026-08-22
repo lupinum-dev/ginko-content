@@ -1,3 +1,4 @@
+import { createError } from 'h3'
 import { withBase } from 'ufo'
 import { hash } from 'ohash'
 import { tryUseNuxtApp, useRequestEvent, useRequestFetch } from '#imports'
@@ -14,12 +15,6 @@ interface ContentRuntimeShape {
 const readContentRuntime = (): ContentRuntimeShape => getContentRuntime()
 
 export const withContentBase = (url: string) => withBase(url, readContentRuntime().api.baseURL)
-
-export const navigationDisabled = () => {
-  console.warn('Navigation is only accessible when you enable it in module options.')
-  console.warn('Learn more in the Ginko navigation documentation.')
-  throw new Error('Navigation is only accessible when you enable it in module options.')
-}
 
 const addPathToEvent = (
   event: NonNullable<ReturnType<typeof useRequestEvent>>,
@@ -91,7 +86,11 @@ export async function fetchContentApi<T> (
   }) as unknown
 
   if (isHtmlFallbackResponse(data)) {
-    throw new Error('Not found')
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Content not found',
+      fatal: true
+    })
   }
 
   if (data === undefined || data === null) {

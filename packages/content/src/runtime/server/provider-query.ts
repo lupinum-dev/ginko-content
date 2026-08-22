@@ -4,7 +4,7 @@ import type { ContentProviderQueryInput, ResolveContentReferenceOptions } from '
 import { normalizeContentQueryParams } from '../../core/query/params'
 import { lowerQueryPlan } from '../../core/query/lower'
 import type { CanonicalQueryPlan } from '../../core/query/plan'
-import { containsStandaloneRegexOptions, findUnsupportedPublicQueryOperator, withoutKeys } from '../../core/query/operators'
+import { containsStandaloneRegexOptions, findUnsupportedPublicQueryOperator, projectDocumentFields } from '../../core/query/operators'
 import {
   resolveRuntimeCollectionI18nConfig,
   resolveRuntimeCollectionLocalePolicy
@@ -450,16 +450,10 @@ const shapeNormalizedProviderQueryDocument = (
     resolution: envelope.resolution
   } satisfies Record<string, unknown>
 
-  const selected = Array.isArray(params.only) ? params.only.map(String) : []
-  if (selected.length) {
-    const guaranteed = new Set(['id', 'collection', 'canonicalKey', 'locale', 'route', 'resolution'])
-    return Object.fromEntries(
-      Object.entries(shaped).filter(([key]) => guaranteed.has(key) || selected.includes(key))
-    )
-  }
-
-  const excluded = Array.isArray(params.without) ? params.without.map(String) : []
-  return withoutKeys(excluded)(shaped) ?? shaped
+  return projectDocumentFields(shaped, {
+    only: Array.isArray(params.only) ? params.only.map(String) : undefined,
+    without: Array.isArray(params.without) ? params.without.map(String) : undefined
+  }, ['id', 'collection', 'canonicalKey', 'locale', 'route', 'resolution'])
 }
 
 const shapeProviderQueryDocument = (

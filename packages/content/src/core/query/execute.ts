@@ -28,8 +28,8 @@ import type {
 import { isPlanRegex } from './plan'
 import { resolveLocaleChain, sortLocalesCanonically } from '../content/locale'
 import { getGraphCanonicalVariants, resolveGraphCanonicalKey, resolveGraphRouteVariant, resolveGraphVariant, selectGraphDocuments } from '../content/graph'
-import { ensureArray, get, sortList, withKeys, withoutKeys } from './operators'
-import { createContentProviderError } from '../provider-errors'
+import { ensureArray, get, projectDocumentFields, sortList } from './operators'
+import { createCoreProviderError } from '../provider-errors'
 
 interface ExecuteQueryPlanOptions {
   defaultLocale?: string
@@ -190,10 +190,10 @@ const applyQueryPlanSort = <T extends Record<string, unknown>>(matched: T[], pla
 }
 
 export const applyQueryPlanProjection = <T>(items: T[], plan: CanonicalQueryPlan) => {
-  return items.map((item) => {
-    const without = withoutKeys([...plan.projection.without])(item as Record<string, unknown>)
-    return withKeys([...plan.projection.only])(without) as T
-  })
+  return items.map(item => projectDocumentFields(
+    item as Record<string, unknown>,
+    plan.projection
+  ) as T)
 }
 
 /**
@@ -211,7 +211,7 @@ const encodeFilesystemCursor = (offset: number): string => {
 }
 
 const invalidFilesystemCursor = (): never => {
-  throw createContentProviderError(
+  throw createCoreProviderError(
     'unsupported_query_shape',
     'The filesystem provider received an invalid cursor.',
     { provider: 'filesystem', field: 'paging.after' }

@@ -1,6 +1,7 @@
 import { addServerHandler } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import type { ContentSearchOptions, ModuleOptions } from '../types/module'
+import { contentCacheRoutePath } from './cache-route'
 import { normalizeAgentRouteOptions } from './agent-options'
 
 export const registerContentServerHandlers = (
@@ -50,9 +51,10 @@ export const registerContentServerHandlers = (
   }
   addServerHandler({
     method: 'get',
-    route: nuxt.options.dev
-      ? `${options.api.baseURL}/cache.json`
-      : `${options.api.baseURL}/cache.${buildIntegrity}.json`,
+    route: contentCacheRoutePath(options.api.baseURL, {
+      dev: nuxt.options.dev,
+      integrity: buildIntegrity
+    }),
     handler: resolveRuntimeModule('./server/api/cache.js')
   })
 

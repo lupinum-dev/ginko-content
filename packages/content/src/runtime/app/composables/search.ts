@@ -4,7 +4,7 @@ import type { MaybeRefOrGetter } from '#imports'
 import { computed, ref, shallowRef, toValue, useAsyncData, useFetch, useRequestFetch, useRuntimeConfig, watchEffect } from '#imports'
 import { withBase } from 'ufo'
 import type { ContentCollectionHandle } from '../../../types/config'
-import type { ContentNavigationItem, ParsedContent } from '../../../types/content'
+import type { ContentNavigationItem } from '../../../types/content'
 import type { ContentCollectionStringName, ContentSearchSection } from '../../../types/query'
 import type { ContentSearchIndexRecord, ContentSearchPublicRuntimeConfig, ContentSearchResult } from '../../../types/search'
 import { createMiniSearchIndex } from '../../shared/search'
@@ -126,18 +126,10 @@ const loadSearchSections = async (
     locale,
     activeLocale: locale || resolveActiveLocale(locales, defaultLocale),
     loadPages: async (extraFields) => {
-      const items = await many(collection, {
+      return await many(collection, {
         ...(locale ? { locale } : {}),
         select: ['title', 'description', 'body', ...extraFields]
       })
-      // `createSearchSections` reads the raw, pre-decoration `path` field.
-      // The unified query envelope drops that internal field in favor of
-      // `route.resolvedPath` — re-attach it under the name this shared
-      // helper still expects rather than forking it.
-      return items.map(item => ({
-        ...item,
-        path: item.route.resolvedPath
-      })) as unknown as Array<Pick<ParsedContent, 'path' | 'title' | 'description' | 'body'> & Record<string, unknown>>
     }
   })
 }
