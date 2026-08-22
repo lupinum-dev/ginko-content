@@ -31,6 +31,11 @@ export async function readResolvedContentContract(
 ): Promise<ResolvedContentContractArtifact> {
   const path = artifactPath(options.root)
   try {
+    const directory = join(resolve(options.root), '.ginko')
+    const directoryStats = await lstat(directory)
+    if (!directoryStats.isDirectory() || directoryStats.isSymbolicLink()) {
+      throw artifactError('directory is unsafe.')
+    }
     const before = await lstat(path)
     const bytes = await readStableRegularFile(path, before, PORTABLE_CONTENT_LIMITS.contractBytes)
     const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))

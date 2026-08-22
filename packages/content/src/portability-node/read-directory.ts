@@ -149,7 +149,26 @@ async function inspectPortableDirectory(
   for (const file of files) {
     if (!file.startsWith('content/')) continue
     if (documents.length >= limits.documents) throw limit()
-    const bytes = await readPath(root, file)
+    if (materialize === 'planning') {
+      const bounded = planningLimits!
+      if (
+        planningDocuments.length >= bounded.documents
+        || planningDocumentBytes >= bounded.totalDocumentBytes
+      ) {
+        throw limit()
+      }
+    }
+    const bytes = await readPath(
+      root,
+      file,
+      materialize === 'planning'
+        ? Math.min(
+            maximum(file),
+            planningLimits!.documentBytes,
+            planningLimits!.totalDocumentBytes - planningDocumentBytes,
+          )
+        : maximum(file),
+    )
     const document = await parsePortableDocument(bytes, contract, file)
     if (materialize === 'all') materializedDocuments.push({ file, bytes, document })
     if (materialize === 'planning') {
@@ -423,11 +442,11 @@ async function scanPaths(root: string): Promise<string[]> {
   return files
 }
 
-async function readPath(root: string, file: string) {
+async function readPath(root: string, file: string, maximumBytes = maximum(file)) {
   const absolute = join(root, ...file.split('/'))
   const stats = await safeLstat(absolute)
   if (!stats.isFile() || stats.isSymbolicLink()) throw unsafePath()
-  return await readStableRegularFile(absolute, stats, maximum(file))
+  return await readStableRegularFile(absolute, stats, maximumBytes)
 }
 
 const factKey = (...parts: string[]) => parts.join('\u0000')

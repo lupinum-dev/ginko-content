@@ -157,6 +157,19 @@ describe('portable content contract', () => {
     expect(await parsePortableDocument(await serializePortableDocument(document, contract), contract)).toEqual(document)
   })
 
+  it('rejects local images outside the resolved field media policy', async () => {
+    const source = await readFile(fixture('content/docs/docs.introduction/en.md'), 'utf8')
+    const sha256 = 'a'.repeat(64)
+    const mismatched = source.replace(
+      'hero:\n  kind: external\n  url: "https://images.example.test/hero.png"',
+      `hero:\n  kind: local\n  path: /ginko-assets/${sha256}.jpg\n  sha256: ${sha256}\n  bytes: 1\n  mediaType: image/jpeg\n  originalFilename: hero.jpg`,
+    )
+
+    await expect(parsePortableDocument(mismatched, contract)).rejects.toMatchObject({
+      code: 'DOCUMENT_INVALID',
+    })
+  })
+
   it('uses reversible NFC-safe identity path segments', () => {
     expect(encodePortableIdentitySegment('café %')).toBe('caf%C3%A9%20%25')
     expect(decodePortableIdentitySegment('caf%C3%A9%20%25')).toBe('café %')

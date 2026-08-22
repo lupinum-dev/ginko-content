@@ -92,5 +92,15 @@ describe('resolved Content contract artifact', () => {
     await writeFile(target, JSON.stringify(contract()))
     await symlink(target, join(linked, '.ginko/content-contract.json'))
     await expect(readResolvedContentContract({ root: linked })).rejects.toThrow(/safe regular file/)
+
+    const linkedDirectory = await root()
+    const artifactDirectory = join(linkedDirectory, 'artifact-directory')
+    await mkdir(artifactDirectory)
+    await writeFile(join(artifactDirectory, 'content-contract.json'), JSON.stringify(contract()))
+    const projectWithLinkedDirectory = await root()
+    await symlink(artifactDirectory, join(projectWithLinkedDirectory, '.ginko'))
+    await expect(readResolvedContentContract({ root: projectWithLinkedDirectory })).rejects.toThrow(
+      /directory is unsafe/,
+    )
   })
 })

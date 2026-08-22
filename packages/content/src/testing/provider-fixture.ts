@@ -576,10 +576,11 @@ export const createFixtureContentDataSource = (
       assertFixtureControl(control)
       const value = fixtureResult(await provider.routes!(event()))
       const prefix = 'fixture:'
+      const token = request.cursor?.startsWith(prefix) ? request.cursor.slice(prefix.length) : null
       const offset = request.cursor === null
         ? 0
-        : request.cursor.startsWith(prefix)
-          ? Number(request.cursor.slice(prefix.length))
+        : token !== null && /^(?:0|[1-9]\d*)$/.test(token)
+          ? Number(token)
           : Number.NaN
       if (!Number.isSafeInteger(offset) || offset < 0 || offset > value.data.length) {
         throw createContentDataSourceError('QUERY_CURSOR_INVALID')

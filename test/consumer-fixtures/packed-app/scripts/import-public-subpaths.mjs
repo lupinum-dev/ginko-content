@@ -7,6 +7,7 @@ const subpaths = [
   "@lupinum/ginko-content/portability/node",
   "@lupinum/ginko-content/transformers",
   "@lupinum/ginko-content/cms-contract",
+  "@lupinum/ginko-content/cms-contract/node",
   "@lupinum/ginko-content/testing/provider-fixture",
   "@lupinum/ginko-content/testing/provider-contract",
   "@lupinum/ginko-content/testing/data-source-contract",

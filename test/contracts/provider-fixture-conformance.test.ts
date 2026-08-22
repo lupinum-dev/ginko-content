@@ -562,4 +562,17 @@ describe('in-memory data-source reference conformance', () => {
       },
     },
   })
+
+  test('rejects route cursors the reference adapter never emits', async () => {
+    const source = createFixtureContentDataSource(fixture)
+    const control = {
+      signal: new AbortController().signal,
+      deadlineAt: Date.now() + 1_000,
+    }
+    for (const cursor of ['fixture:', 'fixture:01', 'fixture:+1', 'fixture:1e0', 'other:1']) {
+      await expect(source.routes!({}, { cursor, limit: 1 }, control)).rejects.toMatchObject({
+        code: 'QUERY_CURSOR_INVALID',
+      })
+    }
+  })
 })

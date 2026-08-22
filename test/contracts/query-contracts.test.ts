@@ -508,6 +508,11 @@ describe('query execution contracts', () => {
     expect(evaluateQueryPlanFilter({ title: 'Intro/v1' }, {
       type: 'compare', field: 'title', operator: 'regex', value: '/^intro\\/v1$/i'
     })).toBe(true)
+    for (const malformed of ['/intro/z', '/intro/ii']) {
+      expect(() => evaluateQueryPlanFilter({ title: 'Intro' }, {
+        type: 'compare', field: 'title', operator: 'regex', value: malformed
+      })).toThrow(expect.objectContaining({ statusMessage: 'unsupported_query_shape' }))
+    }
     // ...and bare-string literal matching.
     expect(evaluateQueryPlanFilter({ title: 'Introduction' }, {
       type: 'compare', field: 'title', operator: 'regex', value: 'ntro'

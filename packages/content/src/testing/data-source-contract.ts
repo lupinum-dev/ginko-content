@@ -155,9 +155,13 @@ export function runContentDataSourceContractSuite<Context>(
     }
   })
 
-  if (options.cursor) {
-    test(`${options.name} preserves opaque cursor continuation semantics`, async () => {
-      const source = await options.loadSource()
+  test(`${options.name} certifies cursor continuation when cursor pagination is advertised`, async () => {
+    const source = await options.loadSource()
+    const advertisesCursor = source.capabilities.query.pagination.includes('cursor')
+    expect(Boolean(options.cursor), 'Cursor data sources require a continuation conformance probe').toBe(
+      advertisesCursor,
+    )
+    if (options.cursor) {
       const context = options.createContext()
       const provider = bindContentProvider({ source, createContext: () => context })
       const event = { context: {}, node: { req: {}, res: {} } } as never
@@ -180,8 +184,8 @@ export function runContentDataSourceContractSuite<Context>(
       const next = isContentProviderResult(nextResponse) ? nextResponse.data : nextResponse
       assertQueryResponse(next, nextProbe.query)
       await nextProbe.assertResult(next)
-    })
-  }
+    }
+  })
 
   test(`${options.name} has discriminating probes for every optional operation`, async () => {
     const source = await options.loadSource()

@@ -25,12 +25,18 @@ export async function readStableRegularFile(
     handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
     const opened = await handle.stat()
     assertSameFile(before, opened)
-    const bytes = await handle.readFile()
+    const buffer = new Uint8Array(maximumBytes + 1)
+    let offset = 0
+    while (offset < buffer.byteLength) {
+      const { bytesRead } = await handle.read(buffer, offset, buffer.byteLength - offset, offset)
+      if (bytesRead === 0) break
+      offset += bytesRead
+    }
     const after = await handle.stat()
     assertSameFile(opened, after)
-    if (bytes.byteLength !== after.size) throw new StableFileError('unsafe')
-    if (bytes.byteLength > maximumBytes) throw new StableFileError('limit')
-    return Uint8Array.from(bytes)
+    if (offset !== after.size) throw new StableFileError('unsafe')
+    if (offset > maximumBytes) throw new StableFileError('limit')
+    return buffer.slice(0, offset)
   } catch (error) {
     if (error instanceof StableFileError) throw error
     throw new StableFileError('unsafe')

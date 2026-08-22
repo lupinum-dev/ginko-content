@@ -55,9 +55,18 @@ const regexFlags = new Set(['d', 'g', 'i', 'm', 's', 'u', 'y'])
 const parseRegexLiteral = (value: string): [source: string, flags: string] | null => {
   if (!value.startsWith('/')) return null
   const closingSlash = value.lastIndexOf('/')
-  if (closingSlash <= 1) return null
+  if (closingSlash === 0) return null
   const flags = value.slice(closingSlash + 1)
-  if ([...flags].some(flag => !regexFlags.has(flag))) return null
+  if (
+    [...flags].some(flag => !regexFlags.has(flag))
+    || new Set(flags).size !== flags.length
+  ) {
+    throw createCoreProviderError(
+      'unsupported_query_shape',
+      'The query contains a malformed regular-expression literal.',
+      { field: 'where.$regex' },
+    )
+  }
   return [value.slice(1, closingSlash), flags]
 }
 

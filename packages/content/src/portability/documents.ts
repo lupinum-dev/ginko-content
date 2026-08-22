@@ -213,10 +213,10 @@ function validateFieldValue(field: ResolvedContentFieldV1, value: unknown): Json
     if (references.some(reference => reference.collection !== field.relation?.collection)) throw invalidDocument()
     return references as unknown as JsonValue
   }
-  if (field.type === 'image') return assertPortableAssetReference(value) as unknown as JsonValue
+  if (field.type === 'image') return validateImageReference(field, value)
   if (field.type === 'images') {
     if (!Array.isArray(value)) throw invalidDocument()
-    return value.map(assertPortableAssetReference) as unknown as JsonValue
+    return value.map(item => validateImageReference(field, item))
   }
   if (field.type === 'object') {
     if (!isRecord(value) || !field.fields) throw invalidDocument()
@@ -229,6 +229,17 @@ function validateFieldValue(field: ResolvedContentFieldV1, value: unknown): Json
     return value.map(item => !isRecord(item) ? (() => { throw invalidDocument() })() : validateNested(item, fields))
   }
   return validateJson(value)
+}
+
+function validateImageReference(field: ResolvedContentFieldV1, value: unknown): JsonValue {
+  const reference = assertPortableAssetReference(value)
+  if (
+    reference.kind === 'local'
+    && !field.media?.mediaTypes.includes(reference.mediaType)
+  ) {
+    throw invalidDocument()
+  }
+  return reference as unknown as JsonValue
 }
 
 function validateNested(value: Record<string, unknown>, fields: ResolvedContentFieldV1[]): JsonObject {

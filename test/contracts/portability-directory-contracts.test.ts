@@ -147,6 +147,20 @@ describe('Node portable directory contract', () => {
     await expect(writePortableDirectory(destination, await fixtureBundle())).rejects.toMatchObject({ code: 'DESTINATION_EXISTS' })
   })
 
+  it('applies planning byte limits before parsing document content', async () => {
+    const parent = await temporary('planning-limit-before-parse')
+    const destination = join(parent, 'bundle')
+    await writePortableDirectory(destination, await fixtureBundle())
+    await writeFile(join(destination, 'content/docs/docs.introduction/en.md'), 'not portable yaml')
+
+    await expect(readPortableDirectoryForPlanning(destination, {
+      documents: 10,
+      assets: 10,
+      documentBytes: 256 * 1024,
+      totalDocumentBytes: 1,
+    })).rejects.toMatchObject({ code: 'LIMIT_EXCEEDED' })
+  })
+
   it('rejects traversal, reserved paths, case-fold collisions, and extra files', async () => {
     expect(() => validatePortableRelativePath('../escape')).toThrowError(expect.objectContaining({ code: 'PATH_INVALID' }))
     expect(() => validatePortableRelativePath('content/CON/file.md')).toThrowError(expect.objectContaining({ code: 'PATH_INVALID' }))
