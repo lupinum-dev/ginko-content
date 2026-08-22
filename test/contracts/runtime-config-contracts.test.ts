@@ -312,7 +312,8 @@ describe('runtime config contracts', () => {
       agent: {
         site: {
           title: 'Docs',
-          description: 'Docs site'
+          description: 'Docs site',
+          whenToUse: 'Use this site for Docs.'
         },
         pages: [
           {

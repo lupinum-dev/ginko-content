@@ -18,9 +18,7 @@ import { defineAgentSection, defineCollection, defineContentConfig } from '@lupi
           site: {
             title: 'Packed Consumer',
             description: 'Packed package consumer smoke app.',
-            url: 'https://packed-consumer.example.test',
-            defaultLocale: 'en',
-            locales: ['en']
+            whenToUse: 'Use this app to verify the packed Ginko package.'
           },
           sections: [
             defineAgentSection({ id: 'docs', title: 'Docs', order: 10 })

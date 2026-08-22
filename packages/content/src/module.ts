@@ -29,6 +29,7 @@ import { validateContentPageRouteMetadata } from './module/route-meta-validation
 import { hasAgentSurface, validateAgentConfig } from './module/agent-config'
 import { registerStaticOutputGeneration } from './module/static-output'
 import { registerContentNitroConfig } from './module/nitro-config'
+import { resolveNuxtSiteUrl } from './module/runtime-config'
 import { validateCollectionNames, validateContentConfigOnlyOptions, validateRemovedMarkdownOptions } from './module/validation'
 import { contentModuleDefaults } from './module/defaults'
 import './module/augmentations'
@@ -144,7 +145,10 @@ export default defineNuxtModule<ModuleOptions>({
     if (!hasAgentSurface(appContentConfig)) {
       options.agent = false
     }
-    validateAgentConfig(appContentConfig, options, { dev: nuxt.options.dev })
+    validateAgentConfig(appContentConfig, options, {
+      dev: nuxt.options.dev,
+      siteUrl: resolveNuxtSiteUrl(nuxt)
+    })
 
     const collections = Object.fromEntries(Object.entries(appContentConfig.collections).map(([name, collection]) => [
       name,
@@ -311,7 +315,8 @@ export default defineNuxtModule<ModuleOptions>({
       contentContext,
       resolvedI18n,
       resolveRuntimeModule,
-      getSearchRuntime
+      getSearchRuntime,
+      siteUrl: resolveNuxtSiteUrl(nuxt)
     })
     registerContentContextFinalization({
       nuxt,

@@ -65,7 +65,7 @@ export const isSupportedAgentLocale = (locale: string | undefined) =>
   Boolean(locale && getAgentLocales().includes(locale))
 
 const resolveSiteUrl = (event?: H3Event) => {
-  const configured = contentConfig().agent?.site?.url
+  const configured = contentConfig().siteUrl
   if (configured) return configured
   if (event && !import.meta.prerender) {
     const url = getRequestURL(event)
@@ -293,10 +293,16 @@ export const renderLlmsTxt = (pages: AgentPage[], locale = defaultLocale()) => {
   const lines = [
     `# ${localizedValue(site?.title, locale, 'Site')}`,
     '',
-    `> ${localizedValue(site?.description, locale, '')}`
+    `> ${localizedValue(site?.description, locale, '')}`,
+    '',
+    '## When to use',
+    '',
+    localizedValue(site?.whenToUse, locale, '')
   ]
 
-  if (site?.profile) lines.push('', `Profile: ${site.profile}`)
+  if (site?.whenNotToUse) {
+    lines.push('', '## When not to use', '', localizedValue(site.whenNotToUse, locale))
+  }
   if (site?.contentSignals) {
     lines.push(
       `AI input: ${site.contentSignals.aiInput ? 'yes' : 'no'}`,

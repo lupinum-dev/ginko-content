@@ -64,8 +64,11 @@ export default defineContentConfig({
         en: 'Small fixture for custom agent markdown serializers.',
         de: 'Kleine Fixture fuer eigene Agent-Markdown-Serializer.'
       },
-      url: 'https://agent-output.example.test',
-      profile: 'documentation',
+      whenToUse: {
+        en: 'Use this fixture to test agent-readable Ginko output.',
+        de: 'Diese Fixture testet agentenlesbare Ginko-Ausgaben.'
+      },
+      whenNotToUse: 'Do not use this fixture as product documentation.',
       contentSignals: {
         search: true,
         aiInput: true,

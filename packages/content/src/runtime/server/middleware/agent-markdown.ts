@@ -6,26 +6,8 @@ import {
   renderLlmsTxt,
   resolveMarkdownForPublicRoute
 } from '../agent-site'
-import { acceptsMarkdown, addVaryHeader, setAgentMarkdownHeaders } from '../agent-http'
+import { acceptsMarkdown, addVaryHeader, setAgentMarkdownHeaders, shouldSkipAgentMarkdownPath } from '../agent-http'
 import { isUnsafeAgentRoutePath, normalizeAgentRoutePath } from '../../../features/agent/agent-paths'
-
-const shouldSkip = (pathname: string) =>
-  pathname.startsWith('/_')
-  || pathname.startsWith('/api/')
-  || pathname.startsWith('/raw/')
-  || pathname === '/robots.txt'
-  || pathname === '/sitemap.xml'
-  || pathname.endsWith('.txt')
-  || pathname.endsWith('.xml')
-  || pathname.endsWith('.json')
-  || pathname.endsWith('.ico')
-  || pathname.endsWith('.png')
-  || pathname.endsWith('.jpg')
-  || pathname.endsWith('.jpeg')
-  || pathname.endsWith('.webp')
-  || pathname.endsWith('.svg')
-  || pathname.endsWith('.css')
-  || pathname.endsWith('.js')
 
 export default defineEventHandler(async (event) => {
   const { pathname } = getRequestURL(event)
@@ -34,7 +16,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid markdown route path' })
   }
 
-  if (shouldSkip(pathname)) return
+  if (shouldSkipAgentMarkdownPath(pathname)) return
   addVaryHeader(event, 'accept')
 
   if (pathname.endsWith('/index.md')) {

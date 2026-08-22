@@ -16,7 +16,7 @@ import type { ResolvedCollectionLocalePolicy } from '../features/localization/lo
 import { CACHE_VERSION } from '../utils'
 import { createSearchRuntimeConfig } from './options'
 
-const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
+export const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
   const privateRuntime = nuxt.options.runtimeConfig as Record<string, any>
   const privateContentRuntime = privateRuntime.content as Record<string, any> | undefined
   const publicRuntime = nuxt.options.runtimeConfig.public as Record<string, any>
@@ -111,7 +111,7 @@ const sanitizeAgentConfig = async (
 
   const defaultLocale = contentContext.localePolicy.defaultLocale
   const locales = contentContext.locales?.length ? contentContext.locales : [defaultLocale]
-  const agentSiteUrl = siteUrl || agent.site?.url || 'http://localhost:3000'
+  const agentSiteUrl = siteUrl || 'http://localhost:3000'
   const pages = await Promise.all((agent.pages || []).map(async (page) => {
     const title: Record<string, string> = {}
     const description: Record<string, string> = {}
@@ -139,7 +139,7 @@ const sanitizeAgentConfig = async (
   }))
 
   return {
-    ...(agent.site ? { site: agent.site } : {}),
+    site: agent.site,
     ...(agent.markdown ? { markdown: agent.markdown } : {}),
     ...(agent.sections ? { sections: agent.sections } : {}),
     ...(pages.length ? { pages } : {})

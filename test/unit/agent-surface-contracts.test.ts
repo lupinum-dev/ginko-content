@@ -20,7 +20,7 @@ describe('agent surface contracts', () => {
         site: {
           title: 'Docs',
           description: 'Docs site.',
-          url: 'https://example.test'
+          whenToUse: 'Use this site for the Docs product.'
         },
         sections: [{ id: 'docs', title: 'Docs' }],
         pages: []
@@ -28,7 +28,7 @@ describe('agent surface contracts', () => {
       collections: {
         docs: { type: 'page', agent: { section: 'missing', markdown: true } }
       }
-    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
+    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false, siteUrl: 'https://example.test' })).toThrow(
       /unknown Ginko agent section "missing"/
     )
 
@@ -36,7 +36,8 @@ describe('agent surface contracts', () => {
       agent: {
         site: {
           title: 'Docs',
-          description: 'Docs site.'
+          description: 'Docs site.',
+          whenToUse: 'Use this site for the Docs product.'
         },
         sections: [{ id: 'docs', title: 'Docs' }],
         pages: []
@@ -45,7 +46,24 @@ describe('agent surface contracts', () => {
         docs: { type: 'page', agent: { section: 'docs', markdown: true } }
       }
     } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
-      /requires agent\.site\.url/
+      /requires the canonical site URL/
+    )
+
+    expect(() => validateAgentConfig({
+      collections: {
+        docs: { type: 'page', agent: { markdown: true } }
+      }
+    } as any, { agent: { routes: true } } as any, { dev: true })).toThrow(
+      /requires agent\.site/
+    )
+
+    expect(() => validateAgentConfig({
+      agent: {
+        site: { title: 'Docs', description: 'Docs site.', whenToUse: '  ' }
+      },
+      collections: {}
+    } as any, { agent: { routes: true } } as any, { dev: true })).toThrow(
+      /agent\.site\.whenToUse must contain non-empty text/
     )
   })
 

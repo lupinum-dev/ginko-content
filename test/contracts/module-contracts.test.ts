@@ -154,7 +154,8 @@ describe('module contracts', () => {
       registerContentSearchServerHandlers: vi.fn()
     }))
     vi.doMock('../../packages/content/src/module/runtime-config', () => ({
-      applyContentRuntimeConfig
+      applyContentRuntimeConfig,
+      resolveNuxtSiteUrl: vi.fn(() => undefined)
     }))
     vi.doMock('../../packages/content/src/module/content-components-template', () => ({
       registerContentComponentsTemplate: vi.fn()

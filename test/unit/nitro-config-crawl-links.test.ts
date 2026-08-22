@@ -30,6 +30,7 @@ function createNuxt() {
 function createHarness(
   prerenderOverrides: Record<string, any> = {},
   provider = 'filesystem',
+  agent = false,
   integrity: number | null = 123
 ) {
   const { nuxt, hooks } = createNuxt()
@@ -37,8 +38,11 @@ function createHarness(
 
   registerContentNitroConfig({
     nuxt: nuxt as any,
-    options: { api: { baseURL: '/api/_content' } } as any,
-    appContentConfig: {} as any,
+    options: {
+      api: { baseURL: '/api/_content' },
+      ...(agent ? { agent: { routes: true, prerender: false } } : {})
+    } as any,
+    appContentConfig: agent ? { agent: { site: {} } } as any : {} as any,
     contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
     buildIntegrity: integrity ?? undefined,
     resolvedI18n: { locales: [], defaultLocale: undefined },
@@ -65,7 +69,7 @@ describe('nitro-config crawlLinks handling', () => {
   })
 
   test('uses the stable cache route when build integrity is unavailable', () => {
-    const { nitroConfig } = createHarness({}, 'filesystem', null)
+    const { nitroConfig } = createHarness({}, 'filesystem', false, null)
 
     expect(nitroConfig.prerender.routes[0]).toBe('/api/_content/cache.json')
   })
@@ -98,6 +102,13 @@ describe('nitro-config crawlLinks handling', () => {
 
     expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
     expect(nitroConfig.prerender.crawlLinks).toBe(true)
+  })
+
+  test('registers the agent recovery plugin only when agent routes exist', () => {
+    expect(createHarness({}, 'filesystem', true).nitroConfig.plugins).toEqual([
+      '/resolved/runtime/server/plugins/agent-errors.js'
+    ])
+    expect(createHarness().nitroConfig.plugins).toBeUndefined()
   })
 
 })

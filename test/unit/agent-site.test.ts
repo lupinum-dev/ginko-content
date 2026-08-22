@@ -10,6 +10,7 @@ describe('agent site index', () => {
     vi.resetModules()
     vi.stubGlobal('__ginkoTestRuntimeConfig', {
       content: {
+        siteUrl: 'https://example.test',
         defaultLocale: 'en',
         collections: {
           docs: {
@@ -45,13 +46,14 @@ describe('agent site index', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        siteUrl: 'https://example.test',
         defaultLocale: 'en',
         locales: ['en'],
         agent: {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test'
+            whenToUse: 'Use this site for Docs.'
           },
           sections: [{ id: 'docs', title: 'Docs', order: 10 }]
         },
@@ -69,7 +71,7 @@ describe('agent site index', () => {
     }))
 
     const { clearAgentMarkdownSerializers, registerAgentMarkdownSerializer } = await import('../../packages/content/src/runtime/server/agent-markdown')
-    const { buildAgentPageIndex } = await import('../../packages/content/src/runtime/server/agent-site')
+    const { buildAgentPageIndex, renderLlmsTxt } = await import('../../packages/content/src/runtime/server/agent-site')
     const serializer = vi.fn(() => 'rendered')
 
     clearAgentMarkdownSerializers()
@@ -81,8 +83,10 @@ describe('agent site index', () => {
     expect(pages[0]).toMatchObject({
       path: '/docs/intro',
       rawPath: '/raw/docs/intro.md',
-      markdownPath: '/docs/intro/index.md'
+      markdownPath: '/docs/intro/index.md',
+      markdownUrl: 'https://example.test/raw/docs/intro.md'
     })
+    expect(renderLlmsTxt(pages)).toContain('## When to use\n\nUse this site for Docs.')
     expect(serializer).not.toHaveBeenCalled()
     expect(query).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       plan: expect.objectContaining({
@@ -94,13 +98,14 @@ describe('agent site index', () => {
   test('collects only raw markdown and llms prerender routes', async () => {
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        siteUrl: 'https://example.test',
         defaultLocale: 'en',
         locales: ['en'],
         agent: {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test'
+            whenToUse: 'Use this site for Docs.'
           },
           sections: [{ id: 'docs', title: 'Docs', order: 10 }]
         },
@@ -137,6 +142,7 @@ describe('agent site index', () => {
   test('uses the source-locale public route for localized fallback agent pages', async () => {
     vi.stubGlobal('__ginkoTestRuntimeConfig', {
       content: {
+        siteUrl: 'https://example.test',
         defaultLocale: 'en',
         locales: ['en', 'de'],
         localeFallback: { de: ['en'] },
@@ -179,13 +185,14 @@ describe('agent site index', () => {
 
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        siteUrl: 'https://example.test',
         defaultLocale: 'en',
         locales: ['en', 'de'],
         agent: {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test'
+            whenToUse: 'Use this site for Docs.'
           },
           sections: [{ id: 'docs', title: { en: 'Docs', de: 'Dokumentation' }, order: 10 }]
         },
@@ -224,13 +231,14 @@ describe('agent site index', () => {
   test('fails clearly when app-owned and content-owned agent pages share a route', async () => {
     vi.doMock('../../packages/content/src/runtime/server/storage-access', () => ({
       contentConfig: () => ({
+        siteUrl: 'https://example.test',
         defaultLocale: 'en',
         locales: ['en'],
         agent: {
           site: {
             title: 'Docs',
             description: 'Docs site.',
-            url: 'https://example.test'
+            whenToUse: 'Use this site for Docs.'
           },
           pages: [
             {
