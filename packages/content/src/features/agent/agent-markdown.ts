@@ -24,6 +24,7 @@ export interface AgentMarkdown {
   description: string
   markdown: string
   sourceFile?: string
+  order?: number
   canonicalUrl: string
   lastModified?: string
   publicSignals?: AgentMarkdownPublicSignals
