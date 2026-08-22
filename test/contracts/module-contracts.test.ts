@@ -788,6 +788,7 @@ describe('module contracts', () => {
       collections: { docs: { id: 'docs' } },
     })
     expect(writeResolvedContentContractArtifact).toHaveBeenCalledWith('/workspace/app', finalized.contract)
+    expect(writeResolvedContentContractArtifact).toHaveBeenCalledTimes(1)
     expect(finalized.localePolicy.collections.docs).toMatchObject({
       localized: true,
       locales: ['en', 'de'],

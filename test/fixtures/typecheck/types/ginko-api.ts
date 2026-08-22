@@ -52,7 +52,7 @@ import {
 import { readResolvedContentContract } from '@lupinum/ginko-content/cms-contract/node'
 import { createFixtureContentProvider, createProviderFixture, createProviderFixtureEvent } from '@lupinum/ginko-content/testing/provider-fixture'
 import { parsePortableDocument, type PortableDocumentV1, type PortableManifestV1 } from '@lupinum/ginko-content/portability'
-import { readPortableDirectory, readPortableDirectoryMetadata, writePortableDirectory } from '@lupinum/ginko-content/portability/node'
+import { readPortableDirectory, readPortableDirectoryForPlanning, writePortableDirectory } from '@lupinum/ginko-content/portability/node'
 import { runPortabilityContract, runPortableDirectoryContract } from '@lupinum/ginko-content/testing/portability-contract'
 import { useContentPage as autoUseContentPage, useGinkoContentSearch as autoUseContentSearch } from '#imports'
 import { z } from 'zod'
@@ -81,7 +81,7 @@ const structuredProvider = {
   query: async () => ({ result: [providerRow], skip: 0, limit: 1, total: 1 })
 } satisfies ContentProvider
 
-void [parsePortableDocument, readPortableDirectory, readPortableDirectoryMetadata, writePortableDirectory, readResolvedContentContract, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest, structuredProvider, toContentProviderQuery(providerQueryInput)]
+void [parsePortableDocument, readPortableDirectory, readPortableDirectoryForPlanning, writePortableDirectory, readResolvedContentContract, runPortabilityContract, runPortableDirectoryContract, portableDocument, portableManifest, structuredProvider, toContentProviderQuery(providerQueryInput)]
 void [CONTENT_REFERENCE_PREFIX]
 
 declare const providerPlan: ContentProviderQueryPlan

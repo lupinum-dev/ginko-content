@@ -16,7 +16,7 @@ interface ContentContextFinalizationOptions {
   runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>
   buildIntegrity: number | undefined
   resolveRuntimeModule: (path: string) => string
-  onResolved: (context: ResolvedContentContext) => void | Promise<void>
+  onResolved: (context: ResolvedContentContext) => void
 }
 
 export const registerContentContextFinalization = ({
@@ -53,7 +53,7 @@ export const registerContentContextFinalization = ({
     // top-level clone instead: dev-mode exposes accidental
     // top-level mutation from observers without touching the object Nitro
     // still needs to write into.
-    await onResolved(resolvedContentContext)
+    onResolved(resolvedContentContext)
     const contextForObservers = nuxt.options.dev
       ? Object.freeze({ ...resolvedContentContext })
       : resolvedContentContext

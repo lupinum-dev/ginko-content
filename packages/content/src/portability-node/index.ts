@@ -1,12 +1,14 @@
 export {
   readPortableDirectory,
-  readPortableDirectoryMetadata,
+  readPortableDirectoryForPlanning,
   verifyPortableDirectoryBounded,
   rebuildPortableDirectoryManifest,
   type PortableDirectoryAsset,
   type PortableDirectoryBundle,
   type PortableDirectoryDocument,
-  type PortableDirectoryMetadata,
+  type PortableDirectoryPlanningBundle,
+  type PortableDirectoryPlanningDocument,
+  type PortableDirectoryPlanningLimits,
   type PortableDirectoryVerification,
 } from './read-directory.js'
 export {

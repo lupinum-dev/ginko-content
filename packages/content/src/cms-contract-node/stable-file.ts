@@ -1,0 +1,56 @@
+import { constants, type Stats } from 'node:fs'
+import { open } from 'node:fs/promises'
+
+export type StableFileFailure = 'limit' | 'unsafe'
+
+export class StableFileError extends Error {
+  constructor(readonly reason: StableFileFailure) {
+    super(`Stable file ${reason}.`)
+    this.name = 'StableFileError'
+  }
+}
+
+export async function readStableRegularFile(
+  path: string,
+  before: Stats,
+  maximumBytes: number,
+): Promise<Uint8Array> {
+  if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1) {
+    throw new StableFileError('unsafe')
+  }
+  if (before.size > maximumBytes) throw new StableFileError('limit')
+
+  let handle
+  try {
+    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+    const opened = await handle.stat()
+    assertSameFile(before, opened)
+    const bytes = await handle.readFile()
+    const after = await handle.stat()
+    assertSameFile(opened, after)
+    if (bytes.byteLength !== after.size) throw new StableFileError('unsafe')
+    if (bytes.byteLength > maximumBytes) throw new StableFileError('limit')
+    return Uint8Array.from(bytes)
+  } catch (error) {
+    if (error instanceof StableFileError) throw error
+    throw new StableFileError('unsafe')
+  } finally {
+    await handle?.close()
+  }
+}
+
+function assertSameFile(
+  left: Stats,
+  right: Stats,
+): void {
+  if (
+    left.dev !== right.dev
+    || left.ino !== right.ino
+    || left.size !== right.size
+    || left.mtimeMs !== right.mtimeMs
+    || !right.isFile()
+    || right.nlink !== 1
+  ) {
+    throw new StableFileError('unsafe')
+  }
+}

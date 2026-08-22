@@ -40,21 +40,35 @@ export interface PortableDirectoryBundle {
   manifest: PortableManifestV1
 }
 
-export interface PortableDirectoryMetadata {
+export interface PortableDirectoryPlanningDocument {
+  file: string
+  document: PortableDocumentV1
+}
+
+export interface PortableDirectoryPlanningBundle {
   contract: ResolvedContentContractV1
-  documents: PortableDirectoryDocument[]
+  documents: PortableDirectoryPlanningDocument[]
   assets: PortableAssetBlobV1[]
   manifest: PortableManifestV1
+}
+
+export interface PortableDirectoryPlanningLimits {
+  documents: number
+  assets: number
+  documentBytes: number
+  totalDocumentBytes: number
 }
 
 export async function readPortableDirectory(root: string): Promise<PortableDirectoryBundle> {
   return inspectPortableDirectory(root, true, 'all')
 }
 
-export async function readPortableDirectoryMetadata(
+export async function readPortableDirectoryForPlanning(
   root: string,
-): Promise<PortableDirectoryMetadata> {
-  return inspectPortableDirectory(root, true, 'documents')
+  planningLimits: PortableDirectoryPlanningLimits,
+): Promise<PortableDirectoryPlanningBundle> {
+  assertPlanningLimits(planningLimits)
+  return inspectPortableDirectory(root, true, 'planning', planningLimits)
 }
 
 export async function rebuildPortableDirectoryManifest(root: string): Promise<PortableManifestV1> {
@@ -91,8 +105,9 @@ async function inspectPortableDirectory(
 async function inspectPortableDirectory(
   root: string,
   verifyManifest: boolean,
-  materialize: 'documents',
-): Promise<PortableDirectoryMetadata>
+  materialize: 'planning',
+  planningLimits: PortableDirectoryPlanningLimits,
+): Promise<PortableDirectoryPlanningBundle>
 async function inspectPortableDirectory(
   root: string,
   verifyManifest: boolean,
@@ -101,8 +116,9 @@ async function inspectPortableDirectory(
 async function inspectPortableDirectory(
   root: string,
   verifyManifest: boolean,
-  materialize: 'all' | 'documents' | 'none',
-): Promise<PortableDirectoryBundle | PortableDirectoryMetadata | PortableDirectoryVerification> {
+  materialize: 'all' | 'planning' | 'none',
+  planningLimits?: PortableDirectoryPlanningLimits,
+): Promise<PortableDirectoryBundle | PortableDirectoryPlanningBundle | PortableDirectoryVerification> {
   const rootStats = await safeLstat(root)
   if (!rootStats.isDirectory() || rootStats.isSymbolicLink()) throw unsafePath()
   const files = await scanPaths(root)
@@ -121,7 +137,9 @@ async function inspectPortableDirectory(
   const documents: PortableManifestV1['documents'] = []
   const assets: PortableManifestV1['assets'] = []
   const materializedDocuments: PortableDirectoryDocument[] = []
+  const planningDocuments: PortableDirectoryPlanningDocument[] = []
   const materializedAssets: PortableDirectoryAsset[] = []
+  let planningDocumentBytes = 0
   const variants = new Set<string>()
   const identities = new Map<string, Set<string>>()
   const sharedHashes = new Map<string, string>()
@@ -133,7 +151,19 @@ async function inspectPortableDirectory(
     if (documents.length >= limits.documents) throw limit()
     const bytes = await readPath(root, file)
     const document = await parsePortableDocument(bytes, contract, file)
-    if (materialize !== 'none') materializedDocuments.push({ file, bytes, document })
+    if (materialize === 'all') materializedDocuments.push({ file, bytes, document })
+    if (materialize === 'planning') {
+      const bounded = planningLimits!
+      planningDocumentBytes += bytes.byteLength
+      if (
+        planningDocuments.length >= bounded.documents
+        || bytes.byteLength > bounded.documentBytes
+        || planningDocumentBytes > bounded.totalDocumentBytes
+      ) {
+        throw limit()
+      }
+      planningDocuments.push({ file, document })
+    }
     const variant = factKey(document.collection, document.canonicalKey, document.locale)
     if (variants.has(variant)) {
       throw portabilityError(
@@ -193,6 +223,7 @@ async function inspectPortableDirectory(
   const assetHashes = new Set<string>()
   for (const file of files) {
     if (!file.startsWith('public/ginko-assets/')) continue
+    if (materialize === 'planning' && assets.length >= planningLimits!.assets) throw limit()
     const asset = await assetFromFile(file, await readPath(root, file))
     if (materialize === 'all') materializedAssets.push(asset)
     if (assetHashes.has(asset.sha256)) {
@@ -264,10 +295,30 @@ async function inspectPortableDirectory(
   if (materialize === 'all') {
     return { contract, documents: materializedDocuments, assets: materializedAssets, manifest }
   }
-  if (materialize === 'documents') {
-    return { contract, documents: materializedDocuments, assets, manifest }
+  if (materialize === 'planning') {
+    return { contract, documents: planningDocuments, assets, manifest }
   }
   return { contract, manifest }
+}
+
+function assertPlanningLimits(value: PortableDirectoryPlanningLimits): void {
+  for (const limitValue of [
+    value.documents,
+    value.assets,
+    value.documentBytes,
+    value.totalDocumentBytes,
+  ]) {
+    if (!Number.isSafeInteger(limitValue) || limitValue <= 0) {
+      throw new TypeError('Portable directory planning limits must be positive safe integers.')
+    }
+  }
+  if (
+    value.documents > limits.documents
+    || value.documentBytes > limits.documentBytes
+    || value.totalDocumentBytes > limits.totalBytes
+  ) {
+    throw new TypeError('Portable directory planning limits exceed the portable format limits.')
+  }
 }
 
 function validateDocumentFacts(

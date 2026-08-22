@@ -319,9 +319,9 @@ export default defineNuxtModule<ModuleOptions>({
       getSearchRuntime,
       siteUrl: resolveNuxtSiteUrl(nuxt)
     })
-    // Downstream Nuxt modules run before `modules:done`. Give CMS tooling the
-    // exact resolved contract during the same setup pass, then refresh it again
-    // after provider finalization and on content-config reloads below.
+    // Downstream Nuxt modules run before `modules:done`. The contract is already
+    // immutable here; provider finalization validates the selected provider but
+    // does not rebuild content policy.
     await writeResolvedContentContractArtifact(nuxt.options.rootDir, contentContext.contract)
     registerContentContextFinalization({
       nuxt,
@@ -331,9 +331,8 @@ export default defineNuxtModule<ModuleOptions>({
       runtimeRenderPolicies,
       buildIntegrity,
       resolveRuntimeModule,
-      onResolved: async context => {
+      onResolved: context => {
         resolvedContentContext = context
-        await writeResolvedContentContractArtifact(nuxt.options.rootDir, context.contract)
       }
     })
 
