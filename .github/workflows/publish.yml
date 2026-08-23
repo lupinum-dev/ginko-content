@@ -24,39 +24,85 @@ jobs:
       contents: read
 
     steps:
-      - name: Require main
+      - name: Require current main
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
           node -e "if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.RELEASE_VERSION)) throw new Error('Invalid release version')"
-          tag_ref="refs/tags/v$RELEASE_VERSION"
-          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | .object | \"\\(.type) \\(.sha)\"")"
-          if test -n "$tag_object"; then
-            tag_type="${tag_object%% *}"
-            tag_sha="${tag_object#* }"
-            while test "$tag_type" = "tag"; do
-              tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object | "\\(.type) \\(.sha)"')"
-              tag_type="${tag_object%% *}"
-              tag_sha="${tag_object#* }"
-            done
-            test "$tag_type" = "commit"
-            test "$tag_sha" = "$GITHUB_SHA"
-          fi
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          test "$current_main" = "$GITHUB_SHA"
 
-      - name: Find successful CI for this commit
-        id: ci
+      - name: Require successful CI for current main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=completed&per_page=20" --jq '.workflow_runs | map(select(.conclusion == "success" and .head_branch == "main")) | first | .id // empty')"
-          test -n "$run_id"
-          printf 'run-id=%s\n' "$run_id" >> "$GITHUB_OUTPUT"
+          workflow_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=completed&per_page=20" --jq '.workflow_runs | map(select(.conclusion == "success" and .head_branch == "main")) | first | .id // empty')"
+          test -n "$workflow_run"
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+
+      - name: Install isolated Sigstore verifier
+        env:
+          SIGSTORE_PREFIX: ${{ runner.temp }}/sigstore
+        run: |
+          mkdir -p "$SIGSTORE_PREFIX"
+          cp scripts/sigstore-verifier/package.json \
+            scripts/sigstore-verifier/package-lock.json \
+            "$SIGSTORE_PREFIX/"
+          npm ci --prefix "$SIGSTORE_PREFIX" --ignore-scripts --no-audit --no-fund
+
+      - name: Resolve the certified source
+        id: source
+        env:
+          CURRENT_MAIN_SHA: ${{ github.sha }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          SIGSTORE_PREFIX: ${{ runner.temp }}/sigstore
+        run: node scripts/verify-npm-recovery.mjs --resolve-source >> "$GITHUB_OUTPUT"
+
+      - name: Require a safe source and release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test -n "$RELEASE_SOURCE_SHA"
+          comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_SOURCE_SHA...$GITHUB_SHA")"
+          test "$(jq -r .merge_base_commit.sha <<< "$comparison")" = "$RELEASE_SOURCE_SHA"
+          case "$(jq -r .status <<< "$comparison")" in
+            ahead|identical) ;;
+            *) echo 'The certified source is not an ancestor of current main.' >&2; exit 1 ;;
+          esac
+          tag_ref="refs/tags/v$RELEASE_VERSION"
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | [.object.type, .object.sha] | @tsv")"
+          if test -n "$tag_object"; then
+            IFS=$'\t' read -r tag_type tag_sha <<< "$tag_object"
+            while test "$tag_type" = tag; do
+              tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '[.object.type, .object.sha] | @tsv')"
+              IFS=$'\t' read -r tag_type tag_sha <<< "$tag_object"
+            done
+            test "$tag_type" = commit
+            test "$tag_sha" = "$RELEASE_SOURCE_SHA"
+          fi
+
+      - name: Find successful CI for the certified source
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
+        run: |
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$RELEASE_SOURCE_SHA&event=push&status=completed&per_page=20" --jq '.workflow_runs | map(select(.conclusion == "success" and .head_branch == "main")) | first | .id // empty')"
+          test -n "$run_id"
+          printf 'run-id=%s\n' "$run_id" >> "$GITHUB_OUTPUT"
 
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
@@ -67,6 +113,7 @@ jobs:
 
       - name: Verify exact artifact
         env:
+          RELEASE_SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: >-
           node -e "const fs=require('node:fs');const crypto=require('node:crypto');const path=require('node:path');
@@ -75,13 +122,23 @@ jobs:
           const m=require('./.release/release-artifact.json');const c=require('./.release/release-certification.json');const tarball=tarballs[0];
           if(!/^[a-z0-9._-]+\.tgz$/.test(tarball))throw new Error('Unsafe tarball filename');
           const digest=crypto.createHash('sha256').update(fs.readFileSync(path.join('.release',tarball))).digest('hex');
-          if(m.packageName!=='@lupinum/ginko-content'||m.packageVersion!==process.env.RELEASE_VERSION||m.commit!==process.env.GITHUB_SHA||m.worktreeDirty||!m.releaseEligible||m.reproduciblePacks!==2||m.tarball!==tarball||m.sha256!==digest||c.packageName!==m.packageName||c.packageVersion!==m.packageVersion||c.commit!==m.commit||c.tarball!==tarball||c.sha256!==digest||Object.values(c.lanes).some(value=>value!=='passed'))throw new Error('Artifact failed exact-SHA release validation')"
+          if(m.packageName!=='@lupinum/ginko-content'||m.packageVersion!==process.env.RELEASE_VERSION||m.commit!==process.env.RELEASE_SOURCE_SHA||m.worktreeDirty||!m.releaseEligible||m.reproduciblePacks!==2||m.tarball!==tarball||m.sha256!==digest||c.packageName!==m.packageName||c.packageVersion!==m.packageVersion||c.commit!==m.commit||c.tarball!==tarball||c.sha256!==digest||Object.values(c.lanes).some(value=>value!=='passed'))throw new Error('Artifact failed exact-source release validation')"
 
-      - name: Extract release notes
+      - name: Verify registry recovery state
         env:
           RELEASE_VERSION: ${{ inputs.version }}
+          SIGSTORE_PREFIX: ${{ runner.temp }}/sigstore
+        run: node scripts/verify-npm-recovery.mjs
+
+      - name: Extract source-bound release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          awk -v version="v$RELEASE_VERSION" '$0 == "## " version { capture=1 } capture && /^## / && $0 != "## " version { exit } capture' CHANGELOG.md > .release/release-notes.md
+          gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/CHANGELOG.md?ref=$RELEASE_SOURCE_SHA" > .release/source-changelog.md
+          awk -v version="v$RELEASE_VERSION" '$0 == "## " version { capture=1 } capture && /^## / && $0 != "## " version { exit } capture' .release/source-changelog.md > .release/release-notes.md
+          rm .release/source-changelog.md
           test -s .release/release-notes.md
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -90,7 +147,7 @@ jobs:
           path: .release
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 14
 
   publish:
     name: Publish to npm
@@ -130,61 +187,92 @@ jobs:
             if (/E404|404 Not Found/.test(result.stderr)) return null
             fail(`npm view failed for ${spec} ${field}: ${result.stderr.trim()}`)
           }
-          const verifyExistingProvenance = async (manifest, bytes, spec) => {
-            const metadata = view(spec, 'dist.attestations')
-            if (!metadata?.url) fail(`${spec} exists without required provenance.`)
-            const response = await fetch(metadata.url, {
-              headers: { Accept: 'application/json' },
-            })
-            if (!response.ok) fail(`${spec} provenance lookup failed: HTTP ${response.status}.`)
-            const document = await response.json()
-            const attestation = document.attestations?.find(
-              item => item.predicateType === 'https://slsa.dev/provenance/v1',
-            )
-            if (!attestation?.signedAccessSignatureUrl || !attestation.bundle?.dsseEnvelope?.payload) {
-              fail(`${spec} has incomplete npm provenance.`)
-            }
-            const statement = JSON.parse(
-              Buffer.from(attestation.bundle.dsseEnvelope.payload, 'base64').toString('utf8'),
-            )
-            const expectedSubject = `pkg:npm/${manifest.packageName.replace('@', '%40')}@${manifest.packageVersion}`
-            const expectedSha512 = createHash('sha512').update(bytes).digest('hex')
-            const workflow = statement.predicate?.buildDefinition?.externalParameters?.workflow
-            const dependencies = statement.predicate?.buildDefinition?.resolvedDependencies ?? []
+          const hasProvenance = metadata =>
+            typeof metadata?.url === 'string' && metadata.url.length > 0 &&
+            metadata.provenance?.predicateType === 'https://slsa.dev/provenance/v1'
+          const provenanceBundle = async metadata => {
+            if (!hasProvenance(metadata)) fail('Registry provenance metadata is incomplete.')
+            const url = new URL(metadata.url)
             if (
-              statement.predicateType !== 'https://slsa.dev/provenance/v1' ||
-              !statement.subject?.some(subject =>
-                subject.name === expectedSubject && subject.digest?.sha512 === expectedSha512
-              ) ||
-              workflow?.repository !== 'https://github.com/lupinum-dev/ginko-content' ||
-              workflow?.path !== '.github/workflows/publish.yml' ||
-              workflow?.ref !== 'refs/heads/main' ||
-              !dependencies.some(dependency => dependency.digest?.gitCommit === manifest.commit)
-            ) {
-              fail(`${spec} provenance does not match the certified source and tarball.`)
-            }
+              url.origin !== 'https://registry.npmjs.org' ||
+              !url.pathname.startsWith('/-/npm/v1/attestations/') ||
+              url.username || url.password || url.search || url.hash
+            ) fail('Registry provenance URL is not trusted.')
+            const response = await fetch(url, {
+              headers: { Accept: 'application/json' },
+              redirect: 'error',
+              signal: AbortSignal.timeout(10_000),
+            })
+            if (!response.ok) fail(`Registry provenance fetch failed with HTTP ${response.status}.`)
+            const attestations = (await response.json())?.attestations?.filter(attestation =>
+              attestation?.predicateType === 'https://slsa.dev/provenance/v1' && attestation.bundle,
+            ) ?? []
+            if (attestations.length !== 1) fail('Registry must expose exactly one SLSA provenance bundle.')
+            return attestations[0].bundle
           }
           const manifest = JSON.parse(readFileSync('.release/release-artifact.json', 'utf8'))
+          const record = JSON.parse(readFileSync('.release/registry-verification.json', 'utf8'))
           if (manifest.packageVersion !== process.env.RELEASE_VERSION) fail('Release version differs.')
           const npmVersion = run(['--version']).stdout.trim().split('.').map(Number)
           if (npmVersion[0] < 11 || (npmVersion[0] === 11 && npmVersion[1] < 5)) fail('npm 11.5 or newer is required.')
+          if (!/^[a-z0-9._-]+\.tgz$/.test(manifest.tarball)) fail('Unsafe tarball filename.')
           const bytes = readFileSync(`.release/${manifest.tarball}`)
           const shasum = createHash('sha1').update(bytes).digest('hex')
+          const sha512 = createHash('sha512').update(bytes).digest('hex')
           const channel = manifest.packageVersion.includes('-') ? 'next' : 'latest'
           const spec = `${manifest.packageName}@${manifest.packageVersion}`
-          const existing = view(spec, 'dist.shasum')
-          if (existing && existing !== shasum) fail(`${spec} exists with different bytes.`)
+          const recordKeys = [
+            'packageName', 'packageVersion', 'provenanceBundleSha256', 'registryShasum',
+            'registryState', 'schemaVersion', 'sourceSha', 'tarball', 'tarballSha1',
+            'tarballSha512',
+          ]
+          if (
+            Object.keys(record).sort().join(',') !== recordKeys.join(',') ||
+            record.schemaVersion !== 1 ||
+            record.packageName !== '@lupinum/ginko-content' ||
+            record.packageName !== manifest.packageName ||
+            record.packageVersion !== process.env.RELEASE_VERSION ||
+            record.packageVersion !== manifest.packageVersion ||
+            !/^[0-9a-f]{40}$/.test(record.sourceSha) ||
+            record.sourceSha !== manifest.commit ||
+            record.tarball !== manifest.tarball ||
+            record.tarballSha1 !== shasum ||
+            record.tarballSha512 !== sha512 ||
+            !(
+              record.registryState === 'absent' && record.registryShasum === null &&
+                record.provenanceBundleSha256 === null ||
+              record.registryState === 'verified-existing' &&
+                /^[0-9a-f]{40}$/.test(record.registryShasum) &&
+                /^[0-9a-f]{64}$/.test(record.provenanceBundleSha256)
+            )
+          ) fail('Registry verification record does not match the certified artifact.')
+          const registryVersion = view(spec, 'version')
+          const registryState = registryVersion === null ? 'absent' : 'verified-existing'
+          const existing = registryVersion === null ? null : view(spec, 'dist.shasum')
+          if (
+            registryVersion !== null && registryVersion !== manifest.packageVersion ||
+            registryState !== record.registryState ||
+            existing !== record.registryShasum
+          ) {
+            fail(`${spec} registry existence or bytes changed after verification.`)
+          }
           if (existing) {
-            await verifyExistingProvenance(manifest, bytes, spec)
-          } else {
+            const metadata = view(spec, 'dist.attestations')
+            const bundle = await provenanceBundle(metadata)
+            const bundleSha256 = createHash('sha256').update(JSON.stringify(bundle)).digest('hex')
+            if (bundleSha256 !== record.provenanceBundleSha256) fail(`${spec} registry provenance changed after verification.`)
+          }
+          if (!existing) {
             const result = run(['publish', `.release/${manifest.tarball}`, '--access', 'public', '--tag', channel, '--ignore-scripts', '--provenance'], true)
             if (result.status !== 0) fail(`npm publish failed for ${spec}.`)
           }
           for (let attempt = 0; attempt < 240; attempt += 1) {
-            if (view(spec, 'dist.shasum') === shasum && view(spec, 'dist.attestations') && view(manifest.packageName, `dist-tags.${channel}`) === manifest.packageVersion) process.exit(0)
+            const provenance = view(spec, 'dist.attestations')
+            const channelReady = existing || view(manifest.packageName, `dist-tags.${channel}`) === manifest.packageVersion
+            if (view(spec, 'dist.shasum') === shasum && hasProvenance(provenance) && channelReady) process.exit(0)
             Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)
           }
-          fail(`${spec} did not expose the required bytes, provenance, and ${channel} tag.`)
+          fail(`${spec} did not expose the required bytes${existing ? ' and provenance' : `, provenance, and ${channel} tag`}.`)
           NODE
 
   github-release:
@@ -208,26 +296,46 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           TARBALL=$(node -e "process.stdout.write(require('./.release/release-artifact.json').tarball)")
-          PRERELEASE=()
-          case "$RELEASE_VERSION" in *-*) PRERELEASE=(--prerelease) ;; esac
-          if gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object | "\\(.type) \\(.sha)"')"
-            tag_type="${tag_object%% *}"
-            tag_sha="${tag_object#* }"
-            while test "$tag_type" = "tag"; do
-              tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object | "\\(.type) \\(.sha)"')"
-              tag_type="${tag_object%% *}"
-              tag_sha="${tag_object#* }"
-            done
-            test "$tag_type" = "commit"
-            test "$tag_sha" = "$GITHUB_SHA"
+          MANIFEST_SOURCE=$(node -e "process.stdout.write(require('./.release/release-artifact.json').commit)")
+          RECORD_SOURCE=$(node -e "process.stdout.write(require('./.release/registry-verification.json').sourceSha)")
+          test "$MANIFEST_SOURCE" = "$RECORD_SOURCE"
+          test -n "$MANIFEST_SOURCE"
+          PRERELEASE_CREATE=()
+          PRERELEASE_EDIT=(--prerelease=false)
+          case "$RELEASE_VERSION" in
+            *-*) PRERELEASE_CREATE=(--prerelease); PRERELEASE_EDIT=(--prerelease) ;;
+          esac
+          tag_ref="refs/tags/v$RELEASE_VERSION"
+          release_response=""
+          if release_response="$(gh api --include --silent "repos/$GITHUB_REPOSITORY/releases/tags/v$RELEASE_VERSION" 2>&1)"; then :; else :; fi
+          release_status="$(awk 'toupper($1) ~ /^HTTP\// { status=$2 } END { print status }' <<< "$release_response")"
+          case "$release_status" in
+            200) release_exists=true ;;
+            404) release_exists=false ;;
+            *) echo "GitHub Release lookup failed with HTTP status ${release_status:-unknown}." >&2; exit 1 ;;
+          esac
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | [.object.type, .object.sha] | @tsv")"
+          if test -z "$tag_object"; then
+            test "$release_exists" = false
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=$tag_ref" -f "sha=$MANIFEST_SOURCE" >/dev/null || true
+          fi
+          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | [.object.type, .object.sha] | @tsv")"
+          test -n "$tag_object"
+          IFS=$'\t' read -r tag_type tag_sha <<< "$tag_object"
+          while test "$tag_type" = tag; do
+            tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '[.object.type, .object.sha] | @tsv')"
+            IFS=$'\t' read -r tag_type tag_sha <<< "$tag_object"
+          done
+          test "$tag_type" = commit
+          test "$tag_sha" = "$MANIFEST_SOURCE"
+          if test "$release_exists" = true; then
             gh release upload "v$RELEASE_VERSION" ".release/$TARBALL" --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --title "v$RELEASE_VERSION" --notes-file .release/release-notes.md
+            gh release edit "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --title "v$RELEASE_VERSION" --notes-file .release/release-notes.md "${PRERELEASE_EDIT[@]}"
           else
             gh release create "v$RELEASE_VERSION" ".release/$TARBALL" \
               --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
+              --verify-tag \
               --title "v$RELEASE_VERSION" \
               --notes-file .release/release-notes.md \
-              "${PRERELEASE[@]}"
+              "${PRERELEASE_CREATE[@]}"
           fi
