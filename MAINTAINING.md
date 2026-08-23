@@ -93,15 +93,20 @@ workflow. Do not create a second publication path.
 Do not rebuild the tarball or create a replacement version for a GitHub-only
 failure. Rerun the failed job when the existing workflow is correct. If the
 workflow itself needs a fix, retain the original candidate and reconcile from
-its certified source SHA after the fix.
+its certified source SHA after the fix. The certified source SHA is the exact
+commit cryptographically recorded by npm provenance for the published tarball.
 
-Every dispatch must use the current `main` SHA, and that SHA must already have
-successful push CI. For an unpublished version, the current `main` SHA is the
-release source. For an existing npm version, an isolated Sigstore 5 verifier
-cryptographically derives the original source SHA from npm provenance. The
-workflow requires that source to be an ancestor of current `main`, requires an
-existing tag to peel to that source, and downloads the exact successful CI
-artifact for the source rather than the later workflow-fix commit.
+Recover in this order:
+
+1. Dispatch from the current `main` SHA after it has successful push CI.
+2. For an unpublished version, use current `main` as the certified source. For
+   an existing version, derive the certified source from npm provenance with
+   the isolated Sigstore 5 verifier.
+3. Require the certified source to be an ancestor of current `main` and to have
+   successful push CI. If the release tag exists, require it to peel to that
+   source. A missing tag is created there only after publication is verified.
+4. Download the exact retained CI artifact from the certified source, not from
+   the later workflow-fix commit.
 
 `@lupinum/ginko-content@0.3.6` has no npm provenance, so this recovery path
 deliberately rejects it. That published version is immutable; do not add a
@@ -115,10 +120,11 @@ only that source-bound verification record. For an existing version, it fetches
 only the validated npm attestation URL and requires the unique current SLSA
 bundle to match the recorded SHA-256. It stops if registry existence, bytes, or
 provenance changed before approval. It then verifies the correct dist-tag
-(`next` for prereleases or `latest` for stable releases), skips duplicate
-publication, and creates or repairs the tag and GitHub release against the
-certified source. A missing tag is created at that source through the Git API,
-then re-read and recursively peeled before GitHub Release creation.
+(`next` for prereleases or `latest` for stable releases) for a new publication.
+For an existing version it leaves the current channel head unchanged. It skips
+duplicate publication and creates or repairs the tag and GitHub release against
+the certified source. A missing tag is created at that source through the Git
+API, then re-read and recursively peeled before GitHub Release creation.
 
 ## Roll back a defective release
 

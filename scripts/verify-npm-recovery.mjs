@@ -184,10 +184,12 @@ const npmView = (spec, field) => {
   const result = spawnSync("npm", ["view", spec, field, "--json", "--registry", REGISTRY_URL], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    timeout: 10_000,
   });
   if (result.status === 0) return JSON.parse(result.stdout.trim() || "null");
-  if (/E404|404 Not Found/u.test(result.stderr)) return null;
-  fail(`npm view failed for ${spec} ${field}: ${result.stderr.trim()}`);
+  const stderr = result.stderr ?? "";
+  if (/E404|404 Not Found/u.test(stderr)) return null;
+  fail(`npm view failed for ${spec} ${field}: ${(result.error?.message ?? stderr).trim()}`);
 };
 
 export const fetchAttestations = async (metadata, fetchImpl = fetch) => {

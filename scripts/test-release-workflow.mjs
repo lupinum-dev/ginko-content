@@ -158,19 +158,25 @@ assert(
   "Release existence must use explicit GitHub API HTTP status handling.",
 );
 
-const verifiedUpload = publish.jobs?.verify?.steps?.find(
-  (step) => step.with?.name === "verified-ginko-content-release",
-);
+const verifiedUploads =
+  publish.jobs?.verify?.steps?.filter(
+    (step) =>
+      /^actions\/upload-artifact@[0-9a-f]{40}$/u.test(step.uses ?? "") &&
+      step.with?.name === "verified-ginko-content-release",
+  ) ?? [];
 assert(
-  verifiedUpload?.with?.["retention-days"] === 14,
+  verifiedUploads.length === 1 && verifiedUploads[0].with?.["retention-days"] === 14,
   "The verified candidate must be retained for 14 days.",
 );
 
-const candidateUpload = ci.jobs?.["release-artifact"]?.steps?.find(
-  (step) => step.with?.name === "ginko-content-release",
-);
+const candidateUploads =
+  ci.jobs?.["release-artifact"]?.steps?.filter(
+    (step) =>
+      /^actions\/upload-artifact@[0-9a-f]{40}$/u.test(step.uses ?? "") &&
+      step.with?.name === "ginko-content-release",
+  ) ?? [];
 assert(
-  candidateUpload?.with?.["retention-days"] === 14,
+  candidateUploads.length === 1 && candidateUploads[0].with?.["retention-days"] === 14,
   "The CI candidate must be retained for 14 days.",
 );
 

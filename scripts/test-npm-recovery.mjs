@@ -75,9 +75,29 @@ assert.equal(integritySha512(integrity), sha512);
 
 const mutations = [
   ["predicate type", (value) => (value.predicateType = "wrong")],
+  ["statement type", (value) => (value._type = "https://in-toto.io/Statement/v0.1")],
   ["subject", (value) => (value.subject[0].name = "pkg:npm/wrong@1.2.3")],
   ["tarball sha512", (value) => (value.subject[0].digest.sha512 = "0".repeat(128))],
+  ["extra subject digest", (value) => (value.subject[0].digest.sha256 = "0".repeat(64))],
   ["extra subject", (value) => value.subject.push(structuredClone(value.subject[0]))],
+  [
+    "dependency uri",
+    (value) =>
+      (value.predicate.buildDefinition.resolvedDependencies[0].uri =
+        "git+https://github.com/example/wrong@refs/heads/main"),
+  ],
+  [
+    "extra dependency",
+    (value) =>
+      value.predicate.buildDefinition.resolvedDependencies.push(
+        structuredClone(value.predicate.buildDefinition.resolvedDependencies[0]),
+      ),
+  ],
+  [
+    "extra dependency digest",
+    (value) =>
+      (value.predicate.buildDefinition.resolvedDependencies[0].digest.sha1 = "0".repeat(40)),
+  ],
   [
     "workflow repository",
     (value) =>

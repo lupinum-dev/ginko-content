@@ -268,10 +268,11 @@ jobs:
           }
           for (let attempt = 0; attempt < 240; attempt += 1) {
             const provenance = view(spec, 'dist.attestations')
-            if (view(spec, 'dist.shasum') === shasum && hasProvenance(provenance) && view(manifest.packageName, `dist-tags.${channel}`) === manifest.packageVersion) process.exit(0)
+            const channelReady = existing || view(manifest.packageName, `dist-tags.${channel}`) === manifest.packageVersion
+            if (view(spec, 'dist.shasum') === shasum && hasProvenance(provenance) && channelReady) process.exit(0)
             Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)
           }
-          fail(`${spec} did not expose the required bytes, provenance, and ${channel} tag.`)
+          fail(`${spec} did not expose the required bytes${existing ? ' and provenance' : `, provenance, and ${channel} tag`}.`)
           NODE
 
   github-release:

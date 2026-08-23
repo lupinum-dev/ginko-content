@@ -19,13 +19,18 @@ const protectedRun = stepProgram("publish", "Publish or verify the certified tar
 const protectedMatch = /^node --input-type=module <<'NODE'\n([\s\S]+)\nNODE$/u.exec(protectedRun);
 assert(protectedMatch, "The protected release program must remain extractable for fixtures.");
 const protectedProgram = protectedMatch[1];
-const fastProtectedProgram = protectedProgram
-  .replace("attempt < 240", "attempt < 1")
-  .replace(
+const rewrite = (source, from, to) => {
+  assert(source.includes(from), `The protected program must still contain: ${from}`);
+  return source.replace(from, to);
+};
+let fastProtectedProgram = rewrite(protectedProgram, "attempt < 240", "attempt < 1");
+fastProtectedProgram = rewrite(
+  fastProtectedProgram,
     "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)",
     "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 0)",
-  )
-  .replace(
+  );
+fastProtectedProgram = rewrite(
+  fastProtectedProgram,
     "const fail = message => { throw new Error(message) }",
     `const fixtureFetch = async (url, options) => {
       const fixture = JSON.parse(readFileSync(process.env.FETCH_FIXTURE, 'utf8'))
@@ -35,10 +40,12 @@ const fastProtectedProgram = protectedProgram
       return { ok: fixture.ok, status: fixture.status, json: async () => fixture.document }
     }
     const fail = message => { throw new Error(message) }`,
-  )
-  .replace("await fetch(url, {", "await fixtureFetch(url, {");
-assert.notEqual(fastProtectedProgram, protectedProgram, "The polling fixture must run once.");
-assert(!fastProtectedProgram.includes("await fetch(url"), "The fixture must intercept attestation fetches.");
+  );
+fastProtectedProgram = rewrite(
+  fastProtectedProgram,
+  "await fetch(url, {",
+  "await fixtureFetch(url, {",
+);
 
 const sourceSha = "a".repeat(40);
 const currentMainSha = "b".repeat(40);
@@ -58,7 +65,7 @@ const provenanceBundleSha256 = createHash("sha256")
   .digest("hex");
 
 const fakeNpmSource = `#!/usr/bin/env node
-const { readFileSync } = require("node:fs");
+const { appendFileSync, existsSync, readFileSync } = require("node:fs");
 const fixture = JSON.parse(readFileSync(process.env.NPM_FIXTURE, "utf8"));
 const args = process.argv.slice(2);
 if (args.length === 1 && args[0] === "--version") {
@@ -67,11 +74,17 @@ if (args.length === 1 && args[0] === "--version") {
 }
 if (args[0] === "view") {
   const key = args[1] + " " + args[2];
-  if (!Object.hasOwn(fixture.views, key)) {
+  const published = existsSync(process.env.NPM_LOG) && readFileSync(process.env.NPM_LOG, "utf8").length > 0;
+  const views = published ? { ...fixture.views, ...fixture.afterPublishViews } : fixture.views;
+  if (!Object.hasOwn(views, key)) {
     process.stderr.write("Unexpected npm view: " + key + "\\n");
     process.exit(2);
   }
-  process.stdout.write(JSON.stringify(fixture.views[key]));
+  process.stdout.write(JSON.stringify(views[key]));
+  process.exit(0);
+}
+if (args[0] === "publish") {
+  appendFileSync(process.env.NPM_LOG, JSON.stringify(args) + "\\n");
   process.exit(0);
 }
 process.stderr.write("Unexpected npm command: " + args.join(" ") + "\\n");
@@ -80,7 +93,9 @@ process.exit(2);
 
 const runProtected = ({
   attestations,
+  channelTag = releaseVersion,
   fetchedAttestations = attestationDocument,
+  registryState = "verified-existing",
   recordChange,
 }) => {
   const directory = mkdtempSync(join(tmpdir(), "ginko-content-protected-release-"));
@@ -99,9 +114,9 @@ const runProtected = ({
       tarball,
       tarballSha1,
       tarballSha512,
-      registryState: "verified-existing",
-      registryShasum: tarballSha1,
-      provenanceBundleSha256,
+      registryState,
+      registryShasum: registryState === "absent" ? null : tarballSha1,
+      provenanceBundleSha256: registryState === "absent" ? null : provenanceBundleSha256,
     };
     recordChange?.(record);
     writeFileSync(join(releaseDir, "release-artifact.json"), JSON.stringify(manifest));
@@ -110,14 +125,26 @@ const runProtected = ({
 
     const spec = `${packageName}@${releaseVersion}`;
     const npmFixture = join(directory, "npm-fixture.json");
+    const npmLog = join(directory, "npm-log.jsonl");
     const fetchFixture = join(directory, "fetch-fixture.json");
+    writeFileSync(npmLog, "");
     writeFileSync(
       npmFixture,
       JSON.stringify({
         views: {
+          [`${spec} version`]: registryState === "absent" ? null : releaseVersion,
+          ...(registryState === "absent"
+            ? {}
+            : {
+                [`${spec} dist.shasum`]: tarballSha1,
+                [`${spec} dist.attestations`]: attestations,
+                [`${packageName} dist-tags.latest`]: channelTag,
+              }),
+        },
+        afterPublishViews: {
           [`${spec} version`]: releaseVersion,
           [`${spec} dist.shasum`]: tarballSha1,
-          [`${spec} dist.attestations`]: attestations,
+          [`${spec} dist.attestations`]: provenance,
           [`${packageName} dist-tags.latest`]: releaseVersion,
         },
       }),
@@ -130,7 +157,7 @@ const runProtected = ({
     writeFileSync(fakeNpm, fakeNpmSource);
     chmodSync(fakeNpm, 0o755);
 
-    return spawnSync(process.execPath, ["--input-type=module", "--eval", fastProtectedProgram], {
+    const result = spawnSync(process.execPath, ["--input-type=module", "--eval", fastProtectedProgram], {
       cwd: directory,
       encoding: "utf8",
       env: {
@@ -138,10 +165,12 @@ const runProtected = ({
         GITHUB_SHA: currentMainSha,
         FETCH_FIXTURE: fetchFixture,
         NPM_FIXTURE: npmFixture,
+        NPM_LOG: npmLog,
         PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
         RELEASE_VERSION: releaseVersion,
       },
     });
+    return { ...result, npmLog: readFileSync(npmLog, "utf8") };
   } finally {
     rmSync(directory, { recursive: true });
   }
@@ -153,6 +182,23 @@ const provenance = {
 };
 const completeRegistry = runProtected({ attestations: provenance });
 assert.equal(completeRegistry.status, 0, completeRegistry.stderr);
+
+const olderExistingVersion = runProtected({ attestations: provenance, channelTag: "1.3.0" });
+assert.equal(olderExistingVersion.status, 0, olderExistingVersion.stderr);
+assert.equal(olderExistingVersion.npmLog, "", "Recovery must not move the channel or republish.");
+
+const newPublication = runProtected({ attestations: provenance, registryState: "absent" });
+assert.equal(newPublication.status, 0, newPublication.stderr);
+assert.deepEqual(JSON.parse(newPublication.npmLog), [
+  "publish",
+  `.release/${tarball}`,
+  "--access",
+  "public",
+  "--tag",
+  "latest",
+  "--ignore-scripts",
+  "--provenance",
+]);
 
 for (const incomplete of [{}, { url: provenance.url }, { provenance: provenance.provenance }]) {
   const incompleteRegistry = runProtected({ attestations: incomplete });
@@ -213,7 +259,7 @@ assert.match(changedRegistry.stderr, /registry existence or bytes changed after 
 const fakeAuthorizationGhSource = `#!/usr/bin/env node
 const { readFileSync } = require("node:fs");
 const fixture = JSON.parse(readFileSync(process.env.GH_FIXTURE, "utf8"));
-const endpoint = process.argv[3] || "";
+const endpoint = process.argv.slice(2).find(value => value.startsWith("repos/")) || "";
 if (endpoint.endsWith("/commits/main")) {
   process.stdout.write(fixture.currentMain + "\\n");
   process.exit(0);
@@ -226,7 +272,7 @@ if (endpoint.includes("/actions/workflows/ci.yml/runs?")) {
 }
 if (endpoint.includes("/compare/")) {
   process.stdout.write(JSON.stringify({
-    merge_base_commit: { sha: fixture.source },
+    merge_base_commit: { sha: fixture.mergeBase || fixture.source },
     status: fixture.sourceIsAncestor ? "ahead" : "diverged",
   }));
   process.exit(0);
@@ -297,6 +343,7 @@ const staleDispatch = runAuthorizationStep("Require current main", {
   currentMain: "c".repeat(40),
 });
 assert.notEqual(staleDispatch.result.status, 0, "A stale dispatch SHA must fail.");
+assert.doesNotMatch(staleDispatch.result.stderr, /Unexpected gh api endpoint/u);
 
 const currentCiCheck = runAuthorizationStep(
   "Require successful CI for current main",
@@ -308,6 +355,7 @@ const missingCurrentCi = runAuthorizationStep("Require successful CI for current
   currentCi: null,
 });
 assert.notEqual(missingCurrentCi.result.status, 0, "Current main without push CI must fail.");
+assert.doesNotMatch(missingCurrentCi.result.stderr, /Unexpected gh api endpoint/u);
 
 const safeSourceCheck = runAuthorizationStep("Require a safe source and release tag", authorizationFixture);
 assert.equal(safeSourceCheck.result.status, 0, safeSourceCheck.result.stderr);
@@ -316,6 +364,13 @@ const unsafeSource = runAuthorizationStep("Require a safe source and release tag
   sourceIsAncestor: false,
 });
 assert.notEqual(unsafeSource.result.status, 0, "A source outside current main must fail.");
+assert.match(unsafeSource.result.stderr, /not an ancestor of current main/u);
+const wrongMergeBase = runAuthorizationStep("Require a safe source and release tag", {
+  ...authorizationFixture,
+  mergeBase: currentMainSha,
+});
+assert.notEqual(wrongMergeBase.result.status, 0, "A mismatched merge-base SHA must fail.");
+assert.doesNotMatch(wrongMergeBase.result.stderr, /Unexpected gh api endpoint/u);
 const conflictingAuthorizationTag = runAuthorizationStep(
   "Require a safe source and release tag",
   { ...authorizationFixture, tag: { type: "commit", sha: currentMainSha } },
@@ -325,6 +380,7 @@ assert.notEqual(
   0,
   "An existing release tag outside the certified source must fail.",
 );
+assert.doesNotMatch(conflictingAuthorizationTag.result.stderr, /Unexpected gh api endpoint/u);
 
 const sourceCiCheck = runAuthorizationStep(
   "Find successful CI for the certified source",
@@ -337,6 +393,7 @@ const missingSourceCi = runAuthorizationStep("Find successful CI for the certifi
   sourceCi: null,
 });
 assert.notEqual(missingSourceCi.result.status, 0, "Certified source without push CI must fail.");
+assert.doesNotMatch(missingSourceCi.result.stderr, /Unexpected gh api endpoint/u);
 
 const githubReleaseProgram = stepProgram(
   "github-release",
