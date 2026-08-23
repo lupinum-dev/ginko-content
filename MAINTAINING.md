@@ -69,12 +69,13 @@ Publishing is intentionally maintainer-triggered:
 3. Enter the exact package version.
 4. Approve the protected `npm` environment when GitHub requests review.
 
-The workflow finds the successful CI run for the current `main` commit and
-downloads its certified tarball. The OIDC-capable publication job does not
-check out the repository, install dependencies, or execute repository scripts.
-It publishes the tarball with `next` for prereleases or `latest` for stable
-versions. A separate job creates the matching GitHub release from the committed
-changelog section.
+The workflow authorizes the current `main` commit and its successful CI run.
+For a new version, that commit supplies the certified tarball. For recovery of
+an existing npm version, the certified provenance source supplies it instead.
+The OIDC-capable publication job does not check out the repository, install
+dependencies, or execute repository scripts. It publishes the tarball with
+`next` for prereleases or `latest` for stable versions. A separate job creates
+the matching GitHub release from the source-bound changelog section.
 
 The npm trusted publisher must use this exact identity:
 
@@ -90,13 +91,34 @@ workflow. Do not create a second publication path.
 ## Recover a partial release
 
 Do not rebuild the tarball or create a replacement version for a GitHub-only
-failure. Different registry bytes stop recovery.
+failure. Rerun the failed job when the existing workflow is correct. If the
+workflow itself needs a fix, retain the original candidate and reconcile from
+its certified source SHA after the fix.
 
-Start a new workflow dispatch from corrected `main` for the same version.
-The workflow compares the registry SHA-1 with the retained tarball. SHA-1 is
-the npm checksum for the published bytes. It also requires npm provenance,
-which links the package to its GitHub build, and the correct dist-tag, which is
-the `next` or `latest` release channel.
+Every dispatch must use the current `main` SHA, and that SHA must already have
+successful push CI. For an unpublished version, the current `main` SHA is the
+release source. For an existing npm version, an isolated Sigstore 5 verifier
+cryptographically derives the original source SHA from npm provenance. The
+workflow requires that source to be an ancestor of current `main`, requires an
+existing tag to peel to that source, and downloads the exact successful CI
+artifact for the source rather than the later workflow-fix commit.
+
+`@lupinum/ginko-content@0.3.6` has no npm provenance, so this recovery path
+deliberately rejects it. That published version is immutable; do not add a
+bypass or rebuild it. The next version must prove trusted publication and
+provenance before this path can recover it.
+
+The unprivileged job compares the registry SHA-1 with the retained tarball and
+verifies the exact publishing workflow, source commit, and tarball SHA-512. It
+also extracts release notes from the source commit. The protected job accepts
+only that source-bound verification record. For an existing version, it fetches
+only the validated npm attestation URL and requires the unique current SLSA
+bundle to match the recorded SHA-256. It stops if registry existence, bytes, or
+provenance changed before approval. It then verifies the correct dist-tag
+(`next` for prereleases or `latest` for stable releases), skips duplicate
+publication, and creates or repairs the tag and GitHub release against the
+certified source. A missing tag is created at that source through the Git API,
+then re-read and recursively peeled before GitHub Release creation.
 
 ## Roll back a defective release
 
