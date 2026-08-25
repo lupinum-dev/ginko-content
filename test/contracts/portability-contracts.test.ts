@@ -161,7 +161,7 @@ describe('portable content contract', () => {
     const source = await readFile(fixture('content/docs/docs.introduction/en.md'), 'utf8')
     const sha256 = 'a'.repeat(64)
     const mismatched = source.replace(
-      'hero:\n  kind: external\n  url: "https://images.example.test/hero.png"',
+      /hero:\r?\n {2}kind: external\r?\n {2}url: "https:\/\/images\.example\.test\/hero\.png"/,
       `hero:\n  kind: local\n  path: /ginko-assets/${sha256}.jpg\n  sha256: ${sha256}\n  bytes: 1\n  mediaType: image/jpeg\n  originalFilename: hero.jpg`,
     )
 
@@ -177,7 +177,7 @@ describe('portable content contract', () => {
     const source = await readFile(fixture('content/docs/docs.introduction/en.md'), 'utf8')
     const sha256 = 'a'.repeat(64)
     const local = source.replace(
-      'hero:\n  kind: external\n  url: "https://images.example.test/hero.png"',
+      /hero:\r?\n {2}kind: external\r?\n {2}url: "https:\/\/images\.example\.test\/hero\.png"/,
       `hero:\n  kind: local\n  path: /ginko-assets/${sha256}.png\n  sha256: ${sha256}\n  bytes: 1\n  mediaType: image/png\n  originalFilename: hero.png`,
     )
 
@@ -462,7 +462,7 @@ describe('portable content contract', () => {
     await expect(parsePortableDocument(`${yaml}\nfields: {}`, contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
     await expect(parsePortableDocument('{"ginko":{},"ginko":{},"fields":{}}', contract, 'content/example.json')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
     const secretAsset = yaml.replace(
-      / {2}portrait:\n(?: {4}.+\n){6}/,
+      / {2}portrait:\r?\n(?: {4}.+\r?\n){6}/,
       '  portrait:\n    kind: "external"\n    url: "https://user:secret@files.example.test/portrait.png"\n',
     )
     await expect(parsePortableDocument(secretAsset, contract, 'content/authors/author.ada/en.yml')).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
