@@ -411,6 +411,7 @@ if (args[0] === "api") {
     const shaField = args.find(value => value.startsWith("sha="));
     fixture.tag = fixture.tagAfterPost || { type: "commit", sha: shaField.slice(4) };
     writeFileSync(process.env.GH_FIXTURE, JSON.stringify(fixture));
+    if (fixture.postError) process.stderr.write(fixture.postError + "\\n");
     process.exit(fixture.postFails ? 1 : 0);
   }
   if (endpoint.includes("/releases/tags/")) {
@@ -442,6 +443,7 @@ const runGithubRelease = ({
   releaseExists,
   releaseStatus = releaseExists ? 200 : 404,
   postFails = false,
+  postError,
   tagAfterPost,
 }) => {
   const directory = mkdtempSync(join(tmpdir(), "ginko-content-github-release-"));
@@ -465,7 +467,7 @@ const runGithubRelease = ({
     const ghLog = join(directory, "gh.log");
     writeFileSync(
       ghFixture,
-      JSON.stringify({ tag, peeled, postFails, releaseStatus, tagAfterPost }),
+      JSON.stringify({ tag, peeled, postFails, postError, releaseStatus, tagAfterPost }),
     );
     writeFileSync(ghLog, "");
     const fakeGh = join(binDir, "gh");
@@ -585,6 +587,24 @@ const orphanedRelease = runGithubRelease({
   releaseExists: true,
 });
 assert.notEqual(orphanedRelease.result.status, 0, "Release repair requires its existing tag.");
+
+const historicalTagForbidden = runGithubRelease({
+  version: releaseVersion,
+  tag: null,
+  releaseExists: false,
+  postFails: true,
+  postError: "Resource not accessible by integration (HTTP 403)",
+});
+assert.notEqual(historicalTagForbidden.result.status, 0);
+assert.match(historicalTagForbidden.result.stdout, /HUMAN-ONLY:/u);
+assert.match(historicalTagForbidden.result.stdout, /refs\/tags\/v1\.2\.3/u);
+assert.match(historicalTagForbidden.result.stdout, new RegExp(sourceSha, "u"));
+assert(
+  !historicalTagForbidden.calls.some(
+    (args) => args[0] === "release" && ["create", "edit", "upload"].includes(args[1]),
+  ),
+  "A historical tag gate must not mutate the GitHub Release.",
+);
 
 const releaseApiFailure = runGithubRelease({
   version: releaseVersion,
