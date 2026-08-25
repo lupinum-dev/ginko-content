@@ -235,7 +235,8 @@ function validateImageReference(field: ResolvedContentFieldV1, value: unknown): 
   const reference = assertPortableAssetReference(value)
   if (
     reference.kind === 'local'
-    && !field.media?.mediaTypes.includes(reference.mediaType)
+    && field.media !== null
+    && !field.media.mediaTypes.includes(reference.mediaType)
   ) {
     throw invalidDocument()
   }
