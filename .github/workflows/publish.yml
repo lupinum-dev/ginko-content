@@ -22,6 +22,8 @@ jobs:
     permissions:
       actions: read
       contents: read
+    outputs:
+      publish-required: ${{ steps.registry.outputs.publish-required }}
 
     steps:
       - name: Require current main
@@ -125,10 +127,18 @@ jobs:
           if(m.packageName!=='@lupinum/ginko-content'||m.packageVersion!==process.env.RELEASE_VERSION||m.commit!==process.env.RELEASE_SOURCE_SHA||m.worktreeDirty||!m.releaseEligible||m.reproduciblePacks!==2||m.tarball!==tarball||m.sha256!==digest||c.packageName!==m.packageName||c.packageVersion!==m.packageVersion||c.commit!==m.commit||c.tarball!==tarball||c.sha256!==digest||Object.values(c.lanes).some(value=>value!=='passed'))throw new Error('Artifact failed exact-source release validation')"
 
       - name: Verify registry recovery state
+        id: registry
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           SIGSTORE_PREFIX: ${{ runner.temp }}/sigstore
-        run: node scripts/verify-npm-recovery.mjs
+        run: |
+          node scripts/verify-npm-recovery.mjs
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs'
+
+          const record = JSON.parse(readFileSync('.release/registry-verification.json', 'utf8'))
+          appendFileSync(process.env.GITHUB_OUTPUT, `publish-required=${record.registryState === 'absent'}\n`)
+          NODE
 
       - name: Extract source-bound release notes
         env:
@@ -152,6 +162,7 @@ jobs:
   publish:
     name: Publish to npm
     needs: verify
+    if: needs.verify.outputs.publish-required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: npm
@@ -277,7 +288,8 @@ jobs:
 
   github-release:
     name: Create GitHub release
-    needs: publish
+    needs: [verify, publish]
+    if: always() && needs.verify.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -317,7 +329,16 @@ jobs:
           tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | [.object.type, .object.sha] | @tsv")"
           if test -z "$tag_object"; then
             test "$release_exists" = false
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=$tag_ref" -f "sha=$MANIFEST_SOURCE" >/dev/null || true
+            if ! tag_error="$(gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=$tag_ref" -f "sha=$MANIFEST_SOURCE" 2>&1)"; then
+              if grep -Eq 'HTTP 403|Resource not accessible by integration' <<< "$tag_error"; then
+                echo "::error::HUMAN-ONLY: GitHub cannot create this historical tag with GITHUB_TOKEN."
+                echo "HUMAN-ONLY: gh api --method POST \"repos/$GITHUB_REPOSITORY/git/refs\" -f ref=\"$tag_ref\" -f sha=\"$MANIFEST_SOURCE\""
+              else
+                printf '%s\n' "$tag_error" >&2
+              fi
+              exit 1
+            fi
           fi
           tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq ".[] | select(.ref == \"$tag_ref\") | [.object.type, .object.sha] | @tsv")"
           test -n "$tag_object"

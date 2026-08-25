@@ -122,9 +122,12 @@ bundle to match the recorded SHA-256. It stops if registry existence, bytes, or
 provenance changed before approval. It then verifies the correct dist-tag
 (`next` for prereleases or `latest` for stable releases) for a new publication.
 For an existing version it leaves the current channel head unchanged. It skips
-duplicate publication and creates or repairs the tag and GitHub release against
-the certified source. A missing tag is created at that source through the Git
-API, then re-read and recursively peeled before GitHub Release creation.
+the protected npm environment entirely, then creates or repairs the tag and
+GitHub release against the certified source. A missing tag is created at that
+source through the Git API, then re-read and recursively peeled before GitHub
+Release creation. If GitHub rejects historical tag creation, the failed job
+prints the exact `gh api` command a maintainer must run before retrying only the
+GitHub Release job.
 
 ## Roll back a defective release
 

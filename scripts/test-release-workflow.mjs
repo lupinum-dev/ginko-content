@@ -22,10 +22,18 @@ const assert = (condition, message) => {
 };
 
 const publishJob = publish.jobs?.publish;
+assert(
+  Object.keys(publish.on?.workflow_dispatch?.inputs ?? {}).join(",") === "version",
+  "Publishing must accept only the explicit release version.",
+);
 assert(publishJob?.environment === "npm", "Publishing must use the protected npm environment.");
 assert(
   publishJob?.permissions?.["id-token"] === "write",
   "Publishing must use npm trusted publishing.",
+);
+assert(
+  publishJob?.if === "needs.verify.outputs.publish-required == 'true'",
+  "The protected environment must be skipped when npm already has the certified bytes.",
 );
 
 const publishJobSource =
@@ -150,9 +158,17 @@ for (const required of [
   "--include --silent",
   '200) release_exists=true',
   '404) release_exists=false',
+  "HUMAN-ONLY:",
+  "HTTP 403",
 ]) {
   assert(githubReleaseJobSource.includes(required), `Source-bound Release repair is missing ${required}.`);
 }
+assert(
+  publish.jobs?.["github-release"]?.needs?.includes("verify") &&
+    publish.jobs?.["github-release"]?.needs?.includes("publish") &&
+    publish.jobs?.["github-release"]?.if?.includes("needs.publish.result == 'skipped'"),
+  "Release repair must remain available after a verified npm no-op.",
+);
 assert(
   !githubReleaseJobSource.includes("gh release view"),
   "Release existence must use explicit GitHub API HTTP status handling.",
