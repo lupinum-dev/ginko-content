@@ -113,7 +113,7 @@ export const registerStaticOutputGeneration = ({
         }
 
         const agentRoutes = normalizeAgentRouteOptions(options)
-        if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
+        if (agentRoutes.routes && appContentConfig.agent) {
           const defaultLocale = resolvedI18n.defaultLocale
           const locales = resolvedI18n.locales
           const llmsRoutes = [

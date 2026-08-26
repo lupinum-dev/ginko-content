@@ -113,6 +113,36 @@ describe('integration hook contracts', () => {
     await expect(readFile(join(artifactDir, 'index.html'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  test('runtime delivery removes crawled HTML but keeps its discovered data dependencies', async () => {
+    const publicDir = await mkdtemp(join(tmpdir(), 'content-integration-hooks-runtime-'))
+    tempDirs.push(publicDir)
+    await mkdir(join(publicDir, 'guide'), { recursive: true })
+    await mkdir(join(publicDir, 'api/_content/query/example'), { recursive: true })
+    await writeFile(join(publicDir, 'guide/index.html'), '<!doctype html><html></html>', 'utf8')
+    await writeFile(join(publicDir, 'api/_content/query/example/index.html'), '{"path":"/guide"}', 'utf8')
+
+    const nitroConfig: Record<string, any> = {}
+    registerContentNitroIntegrationHooks(nitroConfig, {
+      cacheRoute: '/api/_content/cache.123.json',
+      removePrerenderedHtml: true
+    }, {
+      sitemap: false,
+      provider: 'filesystem'
+    })
+
+    await nitroConfig.hooks['prerender:init']({ options: { output: { publicDir, serverDir: '/does/not/exist' }, static: false } })
+    await nitroConfig.hooks['prerender:done']({
+      prerenderedRoutes: [
+        { contentType: 'text/html; charset=utf-8', fileName: '/guide/index.html' },
+        { contentType: 'application/json', fileName: 'api/_content/query/example/index.html' }
+      ],
+      failedRoutes: []
+    })
+
+    await expect(readFile(join(publicDir, 'guide/index.html'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(readFile(join(publicDir, 'api/_content/query/example/index.html'), 'utf8')).resolves.toContain('/guide')
+  })
+
   test('the cache/build-route cleanup hooks are registered on "prerender:init"/"prerender:done" when sitemap assertion is disabled', async () => {
     const nitroConfig: Record<string, any> = {}
     registerContentNitroIntegrationHooks(nitroConfig, {

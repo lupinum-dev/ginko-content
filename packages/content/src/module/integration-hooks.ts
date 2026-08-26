@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { NitroConfig } from 'nitropack'
 import type { ResolvedContentContext } from '../types/module'
@@ -169,6 +169,8 @@ export const registerContentNitroIntegrationHooks = (
   options: {
     /** The content cache/build route path, e.g. `/api/_content/cache.169.json`. */
     cacheRoute: string
+    /** Keep crawled dependencies but remove prerendered HTML from a runtime-delivery build. */
+    removePrerenderedHtml?: boolean
     sitemapPrerenderRoutes?: string[] | (() => string[])
     resolveContentContext?: () => IntegrationContentContext
   },
@@ -221,18 +223,38 @@ export const registerContentNitroIntegrationHooks = (
   // unrelated to whether sitemap assertion is enabled, since any hybrid
   // build would otherwise ship with a permanently broken cache/build route.
   const usesFilesystemProviderAtRegistration = !contentContext.provider || contentContext.provider === 'filesystem'
-  if (usesFilesystemProviderAtRegistration) {
+  if (usesFilesystemProviderAtRegistration || options.removePrerenderedHtml) {
     let prerenderingPublicDir: string | undefined
     appendHook(nitroConfig.hooks as Record<string, any>, 'prerender:init', async (nitro: CompiledNitroLike) => {
       prerenderingPublicDir = nitro.options.output.publicDir
     })
-    appendHook(nitroConfig.hooks as Record<string, any>, 'prerender:done', async () => {
+    appendHook(nitroConfig.hooks as Record<string, any>, 'prerender:done', async (result: {
+      prerenderedRoutes?: Array<{ contentType?: string, fileName?: string }>
+    }) => {
       if (!prerenderingPublicDir) {
         return
       }
+      const publicDir = prerenderingPublicDir
 
-      const staleArtifactPath = join(prerenderingPublicDir, options.cacheRoute)
-      await rm(staleArtifactPath, { recursive: true, force: true })
+      if (usesFilesystemProviderAtRegistration) {
+        const staleArtifactPath = join(publicDir, options.cacheRoute)
+        await rm(staleArtifactPath, { recursive: true, force: true })
+      }
+
+      if (options.removePrerenderedHtml) {
+        await Promise.all((result.prerenderedRoutes || []).map(async (route) => {
+          if (!route.contentType?.includes('text/html') || !route.fileName) {
+            return
+          }
+
+          const artifactPath = resolve(publicDir, route.fileName.replace(/^\/+/, ''))
+          const relativeArtifactPath = relative(publicDir, artifactPath)
+          if (relativeArtifactPath.startsWith('..') || isAbsolute(relativeArtifactPath)) {
+            throw new Error(`[content] refused to remove a prerendered HTML artifact outside publicDir: ${route.fileName}`)
+          }
+          await rm(artifactPath, { recursive: true, force: true })
+        }))
+      }
     })
   }
 

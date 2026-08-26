@@ -53,7 +53,7 @@ export default defineNuxtConfig({
     componentPolicy,
     agent: {
       linkHeaders: true,
-      markdownNegotiation: true
+      delivery: process.env.GINKO_AGENT_DELIVERY === 'runtime' ? 'runtime' : 'static'
     },
     // Nuxt I18n (configured below) is the sole locale/default-locale
     // authority. Ginko content still owns translated-slug

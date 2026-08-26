@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { registerContentNitroConfig } from '../../packages/content/src/module/nitro-config'
 
@@ -10,11 +13,12 @@ import { registerContentNitroConfig } from '../../packages/content/src/module/ni
 // asserts the module does neither silently: it respects the explicit
 // setting and warns loudly instead.
 
-function createNuxt() {
+function createNuxt(generate = false) {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
   const nuxt = {
     options: {
       dev: false,
+      _generate: generate,
       rootDir: '/workspace/app',
       srcDir: '/workspace/app',
       buildDir: '/workspace/.nuxt',
@@ -31,16 +35,17 @@ function createHarness(
   prerenderOverrides: Record<string, any> = {},
   provider = 'filesystem',
   agent = false,
-  integrity: number | null = 123
+  integrity: number | null = 123,
+  generate = false
 ) {
-  const { nuxt, hooks } = createNuxt()
+  const { nuxt, hooks } = createNuxt(generate)
   const logger = { warn: vi.fn() }
 
   registerContentNitroConfig({
     nuxt: nuxt as any,
     options: {
       api: { baseURL: '/api/_content' },
-      ...(agent ? { agent: { routes: true, prerender: false } } : {})
+      ...(agent ? { agent: { routes: true, delivery: 'runtime' } } : {})
     } as any,
     appContentConfig: agent ? { agent: { site: {} } } as any : {} as any,
     contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
@@ -109,6 +114,36 @@ describe('nitro-config crawlLinks handling', () => {
       '/resolved/runtime/server/plugins/agent-errors.js'
     ])
     expect(createHarness().nitroConfig.plugins).toBeUndefined()
+  })
+
+  test('runtime delivery keeps crawling so page data dependencies are retained', () => {
+    const { nitroConfig, logger } = createHarness({ crawlLinks: true }, 'filesystem', true)
+
+    expect(nitroConfig.prerender.crawlLinks).toBe(true)
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('runtime delivery removes server-build HTML but preserves static-generation HTML', async () => {
+    for (const [generate, expectedToExist] of [[false, false], [true, true]] as const) {
+      const publicDir = await mkdtemp(join(tmpdir(), 'content-agent-delivery-'))
+      const artifactPath = join(publicDir, 'guide/index.html')
+      try {
+        await mkdir(join(publicDir, 'guide'), { recursive: true })
+        await writeFile(artifactPath, '<!doctype html><html></html>', 'utf8')
+        const { nitroConfig } = createHarness({}, 'filesystem', true, 123, generate)
+
+        await nitroConfig.hooks['prerender:init']({ options: { output: { publicDir } } })
+        await nitroConfig.hooks['prerender:done']({
+          prerenderedRoutes: [{ contentType: 'text/html', fileName: '/guide/index.html' }]
+        })
+
+        const exists = await readFile(artifactPath, 'utf8').then(() => true, () => false)
+        expect(exists).toBe(expectedToExist)
+      }
+      finally {
+        await rm(publicDir, { recursive: true, force: true })
+      }
+    }
   })
 
 })

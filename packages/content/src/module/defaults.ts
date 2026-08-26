@@ -36,8 +36,7 @@ export const contentModuleDefaults = {
   agent: {
     routes: true,
     linkHeaders: true,
-    markdownNegotiation: true,
-    prerender: true
+    delivery: 'static'
   },
   respectPathCase: false
 } satisfies ModuleOptions

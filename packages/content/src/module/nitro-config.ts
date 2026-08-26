@@ -56,6 +56,7 @@ export const registerContentNitroConfig = ({
 }: ContentNitroConfigOptions) => {
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()
+    const agentRoutes = normalizeAgentRouteOptions(options)
     nitroConfig.prerender = nitroConfig.prerender || {}
     nitroConfig.prerender.routes = nitroConfig.prerender.routes || []
 
@@ -145,6 +146,8 @@ export const registerContentNitroConfig = ({
 
     registerContentNitroIntegrationHooks(nitroConfig, {
       cacheRoute,
+      removePrerenderedHtml: agentRoutes.delivery === 'runtime'
+        && !('_generate' in nuxt.options && nuxt.options._generate === true),
       sitemapPrerenderRoutes: () => contentContext.sitemap === false ? [] : resolveNuxtSitemapPrerenderRoutes(nuxt),
       resolveContentContext: () => {
         const resolved = getResolvedContentContext()
@@ -155,7 +158,6 @@ export const registerContentNitroConfig = ({
       provider: contentContext.provider
     })
 
-    const agentRoutes = normalizeAgentRouteOptions(options)
     if (agentRoutes.routes && appContentConfig.agent) {
       nitroConfig.plugins ||= []
       const agentErrorsPlugin = resolveRuntimeModule('server/plugins/agent-errors.js')
@@ -163,7 +165,7 @@ export const registerContentNitroConfig = ({
         nitroConfig.plugins.push(agentErrorsPlugin)
       }
     }
-    if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
+    if (agentRoutes.routes && appContentConfig.agent) {
       nitroConfig.prerender.routes.push('/llms.txt', '/llms-full.txt')
       for (const locale of resolvedI18n.locales || []) {
         if (locale && locale !== resolvedI18n.defaultLocale) {

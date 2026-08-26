@@ -8,22 +8,19 @@ import {
 } from '../agent-http'
 
 export default defineNitroPlugin((nitro) => {
-  nitro.hooks.hook('render:response', (response, { event }) => {
+  nitro.hooks.hook('beforeResponse', (event, response) => {
     const { pathname } = getRequestURL(event)
     if (
-      response.statusCode !== 404
+      event.node.res.statusCode !== 404
       || shouldSkipAgentMarkdownPath(pathname)
       || !acceptsMarkdown(event)
     ) {
       return
     }
 
-    response.headers = {
-      ...response.headers,
-      'content-type': 'text/markdown; charset=utf-8',
-      'x-robots-tag': 'noindex',
-      'vary': mergeVaryHeader(response.headers?.vary, 'accept')
-    }
+    event.node.res.setHeader('content-type', 'text/markdown; charset=utf-8')
+    event.node.res.setHeader('x-robots-tag', 'noindex')
+    event.node.res.setHeader('vary', mergeVaryHeader(event.node.res.getHeader('vary'), 'accept'))
     response.body = renderAgentNotFoundMarkdown(pathname)
   })
 })

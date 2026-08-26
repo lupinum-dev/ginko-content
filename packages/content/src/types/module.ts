@@ -304,8 +304,17 @@ export interface ContentValidationRouteFacts {
 export interface ContentAgentRouteOptions {
   routes?: boolean
   linkHeaders?: boolean
-  markdownNegotiation?: boolean
-  prerender?: boolean
+  /**
+   * Select static page delivery or request-time Nitro negotiation.
+   *
+   * `static` prerenders public pages and keeps raw Markdown as the canonical
+   * agent representation. `runtime` lets Nitro crawl pages to retain their
+   * data dependencies, then removes the generated HTML so Nitro can negotiate
+   * each page request.
+   *
+   * @default 'static'
+   */
+  delivery?: 'static' | 'runtime'
 }
 
 export interface ModuleOptions {
