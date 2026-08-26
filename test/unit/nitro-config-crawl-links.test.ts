@@ -113,10 +113,10 @@ describe('nitro-config crawlLinks handling', () => {
     expect(createHarness().nitroConfig.plugins).toBeUndefined()
   })
 
-  test('runtime delivery leaves public pages to Nitro during server builds', () => {
+  test('runtime delivery keeps crawling so page data dependencies are retained', () => {
     const { nitroConfig, logger } = createHarness({ crawlLinks: true }, 'filesystem', true)
 
-    expect(nitroConfig.prerender.crawlLinks).toBe(false)
+    expect(nitroConfig.prerender.crawlLinks).toBe(true)
     expect(logger.warn).not.toHaveBeenCalled()
   })
 

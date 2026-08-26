@@ -83,10 +83,7 @@ export const registerContentNitroConfig = ({
       // a hybrid build's prerender crawl also reaches ordinary app-owned
       // pages reachable by link from a prerendered page — not just content
       // routes — which is reflected in the updated `build` lane goldens.
-      const isStaticGeneration = '_generate' in nuxt.options && nuxt.options._generate === true
-      if (agentRoutes.delivery === 'runtime' && !isStaticGeneration) {
-        nitroConfig.prerender.crawlLinks = false
-      } else if (nitroConfig.prerender.crawlLinks === false) {
+      if (nitroConfig.prerender.crawlLinks === false) {
         // The user explicitly opted out of crawling in their own nuxt.config. Respect
         // that choice (least surprising) rather than silently forcing it back on, but
         // warn loudly: without crawling, filesystem content routes never reach the
@@ -149,6 +146,8 @@ export const registerContentNitroConfig = ({
 
     registerContentNitroIntegrationHooks(nitroConfig, {
       cacheRoute,
+      removePrerenderedHtml: agentRoutes.delivery === 'runtime'
+        && !('_generate' in nuxt.options && nuxt.options._generate === true),
       sitemapPrerenderRoutes: () => contentContext.sitemap === false ? [] : resolveNuxtSitemapPrerenderRoutes(nuxt),
       resolveContentContext: () => {
         const resolved = getResolvedContentContext()
