@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.0-beta.5
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.4...v1.0.0-beta.5)
+
+### 🚀 Enhancements
+
+- **agent:** Make static delivery the portable default ([9b7e05b](https://github.com/lupinum-dev/ginko-content/commit/9b7e05b))
+
+### ❤️ Contributors
+
+- Mat4m0
+
 ## v1.0.0-beta.4
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.3...v1.0.0-beta.4)
