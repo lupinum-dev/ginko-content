@@ -107,7 +107,7 @@ export const registerContentServerHandlers = (
       handler: resolveRuntimeModule('./server/api/agent-raw.js')
     })
   }
-  if (agent.markdownNegotiation) {
+  if (agent.delivery === 'runtime') {
     addServerHandler({
       middleware: true,
       handler: resolveRuntimeModule('./server/middleware/agent-markdown.js')

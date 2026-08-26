@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAsyncData, useRoute } from '#imports'
+import { setResponseStatus, useAsyncData, useRequestEvent, useRoute } from '#imports'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { one } from '@lupinum/ginko-content/client'
@@ -18,6 +18,8 @@ const results = await Promise.all(handles.map(handle => useAsyncData(
   { watch: [locale, () => route.path] }
 )))
 const page = computed(() => results.find(result => result.data.value)?.data.value)
+const event = useRequestEvent()
+if (!page.value && event) setResponseStatus(event, 404)
 </script>
 
 <template>

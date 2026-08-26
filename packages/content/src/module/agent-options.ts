@@ -5,15 +5,13 @@ export const normalizeAgentRouteOptions = (options: ModuleOptions) => {
     return {
       routes: false,
       linkHeaders: false,
-      markdownNegotiation: false,
-      prerender: false
+      delivery: 'static' as const
     }
   }
 
   return {
     routes: options.agent?.routes !== false,
     linkHeaders: options.agent?.linkHeaders !== false,
-    markdownNegotiation: options.agent?.markdownNegotiation !== false,
-    prerender: options.agent?.prerender !== false
+    delivery: options.agent?.delivery || 'static'
   }
 }

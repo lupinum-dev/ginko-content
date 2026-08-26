@@ -11,7 +11,7 @@ export default defineNuxtConfig({
           cache: '~/server/content-cache',
           agent: {
             linkHeaders: true,
-            markdownNegotiation: true
+            delivery: 'runtime'
           },
           search: {
             engine: 'provider'

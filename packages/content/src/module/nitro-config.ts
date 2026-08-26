@@ -56,6 +56,7 @@ export const registerContentNitroConfig = ({
 }: ContentNitroConfigOptions) => {
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()
+    const agentRoutes = normalizeAgentRouteOptions(options)
     nitroConfig.prerender = nitroConfig.prerender || {}
     nitroConfig.prerender.routes = nitroConfig.prerender.routes || []
 
@@ -82,7 +83,10 @@ export const registerContentNitroConfig = ({
       // a hybrid build's prerender crawl also reaches ordinary app-owned
       // pages reachable by link from a prerendered page — not just content
       // routes — which is reflected in the updated `build` lane goldens.
-      if (nitroConfig.prerender.crawlLinks === false) {
+      const isStaticGeneration = '_generate' in nuxt.options && nuxt.options._generate === true
+      if (agentRoutes.delivery === 'runtime' && !isStaticGeneration) {
+        nitroConfig.prerender.crawlLinks = false
+      } else if (nitroConfig.prerender.crawlLinks === false) {
         // The user explicitly opted out of crawling in their own nuxt.config. Respect
         // that choice (least surprising) rather than silently forcing it back on, but
         // warn loudly: without crawling, filesystem content routes never reach the
@@ -155,7 +159,6 @@ export const registerContentNitroConfig = ({
       provider: contentContext.provider
     })
 
-    const agentRoutes = normalizeAgentRouteOptions(options)
     if (agentRoutes.routes && appContentConfig.agent) {
       nitroConfig.plugins ||= []
       const agentErrorsPlugin = resolveRuntimeModule('server/plugins/agent-errors.js')
@@ -163,7 +166,7 @@ export const registerContentNitroConfig = ({
         nitroConfig.plugins.push(agentErrorsPlugin)
       }
     }
-    if (agentRoutes.routes && agentRoutes.prerender && appContentConfig.agent) {
+    if (agentRoutes.routes && appContentConfig.agent) {
       nitroConfig.prerender.routes.push('/llms.txt', '/llms-full.txt')
       for (const locale of resolvedI18n.locales || []) {
         if (locale && locale !== resolvedI18n.defaultLocale) {

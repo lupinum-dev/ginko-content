@@ -28,7 +28,7 @@ describe('agent surface contracts', () => {
       collections: {
         docs: { type: 'page', agent: { section: 'missing', markdown: true } }
       }
-    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false, siteUrl: 'https://example.test' })).toThrow(
+    } as any, { agent: { routes: true, delivery: 'static' } } as any, { dev: false, siteUrl: 'https://example.test' })).toThrow(
       /unknown Ginko agent section "missing"/
     )
 
@@ -45,7 +45,7 @@ describe('agent surface contracts', () => {
       collections: {
         docs: { type: 'page', agent: { section: 'docs', markdown: true } }
       }
-    } as any, { agent: { routes: true, prerender: true } } as any, { dev: false })).toThrow(
+    } as any, { agent: { routes: true, delivery: 'static' } } as any, { dev: false })).toThrow(
       /requires the canonical site URL/
     )
 
@@ -59,7 +59,7 @@ describe('agent surface contracts', () => {
       },
       collections: {}
     } as Parameters<typeof validateAgentConfig>[0], {
-      agent: { routes: true, prerender: false }
+      agent: { routes: true, delivery: 'runtime' }
     } as Parameters<typeof validateAgentConfig>[1], { dev: false })).toThrow(
       /requires the canonical site URL/
     )

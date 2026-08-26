@@ -10,11 +10,12 @@ import { registerContentNitroConfig } from '../../packages/content/src/module/ni
 // asserts the module does neither silently: it respects the explicit
 // setting and warns loudly instead.
 
-function createNuxt() {
+function createNuxt(generate = false) {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
   const nuxt = {
     options: {
       dev: false,
+      _generate: generate,
       rootDir: '/workspace/app',
       srcDir: '/workspace/app',
       buildDir: '/workspace/.nuxt',
@@ -31,16 +32,17 @@ function createHarness(
   prerenderOverrides: Record<string, any> = {},
   provider = 'filesystem',
   agent = false,
-  integrity: number | null = 123
+  integrity: number | null = 123,
+  generate = false
 ) {
-  const { nuxt, hooks } = createNuxt()
+  const { nuxt, hooks } = createNuxt(generate)
   const logger = { warn: vi.fn() }
 
   registerContentNitroConfig({
     nuxt: nuxt as any,
     options: {
       api: { baseURL: '/api/_content' },
-      ...(agent ? { agent: { routes: true, prerender: false } } : {})
+      ...(agent ? { agent: { routes: true, delivery: 'runtime' } } : {})
     } as any,
     appContentConfig: agent ? { agent: { site: {} } } as any : {} as any,
     contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
@@ -109,6 +111,19 @@ describe('nitro-config crawlLinks handling', () => {
       '/resolved/runtime/server/plugins/agent-errors.js'
     ])
     expect(createHarness().nitroConfig.plugins).toBeUndefined()
+  })
+
+  test('runtime delivery leaves public pages to Nitro during server builds', () => {
+    const { nitroConfig, logger } = createHarness({ crawlLinks: true }, 'filesystem', true)
+
+    expect(nitroConfig.prerender.crawlLinks).toBe(false)
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('runtime delivery still creates complete output during static generation', () => {
+    const { nitroConfig } = createHarness({}, 'filesystem', true, 123, true)
+
+    expect(nitroConfig.prerender.crawlLinks).toBe(true)
   })
 
 })

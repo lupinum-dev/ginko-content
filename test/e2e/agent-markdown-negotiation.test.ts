@@ -30,7 +30,9 @@ async function requestStatus (baseURL: string, path: string) {
 
 describe('agent markdown negotiation', () => {
   test('serves HTML by default and markdown for Accept negotiation on a dynamic route', async () => {
-    const server = await startProductionFixtureServer(agentFixtureDir)
+    const server = await startProductionFixtureServer(agentFixtureDir, undefined, {
+      GINKO_AGENT_DELIVERY: 'runtime'
+    })
     try {
       const htmlResponse = await fetch(`${server.baseURL}/ssr-only`)
       const html = await htmlResponse.text()
@@ -81,17 +83,23 @@ describe('agent markdown negotiation', () => {
   }, 240000)
 
   test('rejects unknown explicit markdown routes and disabled agent markdown routes', async () => {
-    const agentServer = await startProductionFixtureServer(agentFixtureDir)
+    const agentServer = await startProductionFixtureServer(agentFixtureDir, undefined, {
+      GINKO_AGENT_DELIVERY: 'runtime'
+    })
     try {
       const unknownRaw = await fetch(`${agentServer.baseURL}/raw/not-found.md`)
       expect(unknownRaw.status).toBe(404)
+      expect(unknownRaw.headers.get('content-type')).toContain('text/markdown')
+      expect(unknownRaw.headers.get('vary')?.toLowerCase()).toContain('accept')
+      expect(await unknownRaw.text()).toContain('[Agent content index](/llms.txt)')
 
       const unknownNegotiated = await fetch(`${agentServer.baseURL}/not-found`, {
         headers: { Accept: 'text/markdown' }
       })
-      expect(unknownNegotiated.status).toBe(200)
-      expect(unknownNegotiated.headers.get('content-type')).toContain('text/html')
-      expect(await unknownNegotiated.text()).not.toContain('# Not Found')
+      expect(unknownNegotiated.status).toBe(404)
+      expect(unknownNegotiated.headers.get('content-type')).toContain('text/markdown')
+      expect(unknownNegotiated.headers.get('vary')?.toLowerCase()).toContain('accept')
+      expect(await unknownNegotiated.text()).toContain('# Page not found')
     } finally {
       await agentServer.stop()
     }
@@ -113,7 +121,9 @@ describe('agent markdown negotiation', () => {
   }, 240000)
 
   test('rejects traversal attempts and normalizes repeated slashes on explicit markdown routes', async () => {
-    const server = await startProductionFixtureServer(agentFixtureDir)
+    const server = await startProductionFixtureServer(agentFixtureDir, undefined, {
+      GINKO_AGENT_DELIVERY: 'runtime'
+    })
     try {
       for (const path of [
         '/raw/%2e%2e/secret.md',
