@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { registerContentNitroConfig } from '../../packages/content/src/module/nitro-config'
 
@@ -120,10 +123,27 @@ describe('nitro-config crawlLinks handling', () => {
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
-  test('runtime delivery still creates complete output during static generation', () => {
-    const { nitroConfig } = createHarness({}, 'filesystem', true, 123, true)
+  test('runtime delivery removes server-build HTML but preserves static-generation HTML', async () => {
+    for (const [generate, expectedToExist] of [[false, false], [true, true]] as const) {
+      const publicDir = await mkdtemp(join(tmpdir(), 'content-agent-delivery-'))
+      const artifactPath = join(publicDir, 'guide/index.html')
+      try {
+        await mkdir(join(publicDir, 'guide'), { recursive: true })
+        await writeFile(artifactPath, '<!doctype html><html></html>', 'utf8')
+        const { nitroConfig } = createHarness({}, 'filesystem', true, 123, generate)
 
-    expect(nitroConfig.prerender.crawlLinks).toBe(true)
+        await nitroConfig.hooks['prerender:init']({ options: { output: { publicDir } } })
+        await nitroConfig.hooks['prerender:done']({
+          prerenderedRoutes: [{ contentType: 'text/html', fileName: '/guide/index.html' }]
+        })
+
+        const exists = await readFile(artifactPath, 'utf8').then(() => true, () => false)
+        expect(exists).toBe(expectedToExist)
+      }
+      finally {
+        await rm(publicDir, { recursive: true, force: true })
+      }
+    }
   })
 
 })

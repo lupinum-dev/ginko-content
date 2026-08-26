@@ -308,8 +308,9 @@ export interface ContentAgentRouteOptions {
    * Select static page delivery or request-time Nitro negotiation.
    *
    * `static` prerenders public pages and keeps raw Markdown as the canonical
-   * agent representation. `runtime` keeps public pages out of a server build's
-   * prerender crawl so Nitro can negotiate the response.
+   * agent representation. `runtime` lets Nitro crawl pages to retain their
+   * data dependencies, then removes the generated HTML so Nitro can negotiate
+   * each page request.
    *
    * @default 'static'
    */
