@@ -4,7 +4,8 @@ export default defineGinkoDocsConfig({
   site: {
     name: 'Ginko Content',
     description: 'Filesystem-first content for Nuxt sites with coherent routes, types, localization, search, SEO, and agent output.',
-    whenToUse: 'Use this site to learn, configure, and operate Ginko Content.'
+    whenToUse: 'Use this site to learn, configure, and operate Ginko Content.',
+    whenNotToUse: 'Do not use this site as documentation for Nuxt Content.'
   },
   locales: ['en'],
   blog: false
