@@ -10,6 +10,8 @@ import { isExpectedNuxtPayloadCancellation } from '../helpers/browser-failures'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const docsDir = resolve(rootDir, 'docs')
+const githubURL = 'https://github.com/lupinum-dev/ginko-content'
+const discordURL = 'https://discord.gg/RPH6SeA36N'
 
 function resolveChromiumExecutable () {
   const candidates = [
@@ -67,6 +69,13 @@ describe('Ginko Docs navigation hydration', () => {
       const response = await page.goto(`${server.baseURL}${initialPath}`, { waitUntil: 'domcontentloaded' })
       expect(response?.status()).toBeLessThan(400)
       await waitForHydration(page)
+
+      const githubLink = page.locator(`header a[href="${githubURL}"]`)
+      const discordLink = page.locator(`header a[href="${discordURL}"]`)
+      await expect(githubLink.isVisible()).resolves.toBe(true)
+      await expect(discordLink.isVisible()).resolves.toBe(true)
+      await expect(githubLink.getAttribute('href')).resolves.toBe(githubURL)
+      await expect(discordLink.getAttribute('href')).resolves.toBe(discordURL)
 
       const sidebar = page.locator('aside[aria-label="Documentation"][data-variant="desktop"]')
       try {
