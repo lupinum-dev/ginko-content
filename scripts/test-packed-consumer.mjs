@@ -6,9 +6,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
-import { prepareConsumerPolicy } from './consumer-policy.mjs'
-
 import { parsePackageManagerVersion } from './release/artifact.mjs'
+import { prepareConsumerPolicy } from './consumer-policy.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const rootManifest = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
