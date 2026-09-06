@@ -39,11 +39,11 @@ jobs:
                   pull_number: context.issue.number,
                   per_page: 100,
                 })
-            const paths = files.map((file) => file.filename)
+            const paths = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean))
             const publicDocsOnly =
               paths.length > 0 &&
               paths.every((path) =>
-                /^(?:docs\/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
+                /^(?:docs\/content\/.*\.md$|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
               )
             const topLevelProseOnly =
               paths.length > 0 &&

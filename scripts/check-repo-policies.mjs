@@ -108,13 +108,18 @@ else {
     { name: 'top-level prose', event: 'pull_request', paths: ['README.md'], full: 'false', docs: 'false' },
     { name: 'package source', event: 'pull_request', paths: ['packages/content/src/index.ts'], full: 'true', docs: 'true' },
     { name: 'workflow policy', event: 'pull_request', paths: ['.github/workflows/ci.yml'], full: 'true', docs: 'true' },
+    { name: 'docs config', event: 'pull_request', paths: ['docs/nuxt.config.ts'], full: 'true', docs: 'true' },
+    { name: 'docs manifest', event: 'pull_request', paths: ['docs/package.json'], full: 'true', docs: 'true' },
+    { name: 'executable content', event: 'pull_request', paths: ['docs/content/helper.ts'], full: 'true', docs: 'true' },
+    { name: 'unknown changes', event: 'pull_request', paths: [], full: 'true', docs: 'true' },
+    { name: 'renamed source', event: 'pull_request', paths: ['README.md'], previous: 'packages/content/src/index.ts', full: 'true', docs: 'true' },
     { name: 'main certification', event: 'push', paths: [], full: 'true', docs: 'true' },
   ]) {
     const outputs = new Map()
     await new AsyncFunction('context', 'github', 'core', classifyScript)(
       { eventName: scenario.event, issue: { number: 1 }, repo: { owner: 'lupinum-dev', repo: 'ginko-content' } },
       {
-        paginate: async () => scenario.paths.map(filename => ({ filename })),
+        paginate: async () => scenario.paths.map(filename => ({ filename, previous_filename: scenario.previous })),
         rest: { pulls: { listFiles() {} } },
       },
       { setOutput: (name, value) => outputs.set(name, value) },
