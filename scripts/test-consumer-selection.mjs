@@ -3,7 +3,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { selectNuxtVersion } from './test-packed-consumer.mjs'
+import { hasPrerenderedContentApiPath, selectNuxtVersion } from './test-packed-consumer.mjs'
 
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 assert.equal(selectNuxtVersion([], {}), manifest.devDependencies.nuxt)
@@ -11,6 +11,9 @@ assert.equal(selectNuxtVersion([], { GINKO_CONSUMER_NUXT_VERSION: '4.5.1' }), '4
 assert.equal(selectNuxtVersion([], { GINKO_CONSUMER_NUXT_VERSION: 'next' }), 'next')
 assert.equal(selectNuxtVersion(['--nuxt-version', '4.5.2'], { GINKO_CONSUMER_NUXT_VERSION: 'next' }), '4.5.2')
 assert.throws(() => selectNuxtVersion(['--nuxt-version'], {}), /Missing/)
+assert.equal(hasPrerenderedContentApiPath(['query/value.json'], 'query'), true)
+assert.equal(hasPrerenderedContentApiPath(['query\\value.json'], 'query'), true)
+assert.equal(hasPrerenderedContentApiPath(['navigation-value.json'], 'navigation'), false)
 for (const name of ['test:package-consumer', 'test:package-consumer:npm']) {
   assert.doesNotMatch(manifest.scripts[name], /--nuxt-version/, `${name} must not override canary selection`)
 }

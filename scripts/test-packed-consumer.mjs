@@ -281,8 +281,8 @@ function verifyBaseConsumerBuild(appDir) {
     ? readdirSync(prerenderedContentApiDir, { recursive: true }).map(String)
     : []
   if (
-    !prerenderedContentApiFiles.some(path => path.startsWith('query/')) ||
-    !prerenderedContentApiFiles.some(path => path.startsWith('navigation/'))
+    !hasPrerenderedContentApiPath(prerenderedContentApiFiles, 'query') ||
+    !hasPrerenderedContentApiPath(prerenderedContentApiFiles, 'navigation')
   ) {
     throw new Error('Packed consumer surround() did not prerender both query and navigation API dependencies.')
   }
@@ -291,6 +291,10 @@ function verifyBaseConsumerBuild(appDir) {
   if (!cliHelp.includes('validate [root]')) {
     throw new Error(`Packed CLI help does not expose content validation:\n${cliHelp}`)
   }
+}
+
+export function hasPrerenderedContentApiPath(paths, directory) {
+  return paths.some(path => path.replaceAll('\\', '/').startsWith(`${directory}/`))
 }
 
 function verifyPagefindConsumer(appDir, tempRoot) {
