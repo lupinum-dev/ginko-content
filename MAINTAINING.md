@@ -256,10 +256,10 @@ npm must bind `@lupinum/ginko-content` to `publish.yml` and the `npm`
 environment through trusted publishing.
 
 Vercel must deploy `docs/` from `main` to `ginko-content.lupinum.com`. Disable
-automatic branch previews; request pull-request previews on demand. Use fixed
-Basic with on-demand concurrency disabled. Record and review another machine
-only when measured total cost per successful build is lower or Basic cannot
-complete the required build; queue speed alone does not justify it.
+automatic branch previews; request pull-request previews on demand. Use the
+Basic build machine with On-Demand Concurrent Builds disabled. Change the build
+machine type only when Basic cannot complete the build or a measured, named
+alternative lowers the total cost per successful build.
 
 Set the Root Directory to `docs`. Enable
 **Include source files outside of the Root Directory in the Build Step** so the
