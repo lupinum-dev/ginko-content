@@ -3,7 +3,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { selectNuxtVersion, stripKnownNuxtWindowsWarning } from './test-packed-consumer.mjs'
+import { selectNuxtVersion } from './test-packed-consumer.mjs'
 
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 assert.equal(selectNuxtVersion([], {}), manifest.devDependencies.nuxt)
@@ -11,14 +11,6 @@ assert.equal(selectNuxtVersion([], { GINKO_CONSUMER_NUXT_VERSION: '4.5.1' }), '4
 assert.equal(selectNuxtVersion([], { GINKO_CONSUMER_NUXT_VERSION: 'next' }), 'next')
 assert.equal(selectNuxtVersion(['--nuxt-version', '4.5.2'], { GINKO_CONSUMER_NUXT_VERSION: 'next' }), '4.5.2')
 assert.throws(() => selectNuxtVersion(['--nuxt-version'], {}), /Missing/)
-
-const knownWindowsWarning = '"file:///C:/consumer/node_modules/.pnpm/@nuxt+nitro-server@4.5.2/node_modules/@nuxt/nitro-server/dist/runtime/utils/cache-driver.mjs" is imported by "\nvirtual:#nitro-internal-virtual/storage", but could not be resolved – treating it as an external dependency.'
-assert.equal(stripKnownNuxtWindowsWarning(knownWindowsWarning, 'win32'), '')
-assert.equal(stripKnownNuxtWindowsWarning(knownWindowsWarning, 'linux'), knownWindowsWarning)
-assert.match(
-  stripKnownNuxtWindowsWarning(knownWindowsWarning.replace('cache-driver.mjs', 'other.mjs'), 'win32'),
-  /could not be resolved/u
-)
 for (const name of ['test:package-consumer', 'test:package-consumer:npm']) {
   assert.doesNotMatch(manifest.scripts[name], /--nuxt-version/, `${name} must not override canary selection`)
 }

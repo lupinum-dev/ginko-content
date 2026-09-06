@@ -133,24 +133,11 @@ function runAndCapture(command, args, cwd) {
   return output
 }
 
-// Nuxt 4.5.2 emits this warning only on Windows even though the generated
-// server starts and passes the full runtime contract below. Keep every other
-// unresolved import fatal while upstream tracks the file-URL bug:
-// https://github.com/nuxt/nuxt/issues/36278
-export function stripKnownNuxtWindowsWarning(output, currentPlatform = process.platform) {
-  if (currentPlatform !== 'win32') return output
-  return output.replace(
-    /"file:\/\/\/[A-Za-z]:\/[^"\r\n]*\/@nuxt\/nitro-server\/dist\/runtime\/utils\/cache-driver\.mjs" is imported by "\s*virtual:#nitro-internal-virtual\/storage", but could not be resolved\s*[–-]\s*treating it as an external dependency\./gu,
-    ''
-  )
-}
-
 function runAndRejectOutput(command, args, cwd, forbiddenPatterns) {
   const output = runAndCapture(command, args, cwd)
-  const inspectedOutput = stripKnownNuxtWindowsWarning(output)
 
   for (const pattern of forbiddenPatterns) {
-    if (pattern.test(inspectedOutput)) {
+    if (pattern.test(output)) {
       throw new Error(`Command emitted forbidden output in ${cwd}: ${[command, ...args].join(' ')}\n${output}`)
     }
   }
