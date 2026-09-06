@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { parsePackageManagerVersion } from './release/artifact.mjs'
+import { prepareConsumerPolicy } from './consumer-policy.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')
@@ -315,10 +316,11 @@ function installOptionalMarkdownPeers(appDir) {
     `beautiful-mermaid@${process.env.GINKO_CONSUMER_BEAUTIFUL_MERMAID_VERSION || '^1.1.3'}`,
     `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.17.0'}`
   ]
+  const npmCutoff = prepareConsumerPolicy(appDir)
   if (packageManager === 'pnpm') {
     run('pnpm', ['add', '--save-exact', ...specs], appDir)
   } else {
-    run('npm', ['install', '--save-exact', '--no-audit', '--no-fund', ...specs], appDir)
+    run('npm', ['install', npmCutoff, '--save-exact', '--no-audit', '--no-fund', ...specs], appDir)
   }
 }
 
@@ -532,10 +534,11 @@ async function main() {
       }
     }, null, 2))
 
+    const npmCutoff = prepareConsumerPolicy(appDir)
     if (packageManager === 'pnpm') {
-      run('pnpm', ['install', '--no-frozen-lockfile', '--config.dangerously-allow-all-builds=true'], appDir)
+      run('pnpm', ['install', '--no-frozen-lockfile'], appDir)
     } else {
-      run('npm', ['install', '--no-audit', '--no-fund'], appDir)
+      run('npm', ['install', npmCutoff, '--no-audit', '--no-fund'], appDir)
     }
     verifyBaseConsumerBuild(appDir)
     verifyPagefindConsumer(appDir, tempRoot)
