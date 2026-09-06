@@ -15,6 +15,7 @@ const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')
 const pagefindFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/pagefind-app')
 const markdownPluginsFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/markdown-plugins-app')
 const cliArgs = process.argv.slice(2)
+const buildOnly = cliArgs.includes('--build-only')
 
 function resolveChromiumExecutable() {
   const candidates = [
@@ -563,10 +564,11 @@ async function main() {
     console.log(`Packed consumer requested Nuxt ${nuxtVersion}; installed ${installedNuxt}.`)
     verifyBaseConsumerBuild(appDir)
     verifyPagefindConsumer(appDir, tempRoot)
-    installOptionalMarkdownPeers(appDir)
-
-    await verifyMarkdownPluginConsumer(appDir)
-    await verifyLiveApiContract(appDir)
+    if (!buildOnly) {
+      installOptionalMarkdownPeers(appDir)
+      await verifyMarkdownPluginConsumer(appDir)
+      await verifyLiveApiContract(appDir)
+    }
     verifyGeneratedOutputs(appDir)
 
     writeFileSync(
@@ -580,7 +582,7 @@ async function main() {
         packageManagerVersion
       }, null, 2)}\n`
     )
-    console.log(`Packed consumer ${packageManager} ${packageManagerVersion} test passed.`)
+    console.log(`Packed consumer ${packageManager} ${packageManagerVersion} ${buildOnly ? 'build' : 'complete'} test passed.`)
   } finally {
     rmSync(tempRoot, { recursive: true, force: true })
   }
