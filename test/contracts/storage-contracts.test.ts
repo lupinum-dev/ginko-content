@@ -27,6 +27,8 @@ describe('storage contracts', () => {
   const sourceMeta = new Map<string, any>()
   const validationSpy = vi.fn()
   const parseVariants = vi.fn()
+  const getContentsIds = vi.fn(async () => ['content:guide:intro.md'])
+  const contentIgnorePredicate = vi.fn((id: string) => !id.includes('ignored'))
 
   const event = createTestEvent()
 
@@ -39,6 +41,10 @@ describe('storage contracts', () => {
     // validateContentGraph returns Result<void, ContentError>; default to ok().
     validationSpy.mockReturnValue({ ok: true, value: undefined })
     parseVariants.mockReset()
+    getContentsIds.mockReset()
+    getContentsIds.mockResolvedValue(['content:guide:intro.md'])
+    contentIgnorePredicate.mockReset()
+    contentIgnorePredicate.mockImplementation((id: string) => !id.includes('ignored'))
 
     sourceItems.set('content:guide:intro.md', '# Intro')
     sourceMeta.set('content:guide:intro.md', { mtime: 1, size: 10 })
@@ -64,8 +70,8 @@ describe('storage contracts', () => {
     }))
     vi.doMock('../../packages/content/src/integrations/nitro/storage', () => ({
       contentConfig: () => runtimeContent,
-      contentIgnorePredicate: (id: string) => !id.includes('ignored'),
-      getContentsIds: vi.fn(async () => ['content:guide:intro.md']),
+      contentIgnorePredicate,
+      getContentsIds,
       resolveStorageId: vi.fn(async (_event, id: string) => id),
       cacheStorage: () => ({
         getItem: vi.fn(async () => null),
@@ -280,39 +286,8 @@ describe('storage contracts', () => {
   })
 
   test('ignored content ids return a null-body placeholder', async () => {
-    vi.resetModules()
-    vi.doMock('#imports', () => ({
-      useRuntimeConfig: () => ({ content: runtimeContent })
-    }))
-    vi.doMock('../../packages/content/src/integrations/nitro/storage', () => ({
-      contentConfig: () => runtimeContent,
-      contentIgnorePredicate: () => false,
-      getContentsIds: vi.fn(async () => ['ignored:file.md']),
-      resolveStorageId: vi.fn(async (_event, id: string) => id),
-      cacheStorage: () => ({
-        getItem: vi.fn(async () => null),
-        setItem: vi.fn(async () => {})
-      }),
-      sourceStorage: () => ({
-        getItem: vi.fn(),
-        getMeta: vi.fn()
-      }),
-      cacheParsedStorage: () => ({
-        getItem: vi.fn(async () => null),
-        setItem: vi.fn()
-      })
-    }))
-    vi.doMock('../../packages/content/src/integrations/nitro/ingest', () => ({
-      parseContentVariants: parseVariants,
-      parseContent: vi.fn()
-    }))
-    vi.doMock('../../packages/content/src/storage/validation', async () => {
-      const actual = await vi.importActual<any>('../../packages/content/src/storage/validation')
-      return {
-        ...actual,
-        validateContentGraph: validationSpy
-      }
-    })
+    getContentsIds.mockResolvedValue(['ignored:file.md'])
+    contentIgnorePredicate.mockReturnValue(false)
 
     const { getContentsList } = await import('../../packages/content/src/storage/contents')
     await expect(getContentsList(createTestEvent())).resolves.toEqual([])

@@ -315,6 +315,10 @@ function verifyPagefindConsumer(appDir, tempRoot) {
   if (manifest.version !== 1 || manifest.defaultLocale !== 'en' || manifest.indexes?.en !== 'pagefind.js') {
     throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(manifest)}`)
   }
+
+  // Windows cannot replace the shared pnpm modules directory while this fixture's
+  // junction is still attached. The Pagefind evidence is complete at this point.
+  rmSync(resolve(filesystemDir, 'node_modules'), { recursive: true, force: true })
 }
 
 function installOptionalMarkdownPeers(appDir) {
