@@ -2,6 +2,7 @@ name: Dependency compatibility canary
 
 on:
   schedule:
+    - cron: "23 4 * * *"
     - cron: "0 4 * * 1"
     - cron: "0 5 1 * *"
   workflow_dispatch:
@@ -16,11 +17,26 @@ permissions:
   actions: read
 
 concurrency:
-  group: deps-canary-${{ github.ref }}
+  group: deps-canary-${{ github.ref }}-${{ github.event.schedule }}
   cancel-in-progress: false
 
 jobs:
+  dependency-policy:
+    name: Dependency quarantine expiry
+    if: github.event.schedule == '23 4 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with: { node-version: 24 }
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm check:dependencies
+
   supported:
+    if: github.event.schedule != '23 4 * * *'
     name: Supported dependencies (${{ matrix.mode }}, Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -28,19 +44,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - mode: minimum-supported
+          - mode: minimum-nuxt
             node: 22.18.0
             nodeTypes: ^22.18.0
-            frozen: true
-            nuxt: 4.4.7
             sitemap: 8.0.15
             vue: 3.5.35
             vitest: 4.1.6
           - mode: latest-supported
             node: 24.11.0
             nodeTypes: ^24.11.0
-            frozen: false
-            nuxt: ^4.4.7
             sitemap: ">=8.0.15 <9"
             vue: ^3.5.35
             vitest: ^4.1.6
@@ -57,19 +69,16 @@ jobs:
       - run: corepack enable
 
       - name: Prepare dependency manifests
-        run: node scripts/prepare-deps-canary.mjs ${{ matrix.mode }} > canary-manifest-diff.json
+        id: prepare-supported
+        run: |
+          node scripts/prepare-deps-canary.mjs ${{ matrix.mode }} > canary-manifest-diff.json
+          node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('canary-manifest-diff.json')); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'nuxt-version='+report.nuxtVersion+'\n')"
 
-      - name: Remove committed resolution for fresh-range lane
-        if: ${{ ! matrix.frozen }}
-        run: node -e "require('node:fs').rmSync('pnpm-lock.yaml')"
-
-      - name: Install minimum resolution
-        if: ${{ matrix.frozen }}
-        run: pnpm install --frozen-lockfile
-
-      - name: Install fresh supported resolution
-        if: ${{ ! matrix.frozen }}
-        run: pnpm install --no-frozen-lockfile
+      - name: Install the selected fresh resolution
+        run: |
+          node -e "require('node:fs').rmSync('pnpm-lock.yaml')"
+          pnpm install --no-frozen-lockfile
+          pnpm check:dependencies
 
       - name: Install Chromium
         run: pnpm exec playwright-core install --with-deps chromium
@@ -80,7 +89,7 @@ jobs:
       - name: Run supported compatibility slice
         run: pnpm test:compatibility-slice
         env:
-          GINKO_CONSUMER_NUXT_VERSION: ${{ matrix.nuxt }}
+          GINKO_CONSUMER_NUXT_VERSION: ${{ steps.prepare-supported.outputs.nuxt-version }}
           GINKO_CONSUMER_NODE_TYPES_VERSION: ${{ matrix.nodeTypes }}
           GINKO_CONSUMER_SITEMAP_VERSION: ${{ matrix.sitemap }}
           GINKO_CONSUMER_VUE_VERSION: ${{ matrix.vue }}
@@ -138,6 +147,7 @@ jobs:
           GINKO_CONSUMER_VITEST_VERSION: ^4.1.6
 
   windows:
+    if: github.event.schedule != '23 4 * * *'
     name: Windows filesystem confidence
     runs-on: windows-latest
     timeout-minutes: 30
@@ -159,7 +169,7 @@ jobs:
 
   report:
     name: Report dependency compatibility
-    if: always()
+    if: always() && github.event.schedule != '23 4 * * *'
     needs: [supported, future, windows]
     runs-on: ubuntu-latest
     permissions:

@@ -25,6 +25,7 @@ describe('production fixture smoke', () => {
       await assertRouteManifestMatchesGolden(publicDir, resolve(rootDir, 'test/golden/routes/ginko-basic.txt'), 'build')
       const $fetch = ofetch.create({ baseURL })
 
+      await expect($fetch('/')).resolves.toContain('Ginko')
       await expect($fetch('/guide/getting-started')).resolves.toContain('Getting Started')
       await expect($fetch('/api/_content/navigation?collection=pages')).resolves.toEqual(
         expect.arrayContaining([

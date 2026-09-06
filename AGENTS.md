@@ -23,6 +23,14 @@ Ginko Content owns the CMS-neutral content engine:
 Do not move Studio, CMS workflow, MCP, Convex component, or Ginko CMS bridge
 logic into this repo.
 
+## Assigned work
+
+Read `MAINTAINING.md` for setup and recovery. Own diagnosis, implementation,
+focused verification, browser exploration, independent review, and cleanup.
+An assigned maintenance task includes routine pull requests, protected merge,
+and post-merge checks. npm publication retains its final protected approval.
+External settings changes need explicit task scope. Preserve unrelated work.
+
 ## Commands
 
 Use pnpm through Corepack.

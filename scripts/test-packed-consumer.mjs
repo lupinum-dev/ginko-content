@@ -1,10 +1,12 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
+
+import { prepareConsumerPolicy } from './consumer-policy.mjs'
 
 import { parsePackageManagerVersion } from './release/artifact.mjs'
 
@@ -38,10 +40,16 @@ const packageManager = optionValue('--package-manager', 'pnpm')
 if (!['pnpm', 'npm'].includes(packageManager)) {
   throw new Error(`Unsupported package manager ${packageManager}; expected pnpm or npm.`)
 }
-const nuxtVersion = optionValue(
-  '--nuxt-version',
-  process.env.GINKO_CONSUMER_NUXT_VERSION || '4.5.1'
-)
+export function selectNuxtVersion(args = cliArgs, env = process.env) {
+  const index = args.indexOf('--nuxt-version')
+  if (index !== -1) {
+    const value = args[index + 1]
+    if (!value || value.startsWith('--')) throw new Error('Missing --nuxt-version value.')
+    return value
+  }
+  return env.GINKO_CONSUMER_NUXT_VERSION || JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')).devDependencies.nuxt
+}
+const nuxtVersion = selectNuxtVersion()
 
 function resolveReleaseTarball() {
   const explicit = optionValue('--tarball')
@@ -315,10 +323,11 @@ function installOptionalMarkdownPeers(appDir) {
     `beautiful-mermaid@${process.env.GINKO_CONSUMER_BEAUTIFUL_MERMAID_VERSION || '^1.1.3'}`,
     `katex@${process.env.GINKO_CONSUMER_KATEX_VERSION || '^0.17.0'}`
   ]
+  const npmCutoff = prepareConsumerPolicy(appDir)
   if (packageManager === 'pnpm') {
     run('pnpm', ['add', '--save-exact', ...specs], appDir)
   } else {
-    run('npm', ['install', '--save-exact', '--no-audit', '--no-fund', ...specs], appDir)
+    run('npm', ['install', npmCutoff, '--save-exact', '--no-audit', '--no-fund', ...specs], appDir)
   }
 }
 
@@ -532,11 +541,17 @@ async function main() {
       }
     }, null, 2))
 
+    const npmCutoff = prepareConsumerPolicy(appDir)
     if (packageManager === 'pnpm') {
-      run('pnpm', ['install', '--frozen-lockfile=false', '--config.dangerously-allow-all-builds=true'], appDir)
+      run('pnpm', ['install', '--frozen-lockfile=false'], appDir)
     } else {
-      run('npm', ['install', '--no-audit', '--no-fund'], appDir)
+      run('npm', ['install', npmCutoff, '--no-audit', '--no-fund'], appDir)
     }
+    const installedNuxt = JSON.parse(readFileSync(resolve(appDir, 'node_modules/nuxt/package.json'), 'utf8')).version
+    if (/^\d+\.\d+\.\d+$/.test(nuxtVersion) && installedNuxt !== nuxtVersion) {
+      throw new Error(`Requested Nuxt ${nuxtVersion}, installed ${installedNuxt}.`)
+    }
+    console.log(`Packed consumer requested Nuxt ${nuxtVersion}; installed ${installedNuxt}.`)
     verifyBaseConsumerBuild(appDir)
     verifyPagefindConsumer(appDir, tempRoot)
     installOptionalMarkdownPeers(appDir)
@@ -562,7 +577,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   console.error(error)
   process.exit(1)
 })

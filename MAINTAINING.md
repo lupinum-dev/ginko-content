@@ -10,6 +10,20 @@ The repository publishes `@lupinum/ginko-content` from `packages/content`.
 The package must remain CMS-neutral. Runtime content code must not import Ginko
 CMS.
 
+## Local setup
+
+Run `pnpm install --frozen-lockfile`, then `pnpm dev:prepare` and `pnpm dev`.
+Use the playground URL printed by Nuxt. `pnpm docs` starts the source-workspace
+documentation app. These local content fixtures need no login or backend service.
+Use disposable content, keep external credentials out of the run, and stop only
+servers and browser sessions you started.
+
+Explore navigation, content rendering, search, a missing route, and recovery by
+returning to a known page. Check a narrow screen and reload. Source-workspace
+docs and exact packed-consumer evidence prove different installation paths.
+Record the actual commands, failures, recovery, and cleanup at handoff. Hosted
+settings and other operating systems require separate evidence.
+
 ## Daily work
 
 Run the broad workspace gate before you open a pull request:
@@ -159,6 +173,22 @@ the authoritative CI gate on the exact final SHA.
 
 ## Supply-chain policy
 
+`pnpm check:dependencies` checks the actual workspace policy. Exact exceptions
+need inline JSON with `reason`, `owner`, and UTC `expires` within 24 hours.
+Generated consumers and production audits derive and check that same policy
+before every install. Generated installs omit workspace overrides and package
+extensions so they test the published graph and requested framework versions.
+npm uses the equivalent age cutoff without broadening exact exceptions to
+package-name exemptions. A daily CI lane checks expiry.
+The repository-owned checker comes from
+`lupinum-oss/starters/_shared/check-dependency-policy.mjs`; copy updates from
+that canonical implementation.
+
+The dependency canary selects the minimum Nuxt version from the package peer
+range in an isolated checkout. Ordinary packed checks use the maintained Nuxt
+version; explicit CLI selection wins over canary environment selection. Each
+packed run reports and checks the installed version.
+
 - `pnpm-workspace.yaml` sets `minimumReleaseAge: 1440`. New dependency versions
   must remain on the registry for 24 hours before fresh resolution.
 - Release jobs use the committed lockfile. Do not regenerate it as a casual
@@ -225,8 +255,13 @@ GitHub must have:
 npm must bind `@lupinum/ginko-content` to `publish.yml` and the `npm`
 environment through trusted publishing.
 
-Vercel must deploy `docs/` from `main` to `ginko-content.lupinum.com` and
-create pull-request previews. Set the Root Directory to `docs`. Enable
+Vercel must deploy `docs/` from `main` to `ginko-content.lupinum.com`. Disable
+automatic branch previews; request pull-request previews on demand. Use fixed
+Basic with on-demand concurrency disabled. Record and review another machine
+only when measured total cost per successful build is lower or Basic cannot
+complete the required build; queue speed alone does not justify it.
+
+Set the Root Directory to `docs`. Enable
 **Include source files outside of the Root Directory in the Build Step** so the
 documentation build can use the locked workspace package. Do not set an Output
 Directory or Install Command override. Vercel detects pnpm from the repository

@@ -4,6 +4,7 @@ import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { parse } from 'yaml'
+import { checkDependencyPolicy } from './check-dependency-policy.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const ignoredDirs = new Set([
@@ -126,15 +127,7 @@ else {
 if (!/^pnpm@(?:1[1-9]|[2-9]\d)\./u.test(rootManifest.packageManager ?? '')) {
   violations.push('package.json: pnpm 11 or newer is required for strict dependency quarantine')
 }
-for (const [name, expected] of Object.entries({
-  minimumReleaseAge: 1440,
-  minimumReleaseAgeStrict: true,
-  minimumReleaseAgeIgnoreMissingTime: false,
-})) {
-  if (workspaceSettings?.[name] !== expected) {
-    violations.push(`pnpm-workspace.yaml: ${name} must equal ${expected}`)
-  }
-}
+violations.push(...checkDependencyPolicy(readFileSync(resolve(repoRoot, 'pnpm-workspace.yaml'), 'utf8')))
 const expectedAllowBuilds = {
   '@parcel/watcher': false,
   esbuild: true,
