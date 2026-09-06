@@ -506,7 +506,7 @@ async function main() {
       runAndCapture(packageManager, ['--version'], appDir),
       packageManager,
     )
-    console.log(`Testing exact release tarball with ${packageManager}: ${tarball} (sha256 ${tarballSha256})`)
+    console.log(`Testing exact release tarball with ${packageManager} ${packageManagerVersion}: ${tarball} (sha256 ${tarballSha256})`)
     assertNoWorkspaceRanges(tarball, tempRoot)
     const installedTarball = join(tempRoot, 'artifacts', `${tarballSha256}.tgz`)
     mkdirSync(resolve(installedTarball, '..'), { recursive: true })
@@ -533,7 +533,7 @@ async function main() {
     }, null, 2))
 
     if (packageManager === 'pnpm') {
-      run('pnpm', ['install', '--frozen-lockfile=false', '--config.dangerously-allow-all-builds=true'], appDir)
+      run('pnpm', ['install', '--no-frozen-lockfile', '--config.dangerously-allow-all-builds=true'], appDir)
     } else {
       run('npm', ['install', '--no-audit', '--no-fund'], appDir)
     }
