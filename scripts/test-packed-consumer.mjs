@@ -300,16 +300,8 @@ export function hasPrerenderedContentApiPath(paths, directory) {
 function verifyPagefindConsumer(appDir, tempRoot) {
   const filesystemDir = resolve(tempRoot, 'filesystem-check')
   cpSync(pagefindFixtureDir, filesystemDir, { recursive: true })
-  if (packageManager === 'pnpm') {
-    const manifestPath = resolve(filesystemDir, 'package.json')
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    writeFileSync(manifestPath, JSON.stringify({
-      ...manifest,
-      packageManager: rootManifest.packageManager
-    }, null, 2))
-  }
   symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
-  packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
+  runAndRejectOutput(process.execPath, [resolve(appDir, 'node_modules/nuxt/bin/nuxt.mjs'), 'build'], filesystemDir, [
     /could not be resolved[\s\S]*treating it as an external dependency/i,
     /\bNUXT_E\d{4}\b/
   ])
