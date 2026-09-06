@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { prepareConsumerPolicy } from './consumer-policy.mjs'
 import { assertProductionAuditClean } from './release/production-audit.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -44,6 +45,7 @@ try {
   // Keep the generated lockfile isolated from the pnpm workspace.
   runNpm([
     'install',
+    prepareConsumerPolicy(auditRoot),
     '--package-lock-only',
     '--ignore-scripts',
     '--omit=dev',

@@ -1,8 +1,9 @@
 # Active migrations
 
-## Ginko Docs agent-site bootstrap
+## Nuxt Windows cache-driver resolver
 
-- **Why it exists:** `@lupinum/ginko-docs@0.3.0-rc.5` still emits the removed `agent.site.url` field and does not emit the required `whenToUse` guidance. The private Ginko Content documentation app translates that output while exercising the strict 1.0 runtime contract.
-- **Introduced:** 2026-08-21 in PR #50.
-- **What depends on it:** Only `docs/content.config.ts`; it is not part of the published `@lupinum/ginko-content` package.
-- **Remove when:** A published Ginko Docs prerelease uses Ginko Content 1.0, emits `whenToUse`/`whenNotToUse`, and no longer emits `agent.site.url`; upgrade `docs/package.json`, delete the adapter, and delete this ledger entry in the same commit.
+- **Why it exists:** Nuxt 4.5.2 emits the internal Nitro cache driver as a Windows `file:` URL. Rollup does not resolve that URL and would externalize the import, leaving generated production output broken.
+- **Introduced:** 2026-09-06.
+- **What depends on it:** Windows production builds of Nuxt applications using Ginko Content.
+- **Removal condition:** Remove the resolver and its focused tests after the lowest supported Nuxt release includes an upstream fix and the complete hosted Windows consumer lane passes without it.
+- **Tracking issue:** [nuxt/nuxt#36278](https://github.com/nuxt/nuxt/issues/36278).

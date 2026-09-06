@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 import { join } from 'pathe'
@@ -13,6 +14,43 @@ import type { createSearchRuntimeConfig } from './options'
 import { resolveNuxtSitemapPrerenderRoutes } from './options'
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
+
+const NUXT_NITRO_CACHE_DRIVER_SUFFIX = '/node_modules/@nuxt/nitro-server/dist/runtime/utils/cache-driver.mjs'
+
+export const createNuxtWindowsCacheDriverResolver = (
+  platform: NodeJS.Platform = process.platform,
+  fromFileURL: (url: URL) => string = fileURLToPath
+) => {
+  if (platform !== 'win32') {
+    return undefined
+  }
+
+  return {
+    name: 'ginko-content:nuxt-windows-cache-driver',
+    resolveId(id: string) {
+      if (!id.startsWith('file:')) {
+        return null
+      }
+
+      try {
+        const url = new URL(id)
+        if (
+          url.protocol !== 'file:'
+          || url.hostname !== ''
+          || url.search !== ''
+          || url.hash !== ''
+          || !url.pathname.toLowerCase().endsWith(NUXT_NITRO_CACHE_DRIVER_SUFFIX)
+        ) {
+          return null
+        }
+        return fromFileURL(url)
+      }
+      catch {
+        return null
+      }
+    }
+  }
+}
 
 const hookNuxtBoundary = <T>(
   nuxt: { hook: unknown },
@@ -111,6 +149,13 @@ export const registerContentNitroConfig = ({
     }
     nitroConfig.bundledStorage = nitroConfig.bundledStorage || []
     nitroConfig.bundledStorage.push('cache:content')
+
+    const windowsCacheDriverResolver = createNuxtWindowsCacheDriverResolver()
+    if (windowsCacheDriverResolver) {
+      nitroConfig.rollupConfig ||= {}
+      nitroConfig.rollupConfig.plugins ||= []
+      nitroConfig.rollupConfig.plugins.push(windowsCacheDriverResolver)
+    }
 
     nitroConfig.externals = defu(typeof nitroConfig.externals === 'object' ? nitroConfig.externals : {}, {
       inline: [

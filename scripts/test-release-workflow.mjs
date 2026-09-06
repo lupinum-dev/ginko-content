@@ -197,3 +197,17 @@ assert(
 );
 
 process.stdout.write("Release workflow policy verified.\n");
+
+assert(ci.jobs["static-quality"].steps.some(step => step.run === "node scripts/timed-command.mjs verify-static pnpm verify:static" && !step.if && !step["continue-on-error"]), "Blocking CI must run the complete shared static gate, including Vercel and recovery checks.");
+const canary = parse(readFileSync(resolve(root, ".github/workflows/deps-canary.yml"), "utf8"));
+assert(canary.on.schedule.some(entry => entry.cron === "23 4 * * *"), "Dependency expiry needs an idle-repository daily check.");
+assert(canary.jobs["dependency-policy"].steps.some(step => step.run === "pnpm check:dependencies"), "Daily verification must check actual dependency policy.");
+for (const name of ["supported", "windows"]) {
+  assert(canary.jobs[name].if === "github.event.schedule != '23 4 * * *'", "Daily expiry must skip expensive compatibility lanes.");
+}
+assert(canary.jobs.report.if.includes("github.event.schedule != '23 4 * * *'"), "The daily tick must not run compatibility issue reporting.");
+const docsSteps = ci.jobs["docs-examples"].steps;
+const hydration = docsSteps.findIndex(step => step.run?.includes("docs-navigation-hydration.test.ts"));
+const smoke = docsSteps.findIndex(step => step.run?.includes("pnpm docs:smoke"));
+assert(hydration >= 0 && smoke > hydration && !docsSteps.some(step => step.run?.includes("pnpm docs:build")), "Hydration owns one fresh docs build; smoke must inspect that output afterward.");
+assert(!ci.jobs["release-browser"].steps.some(step => step.run?.includes("pnpm docs:build")), "Release browser coverage must not prebuild the same docs fixture.");

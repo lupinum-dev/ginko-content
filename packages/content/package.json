@@ -178,7 +178,7 @@
     "nuxt": ">=4.5.1 <5",
     "pagefind": "^1.5.2",
     "vitest": ">=4.1.6 <5",
-    "vue": "^3.5.35"
+    "vue": "^3.5.40"
   },
   "peerDependenciesMeta": {
     "beautiful-mermaid": {

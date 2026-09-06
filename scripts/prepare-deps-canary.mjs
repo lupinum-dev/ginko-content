@@ -3,8 +3,8 @@ import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const mode = process.argv[2]
-if (!['minimum-supported', 'latest-supported', 'future'].includes(mode)) {
-  console.error('Usage: node scripts/prepare-deps-canary.mjs <minimum-supported|latest-supported|future>')
+if (!['minimum-nuxt', 'latest-supported', 'future'].includes(mode)) {
+  console.error('Usage: node scripts/prepare-deps-canary.mjs <minimum-nuxt|latest-supported|future>')
   process.exit(2)
 }
 if (process.env.GITHUB_ACTIONS !== 'true' && !process.argv.includes('--allow-local')) {
@@ -15,21 +15,25 @@ if (process.env.GITHUB_ACTIONS !== 'true' && !process.argv.includes('--allow-loc
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const ignored = new Set(['.git', '.nuxt', '.output', '.pack', 'dist', 'node_modules'])
 const fields = ['dependencies', 'devDependencies', 'optionalDependencies']
+const packageManifest = JSON.parse(readFileSync(join(repoRoot, 'packages/content/package.json'), 'utf8'))
+const nuxtRange = packageManifest.peerDependencies.nuxt
+const nuxtFloor = /^>=([0-9]+\.[0-9]+\.[0-9]+) <5$/.exec(nuxtRange)?.[1]
+if (!nuxtFloor) throw new Error(`Unsupported Nuxt peer range for floor selection: ${nuxtRange}`)
 const latestSupported = {
   '@comark/vue': '^0.6.2',
   'beautiful-mermaid': '^1.1.3',
-  '@nuxt/kit': '^4.4.7',
-  '@nuxt/schema': '^4.4.7',
+  '@nuxt/kit': packageManifest.dependencies['@nuxt/kit'],
+  '@nuxt/schema': nuxtRange,
   '@nuxt/test-utils': '^4.0.3',
   '@nuxtjs/i18n': '^10.3.0',
   '@nuxtjs/sitemap': '>=8.0.15 <9',
   'comark': '^0.6.2',
   'katex': '^0.17.0',
-  'nuxt': '^4.4.7',
+  'nuxt': nuxtRange,
   'nuxt-site-config': '^4.0.8',
   'pagefind': '^1.5.2',
   'vitest': '^4.1.6',
-  'vue': '^3.5.35'
+  'vue': '^3.5.40'
 }
 async function resolveFutureNuxtVersion () {
   const packages = ['nuxt', '@nuxt/kit', '@nuxt/schema']
@@ -49,7 +53,7 @@ const future = {
   '@nuxt/schema': futureNuxtVersion,
   'nuxt': futureNuxtVersion
 }
-const versions = mode === 'minimum-supported' ? {} : mode === 'latest-supported' ? latestSupported : future
+const versions = mode === 'minimum-nuxt' ? { nuxt: nuxtFloor, '@nuxt/schema': nuxtFloor } : mode === 'latest-supported' ? latestSupported : future
 
 function packageJsonFiles(directory) {
   const files = []
@@ -79,4 +83,4 @@ for (const file of packageJsonFiles(repoRoot)) {
   if (changed) writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`)
 }
 
-console.log(JSON.stringify({ mode, futureNuxtVersion, changes }, null, 2))
+console.log(JSON.stringify({ mode, nuxtVersion: versions.nuxt, futureNuxtVersion, changes }, null, 2))

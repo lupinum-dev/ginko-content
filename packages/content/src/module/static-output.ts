@@ -15,6 +15,11 @@ import {
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
 
+export const runtimeModuleImportURL = (
+  modulePath: string,
+  toFileURL: (path: string) => URL = pathToFileURL
+) => toFileURL(modulePath).href
+
 const assertPrerenderedContentSnapshot = (buildDir: string) => {
   const snapshotPath = resolveFilePath(buildDir, 'content-cache/snapshot.json')
   let raw: string
@@ -107,7 +112,7 @@ export const registerStaticOutputGeneration = ({
 
           if (searchRuntime.engine === 'pagefind') {
             const records = JSON.parse(json)
-            const { writePagefindIndex } = await import(resolveRuntimeModule('./server/pagefind.js'))
+            const { writePagefindIndex } = await import(runtimeModuleImportURL(resolveRuntimeModule('./server/pagefind.js')))
             await writePagefindIndex(records, resolveFilePath(publicDir, 'pagefind'), resolvedI18n.defaultLocale)
           }
         }

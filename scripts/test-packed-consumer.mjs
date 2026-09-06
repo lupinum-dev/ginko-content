@@ -1,6 +1,6 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,10 +10,12 @@ import { parsePackageManagerVersion } from './release/artifact.mjs'
 import { prepareConsumerPolicy } from './consumer-policy.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const rootManifest = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')
 const pagefindFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/pagefind-app')
 const markdownPluginsFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/markdown-plugins-app')
 const cliArgs = process.argv.slice(2)
+const buildOnly = cliArgs.includes('--build-only')
 
 function resolveChromiumExecutable() {
   const candidates = [
@@ -39,10 +41,16 @@ const packageManager = optionValue('--package-manager', 'pnpm')
 if (!['pnpm', 'npm'].includes(packageManager)) {
   throw new Error(`Unsupported package manager ${packageManager}; expected pnpm or npm.`)
 }
-const nuxtVersion = optionValue(
-  '--nuxt-version',
-  process.env.GINKO_CONSUMER_NUXT_VERSION || '4.5.1'
-)
+export function selectNuxtVersion(args = cliArgs, env = process.env) {
+  const index = args.indexOf('--nuxt-version')
+  if (index !== -1) {
+    const value = args[index + 1]
+    if (!value || value.startsWith('--')) throw new Error('Missing --nuxt-version value.')
+    return value
+  }
+  return env.GINKO_CONSUMER_NUXT_VERSION || rootManifest.devDependencies.nuxt
+}
+const nuxtVersion = selectNuxtVersion()
 
 function resolveReleaseTarball() {
   const explicit = optionValue('--tarball')
@@ -274,8 +282,8 @@ function verifyBaseConsumerBuild(appDir) {
     ? readdirSync(prerenderedContentApiDir, { recursive: true }).map(String)
     : []
   if (
-    !prerenderedContentApiFiles.some(path => path.startsWith('query/')) ||
-    !prerenderedContentApiFiles.some(path => path.startsWith('navigation/'))
+    !hasPrerenderedContentApiPath(prerenderedContentApiFiles, 'query') ||
+    !hasPrerenderedContentApiPath(prerenderedContentApiFiles, 'navigation')
   ) {
     throw new Error('Packed consumer surround() did not prerender both query and navigation API dependencies.')
   }
@@ -286,11 +294,15 @@ function verifyBaseConsumerBuild(appDir) {
   }
 }
 
+export function hasPrerenderedContentApiPath(paths, directory) {
+  return paths.some(path => path.replaceAll('\\', '/').startsWith(`${directory}/`))
+}
+
 function verifyPagefindConsumer(appDir, tempRoot) {
   const filesystemDir = resolve(tempRoot, 'filesystem-check')
   cpSync(pagefindFixtureDir, filesystemDir, { recursive: true })
   symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
-  packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
+  runAndRejectOutput(process.execPath, [resolve(appDir, 'node_modules/nuxt/bin/nuxt.mjs'), 'build'], filesystemDir, [
     /could not be resolved[\s\S]*treating it as an external dependency/i,
     /\bNUXT_E\d{4}\b/
   ])
@@ -304,6 +316,10 @@ function verifyPagefindConsumer(appDir, tempRoot) {
   if (manifest.version !== 1 || manifest.defaultLocale !== 'en' || manifest.indexes?.en !== 'pagefind.js') {
     throw new Error(`Packed consumer build emitted an invalid Pagefind locale manifest:\n${JSON.stringify(manifest)}`)
   }
+
+  // Windows cannot replace the shared pnpm modules directory while this fixture's
+  // junction is still attached. The Pagefind evidence is complete at this point.
+  rmSync(resolve(filesystemDir, 'node_modules'), { recursive: true, force: true })
 }
 
 function installOptionalMarkdownPeers(appDir) {
@@ -505,7 +521,7 @@ async function main() {
     const tarball = resolveReleaseTarball()
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
     const packageManagerVersion = parsePackageManagerVersion(
-      runAndCapture(packageManager, ['--version'], appDir),
+      runAndCapture(packageManager, ['--version'], repoRoot),
       packageManager,
     )
     console.log(`Testing exact release tarball with ${packageManager} ${packageManagerVersion}: ${tarball} (sha256 ${tarballSha256})`)
@@ -517,6 +533,7 @@ async function main() {
     writeFileSync(resolve(appDir, 'package.json'), JSON.stringify({
       type: 'module',
       private: true,
+      ...(packageManager === 'pnpm' ? { packageManager: rootManifest.packageManager } : {}),
       scripts: {
         typecheck: 'nuxi typecheck',
         build: 'nuxt build'
@@ -528,7 +545,7 @@ async function main() {
         nuxt: nuxtVersion,
         pagefind: process.env.GINKO_CONSUMER_PAGEFIND_VERSION || '1.5.2',
         typescript: '6.0.3',
-        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '^3.5.35',
+        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '^3.5.40',
         'vue-tsc': '3.2.9',
         vitest: process.env.GINKO_CONSUMER_VITEST_VERSION || '4.1.6'
       }
@@ -540,12 +557,18 @@ async function main() {
     } else {
       run('npm', ['install', npmCutoff, '--no-audit', '--no-fund'], appDir)
     }
+    const installedNuxt = JSON.parse(readFileSync(resolve(appDir, 'node_modules/nuxt/package.json'), 'utf8')).version
+    if (/^\d+\.\d+\.\d+$/.test(nuxtVersion) && installedNuxt !== nuxtVersion) {
+      throw new Error(`Requested Nuxt ${nuxtVersion}, installed ${installedNuxt}.`)
+    }
+    console.log(`Packed consumer requested Nuxt ${nuxtVersion}; installed ${installedNuxt}.`)
     verifyBaseConsumerBuild(appDir)
     verifyPagefindConsumer(appDir, tempRoot)
-    installOptionalMarkdownPeers(appDir)
-
-    await verifyMarkdownPluginConsumer(appDir)
-    await verifyLiveApiContract(appDir)
+    if (!buildOnly) {
+      installOptionalMarkdownPeers(appDir)
+      await verifyMarkdownPluginConsumer(appDir)
+      await verifyLiveApiContract(appDir)
+    }
     verifyGeneratedOutputs(appDir)
 
     writeFileSync(
@@ -559,13 +582,13 @@ async function main() {
         packageManagerVersion
       }, null, 2)}\n`
     )
-    console.log(`Packed consumer ${packageManager} ${packageManagerVersion} test passed.`)
+    console.log(`Packed consumer ${packageManager} ${packageManagerVersion} ${buildOnly ? 'build' : 'complete'} test passed.`)
   } finally {
     rmSync(tempRoot, { recursive: true, force: true })
   }
 }
 
-main().catch((error) => {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   console.error(error)
   process.exit(1)
 })

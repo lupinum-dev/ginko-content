@@ -4,6 +4,7 @@ import { extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { parse } from 'yaml'
+import { checkDependencyPolicy } from './check-dependency-policy.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const ignoredDirs = new Set([
@@ -107,13 +108,18 @@ else {
     { name: 'top-level prose', event: 'pull_request', paths: ['README.md'], full: 'false', docs: 'false' },
     { name: 'package source', event: 'pull_request', paths: ['packages/content/src/index.ts'], full: 'true', docs: 'true' },
     { name: 'workflow policy', event: 'pull_request', paths: ['.github/workflows/ci.yml'], full: 'true', docs: 'true' },
+    { name: 'docs config', event: 'pull_request', paths: ['docs/nuxt.config.ts'], full: 'true', docs: 'true' },
+    { name: 'docs manifest', event: 'pull_request', paths: ['docs/package.json'], full: 'true', docs: 'true' },
+    { name: 'executable content', event: 'pull_request', paths: ['docs/content/helper.ts'], full: 'true', docs: 'true' },
+    { name: 'unknown changes', event: 'pull_request', paths: [], full: 'true', docs: 'true' },
+    { name: 'renamed source', event: 'pull_request', paths: ['README.md'], previous: 'packages/content/src/index.ts', full: 'true', docs: 'true' },
     { name: 'main certification', event: 'push', paths: [], full: 'true', docs: 'true' },
   ]) {
     const outputs = new Map()
     await new AsyncFunction('context', 'github', 'core', classifyScript)(
       { eventName: scenario.event, issue: { number: 1 }, repo: { owner: 'lupinum-dev', repo: 'ginko-content' } },
       {
-        paginate: async () => scenario.paths.map(filename => ({ filename })),
+        paginate: async () => scenario.paths.map(filename => ({ filename, previous_filename: scenario.previous })),
         rest: { pulls: { listFiles() {} } },
       },
       { setOutput: (name, value) => outputs.set(name, value) },
@@ -126,15 +132,7 @@ else {
 if (!/^pnpm@(?:1[1-9]|[2-9]\d)\./u.test(rootManifest.packageManager ?? '')) {
   violations.push('package.json: pnpm 11 or newer is required for strict dependency quarantine')
 }
-for (const [name, expected] of Object.entries({
-  minimumReleaseAge: 1440,
-  minimumReleaseAgeStrict: true,
-  minimumReleaseAgeIgnoreMissingTime: false,
-})) {
-  if (workspaceSettings?.[name] !== expected) {
-    violations.push(`pnpm-workspace.yaml: ${name} must equal ${expected}`)
-  }
-}
+violations.push(...checkDependencyPolicy(readFileSync(resolve(repoRoot, 'pnpm-workspace.yaml'), 'utf8')))
 const expectedAllowBuilds = {
   '@parcel/watcher': false,
   esbuild: true,
@@ -174,6 +172,7 @@ const requiredPrJobs = [
   'docs-examples',
   'server-e2e',
   'pr-e2e-smoke',
+  'node26-runtime',
 ]
 const expectedPrGateEnv = {
   CLASSIFY_RESULT: '${{ needs.classify.result }}',
@@ -184,9 +183,13 @@ const expectedPrGateEnv = {
   DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
   SERVER_E2E: '${{ needs.server-e2e.result }}',
   PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
+  NODE26_RUNTIME: '${{ needs.node26-runtime.result }}',
 }
 const expectedPrGateRun = `test "$CLASSIFY_RESULT" = success
 test "$STATIC_QUALITY" = success
+test "$NODE26_RUNTIME" = success
+test "$FULL" = true || test "$FULL" = false
+test "$DOCS" = true || test "$DOCS" = false
 if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
 for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
   if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
@@ -219,6 +222,12 @@ function validatePrAuthorization(job) {
 }
 
 violations.push(...validatePrAuthorization(prAuthorization))
+const windowsConsumer = ci.jobs['windows-portability'].steps.find(step =>
+  step.run === 'node scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack')
+if (!windowsConsumer || windowsConsumer.if != null || (windowsConsumer['continue-on-error'] != null && windowsConsumer['continue-on-error'] !== false)
+  || (ci.jobs['windows-portability']['continue-on-error'] != null && ci.jobs['windows-portability']['continue-on-error'] !== false)) {
+  violations.push('Windows packed-consumer verification must block certification on failure')
+}
 
 const validPrAuthorizationFixture = {
   name: 'PR verification',
@@ -230,6 +239,7 @@ const validPrAuthorizationFixture = {
     'docs-examples',
     'server-e2e',
     'pr-e2e-smoke',
+    'node26-runtime',
   ],
   steps: [{
     name: 'Require every PR lane',
@@ -242,9 +252,13 @@ const validPrAuthorizationFixture = {
       DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
       SERVER_E2E: '${{ needs.server-e2e.result }}',
       PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
+      NODE26_RUNTIME: '${{ needs.node26-runtime.result }}',
     },
     run: `test "$CLASSIFY_RESULT" = success
 test "$STATIC_QUALITY" = success
+test "$NODE26_RUNTIME" = success
+test "$FULL" = true || test "$FULL" = false
+test "$DOCS" = true || test "$DOCS" = false
 if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
 for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
   if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
