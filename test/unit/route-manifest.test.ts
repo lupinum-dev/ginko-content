@@ -163,6 +163,15 @@ describe('semantic route goldens', () => {
     ])
   })
 
+  test('parses Windows CRLF goldens', () => {
+    expect([...parseSemanticRouteGolden(
+      'build+generate index.html\r\ngenerate-only 404.html\r\n'
+    )]).toEqual([
+      ['index.html', 'build+generate'],
+      ['404.html', 'generate-only']
+    ])
+  })
+
   test('rejects unscoped and duplicate entries', () => {
     expect(() => parseSemanticRouteGolden('index.html\n')).toThrow(/Invalid semantic route golden line/)
     expect(() => parseSemanticRouteGolden(

@@ -100,7 +100,7 @@ export function formatRouteManifest (entries: string[]): string {
 
 export function parseSemanticRouteGolden (text: string): Map<string, RouteManifestScope> {
   const entries = new Map<string, RouteManifestScope>()
-  for (const line of text.split('\n').filter(Boolean)) {
+  for (const line of text.split(/\r?\n/).filter(Boolean)) {
     const match = /^(build\+generate|generate-only) (.+)$/.exec(line)
     if (!match) throw new Error(`Invalid semantic route golden line: ${line}`)
     const [, scope, path] = match as [string, RouteManifestScope, string]

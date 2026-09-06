@@ -11,6 +11,7 @@ import { prepareConsumerPolicy } from './consumer-policy.mjs'
 import { parsePackageManagerVersion } from './release/artifact.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const rootManifest = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const packedFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/packed-app')
 const pagefindFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/pagefind-app')
 const markdownPluginsFixtureDir = resolve(repoRoot, 'test/consumer-fixtures/markdown-plugins-app')
@@ -47,7 +48,7 @@ export function selectNuxtVersion(args = cliArgs, env = process.env) {
     if (!value || value.startsWith('--')) throw new Error('Missing --nuxt-version value.')
     return value
   }
-  return env.GINKO_CONSUMER_NUXT_VERSION || JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')).devDependencies.nuxt
+  return env.GINKO_CONSUMER_NUXT_VERSION || rootManifest.devDependencies.nuxt
 }
 const nuxtVersion = selectNuxtVersion()
 
@@ -520,7 +521,7 @@ async function main() {
     const tarball = resolveReleaseTarball()
     const tarballSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex')
     const packageManagerVersion = parsePackageManagerVersion(
-      runAndCapture(packageManager, ['--version'], appDir),
+      runAndCapture(packageManager, ['--version'], repoRoot),
       packageManager,
     )
     console.log(`Testing exact release tarball with ${packageManager} ${packageManagerVersion}: ${tarball} (sha256 ${tarballSha256})`)
@@ -532,6 +533,7 @@ async function main() {
     writeFileSync(resolve(appDir, 'package.json'), JSON.stringify({
       type: 'module',
       private: true,
+      ...(packageManager === 'pnpm' ? { packageManager: rootManifest.packageManager } : {}),
       scripts: {
         typecheck: 'nuxi typecheck',
         build: 'nuxt build'
