@@ -301,6 +301,14 @@ export function hasPrerenderedContentApiPath(paths, directory) {
 function verifyPagefindConsumer(appDir, tempRoot) {
   const filesystemDir = resolve(tempRoot, 'filesystem-check')
   cpSync(pagefindFixtureDir, filesystemDir, { recursive: true })
+  if (packageManager === 'pnpm') {
+    const manifestPath = resolve(filesystemDir, 'package.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    writeFileSync(manifestPath, JSON.stringify({
+      ...manifest,
+      packageManager: rootManifest.packageManager
+    }, null, 2))
+  }
   symlinkSync(resolve(appDir, 'node_modules'), resolve(filesystemDir, 'node_modules'), 'junction')
   packageExecAndRejectOutput('nuxt', ['build'], filesystemDir, [
     /could not be resolved[\s\S]*treating it as an external dependency/i,
@@ -545,7 +553,7 @@ async function main() {
         nuxt: nuxtVersion,
         pagefind: process.env.GINKO_CONSUMER_PAGEFIND_VERSION || '1.5.2',
         typescript: '6.0.3',
-        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '^3.5.35',
+        vue: process.env.GINKO_CONSUMER_VUE_VERSION || '^3.5.40',
         'vue-tsc': '3.2.9',
         vitest: process.env.GINKO_CONSUMER_VITEST_VERSION || '4.1.6'
       }

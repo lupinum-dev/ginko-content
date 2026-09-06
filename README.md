@@ -49,7 +49,7 @@ contract without changing the application-facing query API.
 
 - Node.js 22.18–22.x, 24.11–24.x, or 26+
 - Nuxt 4.5.1 through Nuxt 4.x
-- Vue 3.5.35 through Vue 3.x
+- Vue 3.5.40 through Vue 3.x
 - ESM; CommonJS `require()` is not supported
 
 ## Installation

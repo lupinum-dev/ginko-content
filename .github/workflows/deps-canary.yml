@@ -48,13 +48,13 @@ jobs:
             node: 22.18.0
             nodeTypes: ^22.18.0
             sitemap: 8.0.15
-            vue: 3.5.35
+            vue: 3.5.40
             vitest: 4.1.6
           - mode: latest-supported
             node: 24.11.0
             nodeTypes: ^24.11.0
             sitemap: ">=8.0.15 <9"
-            vue: ^3.5.35
+            vue: ^3.5.40
             vitest: ^4.1.6
 
     steps:
@@ -143,7 +143,7 @@ jobs:
         env:
           GINKO_CONSUMER_NUXT_VERSION: ${{ steps.prepare-future.outputs.nuxt-version }}
           GINKO_CONSUMER_SITEMAP_VERSION: ">=8.0.15 <9"
-          GINKO_CONSUMER_VUE_VERSION: ^3.5.35
+          GINKO_CONSUMER_VUE_VERSION: ^3.5.40
           GINKO_CONSUMER_VITEST_VERSION: ^4.1.6
 
   windows:

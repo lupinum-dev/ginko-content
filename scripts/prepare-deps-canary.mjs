@@ -33,7 +33,7 @@ const latestSupported = {
   'nuxt-site-config': '^4.0.8',
   'pagefind': '^1.5.2',
   'vitest': '^4.1.6',
-  'vue': '^3.5.35'
+  'vue': '^3.5.40'
 }
 async function resolveFutureNuxtVersion () {
   const packages = ['nuxt', '@nuxt/kit', '@nuxt/schema']
