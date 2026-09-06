@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useContentPage } from '#imports'
+import { useContentPage, definePageMeta } from '#imports'
 import { docs } from '../content.config'
 
 // Noncanonical fixture policy: static route-invariant coverage intentionally

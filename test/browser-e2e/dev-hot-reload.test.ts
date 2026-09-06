@@ -98,7 +98,60 @@ async function waitForDevServer (baseURL: string, child: ChildProcess, output: (
   throw new Error(`Timed out waiting for dev fixture.\n${output()}`)
 }
 
+async function startDevServer (cwd: string, appendOutput: (text: string) => void) {
+  const port = await allocatePort()
+  const baseURL = `http://127.0.0.1:${port}`
+  let output = ''
+  const childEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => ![
+    'TEST', 'VITEST', 'VITEST_WORKER_ID', 'VITEST_POOL_ID'
+  ].includes(key)))
+  const child = spawn(process.execPath, [
+    resolve(rootDir, 'node_modules/nuxt/bin/nuxt.mjs'), 'dev', '--no-fork',
+    '--host=127.0.0.1', `--port=${port}`
+  ], { cwd, env: { ...childEnv, NODE_ENV: 'development' }, stdio: ['ignore', 'pipe', 'pipe'] })
+  const record = (chunk: Buffer) => {
+    output += chunk.toString()
+    appendOutput(chunk.toString())
+  }
+  child.stdout?.on('data', record)
+  child.stderr?.on('data', record)
+  try {
+    await waitForDevServer(baseURL, child, () => output)
+    return { child, baseURL }
+  } catch (error) {
+    await stopChild(child)
+    throw error
+  }
+}
+
 describe('content development hot reload', () => {
+  test('serves maintained pages with automatic imports disabled', async () => {
+    const { child, baseURL } = await startDevServer(resolve(rootDir, 'playground/ginko-basic'), () => {})
+    let browser: Browser | undefined
+    try {
+      browser = await chromium.launch({ executablePath: resolveChromiumExecutable(), headless: true })
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+      const errors: string[] = []
+      page.on('pageerror', error => errors.push(error.message))
+      const content = await page.goto(`${baseURL}/guide/getting-started`, { waitUntil: 'networkidle' })
+      expect(content?.status()).toBe(200)
+      expect(await page.getByRole('heading', { name: 'Getting Started' }).isVisible()).toBe(true)
+      const missing = await page.goto(`${baseURL}/missing-dev-contract`, { waitUntil: 'networkidle' })
+      expect(missing?.status()).toBe(404)
+      await page.getByRole('link', { name: 'Go back home' }).click()
+      await page.waitForURL(baseURL + '/')
+      await page.getByRole('heading', { name: 'Ginko', exact: true }).waitFor({ state: 'visible' })
+      expect((await page.reload({ waitUntil: 'networkidle' }))?.status()).toBe(200)
+      expect(errors).toEqual([])
+    } finally {
+      try {
+        await browser?.close()
+      } finally {
+        await stopChild(child)
+      }
+    }
+  }, 120_000)
+
   test('refreshes source edits and automatically reloads collection config', async () => {
     const tempRoot = resolve(rootDir, '.tmp')
     let fixtureDir: string | undefined
@@ -112,39 +165,9 @@ describe('content development hot reload', () => {
       fixtureDir = workingFixtureDir
       await cp(fixtureSource, workingFixtureDir, { recursive: true })
 
-      const port = await allocatePort()
-      const baseURL = `http://127.0.0.1:${port}`
-      const childEnv = Object.fromEntries(
-        Object.entries(process.env).filter(([key]) => ![
-          'TEST',
-          'VITEST',
-          'VITEST_WORKER_ID',
-          'VITEST_POOL_ID'
-        ].includes(key))
-      )
-      const devChild = spawn(
-        process.execPath,
-        [
-          resolve(rootDir, 'node_modules/nuxt/bin/nuxt.mjs'),
-          'dev',
-          '--no-fork',
-          '--host=127.0.0.1',
-          `--port=${port}`
-        ],
-        {
-          cwd: workingFixtureDir,
-          env: {
-            ...childEnv,
-            NODE_ENV: 'development'
-          },
-          stdio: ['ignore', 'pipe', 'pipe']
-        }
-      )
-      child = devChild
-      devChild.stdout?.on('data', chunk => { output += chunk.toString() })
-      devChild.stderr?.on('data', chunk => { output += chunk.toString() })
-
-      await waitForDevServer(baseURL, devChild, () => output)
+      const started = await startDevServer(workingFixtureDir, text => { output += text })
+      child = started.child
+      const { baseURL } = started
       browser = await chromium.launch({ executablePath: resolveChromiumExecutable(), headless: true })
       const page = await browser.newPage()
       page.on('console', message => { output += `\n[browser ${message.type()}] ${message.text()}` })

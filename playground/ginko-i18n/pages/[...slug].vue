@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useContentPage } from '#imports'
+import { useContentPage, definePageMeta } from '#imports'
 import { docs } from '../content.config'
 
 // This app's 404 policy: `useContentPage()` never throws

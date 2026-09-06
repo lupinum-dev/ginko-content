@@ -7,6 +7,7 @@
 </template>
 
 <script setup lang="ts">
+import { definePageMeta } from '#imports'
 import { many } from '@lupinum/ginko-content/client'
 import { docs } from '../content.config'
 
