@@ -220,6 +220,7 @@ jobs:
       - docs-examples
       - server-e2e
       - pr-e2e-smoke
+      - node26-runtime
 
     steps:
       - name: Require every PR lane
@@ -232,9 +233,13 @@ jobs:
           DOCS_EXAMPLES: ${{ needs.docs-examples.result }}
           SERVER_E2E: ${{ needs.server-e2e.result }}
           PR_E2E_SMOKE: ${{ needs.pr-e2e-smoke.result }}
+          NODE26_RUNTIME: ${{ needs.node26-runtime.result }}
         run: |
           test "$CLASSIFY_RESULT" = success
           test "$STATIC_QUALITY" = success
+          test "$NODE26_RUNTIME" = success
+          test "$FULL" = true || test "$FULL" = false
+          test "$DOCS" = true || test "$DOCS" = false
           if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
           for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
             if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
@@ -426,8 +431,7 @@ jobs:
         run: pnpm vitest run --config vitest.config.ts --project contracts-node test/contracts/portability-directory-contracts.test.ts
       - name: Build the Windows canary pack
         run: pnpm release:pack
-      - name: Observe the upstream Windows packed-consumer limitation
-        continue-on-error: true
+      - name: Verify the Windows packed consumer
         run: node scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack
 
   release-authorization:

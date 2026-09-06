@@ -172,6 +172,7 @@ const requiredPrJobs = [
   'docs-examples',
   'server-e2e',
   'pr-e2e-smoke',
+  'node26-runtime',
 ]
 const expectedPrGateEnv = {
   CLASSIFY_RESULT: '${{ needs.classify.result }}',
@@ -182,9 +183,13 @@ const expectedPrGateEnv = {
   DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
   SERVER_E2E: '${{ needs.server-e2e.result }}',
   PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
+  NODE26_RUNTIME: '${{ needs.node26-runtime.result }}',
 }
 const expectedPrGateRun = `test "$CLASSIFY_RESULT" = success
 test "$STATIC_QUALITY" = success
+test "$NODE26_RUNTIME" = success
+test "$FULL" = true || test "$FULL" = false
+test "$DOCS" = true || test "$DOCS" = false
 if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
 for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
   if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
@@ -217,6 +222,12 @@ function validatePrAuthorization(job) {
 }
 
 violations.push(...validatePrAuthorization(prAuthorization))
+const windowsConsumer = ci.jobs['windows-portability'].steps.find(step =>
+  step.run === 'node scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack')
+if (!windowsConsumer || windowsConsumer.if != null || (windowsConsumer['continue-on-error'] != null && windowsConsumer['continue-on-error'] !== false)
+  || (ci.jobs['windows-portability']['continue-on-error'] != null && ci.jobs['windows-portability']['continue-on-error'] !== false)) {
+  violations.push('Windows packed-consumer verification must block certification on failure')
+}
 
 const validPrAuthorizationFixture = {
   name: 'PR verification',
@@ -228,6 +239,7 @@ const validPrAuthorizationFixture = {
     'docs-examples',
     'server-e2e',
     'pr-e2e-smoke',
+    'node26-runtime',
   ],
   steps: [{
     name: 'Require every PR lane',
@@ -240,9 +252,13 @@ const validPrAuthorizationFixture = {
       DOCS_EXAMPLES: '${{ needs.docs-examples.result }}',
       SERVER_E2E: '${{ needs.server-e2e.result }}',
       PR_E2E_SMOKE: '${{ needs.pr-e2e-smoke.result }}',
+      NODE26_RUNTIME: '${{ needs.node26-runtime.result }}',
     },
     run: `test "$CLASSIFY_RESULT" = success
 test "$STATIC_QUALITY" = success
+test "$NODE26_RUNTIME" = success
+test "$FULL" = true || test "$FULL" = false
+test "$DOCS" = true || test "$DOCS" = false
 if [ "$DOCS" = true ]; then test "$DOCS_EXAMPLES" = success; else test "$DOCS_EXAMPLES" = skipped; fi
 for result in "$CORE_CONTRACTS" "$SERVER_E2E" "$PR_E2E_SMOKE"; do
   if [ "$FULL" = true ]; then test "$result" = success; else test "$result" = skipped; fi
