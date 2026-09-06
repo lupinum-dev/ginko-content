@@ -425,6 +425,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
+      - uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1
+        id: chrome
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: Run required Windows portability contracts
@@ -433,6 +435,8 @@ jobs:
         run: pnpm release:pack
       - name: Verify the Windows packed consumer
         run: node scripts/test-packed-consumer.mjs --package-manager pnpm --build-only --tarball-dir .pack
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
 
   release-authorization:
     name: Release authorization
