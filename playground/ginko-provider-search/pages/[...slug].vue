@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createError, useContentPage } from '#imports'
+import { createError, useContentPage, definePageMeta } from '#imports'
 import { docs } from '../content.config'
 
 definePageMeta({ key: route => route.path })

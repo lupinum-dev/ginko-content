@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useContentPage } from '@lupinum/ginko-content/client'
-import { createError } from '#imports'
+import { createError, definePageMeta } from '#imports'
 import { pages } from '../content.config'
 
 definePageMeta({ key: route => route.path })
