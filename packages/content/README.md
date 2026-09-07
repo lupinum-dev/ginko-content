@@ -15,7 +15,7 @@
 </p>
 
 > [!WARNING]
-> Version `1.0.0-beta.5` is a prerelease. Install it from npm's `next`
+> Version `1.0.0-beta.6` is a prerelease. Install it from npm's `next`
 > channel. The stable `0.3` line remains on `latest`.
 
 ## Why use this package?
@@ -40,13 +40,13 @@ output.
 Use the Nuxt CLI:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@1.0.0-beta.5
+npx nuxi module add @lupinum/ginko-content@1.0.0-beta.6
 ```
 
 Or install and register the module by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@1.0.0-beta.5
+pnpm add @lupinum/ginko-content@1.0.0-beta.6
 ```
 
 ```ts

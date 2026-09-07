@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.0.0-beta.6
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.5...v1.0.0-beta.6)
+
+### 🩹 Fixes
+
+- **deps:** Remove vulnerable workspace dependency versions ([#68](https://github.com/lupinum-dev/ginko-content/pull/68))
+- **dev:** Import page metadata with automatic imports disabled ([#69](https://github.com/lupinum-dev/ginko-content/pull/69))
+
+### 📖 Documentation
+
+- Show community links in the header ([#67](https://github.com/lupinum-dev/ginko-content/pull/67))
+
+### 🏡 Chore
+
+- **docs:** Align the shared Lupinum docs runtime ([#66](https://github.com/lupinum-dev/ginko-content/pull/66))
+
+### 🤖 CI
+
+- Enforce dependency expiry and executable maintenance gates ([#70](https://github.com/lupinum-dev/ginko-content/pull/70))
+
+### ❤️ Contributors
+
+- Matthias Amon
+
 ## v1.0.0-beta.5
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.4...v1.0.0-beta.5)
