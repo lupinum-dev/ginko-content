@@ -53,3 +53,27 @@ export const resolveLocaleFromRoutePath = (path: string, locales: string[], defa
   const firstSegment = path.split('/').filter(Boolean)[0]
   return firstSegment && locales.includes(firstSegment) ? firstSegment : defaultLocale
 }
+
+export const normalizeRoutePath = (path: unknown) => {
+  if (typeof path !== 'string') return undefined
+  const normalized = path.replace(/\/+$/, '')
+  return normalized || '/'
+}
+
+/**
+ * A resolved page "matches" the current route when either the exact
+ * selector the app queried with (`route.requestedPath`) or the document's
+ * own canonical public path (`route.resolvedPath`) equals the current route
+ * — the first covers a provider/alias match whose canonical path differs
+ * from the requested one, the
+ * second covers static/prerendered routes served under a normalized path.
+ */
+export const pageMatchesRoute = (
+  doc: { route?: { requestedPath?: string, resolvedPath?: string } } | null | undefined,
+  path: string
+) => {
+  if (!doc?.route) return false
+  const normalizedPath = normalizeRoutePath(path)
+  return normalizeRoutePath(doc.route.requestedPath) === normalizedPath ||
+    normalizeRoutePath(doc.route.resolvedPath) === normalizedPath
+}

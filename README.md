@@ -130,6 +130,7 @@ if (status.value === 'not-found') {
 - YAML, JSON, and CSV ingestion.
 - Typed collection definitions.
 - Route-aware page loading with `useContentPage()`.
+- Shared-header locale links from the same page result with `useContentLocalePath()`.
 - Server reads for single records, lists, pagination, navigation, and surround
   data.
 - Exact filtered counts and server-resolved references without extra browser requests.

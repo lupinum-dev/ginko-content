@@ -1,34 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useI18n, useLocalePath, useSwitchLocalePath } from '#imports'
+import type { ContentLocalePage } from '@lupinum/ginko-content/client'
+import { useI18n, useLocalePath, useSwitchLocalePath, useContentLocalePath } from '#imports'
 
 const localePath = useLocalePath()
 
-// The shell layout renders around every page, including ones with no
-// content behind them, so it can only offer a route-only locale switch
-// (Nuxt I18n's own `useSwitchLocalePath()` — a plain URL-prefix swap, no
-// content query). Content-aware switching over `page.route.alternates`
-//, which needs the resolved document, lives on the
-// route page itself (`pages/[...slug].vue`) instead: a parent layout
-// unavoidably renders before a child page's async setup publishes anything
-// during SSR, so a layout-owned cross-component registry (the old
-// `useContentRoute`/`useContentSwitchLocalePath` mechanism
-// hard-cut) could only ever show stale/guessed links here. Both switchers
-// coexist: this one guarantees every page (including ones that bypass
-// `[...slug].vue`, like the debug pages under `pages/guide/`) always has a
-// locale link; the page-level one additionally offers the precise
-// canonical/fallback-labeled link once real document data is available.
-// Distinct short labels ("EN"/"DE"), not the page-level switcher's full
-// "English"/"Deutsch" names: browser tests target the content-aware link by
-// its accessible name, and Playwright's default name matching is a substring
-// match, so a name here that merely appended text (e.g. "English (route)")
-// would still collide with it.
+const props = defineProps<{ contentPage?: ContentLocalePage }>()
 const { locales } = useI18n()
-const switchLocalePath = useSwitchLocalePath()
-const localeCodes: Record<string, string> = { en: 'EN', de: 'DE' }
+const switchLocalePath = useContentLocalePath(() => props.contentPage, {
+  fallback: useSwitchLocalePath()
+})
 const routeLocaleLinks = computed(() => locales.value.map((entry) => {
   const code = typeof entry === 'string' ? entry : entry.code
-  return { code, name: localeCodes[code] || code.toUpperCase(), to: switchLocalePath(code) }
+  return { code, name: typeof entry === 'string' ? entry : entry.name || code, to: switchLocalePath(code) }
 }))
 
 const demoLinks = computed(() => [
@@ -53,15 +37,13 @@ const demoLinks = computed(() => [
 
       <div class="shell__actions">
         <div class="toolbar">
-          <span class="toolbar__label">Locale (route)</span>
-          <NuxtLink
-            v-for="entry in routeLocaleLinks"
-            :key="entry.code"
-            :to="entry.to"
-            class="toolbar__link"
-          >
-            {{ entry.name }}
-          </NuxtLink>
+          <span class="toolbar__label">Language</span>
+          <template v-for="entry in routeLocaleLinks" :key="entry.code">
+            <NuxtLink v-if="entry.to" :to="entry.to" class="toolbar__link" :data-locale="entry.code">
+              {{ entry.name }}
+            </NuxtLink>
+            <span v-else class="toolbar__link" aria-disabled="true" :data-locale="entry.code">{{ entry.name }}</span>
+          </template>
         </div>
 
         <div class="toolbar">

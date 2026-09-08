@@ -15,7 +15,7 @@ import type {
 import { resolveCollectionI18n } from '../../../features/localization/path'
 import { one, surround } from './query-api'
 import { getContentRuntime } from './runtime'
-import { contentCollectionName, resolveLocaleFromRoutePath, resolveOptions, stableKey, type Reactive } from './use-content-shared'
+import { contentCollectionName, normalizeRoutePath, pageMatchesRoute, resolveLocaleFromRoutePath, resolveOptions, stableKey, type Reactive } from './use-content-shared'
 
 type DocFromHandle<H> = DocumentFromHandle<H>
 
@@ -63,33 +63,9 @@ export interface UseContentPageReturn<T> {
   refresh: () => Promise<void>
 }
 
-const normalizeRoutePath = (path: unknown) => {
-  if (typeof path !== 'string') return undefined
-  const normalized = path.replace(/\/+$/, '')
-  return normalized || '/'
-}
-
 const normalizePageSurround = <H>(surroundOption: ContentPageSurroundOptions<H> | undefined) => {
   if (!surroundOption) return undefined
   return surroundOption === true ? {} : surroundOption
-}
-
-/**
- * A resolved page "matches" the current route when either the exact
- * selector the app queried with (`route.requestedPath`) or the document's
- * own canonical public path (`route.resolvedPath`) equals the current route
- * — the first covers a provider/alias match whose canonical path differs
- * from the requested one, the
- * second covers static/prerendered routes served under a normalized path.
- */
-const pageMatchesRoute = (
-  doc: { route?: { requestedPath?: string, resolvedPath?: string } } | null | undefined,
-  path: string
-) => {
-  if (!doc?.route) return false
-  const normalizedPath = normalizeRoutePath(path)
-  return normalizeRoutePath(doc.route.requestedPath) === normalizedPath ||
-    normalizeRoutePath(doc.route.resolvedPath) === normalizedPath
 }
 
 /**

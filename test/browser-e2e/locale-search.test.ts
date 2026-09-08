@@ -96,6 +96,12 @@ describe('browser production confidence', () => {
       const page = await browser.newPage()
       const browserFailures = captureBrowserFailures(page, server.baseURL)
 
+      // Inspect the original HTML, before hydration can repair a guessed link.
+      const html = await fetch(`${server.baseURL}/de/leitfaden/erste-schritte`).then(response => response.text())
+      const header = html.match(/<header\b[^>]*>([\s\S]*?)<\/header>/)?.[1]
+      expect(header).toContain('href="/guide/getting-started"')
+      expect(header).not.toContain('href="/leitfaden/erste-schritte"')
+
       await page.goto(`${server.baseURL}/de/leitfaden/erste-schritte`, { waitUntil: 'domcontentloaded' })
       await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
@@ -113,6 +119,29 @@ describe('browser production confidence', () => {
       await waitForRenderedNuxtApp(page)
       await assertHeading(page, 'Einstieg')
       browserFailures.assertClean('the German locale link')
+
+      await page.goto(`${server.baseURL}/de/leitfaden/erste-schritte?q=a%20%26%20b#installation`, { waitUntil: 'domcontentloaded' })
+      await waitForRenderedNuxtApp(page)
+      const english = page.locator('header a[data-locale="en"]')
+      const destination = new URL((await english.getAttribute('href'))!, server.baseURL)
+      expect(destination.pathname).toBe('/guide/getting-started')
+      expect(destination.searchParams.get('q')).toBe('a & b')
+      expect(destination.hash).toBe('#installation')
+      await english.click()
+      await page.waitForURL('**/guide/getting-started?**#installation')
+      await assertHeading(page, 'Getting Started')
+
+      // A normal application page uses the same header without content facts.
+      await page.getByRole('link', { name: 'Authors', exact: true }).click()
+      await page.waitForURL('**/authors')
+      await waitForRenderedNuxtApp(page)
+      await expect(page.locator('header a[data-locale="de"]').getAttribute('href')).resolves.toBe('/de/authors')
+      await page.goBack()
+      await page.waitForURL('**/guide/getting-started?**#installation')
+      await page.getByRole('heading', { name: 'Getting Started', exact: true }).waitFor()
+      await waitForRenderedNuxtApp(page)
+      await expect(page.locator('header a[data-locale="de"]').getAttribute('href')).resolves.toContain('/de/leitfaden/erste-schritte')
+      browserFailures.assertClean('shared header across content and application pages')
 
       await page.goto(`${server.baseURL}/de/search`, { waitUntil: 'domcontentloaded' })
       await waitForRenderedNuxtApp(page)

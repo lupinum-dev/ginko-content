@@ -10,11 +10,7 @@ build+generate de/404/index.html
 build+generate de/authors/index.html
 build+generate de/docs-query/index.html
 build+generate de/guide/advanced/index.html
-build+generate de/guide/deep/nested/index.html
-build+generate de/guide/getting-started/index.html
-build+generate de/guide/index.html
 build+generate de/index.html
-build+generate de/internal/secret/index.html
 build+generate de/leitfaden/advanced/index.html
 build+generate de/leitfaden/erste-schritte/index.html
 build+generate de/leitfaden/index.html
@@ -36,10 +32,6 @@ build+generate guide/getting-started/index.html
 build+generate guide/index.html
 build+generate index.html
 build+generate internal/secret/index.html
-build+generate leitfaden/advanced/index.html
-build+generate leitfaden/erste-schritte/index.html
-build+generate leitfaden/index.html
-build+generate leitfaden/tief/verschachtelt/index.html
 build+generate llms-full.txt
 build+generate llms.txt
 build+generate locales/index.html

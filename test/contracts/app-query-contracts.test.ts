@@ -183,6 +183,7 @@ describe('app query/composable contracts', () => {
       'surround',
       'navigation',
       'getCollectionPath',
+      'useContentLocalePath',
       'useContentPage',
       'useContentSearch',
       'querySiteData',

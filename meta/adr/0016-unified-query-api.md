@@ -28,8 +28,9 @@ Use collection handles with these pure asynchronous operations:
 - `backlinks()` for inbound references.
 
 Client and server exports use the same option and result shapes. Server calls
-take the active H3 event first. The only public Vue composables are
-`useContentPage()` for route-backed page loading and `useContentSearch()` for
+take the active H3 event first. The public Vue composables are
+`useContentPage()` for route-backed page loading, `useContentLocalePath()` for
+interactive locale links from an existing page result, and `useContentSearch()` for
 search state; other reactive workflows compose the pure operations with Nuxt's
 `useAsyncData()`.
 
@@ -129,3 +130,15 @@ capabilities. Unsupported comparison operators fail before provider dispatch.
   options.
 - Changes to query grammar, provider capabilities, public types, contract tests,
   and reference documentation must land together.
+
+### Shared-header locale links
+
+Load the content page before rendering the layout that consumes its result.
+`useContentLocalePath(result, { fallback })` reads that explicit result. It owns
+alternate selection and interactive query/hash preservation. Application-only
+pages pass no result and can delegate to Nuxt i18n. Missing content or missing
+translations do not invoke that fallback.
+
+Do not add a global active-page registry. A parent header renders before an
+async child page during SSR; late publication cannot repair its original HTML.
+Page-owned layouts or ancestor-owned loading make this dependency explicit.

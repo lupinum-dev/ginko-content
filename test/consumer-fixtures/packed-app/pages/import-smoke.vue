@@ -1,7 +1,7 @@
 <script setup lang="ts">
-      import { one, useContentPage, useContentSearch, extractContentToc } from '@lupinum/ginko-content/client'
+      import { one, useContentPage, useContentLocalePath, useContentSearch, extractContentToc } from '@lupinum/ginko-content/client'
 
-      void [one, useContentPage, useContentSearch, extractContentToc]
+      void [one, useContentPage, useContentLocalePath, useContentSearch, extractContentToc]
       </script>
 
       <template>
