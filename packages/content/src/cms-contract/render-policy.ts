@@ -169,6 +169,11 @@ export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 
   })
   if (!input || input.startsWith('//') || input.includes('\\') || hasControlCharacter) return false
   if (kind === 'href' && input.startsWith('#')) return true
+  // Stable Content references are resolved by the same graph-backed render
+  // boundary for filesystem and CMS providers. They are links, never asset
+  // identities, and keeping them in portable MDC preserves the authored
+  // source without regex rewriting code examples or component props.
+  if (kind === 'href' && /^\$[^\s\\?#]+(?:#[^\s\\]*)?$/u.test(input)) return true
   try {
     if (input.startsWith('/') || input.startsWith('./') || input.startsWith('../')) {
       return new URL(input, 'https://ginko.invalid').origin === 'https://ginko.invalid'

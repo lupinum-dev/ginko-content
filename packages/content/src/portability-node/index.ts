@@ -17,3 +17,12 @@ export {
   type WritePortableDirectoryInput,
 } from './write-directory.js'
 export { assertPortablePathSet, validatePortableRelativePath } from './safe-path.js'
+export {
+  assessFilesystemPortability,
+  exportFilesystemToPortableDirectory,
+  FilesystemPortabilityAssessmentError,
+  type FilesystemPortabilityAssessment,
+  type FilesystemPortabilityDiagnostic,
+  type FilesystemPortabilityEvidence,
+  type FilesystemPortabilityExportResult,
+} from './filesystem-export.js'
