@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.0-beta.8
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.7...v1.0.0-beta.8)
+
+### 🚀 Enhancements
+
+- **portability:** Export filesystem content for CMS migration ([e936e52](https://github.com/lupinum-dev/ginko-content/commit/e936e52))
+
+### ❤️ Contributors
+
+- Mat4m0
+
 ## v1.0.0-beta.7
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.6...v1.0.0-beta.7)
