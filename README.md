@@ -15,7 +15,7 @@
 </p>
 
 > [!WARNING]
-> Version `1.0.0-beta.6` is a prerelease. Install it from the `next`
+> Version `1.0.0-beta.7` is a prerelease. Install it from the `next`
 > channel. The stable `0.3` line remains on the `latest` channel.
 
 ## Why use Ginko Content?
@@ -57,13 +57,13 @@ contract without changing the application-facing query API.
 Add the beta with the Nuxt CLI:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@1.0.0-beta.6
+npx nuxi module add @lupinum/ginko-content@1.0.0-beta.7
 ```
 
 You can also install and register it by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@1.0.0-beta.6
+pnpm add @lupinum/ginko-content@1.0.0-beta.7
 ```
 
 ```ts
@@ -130,6 +130,7 @@ if (status.value === 'not-found') {
 - YAML, JSON, and CSV ingestion.
 - Typed collection definitions.
 - Route-aware page loading with `useContentPage()`.
+- Shared-header locale links from the same page result with `useContentLocalePath()`.
 - Server reads for single records, lists, pagination, navigation, and surround
   data.
 - Exact filtered counts and server-resolved references without extra browser requests.

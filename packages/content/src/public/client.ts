@@ -2,8 +2,8 @@
  * Client-side public API surface (browser + SSR Vue).
  *
  * The unified query API (ADR-0016) is the supported core read path. The
- * public composable surface is exactly `useContentPage` and
- * `useContentSearch`; every other application workflow is
+ * public composable surface includes page loading, locale links, and
+ * search; every other application workflow is
  * ordinary Nuxt composition over the one-shot async query operations below.
  */
 export {
@@ -20,6 +20,9 @@ export {
 export { getCollectionPath } from '../features/query/routes.js'
 export type { CollectionPathOptions } from '../features/query/routes.js'
 export { findFirstNavigationPage } from '../features/navigation/resolve.js'
+
+export { useContentLocalePath } from '../runtime/app/composables/use-content-locale-path.js'
+export type { ContentLocalePage, UseContentLocalePathOptions } from '../runtime/app/composables/use-content-locale-path.js'
 
 export { useContentPage } from '../runtime/app/composables/use-content-page.js'
 export type {

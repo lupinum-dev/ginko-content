@@ -56,7 +56,7 @@ describe('runtime asset contracts', () => {
 
     const imports = kitMocks.addImports.mock.calls.flatMap(([items]) => items)
     expect(imports.map(item => item.name).sort()).toEqual(runtimeAppImportSpecs.map(spec => spec.name).sort())
-    expect(imports.map(item => item.name).sort()).toEqual(['useContentPage', 'useContentSearch'])
+    expect(imports.map(item => item.name).sort()).toEqual(['useContentLocalePath', 'useContentPage', 'useContentSearch'])
     expect(imports).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'useContentPage', as: 'useContentPage' }),
       expect.objectContaining({ name: 'useContentSearch', as: 'useGinkoContentSearch' })

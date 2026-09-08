@@ -17,6 +17,7 @@ import {
   resolveOne,
   surround,
   useContentPage,
+  useContentLocalePath,
   useContentSearch,
   type ContentAlternate,
   type ContentCollectionName,
@@ -122,7 +123,7 @@ void clientSurface.neighbors
 void clientSurface.variants
 
 /* ── Deleted wrapper composables are absent from the public surface ── */
-// Every wrapper composable except `useContentPage`/`useContentSearch` is a
+// The old wrapper composables beyond the retained page/search workflows are a
 // hard-cut deletion. Applications compose pure `/client`
 // operations with `useAsyncData` instead.
 // @ts-expect-error useContentOne was deleted; compose one() with useAsyncData instead.
@@ -792,3 +793,16 @@ void docsResult
  * type shape matters here — `pnpm typecheck` never executes this file.
  */
 declare function useAsyncDataTypecheckOnly<T>(key: string, handler: () => Promise<T>): Promise<{ data: { value: T | undefined } }>
+
+// Locale links share the existing page result, including typed locale callbacks.
+const localePath = useContentLocalePath(routePage, {
+  fallback: (locale: 'en' | 'de') => `/${locale}/about`
+})
+const englishLocalePath: string | undefined = localePath('en')
+void englishLocalePath
+// @ts-expect-error The callback's locale union is preserved.
+localePath('unknown')
+useContentLocalePath(() => routePage)
+useContentLocalePath(undefined)
+// @ts-expect-error Pass a page result, not a document or collection handle.
+useContentLocalePath(docs)
