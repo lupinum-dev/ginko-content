@@ -80,7 +80,7 @@ certified tarball.
 Use these commands only to prepare and verify release metadata:
 
 ```bash
-pnpm run release:prepare -- -r <version>
+pnpm run release:prepare -r <version>
 pnpm run release:verify
 ```
 
