@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.0.0-beta.7
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.6...v1.0.0-beta.7)
+
+### 🚀 Enhancements
+
+- **i18n:** Resolve shared-header locale links from page results ([76c000c](https://github.com/lupinum-dev/ginko-content/commit/76c000c))
+
+### Adoption
+
+Use `useContentLocalePath(pageResult, { fallback })` from the client entry point
+or its Nuxt auto-import. It reads existing page facts, preserves query and hash,
+and returns no link for missing, failed, or stale content. Application fallback
+runs only when no content-page result is supplied.
+
+For a shared header, load the page before rendering its Nuxt layout and pass
+the result as a prop. This replaces manual route-state publishing and makes
+translated links correct in server-rendered HTML. Page-owned layouts remount on
+path changes; persistent headers need ancestor-owned loading. Existing page
+queries and provider contracts are unchanged. Keep interactive links separate
+from canonical and hreflang policy. See the composables reference for migration
+examples.
+
+### 📖 Documentation
+
+- **release:** Correct pnpm argument forwarding ([e76bcd1](https://github.com/lupinum-dev/ginko-content/commit/e76bcd1))
+
+### ❤️ Contributors
+
+- Mat4m0
+
 ## v1.0.0-beta.6
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.5...v1.0.0-beta.6)
