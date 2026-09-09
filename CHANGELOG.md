@@ -8,6 +8,10 @@
 
 - **portability:** Export filesystem content for CMS migration ([e936e52](https://github.com/lupinum-dev/ginko-content/commit/e936e52))
 
+### 🩹 Fixes
+
+- **deps:** Resolve newly disclosed audit findings
+
 ### ❤️ Contributors
 
 - Mat4m0
