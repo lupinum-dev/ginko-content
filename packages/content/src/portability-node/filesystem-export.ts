@@ -194,7 +194,7 @@ export async function assessFilesystemPortability(
   }
 
   const parsed: ParsedContent[] = []
-  const rawBySource = new Map<string, string>()
+  const rawById = new Map<string, string>()
   for (const source of sourceFiles) {
     const matches = resolveCollections(source.file, collections, [...contract.locales])
     const navigation = /(?:^|\/)\.navigation\.ya?ml$/u.test(source.file)
@@ -211,7 +211,7 @@ export async function assessFilesystemPortability(
     try {
       const id = `content:${source.file}`
       const value = new TextDecoder('utf-8', { fatal: true }).decode(source.bytes)
-      rawBySource.set(source.file, value)
+      rawById.set(id, value)
       const document = await parseFilesystemSource(id, value, {
         yaml: moduleOptions.yaml,
         csv: moduleOptions.csv,
@@ -252,7 +252,10 @@ export async function assessFilesystemPortability(
     localePolicy,
   })
   if (!graphValidation.ok) {
-    diagnostic(diagnostics, 'IDENTITY_CONFLICT', 'portability.validateReferences', null, fieldFile(graphValidation.error), fieldFrom(graphValidation.error),
+    const code = graphValidation.error.code === 'INVALID_REF_VALUE' || graphValidation.error.code === 'SCHEMA_VALIDATION_FAILED'
+      ? 'DOCUMENT_INVALID'
+      : 'IDENTITY_CONFLICT'
+    diagnostic(diagnostics, code, 'portability.validateReferences', null, fieldFile(graphValidation.error), fieldFrom(graphValidation.error),
       graphValidation.error.message, 'Resolve the identity, locale, route, or reference conflict in source content.')
   }
 
@@ -292,9 +295,8 @@ export async function assessFilesystemPortability(
           ;(field.localized ? fields.localized : fields.shared)[field.key] = nav[field.key] as JsonValue
         }
       }
-      const sourceFile = document.file?.path ?? ''
       const body = document.type === 'markdown'
-        ? { kind: 'mdc' as const, source: markdownBody(rawBySource.get(sourceFile) ?? '') }
+        ? { kind: 'mdc' as const, source: markdownBody(requiredRawSource(rawById, document.id)) }
         : null
       const portable: PortableDocumentV1 = {
         format: 'ginko-content-document',
@@ -467,8 +469,12 @@ async function loadProjectConfig(rootDir: string) {
     ...collection,
     i18n: collection.i18n === false ? false : resolveCollectionI18nConfig(collection, { defaultLocale: localePolicy.defaultLocale, locales: [...localePolicy.locales] }),
   }]))
-  const appManifest = unwrap(await importer.import(join(rootDir, 'node_modules/@lupinum/ginko-content/package.json'))) as { version?: string }
-  return { collections, localePolicy, moduleOptions, provider: contentConfig.provider ?? 'filesystem', packageVersion: appManifest.version ?? 'unknown' }
+  let packageVersion = 'unknown'
+  try {
+    const appManifest = unwrap(await importer.import(join(rootDir, 'node_modules/@lupinum/ginko-content/package.json'))) as { version?: string }
+    packageVersion = appManifest.version ?? packageVersion
+  } catch { /* package manifests are not addressable in every supported dependency layout */ }
+  return { collections, localePolicy, moduleOptions, provider: contentConfig.provider ?? 'filesystem', packageVersion }
 }
 
 function buildNavigationMetadata(
@@ -615,8 +621,17 @@ function markdownBody(source: string): string {
   const normalized = source.replace(/\r\n?/g, '\n')
   if (!normalized.startsWith('---\n')) return normalized
   const end = normalized.indexOf('\n---\n', 4)
-  if (end < 0) throw new TypeError('Markdown frontmatter is not closed.')
+  if (end < 0) {
+    if (normalized.endsWith('\n---')) return ''
+    throw new TypeError('Markdown frontmatter is not closed.')
+  }
   return normalized.slice(end + 5)
+}
+
+function requiredRawSource(rawById: Map<string, string>, id: string): string {
+  const source = rawById.get(id)
+  if (source === undefined) throw new TypeError(`Raw Markdown source is unavailable for "${id}".`)
+  return source
 }
 
 function routeSlug(document: ParsedContent, collection: ResolvedContentCollectionV1): string {
@@ -639,7 +654,7 @@ function treeOrder(canonicalKey: string): string | null {
 }
 
 function searchVisible(search: ModuleOptions['search'], collection: string): boolean {
-  if (search === false) return false
+  if (!search) return false
   if (search?.filterQuery && JSON.stringify(search.filterQuery) !== JSON.stringify({ partial: false })) {
     throw new TypeError('Custom content.search.filterQuery cannot be represented as per-document portable visibility without evaluating the application query.')
   }

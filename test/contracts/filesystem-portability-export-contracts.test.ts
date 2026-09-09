@@ -35,7 +35,10 @@ describe('filesystem portability export', () => {
     const exported = await exportFilesystemToPortableDirectory({ rootDir: root, destination: one, expectedInputHash: first.evidence!.inputHash })
     await exportFilesystemToPortableDirectory({ rootDir: root, destination: two })
     expect(await readFile(join(one, '.ginko/portable.json'))).toEqual(await readFile(join(two, '.ginko/portable.json')))
-    await expect(readPortableDirectory(one)).resolves.toMatchObject({ documents: expect.arrayContaining([expect.objectContaining({ document: expect.objectContaining({ canonicalKey: '1' }) })]) })
+    const bundle = await readPortableDirectory(one)
+    expect(bundle).toMatchObject({ documents: expect.arrayContaining([expect.objectContaining({ document: expect.objectContaining({ canonicalKey: '1' }) })]) })
+    expect(bundle.documents.find(item => item.document.collection === 'docs' && item.document.locale === 'fr')?.document.body?.source)
+      .toBe('[Docs]($docs/start)\n\n![Static](/images/logo.png)')
     expect(await readFile(join(one, `public/ginko-assets/${PORTABILITY_CONTRACT_FIXTURES.png.sha256}.png`))).toEqual(Buffer.from(PORTABILITY_CONTRACT_FIXTURES.png.bytes))
     expect(exported).toMatchObject({ documents: 4, assets: 1, inputHash: first.evidence!.inputHash })
   })
@@ -71,8 +74,40 @@ describe('filesystem portability export', () => {
       file: `public/ginko-assets/${PORTABILITY_CONTRACT_FIXTURES.png.sha256}.png`,
       collection: 'docs',
     }))
-    await expect(exportFilesystemToPortableDirectory({ rootDir: root, destination: 'partial' })).rejects.toBeInstanceOf(Error)
+    await expect(exportFilesystemToPortableDirectory({ rootDir: root, destination: 'partial' })).rejects.toMatchObject({ code: 'DOCUMENT_INVALID' })
     await expect(readFile(join(root, 'partial/.ginko/portable.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('accepts package-manager layouts without an addressable dependency manifest', async () => {
+    const root = await fixture()
+    await rm(join(root, 'node_modules/@lupinum/ginko-content'), { recursive: true })
+    const assessed = await assessFilesystemPortability({ rootDir: root })
+    expect(assessed.diagnostics).toEqual([])
+    expect(assessed.evidence?.packageVersion).toBe('unknown')
+  })
+
+  it('preserves Markdown source when its filesystem path contains a colon', async () => {
+    const root = await fixture()
+    await mkdir(join(root, 'content/en/1.docs/2.extra'))
+    await writeFile(join(root, 'content/en/1.docs/2.extra/index.md'), '---\ntitle: Extra parent\n---\nParent.\n')
+    await writeFile(join(root, 'content/en/1.docs/2.extra:3.note.md'), '---\ntitle: Extra\n---\nColon path body.\n')
+    const assessed = await assessFilesystemPortability({ rootDir: root })
+    expect(assessed.diagnostics).toEqual([])
+    expect(assessed.documents.find(item => item.localized.title === 'Extra')?.body?.source).toBe('Colon path body.\n')
+  })
+
+  it('accepts frontmatter closed at EOF and treats a null search option as disabled', async () => {
+    const root = await fixture()
+    await writeFile(join(root, 'content/en/1.docs/1.start/index.md'), '---\ntitle: Start\nauthor: authors/1\nhero: https://images.example.test/hero.png\n---')
+    const nuxtPath = join(root, 'nuxt.config.mjs')
+    const nuxtConfig = await readFile(nuxtPath, 'utf8')
+    await writeFile(nuxtPath, nuxtConfig.replace('"search":false', '"search":null'))
+    const assessed = await assessFilesystemPortability({ rootDir: root })
+    expect(assessed.ok).toBe(true)
+    expect(assessed.documents.find(item => item.collection === 'docs' && item.locale === 'en')).toMatchObject({
+      body: { source: '' },
+      visibility: { search: false },
+    })
   })
 })
 

@@ -35,7 +35,8 @@ try {
   if (command === 'portable') {
     const [operation, ...portableArgs] = args
     const unknownFlag = portableArgs.find(arg => arg.startsWith('-'))
-    if (unknownFlag || (operation !== 'assess' && operation !== 'export')) {
+    const hasExtraArguments = operation === 'assess' ? portableArgs.length > 1 : portableArgs.length > 2
+    if (unknownFlag || hasExtraArguments || (operation !== 'assess' && operation !== 'export')) {
       console.error(unknownFlag ? `Unknown option: ${unknownFlag}` : 'Usage: ginko-content portable assess [root] | portable export <destination> [root]')
       process.exit(1)
     }
