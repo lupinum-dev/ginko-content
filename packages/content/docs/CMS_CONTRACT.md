@@ -43,6 +43,19 @@ by the versioned portable contract.
 - Let Ginko CMS plan and apply draft imports through its operation layer; do not
   rebuild CMS rows from filesystem parser output.
 
+For a filesystem-backed Ginko application, use the public source boundary:
+
+```bash
+pnpm exec ginko-content portable assess
+pnpm exec ginko-content portable export .ginko/cms-import
+```
+
+Programmatic consumers import `assessFilesystemPortability` and
+`exportFilesystemToPortableDirectory` from
+`@lupinum/ginko-content/portability/node`. Bind a later export to
+`assessment.evidence.inputHash` with `expectedInputHash`. Do not inspect Nuxt
+cache paths or trust an old generated snapshot.
+
 There is no compatibility shim. Convert callers at the boundary and delete the
 old mapping path.
 

@@ -52,6 +52,7 @@ const nodeContractTests = [
   'test/contracts/module-contracts.test.ts',
   'test/contracts/portability-contracts.test.ts',
   'test/contracts/portability-directory-contracts.test.ts',
+  'test/contracts/filesystem-portability-export-contracts.test.ts',
   'test/contracts/runtime-assets-contracts.test.ts',
   'test/contracts/server-handlers-contracts.test.ts',
   'test/contracts/transformers-contracts.test.ts',

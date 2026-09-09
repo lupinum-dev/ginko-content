@@ -212,6 +212,19 @@ describe('portable content contract', () => {
     await expect(classifyPortableMdc('<script>alert(1)</script>', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected', issues: [{ code: 'MDC_UNSUPPORTED' }] })
   })
 
+  it('keeps stable Content references portable without relaxing asset URLs', async () => {
+    await expect(classifyPortableMdc([
+      '[Docs]($docs/getting-started)',
+      '',
+      '`[literal]($docs/example)`',
+      '',
+      '```md',
+      '[literal]($docs/example)',
+      '```',
+    ].join('\n'), contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'portable' })
+    await expect(classifyPortableMdc('![Unsafe]($docs/image)', contract.collections.docs.componentPolicy)).resolves.toMatchObject({ classification: 'rejected' })
+  })
+
   it('uses the exact public render policy at the portable boundary', async () => {
     const policy = contract.collections.docs.componentPolicy
     const canonicalPolicy = {

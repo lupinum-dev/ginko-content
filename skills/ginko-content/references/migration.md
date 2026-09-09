@@ -2,6 +2,20 @@
 
 Use this when converting a Nuxt Content v2/v3 app to Ginko Content.
 
+Use the supported portable boundary when moving an existing filesystem-backed
+Ginko application to a CMS. Do not read `.nuxt` or package-manager cache files:
+
+```bash
+pnpm exec ginko-content portable assess
+pnpm exec ginko-content portable export .ginko/cms-import
+```
+
+The assessment is local and read-only. It reports source and contract
+incompatibilities before export. The export destination must not exist. Pass
+the verified portable directory to the CMS migration command; CMS target,
+authentication, apply, publish, receipts, and provider cutover remain CMS
+responsibilities.
+
 ## Package replacement
 
 ```bash
