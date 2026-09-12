@@ -438,6 +438,78 @@ describe('portable content contract', () => {
     expect((await parsePortableMdc(restored, policy)).nodes).toEqual((await parsePortableMdc(source, policy)).nodes)
   })
 
+  it('keeps native HTML asset handling separate from colliding component policies', async () => {
+    const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const local = `/ginko-assets/${sha256}.png`
+    const storedIdentity = 'opaqueassetid1234567890'
+    const policy = {
+      components: {
+        figure: {
+          kind: 'block' as const,
+          props: { title: { type: 'asset' as const, required: false } },
+          slots: ['default'],
+          media: { sourceProp: 'title', altProp: null, titleProp: null, filenameProp: null },
+        },
+        img: {
+          kind: 'inline' as const,
+          props: { asset: { type: 'asset' as const, required: true } },
+          slots: [],
+          media: { sourceProp: 'asset', altProp: null, titleProp: null, filenameProp: null },
+        },
+      },
+    }
+    const componentFigure = `<Figure title="${local}">\nComponent\n</Figure>`
+    const source = [
+      `<figure title="${local}">Native</figure>`,
+      '',
+      componentFigure,
+      '',
+      `<img src="${local}" />`,
+      '',
+      `Inline <Img asset="${local}" />`,
+    ].join('\n')
+
+    await expect(collectPortableMdcAssetReferences(`<figure title="${local}">Native</figure>`, policy)).resolves.toEqual([])
+    await expect(collectPortableMdcAssetReferences(componentFigure, policy)).resolves.toHaveLength(1)
+    await expect(collectPortableMdcAssetReferences(`<img src="${local}" />`, policy)).resolves.toHaveLength(1)
+    await expect(collectPortableMdcAssetReferences(`Inline <Img asset="${local}" />`, policy)).resolves.toHaveLength(1)
+
+    await expect(collectPortableMdcAssetReferences(source, policy)).resolves.toEqual([
+      { path: local, sha256, mediaType: 'image/png' },
+      { path: local, sha256, mediaType: 'image/png' },
+      { path: local, sha256, mediaType: 'image/png' },
+    ])
+
+    let storageRewrites = 0
+    const stored = await rewritePortableMdcAssetReferencesForStorage(source, policy, () => {
+      storageRewrites += 1
+      return storedIdentity
+    })
+    expect(storageRewrites).toBe(3)
+    expect(stored).toContain(`<figure title="${local}">\nNative\n</figure>`)
+    expect(stored).toContain(`<Figure title="${storedIdentity}">\nComponent\n</Figure>`)
+    expect(stored).toContain(`<img src="${storedIdentity}" />`)
+    expect(stored).toContain(`Inline <Img asset="${storedIdentity}" />`)
+
+    let restoreRewrites = 0
+    const restored = await rewriteStoredMdcAssetReferences(stored, policy, () => {
+      restoreRewrites += 1
+      return local
+    })
+    expect(restoreRewrites).toBe(3)
+    expect(restored).toContain(`<figure title="${local}">\nNative\n</figure>`)
+    expect(restored).toContain(`<Figure title="${local}">\nComponent\n</Figure>`)
+    expect(restored).toContain(`<img src="${local}" />`)
+    expect(restored).toContain(`Inline <Img asset="${local}" />`)
+
+    const external = `https://assets.example.test/${sha256}.png`
+    const rewritten = await rewritePortableMdcAssetReferences(source, policy, () => external)
+    expect(rewritten).toContain(`<figure title="${local}">\nNative\n</figure>`)
+    expect(rewritten).toContain(`<Figure title="${external}">\nComponent\n</Figure>`)
+    expect(rewritten).toContain(`<img src="${external}" />`)
+    expect(rewritten).toContain(`Inline <Img asset="${external}" />`)
+  })
+
   it('normalizes ordering without deriving identity from paths', async () => {
     const sources = await Promise.all([
       'content/docs/docs.introduction/de.md',

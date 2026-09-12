@@ -228,8 +228,7 @@ function visitMdcAssetSources(
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
     const metadata = props.$ && typeof props.$ === 'object' && !Array.isArray(props.$) ? props.$ as JsonObject : {}
-    const component = metadata.component === 1 || metadata.syntax === 'angle'
-    const sourceProp = node[0] === 'img' && !component ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
+    const sourceProp = mdcAssetSourceProp(node[0], metadata, components)
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string') {
       const reference = portableMdcAssetReference(source)
@@ -249,14 +248,24 @@ async function visitStoredMdcAssetSources(
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
     const metadata = props.$ && typeof props.$ === 'object' && !Array.isArray(props.$) ? props.$ as JsonObject : {}
-    const component = metadata.component === 1 || metadata.syntax === 'angle'
-    const sourceProp = node[0] === 'img' && !component ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
+    const sourceProp = mdcAssetSourceProp(node[0], metadata, components)
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string' && isStoredPortableAssetIdentity(source)) {
       props[sourceProp] = await rewrite(source)
     }
     await visitStoredMdcAssetSources(node.slice(2) as JsonValue[], policy, rewrite, components)
   }
+}
+
+function mdcAssetSourceProp(
+  tag: string,
+  metadata: JsonObject,
+  components: ReturnType<typeof indexPortableComponentPolicies>,
+): string | undefined {
+  const component = metadata.component === 1 || metadata.syntax === 'angle'
+  if (tag === 'img' && !component) return 'src'
+  if (metadata.html === 1 && metadata.component === undefined) return undefined
+  return components.get(canonicalizePortableComponentName(tag))?.media?.sourceProp
 }
 
 function portableMdcAssetReference(value: string): PortableMdcAssetReferenceV1 | null {

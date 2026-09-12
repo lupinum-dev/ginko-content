@@ -511,6 +511,25 @@ describe('editor angle syntax baseline', () => {
     expect(tildeDocument.nodes).toHaveLength(1)
   })
 
+  test('uses Markdown code precedence while finding block component closes', async () => {
+    const fenced = await parseMdcDocument('<Info>\n```html\n<!-- a comment example\n```\nAfter code\n</Info>', { autoClose: false })
+    expect(fenced.nodes).toEqual([[
+      'info',
+      { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+      ['pre', { language: 'html' }, ['code', { class: 'language-html' }, '<!-- a comment example']],
+      ['p', {}, 'After code'],
+    ]])
+
+    const inline = await parseMdcDocument('<Info>\nBefore `literal\n</Info>\ntext` after\n</Info>', { autoClose: false })
+    expect(inline.nodes).toEqual([[
+      'info',
+      { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+      'Before ',
+      ['code', {}, 'literal </Info> text'],
+      ' after',
+    ]])
+  })
+
   test('preserves significant inline whitespace through serialization', async () => {
     const source = 'Before <Badge>hello </Badge>after'
     const document = await parseMdcDocument(source, { autoClose: false })

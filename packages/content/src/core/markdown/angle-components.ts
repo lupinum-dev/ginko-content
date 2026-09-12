@@ -315,6 +315,10 @@ function findBlockClose(
     const text = lineText(state, line)
     const trimmed = text.trim()
     const indentation = (state.sCount[line] ?? 0) - state.blkIndent
+    if (fence) {
+      if (indentation <= 3 && closesFence(text, fence)) fence = undefined
+      continue
+    }
     if (inComment) {
       if (trimmed.includes('-->')) inComment = false
       continue
@@ -323,12 +327,9 @@ function findBlockClose(
       if (!trimmed.includes('-->')) inComment = true
       continue
     }
-    if (fence) {
-      if (indentation <= 3 && closesFence(text, fence)) fence = undefined
-      continue
-    }
     fence = indentation <= 3 ? openFence(text) : undefined
     if (fence) continue
+    if (lineIsInsideCodeSpan(state, line)) continue
     const tag = parseWholeLineTag(state, line, !autoClose)
     if (!tag) continue
     const eligible = isExplicitComponentName(tag.name) || tag.name === 'template'
@@ -393,6 +394,48 @@ const skipCodeSpan = (source: string, offset: number, end: number): number | und
     cursor = nextEnd
   }
   return undefined
+}
+
+const lineIsInsideCodeSpan = (state: BlockState, line: number): boolean => {
+  let firstLine = line
+  while (firstLine > 0 && lineText(state, firstLine - 1).trim()) {
+    if (openFence(lineText(state, firstLine - 1))) break
+    firstLine -= 1
+  }
+  let lastLine = line
+  while (lastLine + 1 < state.lineMax && lineText(state, lastLine + 1).trim()) {
+    if (openFence(lineText(state, lastLine + 1))) break
+    lastLine += 1
+  }
+
+  const target = state.bMarks[line] + state.tShift[line]
+  const end = state.eMarks[lastLine] ?? state.src.length
+  let cursor = state.bMarks[firstLine] + state.tShift[firstLine]
+  while (cursor < end) {
+    const nextBacktick = state.src.indexOf('`', cursor)
+    const nextComment = state.src.indexOf('<!--', cursor)
+    if (nextComment >= 0 && nextComment < end && (nextBacktick < 0 || nextComment < nextBacktick)) {
+      const commentEnd = state.src.indexOf('-->', nextComment + 4)
+      if (commentEnd < 0 || commentEnd >= end) return false
+      cursor = commentEnd + 3
+      continue
+    }
+    if (nextBacktick < 0 || nextBacktick >= end) return false
+    let escapes = 0
+    while (state.src[nextBacktick - escapes - 1] === '\\') escapes += 1
+    if (escapes % 2 === 1) {
+      cursor = nextBacktick + 1
+      continue
+    }
+    const codeEnd = skipCodeSpan(state.src, nextBacktick, end)
+    if (!codeEnd) {
+      cursor = nextBacktick + 1
+      continue
+    }
+    if (nextBacktick < target && target < codeEnd) return true
+    cursor = codeEnd
+  }
+  return false
 }
 
 const skipTagLikeConstruct = (source: string, offset: number, end: number): number | undefined => {
@@ -487,6 +530,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
         'html_block',
         TOKEN_MARKER,
         (state: BlockState, startLine: number, endLine: number, silent: boolean) => {
+          if (lineIsInsideCodeSpan(state, startLine)) return false
           const opening = parseWholeLineTag(state, startLine, !options.autoClose)
           if (!opening) return false
           if (opening.closing) {
