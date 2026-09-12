@@ -1,6 +1,6 @@
 import { assertResolvedContentContract } from '../cms-contract/validate.js'
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
-import type { ResolvedContentCollectionV1, ResolvedContentContractV1, ResolvedContentFieldV1 } from '../cms-contract/types.js'
+import type { ResolvedContentCollection, ResolvedContentContract, ResolvedContentFieldV1 } from '../cms-contract/types.js'
 import { assertPortableAssetReference } from './assets.js'
 import { asPortabilityError, portabilityError } from './errors.js'
 import { normalizePortableMdcSource, parsePortableMdc } from './mdc.js'
@@ -15,7 +15,7 @@ const documentKeys = ['format', 'version', 'collection', 'canonicalKey', 'locale
 
 export async function parsePortableDocument(
   input: string | Uint8Array,
-  contractValue: ResolvedContentContractV1,
+  contractValue: ResolvedContentContract,
   file: string | null = null,
 ): Promise<PortableDocumentV1> {
   try {
@@ -39,7 +39,7 @@ export async function parsePortableDocument(
   }
 }
 
-async function parseMarkdown(source: string, contract: ResolvedContentContractV1): Promise<PortableDocumentV1> {
+async function parseMarkdown(source: string, contract: ResolvedContentContract): Promise<PortableDocumentV1> {
   const normalized = source.replace(/\r\n?/g, '\n')
   const end = normalized.indexOf('\n---\n', 4)
   if (end < 0) throw invalidDocument()
@@ -62,7 +62,7 @@ async function parseMarkdown(source: string, contract: ResolvedContentContractV1
   }, contract)
 }
 
-function parseDataRoot(value: unknown, contract: ResolvedContentContractV1, format: 'yaml' | 'json'): PortableDocumentV1 {
+function parseDataRoot(value: unknown, contract: ResolvedContentContract, format: 'yaml' | 'json'): PortableDocumentV1 {
   if (!isRecord(value) || !exact(value, ['ginko', 'fields']) || !isRecord(value.fields)) throw invalidDocument()
   const metadata = parseMetadata(value.ginko)
   const collection = getCollection(contract, metadata.collection)
@@ -92,7 +92,7 @@ function parseMetadata(value: unknown): Omit<PortableDocumentV1, 'format' | 'sha
   }
 }
 
-export function validatePortableDocument(value: unknown, contractValue: ResolvedContentContractV1): PortableDocumentV1 {
+export function validatePortableDocument(value: unknown, contractValue: ResolvedContentContract): PortableDocumentV1 {
   const contract = resolvedContract(contractValue)
   if (!isRecord(value) || !exact(value, documentKeys) || value.format !== 'ginko-content-document' || value.version !== 1) throw invalidDocument()
   const document = value as unknown as PortableDocumentV1
@@ -110,7 +110,7 @@ export function validatePortableDocument(value: unknown, contractValue: Resolved
   return document
 }
 
-export async function serializePortableDocument(documentValue: PortableDocumentV1, contractValue: ResolvedContentContractV1): Promise<string> {
+export async function serializePortableDocument(documentValue: PortableDocumentV1, contractValue: ResolvedContentContract): Promise<string> {
   try {
     const contract = resolvedContract(contractValue)
     const document = validatePortableDocument(documentValue, contract)
@@ -142,13 +142,13 @@ export async function serializePortableDocument(documentValue: PortableDocumentV
   }
 }
 
-export function portableDocumentPath(document: PortableDocumentV1, contract: ResolvedContentContractV1): string {
+export function portableDocumentPath(document: PortableDocumentV1, contract: ResolvedContentContract): string {
   const collection = getCollection(contract, document.collection)
   const extension = collection.portable.format === 'mdc' ? 'md' : collection.portable.format === 'yaml' ? 'yml' : 'json'
   return `content/${encodePortableIdentitySegment(document.collection)}/${encodePortableIdentitySegment(document.canonicalKey)}/${encodePortableIdentitySegment(document.locale)}.${extension}`
 }
 
-function classifyFields(value: Record<string, unknown>, collection: ResolvedContentCollectionV1, markdown: boolean): { shared: JsonObject; localized: JsonObject } {
+function classifyFields(value: Record<string, unknown>, collection: ResolvedContentCollection, markdown: boolean): { shared: JsonObject; localized: JsonObject } {
   const known = new Map(collection.fields.filter(field => !(markdown && field.role === 'body')).map(field => [field.key, field]))
   if (Object.keys(value).some(key => !known.has(key) || key === 'ginko')) throw invalidDocument()
   const shared: JsonObject = {}
@@ -164,7 +164,7 @@ function classifyFields(value: Record<string, unknown>, collection: ResolvedCont
   return { shared, localized }
 }
 
-function validateClassifiedFields(shared: JsonObject, localized: JsonObject, collection: ResolvedContentCollectionV1): void {
+function validateClassifiedFields(shared: JsonObject, localized: JsonObject, collection: ResolvedContentCollection): void {
   const all = new Set(collection.fields.filter(field => field.role !== 'body').map(field => field.key))
   if ([...Object.keys(shared), ...Object.keys(localized)].some(key => !all.has(key)) || Object.keys(shared).some(key => key in localized)) throw invalidDocument()
   for (const field of collection.fields) {
@@ -262,7 +262,7 @@ function validateReference(value: unknown): PortableReferenceV1 {
   return value as unknown as PortableReferenceV1
 }
 
-function validateTopology(document: PortableDocumentV1, collection: ResolvedContentCollectionV1): void {
+function validateTopology(document: PortableDocumentV1, collection: ResolvedContentCollection): void {
   const route = collection.kind === 'page' && collection.routing.mode === 'route'
   if (!route) {
     if (document.slug !== '' || document.parentCanonicalKey !== null || document.order !== null || Object.values(document.visibility).some(Boolean)) throw invalidDocument()
@@ -297,7 +297,7 @@ const decodeText = (value: string | Uint8Array) => {
   if (typeof value === 'string') return value
   try { return new TextDecoder('utf-8', { fatal: true }).decode(value) } catch { throw invalidDocument() }
 }
-const getCollection = (contract: ResolvedContentContractV1, id: string) => contract.collections[id] ?? (() => { throw invalidDocument() })()
+const getCollection = (contract: ResolvedContentContract, id: string): ResolvedContentCollection => contract.collections[id] ?? (() => { throw invalidDocument() })()
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
 const exact = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key))
 const string = (value: unknown, empty = false) => { if (typeof value !== 'string' || (!empty && !value)) throw invalidDocument(); return value }
@@ -305,6 +305,6 @@ const nullableString = (value: unknown) => value === null ? null : string(value)
 const boolean = (value: unknown) => { if (typeof value !== 'boolean') throw invalidDocument(); return value }
 const assertNfc = (value: string, empty = false) => { if ((!empty && !value) || value !== value.normalize('NFC') || /[\uD800-\uDFFF]/u.test(value)) throw invalidDocument() }
 const invalidDocument = () => portabilityError('DOCUMENT_INVALID', 'portability.parse', 'Portable document is invalid.')
-const resolvedContract = (value: ResolvedContentContractV1) => {
+const resolvedContract = (value: ResolvedContentContract) => {
   try { return assertResolvedContentContract(value) } catch { throw portabilityError('CONTRACT_INVALID', 'portability.parse', 'Resolved Content contract is invalid.') }
 }

@@ -30,11 +30,11 @@ export function normalizeComarkNodes(
     }
 
     const props = isRecord(rawProps) ? { ...rawProps } : {}
-    const angle = parseAngleOrigin(props.$)
-    if (angle && tag === 'template') {
+    const componentOrigin = parseComponentOrigin(props.$)
+    if (componentOrigin?.syntax === 'angle' && tag === 'template') {
       delete props.$
-    } else if (angle && canonicalizePortableComponentName(angle.sourceName) === tag) {
-      props.$ = { component: 1, block: angle.block }
+    } else if (componentOrigin && canonicalizePortableComponentName(componentOrigin.sourceName) === tag) {
+      props.$ = { component: 1, block: componentOrigin.block }
     }
     if (
       tag === 'blockquote' &&
@@ -121,12 +121,13 @@ const isPresent = (value: NormalizedComarkNode | undefined): value is Normalized
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const parseAngleOrigin = (value: unknown) => {
+const parseComponentOrigin = (value: unknown) => {
   if (!isRecord(value)) return undefined
   const keys = Object.keys(value).sort()
   if (
     keys.length !== 3 || keys[0] !== 'block' || keys[1] !== 'sourceName' || keys[2] !== 'syntax' ||
-    value.syntax !== 'angle' || (value.block !== 0 && value.block !== 1) || typeof value.sourceName !== 'string'
+    (value.syntax !== 'angle' && value.syntax !== 'colon') ||
+    (value.block !== 0 && value.block !== 1) || typeof value.sourceName !== 'string'
   ) return undefined
-  return { block: value.block, sourceName: value.sourceName }
+  return { syntax: value.syntax, block: value.block, sourceName: value.sourceName }
 }

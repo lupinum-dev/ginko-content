@@ -1,8 +1,8 @@
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
 import type {
-  PortableComponentPolicyV1,
+  PortableComponentPolicy,
   PortableMediaType,
-  ResolvedContentContractV1,
+  ResolvedContentContract,
   ResolvedContentFieldV1,
 } from '../cms-contract/types.js'
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
@@ -113,7 +113,7 @@ export function rewritePortableAssetReferences(
 
 export async function collectPortableMdcAssetReferences(
   source: string,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
 ): Promise<PortableMdcAssetReferenceV1[]> {
   const ast = await parsePortableMdc(source, policy)
   const output: PortableMdcAssetReferenceV1[] = []
@@ -126,7 +126,7 @@ export async function collectPortableMdcAssetReferences(
 
 export async function rewritePortableMdcAssetReferences(
   source: string,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   rewrite: (reference: PortableMdcAssetReferenceV1) => string,
 ): Promise<string> {
   const normalized = await renderRewrittenPortableMdc(source, policy, rewrite)
@@ -136,7 +136,7 @@ export async function rewritePortableMdcAssetReferences(
 
 export async function rewritePortableMdcAssetReferencesForStorage(
   source: string,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   rewrite: (reference: PortableMdcAssetReferenceV1) => string,
 ): Promise<string> {
   return await renderRewrittenPortableMdc(source, policy, (reference) => {
@@ -154,7 +154,7 @@ export async function rewritePortableMdcAssetReferencesForStorage(
 
 export async function rewriteStoredMdcAssetReferences(
   source: string,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   rewrite: (identity: string) => string | Promise<string>,
 ): Promise<string> {
   await parseStoredMdc(source, policy)
@@ -171,7 +171,7 @@ export async function rewriteStoredMdcAssetReferences(
 
 async function renderRewrittenPortableMdc(
   source: string,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   rewrite: (reference: PortableMdcAssetReferenceV1) => string,
 ) {
   await parsePortableMdc(source, policy)
@@ -186,7 +186,7 @@ async function renderRewrittenPortableMdc(
 
 export async function validatePortableAssets(
   documents: PortableDocumentV1[],
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   assets: Array<PortableAssetBlobV1 & { content: Uint8Array }>,
 ): Promise<void> {
   const byHash = new Map<string, PortableAssetBlobV1 & { content: Uint8Array }>()
@@ -220,7 +220,7 @@ export async function validatePortableAssets(
 
 function visitMdcAssetSources(
   nodes: JsonValue[],
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   visit: (reference: PortableMdcAssetReferenceV1) => string,
   components = indexPortableComponentPolicies(policy),
 ): void {
@@ -240,7 +240,7 @@ function visitMdcAssetSources(
 
 async function visitStoredMdcAssetSources(
   nodes: JsonValue[],
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   rewrite: (identity: string) => string | Promise<string>,
   components = indexPortableComponentPolicies(policy),
 ): Promise<void> {

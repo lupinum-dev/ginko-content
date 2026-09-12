@@ -4,14 +4,14 @@ import { join, resolve } from 'node:path'
 
 import { canonicalJsonBytes, hashCanonicalJson, type JsonValue } from '../cms-contract/hash.js'
 import { PORTABLE_CONTENT_LIMITS } from '../cms-contract/limits.js'
-import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
+import type { ResolvedContentContract } from '../cms-contract/types.js'
 import { assertResolvedContentContract } from '../cms-contract/validate.js'
 import { readStableRegularFile, StableFileError } from './stable-file.js'
 
 export const RESOLVED_CONTENT_CONTRACT_ARTIFACT = '.ginko/content-contract.json' as const
 
 export interface ResolvedContentContractArtifact {
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
   sha256: string
 }
 
@@ -55,7 +55,7 @@ export async function readResolvedContentContract(
 
 export async function writeResolvedContentContractArtifact(
   root: string,
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
 ): Promise<ResolvedContentContractArtifact> {
   const validated = assertResolvedContentContract(contract)
   const canonical = canonicalJsonBytes(validated as unknown as JsonValue)

@@ -25,16 +25,25 @@
 
 export {
   RESOLVED_CONTENT_CONTRACT_VERSION,
+  RESOLVED_CONTENT_CONTRACT_VERSION_V2,
   buildResolvedContentContract,
   type BuildResolvedContentContractInput,
   type BuildResolvedContentContractOptions,
 } from './build.js'
 
 export type {
+  PortableComponentPolicy,
   PortableComponentPolicyV1,
+  PortableComponentPolicyV2,
+  PortableComponentPropPolicyV2,
+  PortableComponentValueTypeV2,
   PortableMediaType,
+  ResolvedContentCollection,
   ResolvedContentCollectionV1,
+  ResolvedContentCollectionV2,
+  ResolvedContentContract,
   ResolvedContentContractV1,
+  ResolvedContentContractV2,
   ResolvedContentFieldTypeV1,
   ResolvedContentFieldV1,
   ResolvedContentValidationV1,
@@ -80,6 +89,7 @@ export {
 export {
   parseMdcDocument,
   parseMdcBody,
+  projectMdcDocument,
   serializeMdcDocument,
   type ParseMdcDocumentOptions,
   type ParseMdcBodyOptions,
@@ -93,9 +103,11 @@ export {
 
 export {
   assertPublicMarkdownAst,
+  classifyPortableMarkdownElement,
   isSafePublicMarkdownUrl,
   PublicMarkdownValidationError,
   validatePublicMarkdownAst,
+  validateStoredPortableMarkdownAst,
   type PublicMarkdownIssue,
   type PublicMarkdownIssueCode,
   type PublicMarkdownValidationResult,
@@ -115,7 +127,12 @@ export {
   type JsonValue,
 } from './hash.js'
 
-export { assertResolvedContentContract } from './validate.js'
+export {
+  assertResolvedContentContract,
+  assertPortableComponentPolicyV2,
+  assertResolvedContentContractV1,
+  assertResolvedContentContractV2,
+} from './validate.js'
 
 export {
   CMS_PROVIDER_WIRE_PROTOCOL,

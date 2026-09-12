@@ -370,7 +370,8 @@ describe('portable content contract', () => {
     )
     const reparsed = await parsePortableMdc(rewritten, policy)
     const props = (reparsed.nodes[0] as unknown[])[1]
-    expect(props).toEqual({
+    expect(props).toMatchObject({
+      $: { component: 1, block: 1 },
       src: `https://assets.example.test/${sha256}.png`,
       count: 2,
       featured: true,

@@ -7,7 +7,13 @@ import type {
   ContentCollectionI18nConfig,
 } from '../types/config.js'
 import type { ContentManagedMediaType } from '../types/fields.js'
-import type { PortableComponentPolicyV1 } from '../types/component-policy.js'
+import type {
+  PortableComponentPolicy,
+  PortableComponentPolicyV1,
+  PortableComponentPolicyV2,
+  PortableComponentPropPolicyV2,
+  PortableComponentValueTypeV2,
+} from '../types/component-policy.js'
 import type { JsonValue } from './hash.js'
 
 export type {
@@ -18,6 +24,10 @@ export type {
   ContentCollectionConfig,
   ContentCollectionI18nConfig,
   PortableComponentPolicyV1,
+  PortableComponentPolicyV2,
+  PortableComponentPolicy,
+  PortableComponentPropPolicyV2,
+  PortableComponentValueTypeV2,
 }
 
 export type PortableMediaType = ContentManagedMediaType
@@ -110,3 +120,17 @@ export interface ResolvedContentContractV1 {
   localeFallbacks: Record<string, string[]>
   collections: Record<string, ResolvedContentCollectionV1>
 }
+
+export interface ResolvedContentCollectionV2 extends Omit<ResolvedContentCollectionV1, 'componentPolicy'> {
+  componentPolicy: PortableComponentPolicyV2
+}
+
+export interface ResolvedContentContractV2 extends Omit<ResolvedContentContractV1, 'version' | 'collections'> {
+  version: 2
+  collections: Record<string, ResolvedContentCollectionV2>
+}
+
+export interface ResolvedContentCollection extends Omit<ResolvedContentCollectionV1, 'componentPolicy'> {
+  componentPolicy: PortableComponentPolicy
+}
+export type ResolvedContentContract = ResolvedContentContractV1 | ResolvedContentContractV2

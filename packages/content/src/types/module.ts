@@ -3,8 +3,8 @@ import type { ContentCollectionConfig, ContentProviderName } from './config'
 import type { ContentProviderQueryWhere, QueryWhere } from './query'
 import type { ContentMiniSearchOptions, ContentSearchEngine } from './search'
 import type { ResolvedLocalePolicy } from '../features/localization/locale-policy'
-import type { ResolvedContentContractV1 } from '../cms-contract/types'
-import type { PortableComponentPolicyV1 } from './component-policy'
+import type { ResolvedContentContract } from '../cms-contract/types'
+import type { PortableComponentPolicy } from './component-policy'
 
 export type MountOptions = {
   driver: string
@@ -333,7 +333,7 @@ export interface ModuleOptions {
    *
    * @default { components: {} }
    */
-  componentPolicy?: PortableComponentPolicyV1
+  componentPolicy?: PortableComponentPolicy
   /**
    * Locale-aware content behavior.
    */
@@ -536,7 +536,7 @@ export interface ContentContext extends Omit<ModuleOptions, 'search' | 'markdown
    * facts from loose fields.
    */
   localePolicy: ResolvedLocalePolicy
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
 }
 
 export type ResolvedContentContext = Omit<ContentContext, 'defaultLocale'> & {

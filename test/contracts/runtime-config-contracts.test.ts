@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { applyContentRuntimeConfig } from '../../packages/content/src/module/runtime-config'
 import { contentModuleDefaults } from '../../packages/content/src/module/defaults'
 import { createPortabilityContractFixture } from '../../packages/content/src/testing/portability-contract'
+import { restoreRuntimeRenderPolicy } from '../../packages/content/src/runtime/app/utils/runtime-render-policy'
 
 const createOptions = () => ({
   api: { baseURL: '/api/_content' },
@@ -76,6 +77,52 @@ const applyRuntimeConfig = async (
 }
 
 describe('runtime config contracts', () => {
+  test('restores nullable V2 policy fields after Nuxt runtime-config serialization', () => {
+    const serialized = {
+      version: 2,
+      components: {
+        notice: {
+          kind: 'block',
+          props: {
+            title: { types: ['string'], required: false, allowedValues: '' },
+            src: { types: ['asset'], required: false, allowedValues: '' }
+          },
+          slots: ['default'],
+          allowedParents: '',
+          allowedChildren: '',
+          media: {
+            sourceProp: 'src',
+            altProp: '',
+            titleProp: '',
+            filenameProp: ''
+          }
+        }
+      }
+    }
+
+    expect(restoreRuntimeRenderPolicy(serialized as never)).toEqual({
+      version: 2,
+      components: {
+        notice: {
+          kind: 'block',
+          props: {
+            title: { types: ['string'], required: false, allowedValues: null },
+            src: { types: ['asset'], required: false, allowedValues: null }
+          },
+          slots: ['default'],
+          allowedParents: null,
+          allowedChildren: null,
+          media: {
+            sourceProp: 'src',
+            altProp: null,
+            titleProp: null,
+            filenameProp: null
+          }
+        }
+      }
+    })
+  })
+
   test('publishes cache format version 4 after canonical Markdown normalization changed', async () => {
     const nuxt = createNuxt()
 

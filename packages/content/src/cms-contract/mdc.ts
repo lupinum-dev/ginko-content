@@ -5,7 +5,7 @@
  */
 
 import { renderMarkdown } from 'comark/render'
-import type { MarkdownDocument } from 'comark'
+import type { ConditionalNodeHandler, MarkdownDocument } from 'comark'
 import type { RenderMarkdownOptions } from 'comark/render'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
 import { angleComponentRenderer } from '../core/markdown/angle-components.js'
@@ -32,10 +32,69 @@ export async function serializeMdcDocument(
   document: MarkdownDocument,
   options: RenderMarkdownOptions = {},
 ): Promise<string> {
-  return await renderMarkdown(document, {
+  const renderDocument = structuredClone(document)
+  stripBlockColonSyntaxMetadata(renderDocument.nodes)
+  return await renderMarkdown(renderDocument, {
     ...options,
-    components: { ...options.components, angle: angleComponentRenderer },
+    components: {
+      ...options.components,
+      angle: angleComponentRenderer,
+      colonInline: colonInlineComponentRenderer,
+    },
   })
+}
+
+const colonMetadata = (node: unknown) => {
+  if (!Array.isArray(node) || typeof node[0] !== 'string') return undefined
+  const props = node[1]
+  if (!props || typeof props !== 'object' || Array.isArray(props)) return undefined
+  const metadata = (props as Record<string, unknown>).$
+  if (
+    !metadata || typeof metadata !== 'object' || Array.isArray(metadata) ||
+    (metadata as Record<string, unknown>).syntax !== 'colon' ||
+    ((metadata as Record<string, unknown>).block !== 0 &&
+      (metadata as Record<string, unknown>).block !== 1) ||
+    typeof (metadata as Record<string, unknown>).sourceName !== 'string'
+  ) return undefined
+  return metadata as { syntax: 'colon'; block: 0 | 1; sourceName: string }
+}
+
+const renderColonProps = (props: Record<string, unknown>) => {
+  const entries = Object.entries(props).filter(([name]) => name !== '$')
+  if (entries.length === 0) return ''
+  return `{${entries.map(([name, value]) => {
+    if (value === true) return name
+    if (typeof value === 'string') return `${name}="${value}"`
+    return `:${name}="${JSON.stringify(value).replace(/"/g, '\\"')}"`
+  }).join(' ')}}`
+}
+
+const colonInlineComponentRenderer: ConditionalNodeHandler = {
+  match: node => colonMetadata(node)?.block === 0,
+  handler: async (node, state) => {
+    const metadata = colonMetadata(node)
+    if (!metadata) return ''
+    const props = renderColonProps(node[1])
+    if (node.length === 2) return `:${metadata.sourceName}${props}`
+    return `:${metadata.sourceName}[${await state.flow(node, state)}]${props}`
+  },
+}
+
+function stripBlockColonSyntaxMetadata(nodes: unknown[]): void {
+  for (const node of nodes) {
+    if (!Array.isArray(node)) continue
+    const props = node[1]
+    if (props && typeof props === 'object' && !Array.isArray(props)) {
+      const record = props as Record<string, unknown>
+      const metadata = record.$
+      if (
+        metadata && typeof metadata === 'object' && !Array.isArray(metadata) &&
+        (metadata as Record<string, unknown>).syntax === 'colon' &&
+        (metadata as Record<string, unknown>).block === 1
+      ) delete record.$
+    }
+    stripBlockColonSyntaxMetadata(node.slice(2))
+  }
 }
 
 export interface ParseMdcBodyOptions {
@@ -68,7 +127,15 @@ export async function parseMdcBody(
   options: ParseMdcBodyOptions = {},
 ): Promise<ParseMdcBodyResult> {
   const tree = await parseMdcDocument(raw, { autoClose: options.autoClose })
-  const nodes = normalizeComarkNodes(tree.nodes as unknown[])
+  return projectMdcDocument(tree, options)
+}
+
+/** Derive public body/search projections without modifying the editing document. */
+export function projectMdcDocument(
+  document: MarkdownDocument,
+  options: Pick<ParseMdcBodyOptions, 'tocDepth'> = {},
+): ParseMdcBodyResult {
+  const nodes = normalizeComarkNodes(structuredClone(document.nodes) as unknown[])
   const toc = deriveToc(nodes, options)
   const body = toMarkdownRoot(nodes, toc)
   const searchText = renderPlainText(body)

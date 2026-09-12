@@ -92,6 +92,11 @@
       "import": "./dist/cms-contract-node/index.js",
       "default": "./dist/cms-contract-node/index.js"
     },
+    "./body-renderer": {
+      "types": "./dist/runtime/app/components/body-renderer.d.ts",
+      "import": "./dist/runtime/app/components/body-renderer.js",
+      "default": "./dist/runtime/app/components/body-renderer.js"
+    },
     "./portability": {
       "types": "./dist/portability/index.d.ts",
       "import": "./dist/portability/index.js",

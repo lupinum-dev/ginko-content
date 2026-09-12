@@ -86,6 +86,7 @@ const expectedDeclarations = [
   'dist/portability/index.d.ts',
   'dist/portability-node/index.d.ts',
   'dist/runtime/app/composables/toc.d.ts',
+  'dist/runtime/app/components/body-renderer.d.ts',
   'dist/public/agent.d.ts',
   'dist/runtime/transformers/define.d.ts',
   'dist/cms-contract/index.d.ts',

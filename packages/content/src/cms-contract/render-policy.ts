@@ -1,5 +1,8 @@
 import type { MarkdownNode, MarkdownRoot } from '../types/content.js'
-import type { PortableComponentPolicyV1 } from './types.js'
+import type {
+  PortableComponentPolicy,
+  PortableComponentPolicyV2,
+} from './types.js'
 import {
   isNormalizedTaskCheckboxProps,
   isNormalizedMathProps,
@@ -21,6 +24,7 @@ export type PublicMarkdownIssueCode =
   | 'unknown_prop'
   | 'missing_prop'
   | 'invalid_prop_value'
+  | 'invalid_nesting'
   | 'unsafe_url'
 
 export interface PublicMarkdownIssue {
@@ -102,7 +106,7 @@ export const isValidPortableComponentName = (value: string): boolean =>
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value)
 
 /** Internal canonical lookup shared by render validation and portable asset traversal. */
-export const indexPortableComponentPolicies = (policy: PortableComponentPolicyV1) => new Map(
+export const indexPortableComponentPolicies = (policy: PortableComponentPolicy) => new Map(
   Object.entries(policy.components)
     .map(([name, component]) => [canonicalizePortableComponentName(name), component] as const),
 )
@@ -113,6 +117,45 @@ export const isStoredPortableAssetIdentity = (value: string): boolean =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const isStructuredJsonValue = (value: unknown): boolean => {
+  if (value === null) return true
+  if (typeof value !== 'object') return false
+  const ancestors = new Set<object>()
+  const visit = (candidate: unknown): boolean => {
+    if (candidate === null || typeof candidate === 'string' || typeof candidate === 'boolean') return true
+    if (typeof candidate === 'number') return Number.isFinite(candidate)
+    if (typeof candidate !== 'object' || ancestors.has(candidate)) return false
+    ancestors.add(candidate)
+    try {
+      if (Array.isArray(candidate)) return candidate.every(visit)
+      if (!isRecord(candidate)) return false
+      const prototype = Object.getPrototypeOf(candidate)
+      return (prototype === Object.prototype || prototype === null) &&
+        Object.entries(candidate).every(([key, child]) =>
+          !FORBIDDEN_PROPS.has(key.toLowerCase()) && visit(child),
+        )
+    } finally {
+      ancestors.delete(candidate)
+    }
+  }
+  return visit(value)
+}
+
+const validateV2PropValue = (
+  value: unknown,
+  policy: PortableComponentPolicyV2['components'][string]['props'][string],
+): boolean => {
+  const matches =
+    (typeof value === 'string' && policy.types.includes('string')) ||
+    (typeof value === 'number' && Number.isFinite(value) && policy.types.includes('number')) ||
+    (typeof value === 'boolean' && policy.types.includes('boolean')) ||
+    (isStructuredJsonValue(value) && policy.types.includes('json')) ||
+    (typeof value === 'string' && value.length > 0 && policy.types.includes('asset'))
+  if (!matches) return false
+  if (policy.allowedValues === null || isStructuredJsonValue(value)) return true
+  return policy.allowedValues.includes(value as string | number | boolean)
+}
 
 const isSafeBindingValue = (value: unknown): boolean => {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return true
@@ -186,7 +229,7 @@ export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 
 
 function validateMarkdownAst(
   value: unknown,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
   allowStoredAssets: boolean,
 ): PublicMarkdownValidationResult {
   const issues: PublicMarkdownIssue[] = []
@@ -196,7 +239,8 @@ function validateMarkdownAst(
     message: string,
   ) => issues.push({ code, path, message })
   const components = indexPortableComponentPolicies(policy)
-  type ComponentPolicy = PortableComponentPolicyV1['components'][string]
+  type ComponentPolicy = PortableComponentPolicy['components'][string]
+  const v2 = 'version' in policy && policy.version === 2
 
   const validatePropInvariant = (
     tag: string,
@@ -204,16 +248,22 @@ function validateMarkdownAst(
     value: unknown,
     path: Array<string | number>,
     component: ComponentPolicy | undefined,
-    native: boolean,
   ) => {
-    const declaredAsAsset = component?.props[name]?.type === 'asset'
+    const declared = component?.props[name]
+    const declaredAsAsset = declared && (
+      ('type' in declared && declared.type === 'asset') ||
+      ('types' in declared && declared.types.length === 1 && declared.types[0] === 'asset')
+    )
     if (declaredAsAsset && typeof value === 'string') {
       const storedAsset = allowStoredAssets && isStoredPortableAssetIdentity(value)
       if (!storedAsset && !isSafePublicMarkdownUrl(value, 'asset')) {
         report('unsafe_url', path, `Component property "${name}" contains an unsafe URL.`)
       }
     }
-    if (!native || !HTML_TAGS.has(tag)) return
+    // A component policy may claim a passive native name such as `a` or
+    // `aside`, but its rendered output can still forward native properties.
+    // Keep the native-tag safety invariants active across that collision.
+    if (!HTML_TAGS.has(tag)) return
     const lower = name.toLowerCase()
     if (tag === 'pre' && (name === 'language' || name === 'filename' || name === 'meta') && typeof value !== 'string') {
       report('invalid_prop_value', path, `HTML property "${name}" on <pre> must be a string.`)
@@ -282,17 +332,18 @@ function validateMarkdownAst(
         report('invalid_prop_value', propPath, `Property "${name}" is not JSON-safe.`)
         continue
       }
-      validatePropInvariant(tag, name, propValue, propPath, component, native)
+      validatePropInvariant(tag, name, propValue, propPath, component)
       if (component) {
         const declared = component.props[name]
         if (!declared) {
           report('unknown_prop', propPath, `Component property "${name}" is not declared.`)
           continue
         }
-        const valid =
-          declared.type === 'json' ||
-          (declared.type === 'asset' && typeof propValue === 'string' && propValue.length > 0) ||
-          (declared.type !== 'asset' && typeof propValue === declared.type)
+        const valid = 'types' in declared
+          ? validateV2PropValue(propValue, declared)
+          : declared.type === 'json' ||
+            (declared.type === 'asset' && typeof propValue === 'string' && propValue.length > 0) ||
+            (declared.type !== 'asset' && typeof propValue === declared.type)
         if (!valid) report('invalid_prop_value', propPath, `Component property "${name}" has the wrong type.`)
         continue
       }
@@ -319,7 +370,8 @@ function validateMarkdownAst(
   const visit = (
     node: unknown,
     path: Array<string | number>,
-    parentComponent?: ComponentPolicy,
+    parentComponent?: { name: string; policy: ComponentPolicy },
+    directParentComponent?: { name: string; policy: ComponentPolicy },
   ): void => {
     if (!isRecord(node) || typeof node.type !== 'string') {
       report('invalid_node', path, 'Markdown nodes must be objects with a type.')
@@ -351,17 +403,17 @@ function validateMarkdownAst(
       const slotName = isRecord(props) && Object.keys(props).length === 1 && typeof props.name === 'string'
         ? props.name
         : undefined
-      if (!parentComponent || !slotName || !parentComponent.slots.includes(slotName)) {
+      if (!directParentComponent || !slotName || !directParentComponent.policy.slots.includes(slotName)) {
         report('unsafe_tag', [...path, 'tag'], 'Named slot templates must be direct children of a component and declare an allowed slot name.')
       }
-      node.children.forEach((child, index) => visit(child, [...path, 'children', index]))
+      node.children.forEach((child, index) => visit(child, [...path, 'children', index], parentComponent))
       return
     }
     const metadata = isRecord(node.props) ? node.props.$ : undefined
     const explicitComponent = isComponentMetadata(metadata)
-    const explicitHtml = isHtmlMetadata(metadata)
-    const component = explicitHtml ? undefined : components.get(normalizedTag)
-    const native = explicitHtml || (!explicitComponent && HTML_TAGS.has(nativeTag))
+    const classification = classifyPortableMarkdownElement(node as Pick<MarkdownNode, 'tag' | 'props'>, policy)
+    const component = classification.kind === 'component' ? components.get(classification.name) : undefined
+    const native = classification.kind === 'html'
     if (
       explicitComponent && component && isRecord(metadata) &&
       ((metadata.block === 1 && component.kind !== 'block') || (metadata.block === 0 && component.kind !== 'inline'))
@@ -369,6 +421,18 @@ function validateMarkdownAst(
       report('invalid_node', path, `Component <${node.tag}> is used with the wrong block or inline form.`)
     }
     if (component) {
+      if (v2 && 'allowedParents' in component) {
+        if (component.allowedParents && (!parentComponent || !component.allowedParents.includes(parentComponent.name))) {
+          report('invalid_nesting', path, `Component <${node.tag}> is outside its allowed parent.`)
+        }
+        if (
+          parentComponent && 'allowedChildren' in parentComponent.policy &&
+          parentComponent.policy.allowedChildren &&
+          !parentComponent.policy.allowedChildren.includes(normalizedTag)
+        ) {
+          report('invalid_nesting', path, `Component <${node.tag}> is not allowed inside <${parentComponent.name}>.`)
+        }
+      }
       const seenSlots = new Set<string>()
       let hasImplicitDefault = false
       let hasExplicitDefault = false
@@ -402,17 +466,23 @@ function validateMarkdownAst(
     }
     const isTaskCheckbox = nativeTag === 'input' &&
       isNormalizedTaskCheckboxProps(node.props) && node.children.length === 0
-    if (explicitComponent && !component) {
-      report('unknown_component', [...path, 'tag'], `Component <${node.tag}> is not registered.`)
-    } else if (native && ACTIVE_TAGS.has(nativeTag) && !isTaskCheckbox) {
+    if (ACTIVE_TAGS.has(nativeTag) && !isTaskCheckbox) {
       report('unsafe_tag', [...path, 'tag'], `Tag <${node.tag}> is not render-safe.`)
+    } else if (explicitComponent && !component) {
+      report('unknown_component', [...path, 'tag'], `Component <${node.tag}> is not registered.`)
     } else if (!isTaskCheckbox && native && !SAFE_HTML_TAGS.has(nativeTag)) {
       report('unsafe_tag', [...path, 'tag'], `Tag <${node.tag}> is not render-safe.`)
     } else if (!isTaskCheckbox && !native && !component) {
       report('unknown_component', [...path, 'tag'], `Component <${node.tag}> is not registered.`)
     }
     if (!isTaskCheckbox) validateProps(node as unknown as MarkdownNode, path, component, native)
-    node.children.forEach((child, index) => visit(child, [...path, 'children', index], component))
+    const currentComponent = component ? { name: normalizedTag, policy: component } : undefined
+    node.children.forEach((child, index) => visit(
+      child,
+      [...path, 'children', index],
+      currentComponent ?? parentComponent,
+      currentComponent,
+    ))
   }
 
   if (!isRecord(value) || value.type !== 'root' || !Array.isArray(value.children)) {
@@ -431,22 +501,21 @@ function validateMarkdownAst(
 
 export function validatePublicMarkdownAst(
   value: unknown,
-  policy: PortableComponentPolicyV1 = { components: {} },
+  policy: PortableComponentPolicy = { components: {} },
 ): PublicMarkdownValidationResult {
   return validateMarkdownAst(value, policy, false)
 }
 
-/** Internal portability entry point; intentionally absent from the public facade. */
 export function validateStoredPortableMarkdownAst(
   value: unknown,
-  policy: PortableComponentPolicyV1,
+  policy: PortableComponentPolicy,
 ): PublicMarkdownValidationResult {
   return validateMarkdownAst(value, policy, true)
 }
 
 export function assertPublicMarkdownAst(
   value: unknown,
-  policy: PortableComponentPolicyV1 = { components: {} },
+  policy: PortableComponentPolicy = { components: {} },
 ): asserts value is MarkdownRoot {
   const result = validatePublicMarkdownAst(value, policy)
   if (!result.ok) throw new PublicMarkdownValidationError(result.issues)
@@ -458,6 +527,10 @@ const isExactTextNode = (value: unknown, expected: unknown): boolean =>
 const isComponentMetadata = (value: unknown): boolean =>
   isRecord(value) && Object.keys(value).sort().join(',') === 'block,component' &&
   value.component === 1 && (value.block === 0 || value.block === 1)
+
+const isParsedComponentMetadata = (value: unknown): boolean =>
+  isRecord(value) && (value.syntax === 'angle' || value.syntax === 'colon') &&
+  (value.block === 0 || value.block === 1) && typeof value.sourceName === 'string'
 
 const isHtmlMetadata = (value: unknown): boolean =>
   isRecord(value) && value.html === 1 && value.component === undefined
@@ -471,4 +544,30 @@ const isSupportedParserMetadata = (value: unknown): boolean => {
     (value.html === undefined || value.html === 1) &&
     (value.block === undefined || value.block === 0 || value.block === 1) &&
     (value.line === undefined || Number.isSafeInteger(value.line))
+}
+
+export function classifyPortableMarkdownElement(
+  node: Pick<MarkdownNode, 'tag' | 'props'>,
+  policy: PortableComponentPolicy,
+):
+  | { kind: 'html'; name: string }
+  | { kind: 'component'; name: string; form: 'block' | 'inline'; registered: boolean } {
+  const name = canonicalizePortableComponentName(node.tag ?? '')
+  const nativeName = String(node.tag ?? '').toLowerCase()
+  const metadata = isRecord(node.props) ? node.props.$ : undefined
+  const explicitComponent = isComponentMetadata(metadata) || isParsedComponentMetadata(metadata)
+  const explicitHtml = isHtmlMetadata(metadata)
+  const component = indexPortableComponentPolicies(policy).get(name)
+  const registered = component !== undefined
+  if (explicitHtml || (!explicitComponent && HTML_TAGS.has(nativeName) && !registered)) {
+    return { kind: 'html', name: nativeName }
+  }
+  return {
+    kind: 'component',
+    name,
+    form: explicitComponent && isRecord(metadata)
+      ? metadata.block === 0 ? 'inline' : 'block'
+      : component?.kind ?? 'block',
+    registered,
+  }
 }

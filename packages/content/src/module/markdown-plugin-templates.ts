@@ -1,7 +1,7 @@
 import type { addTemplate } from '@nuxt/kit'
 import { genDynamicImport, genImport, genString } from 'knitwork'
 import type { ResolvedMarkdownPlugin } from '../types/content'
-import type { PortableComponentPolicyV1 } from '../types/component-policy'
+import type { PortableComponentPolicy, PortableComponentPolicyV1, PortableComponentPolicyV2 } from '../types/component-policy'
 import { assertCanonicalHighlightOptionNames } from '../parsers/markdown-plugin-options'
 import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../core/markdown/builtin-render-contracts'
 
@@ -67,9 +67,10 @@ export function validateCanonicalMarkdownPlugins(
 }
 
 export function withMarkdownPluginComponentPolicy(
-  policy: PortableComponentPolicyV1 | undefined,
+  policy: PortableComponentPolicy | undefined,
   registry: MarkdownPluginRegistryEntry[]
-): PortableComponentPolicyV1 {
+): PortableComponentPolicy {
+  const v2 = policy && 'version' in policy && policy.version === 2
   const components = { ...(policy?.components || {}) }
   for (const entry of registry) {
     const renderer = entry.renderer
@@ -77,9 +78,36 @@ export function withMarkdownPluginComponentPolicy(
     if (components[renderer.tag]) {
       throw new TypeError(`Component policy name "${renderer.tag}" is reserved for the enabled Markdown plugin "${entry.name}".`)
     }
-    components[renderer.tag] = renderer.componentPolicy
+    components[renderer.tag] = v2
+      ? projectBuiltinPolicyV2(renderer.componentPolicy)
+      : renderer.componentPolicy
   }
-  return { components }
+  return v2
+    ? { version: 2, components: components as PortableComponentPolicyV2['components'] }
+    : { components: components as PortableComponentPolicyV1['components'] }
+}
+
+function projectBuiltinPolicyV2(
+  component: PortableComponentPolicyV1['components'][string]
+): PortableComponentPolicyV2['components'][string] {
+  const props: PortableComponentPolicyV2['components'][string]['props'] = {}
+  for (const [name, prop] of Object.entries(component.props)) {
+    props[name] = {
+      types: prop.type === 'json'
+        ? ['string', 'number', 'boolean', 'json']
+        : [prop.type],
+      required: prop.required,
+      allowedValues: null
+    }
+  }
+  return {
+    kind: component.kind,
+    props,
+    slots: [...component.slots],
+    allowedParents: null,
+    allowedChildren: null,
+    media: component.media ? { ...component.media } : null
+  }
 }
 
 interface ResolveMarkdownPluginRegistryOptions {

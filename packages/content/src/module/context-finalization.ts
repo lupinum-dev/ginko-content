@@ -2,7 +2,7 @@ import type { Nuxt } from '@nuxt/schema'
 import { hash } from 'ohash'
 import type { ContentContext, ModuleOptions, ResolvedContentContext } from '../types/module'
 import type { ContentConfig } from '../types/config'
-import type { PortableComponentPolicyV1 } from '../types/component-policy'
+import type { PortableComponentPolicy } from '../types/component-policy'
 import { collectTopLevelReferenceFieldsByTarget, collectTopLevelSchemaFields } from '../core/references/schema'
 import { applyContentRuntimeConfig } from './runtime-config'
 import { registerContentSearchServerHandlers } from './server-handlers'
@@ -13,7 +13,7 @@ interface ContentContextFinalizationOptions {
   options: ModuleOptions
   appContentConfig: ContentConfig
   contentContext: ContentContext
-  runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>
+  runtimeRenderPolicies: Record<string, PortableComponentPolicy>
   buildIntegrity: number | undefined
   resolveRuntimeModule: (path: string) => string
   onResolved: (context: ResolvedContentContext) => void

@@ -1,4 +1,4 @@
-import type { ResolvedContentContractV1, ResolvedContentFieldV1 } from '../cms-contract/types.js'
+import type { ResolvedContentContract, ResolvedContentContractV1, ResolvedContentFieldV1 } from '../cms-contract/types.js'
 import {
   classifyPortableMdc,
   decodePortableIdentitySegment,
@@ -10,6 +10,7 @@ import {
   serializePortableManifest,
   sha256Hex,
   type PortableDocumentV1,
+  type PortableManifest,
   type PortableManifestV1,
   type PortableAssetBlobV1,
 } from '../portability/index.js'
@@ -17,13 +18,13 @@ import {
 export interface PortabilityContractImplementation {
   encodeIdentitySegment(value: string): string
   decodeIdentitySegment(value: string): string
-  parseDocument(source: string, contract: ResolvedContentContractV1, file?: string): Promise<PortableDocumentV1>
-  serializeDocument(document: PortableDocumentV1, contract: ResolvedContentContractV1): Promise<string>
-  documentPath(document: PortableDocumentV1, contract: ResolvedContentContractV1): string
-  parseManifest(source: Uint8Array): PortableManifestV1
-  serializeManifest(manifest: PortableManifestV1): Uint8Array
+  parseDocument(source: string, contract: ResolvedContentContract, file?: string): Promise<PortableDocumentV1>
+  serializeDocument(document: PortableDocumentV1, contract: ResolvedContentContract): Promise<string>
+  documentPath(document: PortableDocumentV1, contract: ResolvedContentContract): string
+  parseManifest(source: Uint8Array): PortableManifest
+  serializeManifest(manifest: PortableManifest): Uint8Array
   sha256(bytes: Uint8Array): Promise<string>
-  classifyMdc(source: string, contract: ResolvedContentContractV1): Promise<'portable' | 'rejected'>
+  classifyMdc(source: string, contract: ResolvedContentContract): Promise<'portable' | 'rejected'>
 }
 
 const defaultImplementation: PortabilityContractImplementation = {

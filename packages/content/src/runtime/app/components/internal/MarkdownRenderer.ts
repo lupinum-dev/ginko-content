@@ -6,7 +6,8 @@ import { HTML_TAGS } from '../../../../core/markdown/html-tags.js'
 import { localizeLinkProps } from '../../../../features/localization/links'
 import {
   assertPublicMarkdownAst,
-  type PortableComponentPolicyV1,
+  classifyPortableMarkdownElement,
+  type PortableComponentPolicy,
 } from '../../../../cms-contract/index'
 
 function parsePropValue (value: string) {
@@ -36,6 +37,11 @@ export function localizeMarkdownNodeProps (
   return localizedProps
 }
 
+function componentNameCandidates (name: string, prose: boolean | undefined) {
+  const candidates = [name, pascalCase(name), kebabCase(name)]
+  return prose === false ? candidates : [`Prose${pascalCase(name)}`, ...candidates]
+}
+
 function resolveVueComponent (
   name: string,
   components: Record<string, any>,
@@ -49,21 +55,17 @@ function resolveVueComponent (
   }
 
   seen.add(name)
-  const candidates = [
-    name,
-    pascalCase(name),
-    kebabCase(name)
-  ]
-
-  if (prose !== false) {
-    candidates.unshift(`Prose${pascalCase(name)}`)
-  }
+  const candidates = componentNameCandidates(name, prose)
 
   for (const candidate of candidates) {
     const explicit = components[candidate]
     if (explicit) {
-      if (typeof explicit === 'string' && explicit !== candidate && !HTML_TAGS.has(explicit)) {
-        return resolveVueComponent(explicit, components, registry, fallbacks, prose, seen) || explicit
+      if (typeof explicit === 'string' && !HTML_TAGS.has(explicit)) {
+        // A conventional selector such as `host-note: 'HostNote'` is also one
+        // of the selected name's candidates. Let registry/fallback lookup own
+        // that terminal name instead of recursing through the selector again.
+        if (explicit === name) continue
+        return resolveVueComponent(explicit, components, registry, fallbacks, false, seen)
       }
 
       return explicit
@@ -87,6 +89,28 @@ function resolveVueComponent (
   return null
 }
 
+function resolveExplicitComponent (
+  name: string,
+  components: Record<string, any>,
+  registry: Record<string, any>,
+  fallbacks: Record<string, any>
+): string | Record<string, any> | null {
+  for (const candidate of componentNameCandidates(name, false)) {
+    const selected = components[candidate]
+    if (!selected) continue
+    if (typeof selected !== 'string' || HTML_TAGS.has(selected)) return selected
+    return resolveVueComponent(selected, components, registry, fallbacks, false)
+  }
+  return null
+}
+
+export class MissingMarkdownComponentError extends Error {
+  constructor (name: string) {
+    super(`No explicit renderer implementation was selected for <${name}>.`)
+    this.name = 'MissingMarkdownComponentError'
+  }
+}
+
 function renderNode (
   node: MarkdownNode,
   options: {
@@ -97,6 +121,7 @@ function renderNode (
     locale?: string
     defaultLocale?: string
     locales: string[]
+    policy: PortableComponentPolicy
   },
   key?: string | number,
   parent?: MarkdownNode
@@ -119,22 +144,29 @@ function renderNode (
   const children = node.children || []
   const metadata = nodeProps.$
   const forceNative = metadata?.html === 1
+  const classification = classifyPortableMarkdownElement(node, options.policy)
 
   let component: any = tag
   if (parent?.tag === 'pre') {
     component = tag
   } else if (forceNative) {
-    component = tag
+    component = classification.name
+  } else if (classification.kind === 'component') {
+    component = resolveExplicitComponent(
+      classification.name,
+      options.components,
+      options.registry,
+      options.fallbacks
+    )
+    if (!component) throw new MissingMarkdownComponentError(classification.name)
   } else {
-    const resolvedAs = typeof nodeProps.as === 'string'
-      ? resolveVueComponent(nodeProps.as, options.components, options.registry, options.fallbacks, options.prose)
-      : null
-    const resolvedComponent = resolvedAs || resolveVueComponent(tag, options.components, options.registry, options.fallbacks, options.prose)
-    if (resolvedComponent) {
-      component = resolvedComponent
-    } else if (HTML_TAGS.has(tag)) {
-      component = tag
-    }
+    component = resolveVueComponent(
+      classification.name,
+      options.components,
+      options.registry,
+      options.fallbacks,
+      options.prose
+    ) || classification.name
   }
 
   const props: Record<string, any> = {}
@@ -252,7 +284,7 @@ export default defineComponent({
       default: () => []
     },
     renderPolicy: {
-      type: Object as PropType<PortableComponentPolicyV1>,
+      type: Object as PropType<PortableComponentPolicy>,
       default: () => ({ components: {} })
     }
   },
@@ -270,7 +302,8 @@ export default defineComponent({
           prose: props.prose,
           locale: props.locale,
           defaultLocale: props.defaultLocale,
-          locales: props.locales
+          locales: props.locales,
+          policy: props.renderPolicy
         }, index))
         .filter((child): child is VNode | string => child !== null)
 
