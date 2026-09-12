@@ -141,7 +141,7 @@
   ],
   "scripts": {
     "build": "nuxt-module-build build && pnpm build:web-types",
-    "build:web-types": "vue-docgen-web-types src/runtime/app/components/ ./dist/web-types.json",
+    "build:web-types": "vue-docgen-web-types 'src/runtime/app/components/**/*.vue' ./dist/web-types.json",
     "prepack": "pnpm run build",
     "prepublishOnly": "node -e \"console.error('Direct source publication is disabled. Publish the inspected CI tarball described in MAINTAINING.md.'); process.exit(1)\""
   },

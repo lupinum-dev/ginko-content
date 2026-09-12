@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Preserve edited inline component properties that contain quotes or typed JSON.
+  Serialization uses angle syntax when colon syntax cannot represent a value.
+- Generate IDE component metadata from Vue files only, so TypeScript renderer
+  helpers no longer cause the web-types generator to fail silently.
+
 ## v1.0.0-beta.8
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.7...v1.0.0-beta.8)

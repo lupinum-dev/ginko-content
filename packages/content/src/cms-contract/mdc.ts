@@ -59,14 +59,22 @@ const colonMetadata = (node: unknown) => {
   return metadata as { syntax: 'colon'; block: 0 | 1; sourceName: string }
 }
 
-const renderColonProps = (props: Record<string, unknown>) => {
+const renderColonProps = (props: Record<string, unknown>): string | undefined => {
   const entries = Object.entries(props).filter(([name]) => name !== '$')
   if (entries.length === 0) return ''
-  return `{${entries.map(([name, value]) => {
-    if (value === true) return name
-    if (typeof value === 'string') return `${name}="${value}"`
-    return `:${name}="${JSON.stringify(value).replace(/"/g, '\\"')}"`
-  }).join(' ')}}`
+  const rendered: string[] = []
+  for (const [name, value] of entries) {
+    // Bound colon properties do not share angle syntax's typed JSON contract.
+    if (typeof value !== 'string') return undefined
+    const text = value
+    if (/[\\\r\n]/.test(text)) return undefined
+    // Colon attributes do not unescape quoted values. Choose an absent
+    // delimiter, or let the angle renderer encode the complete component.
+    const quote = ['"', "'", '`'].find(candidate => !text.includes(candidate))
+    if (!quote) return undefined
+    rendered.push(`${name}=${quote}${text}${quote}`)
+  }
+  return `{${rendered.join(' ')}}`
 }
 
 const colonInlineComponentRenderer: ConditionalNodeHandler = {
@@ -75,6 +83,14 @@ const colonInlineComponentRenderer: ConditionalNodeHandler = {
     const metadata = colonMetadata(node)
     if (!metadata) return ''
     const props = renderColonProps(node[1])
+    if (props === undefined) {
+      const angleNode = structuredClone(node)
+      // Capitalization also distinguishes components named after native HTML
+      // elements. The canonical component name remains unchanged.
+      const angleMetadata = { ...metadata, syntax: 'angle', sourceName: metadata.sourceName[0]!.toUpperCase() + metadata.sourceName.slice(1) }
+      angleNode[1].$ = angleMetadata
+      return angleComponentRenderer.handler(angleNode, state)
+    }
     if (node.length === 2) return `:${metadata.sourceName}${props}`
     return `:${metadata.sourceName}[${await state.flow(node, state)}]${props}`
   },
