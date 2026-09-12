@@ -6,6 +6,7 @@
 
 import { renderMarkdown } from 'comark/render'
 import type { MarkdownDocument } from 'comark'
+import type { RenderMarkdownOptions } from 'comark/render'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
 import { angleComponentRenderer } from '../core/markdown/angle-components.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
@@ -27,9 +28,13 @@ export async function parseMdcDocument(
 }
 
 /** Serialize an editing document while preserving its authored component syntax. */
-export async function serializeMdcDocument(document: MarkdownDocument): Promise<string> {
+export async function serializeMdcDocument(
+  document: MarkdownDocument,
+  options: RenderMarkdownOptions = {},
+): Promise<string> {
   return await renderMarkdown(document, {
-    components: { angle: angleComponentRenderer },
+    ...options,
+    components: { ...options.components, angle: angleComponentRenderer },
   })
 }
 

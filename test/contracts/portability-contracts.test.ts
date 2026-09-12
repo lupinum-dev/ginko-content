@@ -391,6 +391,27 @@ describe('portable content contract', () => {
     expect((await parsePortableMdc(restored, policy)).nodes).toEqual((await parsePortableMdc(source, policy)).nodes)
   })
 
+  it('preserves authored angle component syntax while rewriting assets', async () => {
+    const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
+    const local = `/ginko-assets/${sha256}.png`
+    const policy = {
+      components: {
+        media: {
+          kind: 'block' as const,
+          props: { src: { type: 'asset' as const, required: true } },
+          slots: [],
+          media: { sourceProp: 'src', altProp: null, titleProp: null, filenameProp: null },
+        },
+      },
+    }
+    const source = `<Media src="${local}" />`
+
+    const stored = await rewritePortableMdcAssetReferencesForStorage(source, policy, () => 'opaqueassetid1234567890')
+    expect(stored).toBe('<Media src="opaqueassetid1234567890" />')
+    const restored = await rewriteStoredMdcAssetReferences(stored, policy, () => local)
+    expect(restored).toBe(source)
+  })
+
   it('collects and restores assets for passive native-named component policies', async () => {
     const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
     const local = `/ginko-assets/${sha256}.png`

@@ -470,18 +470,69 @@ describe('editor angle syntax baseline', () => {
     expect(JSON.stringify(document.nodes)).toContain('<info>encoded</info>')
   })
 
-  test('rejects ambiguous or duplicate slots at the normalized policy boundary', async () => {
-    const policy: PortableComponentPolicyV1 = {
-      components: {
-        card: { kind: 'block', props: {}, slots: ['default', 'footer'], media: null },
-      },
+  test('leaves native HTML and CommonMark autolinks to their standard tokenizers', async () => {
+    for (const source of [
+      '<div class=test>hello</div>',
+      '<https://example.com>',
+      '<hello@example.com>',
+    ]) {
+      const document = await parseMdcDocument(source, { autoClose: false })
+      expect(JSON.stringify(document.nodes)).not.toContain('"syntax":"angle"')
+      expect(await serializeMdcDocument(document)).not.toBe('')
     }
-    const ambiguous = await parseMdcBody(await readFixture('editor-angle-ambiguous-default-slot.md'), { autoClose: false })
-    expect(validatePublicMarkdownAst(ambiguous.body, policy)).toMatchObject({
-      ok: false,
-      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_node' })]),
-    })
-    const duplicate = await parseMdcBody('<card>\n<template #footer>\nOne\n</template>\n<template #footer>\nTwo\n</template>\n</card>', { autoClose: false })
-    expect(validatePublicMarkdownAst(duplicate.body, policy)).toMatchObject({ ok: false })
+  })
+
+  test('ignores component-looking text in inline code, escapes, and comments while matching closes', async () => {
+    const sources = [
+      '<Badge>`<Other>`</Badge>',
+      String.raw`<Badge>\<Other></Badge>`,
+      '<Badge><!-- <Other> -->hello</Badge>',
+      '<Badge><span title="<Other>">hello</span></Badge>',
+    ]
+    for (const source of sources) {
+      const document = await parseMdcDocument(source, { autoClose: false })
+      const serialized = await serializeMdcDocument(document)
+      await expect(parseMdcDocument(serialized, { autoClose: false })).resolves.toBeTruthy()
+      expect(JSON.stringify(document.nodes).match(/"syntax":"angle"/g)).toHaveLength(1)
+    }
+  })
+
+  test('honors complete CommonMark fence closers before scanning block component closes', async () => {
+    const source = '<Info>\n````md\n```\n</Info>\n````\n</Info>'
+    const document = await parseMdcDocument(source, { autoClose: false })
+    const info = document.nodes[0]
+    expect(info?.[0]).toBe('info')
+    expect(info?.[2]).toEqual(['pre', { language: 'md' }, ['code', { class: 'language-md' }, '```\n</Info>']])
+    expect(document.nodes).toHaveLength(1)
+
+    const tildeSource = '<Info>\n~~~~ md\n</Info>\n~~~~ trailing\n</Info>\n   ~~~~\n</Info>'
+    const tildeDocument = await parseMdcDocument(tildeSource, { autoClose: false })
+    expect(JSON.stringify(tildeDocument.nodes[0]?.[2])).toContain('</Info>\\n~~~~ trailing\\n</Info>')
+    expect(tildeDocument.nodes).toHaveLength(1)
+  })
+
+  test('preserves significant inline whitespace through serialization', async () => {
+    const source = 'Before <Badge>hello </Badge>after'
+    const document = await parseMdcDocument(source, { autoClose: false })
+    const serialized = await serializeMdcDocument(document)
+    expect(serialized).toContain('<Badge>hello </Badge>after')
+    expect(await parseMdcDocument(serialized, { autoClose: false })).toEqual(document)
+  })
+
+  test('rejects orphan, partial, misplaced, duplicate, and mixed-default angle structure with source locations', async () => {
+    await expect(parseMdcDocument('First\n\n</Info>', { autoClose: false }))
+      .rejects.toMatchObject({ code: 'orphan_close', line: 3, column: 1 })
+    await expect(parseMdcDocument('First\n\nBefore <Badge', { autoClose: false }))
+      .rejects.toMatchObject({ code: 'invalid_prop', line: 3, column: 8 })
+    await expect(parseMdcDocument('First\n\nBefore </Badge', { autoClose: false }))
+      .rejects.toMatchObject({ code: 'invalid_prop', line: 3, column: 8 })
+    await expect(parseMdcDocument('> Before <Badge', { autoClose: false }))
+      .rejects.toMatchObject({ code: 'invalid_prop', line: 1, column: 10 })
+    await expect(parseMdcDocument('<template #actions>\nhello\n</template>', { autoClose: false }))
+      .rejects.toMatchObject({ code: 'misplaced_slot', line: 1, column: 1 })
+    await expect(parseMdcDocument('<Info>\n<template #actions>\none\n</template>\n<template #actions>\ntwo\n</template>\n</Info>', { autoClose: false }))
+      .rejects.toMatchObject({ code: 'duplicate_slot', line: 5, column: 1 })
+    await expect(parseMdcDocument(await readFixture('editor-angle-ambiguous-default-slot.md'), { autoClose: false }))
+      .rejects.toMatchObject({ code: 'mixed_default_slot', line: 1, column: 1 })
   })
 })
