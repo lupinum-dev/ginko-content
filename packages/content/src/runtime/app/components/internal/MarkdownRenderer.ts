@@ -117,9 +117,13 @@ function renderNode (
     options.locales
   )
   const children = node.children || []
+  const metadata = nodeProps.$
+  const forceNative = metadata?.html === 1
 
   let component: any = tag
   if (parent?.tag === 'pre') {
+    component = tag
+  } else if (forceNative) {
     component = tag
   } else {
     const resolvedAs = typeof nodeProps.as === 'string'

@@ -37,7 +37,7 @@ async function parseMdc(source: string, policy: PortableComponentPolicyV1, allow
   const normalized = normalizeBody(source)
   let tree: Awaited<ReturnType<typeof parseComark>>
   try {
-    tree = await parseComark(normalized)
+    tree = await parseComark(normalized, { autoClose: false })
   } catch {
     throw unsupported()
   }

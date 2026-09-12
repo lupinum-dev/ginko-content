@@ -5,7 +5,7 @@ import { createSSRApp, defineComponent, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test } from 'vitest'
 import { validatePublicMarkdownAst } from '../../packages/content/src/cms-contract/render-policy'
-import { parseMdcBody } from '../../packages/content/src/cms-contract/mdc'
+import { parseMdcBody, parseMdcDocument, serializeMdcDocument } from '../../packages/content/src/cms-contract/mdc'
 import type { PortableComponentPolicyV1 } from '../../packages/content/src/cms-contract/types'
 import { createAgentMarkdownRegistry } from '../../packages/content/src/features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../packages/content/src/features/agent/walker'
@@ -330,5 +330,158 @@ describe('Comark conformance corpus', () => {
       ssr: ssrContract,
       agent: agentContract
     })).toMatchSnapshot(entry.id)
+  })
+})
+
+describe('editor angle syntax baseline', () => {
+  test('parses typed props, nested Markdown, slots, comments, and inline components', async () => {
+    const document = await parseMdcDocument(await readFixture('editor-angle.md'), { autoClose: false })
+    const info = document.nodes[1]
+
+    expect(info?.[0]).toBe('info')
+    expect(info?.[1]).toMatchObject({
+      $: { block: 1, sourceName: 'info', syntax: 'angle' },
+      count: 3,
+      disabled: false,
+      enabled: true,
+      options: { mode: 'safe', retries: [0, 3] },
+      zero: 0,
+      label: 'false',
+    })
+    expect(JSON.stringify(info)).toContain('["strong",{},"strong text"]')
+    expect(JSON.stringify(info)).toContain('["template",{"name":"actions","$":{"syntax":"angle"')
+    expect(JSON.stringify(document.nodes)).toContain('["a",{"href":"/guide"},"Open guide"]')
+    expect(JSON.stringify(document.nodes)).toContain('["pre",{"language":"md"}')
+    expect(document.nodes).toEqual(expect.arrayContaining([[null, {}, ' before component '], [null, {}, ' after component ']]))
+  })
+
+  test('proves the existing colon profile keeps typed values and nested Markdown', async () => {
+    const document = await parseMdcDocument(await readFixture('editor-colon.md'), { autoClose: false })
+    const info = document.nodes[1]
+
+    expect(info?.[0]).toBe('info')
+    expect(info?.[1]).toMatchObject({
+      asset: '/ginko-assets/example.png',
+      count: 3,
+      disabled: false,
+      enabled: true,
+      label: 'false',
+      options: { mode: 'safe', retries: [0, 3] },
+      zero: 0,
+    })
+    expect(JSON.stringify(info)).toContain('["strong",{},"strong text"]')
+    expect(document.nodes).toEqual(expect.arrayContaining([[null, {}, ' after component ']]))
+  })
+
+  test('reports strict incomplete input and keeps interactive completion derived-only', async () => {
+    const source = await readFixture('editor-angle-incomplete.md')
+    await expect(parseMdcDocument(source, { autoClose: false })).rejects.toMatchObject({
+      name: 'AngleComponentSyntaxError',
+      code: 'unclosed_tag',
+      line: 1,
+      column: 1,
+    })
+    const interactive = await parseMdcDocument(source)
+
+    expect(interactive.nodes[0]?.[0]).toBe('info')
+    expect(interactive.nodes[0]?.[1]).toMatchObject({ count: 3 })
+  })
+
+  test('preserves angle and colon origins across semantic round trips', async () => {
+    const document = await parseMdcDocument(await readFixture('editor-angle.md'), { autoClose: false })
+    const serialized = await serializeMdcDocument(document)
+    const reparsed = await parseMdcDocument(serialized, { autoClose: false })
+
+    expect(reparsed.nodes).toEqual(document.nodes)
+    expect(serialized).toContain('<info')
+    expect(serialized).toContain('<template #actions>')
+
+    const colon = await parseMdcDocument(await readFixture('editor-colon.md'), { autoClose: false })
+    expect(await serializeMdcDocument(colon)).toContain('::info')
+  })
+
+  test('rejects duplicate props, invalid JSON, and mismatched tags with typed diagnostics', async () => {
+    await expect(parseMdcDocument(await readFixture('editor-angle-duplicate-prop.md'), { autoClose: false }))
+      .rejects.toMatchObject({ code: 'duplicate_prop', line: 1, column: 1 })
+    await expect(parseMdcDocument(await readFixture('editor-angle-invalid-json.md'), { autoClose: false }))
+      .rejects.toMatchObject({ code: 'invalid_binding', line: 1, column: 1 })
+    await expect(parseMdcDocument(await readFixture('editor-angle-mismatched.md'), { autoClose: false }))
+      .rejects.toMatchObject({ code: 'mismatched_tag', openingTag: '<layout>' })
+  })
+
+  test('decodes quoted attributes once and retains the semantic component marker', async () => {
+    const source = await readFixture('editor-angle-attributes.md')
+    const document = await parseMdcDocument(source, { autoClose: false })
+    expect(document.nodes[0]?.[1]).toMatchObject({
+      featured: true,
+      label: '',
+      title: 'A > B & C',
+      showLinkIcon: 'true',
+      count: 3,
+      options: { quote: 'go > now', entity: '&' },
+    })
+    const normalized = await parseMdcBody(source, { autoClose: false })
+    expect(normalized.body.children[0]?.props?.$).toEqual({ component: 1, block: 1 })
+  })
+
+  test('keeps lowercase HTML native and PascalCase collisions explicitly component-owned', async () => {
+    const parsed = await parseMdcBody(await readFixture('editor-angle-collisions.md'), { autoClose: false })
+    const nativeFigure = parsed.body.children.find(node => node.type === 'element' && node.tag === 'figure' && node.props?.$?.html === 1)
+    const componentFigure = parsed.body.children.find(node => node.type === 'element' && node.tag === 'figure' && node.props?.$?.component === 1)
+    expect(nativeFigure).toBeTruthy()
+    expect(componentFigure?.props?.$).toEqual({ component: 1, block: 1 })
+
+    const figurePolicy: PortableComponentPolicyV1 = {
+      components: {
+        figure: {
+          kind: 'block',
+          props: {
+            src: { type: 'asset', required: false },
+            alt: { type: 'string', required: false },
+          },
+          slots: ['default'],
+          media: null,
+        },
+      },
+    }
+    expect(validatePublicMarkdownAst({ type: 'root', children: [nativeFigure] }, figurePolicy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst({ type: 'root', children: [componentFigure] }, figurePolicy)).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst({ type: 'root', children: [componentFigure] }, { components: {} })).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unknown_component' })]),
+    })
+  })
+
+  test('parses components in containers while leaving code forms literal', async () => {
+    const document = await parseMdcDocument(await readFixture('editor-angle-containers.md'), { autoClose: false })
+    const serialized = JSON.stringify(document.nodes)
+    const listComponent = document.nodes[0]?.[2]?.[3]
+    expect(listComponent?.[1]).toMatchObject({ $: { syntax: 'angle', block: 1, sourceName: 'info' } })
+    expect(serialized).toContain('Component in a')
+    expect(serialized).toContain('Nested same-name component')
+    expect(serialized).toContain('<info>indented code stays literal</info>')
+    expect(serialized).toContain('<info>fenced code stays literal</info>')
+  })
+
+  test('keeps escaped and entity-encoded component delimiters literal', async () => {
+    const document = await parseMdcDocument(String.raw`\<info>escaped\</info> and &lt;info&gt;encoded&lt;/info&gt;`, { autoClose: false })
+    expect(JSON.stringify(document.nodes)).not.toContain('"syntax":"angle"')
+    expect(JSON.stringify(document.nodes)).toContain('<info>escaped</info>')
+    expect(JSON.stringify(document.nodes)).toContain('<info>encoded</info>')
+  })
+
+  test('rejects ambiguous or duplicate slots at the normalized policy boundary', async () => {
+    const policy: PortableComponentPolicyV1 = {
+      components: {
+        card: { kind: 'block', props: {}, slots: ['default', 'footer'], media: null },
+      },
+    }
+    const ambiguous = await parseMdcBody(await readFixture('editor-angle-ambiguous-default-slot.md'), { autoClose: false })
+    expect(validatePublicMarkdownAst(ambiguous.body, policy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_node' })]),
+    })
+    const duplicate = await parseMdcBody('<card>\n<template #footer>\nOne\n</template>\n<template #footer>\nTwo\n</template>\n</card>', { autoClose: false })
+    expect(validatePublicMarkdownAst(duplicate.body, policy)).toMatchObject({ ok: false })
   })
 })

@@ -1,5 +1,6 @@
 import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
-import type { ComarkPlugin } from 'comark'
+import type { ComarkPlugin, ParserOptions } from 'comark'
+import { angleComponents } from './angle-components.js'
 
 type ComponentTokenState = {
   src: string
@@ -13,6 +14,35 @@ type ComponentTokenState = {
     attrs: Array<[string, unknown]> | null
   }>
 }
+
+type LegacyPropsInlineState = {
+  src: string
+  pos: number
+  push: (type: string, tag: string, nesting: number) => {
+    attrs: Array<[string, string]> | null
+    hidden: boolean
+  }
+}
+
+/** Preserve the legacy CSS-custom-property attribute spelling used by CMS documents. */
+const legacyCssCustomProps = defineComarkPlugin(() => ({
+  name: 'ginko-legacy-css-custom-props',
+  markdownItPlugins: [
+    (markdown) => {
+      markdown.inline.ruler.before('text', 'ginko_legacy_css_custom_props', (state: LegacyPropsInlineState, silent: boolean) => {
+        if (state.src[state.pos] !== '{') return false
+        const match = /^\{\s*(--[a-z][a-z0-9-]*)\s*=\s*(["'])(.*?)\2\s*\}/i.exec(state.src.slice(state.pos))
+        if (!match) return false
+        if (silent) return true
+        const token = state.push('mdc_inline_props', 'span', 0)
+        token.attrs = [[match[1], match[3]]]
+        token.hidden = true
+        state.pos += match[0].length
+        return true
+      })
+    },
+  ],
+}))
 
 /**
  * Comark currently stringifies component-frontmatter scalar attributes before
@@ -53,14 +83,30 @@ export type ComarkParser = ReturnType<typeof createMarkdownParser>
 /** Create one parser for one resolved plugin-profile lifecycle. */
 export const createComarkParser = (
   plugins: readonly ComarkPlugin[] = [],
+  options: Pick<ParserOptions, 'autoClose'> = {},
 ) => createMarkdownParser({
-  plugins: [typedComponentFrontmatter(), ...plugins],
+  ...options,
+  plugins: [
+    angleComponents({ autoClose: options.autoClose !== false }),
+    legacyCssCustomProps(),
+    typedComponentFrontmatter(),
+    ...plugins,
+  ],
 })
 
 // CMS, portability, and inline rendering all use this fixed safe profile. A
 // single immutable parser avoids recompiling Comark's default plugin pipeline
 // for every document without introducing a mutable process-wide profile.
 const baselineComarkParser = createComarkParser()
+const strictBaselineComarkParser = createComarkParser([], { autoClose: false })
+
+export interface ParseComarkOptions {
+  /** Complete incomplete Markdown and component delimiters. Default `true`. */
+  autoClose?: boolean
+}
 
 /** The fixed-profile Comark entry point used by baseline parsing boundaries. */
-export const parseComark = async (markdown: string) => await baselineComarkParser(markdown)
+export const parseComark = async (
+  markdown: string,
+  options: ParseComarkOptions = {},
+) => await (options.autoClose === false ? strictBaselineComarkParser : baselineComarkParser)(markdown)

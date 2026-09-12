@@ -9,6 +9,9 @@ import {
 } from '../core/markdown/normalize-comark.js'
 import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../core/markdown/builtin-render-contracts.js'
 import { HTML_TAGS } from '../core/markdown/html-tags.js'
+import { canonicalizePortableComponentName } from '../core/markdown/component-name.js'
+
+export { canonicalizePortableComponentName } from '../core/markdown/component-name.js'
 
 export type PublicMarkdownIssueCode =
   | 'invalid_node'
@@ -83,13 +86,6 @@ const FORBIDDEN_PROPS = new Set([
   'style', 'ref', 'key',
 ])
 
-export const canonicalizePortableComponentName = (value: string) =>
-  value
-    .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2')
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[_.\s]+/g, '-')
-    .toLowerCase()
-
 const BUILTIN_RENDER_TAGS: ReadonlySet<string> = new Set(
   Object.values(BUILTIN_MARKDOWN_RENDER_CONTRACTS).map(contract => contract.tag),
 )
@@ -119,7 +115,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const isSafeBindingValue = (value: unknown): boolean => {
-  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return true
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true
+  if (typeof value === 'number') return Number.isFinite(value)
   if (Array.isArray(value)) return value.every(isSafeBindingValue)
   if (!isRecord(value)) return false
   return Object.entries(value).every(
@@ -207,6 +204,7 @@ function validateMarkdownAst(
     value: unknown,
     path: Array<string | number>,
     component: ComponentPolicy | undefined,
+    native: boolean,
   ) => {
     const declaredAsAsset = component?.props[name]?.type === 'asset'
     if (declaredAsAsset && typeof value === 'string') {
@@ -215,7 +213,7 @@ function validateMarkdownAst(
         report('unsafe_url', path, `Component property "${name}" contains an unsafe URL.`)
       }
     }
-    if (!HTML_TAGS.has(tag)) return
+    if (!native || !HTML_TAGS.has(tag)) return
     const lower = name.toLowerCase()
     if (tag === 'pre' && (name === 'language' || name === 'filename' || name === 'meta') && typeof value !== 'string') {
       report('invalid_prop_value', path, `HTML property "${name}" on <pre> must be a string.`)
@@ -249,6 +247,7 @@ function validateMarkdownAst(
     node: MarkdownNode,
     path: Array<string | number>,
     component: ComponentPolicy | undefined,
+    native: boolean,
   ) => {
     const props = node.props ?? {}
     if (!isRecord(props)) {
@@ -260,11 +259,7 @@ function validateMarkdownAst(
       const propPath = [...path, 'props', name]
       const lower = name.toLowerCase()
       if (name === '$') {
-        if (
-          !isRecord(propValue) ||
-          Object.keys(propValue).some((key) => !['html', 'block'].includes(key)) ||
-          Object.values(propValue).some((child) => typeof child !== 'number')
-        ) report('unsafe_prop', propPath, 'Parser metadata is malformed.')
+        if (!isSupportedParserMetadata(propValue)) report('unsafe_prop', propPath, 'Parser metadata is malformed.')
         continue
       }
       if (name === 'style' && tag === 'span' && isSafeShikiStyle(propValue)) continue
@@ -287,7 +282,7 @@ function validateMarkdownAst(
         report('invalid_prop_value', propPath, `Property "${name}" is not JSON-safe.`)
         continue
       }
-      validatePropInvariant(tag, name, propValue, propPath, component)
+      validatePropInvariant(tag, name, propValue, propPath, component, native)
       if (component) {
         const declared = component.props[name]
         if (!declared) {
@@ -301,11 +296,12 @@ function validateMarkdownAst(
         if (!valid) report('invalid_prop_value', propPath, `Component property "${name}" has the wrong type.`)
         continue
       }
-      const allowed =
+      const allowed = native && (
         COMMON_HTML_PROPS.has(name) ||
         name.startsWith('aria-') ||
         name.startsWith('data-') ||
         HTML_PROPS[tag]?.has(name)
+      )
       if (!allowed) {
         report('unknown_prop', propPath, `HTML property "${name}" is not allowed on <${tag}>.`)
         continue
@@ -361,7 +357,40 @@ function validateMarkdownAst(
       node.children.forEach((child, index) => visit(child, [...path, 'children', index]))
       return
     }
-    const component = components.get(normalizedTag)
+    const metadata = isRecord(node.props) ? node.props.$ : undefined
+    const explicitComponent = isComponentMetadata(metadata)
+    const explicitHtml = isHtmlMetadata(metadata)
+    const component = explicitHtml ? undefined : components.get(normalizedTag)
+    const native = explicitHtml || (!explicitComponent && HTML_TAGS.has(nativeTag))
+    if (
+      explicitComponent && component && isRecord(metadata) &&
+      ((metadata.block === 1 && component.kind !== 'block') || (metadata.block === 0 && component.kind !== 'inline'))
+    ) {
+      report('invalid_node', path, `Component <${node.tag}> is used with the wrong block or inline form.`)
+    }
+    if (component) {
+      const seenSlots = new Set<string>()
+      let hasImplicitDefault = false
+      let hasExplicitDefault = false
+      for (const child of node.children) {
+        if (!isRecord(child) || child.type !== 'element' || child.tag !== 'template') {
+          if (!(isRecord(child) && child.type === 'text' && typeof child.value === 'string' && !child.value.trim())) {
+            hasImplicitDefault = true
+          }
+          continue
+        }
+        const slotName = isRecord(child.props) && typeof child.props.name === 'string' ? child.props.name : undefined
+        if (!slotName) continue
+        if (seenSlots.has(slotName)) {
+          report('invalid_node', [...path, 'children'], `Named slot "${slotName}" is duplicated.`)
+        }
+        seenSlots.add(slotName)
+        if (slotName === 'default') hasExplicitDefault = true
+      }
+      if (hasImplicitDefault && hasExplicitDefault) {
+        report('invalid_node', [...path, 'children'], 'Explicit and implicit default slot content cannot be mixed.')
+      }
+    }
     const exactMathNode = isNormalizedMathProps(node.props) &&
       node.children.length === 1 && isExactTextNode(node.children[0], (node.props as Record<string, unknown>).content)
     const exactMermaidNode = isNormalizedMermaidProps(node.props) && node.children.length === 0
@@ -373,12 +402,16 @@ function validateMarkdownAst(
     }
     const isTaskCheckbox = nativeTag === 'input' &&
       isNormalizedTaskCheckboxProps(node.props) && node.children.length === 0
-    if (ACTIVE_TAGS.has(nativeTag) && !isTaskCheckbox) {
+    if (explicitComponent && !component) {
+      report('unknown_component', [...path, 'tag'], `Component <${node.tag}> is not registered.`)
+    } else if (native && ACTIVE_TAGS.has(nativeTag) && !isTaskCheckbox) {
       report('unsafe_tag', [...path, 'tag'], `Tag <${node.tag}> is not render-safe.`)
-    } else if (!isTaskCheckbox && !SAFE_HTML_TAGS.has(nativeTag) && !component) {
+    } else if (!isTaskCheckbox && native && !SAFE_HTML_TAGS.has(nativeTag)) {
+      report('unsafe_tag', [...path, 'tag'], `Tag <${node.tag}> is not render-safe.`)
+    } else if (!isTaskCheckbox && !native && !component) {
       report('unknown_component', [...path, 'tag'], `Component <${node.tag}> is not registered.`)
     }
-    if (!isTaskCheckbox) validateProps(node as unknown as MarkdownNode, path, component)
+    if (!isTaskCheckbox) validateProps(node as unknown as MarkdownNode, path, component, native)
     node.children.forEach((child, index) => visit(child, [...path, 'children', index], component))
   }
 
@@ -421,3 +454,21 @@ export function assertPublicMarkdownAst(
 
 const isExactTextNode = (value: unknown, expected: unknown): boolean =>
   isRecord(value) && Object.keys(value).length === 2 && value.type === 'text' && value.value === expected
+
+const isComponentMetadata = (value: unknown): boolean =>
+  isRecord(value) && Object.keys(value).sort().join(',') === 'block,component' &&
+  value.component === 1 && (value.block === 0 || value.block === 1)
+
+const isHtmlMetadata = (value: unknown): boolean =>
+  isRecord(value) && value.html === 1 && value.component === undefined
+
+const isSupportedParserMetadata = (value: unknown): boolean => {
+  if (!isRecord(value)) return false
+  if (isComponentMetadata(value)) return true
+  const keys = Object.keys(value)
+  return keys.length > 0 && keys.every(key => ['html', 'block', 'line'].includes(key)) &&
+    value.component === undefined &&
+    (value.html === undefined || value.html === 1) &&
+    (value.block === undefined || value.block === 0 || value.block === 1) &&
+    (value.line === undefined || Number.isSafeInteger(value.line))
+}

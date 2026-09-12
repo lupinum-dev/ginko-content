@@ -37,7 +37,7 @@ export default defineTransformer({
     const normalizationOptions = { enabledPlugins: configuredPlugins.map(plugin => plugin.name) }
     const tree = configuredPlugins.length
       ? await (await getConfiguredComarkParser(optionOwner))(content as string)
-      : await parseComark(content as string)
+      : await parseComark(content as string, { autoClose: false })
 
     const frontmatter = stripReservedContentKeys(tree.frontmatter as Record<string, unknown>, id)
 

@@ -225,7 +225,9 @@ function visitMdcAssetSources(
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
+    const metadata = props.$ && typeof props.$ === 'object' && !Array.isArray(props.$) ? props.$ as JsonObject : {}
+    const component = metadata.component === 1
+    const sourceProp = node[0] === 'img' && !component ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string') {
       const reference = portableMdcAssetReference(source)
@@ -244,7 +246,9 @@ async function visitStoredMdcAssetSources(
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
+    const metadata = props.$ && typeof props.$ === 'object' && !Array.isArray(props.$) ? props.$ as JsonObject : {}
+    const component = metadata.component === 1
+    const sourceProp = node[0] === 'img' && !component ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string' && isStoredPortableAssetIdentity(source)) {
       props[sourceProp] = await rewrite(source)

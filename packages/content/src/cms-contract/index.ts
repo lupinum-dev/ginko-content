@@ -78,10 +78,18 @@ export {
 } from './schema.js'
 
 export {
+  parseMdcDocument,
   parseMdcBody,
+  serializeMdcDocument,
+  type ParseMdcDocumentOptions,
   type ParseMdcBodyOptions,
   type ParseMdcBodyResult,
 } from './mdc.js'
+
+export {
+  AngleComponentSyntaxError,
+  type AngleComponentSyntaxIssueCode,
+} from '../core/markdown/angle-components.js'
 
 export {
   assertPublicMarkdownAst,

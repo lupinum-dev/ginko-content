@@ -253,6 +253,19 @@ describe('render component contracts', () => {
     expect(localLoader).toHaveBeenCalledTimes(1)
   })
 
+  test('component discovery distinguishes explicit native and component collisions', async () => {
+    const { loadContentComponentEntries } = await import('../../packages/content/src/integrations/vue/content-components')
+    const body = {
+      type: 'root',
+      children: [
+        { type: 'element', tag: 'figure', props: { $: { html: 1, block: 1 } }, children: [] },
+        { type: 'element', tag: 'figure', props: { $: { component: 1, block: 1 } }, children: [] },
+      ],
+    }
+
+    expect(loadContentComponentEntries(body, {})).toEqual([['figure', 'Figure']])
+  })
+
   test('ships a ProseImg component with native and Nuxt Image rendering paths', async () => {
     const ProseImg = (await import('../../packages/content/src/runtime/app/components/Prose/ProseImg.vue')).default
     const { resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } = await import('../../packages/content/src/runtime/markdown/plugins')
@@ -352,6 +365,37 @@ describe('render component contracts', () => {
     })
 
     expect(await renderToString(app)).toContain('data-my-image="true"')
+  })
+
+  test('explicit HTML stays native when a same-name component is registered', async () => {
+    const MarkdownRenderer = (await import('../../packages/content/src/runtime/app/components/internal/MarkdownRenderer')).default
+    const FigureComponent = {
+      render() {
+        return h('section', { 'data-component-figure': 'true' }, this.$slots.default?.())
+      },
+    }
+    const app = createSSRApp({
+      render: () => h(MarkdownRenderer, {
+        tree: {
+          type: 'root',
+          children: [
+            { type: 'element', tag: 'figure', props: { $: { html: 1, block: 1 } }, children: [{ type: 'text', value: 'Native' }] },
+            { type: 'element', tag: 'figure', props: { $: { component: 1, block: 1 } }, children: [{ type: 'text', value: 'Component' }] },
+          ],
+        } as any,
+        components: { figure: FigureComponent },
+        renderPolicy: {
+          components: {
+            figure: { kind: 'block', props: {}, slots: ['default'], media: null },
+          },
+        },
+      }),
+    })
+
+    const html = await renderToString(app)
+    expect(html).toContain('<figure>Native</figure>')
+    expect(html).toContain('data-component-figure="true"')
+    expect(html).toContain('>Component</section>')
   })
 
   test('both renderer components bind the builtin fallback map', () => {
