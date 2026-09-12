@@ -450,7 +450,7 @@ function findInlineClose(
     }
     const location = inlineLocation(state, cursor)
     const tag = parseAngleTag(state.src, cursor, location)
-    if (!tag) syntaxError('invalid_prop', `Component <${head.name}> is incomplete.`, location)
+    if (!tag) return syntaxError('invalid_prop', `Component <${head.name}> is incomplete.`, location)
     if (!tag.closing && !tag.selfClosing) stack.push(tag.name)
     if (tag.closing) {
       const expected = stack[stack.length - 1]
