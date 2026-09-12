@@ -547,6 +547,47 @@ describe('editor angle syntax baseline', () => {
     ])
   })
 
+  test('combines nested components, multiline code, and native inline HTML contexts', async () => {
+    const sameName = await parseMdcDocument('<Info>\n<Info>\nBefore `literal\n</Info>\ntext` after\n</Info>\n</Info>', { autoClose: false })
+    expect(sameName.nodes).toEqual([[
+      'info',
+      { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+      [
+        'info',
+        { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+        'Before ',
+        ['code', {}, 'literal </Info> text'],
+        ' after',
+      ],
+    ]])
+
+    const mixedNames = await parseMdcDocument('<Layout>\n<Column>\nBefore `literal\n</Column>\ntext` after\n</Column>\n</Layout>', { autoClose: false })
+    expect(mixedNames.nodes).toEqual([[
+      'layout',
+      { $: { syntax: 'angle', block: 1, sourceName: 'Layout' } },
+      [
+        'column',
+        { $: { syntax: 'angle', block: 1, sourceName: 'Column' } },
+        'Before ',
+        ['code', {}, 'literal </Column> text'],
+        ' after',
+      ],
+    ]])
+
+    const native = await parseMdcDocument('<Info>\nBefore <span title="`">text &lt;Other&gt;</span>\n</Info>\n`', { autoClose: false })
+    expect(native.nodes[0]).toEqual([
+      'info',
+      { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+      'Before ',
+      ['span', { title: '`', $: { html: 1, block: 0 } }, 'text <Other>'],
+    ])
+
+    for (const document of [sameName, mixedNames, native]) {
+      const serialized = await serializeMdcDocument(document)
+      await expect(parseMdcDocument(serialized, { autoClose: false })).resolves.toEqual(document)
+    }
+  })
+
   test('handles large ordinary component bodies without per-line context rescans', async () => {
     for (const lines of [250, 2_000]) {
       const body = Array.from({ length: lines }, (_, index) => `ordinary line ${index}`).join('\n')
