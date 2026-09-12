@@ -35,10 +35,12 @@ export {
   assertPortableAssetReference,
   collectPortableAssetReferences,
   collectPortableMdcAssetReferences,
+  collectStoredMdcAssetReferences,
   rewritePortableAssetReferences,
   rewritePortableMdcAssetReferences,
   rewritePortableMdcAssetReferencesForStorage,
   rewriteStoredMdcAssetReferences,
+  rewriteStoredMdcAssetReferencesForStorage,
   validatePortableAssets,
   type PortableMdcAssetReferenceV1,
 } from './assets.js'

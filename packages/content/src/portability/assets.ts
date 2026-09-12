@@ -169,6 +169,44 @@ export async function rewriteStoredMdcAssetReferences(
   return normalized
 }
 
+/** Collect stored media identities in document order, including repeated references. */
+export async function collectStoredMdcAssetReferences(
+  source: string,
+  policy: PortableComponentPolicy,
+): Promise<string[]> {
+  const ast = await parseStoredMdc(source, policy)
+  const output: string[] = []
+  await visitStoredMdcAssetSources(ast.nodes, policy, (identity) => {
+    output.push(identity)
+    return identity
+  })
+  return output
+}
+
+/** Remap stored media identities. Preserve the source exactly when no identity changes. */
+export async function rewriteStoredMdcAssetReferencesForStorage(
+  source: string,
+  policy: PortableComponentPolicy,
+  rewrite: (identity: string) => string | Promise<string>,
+): Promise<string> {
+  await parseStoredMdc(source, policy)
+  const document = await parseMdcDocument(source, { autoClose: false })
+  let changed = false
+  await visitStoredMdcAssetSources(document.nodes as JsonValue[], policy, async (identity) => {
+    const target = await rewrite(identity)
+    if (!isStoredPortableAssetIdentity(target)) {
+      throw portabilityError('ASSET_INTEGRITY_FAILED', 'portability.validateAssets', 'Stored asset identity is invalid.')
+    }
+    if (target !== identity) changed = true
+    return target
+  })
+  if (!changed) return source
+  const rewritten = await serializeMdcDocument(document, PORTABLE_MDC_RENDER_OPTIONS)
+  const normalized = rewritten.replace(/\n+$/g, '')
+  await parseStoredMdc(normalized, policy)
+  return normalized
+}
+
 async function renderRewrittenPortableMdc(
   source: string,
   policy: PortableComponentPolicy,
