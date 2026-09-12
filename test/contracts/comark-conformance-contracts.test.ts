@@ -528,6 +528,32 @@ describe('editor angle syntax baseline', () => {
       ['code', {}, 'literal </Info> text'],
       ' after',
     ]])
+
+    const quotedProp = await parseMdcDocument('<Info label="`">\nContent\n</Info>\n`', { autoClose: false })
+    expect(quotedProp.nodes[0]).toEqual([
+      'info',
+      { label: '`', $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+      'Content',
+    ])
+
+    const heading = await parseMdcDocument('<Info>\n# Heading `literal\n</Info>\n`', { autoClose: false })
+    expect(heading.nodes).toEqual([
+      [
+        'info',
+        { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
+        ['h1', { id: 'heading-literal' }, 'Heading `literal'],
+      ],
+      ['p', {}, '`'],
+    ])
+  })
+
+  test('handles large ordinary component bodies without per-line context rescans', async () => {
+    for (const lines of [250, 2_000]) {
+      const body = Array.from({ length: lines }, (_, index) => `ordinary line ${index}`).join('\n')
+      const document = await parseMdcDocument(`<Info>\n${body}\n</Info>`, { autoClose: false })
+      expect(document.nodes).toHaveLength(1)
+      expect(JSON.stringify(document.nodes)).toContain(`ordinary line ${lines - 1}`)
+    }
   })
 
   test('preserves significant inline whitespace through serialization', async () => {

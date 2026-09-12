@@ -221,8 +221,15 @@ const isFiniteJson = (value: unknown): boolean => {
   return value === null || ['string', 'boolean'].includes(typeof value)
 }
 
+interface BlockToken {
+  type: string
+  content: string
+  map?: [number, number] | null
+}
+
 type BlockState = {
   src: string
+  env: Record<PropertyKey, unknown>
   bMarks: number[]
   eMarks: number[]
   tShift: number[]
@@ -230,7 +237,14 @@ type BlockState = {
   blkIndent: number
   line: number
   lineMax: number
-  md: { block: { tokenize: (state: BlockState, start: number, end: number) => void } }
+  parentType: string
+  tokens: BlockToken[]
+  md: {
+    block: {
+      State: new (source: string, markdown: BlockState['md'], env: Record<PropertyKey, unknown>, tokens: BlockToken[]) => BlockState
+      tokenize: (state: BlockState, start: number, end: number) => void
+    }
+  }
   push: (type: string, tag: string, nesting: number) => AngleToken
 }
 
@@ -256,6 +270,8 @@ interface CoreState {
 }
 
 const INLINE_LOCATIONS = Symbol('ginko-angle-inline-locations')
+const ANALYZE_BLOCKS = Symbol('ginko-angle-analyze-blocks')
+const protectedCodeLineCache = new WeakMap<object, Map<string, Set<number>>>()
 interface InlineLocationBase {
   line: number
   columns: number[]
@@ -309,6 +325,7 @@ function findBlockClose(
   autoClose: boolean,
 ): number {
   const stack = [opening.name]
+  const protectedCodeLines = collectProtectedCodeLines(state, startLine + 1, endLine)
   let fence: Fence | undefined
   let inComment = false
   for (let line = startLine + 1; line < endLine; line += 1) {
@@ -329,7 +346,7 @@ function findBlockClose(
     }
     fence = indentation <= 3 ? openFence(text) : undefined
     if (fence) continue
-    if (lineIsInsideCodeSpan(state, line)) continue
+    if (protectedCodeLines.has(line)) continue
     const tag = parseWholeLineTag(state, line, !autoClose)
     if (!tag) continue
     const eligible = isExplicitComponentName(tag.name) || tag.name === 'template'
@@ -396,46 +413,62 @@ const skipCodeSpan = (source: string, offset: number, end: number): number | und
   return undefined
 }
 
-const lineIsInsideCodeSpan = (state: BlockState, line: number): boolean => {
-  let firstLine = line
-  while (firstLine > 0 && lineText(state, firstLine - 1).trim()) {
-    if (openFence(lineText(state, firstLine - 1))) break
-    firstLine -= 1
+// Reuse this MarkdownIt instance's block rules to identify the inline-token ranges
+// where multiline code spans can exist. The WeakMap lasts only as long as the
+// current block state and avoids repeating the analysis for every paragraph line.
+const collectProtectedCodeLines = (state: BlockState, startLine: number, endLine: number): Set<number> => {
+  let cache = protectedCodeLineCache.get(state)
+  if (!cache) {
+    cache = new Map()
+    protectedCodeLineCache.set(state, cache)
   }
-  let lastLine = line
-  while (lastLine + 1 < state.lineMax && lineText(state, lastLine + 1).trim()) {
-    if (openFence(lineText(state, lastLine + 1))) break
-    lastLine += 1
-  }
+  const cacheKey = `${startLine}:${endLine}:${state.blkIndent}:${state.bMarks[startLine]}:${state.tShift[startLine]}`
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
 
-  const target = state.bMarks[line] + state.tShift[line]
-  const end = state.eMarks[lastLine] ?? state.src.length
-  let cursor = state.bMarks[firstLine] + state.tShift[firstLine]
-  while (cursor < end) {
-    const nextBacktick = state.src.indexOf('`', cursor)
-    const nextComment = state.src.indexOf('<!--', cursor)
-    if (nextComment >= 0 && nextComment < end && (nextBacktick < 0 || nextComment < nextBacktick)) {
-      const commentEnd = state.src.indexOf('-->', nextComment + 4)
-      if (commentEnd < 0 || commentEnd >= end) return false
-      cursor = commentEnd + 3
-      continue
+  const tokens: BlockToken[] = []
+  const analysis = new state.md.block.State(
+    state.src,
+    state.md,
+    { ...state.env, [ANALYZE_BLOCKS]: true },
+    tokens,
+  )
+  analysis.bMarks = state.bMarks.slice()
+  analysis.eMarks = state.eMarks.slice()
+  analysis.tShift = state.tShift.slice()
+  analysis.sCount = state.sCount.slice()
+  analysis.blkIndent = state.blkIndent
+  analysis.lineMax = state.lineMax
+  state.md.block.tokenize(analysis, startLine, endLine)
+
+  const protectedLines = new Set<number>()
+  for (const token of tokens) {
+    if (token.type !== 'inline' || !token.map || !token.content.includes('`')) continue
+    let cursor = 0
+    while (cursor < token.content.length) {
+      const opening = token.content.indexOf('`', cursor)
+      if (opening < 0) break
+      let escapes = 0
+      while (token.content[opening - escapes - 1] === '\\') escapes += 1
+      if (escapes % 2 === 1) {
+        cursor = opening + 1
+        continue
+      }
+      const closing = skipCodeSpan(token.content, opening, token.content.length)
+      if (!closing) {
+        cursor = opening + 1
+        continue
+      }
+      const openingLine = token.content.slice(0, opening).match(/\n/g)?.length ?? 0
+      const closingLine = token.content.slice(0, closing).match(/\n/g)?.length ?? 0
+      for (let line = openingLine + 1; line <= closingLine; line += 1) {
+        protectedLines.add(token.map[0] + line)
+      }
+      cursor = closing
     }
-    if (nextBacktick < 0 || nextBacktick >= end) return false
-    let escapes = 0
-    while (state.src[nextBacktick - escapes - 1] === '\\') escapes += 1
-    if (escapes % 2 === 1) {
-      cursor = nextBacktick + 1
-      continue
-    }
-    const codeEnd = skipCodeSpan(state.src, nextBacktick, end)
-    if (!codeEnd) {
-      cursor = nextBacktick + 1
-      continue
-    }
-    if (nextBacktick < target && target < codeEnd) return true
-    cursor = codeEnd
   }
-  return false
+  cache.set(cacheKey, protectedLines)
+  return protectedLines
 }
 
 const skipTagLikeConstruct = (source: string, offset: number, end: number): number | undefined => {
@@ -530,7 +563,11 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
         'html_block',
         TOKEN_MARKER,
         (state: BlockState, startLine: number, endLine: number, silent: boolean) => {
-          if (lineIsInsideCodeSpan(state, startLine)) return false
+          if (state.env[ANALYZE_BLOCKS]) return false
+          if (
+            state.parentType === 'paragraph' &&
+            collectProtectedCodeLines(state, state.line, endLine).has(startLine)
+          ) return false
           const opening = parseWholeLineTag(state, startLine, !options.autoClose)
           if (!opening) return false
           if (opening.closing) {
