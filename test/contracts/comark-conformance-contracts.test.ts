@@ -574,12 +574,15 @@ describe('editor angle syntax baseline', () => {
       ],
     ]])
 
-    const native = await parseMdcDocument('<Info>\nBefore 🌶️ <span title="`">text &lt;Other&gt;</span>\n</Info>\n`', { autoClose: false })
+    const native = await parseMdcDocument(`<Info>\n${'😀'.repeat(10)} Before <span title="\`">text</span> and \`literal\n</Info>\ntext\` after\n</Info>`, { autoClose: false })
     expect(native.nodes[0]).toEqual([
       'info',
       { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
-      'Before 🌶️ ',
-      ['span', { title: '`', $: { html: 1, block: 0 } }, 'text <Other>'],
+      `${'😀'.repeat(10)} Before `,
+      ['span', { title: '`', $: { html: 1, block: 0 } }, 'text'],
+      ' and ',
+      ['code', {}, 'literal </Info> text'],
+      ' after',
     ])
 
     for (const document of [sameName, mixedNames, native]) {
