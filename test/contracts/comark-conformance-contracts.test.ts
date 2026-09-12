@@ -574,11 +574,11 @@ describe('editor angle syntax baseline', () => {
       ],
     ]])
 
-    const native = await parseMdcDocument('<Info>\nBefore <span title="`">text &lt;Other&gt;</span>\n</Info>\n`', { autoClose: false })
+    const native = await parseMdcDocument('<Info>\nBefore 🌶️ <span title="`">text &lt;Other&gt;</span>\n</Info>\n`', { autoClose: false })
     expect(native.nodes[0]).toEqual([
       'info',
       { $: { syntax: 'angle', block: 1, sourceName: 'Info' } },
-      'Before ',
+      'Before 🌶️ ',
       ['span', { title: '`', $: { html: 1, block: 0 } }, 'text <Other>'],
     ])
 
@@ -588,13 +588,11 @@ describe('editor angle syntax baseline', () => {
     }
   })
 
-  test('handles large ordinary component bodies without per-line context rescans', async () => {
-    for (const lines of [250, 2_000]) {
-      const body = Array.from({ length: lines }, (_, index) => `ordinary line ${index}`).join('\n')
-      const document = await parseMdcDocument(`<Info>\n${body}\n</Info>`, { autoClose: false })
-      expect(document.nodes).toHaveLength(1)
-      expect(JSON.stringify(document.nodes)).toContain(`ordinary line ${lines - 1}`)
-    }
+  test.each([250, 500, 1_000, 2_000])('handles %i ordinary paragraphs without per-line context rescans', async (lines) => {
+    const body = Array.from({ length: lines }, (_, index) => `ordinary paragraph ${index}`).join('\n\n')
+    const document = await parseMdcDocument(`<Info>\n${body}\n</Info>`, { autoClose: false })
+    expect(document.nodes).toHaveLength(1)
+    expect(JSON.stringify(document.nodes)).toContain(`ordinary paragraph ${lines - 1}`)
   })
 
   test('preserves significant inline whitespace through serialization', async () => {

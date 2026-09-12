@@ -284,7 +284,7 @@ interface ProtectedCodeContext {
   lines: Set<number>
   endLine: number
 }
-const protectedCodeLineCache = new WeakMap<object, Map<string, ProtectedCodeContext>>()
+const protectedCodeLineCache = new WeakMap<object, Map<string, Map<number, ProtectedCodeContext>>>()
 interface InlineLocationBase {
   line: number
   columns: number[]
@@ -358,6 +358,7 @@ function findBlockClose(
       if (!trimmed.includes('-->')) inComment = true
       continue
     }
+    if (!trimmed) continue
     fence = indentation <= 3 ? openFence(text) : undefined
     if (fence) continue
     if (protectedCodeLines.has(line)) continue
@@ -443,8 +444,13 @@ const collectProtectedCodeLines = (state: BlockState, startLine: number, endLine
     cache = new Map()
     protectedCodeLineCache.set(state, cache)
   }
-  const cacheKey = `${startLine}:${endLine}:${state.blkIndent}:${state.bMarks[startLine]}:${state.tShift[startLine]}`
-  const cached = cache.get(cacheKey)
+  const cacheKey = `${endLine}:${state.blkIndent}:${state.parentType}`
+  let contexts = cache.get(cacheKey)
+  if (!contexts) {
+    contexts = new Map()
+    cache.set(cacheKey, contexts)
+  }
+  const cached = contexts.get(startLine)
   if (cached) return cached
 
   const tokens: BlockToken[] = []
@@ -462,15 +468,13 @@ const collectProtectedCodeLines = (state: BlockState, startLine: number, endLine
   analysis.lineMax = state.lineMax
   state.md.block.tokenize(analysis, startLine, endLine)
 
-  const inlineToken = tokens.find(token => token.type === 'inline' && token.map?.[0] === startLine)
-  if (!inlineToken?.map) {
-    const context = { lines: new Set<number>(), endLine: startLine + 1 }
-    cache.set(cacheKey, context)
-    return context
-  }
-
-  const protectedLines = new Set<number>()
-  if (inlineToken.content.includes('`')) {
+  for (const inlineToken of tokens) {
+    if (inlineToken.type !== 'inline' || !inlineToken.map) continue
+    const protectedLines = new Set<number>()
+    if (!inlineToken.content.includes('`')) {
+      contexts.set(inlineToken.map[0], { lines: protectedLines, endLine: inlineToken.map[1] })
+      continue
+    }
     const inlineTokens: InlineToken[] = []
     state.md.inline.parse(
       inlineToken.content,
@@ -478,7 +482,7 @@ const collectProtectedCodeLines = (state: BlockState, startLine: number, endLine
       { ...state.env, [ANALYZE_BLOCKS]: true },
       inlineTokens,
     )
-    const masked = [...inlineToken.content]
+    const masked = inlineToken.content.split('')
     let htmlOffset = 0
     for (const token of inlineTokens) {
       if (token.type !== 'html_inline') continue
@@ -520,9 +524,10 @@ const collectProtectedCodeLines = (state: BlockState, startLine: number, endLine
         break
       }
     }
+    contexts.set(inlineToken.map[0], { lines: protectedLines, endLine: inlineToken.map[1] })
   }
-  const context = { lines: protectedLines, endLine: inlineToken.map[1] }
-  cache.set(cacheKey, context)
+  const context = contexts.get(startLine) ?? { lines: new Set<number>(), endLine: startLine + 1 }
+  contexts.set(startLine, context)
   return context
 }
 
