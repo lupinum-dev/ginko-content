@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifyPackageAgentDocs } from './package-agent-docs.mjs'
 import {
   assertReproduciblePacks,
   normalizeArchiveEntry,
@@ -103,7 +104,7 @@ function collectExpectedExportFiles(exportsMap) {
   return files
 }
 
-function assertReleaseTarball(tarball) {
+async function assertReleaseTarball(tarball) {
   const tempDir = mkdtempSync(join(tmpdir(), 'ginko-content-release-inspect-'))
 
   try {
@@ -135,6 +136,7 @@ function assertReleaseTarball(tarball) {
       throw new Error(`Release tarball is missing package/package.json: ${tarball}`)
     }
 
+    await verifyPackageAgentDocs(resolve(tempDir, 'package'), { sourceRoot: resolve(repoRoot, 'docs/.output/public/raw') })
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
     const expectedManifestFields = {
       name: '@lupinum/ginko-content',
@@ -169,7 +171,7 @@ function assertReleaseTarball(tarball) {
       if (!entrySet.has(file)) {
         throw new Error(`Release tarball is missing exported file: ${file}`)
       }
-      if (file.includes('/dist/') && !file.endsWith('.map') && /\.(?:d\.mts|d\.ts)$/.test(file) === false) {
+      if (file.includes('/dist/') && /\.(?:mjs|js)$/.test(file)) {
         const declaration = file
           .replace(/\.mjs$/, '.d.mts')
           .replace(/\.js$/, '.d.ts')
@@ -186,6 +188,11 @@ function assertReleaseTarball(tarball) {
 rmSync(packDir, { recursive: true, force: true })
 mkdirSync(packDir, { recursive: true })
 
+// Render documentation once from the current source. Each prepack rebuilds the
+// runtime and regenerates package identity and hashes from this rendered snapshot.
+run('pnpm', ['build:packages'])
+run('pnpm', ['docs:build'])
+
 // `pnpm pack` runs the package's prepack hook, which is the canonical package build.
 // Run that canonical build twice and retain only the archive whose bytes were
 // proven reproducible. This is the sole release/candidate artifact path.
@@ -198,7 +205,7 @@ try {
   const tarballPath = resolve(packDir, first.filename)
   copyFileSync(first.path, tarballPath)
   assertNoWorkspaceRanges(tarballPath)
-  assertReleaseTarball(tarballPath)
+  await assertReleaseTarball(tarballPath)
 
   const commit = run('git', ['rev-parse', 'HEAD'], repoRoot, 'pipe').trim()
   const worktreeDirty = run(

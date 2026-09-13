@@ -73,6 +73,29 @@ export default defineNuxtConfig({
 })
 ```
 
+<!-- BEGIN:consumer-onboarding -->
+### Use a coding agent
+
+After installation, copy this prompt into your agent:
+
+```text
+Add Ginko Content to this Nuxt application and render a Markdown page.
+Read the project's existing instructions first. Resolve
+@lupinum/ginko-content/agent-docs from this application's directory and read
+its starting pages. Use the installed version's examples and public types.
+Preserve existing routes, conventions, and AGENTS.md instructions. Add or
+update one short Ginko Content pointer in AGENTS.md if the project allows it;
+do not duplicate the documentation. If the file is absent, create only that
+pointer. Report missing guidance. Verify the page, links, and a missing route.
+```
+
+If the installed package has no `agent-docs` export, read its packaged README
+and types. Use documentation from the matching source tag when more detail is
+needed. Installing or updating the package does not edit project instructions.
+The pointer resolves the installed package, so upgrades and rollbacks select
+the matching documentation without copying it into your application.
+<!-- END:consumer-onboarding -->
+
 ## Quick start
 
 Define one collection:
