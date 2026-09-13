@@ -3,7 +3,7 @@ import { genDynamicImport, genImport, genString } from 'knitwork'
 import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { PortableComponentPolicy, PortableComponentPolicyV1, PortableComponentPolicyV2 } from '../types/component-policy'
 import { assertCanonicalHighlightOptionNames } from '../parsers/markdown-plugin-options'
-import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../core/markdown/builtin-render-contracts'
+import { BUILTIN_MARKDOWN_RENDER_CONTRACTS, projectBuiltinPolicyV2 } from '../core/markdown/builtin-render-contracts'
 
 interface BuiltinMarkdownPlugin {
   parserSpecifier: string
@@ -87,28 +87,6 @@ export function withMarkdownPluginComponentPolicy(
     : { components: components as PortableComponentPolicyV1['components'] }
 }
 
-function projectBuiltinPolicyV2(
-  component: PortableComponentPolicyV1['components'][string]
-): PortableComponentPolicyV2['components'][string] {
-  const props: PortableComponentPolicyV2['components'][string]['props'] = {}
-  for (const [name, prop] of Object.entries(component.props)) {
-    props[name] = {
-      types: prop.type === 'json'
-        ? ['string', 'number', 'boolean', 'json']
-        : [prop.type],
-      required: prop.required,
-      allowedValues: null
-    }
-  }
-  return {
-    kind: component.kind,
-    props,
-    slots: [...component.slots],
-    allowedParents: null,
-    allowedChildren: null,
-    media: component.media ? { ...component.media } : null
-  }
-}
 
 interface ResolveMarkdownPluginRegistryOptions {
   resolveAppPath: (specifier: string) => Promise<string>

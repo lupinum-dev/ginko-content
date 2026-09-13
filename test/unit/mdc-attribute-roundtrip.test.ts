@@ -15,3 +15,16 @@ describe('edited colon component properties', () => {
     expect(projectMdcDocument(parsed).body).toEqual(expected)
   })
 })
+
+
+describe('colon components with native element names', () => {
+  it.each(['img', 'span', 'table', 'a', 'p'])('preserves %s component identity and props', async (name) => {
+    const document = await parseMdcDocument(`::${name}{source="asset_123"}\nHello\n::`, { autoClose: false })
+    const before = structuredClone(document)
+    const serialized = await serializeMdcDocument(document)
+    const reparsed = await parseMdcDocument(serialized, { autoClose: false })
+    expect(projectMdcDocument(reparsed).body).toEqual(projectMdcDocument(document).body)
+    expect(serialized).toContain('::')
+    expect(document).toEqual(before)
+  })
+})

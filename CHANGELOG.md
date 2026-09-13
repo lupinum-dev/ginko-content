@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Preserve colon components whose names match HTML elements during editing and
+  media-reference rewrites.
+- Keep component-like text inside Markdown link titles and attributes literal.
+  Support nested components in link labels.
+- Restore V2 runtime policies with enabled math and Mermaid renderers while
+  rejecting modified built-in contracts.
+- Accept V2 contracts and manifests in the filesystem portability exporter.
+
 - Keep following blocks outside self-closing angle components so nesting checks
   use the document's actual parent and sibling structure.
 - Preserve edited inline component properties that contain quotes or typed JSON.

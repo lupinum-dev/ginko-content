@@ -8,6 +8,7 @@ import { renderMarkdown } from 'comark/render'
 import type { ConditionalNodeHandler, MarkdownDocument } from 'comark'
 import type { RenderMarkdownOptions } from 'comark/render'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
+import { HTML_TAGS } from '../core/markdown/html-tags.js'
 import { angleComponentRenderer } from '../core/markdown/angle-components.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
 import { parseComark, type ParseComarkOptions } from '../core/markdown/parse-comark.js'
@@ -33,13 +34,13 @@ export async function serializeMdcDocument(
   options: RenderMarkdownOptions = {},
 ): Promise<string> {
   const renderDocument = structuredClone(document)
-  stripBlockColonSyntaxMetadata(renderDocument.nodes)
   return await renderMarkdown(renderDocument, {
     ...options,
     components: {
       ...options.components,
       angle: angleComponentRenderer,
       colonInline: colonInlineComponentRenderer,
+      colonBlock: colonBlockComponentRenderer,
     },
   })
 }
@@ -96,21 +97,21 @@ const colonInlineComponentRenderer: ConditionalNodeHandler = {
   },
 }
 
-function stripBlockColonSyntaxMetadata(nodes: unknown[]): void {
-  for (const node of nodes) {
-    if (!Array.isArray(node)) continue
-    const props = node[1]
-    if (props && typeof props === 'object' && !Array.isArray(props)) {
-      const record = props as Record<string, unknown>
-      const metadata = record.$
-      if (
-        metadata && typeof metadata === 'object' && !Array.isArray(metadata) &&
-        (metadata as Record<string, unknown>).syntax === 'colon' &&
-        (metadata as Record<string, unknown>).block === 1
-      ) delete record.$
-    }
-    stripBlockColonSyntaxMetadata(node.slice(2))
-  }
+// Dispatch parser-marked blocks directly to the component serializer. Native
+// handlers would otherwise turn components such as img into Markdown images.
+const colonBlockComponentRenderer: ConditionalNodeHandler = {
+  match: node => colonMetadata(node)?.block === 1,
+  handler: async (node, state, parent) => {
+    const metadata = colonMetadata(node)!
+    const component = structuredClone(node)
+    // Comark's component serializer also special-cases span and table. An
+    // uppercase authored name preserves colon syntax and the canonical identity.
+    component[0] = HTML_TAGS.has(node[0])
+      ? metadata.sourceName[0]!.toUpperCase() + metadata.sourceName.slice(1)
+      : metadata.sourceName
+    delete component[1].$
+    return state.handlers.mdc!(component, state, parent)
+  },
 }
 
 export interface ParseMdcBodyOptions {

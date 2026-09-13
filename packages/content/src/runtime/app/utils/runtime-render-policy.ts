@@ -2,6 +2,8 @@ import type {
   PortableComponentPolicy,
   PortableComponentPolicyV2,
 } from '../../../cms-contract/index'
+import { BUILTIN_MARKDOWN_RENDER_CONTRACTS, projectBuiltinPolicyV2 } from '../../../core/markdown/builtin-render-contracts'
+import { canonicalJsonBytes, type JsonValue } from '../../../cms-contract/hash'
 import { assertPortableComponentPolicyV2 } from '../../../cms-contract/index'
 
 // Nuxt's public runtime-config serializer represents nested null values as an
@@ -43,5 +45,20 @@ export function restoreRuntimeRenderPolicy (
     ])
   ) as PortableComponentPolicyV2['components']
 
-  return assertPortableComponentPolicyV2({ ...policy, components })
+  let authored = components
+  for (const builtin of Object.values(BUILTIN_MARKDOWN_RENDER_CONTRACTS)) {
+    const component = authored[builtin.tag]
+    if (!component) continue
+    // Runtime configuration may contain the exact parser-owned contract. These
+    // reserved names remain forbidden at the authored/portable policy boundary.
+    const actual = canonicalJsonBytes(component as unknown as JsonValue)
+    const expected = canonicalJsonBytes(projectBuiltinPolicyV2(builtin.componentPolicy) as unknown as JsonValue)
+    if (actual.length !== expected.length || actual.some((byte, index) => byte !== expected[index])) {
+      throw new TypeError(`Invalid built-in render policy for "${builtin.tag}".`)
+    }
+    const { [builtin.tag]: _builtin, ...remaining } = authored
+    authored = remaining
+  }
+  assertPortableComponentPolicyV2({ ...policy, components: authored })
+  return { ...policy, components }
 }

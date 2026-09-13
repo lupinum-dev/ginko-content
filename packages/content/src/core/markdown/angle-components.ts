@@ -274,7 +274,11 @@ interface InlineState {
   pos: number
   posMax: number
   env: Record<PropertyKey, unknown>
-  md: { inline: { tokenize: (state: InlineState) => void } }
+  md: { inline: {
+    State: new (source: string, markdown: InlineState['md'], env: Record<PropertyKey, unknown>, tokens: InlineToken[]) => InlineState
+    tokenize: (state: InlineState) => void
+    skipToken: (state: InlineState) => void
+  } }
   push: (type: string, tag: string, nesting: number) => AngleToken
 }
 
@@ -563,9 +567,21 @@ function findInlineClose(
   strict: boolean,
 ): { contentEnd: number; closingEnd: number } | undefined {
   const stack = [opening.name]
+  // Let the configured Markdown parser recognize links and images. Their
+  // destinations and titles are data, even when they contain component tags.
+  const analysis = new state.md.inline.State(state.src, state.md, { ...state.env, [ANALYZE_BLOCKS]: true }, [])
+  analysis.posMax = state.posMax
   let cursor = opening.end
   while (cursor < state.posMax) {
     const character = state.src[cursor]
+    if (character === '[' || character === '{' || state.src.startsWith('![', cursor)) {
+      analysis.pos = cursor
+      state.md.inline.skipToken(analysis)
+      if (analysis.pos > cursor + 1) {
+        cursor = analysis.pos
+        continue
+      }
+    }
     if (character === '\\') {
       cursor += Math.min(2, state.posMax - cursor)
       continue
@@ -711,7 +727,11 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
           }
           return false
         }
-        if (silent) return true
+        if (silent) {
+          // Link-label lookahead requires a successful rule to consume input.
+          state.pos = opening.selfClosing ? opening.end : findInlineClose(state, opening)?.closingEnd ?? opening.end
+          return true
+        }
 
         const marker = {
           block: 0 as const,

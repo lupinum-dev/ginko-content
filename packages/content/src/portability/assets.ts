@@ -300,7 +300,7 @@ function mdcAssetSourceProp(
   metadata: JsonObject,
   components: ReturnType<typeof indexPortableComponentPolicies>,
 ): string | undefined {
-  const component = metadata.component === 1 || metadata.syntax === 'angle'
+  const component = metadata.component === 1 || metadata.syntax === 'angle' || metadata.syntax === 'colon'
   if (tag === 'img' && !component) return 'src'
   if (metadata.html === 1 && metadata.component === undefined) return undefined
   return components.get(canonicalizePortableComponentName(tag))?.media?.sourceProp

@@ -54,6 +54,34 @@ describe('filesystem portability export', () => {
     await expect(readFile(join(root, 'existing/keep.txt'), 'utf8')).resolves.toBe('keep')
   })
 
+  it('exports V2 collection policies through the filesystem boundary', async () => {
+    const root = await fixture()
+    const configPath = join(root, 'nuxt.config.mjs')
+    const config = JSON.parse((await readFile(configPath, 'utf8')).replace('export default ', ''))
+    const policy = {
+      version: 2,
+      components: {
+        notice: {
+          kind: 'block', props: { label: { types: ['string'], required: true, allowedValues: ['note'] } },
+          slots: ['default'], allowedParents: null, allowedChildren: null, media: null,
+        },
+      },
+    }
+    config.content.componentPolicy = policy
+    await writeFile(configPath, `export default ${JSON.stringify(config)}\n`)
+    await fixtureContract(root)
+    const page = join(root, 'content/en/1.docs/1.start/index.md')
+    await writeFile(page, (await readFile(page, 'utf8')) + '\n<Notice label="note">\nBody.\n</Notice>\n')
+    const assessed = await assessFilesystemPortability({ rootDir: root })
+    expect(assessed.diagnostics).toEqual([])
+    expect(assessed.contract?.version).toBe(2)
+    const exported = await exportFilesystemToPortableDirectory({ rootDir: root, destination: 'v2' })
+    expect(exported.manifest.version).toBe(2)
+    const reopened = await readPortableDirectory(exported.directory)
+    expect(reopened.contract.collections.docs?.componentPolicy).toEqual(policy)
+    expect(reopened.documents.some(document => document.document.body?.source.includes('<Notice label="note">'))).toBe(true)
+  })
+
   it('reports stale contracts and missing managed assets without writing partial output', async () => {
     const root = await fixture()
     const configPath = join(root, 'content.config.mjs')
@@ -166,7 +194,9 @@ async function fixture() {
 
 async function fixtureContract(root: string) {
   const config = (await import(`${join(root, 'content.config.mjs')}?t=${Date.now()}-${Math.random()}`)).default
+  const nuxt = (await import(`${join(root, 'nuxt.config.mjs')}?t=${Date.now()}-${Math.random()}`)).default
   const contract = buildResolvedContentContract({ collections: config.collections }, {
+    componentPolicy: nuxt.content.componentPolicy,
     defaultLocale: 'fr', locales: ['fr', 'en'], localeFallbacks: { fr: [], en: ['fr'] }, translatedSlugs: true,
   })
   await writeResolvedContentContractArtifact(root, contract)

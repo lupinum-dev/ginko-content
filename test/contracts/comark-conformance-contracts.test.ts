@@ -5,7 +5,7 @@ import { createSSRApp, defineComponent, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, test } from 'vitest'
 import { validatePublicMarkdownAst } from '../../packages/content/src/cms-contract/render-policy'
-import { parseMdcBody, parseMdcDocument, serializeMdcDocument } from '../../packages/content/src/cms-contract/mdc'
+import { parseMdcBody, parseMdcDocument, projectMdcDocument, serializeMdcDocument } from '../../packages/content/src/cms-contract/mdc'
 import type { PortableComponentPolicyV1 } from '../../packages/content/src/cms-contract/types'
 import { createAgentMarkdownRegistry } from '../../packages/content/src/features/agent/agent-markdown'
 import { renderAgentMarkdownBody } from '../../packages/content/src/features/agent/walker'
@@ -496,6 +496,24 @@ describe('editor angle syntax baseline', () => {
       await expect(parseMdcDocument(serialized, { autoClose: false })).resolves.toBeTruthy()
       expect(JSON.stringify(document.nodes).match(/"syntax":"angle"/g)).toHaveLength(1)
     }
+  })
+
+  test('keeps link and image titles out of inline component close matching', async () => {
+    for (const title of ['close </Badge> text', 'open <Other> text']) {
+      for (const prefix of ['', '!']) {
+        const source = `<Badge>${prefix}[x](/x "${title}") after</Badge>`
+        const document = await parseMdcDocument(source, { autoClose: false })
+        const badge = document.nodes[0]?.[2]
+        expect(badge?.[0]).toBe('badge')
+        expect(badge?.[2]?.[1]).toMatchObject({ title })
+        expect(badge?.[3]).toBe(' after')
+        const serialized = await serializeMdcDocument(document)
+        const reparsed = await parseMdcDocument(serialized, { autoClose: false })
+        expect(projectMdcDocument(reparsed).body).toEqual(projectMdcDocument(document).body)
+      }
+    }
+    const nested = await parseMdcDocument('<Badge>[<Inner>label</Inner>](/x "</Badge>") after</Badge>', { autoClose: false })
+    expect(JSON.stringify(nested.nodes).match(/"syntax":"angle"/g)).toHaveLength(2)
   })
 
   test('honors complete CommonMark fence closers before scanning block component closes', async () => {
