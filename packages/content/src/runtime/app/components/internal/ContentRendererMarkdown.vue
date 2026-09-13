@@ -4,13 +4,14 @@ import { pascalCase } from 'scule'
 import { useRuntimeConfig } from '#imports'
 import { useContentPreview } from '../../composables/preview'
 import { useUnwrap } from '../../composables/useUnwrap'
-import MarkdownRenderer from './MarkdownRenderer.js'
+import ContentBodyRenderer from '../ContentBodyRenderer.vue'
 import { useLocalePath } from '../../composables/content-i18n'
 import { resolveMarkdownRenderRefs, rewriteMarkdownRefLinks } from '../../../../core/references/resolve'
 import { loadContentComponentEntries } from '../../../../integrations/vue/content-components'
 import { resolveMarkdownRendererComponents, resolveMarkdownRendererFallbackComponents } from '../../../markdown/plugins'
 import { localComponentLoaders, localComponents } from '../../../utils/content-components'
 import { isMarkdownRoot } from '../../../../core/markdown/tree'
+import { restoreRuntimeRenderPolicy } from '../../utils/runtime-render-policy'
 
 defineOptions({
   inheritAttrs: false
@@ -72,7 +73,9 @@ const locales = computed(() => {
   ]))
 })
 const renderPolicy = computed(() =>
-  runtimeContent.renderPolicies?.[props.value.collection] || { components: {} }
+  restoreRuntimeRenderPolicy(
+    runtimeContent.renderPolicies?.[props.value.collection] || { components: {} }
+  )
 )
 
 const body = computed(() => {
@@ -139,9 +142,9 @@ const rendererAttrs = computed(() => {
 </script>
 
 <template>
-  <MarkdownRenderer
+  <ContentBodyRenderer
     v-if="renderedBody"
-    :tree="renderedBody"
+    :body="renderedBody"
     :tag="tag"
     :prose="prose"
     :locale="locale"
@@ -149,7 +152,7 @@ const rendererAttrs = computed(() => {
     :locales="locales"
     :components="resolvedComponents"
     :fallback-components="fallbackComponents"
-    :render-policy="renderPolicy"
+    :policy="renderPolicy"
     :data-content-id="debug ? value.id : undefined"
     v-bind="rendererAttrs"
   />

@@ -26,7 +26,7 @@ describe('GFM alert contract', () => {
 
     expect(validatePublicMarkdownAst(body)).toMatchObject({
       ok: false,
-      issues: [expect.objectContaining({ code: 'unsafe_prop' })],
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_prop' })]),
     })
   })
 
@@ -112,7 +112,7 @@ active: false
       children: [
         expect.objectContaining({
           tag: 'quiz-question',
-          props: { active: false },
+          props: expect.objectContaining({ active: false }),
         }),
       ],
     })

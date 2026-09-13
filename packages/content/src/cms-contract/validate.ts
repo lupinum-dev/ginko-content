@@ -1,7 +1,10 @@
 import { canonicalJsonBytes, type JsonValue } from './hash.js'
 import type {
-  PortableComponentPolicyV1,
+  PortableComponentPolicy,
+  PortableComponentPolicyV2,
+  ResolvedContentContract,
   ResolvedContentContractV1,
+  ResolvedContentContractV2,
   ResolvedContentFieldTypeV1,
   ResolvedContentFieldV1,
   ResolvedContentValidationV1,
@@ -145,9 +148,10 @@ function validateFieldPolicy(input: ResolvedContentFieldV1, path: string): void 
   if (input.slugFrom !== null && input.type !== 'slug') throw new Error(`${path} has invalid slug policy.`)
 }
 
-function componentPolicy(value: unknown, path: string): PortableComponentPolicyV1 {
+function componentPolicy(value: unknown, path: string, version: 1 | 2): PortableComponentPolicy {
   const input = record(value, path)
-  exact(input, ['components'], path)
+  exact(input, version === 1 ? ['components'] : ['version', 'components'], path)
+  if (version === 2 && input.version !== 2) throw new Error(`${path}.version is invalid.`)
   const canonicalNames = new Set<string>()
   for (const [name, rawComponent] of Object.entries(record(input.components, `${path}.components`))) {
     const canonicalName = canonicalizePortableComponentName(name)
@@ -161,33 +165,110 @@ function componentPolicy(value: unknown, path: string): PortableComponentPolicyV
     ) throw new Error(`${path}.components.${name} conflicts after canonicalization.`)
     canonicalNames.add(canonicalName)
     const component = record(rawComponent, `${path}.components.${name}`)
-    exact(component, ['kind', 'props', 'slots', 'media'], `${path}.components.${name}`)
+    exact(component, version === 1
+      ? ['kind', 'props', 'slots', 'media']
+      : ['kind', 'props', 'slots', 'allowedParents', 'allowedChildren', 'media'], `${path}.components.${name}`)
     if (!['block', 'inline'].includes(String(component.kind))) throw new Error(`${path}.components.${name}.kind is invalid.`)
     for (const [propName, rawProp] of Object.entries(record(component.props, `${path}.components.${name}.props`))) {
       const prop = record(rawProp, `${path}.components.${name}.props.${propName}`)
-      exact(prop, ['type', 'required'], `${path}.components.${name}.props.${propName}`)
-      if (!['string', 'number', 'boolean', 'json', 'asset'].includes(String(prop.type))) throw new Error(`${path}.components.${name}.props.${propName}.type is invalid.`)
+      exact(prop, version === 1 ? ['type', 'required'] : ['types', 'required', 'allowedValues'], `${path}.components.${name}.props.${propName}`)
+      if (version === 1) {
+        if (!['string', 'number', 'boolean', 'json', 'asset'].includes(String(prop.type))) throw new Error(`${path}.components.${name}.props.${propName}.type is invalid.`)
+      } else {
+        const types = stringArray(prop.types, `${path}.components.${name}.props.${propName}.types`)
+        const canonicalTypes = ['string', 'number', 'boolean', 'json', 'asset']
+        if (types.length === 0 || types.some(type => !canonicalTypes.includes(type)) || new Set(types).size !== types.length) {
+          throw new Error(`${path}.components.${name}.props.${propName}.types is invalid.`)
+        }
+        if (types.some((type, index) => canonicalTypes.indexOf(type) <= canonicalTypes.indexOf(types[index - 1] ?? ''))) {
+          throw new Error(`${path}.components.${name}.props.${propName}.types is not canonical.`)
+        }
+        if (types.includes('asset') && types.length !== 1) throw new Error(`${path}.components.${name}.props.${propName}.asset type must be exclusive.`)
+        if (prop.allowedValues !== null) {
+          if (!Array.isArray(prop.allowedValues) || prop.allowedValues.length === 0) throw new Error(`${path}.components.${name}.props.${propName}.allowedValues is invalid.`)
+          const allowed = prop.allowedValues
+          const primitiveTypes = types.filter(type => ['string', 'number', 'boolean'].includes(type))
+          const keys = new Set<string>()
+          for (const [index, allowedValue] of allowed.entries()) {
+            const valueType = typeof allowedValue
+            if (!['string', 'number', 'boolean'].includes(valueType) || (valueType === 'number' && !Number.isFinite(allowedValue))) {
+              throw new Error(`${path}.components.${name}.props.${propName}.allowedValues[${index}] is invalid.`)
+            }
+            if (!primitiveTypes.includes(valueType)) throw new Error(`${path}.components.${name}.props.${propName}.allowedValues is outside its types.`)
+            const key = `${valueType}:${String(allowedValue)}`
+            if (keys.has(key)) throw new Error(`${path}.components.${name}.props.${propName}.allowedValues has duplicates.`)
+            keys.add(key)
+          }
+          if (primitiveTypes.some(type => !allowed.some(value => typeof value === type))) {
+            throw new Error(`${path}.components.${name}.props.${propName}.allowedValues omits a declared primitive type.`)
+          }
+        }
+        if (types.includes('asset') && prop.allowedValues !== null) throw new Error(`${path}.components.${name}.props.${propName}.asset values cannot be restricted.`)
+      }
       boolean(prop.required, `${path}.components.${name}.props.${propName}.required`)
     }
     stringArray(component.slots, `${path}.components.${name}.slots`)
+    if (version === 2) {
+      for (const key of ['allowedParents', 'allowedChildren'] as const) {
+        if (component[key] === null) continue
+        const names = stringArray(component[key], `${path}.components.${name}.${key}`)
+        if (new Set(names).size !== names.length) throw new Error(`${path}.components.${name}.${key} has duplicates.`)
+      }
+    }
     if (component.media !== null) {
       const media = record(component.media, `${path}.components.${name}.media`)
       exact(media, ['sourceProp', 'altProp', 'titleProp', 'filenameProp'], `${path}.components.${name}.media`)
       string(media.sourceProp, `${path}.components.${name}.media.sourceProp`)
       for (const key of ['altProp', 'titleProp', 'filenameProp'] as const) nullableString(media[key], `${path}.components.${name}.media.${key}`)
       const props = record(component.props, `${path}.components.${name}.props`)
-      if (record(props[media.sourceProp], `${path}.components.${name}.props.${media.sourceProp}`).type !== 'asset') throw new Error(`${path}.components.${name}.media.sourceProp must reference an asset prop.`)
+      const source = record(props[media.sourceProp], `${path}.components.${name}.props.${media.sourceProp}`)
+      if (
+        (version === 1 && source.type !== 'asset') ||
+        (version === 2 && (!Array.isArray(source.types) || source.types.length !== 1 || source.types[0] !== 'asset'))
+      ) throw new Error(`${path}.components.${name}.media.sourceProp must reference an asset prop.`)
+      if (version === 2) {
+        for (const key of ['altProp', 'titleProp', 'filenameProp'] as const) {
+          const propName = media[key]
+          if (propName === null) continue
+          if (typeof propName !== 'string') {
+            throw new TypeError(`${path}.components.${name}.media.${key} is invalid.`)
+          }
+          const target = record(props[propName], `${path}.components.${name}.props.${propName}`)
+          if (!Array.isArray(target.types) || !target.types.includes('string')) {
+            throw new Error(`${path}.components.${name}.media.${key} must reference a string-capable prop.`)
+          }
+        }
+      }
     }
   }
-  return input as unknown as PortableComponentPolicyV1
+  if (version === 2) {
+    for (const [name, rawComponent] of Object.entries(record(input.components, `${path}.components`))) {
+      const component = record(rawComponent, `${path}.components.${name}`)
+      for (const key of ['allowedParents', 'allowedChildren'] as const) {
+        if (component[key] !== null) {
+          for (const related of stringArray(component[key], `${path}.components.${name}.${key}`)) {
+            if (!canonicalNames.has(related)) throw new Error(`${path}.components.${name}.${key} references unknown component "${related}".`)
+          }
+        }
+      }
+    }
+  }
+  return input as unknown as PortableComponentPolicy
+}
+
+/** Validate an untrusted value as the exact, closed V2 component policy without normalizing it. */
+export function assertPortableComponentPolicyV2(value: unknown): PortableComponentPolicyV2 {
+  canonicalJsonBytes(value as JsonValue)
+  return componentPolicy(value, 'Component policy', 2) as PortableComponentPolicyV2
 }
 
 /** Validate an untrusted value as the exact, closed resolved Content contract. */
-export function assertResolvedContentContract(value: unknown): ResolvedContentContractV1 {
+export function assertResolvedContentContract(value: unknown): ResolvedContentContract {
   canonicalJsonBytes(value as JsonValue)
   const input = record(value, 'Content contract')
   exact(input, ['format', 'version', 'defaultLocale', 'locales', 'localeFallbacks', 'collections'], 'Content contract')
-  if (input.format !== 'ginko-content-contract' || input.version !== 1) throw new Error('Content contract format or version is invalid.')
+  if (input.format !== 'ginko-content-contract' || (input.version !== 1 && input.version !== 2)) throw new Error('Content contract format or version is invalid.')
+  const version = input.version
   string(input.defaultLocale, 'Content contract.defaultLocale')
   const locales = stringArray(input.locales, 'Content contract.locales')
   if (!locales.includes(input.defaultLocale)) throw new Error('Content contract default locale must be declared.')
@@ -239,10 +320,22 @@ export function assertResolvedContentContract(value: unknown): ResolvedContentCo
     } else if (!['yaml', 'json'].includes(String(portable.format)) || portable.bodyField !== null || bodyFields.length !== 0) {
       throw new Error(`${path} data portability policy is invalid.`)
     }
-    componentPolicy(collection.componentPolicy, `${path}.componentPolicy`)
+    componentPolicy(collection.componentPolicy, `${path}.componentPolicy`, version)
     for (const candidate of fields) visitRelations(candidate, collectionIds, path)
   }
-  return value as ResolvedContentContractV1
+  return value as ResolvedContentContract
+}
+
+export function assertResolvedContentContractV1(value: unknown): ResolvedContentContractV1 {
+  const contract = assertResolvedContentContract(value)
+  if (contract.version !== 1) throw new Error('Content contract version 1 is required.')
+  return contract
+}
+
+export function assertResolvedContentContractV2(value: unknown): ResolvedContentContractV2 {
+  const contract = assertResolvedContentContract(value)
+  if (contract.version !== 2) throw new Error('Content contract version 2 is required.')
+  return contract
 }
 
 const reservedPortableFields = new Set(['ginko', 'id', '_id', 'stableId', 'translationKey', 'path', '_path', 'route', 'ast', 'toc', 'searchText', 'provider'])

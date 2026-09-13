@@ -10,14 +10,14 @@ import {
   type JsonValue,
 } from '../cms-contract/hash.js'
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
-import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
+import type { ResolvedContentContract } from '../cms-contract/types.js'
 import { parsePortableDocument } from '../portability/documents.js'
 import { collectPortableAssetReferences, collectPortableMdcAssetReferences } from '../portability/assets.js'
 import { portabilityError } from '../portability/errors.js'
 import { parsePortableJson } from '../portability/json.js'
 import { parsePortableManifest, serializePortableManifest } from '../portability/manifest.js'
 import { collectPortableReferences } from '../portability/references.js'
-import type { PortableAssetBlobV1, PortableDocumentV1, PortableManifestV1 } from '../portability/model.js'
+import type { PortableAssetBlobV1, PortableDocumentV1, PortableManifest } from '../portability/model.js'
 import { portableCaseFold, validatePortableRelativePath } from './safe-path.js'
 import { readStableRegularFile } from './streams.js'
 
@@ -34,10 +34,10 @@ export interface PortableDirectoryAsset extends PortableAssetBlobV1 {
 }
 
 export interface PortableDirectoryBundle {
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
   documents: PortableDirectoryDocument[]
   assets: PortableDirectoryAsset[]
-  manifest: PortableManifestV1
+  manifest: PortableManifest
 }
 
 export interface PortableDirectoryPlanningDocument {
@@ -46,10 +46,10 @@ export interface PortableDirectoryPlanningDocument {
 }
 
 export interface PortableDirectoryPlanningBundle {
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
   documents: PortableDirectoryPlanningDocument[]
   assets: PortableAssetBlobV1[]
-  manifest: PortableManifestV1
+  manifest: PortableManifest
 }
 
 export interface PortableDirectoryPlanningLimits {
@@ -71,7 +71,7 @@ export async function readPortableDirectoryForPlanning(
   return inspectPortableDirectory(root, true, 'planning', planningLimits)
 }
 
-export async function rebuildPortableDirectoryManifest(root: string): Promise<PortableManifestV1> {
+export async function rebuildPortableDirectoryManifest(root: string): Promise<PortableManifest> {
   const result = await inspectPortableDirectory(root, false, 'none')
   const bytes = serializePortableManifest(result.manifest)
   const temporary = join(root, '.ginko', `portable.json.tmp-${process.pid}-${Date.now()}`)
@@ -87,8 +87,8 @@ export async function rebuildPortableDirectoryManifest(root: string): Promise<Po
 }
 
 export interface PortableDirectoryVerification {
-  contract: ResolvedContentContractV1
-  manifest: PortableManifestV1
+  contract: ResolvedContentContract
+  manifest: PortableManifest
 }
 
 export async function verifyPortableDirectoryBounded(
@@ -126,7 +126,7 @@ async function inspectPortableDirectory(
     throw portabilityError('CONTRACT_INVALID', 'directory.read', 'Portable Content contract is missing.')
   }
   const contractBytes = await readPath(root, '.ginko/content-contract.json')
-  let contract: ResolvedContentContractV1
+  let contract: ResolvedContentContract
   try {
     contract = assertResolvedContentContract(
       parsePortableJson(new TextDecoder('utf-8', { fatal: true }).decode(contractBytes)),
@@ -134,8 +134,8 @@ async function inspectPortableDirectory(
   } catch {
     throw portabilityError('CONTRACT_INVALID', 'directory.read', 'Portable Content contract is invalid.')
   }
-  const documents: PortableManifestV1['documents'] = []
-  const assets: PortableManifestV1['assets'] = []
+  const documents: PortableManifest['documents'] = []
+  const assets: PortableManifest['assets'] = []
   const materializedDocuments: PortableDirectoryDocument[] = []
   const planningDocuments: PortableDirectoryPlanningDocument[] = []
   const materializedAssets: PortableDirectoryAsset[] = []
@@ -280,9 +280,9 @@ async function inspectPortableDirectory(
   assets.sort((left, right) => compare(left.sha256, right.sha256))
   materializedDocuments.sort((left, right) => compare(left.file, right.file))
   materializedAssets.sort((left, right) => compare(left.sha256, right.sha256))
-  const manifest: PortableManifestV1 = {
+  const manifest: PortableManifest = {
     format: 'ginko-content-portable',
-    version: 1,
+    version: contract.version,
     contract: {
       file: '.ginko/content-contract.json',
       sha256: await hashCanonicalJson(contract as unknown as JsonValue),
@@ -341,7 +341,7 @@ function assertPlanningLimits(value: PortableDirectoryPlanningLimits): void {
 }
 
 function validateDocumentFacts(
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   variants: Set<string>,
   identities: Map<string, Set<string>>,
   parents: Map<string, string | null>,

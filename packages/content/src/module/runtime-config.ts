@@ -11,7 +11,7 @@ import type {
   ContentConfig
 } from '../types/config'
 import type { ResolvedMarkdownPlugin } from '../types/content'
-import type { PortableComponentPolicyV1 } from '../types/component-policy'
+import type { PortableComponentPolicy } from '../types/component-policy'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 import { CACHE_VERSION } from '../utils'
 import { createSearchRuntimeConfig } from './options'
@@ -151,7 +151,7 @@ export const applyContentRuntimeConfig = async (
   options: ModuleOptions,
   contentContext: ResolvedContentContext,
   appContentConfig: Pick<ContentConfig, 'agent'>,
-  runtimeRenderPolicies: Record<string, PortableComponentPolicyV1>,
+  runtimeRenderPolicies: Record<string, PortableComponentPolicy>,
   runtimeCollections: Record<string, RuntimeCollectionConfig>,
   privateRuntimeCollections: Record<string, RuntimeCollectionConfig>,
   buildIntegrity: number | undefined,

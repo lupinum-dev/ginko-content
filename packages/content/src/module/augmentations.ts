@@ -2,7 +2,7 @@ import type { StorageValue } from 'unstorage'
 import type { ParsedContent, MarkdownOptions } from '../types/content'
 import type { ContentContext, ContentRevalidateOptions, ResolvedContentContext } from '../types/module'
 import type { createSearchRuntimeConfig } from './options'
-import type { PortableComponentPolicyV1 } from '../cms-contract/types'
+import type { PortableComponentPolicy } from '../cms-contract/types'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 
 interface ModulePublicRuntimeConfig {
@@ -23,7 +23,7 @@ interface ModulePublicRuntimeConfig {
     references?: Record<string, string[]>
   }>
 
-  renderPolicies: Record<string, PortableComponentPolicyV1>
+  renderPolicies: Record<string, PortableComponentPolicy>
 
   markdown: Pick<MarkdownOptions, 'tags' | 'image'>
 

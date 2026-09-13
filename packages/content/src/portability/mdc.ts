@@ -1,6 +1,6 @@
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
 import { validatePublicMarkdownAst, validateStoredPortableMarkdownAst } from '../cms-contract/render-policy.js'
-import type { PortableComponentPolicyV1 } from '../cms-contract/types.js'
+import type { PortableComponentPolicy } from '../cms-contract/types.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
 import { parseComark } from '../core/markdown/parse-comark.js'
 import { toMarkdownRoot } from '../core/markdown/tree.js'
@@ -24,15 +24,15 @@ export type PortableMdcClassification =
   | { classification: 'portable'; ast: PortableMdcAstV1; issues: [] }
   | { classification: 'rejected'; ast: null; issues: PortableMdcIssue[] }
 
-export async function parsePortableMdc(source: string, policy: PortableComponentPolicyV1): Promise<PortableMdcAstV1> {
+export async function parsePortableMdc(source: string, policy: PortableComponentPolicy): Promise<PortableMdcAstV1> {
   return await parseMdc(source, policy, false)
 }
 
-export async function parseStoredMdc(source: string, policy: PortableComponentPolicyV1): Promise<PortableMdcAstV1> {
+export async function parseStoredMdc(source: string, policy: PortableComponentPolicy): Promise<PortableMdcAstV1> {
   return await parseMdc(source, policy, true)
 }
 
-async function parseMdc(source: string, policy: PortableComponentPolicyV1, allowStoredAssets: boolean): Promise<PortableMdcAstV1> {
+async function parseMdc(source: string, policy: PortableComponentPolicy, allowStoredAssets: boolean): Promise<PortableMdcAstV1> {
   if (source.includes('\uFEFF')) throw unsupported()
   const normalized = normalizeBody(source)
   let tree: Awaited<ReturnType<typeof parseComark>>
@@ -52,14 +52,14 @@ async function parseMdc(source: string, policy: PortableComponentPolicyV1, allow
   return { format: 'ginko-portable-mdc-ast', version: 1, source: normalized, nodes }
 }
 
-export async function serializePortableMdc(ast: PortableMdcAstV1, policy: PortableComponentPolicyV1): Promise<string> {
+export async function serializePortableMdc(ast: PortableMdcAstV1, policy: PortableComponentPolicy): Promise<string> {
   if (ast.format !== 'ginko-portable-mdc-ast' || ast.version !== 1 || typeof ast.source !== 'string' || !Array.isArray(ast.nodes)) throw unsupported()
   const reparsed = await parsePortableMdc(ast.source, policy)
   if (JSON.stringify(reparsed.nodes) !== JSON.stringify(ast.nodes)) throw unsupported()
   return ast.source
 }
 
-export async function classifyPortableMdc(source: string, policy: PortableComponentPolicyV1): Promise<PortableMdcClassification> {
+export async function classifyPortableMdc(source: string, policy: PortableComponentPolicy): Promise<PortableMdcClassification> {
   try {
     return { classification: 'portable', ast: await parsePortableMdc(source, policy), issues: [] }
   } catch (error) {

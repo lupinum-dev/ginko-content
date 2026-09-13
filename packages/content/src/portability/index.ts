@@ -5,6 +5,8 @@ export type {
   PortableBodyV1,
   PortableDocumentV1,
   PortableManifestV1,
+  PortableManifestV2,
+  PortableManifest,
   PortableReferenceV1,
   PortableSemanticModelV1,
 } from './model.js'
@@ -33,10 +35,12 @@ export {
   assertPortableAssetReference,
   collectPortableAssetReferences,
   collectPortableMdcAssetReferences,
+  collectStoredMdcAssetReferences,
   rewritePortableAssetReferences,
   rewritePortableMdcAssetReferences,
   rewritePortableMdcAssetReferencesForStorage,
   rewriteStoredMdcAssetReferences,
+  rewriteStoredMdcAssetReferencesForStorage,
   validatePortableAssets,
   type PortableMdcAssetReferenceV1,
 } from './assets.js'

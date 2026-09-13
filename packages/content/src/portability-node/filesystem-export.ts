@@ -9,7 +9,7 @@ import { buildResolvedContentContract } from '../cms-contract/build.js'
 import { verifyPublicImageBytes } from '../cms-contract/asset-bytes.js'
 import { canonicalJsonBytes, hashCanonicalJson, sha256Hex, type JsonValue } from '../cms-contract/hash.js'
 import { PORTABLE_CONTENT_LIMITS } from '../cms-contract/limits.js'
-import type { ResolvedContentCollectionV1, ResolvedContentContractV1, ResolvedContentFieldV1 } from '../cms-contract/types.js'
+import type { ResolvedContentCollection, ResolvedContentContract, ResolvedContentFieldV1 } from '../cms-contract/types.js'
 import { buildContentGraph } from '../core/content/graph.js'
 import { expandDataLocaleVariants } from '../core/content/locale.js'
 import { resolveCollections } from '../core/content/collection.js'
@@ -33,7 +33,7 @@ import {
 } from '../portability/assets.js'
 import { GinkoBoundaryError, type PortabilityErrorCode, type PortabilityOperation } from '../portability/errors.js'
 import { validatePortableReferences } from '../portability/references.js'
-import type { PortableAssetBlobV1, PortableDocumentV1, PortableManifestV1 } from '../portability/model.js'
+import type { PortableAssetBlobV1, PortableDocumentV1, PortableManifest } from '../portability/model.js'
 import type { ContentCollectionConfig, ContentConfig } from '../types/config.js'
 import type { ParsedContent } from '../types/content.js'
 import type { ModuleOptions } from '../types/module.js'
@@ -77,7 +77,7 @@ export interface FilesystemPortabilityEvidence {
 export interface FilesystemPortabilityAssessment {
   ok: boolean
   rootDir: string
-  contract: ResolvedContentContractV1 | null
+  contract: ResolvedContentContract | null
   documents: PortableDocumentV1[]
   assets: PortableAssetWriteInput[]
   diagnostics: FilesystemPortabilityDiagnostic[]
@@ -95,7 +95,7 @@ export interface FilesystemPortabilityExportResult {
   inputHash: string
   contractSha256: string
   manifestSha256: string
-  manifest: PortableManifestV1
+  manifest: PortableManifest
   documents: number
   assets: number
   collections: string[]
@@ -118,7 +118,7 @@ export async function assessFilesystemPortability(
 ): Promise<FilesystemPortabilityAssessment> {
   const rootDir = resolve(options.rootDir)
   const diagnostics: FilesystemPortabilityDiagnostic[] = []
-  let contract: ResolvedContentContractV1 | null = null
+  let contract: ResolvedContentContract | null = null
   let contractSha256 = ''
   let packageVersion = ''
   let collections: Record<string, ContentCollectionConfig> = {}
@@ -480,7 +480,7 @@ async function loadProjectConfig(rootDir: string) {
 function buildNavigationMetadata(
   documents: ParsedContent[],
   collections: Record<string, ContentCollectionConfig>,
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   fields: string[],
 ) {
   const result = new Map<string, Record<string, unknown>>()
@@ -527,7 +527,7 @@ function sourceDirectory(file: string | undefined): string {
   return separator < 0 ? '' : file.slice(0, separator)
 }
 
-async function portableFields(document: ParsedContent, collection: ResolvedContentCollectionV1, graph: ReturnType<typeof buildContentGraph>, diagnostics: FilesystemPortabilityDiagnostic[]) {
+async function portableFields(document: ParsedContent, collection: ResolvedContentCollection, graph: ReturnType<typeof buildContentGraph>, diagnostics: FilesystemPortabilityDiagnostic[]) {
   const shared: Record<string, JsonValue> = {}
   const localized: Record<string, JsonValue> = {}
   for (const field of collection.fields) {
@@ -575,7 +575,7 @@ async function portableFieldValue(field: ResolvedContentFieldV1, value: unknown,
 async function materializeManagedAssets(
   rootDir: string,
   documents: PortableDocumentV1[],
-  contract: ResolvedContentContractV1,
+  contract: ResolvedContentContract,
   diagnostics: FilesystemPortabilityDiagnostic[],
 ): Promise<PortableAssetWriteInput[]> {
   const referenced = new Map<string, { sha256: string; mediaType: PortableAssetBlobV1['mediaType']; collection: string }>()
@@ -634,7 +634,7 @@ function requiredRawSource(rawById: Map<string, string>, id: string): string {
   return source
 }
 
-function routeSlug(document: ParsedContent, collection: ResolvedContentCollectionV1): string {
+function routeSlug(document: ParsedContent, collection: ResolvedContentCollection): string {
   if (collection.routing.singleton && collection.routing.rootSlug) return collection.routing.rootSlug
   const parts = (document.path ?? '').split('/').filter(Boolean)
   const slug = parts[parts.length - 1]

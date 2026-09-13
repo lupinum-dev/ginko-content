@@ -213,6 +213,7 @@ export const cleanPropsObject = (props: unknown) => {
   if (!isRecord(props)) return {}
   const clean: Record<string, unknown> = {}
   for (const [name, value] of Object.entries(props)) {
+    if (name === '$' && isInternalComponentMetadata(value)) continue
     const normalizedName = normalizeAgentPropName(name)
     const cleanedValue = cleanAgentPropValue(value)
     if (shouldDropAgentProp(normalizedName) || cleanedValue === undefined) continue
@@ -227,6 +228,9 @@ export const cleanPropsObject = (props: unknown) => {
   }
   return clean
 }
+
+const isInternalComponentMetadata = (value: unknown) =>
+  isRecord(value) && value.component === 1 && (value.block === 0 || value.block === 1)
 
 export const xmlComponentMarkdown = (
   name: string,

@@ -30,7 +30,7 @@ const subpaths = [
       const { mkdtemp, readFile, rm } = await import('node:fs/promises')
       const { tmpdir } = await import('node:os')
       const { join } = await import('node:path')
-      const { collectPortableMdcAssetReferences, parsePortableDocument, rewritePortableMdcAssetReferences } = await import('@lupinum/ginko-content/portability')
+      const { collectPortableMdcAssetReferences, collectStoredMdcAssetReferences, parsePortableDocument, rewritePortableMdcAssetReferences, rewriteStoredMdcAssetReferencesForStorage } = await import('@lupinum/ginko-content/portability')
       const { readPortableDirectory, rebuildPortableDirectoryManifest, writePortableDirectory } = await import('@lupinum/ginko-content/portability/node')
       const { PORTABILITY_CONTRACT_FIXTURES, createPortabilityContractFixture, runPortabilityContract, runPortableDirectoryContract } = await import('@lupinum/ginko-content/testing/portability-contract')
       const parent = await mkdtemp(join(tmpdir(), 'ginko-packed-portability-'))
@@ -50,6 +50,16 @@ const subpaths = [
         )
         if (references.length !== 1 || !rewritten.includes('https://assets.example.test/') || !rewritten.includes(codeDelimiter + localPath + codeDelimiter)) {
           throw new Error('Packed portability MDC asset contract failed')
+        }
+        const storedExample = codeDelimiter + '![Example](stored-before)' + codeDelimiter
+        const storedBody = '![Packed](stored-before)\n\n' + storedExample
+        const storedReferences = await collectStoredMdcAssetReferences(storedBody, contract.collections.docs.componentPolicy)
+        const remappedBody = await rewriteStoredMdcAssetReferencesForStorage(storedBody, contract.collections.docs.componentPolicy, () => 'stored-after')
+        if (JSON.stringify(storedReferences) !== JSON.stringify(['stored-before']) || !remappedBody.includes('![Packed](stored-after)') || !remappedBody.includes(storedExample)) {
+          throw new Error('Packed stored MDC asset contract failed')
+        }
+        if (await rewriteStoredMdcAssetReferencesForStorage(storedBody, contract.collections.docs.componentPolicy, identity => identity) !== storedBody) {
+          throw new Error('Packed stored MDC no-op changed source')
         }
         const directory = await runPortableDirectoryContract({
           firstDestination: join(parent, 'first'),

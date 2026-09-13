@@ -4,7 +4,7 @@ import { basename, dirname, join } from 'node:path'
 
 import { canonicalJsonBytes, type JsonValue } from '../cms-contract/hash.js'
 import { PORTABLE_CONTENT_LIMITS } from '../cms-contract/limits.js'
-import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
+import type { ResolvedContentContract } from '../cms-contract/types.js'
 import { serializePortableDocument, portableDocumentPath } from '../portability/documents.js'
 import { portabilityError } from '../portability/errors.js'
 import type { PortableAssetBlobV1, PortableDocumentV1 } from '../portability/model.js'
@@ -15,7 +15,7 @@ import {
 import { validatePortableRelativePath } from './safe-path.js'
 
 export interface WritePortableDirectoryInput {
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
   documents: Iterable<PortableDocumentV1> | AsyncIterable<PortableDocumentV1>
   assets: Iterable<PortableAssetWriteInput> | AsyncIterable<PortableAssetWriteInput>
 }

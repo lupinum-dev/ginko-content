@@ -5,9 +5,10 @@
  */
 
 import { renderMarkdown } from 'comark/render'
-import type { MarkdownDocument } from 'comark'
+import type { ConditionalNodeHandler, MarkdownDocument } from 'comark'
 import type { RenderMarkdownOptions } from 'comark/render'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
+import { HTML_TAGS } from '../core/markdown/html-tags.js'
 import { angleComponentRenderer } from '../core/markdown/angle-components.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
 import { parseComark, type ParseComarkOptions } from '../core/markdown/parse-comark.js'
@@ -32,10 +33,85 @@ export async function serializeMdcDocument(
   document: MarkdownDocument,
   options: RenderMarkdownOptions = {},
 ): Promise<string> {
-  return await renderMarkdown(document, {
+  const renderDocument = structuredClone(document)
+  return await renderMarkdown(renderDocument, {
     ...options,
-    components: { ...options.components, angle: angleComponentRenderer },
+    components: {
+      ...options.components,
+      angle: angleComponentRenderer,
+      colonInline: colonInlineComponentRenderer,
+      colonBlock: colonBlockComponentRenderer,
+    },
   })
+}
+
+const colonMetadata = (node: unknown) => {
+  if (!Array.isArray(node) || typeof node[0] !== 'string') return undefined
+  const props = node[1]
+  if (!props || typeof props !== 'object' || Array.isArray(props)) return undefined
+  const metadata = (props as Record<string, unknown>).$
+  if (
+    !metadata || typeof metadata !== 'object' || Array.isArray(metadata) ||
+    (metadata as Record<string, unknown>).syntax !== 'colon' ||
+    ((metadata as Record<string, unknown>).block !== 0 &&
+      (metadata as Record<string, unknown>).block !== 1) ||
+    typeof (metadata as Record<string, unknown>).sourceName !== 'string'
+  ) return undefined
+  return metadata as { syntax: 'colon'; block: 0 | 1; sourceName: string }
+}
+
+const renderColonProps = (props: Record<string, unknown>): string | undefined => {
+  const entries = Object.entries(props).filter(([name]) => name !== '$')
+  if (entries.length === 0) return ''
+  const rendered: string[] = []
+  for (const [name, value] of entries) {
+    // Bound colon properties do not share angle syntax's typed JSON contract.
+    if (typeof value !== 'string') return undefined
+    const text = value
+    if (/[\\\r\n]/.test(text)) return undefined
+    // Colon attributes do not unescape quoted values. Choose an absent
+    // delimiter, or let the angle renderer encode the complete component.
+    const quote = ['"', "'", '`'].find(candidate => !text.includes(candidate))
+    if (!quote) return undefined
+    rendered.push(`${name}=${quote}${text}${quote}`)
+  }
+  return `{${rendered.join(' ')}}`
+}
+
+const colonInlineComponentRenderer: ConditionalNodeHandler = {
+  match: node => colonMetadata(node)?.block === 0,
+  handler: async (node, state) => {
+    const metadata = colonMetadata(node)
+    if (!metadata) return ''
+    const props = renderColonProps(node[1])
+    if (props === undefined) {
+      const angleNode = structuredClone(node)
+      // Capitalization also distinguishes components named after native HTML
+      // elements. The canonical component name remains unchanged.
+      const angleMetadata = { ...metadata, syntax: 'angle', sourceName: metadata.sourceName[0]!.toUpperCase() + metadata.sourceName.slice(1) }
+      angleNode[1].$ = angleMetadata
+      return angleComponentRenderer.handler(angleNode, state)
+    }
+    if (node.length === 2) return `:${metadata.sourceName}${props}`
+    return `:${metadata.sourceName}[${await state.flow(node, state)}]${props}`
+  },
+}
+
+// Dispatch parser-marked blocks directly to the component serializer. Native
+// handlers would otherwise turn components such as img into Markdown images.
+const colonBlockComponentRenderer: ConditionalNodeHandler = {
+  match: node => colonMetadata(node)?.block === 1,
+  handler: async (node, state, parent) => {
+    const metadata = colonMetadata(node)!
+    const component = structuredClone(node)
+    // Comark's component serializer also special-cases span and table. An
+    // uppercase authored name preserves colon syntax and the canonical identity.
+    component[0] = HTML_TAGS.has(node[0])
+      ? metadata.sourceName[0]!.toUpperCase() + metadata.sourceName.slice(1)
+      : metadata.sourceName
+    delete component[1].$
+    return state.handlers.mdc!(component, state, parent)
+  },
 }
 
 export interface ParseMdcBodyOptions {
@@ -68,7 +144,15 @@ export async function parseMdcBody(
   options: ParseMdcBodyOptions = {},
 ): Promise<ParseMdcBodyResult> {
   const tree = await parseMdcDocument(raw, { autoClose: options.autoClose })
-  const nodes = normalizeComarkNodes(tree.nodes as unknown[])
+  return projectMdcDocument(tree, options)
+}
+
+/** Derive public body/search projections without modifying the editing document. */
+export function projectMdcDocument(
+  document: MarkdownDocument,
+  options: Pick<ParseMdcBodyOptions, 'tocDepth'> = {},
+): ParseMdcBodyResult {
+  const nodes = normalizeComarkNodes(structuredClone(document.nodes) as unknown[])
   const toc = deriveToc(nodes, options)
   const body = toMarkdownRoot(nodes, toc)
   const searchText = renderPlainText(body)

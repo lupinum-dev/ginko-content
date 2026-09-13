@@ -40,6 +40,11 @@ const exportMetadata = {
     purpose: 'Client query functions, page/search composables, and derivations',
     guide: ['/docs/reference/query-api', 'Query API'],
   },
+  './body-renderer': {
+    environment: 'Vue SSR / browser',
+    purpose: 'Validated Markdown body renderer with explicit policy and component selection',
+    guide: ['/docs/reference/components', 'Components'],
+  },
   './navigation': {
     environment: 'Framework-free',
     purpose: 'Navigation-tree traversal and path helpers',

@@ -485,6 +485,11 @@ exports[`Comark conformance corpus > 'components' freezes raw Comark 0.6 output 
     [
       "callout",
       {
+        "$": {
+          "block": 1,
+          "sourceName": "callout",
+          "syntax": "colon",
+        },
         "count": 2,
         "featured": true,
         "options": {
@@ -590,6 +595,10 @@ Run the production build.
             },
           ],
           "props": {
+            "$": {
+              "block": 1,
+              "component": 1,
+            },
             "count": 2,
             "featured": true,
             "options": {
@@ -616,6 +625,10 @@ Run the production build.
     [
       "callout",
       {
+        "$": {
+          "block": 1,
+          "component": 1,
+        },
         "count": 2,
         "featured": true,
         "options": {
@@ -655,6 +668,10 @@ Run the production build.
       [
         "callout",
         {
+          "$": {
+            "block": 1,
+            "component": 1,
+          },
           "count": 2,
           "featured": true,
           "options": {

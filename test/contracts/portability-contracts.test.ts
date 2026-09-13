@@ -6,6 +6,7 @@ import type { ResolvedContentContractV1, ResolvedContentFieldV1 } from '../../pa
 import {
   classifyPortableMdc,
   collectPortableMdcAssetReferences,
+  collectStoredMdcAssetReferences,
   decodePortableIdentitySegment,
   encodePortableIdentitySegment,
   normalizePortableModel,
@@ -18,6 +19,7 @@ import {
   rewritePortableMdcAssetReferences,
   rewritePortableMdcAssetReferencesForStorage,
   rewriteStoredMdcAssetReferences,
+  rewriteStoredMdcAssetReferencesForStorage,
   serializePortableDocument,
   serializePortableManifest,
   validatePortableReferences,
@@ -326,6 +328,58 @@ describe('portable content contract', () => {
     ).rejects.toMatchObject({ code: 'ASSET_INTEGRITY_FAILED' })
   })
 
+  it('collects and remaps stored media without rewriting literal identities or code examples', async () => {
+    const policy = contract.collections.docs.componentPolicy
+    const literal = 'Example id="asset-before"\n\n`![Example](asset-before)`\n\n```md\n![Example](asset-before)\n```'
+    const source = `${literal}\n\n![Diagram](asset-before)\n\n::media{src="asset-before"}\n::\n\n![External](https://example.test/image.png)`
+    await expect(collectStoredMdcAssetReferences(source, policy)).resolves.toEqual(['asset-before', 'asset-before'])
+    const rewritten = await rewriteStoredMdcAssetReferencesForStorage(source, policy, async identity => identity === 'asset-before' ? 'asset-after' : identity)
+    expect(rewritten).toContain(literal)
+    expect(rewritten).toContain('![Diagram](asset-after)')
+    expect(rewritten).toContain('src: asset-after')
+    expect(rewritten).toContain('![External](https://example.test/image.png)')
+    await expect(collectStoredMdcAssetReferences(rewritten, policy)).resolves.toEqual(['asset-after', 'asset-after'])
+  })
+
+  it('rewrites colon img component media through its declared source prop', async () => {
+    const policy = {
+      components: {
+        img: {
+          ...contract.collections.docs.componentPolicy.components.media!,
+          props: { source: { type: 'asset' as const, required: true } },
+          media: { sourceProp: 'source', altProp: null, titleProp: null, filenameProp: null },
+        },
+      },
+    }
+    const source = '::img{source="asset_123"}\n::'
+    await expect(collectStoredMdcAssetReferences(source, policy)).resolves.toEqual(['asset_123'])
+    const remapped = await rewriteStoredMdcAssetReferencesForStorage(source, policy, () => 'asset_456')
+    await expect(collectStoredMdcAssetReferences(remapped, policy)).resolves.toEqual(['asset_456'])
+    const local = `/ginko-assets/${'a'.repeat(64)}.png`
+    const restored = await rewriteStoredMdcAssetReferences(source, policy, () => local)
+    await expect(collectPortableMdcAssetReferences(restored, policy)).resolves.toEqual([
+      { path: local, sha256: 'a'.repeat(64), mediaType: 'image/png' },
+    ])
+    const stored = await rewritePortableMdcAssetReferencesForStorage(restored, policy, () => 'asset_789')
+    await expect(collectStoredMdcAssetReferences(stored, policy)).resolves.toEqual(['asset_789'])
+  })
+
+  it('preserves untouched stored source bytes and rejects invalid replacement identities', async () => {
+    const policy = contract.collections.docs.componentPolicy
+    const source = 'Example id="asset-before"\r\n\r\n```md\r\n![Example](asset-before)\r\n```\r\n\r\n'
+    await expect(collectStoredMdcAssetReferences(source, policy)).resolves.toEqual([])
+    await expect(rewriteStoredMdcAssetReferencesForStorage(source, policy, () => {
+      throw new Error('Literal examples are not asset references.')
+    })).resolves.toBe(source)
+    const image = '![Image](asset-before)\r\n\r\n'
+    await expect(rewriteStoredMdcAssetReferencesForStorage(image, policy, identity => identity)).resolves.toBe(image)
+    for (const target of ['javascript:alert', 'https://example.test/image.png', '']) {
+      await expect(rewriteStoredMdcAssetReferencesForStorage(image, policy, () => target)).rejects.toMatchObject({ code: 'ASSET_INTEGRITY_FAILED' })
+    }
+    await expect(collectStoredMdcAssetReferences('::unknown\n::', policy)).rejects.toMatchObject({ code: 'MDC_UNSUPPORTED' })
+    await expect(rewriteStoredMdcAssetReferencesForStorage('::unknown\n::', policy, identity => identity)).rejects.toMatchObject({ code: 'MDC_UNSUPPORTED' })
+  })
+
   it('preserves typed component props across deterministic asset rewrites', async () => {
     const sha256 = PORTABILITY_CONTRACT_FIXTURES.png.sha256
     const local = `/ginko-assets/${sha256}.png`
@@ -370,7 +424,8 @@ describe('portable content contract', () => {
     )
     const reparsed = await parsePortableMdc(rewritten, policy)
     const props = (reparsed.nodes[0] as unknown[])[1]
-    expect(props).toEqual({
+    expect(props).toMatchObject({
+      $: { component: 1, block: 1 },
       src: `https://assets.example.test/${sha256}.png`,
       count: 2,
       featured: true,
@@ -490,6 +545,13 @@ describe('portable content contract', () => {
     expect(stored).toContain(`<Figure title="${storedIdentity}">\nComponent\n</Figure>`)
     expect(stored).toContain(`<img src="${storedIdentity}" />`)
     expect(stored).toContain(`Inline <Img asset="${storedIdentity}" />`)
+
+    await expect(collectStoredMdcAssetReferences(stored, policy)).resolves.toEqual(Array(3).fill(storedIdentity))
+    const remapped = await rewriteStoredMdcAssetReferencesForStorage(stored, policy, () => 'replacement-id')
+    expect(remapped).toContain(`<figure title="${local}">\nNative\n</figure>`)
+    expect(remapped).toContain('<Figure title="replacement-id">\nComponent\n</Figure>')
+    expect(remapped).toContain('<img src="replacement-id" />')
+    expect(remapped).toContain('Inline <Img asset="replacement-id" />')
 
     let restoreRewrites = 0
     const restored = await rewriteStoredMdcAssetReferences(stored, policy, () => {

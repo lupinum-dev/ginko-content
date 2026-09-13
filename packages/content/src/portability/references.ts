@@ -1,9 +1,9 @@
 import { canonicalJsonBytes } from '../cms-contract/hash.js'
-import type { ResolvedContentContractV1, ResolvedContentFieldV1 } from '../cms-contract/types.js'
+import type { ResolvedContentContract, ResolvedContentFieldV1 } from '../cms-contract/types.js'
 import { portabilityError } from './errors.js'
 import type { JsonObject, PortableDocumentV1, PortableReferenceV1 } from './model.js'
 
-export function validatePortableReferences(documents: PortableDocumentV1[], contract: ResolvedContentContractV1): void {
+export function validatePortableReferences(documents: PortableDocumentV1[], contract: ResolvedContentContract): void {
   const variants = new Map<string, PortableDocumentV1>()
   const identities = new Map<string, Set<string>>()
   const shared = new Map<string, string>()

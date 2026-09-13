@@ -9,10 +9,14 @@ import {
 } from '../types/fields.js'
 import { canonicalJsonBytes, type JsonValue } from './hash.js'
 import type {
+  PortableComponentPolicy,
   PortableComponentPolicyV1,
+  PortableComponentPolicyV2,
   PortableMediaType,
-  ResolvedContentCollectionV1,
+  ResolvedContentCollection,
+  ResolvedContentContract,
   ResolvedContentContractV1,
+  ResolvedContentContractV2,
   ResolvedContentFieldTypeV1,
   ResolvedContentFieldV1,
   ResolvedContentValidationV1,
@@ -24,6 +28,7 @@ import {
 } from './render-policy.js'
 
 export const RESOLVED_CONTENT_CONTRACT_VERSION = 1 as const
+export const RESOLVED_CONTENT_CONTRACT_VERSION_V2 = 2 as const
 
 export interface BuildResolvedContentContractInput {
   collections: Record<string, ContentCollectionConfig>
@@ -35,33 +40,46 @@ export interface BuildResolvedContentContractOptions {
   localeFallbacks?: Record<string, string[]>
   translatedSlugs?: boolean
   include?: string[]
-  componentPolicy?: PortableComponentPolicyV1
+  componentPolicy?: PortableComponentPolicy
 }
 
 export function buildResolvedContentContract(
   config: BuildResolvedContentContractInput,
+  options: BuildResolvedContentContractOptions & { componentPolicy: PortableComponentPolicyV2 },
+): ResolvedContentContractV2
+export function buildResolvedContentContract(
+  config: BuildResolvedContentContractInput,
+  options: BuildResolvedContentContractOptions & { componentPolicy?: PortableComponentPolicyV1 },
+): ResolvedContentContractV1
+export function buildResolvedContentContract(
+  config: BuildResolvedContentContractInput,
   options: BuildResolvedContentContractOptions,
-): ResolvedContentContractV1 {
+): ResolvedContentContract
+export function buildResolvedContentContract(
+  config: BuildResolvedContentContractInput,
+  options: BuildResolvedContentContractOptions,
+): ResolvedContentContract {
   const locales = unique(options.locales)
   if (!locales.includes(options.defaultLocale)) throw new Error('The default locale must be declared in locales.')
   const localeFallbacks = resolveLocaleFallbacks(locales, options.defaultLocale, options.localeFallbacks)
   const componentPolicy = normalizeComponentPolicy(options.componentPolicy ?? { components: {} })
   const include = options.include ? new Set(options.include) : null
-  const collections: Record<string, ResolvedContentCollectionV1> = {}
+  const collections: Record<string, ResolvedContentCollection> = {}
 
   for (const [id, collection] of Object.entries(config.collections)) {
     if (!include || include.has(id)) collections[id] = buildCollection(id, collection, options, localeFallbacks, componentPolicy)
   }
   validateRelationTargets(collections, new Set(Object.keys(config.collections)))
 
-  const contract: ResolvedContentContractV1 = {
+  const version = 'version' in componentPolicy && componentPolicy.version === 2 ? 2 : 1
+  const contract = {
     format: 'ginko-content-contract',
-    version: RESOLVED_CONTENT_CONTRACT_VERSION,
+    version,
     defaultLocale: options.defaultLocale,
     locales,
     localeFallbacks,
     collections,
-  }
+  } as ResolvedContentContract
   canonicalJsonBytes(contract as unknown as JsonValue)
   return contract
 }
@@ -71,8 +89,8 @@ function buildCollection(
   collection: ContentCollectionConfig,
   options: BuildResolvedContentContractOptions,
   siteFallbacks: Record<string, string[]>,
-  componentPolicy: PortableComponentPolicyV1,
-): ResolvedContentCollectionV1 {
+  componentPolicy: PortableComponentPolicy,
+): ResolvedContentCollection {
   const kind = collection.type ?? (isMarkdownCollection(collection) ? 'page' : 'data')
   const locales = collection.i18n === true
     ? unique(options.locales)
@@ -395,7 +413,7 @@ function validateFieldLevel(collection: string, fields: ResolvedContentFieldV1[]
   }
 }
 
-function validateRelationTargets(collections: Record<string, ResolvedContentCollectionV1>, collectionIds: Set<string>): void {
+function validateRelationTargets(collections: Record<string, ResolvedContentCollection>, collectionIds: Set<string>): void {
   const visit = (collection: string, fields: ResolvedContentFieldV1[]) => {
     for (const field of fields) {
       if (field.relation && !collectionIds.has(field.relation.collection)) {
@@ -483,9 +501,17 @@ function portableMediaTypes(values: string[] | undefined): PortableMediaType[] {
   return normalized as PortableMediaType[]
 }
 
-function normalizeComponentPolicy(policy: PortableComponentPolicyV1): PortableComponentPolicyV1 {
-  const components: PortableComponentPolicyV1['components'] = {}
-  for (const [authoredName, component] of Object.entries(policy.components)) {
+function normalizeComponentPolicy(policy: PortableComponentPolicy): PortableComponentPolicy {
+  return isPortableComponentPolicyV2(policy)
+    ? normalizeComponentPolicyV2(policy)
+    : normalizeComponentPolicyV1(policy)
+}
+
+function isPortableComponentPolicyV2(policy: PortableComponentPolicy): policy is PortableComponentPolicyV2 {
+  return 'version' in policy && policy.version === 2
+}
+
+function normalizedComponentName(authoredName: string, components: object): string {
     if (!authoredName || eventLike(authoredName) || /[:@]/.test(authoredName)) {
       throw new Error(`Invalid portable component name "${authoredName}".`)
     }
@@ -503,6 +529,21 @@ function normalizeComponentPolicy(policy: PortableComponentPolicyV1): PortableCo
     ) {
       throw new Error(`Portable component name "${authoredName}" conflicts after canonicalization.`)
     }
+  return componentName
+}
+
+function normalizedSlots(componentName: string, slots: readonly string[]): string[] {
+  const normalized = unique(slots)
+  if (normalized.some(slot => !slot || eventLike(slot) || /[:@]/.test(slot))) {
+    throw new Error(`Component "${componentName}" has an invalid portable slot name.`)
+  }
+  return normalized
+}
+
+function normalizeComponentPolicyV1(policy: PortableComponentPolicyV1): PortableComponentPolicyV1 {
+  const components: PortableComponentPolicyV1['components'] = {}
+  for (const [authoredName, component] of Object.entries(policy.components)) {
+    const componentName = normalizedComponentName(authoredName, components)
     const props: typeof component.props = {}
     for (const [propName, prop] of Object.entries(component.props)) {
       if (!propName || eventLike(propName) || /[:@]/.test(propName)) {
@@ -510,10 +551,7 @@ function normalizeComponentPolicy(policy: PortableComponentPolicyV1): PortableCo
       }
       props[propName] = { type: prop.type, required: prop.required }
     }
-    const slots = unique(component.slots)
-    if (slots.some(slot => !slot || eventLike(slot) || /[:@]/.test(slot))) {
-      throw new Error(`Component "${componentName}" has an invalid portable slot name.`)
-    }
+    const slots = normalizedSlots(componentName, component.slots)
     const media = component.media
       ? {
           sourceProp: component.media.sourceProp,
@@ -537,10 +575,94 @@ function normalizeComponentPolicy(policy: PortableComponentPolicyV1): PortableCo
   return { components }
 }
 
+function normalizeComponentPolicyV2(policy: PortableComponentPolicyV2): PortableComponentPolicyV2 {
+  const components: PortableComponentPolicyV2['components'] = {}
+  const order = new Map(['string', 'number', 'boolean', 'json', 'asset'].map((type, index) => [type, index]))
+  for (const [authoredName, component] of Object.entries(policy.components)) {
+    const componentName = normalizedComponentName(authoredName, components)
+    const props: typeof component.props = {}
+    for (const [propName, prop] of Object.entries(component.props)) {
+      if (!propName || eventLike(propName) || /[:@]/.test(propName)) {
+        throw new Error(`Invalid portable prop name "${componentName}.${propName}".`)
+      }
+      const uniqueTypes = unique(prop.types)
+      if (uniqueTypes.length !== prop.types.length) {
+        throw new Error(`Component "${componentName}" property "${propName}" has duplicate value types.`)
+      }
+      uniqueTypes.sort((left, right) => (order.get(left) ?? 99) - (order.get(right) ?? 99))
+      props[propName] = {
+        types: uniqueTypes as unknown as typeof prop.types,
+        required: prop.required,
+        allowedValues: prop.allowedValues === null ? null : [...prop.allowedValues],
+      }
+    }
+    const media = component.media ? { ...component.media } : null
+    if (media) {
+      const source = props[media.sourceProp]
+      if (!source || source.types.length !== 1 || source.types[0] !== 'asset') {
+        throw new Error(`Component "${componentName}" media.sourceProp must name an asset prop.`)
+      }
+      for (const propName of [media.altProp, media.titleProp, media.filenameProp]) {
+        if (propName !== null && !props[propName]?.types.includes('string')) {
+          throw new Error(`Component "${componentName}" media presentation props must name string props.`)
+        }
+      }
+    }
+    components[componentName] = {
+      kind: component.kind,
+      props,
+      slots: normalizedSlots(componentName, component.slots),
+      allowedParents: component.allowedParents === null ? null : unique(component.allowedParents),
+      allowedChildren: component.allowedChildren === null ? null : unique(component.allowedChildren),
+      media,
+    }
+  }
+  const normalized = { version: 2, components } as const
+  assertResolvedComponentPolicyV2(normalized)
+  return normalized
+}
+
+function assertResolvedComponentPolicyV2(policy: PortableComponentPolicyV2): void {
+  for (const [componentName, component] of Object.entries(policy.components)) {
+    for (const relation of [...(component.allowedParents ?? []), ...(component.allowedChildren ?? [])]) {
+      if (!Object.prototype.hasOwnProperty.call(policy.components, relation)) {
+        throw new Error(`Component "${componentName}" nesting references unknown component "${relation}".`)
+      }
+    }
+    for (const [propName, prop] of Object.entries(component.props)) {
+      if (prop.types.length === 0) throw new Error(`Component "${componentName}" property "${propName}" requires a value type.`)
+      if (prop.types.includes('asset') && prop.types.length !== 1) {
+        throw new Error(`Component "${componentName}" asset property "${propName}" cannot be a union.`)
+      }
+      if (prop.types.includes('asset') && prop.allowedValues !== null) {
+        throw new Error(`Component "${componentName}" asset property "${propName}" cannot restrict literal values.`)
+      }
+      if (prop.allowedValues?.length === 0) {
+        throw new Error(`Component "${componentName}" property "${propName}" must use null for unrestricted values.`)
+      }
+      if (prop.allowedValues) {
+        const primitiveTypes = prop.types.filter(type => type === 'string' || type === 'number' || type === 'boolean')
+        for (const type of primitiveTypes) {
+          if (!prop.allowedValues.some(value => typeof value === type)) {
+            throw new Error(`Component "${componentName}" property "${propName}" omits allowed ${type} values.`)
+          }
+        }
+        if (prop.allowedValues.some(value => !primitiveTypes.includes(typeof value as 'string' | 'number' | 'boolean'))) {
+          throw new Error(`Component "${componentName}" property "${propName}" has an allowed value outside its types.`)
+        }
+        const keys = prop.allowedValues.map(value => `${typeof value}:${String(value)}`)
+        if (new Set(keys).size !== keys.length) {
+          throw new Error(`Component "${componentName}" property "${propName}" has duplicate allowed values.`)
+        }
+      }
+    }
+  }
+}
+
 function eventLike(name: string): boolean {
   return /^on/i.test(name)
 }
 
-function unique<T>(values: T[]): T[] {
+function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)]
 }

@@ -1,16 +1,16 @@
 import { assertResolvedContentContract } from '../cms-contract/validate.js'
 import { PORTABLE_CONTENT_LIMITS } from '../cms-contract/limits.js'
 import { canonicalJsonBytes, hashCanonicalJson, sha256Hex, type JsonValue } from '../cms-contract/hash.js'
-import type { ResolvedContentContractV1 } from '../cms-contract/types.js'
+import type { ResolvedContentContract } from '../cms-contract/types.js'
 import { portabilityError } from './errors.js'
 import { validatePortableAssets } from './assets.js'
-import type { PortableAssetBlobV1, PortableDocumentV1, PortableManifestV1 } from './model.js'
+import type { PortableAssetBlobV1, PortableDocumentV1, PortableManifest } from './model.js'
 import { validatePortableReferences } from './references.js'
 import { parsePortableJson } from './json.js'
 
 const manifestKeys = ['format', 'version', 'contract', 'documents', 'assets']
 
-export function serializePortableManifest(manifest: PortableManifestV1): Uint8Array {
+export function serializePortableManifest(manifest: PortableManifest): Uint8Array {
   assertPortableManifest(manifest)
   const canonical = canonicalJsonBytes(manifest as unknown as JsonValue)
   const bytes = new Uint8Array(canonical.length + 1)
@@ -19,7 +19,7 @@ export function serializePortableManifest(manifest: PortableManifestV1): Uint8Ar
   return bytes
 }
 
-export function parsePortableManifest(input: string | Uint8Array): PortableManifestV1 {
+export function parsePortableManifest(input: string | Uint8Array): PortableManifest {
   try {
     const source = typeof input === 'string' ? input : new TextDecoder('utf-8', { fatal: true }).decode(input)
     if (new TextEncoder().encode(source).length > PORTABLE_CONTENT_LIMITS.manifestBytes) throw portabilityError('LIMIT_EXCEEDED', 'portability.parse', 'Portable manifest exceeds 32 MiB.')
@@ -30,8 +30,8 @@ export function parsePortableManifest(input: string | Uint8Array): PortableManif
   }
 }
 
-export function assertPortableManifest(value: unknown): PortableManifestV1 {
-  if (!record(value) || !exact(value, manifestKeys) || value.format !== 'ginko-content-portable' || value.version !== 1 || !record(value.contract) || !exact(value.contract, ['file', 'sha256']) || value.contract.file !== '.ginko/content-contract.json' || !hash(value.contract.sha256) || !Array.isArray(value.documents) || !Array.isArray(value.assets)) throw invalid()
+export function assertPortableManifest(value: unknown): PortableManifest {
+  if (!record(value) || !exact(value, manifestKeys) || value.format !== 'ginko-content-portable' || (value.version !== 1 && value.version !== 2) || !record(value.contract) || !exact(value.contract, ['file', 'sha256']) || value.contract.file !== '.ginko/content-contract.json' || !hash(value.contract.sha256) || !Array.isArray(value.documents) || !Array.isArray(value.assets)) throw invalid()
   let priorDocument = ''
   const identities = new Set<string>()
   for (const document of value.documents) {
@@ -47,14 +47,14 @@ export function assertPortableManifest(value: unknown): PortableManifestV1 {
     priorAsset = asset.sha256
   }
   canonicalJsonBytes(value as JsonValue)
-  return value as unknown as PortableManifestV1
+  return value as unknown as PortableManifest
 }
 
 export async function rebuildPortableManifest(args: {
-  contract: ResolvedContentContractV1
+  contract: ResolvedContentContract
   documents: Array<{ file: string; document: PortableDocumentV1; bytes: Uint8Array }>
   assets: Array<PortableAssetBlobV1 & { content: Uint8Array }>
-}): Promise<PortableManifestV1> {
+}): Promise<PortableManifest> {
   const contract = assertResolvedContentContract(args.contract)
   if (args.documents.length > PORTABLE_CONTENT_LIMITS.documents || args.documents.length + args.assets.length + 2 > PORTABLE_CONTENT_LIMITS.files) throw portabilityError('LIMIT_EXCEEDED', 'portability.rebuildManifest', 'Portable file count exceeds the supported limit.')
   validatePortableReferences(args.documents.map(item => item.document), contract)
@@ -67,7 +67,7 @@ export async function rebuildPortableManifest(args: {
   documents.sort((left, right) => compare(left.identity.collection, right.identity.collection) || compare(left.identity.canonicalKey, right.identity.canonicalKey) || compare(left.identity.locale, right.identity.locale) || compare(left.file, right.file))
   const assets = [...args.assets].sort((left, right) => compare(left.sha256, right.sha256)).map(({ content: _, ...asset }) => asset)
   return assertPortableManifest({
-    format: 'ginko-content-portable', version: 1,
+    format: 'ginko-content-portable', version: contract.version,
     contract: { file: '.ginko/content-contract.json', sha256: await hashCanonicalJson(contract as unknown as JsonValue) },
     documents, assets,
   })

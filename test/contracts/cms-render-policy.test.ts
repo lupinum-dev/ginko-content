@@ -4,8 +4,10 @@ import { renderToString } from 'vue/server-renderer'
 
 import {
   isSafePublicMarkdownUrl,
+  parseMdcBody,
   validatePublicMarkdownAst,
   type PortableComponentPolicyV1,
+  type PortableComponentPolicyV2,
 } from '../../packages/content/src/cms-contract'
 import MarkdownRenderer from '../../packages/content/src/runtime/app/components/internal/MarkdownRenderer'
 import { normalizeComarkNodes } from '../../packages/content/src/core/markdown/normalize-comark'
@@ -382,5 +384,28 @@ describe('canonical public Markdown render policy', () => {
         expect.objectContaining({ code: 'unsafe_url' }),
       ]),
     })
+  })
+
+  it.each([
+    ['V1', { components: { a: { kind: 'inline', props: { href: { type: 'string', required: true } }, slots: ['default'], media: null } } }],
+    ['V2', { version: 2, components: { a: { kind: 'inline', props: { href: { types: ['string'], required: true, allowedValues: null } }, slots: ['default'], allowedParents: null, allowedChildren: null, media: null } } }],
+  ] as const)('rejects unsafe colon and angle/native link collisions in the renderer under %s', async (_version, policy) => {
+    for (const source of [
+      ':a[x]{href="javascript:alert(1)"}',
+      '<a href="javascript:alert(1)">x</a>',
+    ]) {
+      const { body } = await parseMdcBody(source, { autoClose: false })
+      const app = createSSRApp({
+        render: () => h(MarkdownRenderer, {
+          tree: body,
+          renderPolicy: policy as PortableComponentPolicyV1 | PortableComponentPolicyV2,
+          components: { a: { render: () => h('span', 'custom link') } },
+        }),
+      })
+      await expect(renderToString(app)).rejects.toMatchObject({
+        name: 'PublicMarkdownValidationError',
+        issues: expect.arrayContaining([expect.objectContaining({ code: 'unsafe_url' })]),
+      })
+    }
   })
 })

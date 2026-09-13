@@ -62,6 +62,12 @@ export interface PortableManifestV1 {
   assets: PortableAssetBlobV1[]
 }
 
+export interface PortableManifestV2 extends Omit<PortableManifestV1, 'version'> {
+  version: 2
+}
+
+export type PortableManifest = PortableManifestV1 | PortableManifestV2
+
 export interface PortableSemanticModelV1 {
   documents: PortableDocumentV1[]
   assets: PortableAssetBlobV1[]

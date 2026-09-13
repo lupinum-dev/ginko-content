@@ -4,15 +4,23 @@ import { angleComponents } from './angle-components.js'
 
 type ComponentTokenState = {
   src: string
-  tokens: Array<{
-    type: string
-    map: [number, number] | null
-    /**
-     * Markdown parsers declare attribute values as strings. This plugin
-     * deliberately restores the JSON value Comark's converter already accepts.
-     */
-    attrs: Array<[string, unknown]> | null
-  }>
+  Token: new (type: string, tag: string, nesting: number) => ComponentToken
+  tokens: ComponentToken[]
+}
+
+type ComponentToken = {
+  type: string
+  tag: string
+  nesting: number
+  map: [number, number] | null
+  hidden: boolean
+  children: ComponentToken[] | null
+  /**
+   * Markdown parsers declare attribute values as strings. These plugins
+   * deliberately attach JSON values Comark's converter already accepts.
+   */
+  attrs: Array<[string, unknown]> | null
+  attrSet: (name: string, value: unknown) => void
 }
 
 type LegacyPropsInlineState = {
@@ -78,6 +86,55 @@ const typedComponentFrontmatter = defineComarkPlugin(() => ({
   ],
 }))
 
+const componentSyntaxMetadata = defineComarkPlugin(() => ({
+  name: 'ginko-component-syntax-metadata',
+  markdownItPlugins: [
+    (markdown) => {
+      markdown.core.ruler.after('inline', 'ginko_component_syntax_metadata', (state: ComponentTokenState) => {
+        const metadata = (token: ComponentToken, block: 0 | 1) => ({
+          syntax: 'colon',
+          block,
+          sourceName: token.tag,
+        })
+        const annotateInline = (tokens: ComponentToken[]) => {
+          const stack: ComponentToken[] = []
+          for (let index = 0; index < tokens.length; index++) {
+            const token = tokens[index]!
+            if (token.type !== 'mdc_inline_component') continue
+            if (token.nesting === 1) {
+              stack.push(token)
+              continue
+            }
+            if (token.nesting === 0) {
+              if (token.tag === 'input') continue
+              token.attrSet('$', metadata(token, 0))
+              continue
+            }
+            const opening = stack.pop()
+            if (!opening) continue
+            const existingProps = tokens[index + 1]
+            if (existingProps?.type === 'mdc_inline_props') {
+              existingProps.attrSet('$', metadata(opening, 0))
+              continue
+            }
+            const props = new state.Token('mdc_inline_props', 'span', 0)
+            props.hidden = true
+            props.attrSet('$', metadata(opening, 0))
+            tokens.splice(index + 1, 0, props)
+            index++
+          }
+        }
+
+        for (const token of state.tokens) {
+          if (token.type === 'mdc_block_open') token.attrSet('$', metadata(token, 1))
+          if (token.type === 'mdc_block_shorthand') token.attrSet('$', metadata(token, 0))
+          if (token.type === 'inline' && token.children) annotateInline(token.children)
+        }
+      })
+    },
+  ],
+}))
+
 export type ComarkParser = ReturnType<typeof createMarkdownParser>
 
 /** Create one parser for one resolved plugin-profile lifecycle. */
@@ -90,6 +147,7 @@ export const createComarkParser = (
     angleComponents({ autoClose: options.autoClose !== false }),
     legacyCssCustomProps(),
     typedComponentFrontmatter(),
+    componentSyntaxMetadata(),
     ...plugins,
   ],
 })

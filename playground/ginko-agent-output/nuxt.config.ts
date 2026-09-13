@@ -51,6 +51,11 @@ export default defineNuxtConfig({
 
   content: {
     componentPolicy,
+    markdown: {
+      tags: Object.fromEntries(
+        Object.keys(componentPolicy.components).map(name => [name, 'FixtureBlock'])
+      )
+    },
     agent: {
       linkHeaders: true,
       delivery: process.env.GINKO_AGENT_DELIVERY === 'runtime' ? 'runtime' : 'static'

@@ -42,6 +42,138 @@ vi.mock('../../packages/content/src/runtime/utils/content-components', () => ({
 }))
 
 describe('render component contracts', () => {
+  test('requires explicit per-instance selection for authored components', async () => {
+    const MarkdownRenderer = (await import('../../packages/content/src/runtime/app/components/internal/MarkdownRenderer')).default
+    const policy = {
+      version: 2 as const,
+      components: {
+        'host-note': {
+          kind: 'block' as const,
+          props: {},
+          slots: ['default'],
+          allowedParents: null,
+          allowedChildren: null,
+          media: null,
+        },
+      },
+    }
+    const body = {
+      type: 'root' as const,
+      children: [{ type: 'element' as const, tag: 'host-note', props: {}, children: [] }],
+    }
+    const unselected = createSSRApp({
+      render: () => h(MarkdownRenderer, { tree: body, renderPolicy: policy, components: {} }),
+    })
+    unselected.component('HostNote', {
+      render: () => h('p', { 'data-global-leak': 'yes' }, 'Unselected global'),
+    })
+    await expect(renderToString(unselected)).rejects.toMatchObject({
+      name: 'MissingMarkdownComponentError',
+    })
+
+    const selected = createSSRApp({
+      render: () => h(MarkdownRenderer, {
+        tree: body,
+        renderPolicy: policy,
+        components: { 'host-note': 'HostNote' },
+      }),
+    })
+    selected.component('HostNote', {
+      render: () => h('p', { 'data-selected-component': 'yes' }, 'Selected global'),
+    })
+    await expect(renderToString(selected)).resolves.toContain('data-selected-component="yes"')
+  })
+
+  test('preserves authored angle and colon identity while explicit native HTML stays native', async () => {
+    const MarkdownRenderer = (await import('../../packages/content/src/runtime/app/components/internal/MarkdownRenderer')).default
+    const { parseMdcBody } = await import('../../packages/content/src/cms-contract')
+    const policy = {
+      version: 2 as const,
+      components: {
+        a: {
+          kind: 'inline' as const,
+          props: { href: { types: ['string'] as ['string'], required: true, allowedValues: null } },
+          slots: ['default'],
+          allowedParents: null,
+          allowedChildren: null,
+          media: null,
+        },
+      },
+    }
+    const CustomLink = { render: () => h('span', { 'data-custom-link': 'yes' }, 'Custom') }
+    for (const source of [':a[x]{href="/colon"}', '<A href="/angle">x</A>']) {
+      const { body } = await parseMdcBody(source, { autoClose: false })
+      const html = await renderToString(createSSRApp({
+        render: () => h(MarkdownRenderer, {
+          tree: body,
+          renderPolicy: policy,
+          components: { a: CustomLink },
+        }),
+      }))
+      expect(html).toContain('data-custom-link="yes"')
+    }
+
+    const { body: nativeBody } = await parseMdcBody('<a href="/native">native</a>', { autoClose: false })
+    const nativeHtml = await renderToString(createSSRApp({
+      render: () => h(MarkdownRenderer, {
+        tree: nativeBody,
+        renderPolicy: policy,
+        components: { a: CustomLink },
+      }),
+    }))
+    expect(nativeHtml).toContain('<a href="/native">native</a>')
+    expect(nativeHtml).not.toContain('data-custom-link')
+  })
+
+  test('ContentBodyRenderer renders explicit instance-local V2 components and rejects stored identities', async () => {
+    const ContentBodyRenderer = (await import('../../packages/content/src/runtime/app/components/ContentBodyRenderer.vue')).default
+    const LearningObjective = {
+      props: { title: { type: String, required: true } },
+      render: () => h('section', { 'data-learning-objective': 'true' }, 'Host objective'),
+    }
+    const policy = {
+      version: 2 as const,
+      components: {
+        'learning-objective': {
+          kind: 'block' as const,
+          props: { title: { types: ['string'] as ['string'], required: true, allowedValues: null } },
+          slots: ['default'],
+          allowedParents: null,
+          allowedChildren: null,
+          media: null,
+        },
+      },
+    }
+    const body = {
+      type: 'root' as const,
+      children: [{
+        type: 'element' as const,
+        tag: 'learning-objective',
+        props: { title: 'Understand the contract' },
+        children: [],
+      }],
+    }
+    const html = await renderToString(createSSRApp({
+      render: () => h(ContentBodyRenderer, {
+        body,
+        policy,
+        components: { 'learning-objective': LearningObjective },
+      }),
+    }))
+    expect(html).toContain('data-learning-objective="true"')
+
+    await expect(renderToString(createSSRApp({
+      render: () => h(ContentBodyRenderer, {
+        body: {
+          type: 'root',
+          children: [{ type: 'element', tag: 'img', props: { src: 'asset_123' }, children: [] }],
+        },
+        policy,
+        components: {},
+      }),
+    }))).rejects.toMatchObject({ name: 'PublicMarkdownValidationError' })
+  })
+
   test('ContentRendererInline renders the fixed normalized safe baseline', async () => {
     const ContentRendererInline = (await import('../../packages/content/src/runtime/app/components/ContentRendererInline.vue')).default
     const StrongOverride = {
