@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { URL } from 'node:url'
 import { parse } from 'yaml'
 
 const entryExport = './dist/agent/AGENTS.md'
@@ -30,6 +31,16 @@ async function markdownFiles(root, directory = root) {
   return files.sort()
 }
 
+function isCanonicalUrl(value) {
+  if (typeof value !== 'string') return false
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol)
+  }
+  catch {
+    return false
+  }
+}
+
 function pageMetadata(source, path) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(source)
   if (!match) throw new Error(`Generated page has no metadata: ${path}`)
@@ -37,7 +48,7 @@ function pageMetadata(source, path) {
   if (!meta || typeof meta.title !== 'string' || !meta.title.trim()
     || typeof meta.route !== 'string' || !meta.route.startsWith('/') || meta.route.startsWith('//')
     || [...meta.route].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
-    || typeof meta.url !== 'string' || !/^https?:\/\//u.test(meta.url)) {
+    || !isCanonicalUrl(meta.url)) {
     throw new Error(`Generated page requires title, route and canonical URL: ${path}`)
   }
   return { title: meta.title, route: meta.route, url: meta.url }
