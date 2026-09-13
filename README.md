@@ -77,6 +77,8 @@ export default defineNuxtConfig({
 
 ### Use a coding agent
 
+A coding agent is a development tool that can inspect and change your project.
+
 After installation, copy this prompt into your agent:
 
 ```text
