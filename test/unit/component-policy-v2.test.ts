@@ -45,6 +45,39 @@ const element = (tag: string, props: Record<string, unknown> = {}, children: unk
 })
 
 describe('portable component policy v2', () => {
+  it.each([false, true])('keeps siblings outside a self-closing component (autoClose: %s)', async (autoClose) => {
+    const source = '<note />\n\nOutside\n\n<restricted>\nKeep here\n</restricted>'
+    const document = await parseMdcDocument(source, { autoClose })
+    expect(document.nodes.map(node => typeof node === 'string' ? node : node[0])).toEqual(['note', 'p', 'restricted'])
+    expect(document.nodes[0]).toHaveLength(2)
+    const nestingPolicy: PortableComponentPolicyV2 = {
+      version: 2,
+      components: {
+        note: { kind: 'block', props: {}, slots: ['default'], allowedParents: null, allowedChildren: null, media: null },
+        restricted: { kind: 'block', props: {}, slots: ['default'], allowedParents: ['note'], allowedChildren: null, media: null },
+      },
+    }
+    expect(validateStoredPortableMarkdownAst(projectMdcDocument(document).body, nestingPolicy)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'invalid_nesting' })]),
+    })
+    const valid = await parseMdcDocument('<note>\n<restricted>\nKeep here\n</restricted>\n</note>', { autoClose })
+    expect(validateStoredPortableMarkdownAst(projectMdcDocument(valid).body, nestingPolicy)).toMatchObject({ ok: true })
+    const serialized = await serializeMdcDocument(document)
+    expect(projectMdcDocument(await parseMdcDocument(serialized, { autoClose })).body).toEqual(projectMdcDocument(document).body)
+  })
+
+  it('keeps empty nested components separate from their siblings and parent closing tag', async () => {
+    const document = await parseMdcDocument('<panel>\n<note />\n\nBetween\n\n<note />\n</panel>\n\nOutside', { autoClose: false })
+    const projected = projectMdcDocument(document).body
+    expect(projected.children.map(node => node.type === 'element' ? node.tag : node.type)).toEqual(['panel', 'p'])
+    const panel = projected.children[0]
+    expect(panel?.children?.map(node => node.type === 'element' ? node.tag : node.type)).toEqual(['note', 'p', 'note'])
+    expect(panel?.children?.[0]?.children).toEqual([])
+    expect(panel?.children?.[2]?.children).toEqual([])
+    expect(projectMdcDocument(await parseMdcDocument(await serializeMdcDocument(document), { autoClose: false })).body).toEqual(projected)
+  })
+
   it('normalizes only in the builder and keeps strict readers non-mutating', () => {
     const input = structuredClone({
       ...policy,

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep following blocks outside self-closing angle components so nesting checks
+  use the document's actual parent and sibling structure.
 - Preserve edited inline component properties that contain quotes or typed JSON.
   Serialization uses angle syntax when colon syntax cannot represent a value.
 - Generate IDE component metadata from Vue files only, so TypeScript renderer

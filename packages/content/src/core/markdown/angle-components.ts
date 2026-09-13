@@ -662,10 +662,15 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
           }
 
           if (opening.selfClosing) {
-            const token = state.push('mdc_block_open', opening.canonicalName, 0)
+            // Comark consumes this token type until a matching close token;
+            // nesting=0 alone would capture all following sibling blocks.
+            const token = state.push('mdc_block_open', opening.canonicalName, 1)
             token.block = true
             token.map = [startLine, startLine + 1]
             pushProps(token, opening, location)
+            const close = state.push('mdc_block_close', opening.canonicalName, -1)
+            close.block = true
+            close.map = token.map
             state.line = startLine + 1
             return true
           }
