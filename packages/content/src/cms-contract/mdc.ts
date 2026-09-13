@@ -4,14 +4,45 @@
  * the public provider instead of maintaining a second markdown parser.
  */
 
+import { renderMarkdown } from 'comark/render'
+import type { MarkdownDocument } from 'comark'
+import type { RenderMarkdownOptions } from 'comark/render'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
+import { angleComponentRenderer } from '../core/markdown/angle-components.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
-import { parseComark } from '../core/markdown/parse-comark.js'
+import { parseComark, type ParseComarkOptions } from '../core/markdown/parse-comark.js'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree.js'
+
+export type ParseMdcDocumentOptions = ParseComarkOptions
+
+/**
+ * Parse source with Ginko's fixed portable profile without normalizing its
+ * Comark document. Editing adapters use this boundary when comments and
+ * parser-origin metadata must survive conversion.
+ */
+export async function parseMdcDocument(
+  raw: string,
+  options: ParseMdcDocumentOptions = {},
+) {
+  return await parseComark(raw ?? '', options)
+}
+
+/** Serialize an editing document while preserving its authored component syntax. */
+export async function serializeMdcDocument(
+  document: MarkdownDocument,
+  options: RenderMarkdownOptions = {},
+): Promise<string> {
+  return await renderMarkdown(document, {
+    ...options,
+    components: { ...options.components, angle: angleComponentRenderer },
+  })
+}
 
 export interface ParseMdcBodyOptions {
   /** Maximum heading depth captured into `toc`. Default 3. */
   tocDepth?: number
+  /** Complete incomplete component delimiters. Default `true`. */
+  autoClose?: boolean
 }
 
 export interface ParseMdcBodyResult {
@@ -36,7 +67,7 @@ export async function parseMdcBody(
   raw: string,
   options: ParseMdcBodyOptions = {},
 ): Promise<ParseMdcBodyResult> {
-  const tree = await parseComark(raw ?? '')
+  const tree = await parseMdcDocument(raw, { autoClose: options.autoClose })
   const nodes = normalizeComarkNodes(tree.nodes as unknown[])
   const toc = deriveToc(nodes, options)
   const body = toMarkdownRoot(nodes, toc)

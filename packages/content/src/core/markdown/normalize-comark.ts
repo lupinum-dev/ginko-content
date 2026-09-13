@@ -1,4 +1,5 @@
 import type { NormalizedComarkNode } from './tree'
+import { canonicalizePortableComponentName } from './component-name.js'
 
 const GFM_ALERTS = new Set(['note', 'tip', 'important', 'warning', 'caution'])
 const TASK_CHECKBOX_CLASS = 'task-list-item-checkbox'
@@ -29,6 +30,12 @@ export function normalizeComarkNodes(
     }
 
     const props = isRecord(rawProps) ? { ...rawProps } : {}
+    const angle = parseAngleOrigin(props.$)
+    if (angle && tag === 'template') {
+      delete props.$
+    } else if (angle && canonicalizePortableComponentName(angle.sourceName) === tag) {
+      props.$ = { component: 1, block: angle.block }
+    }
     if (
       tag === 'blockquote' &&
       isRecord(props) &&
@@ -113,3 +120,13 @@ const isPresent = (value: NormalizedComarkNode | undefined): value is Normalized
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const parseAngleOrigin = (value: unknown) => {
+  if (!isRecord(value)) return undefined
+  const keys = Object.keys(value).sort()
+  if (
+    keys.length !== 3 || keys[0] !== 'block' || keys[1] !== 'sourceName' || keys[2] !== 'syntax' ||
+    value.syntax !== 'angle' || (value.block !== 0 && value.block !== 1) || typeof value.sourceName !== 'string'
+  ) return undefined
+  return { block: value.block, sourceName: value.sourceName }
+}

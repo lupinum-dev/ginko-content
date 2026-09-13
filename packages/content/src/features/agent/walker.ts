@@ -143,7 +143,9 @@ const renderNode = (node: MarkdownNode, ctx: AgentMarkdownContext): string => {
   if (node.type === 'text') return node.value || ''
 
   const tag = node.tag || ''
-  const serializer = tag ? serializerForTag(tag, ctx) : undefined
+  const metadata = node.props?.$ as Record<string, unknown> | undefined
+  const forceNative = metadata?.html === 1
+  const serializer = tag && !forceNative ? serializerForTag(tag, ctx) : undefined
   if (serializer) {
     const nodeCtx: AgentMarkdownContext = {
       ...ctx,

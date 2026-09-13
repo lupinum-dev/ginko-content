@@ -46,9 +46,12 @@ export function loadContentComponentEntries (
     ? tags[tag] || tags[pascalCase(tag)] || tags[kebabCase(tag)] || tag
     : tag
   const components: Array<[string, unknown]> = []
+  const metadata = node.props?.$ as Record<string, unknown> | undefined
+  const explicitComponent = metadata?.component === 1
+  const explicitHtml = metadata?.html === 1
 
-  if (!HTML_TAGS.has(mappedTag)) {
-    components.push([tag, mappedTag])
+  if (!explicitHtml && (explicitComponent || !HTML_TAGS.has(mappedTag))) {
+    components.push([tag, explicitComponent && HTML_TAGS.has(mappedTag) ? pascalCase(tag) : mappedTag])
   }
 
   for (const child of (node.children || [])) {

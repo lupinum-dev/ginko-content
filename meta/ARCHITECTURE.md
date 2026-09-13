@@ -189,6 +189,26 @@ package contracts enforce this list without a duplicate symbol inventory.
 Public docs must match these exports. Internal runtime, storage, manifest,
 renderer, and provider loader details should stay private unless deliberately promoted.
 
+## Authored Component Syntax
+
+Ginko Content owns the one canonical Comark profile used by filesystem ingest,
+portability, CMS publishing, and editor conversion. New component source uses
+angle tags. Existing colon MDC remains supported and is serialized in its
+original syntax.
+
+Lowercase standard HTML is always native. PascalCase explicitly selects a
+component when a component name collides with HTML, while lowercase
+non-HTML names remain valid component syntax. Parser-origin angle metadata is
+kept only in the raw editing document; normalized public ASTs retain the
+smaller `{ component: 1, block: 0 | 1 }` marker needed to keep component and
+native resolution unambiguous.
+
+Persisted, portable, and publishing input is parsed strictly. Interactive
+parsing may derive an auto-closed tree for editing, but inserted closing tags
+must never be persisted. The Content-owned extension uses Comark's public
+MarkdownIt and serializer hooks; consumers must not preprocess source or keep
+their own component grammar.
+
 ## Extension Rules
 
 When adding a feature:

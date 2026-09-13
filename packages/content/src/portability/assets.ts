@@ -11,8 +11,8 @@ import {
   indexPortableComponentPolicies,
   isStoredPortableAssetIdentity,
 } from '../cms-contract/render-policy.js'
-import { renderMarkdown } from 'comark/render'
 import type { RenderMarkdownOptions } from 'comark/render'
+import { parseMdcDocument, serializeMdcDocument } from '../cms-contract/mdc.js'
 import { portabilityError } from './errors.js'
 import { parsePortableMdc, parseStoredMdc } from './mdc.js'
 import type { JsonObject, PortableAssetBlobV1, PortableAssetReferenceV1, PortableDocumentV1 } from './model.js'
@@ -157,10 +157,11 @@ export async function rewriteStoredMdcAssetReferences(
   policy: PortableComponentPolicyV1,
   rewrite: (identity: string) => string | Promise<string>,
 ): Promise<string> {
-  const ast = await parseStoredMdc(source, policy)
-  await visitStoredMdcAssetSources(ast.nodes, policy, rewrite)
-  const rewritten = await renderMarkdown(
-    { nodes: ast.nodes as never, frontmatter: {}, meta: {} },
+  await parseStoredMdc(source, policy)
+  const document = await parseMdcDocument(source, { autoClose: false })
+  await visitStoredMdcAssetSources(document.nodes as JsonValue[], policy, rewrite)
+  const rewritten = await serializeMdcDocument(
+    document,
     PORTABLE_MDC_RENDER_OPTIONS,
   )
   const normalized = rewritten.replace(/\n+$/g, '')
@@ -173,10 +174,11 @@ async function renderRewrittenPortableMdc(
   policy: PortableComponentPolicyV1,
   rewrite: (reference: PortableMdcAssetReferenceV1) => string,
 ) {
-  const ast = await parsePortableMdc(source, policy)
-  visitMdcAssetSources(ast.nodes, policy, rewrite)
-  const rewritten = await renderMarkdown(
-    { nodes: ast.nodes as never, frontmatter: {}, meta: {} },
+  await parsePortableMdc(source, policy)
+  const document = await parseMdcDocument(source, { autoClose: false })
+  visitMdcAssetSources(document.nodes as JsonValue[], policy, rewrite)
+  const rewritten = await serializeMdcDocument(
+    document,
     PORTABLE_MDC_RENDER_OPTIONS,
   )
   return rewritten.replace(/\n+$/g, '')
@@ -225,7 +227,8 @@ function visitMdcAssetSources(
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
+    const metadata = props.$ && typeof props.$ === 'object' && !Array.isArray(props.$) ? props.$ as JsonObject : {}
+    const sourceProp = mdcAssetSourceProp(node[0], metadata, components)
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string') {
       const reference = portableMdcAssetReference(source)
@@ -244,13 +247,25 @@ async function visitStoredMdcAssetSources(
   for (const node of nodes) {
     if (!Array.isArray(node) || typeof node[0] !== 'string') continue
     const props = node[1] && typeof node[1] === 'object' && !Array.isArray(node[1]) ? node[1] as JsonObject : {}
-    const sourceProp = node[0] === 'img' ? 'src' : components.get(canonicalizePortableComponentName(node[0]))?.media?.sourceProp
+    const metadata = props.$ && typeof props.$ === 'object' && !Array.isArray(props.$) ? props.$ as JsonObject : {}
+    const sourceProp = mdcAssetSourceProp(node[0], metadata, components)
     const source = sourceProp ? props[sourceProp] : undefined
     if (sourceProp && typeof source === 'string' && isStoredPortableAssetIdentity(source)) {
       props[sourceProp] = await rewrite(source)
     }
     await visitStoredMdcAssetSources(node.slice(2) as JsonValue[], policy, rewrite, components)
   }
+}
+
+function mdcAssetSourceProp(
+  tag: string,
+  metadata: JsonObject,
+  components: ReturnType<typeof indexPortableComponentPolicies>,
+): string | undefined {
+  const component = metadata.component === 1 || metadata.syntax === 'angle'
+  if (tag === 'img' && !component) return 'src'
+  if (metadata.html === 1 && metadata.component === undefined) return undefined
+  return components.get(canonicalizePortableComponentName(tag))?.media?.sourceProp
 }
 
 function portableMdcAssetReference(value: string): PortableMdcAssetReferenceV1 | null {
