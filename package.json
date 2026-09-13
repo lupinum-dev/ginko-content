@@ -39,7 +39,7 @@
     "docs-drift": "node scripts/docs-drift.mjs",
     "check:test-selection": "node scripts/check-test-selection.mjs",
     "check:release-workflow": "node scripts/test-release-workflow.mjs && node scripts/test-release-recovery.mjs && node scripts/test-npm-recovery.mjs",
-    "lint": "pnpm run check:repo-policies && pnpm run check:vercel && pnpm run check:test-selection && pnpm run api-docs:check && eslint .",
+    "lint": "node scripts/sync-consumer-onboarding.mjs && pnpm run check:repo-policies && pnpm run check:vercel && pnpm run check:test-selection && pnpm run api-docs:check && eslint .",
     "dev:pack": "node scripts/dev-pack.mjs",
     "release:verify": "node scripts/timed-command.mjs audit:all pnpm audit:all && node scripts/timed-command.mjs verify pnpm verify && node scripts/timed-command.mjs browser-e2e pnpm test:e2e:browser:prepared && node scripts/timed-command.mjs generate pnpm test:generate:static:prepared && node scripts/timed-command.mjs audit:prod pnpm audit:prod && node scripts/timed-command.mjs release:pack pnpm release:pack && node scripts/timed-command.mjs pure-runtimes pnpm test:pure-runtimes && node scripts/timed-command.mjs consumer:pnpm pnpm test:package-consumer && node scripts/timed-command.mjs consumer:npm pnpm test:package-consumer:npm && pnpm release:certify",
     "release:pack": "node scripts/release-pack.mjs",
@@ -77,13 +77,15 @@
     "verify:static": "pnpm check:dependencies && pnpm test:dependencies && pnpm test:consumer-selection && pnpm docs-drift && pnpm lint && pnpm check:release-workflow",
     "verify:core:prepared": "pnpm test:prepared && pnpm typecheck:prepared && pnpm test:quickstart:prepared",
     "verify:core": "pnpm build:packages && pnpm prepare:contracts && pnpm verify:core:prepared",
-    "verify:docs-examples:prepared": "pnpm docs:build && pnpm docs:smoke && pnpm examples:build",
+    "verify:docs-examples:prepared": "pnpm docs:build && pnpm docs:smoke && pnpm docs:package && pnpm examples:build",
     "verify:docs-examples": "pnpm build:packages && pnpm verify:docs-examples:prepared",
     "verify:e2e": "pnpm test:e2e:prepared",
     "verify": "pnpm check:dependencies && pnpm dev:prepare && pnpm verify:static && pnpm verify:docs-examples:prepared && pnpm verify:core:prepared && pnpm verify:e2e",
     "check:dependencies": "node scripts/check-dependency-policy.mjs",
     "test:dependencies": "node scripts/test-dependency-policy.mjs",
-    "test:consumer-selection": "node scripts/test-consumer-selection.mjs"
+    "test:consumer-selection": "node scripts/test-consumer-selection.mjs",
+    "docs:package": "node scripts/build-agent-docs.mjs",
+    "docs:onboarding": "node scripts/sync-consumer-onboarding.mjs --write"
   },
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",

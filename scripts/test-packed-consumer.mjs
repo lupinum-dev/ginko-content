@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
+import { verifyPackageAgentDocs } from './package-agent-docs.mjs'
 
 import { parsePackageManagerVersion } from './release/artifact.mjs'
 import { prepareConsumerPolicy } from './consumer-policy.mjs'
@@ -269,8 +270,11 @@ async function withProductionServer({ cwd, port }, verify) {
   }
 }
 
-function verifyBaseConsumerBuild(appDir) {
+async function verifyBaseConsumerBuild(appDir) {
   assertDeclarations(appDir)
+  const entry = runAndCapture('node', ['--input-type=commonjs', '-e', "process.stdout.write(require.resolve('@lupinum/ginko-content/agent-docs'))"], appDir)
+  const manifest = await verifyPackageAgentDocs(resolve(dirname(entry), '../..'))
+  console.log(`Installed documentation: ${manifest.name}@${manifest.version}, ${manifest.pages.length} verified pages.`)
   run('node', ['scripts/import-public-subpaths.mjs'], appDir)
   packageExec('nuxi', ['prepare'], appDir)
   packageExec('nuxi', ['typecheck'], appDir)
@@ -563,7 +567,7 @@ async function main() {
       throw new Error(`Requested Nuxt ${nuxtVersion}, installed ${installedNuxt}.`)
     }
     console.log(`Packed consumer requested Nuxt ${nuxtVersion}; installed ${installedNuxt}.`)
-    verifyBaseConsumerBuild(appDir)
+    await verifyBaseConsumerBuild(appDir)
     verifyPagefindConsumer(appDir, tempRoot)
     if (!buildOnly) {
       installOptionalMarkdownPeers(appDir)

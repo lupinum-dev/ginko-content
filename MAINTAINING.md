@@ -55,6 +55,25 @@ runtime, types, tests, and documentation in the same focused change.
 Follow [docs/WRITING.md](./docs/WRITING.md). Build the documentation with
 `pnpm docs:build`, and run `pnpm verify` before merge.
 
+## Installed documentation
+
+The package exports `./agent-docs` as a local Markdown entry. Maintain public
+examples in `docs/content/`; Ginko renders them before
+`pnpm docs:package` copies the readable output into `dist/agent`.
+Keep `scripts/package-agent-docs.mjs` aligned with the reviewed Lupinum OSS
+shared implementation. Do not maintain a second consumer instruction source.
+
+The quickstart owns the onboarding prompt. Run `pnpm docs:onboarding` after
+editing its marked block; lint checks the root and package README views.
+Project instructions remain customer-owned. Do not add installation hooks or
+a consumer skill to discover these files.
+
+`pnpm release:pack` builds the website once, then each of its two reproducible
+prepack builds regenerates the installed snapshot. Packing and npm/pnpm
+consumers validate package identity, page hashes, and exported file resolution.
+A direct `pnpm pack` requires a current website build first. Runtime-only
+builds clean `dist`, so regenerate the snapshot after them.
+
 ## Prepare a release
 
 1. Prepare the intended version and changelog draft:

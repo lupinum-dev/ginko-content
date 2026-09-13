@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/ginko-content",
-  "version": "1.0.0-beta.8",
+  "version": "1.0.0-beta.9",
   "description": "Collection-first content engine for Nuxt",
   "homepage": "https://ginko-content.lupinum.com",
   "bugs": {
@@ -131,7 +131,8 @@
       "types": "./dist/runtime/transformers/define.d.ts",
       "import": "./dist/runtime/transformers/define.js",
       "default": "./dist/runtime/transformers/define.js"
-    }
+    },
+    "./agent-docs": "./dist/agent/AGENTS.md"
   },
   "web-types": "./dist/web-types.json",
   "files": [
@@ -142,7 +143,7 @@
   "scripts": {
     "build": "nuxt-module-build build && pnpm build:web-types",
     "build:web-types": "vue-docgen-web-types 'src/runtime/app/components/**/*.vue' ./dist/web-types.json",
-    "prepack": "pnpm run build",
+    "prepack": "pnpm run build && node ../../scripts/build-agent-docs.mjs",
     "prepublishOnly": "node -e \"console.error('Direct source publication is disabled. Publish the inspected CI tarball described in MAINTAINING.md.'); process.exit(1)\""
   },
   "dependencies": {

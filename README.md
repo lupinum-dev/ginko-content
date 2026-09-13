@@ -15,7 +15,7 @@
 </p>
 
 > [!WARNING]
-> Version `1.0.0-beta.8` is a prerelease. Install it from the `next`
+> Version `1.0.0-beta.9` is a prerelease. Install it from the `next`
 > channel. The stable `0.3` line remains on the `latest` channel.
 
 ## Why use Ginko Content?
@@ -57,13 +57,13 @@ contract without changing the application-facing query API.
 Add the beta with the Nuxt CLI:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@1.0.0-beta.8
+npx nuxi module add @lupinum/ginko-content@1.0.0-beta.9
 ```
 
 You can also install and register it by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@1.0.0-beta.8
+pnpm add @lupinum/ginko-content@1.0.0-beta.9
 ```
 
 ```ts
@@ -72,6 +72,31 @@ export default defineNuxtConfig({
   modules: ['@lupinum/ginko-content'],
 })
 ```
+
+<!-- BEGIN:consumer-onboarding -->
+
+### Use a coding agent
+
+After installation, copy this prompt into your agent:
+
+```text
+Add Ginko Content to this Nuxt application and render a Markdown page.
+Read the project's existing instructions first. Resolve
+@lupinum/ginko-content/agent-docs from this application's directory and read
+its starting pages. Use the installed version's examples and public types.
+Preserve existing routes, conventions, and AGENTS.md instructions. Add or
+update one short Ginko Content pointer in AGENTS.md if the project allows it;
+do not duplicate the documentation. If the file is absent, create only that
+pointer. Report missing guidance. Verify the page, links, and a missing route.
+```
+
+If the installed package has no `agent-docs` export, read its packaged README
+and types. Use documentation from the matching source tag when more detail is
+needed. Installing or updating the package does not edit project instructions.
+The pointer resolves the installed package, so upgrades and rollbacks select
+the matching documentation without copying it into your application.
+
+<!-- END:consumer-onboarding -->
 
 ## Quick start
 

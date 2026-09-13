@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifyPackageAgentDocs } from './package-agent-docs.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packageRoot = resolve(repoRoot, 'packages/content')
@@ -57,6 +58,8 @@ function fileManifest(root) {
 
 mkdirSync(outputRoot, { recursive: true })
 run('pnpm', ['run', 'build:packages'])
+run('pnpm', ['run', 'docs:build'])
+run('pnpm', ['run', 'docs:package'])
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), 'ginko-content-dev-pack-'))
 try {
@@ -91,6 +94,7 @@ try {
   const inspectionRoot = resolve(temporaryRoot, 'inspection')
   mkdirSync(inspectionRoot)
   run('tar', ['-xzf', temporaryTarball, '-C', inspectionRoot])
+  await verifyPackageAgentDocs(resolve(inspectionRoot, 'package'), { sourceRoot: resolve(repoRoot, 'docs/.output/public/raw') })
   const packagedManifest = JSON.parse(readFileSync(resolve(inspectionRoot, 'package/package.json'), 'utf8'))
   if (packagedManifest.version !== packageVersion) {
     throw new Error(`Development artifact has version ${packagedManifest.version}, expected ${packageVersion}.`)

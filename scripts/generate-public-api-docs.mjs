@@ -50,6 +50,11 @@ const exportMetadata = {
     purpose: 'Navigation-tree traversal and path helpers',
     guide: ['/docs/guides/navigation', 'Navigation'],
   },
+  './agent-docs': {
+    environment: 'Local Markdown file',
+    purpose: 'Documentation snapshot for the installed package version; resolve and read, do not import',
+    guide: ['/docs/get-started/quickstart#install-use-a-coding-agent', 'Use a coding agent'],
+  },
   './agent': {
     environment: 'Framework-free',
     purpose: 'Agent-readable Markdown serialization and index rendering',
@@ -126,7 +131,7 @@ const rows = exportSubpaths.map((subpath) => {
   const target = manifest.exports[subpath]
   const metadata = exportMetadata[subpath]
   const specifier = subpath === '.' ? manifest.name : `${manifest.name}${subpath.slice(1)}`
-  const types = typeof target === 'string' ? target : target.types
+  const types = subpath === './agent-docs' ? '—' : typeof target === 'string' ? target : target.types
   const [guidePath, guideLabel] = metadata.guide
   return `| \`${specifier}\` | ${metadata.environment} | ${metadata.purpose} | \`${types}\` | [${guideLabel}](${guidePath}) |`
 })
