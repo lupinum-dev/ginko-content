@@ -729,7 +729,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
         }
         if (silent) {
           // Link-label lookahead requires a successful rule to consume input.
-          state.pos = opening.selfClosing ? opening.end : findInlineClose(state, opening)?.closingEnd ?? opening.end
+          state.pos = opening.selfClosing ? opening.end : findInlineClose(state, opening, !options.autoClose)?.closingEnd ?? opening.end
           return true
         }
 
