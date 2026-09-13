@@ -15,7 +15,7 @@
 </p>
 
 > [!WARNING]
-> Version `1.0.0-beta.8` is a prerelease. Install it from npm's `next`
+> Version `1.0.0-beta.9` is a prerelease. Install it from npm's `next`
 > channel. The stable `0.3` line remains on `latest`.
 
 ## Why use this package?
@@ -40,13 +40,13 @@ output.
 Use the Nuxt CLI:
 
 ```bash
-npx nuxi module add @lupinum/ginko-content@1.0.0-beta.8
+npx nuxi module add @lupinum/ginko-content@1.0.0-beta.9
 ```
 
 Or install and register the module by hand:
 
 ```bash
-pnpm add @lupinum/ginko-content@1.0.0-beta.8
+pnpm add @lupinum/ginko-content@1.0.0-beta.9
 ```
 
 ```ts
@@ -57,6 +57,7 @@ export default defineNuxtConfig({
 ```
 
 <!-- BEGIN:consumer-onboarding -->
+
 ### Use a coding agent
 
 After installation, copy this prompt into your agent:
@@ -77,6 +78,7 @@ and types. Use documentation from the matching source tag when more detail is
 needed. Installing or updating the package does not edit project instructions.
 The pointer resolves the installed package, so upgrades and rollbacks select
 the matching documentation without copying it into your application.
+
 <!-- END:consumer-onboarding -->
 
 ## Quick start

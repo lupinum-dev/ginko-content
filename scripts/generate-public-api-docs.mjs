@@ -53,7 +53,7 @@ const exportMetadata = {
   './agent-docs': {
     environment: 'Local Markdown file',
     purpose: 'Documentation snapshot for the installed package version; resolve and read, do not import',
-    guide: ['/docs/get-started/quickstart#use-a-coding-agent', 'Use a coding agent'],
+    guide: ['/docs/get-started/quickstart#install-use-a-coding-agent', 'Use a coding agent'],
   },
   './agent': {
     environment: 'Framework-free',

@@ -1,21 +1,42 @@
 # Changelog
 
-## Unreleased
+## v1.0.0-beta.9
 
-- Preserve colon components whose names match HTML elements during editing and
-  media-reference rewrites.
-- Keep component-like text inside Markdown link titles and attributes literal.
-  Support nested components in link labels.
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.8...v1.0.0-beta.9)
+
+### Features
+
+- Author components with angle syntax, typed JSON props, and named slots. Keep
+  authored syntax through the editing parser and serializer.
+- Add V2 component policies for multiple value types, allowed values, and
+  parent/child constraints. Existing V1 policies remain supported.
+- Export the Vue body renderer at `@lupinum/ginko-content/body-renderer` for
+  consumers that already have a normalized body and an explicit policy.
+- Expose stored media-reference collection and remapping helpers.
+- Ship readable documentation for this exact version through `./agent-docs`.
+  Installation does not edit project instructions or install a skill.
+
+### Fixes
+
+- Preserve native-name colon components, edited values, media identities,
+  named slots, and siblings after self-closing components.
+- Respect Markdown code, links, image titles, attributes, and nested component
+  contexts when finding closing tags.
 - Restore V2 runtime policies with enabled math and Mermaid renderers while
   rejecting modified built-in contracts.
 - Accept V2 contracts and manifests in the filesystem portability exporter.
+- Generate IDE component metadata from Vue files only.
 
-- Keep following blocks outside self-closing angle components so nesting checks
-  use the document's actual parent and sibling structure.
-- Preserve edited inline component properties that contain quotes or typed JSON.
-  Serialization uses angle syntax when colon syntax cannot represent a value.
-- Generate IDE component metadata from Vue files only, so TypeScript renderer
-  helpers no longer cause the web-types generator to fail silently.
+### Adoption
+
+Read the installed `./agent-docs` entry from the application directory. An
+existing project `AGENTS.md` needs only a short package pointer. The pointer
+continues to resolve the matching documentation after upgrades and rollbacks.
+Older packages without the export use their installed README and types.
+
+Use a V2 policy when you need typed unions, allowed values, or component
+nesting restrictions. Keep document records at V1; the resolved contract and
+portable manifest select V2 when the policy requires it.
 
 ## v1.0.0-beta.8
 
