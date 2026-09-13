@@ -13,6 +13,7 @@ import { normalizeComarkNodes } from '../../packages/content/src/core/markdown/n
 import { BUILTIN_MARKDOWN_RENDER_CONTRACTS } from '../../packages/content/src/core/markdown/builtin-render-contracts'
 import { createComarkParser } from '../../packages/content/src/core/markdown/parse-comark'
 import { toMarkdownRoot } from '../../packages/content/src/core/markdown/tree'
+import markdownTransformer from '../../packages/content/src/parsers/markdown'
 import { resolveMarkdownPlugins } from '../../packages/content/src/parsers/markdown-plugins'
 import { parsePortableMdc, serializePortableMdc } from '../../packages/content/src/portability/mdc'
 import MarkdownRenderer from '../../packages/content/src/runtime/app/components/internal/MarkdownRenderer'
@@ -591,11 +592,46 @@ describe('editor angle syntax baseline', () => {
     }
   })
 
+  test.each([
+    '<Alert title="',
+    '<Alert title="unfinished',
+    '<Alert title=',
+    '<Alert :title',
+    '<Alert :',
+    '<Alert /',
+    'Before <Badge title="',
+    'Before <Badge>nested <Inner title="',
+    '<Layout>\n<template #',
+  ])('accepts recoverable incomplete preview input but rejects persistence: %s', async (source) => {
+    await expect(parseMdcDocument(source)).resolves.toBeDefined()
+    await expect(parseMdcDocument(source, { autoClose: false })).rejects.toThrow()
+  })
+
+  test.each([{ plugins: [] }, { plugins: [plugin('toc')] }])('keeps filesystem ingestion strict with plugins $plugins', async ({ plugins }) => {
+    await expect(markdownTransformer.parse!('page.md', '<Alert>\nIncomplete', { plugins })).rejects.toMatchObject({ name: 'AngleComponentSyntaxError' })
+    await expect(markdownTransformer.parse!('page.md', '<Alert title="', { plugins })).rejects.toMatchObject({ name: 'AngleComponentSyntaxError' })
+    await expect(markdownTransformer.parse!('page.md', '<Alert>\nComplete\n</Alert>', { plugins })).resolves.toMatchObject({ type: 'markdown' })
+  })
+
   test.each([250, 500, 1_000, 2_000])('handles %i ordinary paragraphs without per-line context rescans', async (lines) => {
     const body = Array.from({ length: lines }, (_, index) => `ordinary paragraph ${index}`).join('\n\n')
-    const document = await parseMdcDocument(`<Info>\n${body}\n</Info>`, { autoClose: false })
+    let visitedLines = 0
+    const parse = createComarkParser([{
+      name: 'measure-block-work',
+      markdownItPlugins: [(markdown) => {
+        const tokenize = markdown.block.tokenize.bind(markdown.block)
+        markdown.block.tokenize = (state, startLine, endLine) => {
+          visitedLines += endLine - startLine
+          return tokenize(state, startLine, endLine)
+        }
+      }],
+    }], { autoClose: false })
+    const document = await parse(`<Info>\n${body}\n</Info>`)
     expect(document.nodes).toHaveLength(1)
     expect(JSON.stringify(document.nodes)).toContain(`ordinary paragraph ${lines - 1}`)
+    // Count total analyzed ranges: repeated suffix scans preserve the AST but
+    // make this grow quadratically. Leave room for a fixed number of passes.
+    expect(visitedLines).toBeLessThanOrEqual(8 * lines)
   })
 
   test('preserves significant inline whitespace through serialization', async () => {

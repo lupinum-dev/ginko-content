@@ -17,7 +17,7 @@ export const getConfiguredComarkParser = (options: MarkdownOptions): Promise<Com
   if (existing) return existing
 
   const parser = resolveMarkdownPlugins(options.plugins || [])
-    .then(plugins => createComarkParser(plugins))
+    .then(plugins => createComarkParser(plugins, { autoClose: false }))
   configuredParsers.set(options, parser)
   void parser.catch(() => {
     // A setup error belongs to this attempted profile, not to the option

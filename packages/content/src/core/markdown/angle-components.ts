@@ -104,7 +104,7 @@ const syntaxError = (
   throw new AngleComponentSyntaxError(code, message, location)
 }
 
-function parseAngleTag(source: string, offset: number, location: ParseLocation): ParsedTag | undefined {
+function parseAngleTag(source: string, offset: number, location: ParseLocation, strict: boolean): ParsedTag | undefined {
   if (source[offset] !== '<') return undefined
   let cursor = offset + 1
   const closing = source[cursor] === '/'
@@ -140,8 +140,11 @@ function parseAngleTag(source: string, offset: number, location: ParseLocation):
       }
     }
 
+    if (!strict && /^[:/]$/.test(source.slice(cursor))) return undefined
+
     if (name === 'template' && source[cursor] === '#') {
       cursor += 1
+      if (!strict && cursor >= source.length) return undefined
       const slotMatch = /^[A-Z][A-Z0-9_-]*/i.exec(source.slice(cursor))
       if (!slotMatch || slotName) syntaxError('invalid_prop', 'Named slot syntax is malformed.', location)
       slotName = slotMatch![0]
@@ -171,6 +174,7 @@ function parseAngleTag(source: string, offset: number, location: ParseLocation):
     skipWhitespace()
 
     if (source[cursor] !== '=') {
+      if (!strict && cursor >= source.length) return undefined
       if (binding) syntaxError('invalid_binding', `Binding ":${propName}" requires a JSON value.`, location)
       props.push([propName, true])
       continue
@@ -178,12 +182,14 @@ function parseAngleTag(source: string, offset: number, location: ParseLocation):
     cursor += 1
     skipWhitespace()
     const quote = source[cursor]
+    if (!strict && cursor >= source.length) return undefined
     if (quote !== '"' && quote !== "'") {
       syntaxError(binding ? 'invalid_binding' : 'invalid_prop', `Property "${authoredName}" must use a quoted value.`, location)
     }
     cursor += 1
     const valueStart = cursor
     while (cursor < source.length && source[cursor] !== quote) cursor += 1
+    if (!strict && cursor >= source.length) return undefined
     if (cursor >= source.length) syntaxError('invalid_prop', `Property "${authoredName}" has no closing quote.`, location)
     const encodedValue = source.slice(valueStart, cursor)
     cursor += 1
@@ -305,7 +311,7 @@ const parseWholeLineTag = (
   const start = source.search(/\S/)
   if (start < 0) return undefined
   if (!isAngleCandidate(source, start, true)) return undefined
-  const parsed = parseAngleTag(source, start, location)
+  const parsed = parseAngleTag(source, start, location, strict)
   if (!parsed) {
     if (strict) syntaxError('invalid_prop', 'Component tag is incomplete.', location)
     return undefined
@@ -554,6 +560,7 @@ const skipTagLikeConstruct = (source: string, offset: number, end: number): numb
 function findInlineClose(
   state: InlineState,
   opening: ParsedTag,
+  strict: boolean,
 ): { contentEnd: number; closingEnd: number } | undefined {
   const stack = [opening.name]
   let cursor = opening.end
@@ -585,8 +592,11 @@ function findInlineClose(
       continue
     }
     const location = inlineLocation(state, cursor)
-    const tag = parseAngleTag(state.src, cursor, location)
-    if (!tag) return syntaxError('invalid_prop', `Component <${head.name}> is incomplete.`, location)
+    const tag = parseAngleTag(state.src, cursor, location, strict)
+    if (!tag) {
+      if (strict) syntaxError('invalid_prop', `Component <${head.name}> is incomplete.`, location)
+      return undefined
+    }
     if (!tag.closing && !tag.selfClosing) stack.push(tag.name)
     if (tag.closing) {
       const expected = stack[stack.length - 1]
@@ -685,7 +695,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
         const head = isAngleCandidate(state.src, state.pos)
         if (!head) return false
         const location = inlineLocation(state)
-        const opening = parseAngleTag(state.src, state.pos, location)
+        const opening = parseAngleTag(state.src, state.pos, location, !options.autoClose)
         if (!opening) {
           if (!options.autoClose) syntaxError('invalid_prop', `Component <${head.name}> is incomplete.`, location)
           return false
@@ -715,7 +725,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
           return true
         }
 
-        const closing = findInlineClose(state, opening)
+        const closing = findInlineClose(state, opening, !options.autoClose)
         let contentEnd = closing?.contentEnd ?? -1
         let closingEnd = closing?.closingEnd ?? -1
         if (!closing) {
