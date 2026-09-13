@@ -22,6 +22,8 @@
   named slots, and siblings after self-closing components.
 - Respect Markdown code, links, image titles, attributes, and nested component
   contexts when finding closing tags.
+- Keep incomplete quoted props readable in editing previews. Reject incomplete
+  components during content ingestion, including when parser plugins are configured.
 - Restore V2 runtime policies with enabled math and Mermaid renderers while
   rejecting modified built-in contracts.
 - Accept V2 contracts and manifests in the filesystem portability exporter.
