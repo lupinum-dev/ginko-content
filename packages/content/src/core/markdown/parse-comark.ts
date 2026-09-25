@@ -2,6 +2,9 @@ import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'coma
 import type { ComarkPlugin } from 'comark'
 import { angleComponents } from './angle-components.js'
 import { autoCloseMarkdownOutsideCode } from './auto-close.js'
+import { jsonLikeStrings, readsAsJson, restoreStrings } from './json-attribute.js'
+
+export { readsAsJson }
 
 type ComponentTokenState = {
   src: string
@@ -56,72 +59,87 @@ const legacyCssCustomProps = defineComarkPlugin(() => ({
 // A private-use key that authored attributes cannot contain.
 const YAML_STRINGS = '\uE000ginko-yaml-strings'
 
-/**
- * Whether Comark reads an attribute string as JSON. It parses any value that
- * starts with `[` and ends with `]`, or starts with `{` and ends with `}`.
- */
-export const readsAsJson = (value: unknown): boolean => {
-  if (typeof value !== 'string') return false
-  if (!((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']')))) return false
-  try {
-    JSON.parse(value)
-    return true
-  } catch {
-    return false
-  }
+type BlockState = {
+  src: string
+  bMarks: number[]
+  eMarks: number[]
+  tShift: number[]
+  sCount: number[]
+  blkIndent: number
+  line: number
+  env: { comarkBlockTokens?: ComponentToken[] }
+}
+
+// Opening fences of a component property block and their closing fences.
+const PROPERTY_BLOCK_FENCES: Record<string, string> = {
+  '---': '---',
+  '```yaml [props]': '```',
+  '~~~yaml [props]': '~~~',
+  '```yml [props]': '```',
+  '~~~yml [props]': '~~~',
 }
 
 /**
- * Comark currently stringifies component-frontmatter scalar attributes before
- * AST conversion and then treats the string "true" as a Vue binding. Restore
- * the YAML values at the parser-token boundary, where the component token and
- * its exact source span are still available.
+ * Read a block component's property block before Comark's rule does.
+ *
+ * Comark slices the YAML from the source across lines, so inside a blockquote
+ * every line after the first keeps its `>` prefix. It also turns every value
+ * into a string. This rule reads each line after its container prefix and
+ * indentation. A `---` block keeps the YAML types; the code-block form keeps
+ * Comark's string values. A YAML string that Comark would read as JSON, such
+ * as `title: "[1, 2]"`, is kept in a marker and restored after parsing.
  */
 const typedComponentFrontmatter = defineComarkPlugin(() => ({
   name: 'ginko-typed-component-frontmatter',
   markdownItPlugins: [
     (markdown) => {
-      markdown.core.ruler.after('block', 'ginko_typed_component_frontmatter', (state: ComponentTokenState) => {
-        const lines = state.src.split(/\r?\n/)
-
-        for (const token of state.tokens) {
-          if (token.type !== 'mdc_block_open' || !token.map) continue
-
-          const [startLine, endLine] = token.map
-          const fence = lines[startLine + 1]
-          if (fence?.trim() !== '---') continue
-
-          // Nested components are indented; read their YAML without that indentation.
-          const indentation = fence.slice(0, fence.length - fence.trimStart().length)
-          const parsed = parseFrontmatter(lines.slice(startLine + 1, endLine)
-            .map(line => line.startsWith(indentation) ? line.slice(indentation.length) : line)
-            .join('\n'))
-          if (!parsed.frontmatterText) continue
-
-          const yamlEntries = Object.entries(parsed.data)
-          const yamlKeys = new Set(yamlEntries.map(([key]) => key))
-          // Comark later reads every attribute string that starts with `[` or
-          // `{` as JSON. Keep YAML strings such as `title: "[1, 2]"` in a
-          // marker object, whose strings Comark leaves alone, and restore them.
-          const strings = Object.fromEntries(yamlEntries.filter(([, value]) => readsAsJson(value)))
-          token.attrs = [
-            ...(token.attrs ?? []).filter(([key]) => !yamlKeys.has(key) && key !== YAML_STRINGS),
-            ...yamlEntries,
-            ...(Object.keys(strings).length > 0 ? [[YAML_STRINGS, JSON.stringify(strings)] as [string, string]] : []),
-          ]
+      const rule = (state: BlockState, startLine: number, endLine: number, silent: boolean): boolean => {
+        const component = state.env.comarkBlockTokens?.[0]
+        if (!component || state.sCount[startLine]! - state.blkIndent >= 4) return false
+        const indent = state.tShift[startLine]!
+        const line = state.src.slice(state.bMarks[startLine]! + indent, state.eMarks[startLine])
+        const closingFence = PROPERTY_BLOCK_FENCES[line]
+        if (!closingFence) return false
+        // The `---` fence is only valid directly after the component opener.
+        if (line === '---' && (component.map?.[0] === undefined || startLine !== component.map[0] + 1)) return false
+        let lineEnd = startLine + 1
+        // Remove the container prefix (`bMarks`) and the fence indentation.
+        const content = (index: number) => {
+          const text = state.src.slice(state.bMarks[index], state.eMarks[index])
+          return text.slice(Math.min(indent, text.length - text.trimStart().length))
         }
-      })
+        while (lineEnd < endLine && content(lineEnd) !== closingFence) lineEnd += 1
+        if (lineEnd >= endLine) return false
+        if (!silent) {
+          const yaml = Array.from({ length: lineEnd - startLine - 1 }, (_, offset) => content(startLine + 1 + offset)).join('\n')
+          const data = yaml.trim() ? parseFrontmatter(`---\n${yaml}\n---`).data : {}
+          const typed = line === '---'
+          const strings = jsonLikeStrings(Object.entries(data))
+          for (const [key, value] of Object.entries(data)) {
+            const attribute = typed || typeof value === 'string' ? value : JSON.stringify(value)
+            if (key === 'class' && typeof attribute === 'string') {
+              const current = component.attrs?.find(([name]) => name === 'class')?.[1]
+              component.attrSet(key, typeof current === 'string' && current ? `${current} ${attribute}` : attribute)
+            } else {
+              component.attrSet(key, attribute)
+            }
+          }
+          if (Object.keys(strings).length > 0) component.attrSet(YAML_STRINGS, JSON.stringify(strings))
+        }
+        state.line = lineEnd + 1
+        return true
+      }
+      // Comark registers its rule later, after `code`. This rule runs first
+      // and leaves indented code to the `code` rule, as Comark's order does.
+      ;(markdown as unknown as { block: { ruler: { before: (name: string, id: string, fn: typeof rule) => void } } })
+        .block.ruler.before('code', 'ginko_component_property_block', rule)
     },
   ],
   post: ({ tree }) => {
     const restore = (node: unknown): void => {
       if (!Array.isArray(node) || node[0] === null) return
       const { [YAML_STRINGS]: strings, ...props } = (node[1] ?? {}) as Record<string, unknown>
-      if (strings && typeof strings === 'object' && !Array.isArray(strings)) {
-        // Replace the values in place, so the property order stays authored.
-        node[1] = Object.fromEntries(Object.entries(props).map(([key, value]) =>
-          [key, Object.prototype.hasOwnProperty.call(strings, key) ? (strings as Record<string, unknown>)[key] : value]))
-      }
+      if (strings !== undefined) node[1] = restoreStrings(props, strings)
       for (const child of node.slice(2)) restore(child)
     }
     for (const node of tree.nodes) restore(node)

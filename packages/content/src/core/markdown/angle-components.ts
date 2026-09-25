@@ -4,6 +4,7 @@ import type { ConditionalNodeHandler, ElementNode, Node } from 'comark'
 import { canonicalizePortableComponentName } from './component-name.js'
 import { HTML_TAGS } from './html-tags.js'
 import { AngleComponentSyntaxError, type AngleComponentSyntaxIssueCode } from './angle-syntax-error.js'
+import { jsonLikeStrings, restoreStrings } from './json-attribute.js'
 
 // NUL cannot occur in an authored HTML attribute name. It keeps the token-only
 // handoff distinct from document props until the post hook replaces it.
@@ -35,6 +36,11 @@ interface ParsedTagHead {
 interface TokenMarker extends ParseLocation {
   block: 0 | 1
   sourceName: string
+  /**
+   * Property strings that Comark would read as JSON, such as `"[1, 2]"`. A
+   * quoted value is a string, so the post hook restores them.
+   */
+  strings?: Record<string, string>
 }
 
 const NAME = /^[A-Z][A-Z0-9_.-]*/i
@@ -376,10 +382,16 @@ function findBlockClose(
   })
 }
 
+/** The token marker with the property strings that Comark would read as JSON. */
+const withStrings = (marker: TokenMarker, props: ParsedTag['props']): TokenMarker => {
+  const strings = jsonLikeStrings(props)
+  return Object.keys(strings).length > 0 ? { ...marker, strings } : marker
+}
+
 function pushProps(token: AngleToken, parsed: ParsedTag, marker: TokenMarker) {
   for (const [name, value] of parsed.props) token.attrSet(name, value)
   if (parsed.slotName) token.attrSet('name', parsed.slotName)
-  token.attrSet(TOKEN_MARKER, JSON.stringify(marker))
+  token.attrSet(TOKEN_MARKER, JSON.stringify(withStrings(marker, parsed.props)))
 }
 
 const inlineLocation = (state: InlineState, offset = state.pos): ParseLocation => {
@@ -717,7 +729,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
           state.push('mdc_inline_component', opening.canonicalName, 0)
           const props = state.push('mdc_inline_props', '', 0)
           for (const [name, value] of opening.props) props.attrSet(name, value)
-          props.attrSet(TOKEN_MARKER, JSON.stringify(marker))
+          props.attrSet(TOKEN_MARKER, JSON.stringify(withStrings(marker, opening.props)))
           state.pos = opening.end
           return true
         }
@@ -741,7 +753,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
         state.push('mdc_inline_component', opening.canonicalName, -1)
         const props = state.push('mdc_inline_props', '', 0)
         for (const [name, value] of opening.props) props.attrSet(name, value)
-        props.attrSet(TOKEN_MARKER, JSON.stringify(marker))
+        props.attrSet(TOKEN_MARKER, JSON.stringify(withStrings(marker, opening.props)))
         return true
       })
     },
@@ -754,7 +766,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
       const marker = parseTokenMarker(rawMarker)
       if (marker) {
         const { [TOKEN_MARKER]: _tokenMarker, ...props } = node[1]
-        node[1] = props
+        node[1] = restoreStrings(props, marker.strings) as ElementNode[1]
         node[1].$ = { syntax: 'angle', block: marker.block, sourceName: marker.sourceName } as ElementNode[1]['$']
         locations.set(node, marker)
       }
@@ -825,7 +837,10 @@ const parseTokenMarker = (value: unknown): TokenMarker | undefined => {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
   const marker = parsed as Record<string, unknown>
   if (
-    Object.keys(marker).sort().join(',') !== 'block,column,line,openingTag,sourceName' ||
+    Object.keys(marker).filter(key => key !== 'strings').sort().join(',') !== 'block,column,line,openingTag,sourceName' ||
+    (marker.strings !== undefined && (
+      !marker.strings || typeof marker.strings !== 'object' || Array.isArray(marker.strings) ||
+      !Object.values(marker.strings).every(value => typeof value === 'string'))) ||
     (marker.block !== 0 && marker.block !== 1) ||
     typeof marker.sourceName !== 'string' ||
     !Number.isSafeInteger(marker.line) || !Number.isSafeInteger(marker.column) ||
