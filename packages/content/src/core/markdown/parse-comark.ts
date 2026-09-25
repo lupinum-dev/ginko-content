@@ -53,6 +53,24 @@ const legacyCssCustomProps = defineComarkPlugin(() => ({
   ],
 }))
 
+// A private-use key that authored attributes cannot contain.
+const YAML_STRINGS = '\uE000ginko-yaml-strings'
+
+/**
+ * Whether Comark reads an attribute string as JSON. It parses any value that
+ * starts with `[` and ends with `]`, or starts with `{` and ends with `}`.
+ */
+export const readsAsJson = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false
+  if (!((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']')))) return false
+  try {
+    JSON.parse(value)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * Comark currently stringifies component-frontmatter scalar attributes before
  * AST conversion and then treats the string "true" as a Vue binding. Restore
@@ -82,14 +100,32 @@ const typedComponentFrontmatter = defineComarkPlugin(() => ({
 
           const yamlEntries = Object.entries(parsed.data)
           const yamlKeys = new Set(yamlEntries.map(([key]) => key))
+          // Comark later reads every attribute string that starts with `[` or
+          // `{` as JSON. Keep YAML strings such as `title: "[1, 2]"` in a
+          // marker object, whose strings Comark leaves alone, and restore them.
+          const strings = Object.fromEntries(yamlEntries.filter(([, value]) => readsAsJson(value)))
           token.attrs = [
-            ...(token.attrs ?? []).filter(([key]) => !yamlKeys.has(key)),
+            ...(token.attrs ?? []).filter(([key]) => !yamlKeys.has(key) && key !== YAML_STRINGS),
             ...yamlEntries,
+            ...(Object.keys(strings).length > 0 ? [[YAML_STRINGS, JSON.stringify(strings)] as [string, string]] : []),
           ]
         }
       })
     },
   ],
+  post: ({ tree }) => {
+    const restore = (node: unknown): void => {
+      if (!Array.isArray(node) || node[0] === null) return
+      const { [YAML_STRINGS]: strings, ...props } = (node[1] ?? {}) as Record<string, unknown>
+      if (strings && typeof strings === 'object' && !Array.isArray(strings)) {
+        // Replace the values in place, so the property order stays authored.
+        node[1] = Object.fromEntries(Object.entries(props).map(([key, value]) =>
+          [key, Object.prototype.hasOwnProperty.call(strings, key) ? (strings as Record<string, unknown>)[key] : value]))
+      }
+      for (const child of node.slice(2)) restore(child)
+    }
+    for (const node of tree.nodes) restore(node)
+  },
 }))
 
 const componentSyntaxMetadata = defineComarkPlugin(() => ({
