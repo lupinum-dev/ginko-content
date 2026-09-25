@@ -51,6 +51,9 @@
   indentation opens a fence.
 - Skip headings inside fenced code in `extractContentToc()`.
 - Escape text in linear time.
+- Read a component's property block inside blockquotes and list items. Types
+  and multi-line values were lost there, and some blocks failed to parse.
+- Keep link titles such as `"[1]"` as strings through serialization.
 
 ### Changed
 
@@ -65,16 +68,24 @@
   `---` form. Inline components with such props, and such block components
   next to text, switch to angle syntax. Strings such as `"true"` in a YAML
   block stay strings.
-- A quoted YAML property value that looks like JSON, such as
-  `title: "[1, 2]"` in a component's `---` block, stays a string. It was read
-  as an array or object before. Unquoted YAML values and inline attributes
-  such as `{title="[1, 2]"}` still read as JSON.
-- `serializeMdcDocument()` writes a prop string that looks like JSON, such as
-  `"[1, 2]"`, in the `---` YAML block of a block component. Angle block
-  components with such a value switch to colon syntax. Components without
-  origin metadata are written with the same colon rules. Where no syntax keeps
-  the string, such as in an inline component or a native Markdown attribute,
-  it throws `MdcSerializationError`.
+- A quoted component prop that looks like JSON stays a string in site content
+  and in the editor. This applies to YAML property blocks, such as
+  `title: "[1, 2]"` in a `---` or ```` ```yaml [props] ```` block, and to
+  angle syntax, such as `<Card title="[1, 2]">` and `:title='"[1, 2]"'`. It
+  was read as an array or object before. Unquoted YAML values, angle `:`
+  bindings with JSON, and colon attributes such as `{title="[1, 2]"}` still
+  read as JSON.
+- `serializeMdcDocument()` writes such a prop string in the YAML block of a
+  colon block component, or in angle syntax for an inline component.
+  Components without origin metadata use the colon rules. It throws
+  `MdcSerializationError` for a JSON-like string in a native Markdown
+  attribute list, such as `[l](/x){rel="[1]"}`, and for a property name that
+  the chosen syntax cannot write, such as `a b` in angle syntax. Properties
+  whose value is `undefined` are dropped.
+- `serializeMdcDocument()` escapes text that site content would link, such as
+  `a\.com`, `README\.md`, `a@b\.com`, and `/\/host`, so saved text is text in
+  the editor and on the site. Link titles are written in Markdown syntax,
+  `[l](/x "title")`.
 - Mark the `agent`, `agent-registry`, `agent-paths`, `body-renderer`, and
   `testing/*` subpaths as experimental.
 
