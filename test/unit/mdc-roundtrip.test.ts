@@ -143,6 +143,32 @@ describe('serializeMdcDocument heading ids', () => {
   })
 })
 
+describe('parseMdcBody auto-close', () => {
+  it.each([
+    '```md\n::card\n```',
+    '~~~md\n::card\n~~~',
+    '````md\n```\n::card\n```\n````',
+    '- item\n\n  ```md\n  ::card\n  ```',
+    '---\ntitle: "::card"\n---\n\ntext',
+  ])('does not close component markers inside code or frontmatter in %j', async (source) => {
+    const completed = await parseMdcBody(source)
+    const strict = await parseMdcBody(source, { autoClose: false })
+    expect(completed.body).toEqual(strict.body)
+  })
+
+  it('still closes unfinished components outside code', async () => {
+    const { body } = await parseMdcBody('::card\n```md\n::note\n```\nText')
+    expect(body.children).toHaveLength(1)
+    expect(body.children[0]).toMatchObject({ tag: 'card' })
+    expect(body.children[0]!.children!.map(child => child.tag)).toEqual(['pre', 'p'])
+  })
+
+  it('does not complete an escaped trailing brace', async () => {
+    const { body } = await parseMdcBody('::card\nx\n::\n\na \\{')
+    expect(body.children[1]).toEqual({ type: 'element', tag: 'p', props: {}, children: [{ type: 'text', value: 'a {' }] })
+  })
+})
+
 describe('heading ids', () => {
   it.each([
     ['Hello World', 'hello-world'],

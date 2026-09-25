@@ -1,6 +1,7 @@
 import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
 import type { ComarkPlugin, ParserOptions } from 'comark'
 import { angleComponents } from './angle-components.js'
+import { autoCloseMarkdownOutsideCode } from './auto-close.js'
 
 type ComponentTokenState = {
   src: string
@@ -141,16 +142,24 @@ export type ComarkParser = ReturnType<typeof createMarkdownParser>
 export const createComarkParser = (
   plugins: readonly ComarkPlugin[] = [],
   options: Pick<ParserOptions, 'autoClose'> = {},
-) => createMarkdownParser({
-  ...options,
-  plugins: [
-    angleComponents({ autoClose: options.autoClose !== false }),
-    legacyCssCustomProps(),
-    typedComponentFrontmatter(),
-    componentSyntaxMetadata(),
-    ...plugins,
-  ],
-})
+): ComarkParser => {
+  const autoClose = options.autoClose !== false
+  // Comark's own completion ignores code fences. Complete the source here with
+  // a code-aware pass and keep Comark's pass disabled.
+  const parse = createMarkdownParser({
+    autoClose: false,
+    plugins: [
+      angleComponents({ autoClose }),
+      legacyCssCustomProps(),
+      typedComponentFrontmatter(),
+      componentSyntaxMetadata(),
+      ...plugins,
+    ],
+  })
+  return autoClose
+    ? (markdown, parseOptions) => parse(autoCloseMarkdownOutsideCode(markdown), parseOptions)
+    : parse
+}
 
 // CMS, portability, and inline rendering all use this fixed safe profile. A
 // single immutable parser avoids recompiling Comark's default plugin pipeline
