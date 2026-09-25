@@ -1,5 +1,56 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Export CMS-contract helpers that editors used to copy: `slugifyHeading`,
+  `createHeadingIdGenerator`, `headingSlugText`, `isSafePublicLinkUrl`,
+  `isValidPortableComponentName`, `canonicalizePortableComponentName`,
+  `isStoredPortableAssetIdentity`, `PORTABLE_CONTENT_LIMITS`, and
+  `CONTENT_MANAGED_MEDIA_TYPES`.
+- Export Content-owned editing types: `MdcDocument`, `MdcNode`,
+  `MdcElementNode`, `MdcCommentNode`, `MdcElementProps`, and
+  `SerializeMdcDocumentOptions`. Public CMS-contract declarations no longer
+  expose Comark types.
+- Add `assertPortableComponentPolicy()` for the current policy version.
+  `assertPortableComponentPolicyV2()` remains as the version-pinned name.
+- Add `RESOLVED_CONTENT_CONTRACT_VERSION_V1` as the explicit name of
+  `RESOLVED_CONTENT_CONTRACT_VERSION`.
+
+### Fixes
+
+- Escape text that the parser would read as MDC syntax, such as `::card`,
+  `:fire`, `a{.b}`, `#slot`, and table delimiter rows, when serializing.
+  Ordinary colons stay unchanged.
+- Keep custom heading ids through serialization. Write `{#id}` only when the
+  id differs from the generated id.
+- Keep fenced and inline code verbatim, including leading blank lines,
+  indentation, and nested fences.
+- Keep a code block, quote, or table that starts a list item inside the item,
+  also inside components.
+- Keep adjacent lists separate, table-cell text literal, strikethrough
+  formatting, hard breaks, and inline components that follow text.
+- Do not close component markers inside fenced code when completing
+  unfinished delimiters.
+- Make `extractContentToc()` and `parseMdcBody()` ids match rendered heading
+  ids.
+- Stop linking bare domains and email addresses. Accept `http:` links in
+  public and stored bodies; media sources stay HTTPS-only.
+
+### Changed
+
+- `serializeMdcDocument()` options accept `maxInlineAttributes` and
+  `blockAttributesStyle` only.
+- Mark the `agent`, `agent-registry`, `agent-paths`, `body-renderer`, and
+  `testing/*` subpaths as experimental.
+
+### Adoption
+
+Round-trip property tests now cover parse, serialize, and parse for portable
+documents. See the MDC components guide for the remaining whitespace and
+attribute limits.
+
 ## v1.0.0-beta.9
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.8...v1.0.0-beta.9)

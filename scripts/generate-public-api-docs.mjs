@@ -44,6 +44,7 @@ const exportMetadata = {
     environment: 'Vue SSR / browser',
     purpose: 'Validated Markdown body renderer with explicit policy and component selection',
     guide: ['/docs/reference/components', 'Components'],
+    stability: 'Experimental',
   },
   './navigation': {
     environment: 'Framework-free',
@@ -59,16 +60,19 @@ const exportMetadata = {
     environment: 'Framework-free',
     purpose: 'Agent-readable Markdown serialization and index rendering',
     guide: ['/docs/guides/agent-readable-output', 'Agent-readable output'],
+    stability: 'Experimental',
   },
   './agent-registry': {
     environment: 'Build time',
     purpose: 'Agent component-serializer registry definitions',
     guide: ['/docs/guides/agent-readable-output', 'Agent-readable output'],
+    stability: 'Experimental',
   },
   './agent-paths': {
     environment: 'Framework-free',
     purpose: 'Canonical agent and raw-content route paths',
     guide: ['/docs/guides/agent-readable-output', 'Agent-readable output'],
+    stability: 'Experimental',
   },
   './cms-contract': {
     environment: 'Framework-free',
@@ -94,21 +98,25 @@ const exportMetadata = {
     environment: 'Vitest / Node',
     purpose: 'Reusable provider-contract fixture data',
     guide: ['/docs/reference/provider-contract', 'Provider contract'],
+    stability: 'Experimental',
   },
   './testing/provider-contract': {
     environment: 'Vitest / Node',
     purpose: 'Executable provider conformance suite',
     guide: ['/docs/reference/provider-contract', 'Provider contract'],
+    stability: 'Experimental',
   },
   './testing/data-source-contract': {
     environment: 'Vitest / Node',
     purpose: 'Executable data-source and binder conformance suite',
     guide: ['/docs/guides/data-source-adapters#evidence-levels', 'Adapter evidence'],
+    stability: 'Experimental',
   },
   './testing/portability-contract': {
     environment: 'Vitest / Node',
     purpose: 'Executable portable-directory conformance suite',
     guide: ['/docs/guides/data-source-adapters#portable-reads-and-writes', 'Portable reads and writes'],
+    stability: 'Experimental',
   },
   './transformers': {
     environment: 'Build time',
@@ -133,7 +141,8 @@ const rows = exportSubpaths.map((subpath) => {
   const specifier = subpath === '.' ? manifest.name : `${manifest.name}${subpath.slice(1)}`
   const types = subpath === './agent-docs' ? '—' : typeof target === 'string' ? target : target.types
   const [guidePath, guideLabel] = metadata.guide
-  return `| \`${specifier}\` | ${metadata.environment} | ${metadata.purpose} | \`${types}\` | [${guideLabel}](${guidePath}) |`
+  const stability = metadata.stability ?? 'Stable'
+  return `| \`${specifier}\` | ${stability} | ${metadata.environment} | ${metadata.purpose} | \`${types}\` | [${guideLabel}](${guidePath}) |`
 })
 
 const generated = `---
@@ -155,9 +164,40 @@ the adapter interfaces and limits. See the
 
 ## Package subpaths
 
-| Import | Environment | Purpose | Types | Guide |
-| --- | --- | --- | --- | --- |
+A stable subpath follows semver: a breaking change needs a major version, a
+changelog note, and a migration path. An experimental subpath can change in a
+minor version; the changelog records each change.
+
+| Import | Stability | Environment | Purpose | Types | Guide |
+| --- | --- | --- | --- | --- | --- |
 ${rows.join('\n')}
+
+## CMS contract exports
+
+\`@lupinum/ginko-content/cms-contract\` is stable and runs without Node, Nuxt,
+Nitro, or h3. A test follows its module graph and fails on any such import.
+Editors and CMS integrations use these groups:
+
+| Group | Exports |
+| --- | --- |
+| Parse and serialize | \`parseMdcDocument\`, \`serializeMdcDocument\`, \`projectMdcDocument\`, \`parseMdcBody\`, \`AngleComponentSyntaxError\` |
+| Editing document types | \`MdcDocument\`, \`MdcNode\`, \`MdcElementNode\`, \`MdcCommentNode\`, \`MdcElementProps\`, \`ParseMdcDocumentOptions\`, \`SerializeMdcDocumentOptions\`, \`ParseMdcBodyOptions\`, \`ParseMdcBodyResult\` |
+| Heading ids | \`slugifyHeading\`, \`createHeadingIdGenerator\`, \`headingSlugText\` |
+| Body validation | \`validatePublicMarkdownAst\`, \`validateStoredPortableMarkdownAst\`, \`assertPublicMarkdownAst\`, \`classifyPortableMarkdownElement\` |
+| URL and name rules | \`isSafePublicLinkUrl\`, \`isSafePublicMarkdownUrl\`, \`isStoredPortableAssetIdentity\`, \`isValidPortableComponentName\`, \`canonicalizePortableComponentName\` |
+| Component policy | \`assertPortableComponentPolicy\`, \`assertPortableComponentPolicyV2\`, \`PortableComponentPolicy\`, \`PortableComponentPolicyV1\`, \`PortableComponentPolicyV2\` |
+| Limits and media | \`PORTABLE_CONTENT_LIMITS\`, \`CONTENT_MANAGED_MEDIA_TYPES\`, \`ContentManagedMediaType\` |
+| Resolved contract | \`buildResolvedContentContract\`, \`assertResolvedContentContract\`, \`assertResolvedContentContractV1\`, \`assertResolvedContentContractV2\`, \`RESOLVED_CONTENT_CONTRACT_VERSION_V1\`, \`RESOLVED_CONTENT_CONTRACT_VERSION_V2\` |
+
+\`assertPortableComponentPolicy\` validates the current policy version, 2.
+\`assertPortableComponentPolicyV2\` is the same function under a
+version-pinned name. \`RESOLVED_CONTENT_CONTRACT_VERSION\` equals
+\`RESOLVED_CONTENT_CONTRACT_VERSION_V1\`; prefer the explicit name.
+
+\`isSafePublicLinkUrl\` accepts \`https:\`, \`http:\`, \`mailto:\`, \`tel:\`,
+same-site paths, fragments, and \`$\` Content references. Media sources accept
+only \`https:\` and same-site paths. Use the same functions in editor fields and
+server validation.
 `
 
 if (process.argv.includes('--check')) {
