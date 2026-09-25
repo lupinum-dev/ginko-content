@@ -540,6 +540,17 @@ describe('links and images', () => {
     expect(markdown).toBe(expected)
   })
 
+  it.each(['{(', '}{', 'x}', '<Badge', '<!--', '<b>x</b>', 'a\\]', 'a\\b', '{x}', ':fire', '::card', '`a', 'a\nb', 'a\n b', 'a\n', '\n', "\n'", '\n)', '\n:', '\n_', '\n-x', '\n#x', '\n1.5', '\n``', '\n#', '}\n', '\n---'])('keeps image alt text %j before other inline content', async (alt) => {
+    const value = document(paragraph(['img', { src: 'https://a.test/x.png', alt }], ' after'))
+    const markdown = await serializeMdcDocument(value)
+    expect((await parseMdcDocument(markdown, { autoClose: false })).nodes, markdown).toEqual(value.nodes)
+  })
+
+  it('throws a typed error for alt text that ends with a backslash', async () => {
+    await expect(serializeMdcDocument(document(paragraph(['img', { src: 'https://a.test/x.png', alt: 'a\\' }]))))
+      .rejects.toMatchObject({ name: 'MdcSerializationError', code: 'unrepresentable_value' })
+  })
+
   it('wraps a destination with parentheses in angle brackets', async () => {
     const markdown = await roundTrip(document(paragraph(['a', { href: 'https://a.test/x_(y' }, 'l'])))
     expect(markdown).toBe('[l](<https://a.test/x_(y>)')

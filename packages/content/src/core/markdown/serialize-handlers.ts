@@ -1,5 +1,6 @@
 import type { ConditionalNodeHandler, ElementNode, NodeHandler, State } from 'comark'
 import type { MdcEscapeMarkers } from './text-escape.js'
+import { MdcSerializationError } from './serialization-error.js'
 
 /**
  * Serializer handlers that keep code verbatim and list-item blocks attached.
@@ -43,15 +44,31 @@ const hasComponentOrigin = (props: unknown): boolean => {
 const hasHtmlOrigin = (props: unknown): boolean =>
   (props as { $?: { html?: unknown } } | undefined)?.$?.html === 1
 
+// Line starts that open a block or MDC syntax: headings, quotes, list and
+// thematic-break markers, setext underlines, fences, HTML and angle tags,
+// table rows, and component markers.
+const CONTINUATION_BLOCK_START = /^[ \t]*(?:#{1,6}(?:[ \t]|$)|>|[*+-](?:[ \t]|$)|(?:[*_-][ \t]*){3,}$|=+[ \t]*$|-+[ \t]*$|`{3}|~{3}|<[a-z!?/]|\d{1,9}[.)](?:[ \t]|$)|::)/i
+
 /** Whether alt text can be written verbatim between `![` and `]`. */
 const isRawLabel = (text: string): boolean => {
-  if (/[\r\n]|\\$|\\[[\]]/.test(text)) return false
+  // `<Badge` or `<!--` in a label would open an angle tag or a comment.
+  if (/\r|\\$|\\[[\]]|<[a-z!?/]/i.test(text)) return false
+  // A label may continue on lines that cannot start a block. A blank line
+  // ends the paragraph, except at the end, where `](` follows on that line.
+  const lines = text.split('\n')
+  if (lines.slice(1).some((line, index) => index < lines.length - 2
+    ? !line.trim() || CONTINUATION_BLOCK_START.test(line)
+    : CONTINUATION_BLOCK_START.test(`${line}](`))) return false
+  // An unclosed `{` would open an attribute list that runs past the label.
   let depth = 0
+  let braces = 0
   for (const char of text) {
     if (char === '[') depth++
     if (char === ']' && --depth < 0) return false
+    if (char === '{') braces++
+    if (char === '}' && braces > 0) braces--
   }
-  return depth === 0
+  return depth === 0 && braces === 0
 }
 const INLINE_TAGS = new Set(['a', 'br', 'code', 'del', 'em', 'img', 'input', 'span', 'strong'])
 
@@ -235,8 +252,11 @@ export function createVerbatimHandlers(marker: string, markers: MdcEscapeMarkers
       .split(hrefPlaceholder).join(typeof src === 'string' ? destination(src) : '')
     if (typeof alt !== 'string' || label) return rendered
     const quote = ['"', "'", '`'].find(candidate => !alt.includes(candidate))
-    // Attribute values do not unescape, so a backslash could escape the quote.
-    if (!quote || /[\r\n\\]/.test(alt)) return rendered
+    // Attribute values keep backslashes, but one before the closing quote
+    // escapes it. A label cannot end with a backslash either.
+    if (!quote || /[\r\n]/.test(alt) || alt.endsWith('\\')) {
+      throw new MdcSerializationError('unrepresentable_value', 'Image alt text has no Markdown form that keeps it unchanged.', [])
+    }
     const attribute = `alt=${quote}${alt}${quote}`
     return Object.keys(rest).length > 0 && rendered.endsWith('}')
       ? `${rendered.slice(0, -1)} ${attribute}}`
