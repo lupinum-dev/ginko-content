@@ -54,6 +54,10 @@
 - Read a component's property block inside blockquotes and list items. Types
   and multi-line values were lost there, and some blocks failed to parse.
 - Keep link titles such as `"[1]"` as strings through serialization.
+- Keep image alt text with an unclosed `{`, an angle tag such as `<Badge`, a
+  backslash, or a line break through serialization. Alt text that no syntax
+  keeps, such as text ending with `\`, throws `MdcSerializationError`. It
+  was dropped or turned the image into a link before.
 
 ### Changed
 
