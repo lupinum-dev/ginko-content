@@ -180,8 +180,8 @@ Editors and CMS integrations use these groups:
 
 | Group | Exports |
 | --- | --- |
-| Parse and serialize | \`parseMdcDocument\`, \`serializeMdcDocument\`, \`projectMdcDocument\`, \`parseMdcBody\`, \`AngleComponentSyntaxError\` |
-| Editing document types | \`MdcDocument\`, \`MdcNode\`, \`MdcElementNode\`, \`MdcCommentNode\`, \`MdcElementProps\`, \`ParseMdcDocumentOptions\`, \`SerializeMdcDocumentOptions\`, \`ParseMdcBodyOptions\`, \`ParseMdcBodyResult\` |
+| Parse and serialize | \`parseMdcDocument\`, \`serializeMdcDocument\`, \`projectMdcDocument\`, \`parseMdcBody\`, \`AngleComponentSyntaxError\`, \`MdcSerializationError\` |
+| Editing document types | \`MdcDocument\`, \`MdcNode\`, \`MdcElementNode\`, \`MdcCommentNode\`, \`MdcElementProps\`, \`MdcSerializationIssueCode\`, \`ParseMdcDocumentOptions\`, \`SerializeMdcDocumentOptions\`, \`ParseMdcBodyOptions\`, \`ParseMdcBodyResult\` |
 | Heading ids | \`slugifyHeading\`, \`createHeadingIdGenerator\`, \`headingSlugText\` |
 | Body validation | \`validatePublicMarkdownAst\`, \`validateStoredPortableMarkdownAst\`, \`assertPublicMarkdownAst\`, \`classifyPortableMarkdownElement\` |
 | URL and name rules | \`isSafePublicLinkUrl\`, \`isSafePublicMarkdownUrl\`, \`isStoredPortableAssetIdentity\`, \`isValidPortableComponentName\`, \`canonicalizePortableComponentName\` |

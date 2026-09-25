@@ -35,13 +35,38 @@
   unfinished delimiters.
 - Make `extractContentToc()` and `parseMdcBody()` ids match rendered heading
   ids.
-- Stop linking bare domains and email addresses. Accept `http:` links in
-  public and stored bodies; media sources stay HTTPS-only.
+- Stop linking bare domains, email addresses, `//host` URLs, and `ftp:` URLs
+  in `parseMdcDocument()`, `parseMdcBody()`, and portable import. Site content
+  keeps the default link recognition. Accept `http:` links in public and
+  stored bodies; media sources stay HTTPS-only.
+- Reject `http:` and `https:` hrefs that are not written as `scheme://host`,
+  such as `http:evil.com` and `http:///evil.com`.
+- Keep component prop values exactly through serialization: quotes, line
+  breaks, and number, boolean, null, array, and object values. A value can no
+  longer end its attribute or add a prop or a line.
+- Keep URL-like text, image alt text, link destinations with spaces, heading
+  line breaks, and delimiter rows in table cells through serialization.
+- Close a fenced code block that is open at the end before appending
+  component closers during completion. Only a fence with up to three spaces of
+  indentation opens a fence.
+- Skip headings inside fenced code in `extractContentToc()`.
+- Escape text in linear time.
 
 ### Changed
 
 - `serializeMdcDocument()` options accept `maxInlineAttributes` and
   `blockAttributesStyle` only.
+- `parseMdcDocument()` returns Content's `MdcDocument` type instead of
+  Comark's `MarkdownDocument`.
+- `serializeMdcDocument()` writes some documents differently. Thematic breaks
+  are `***`, heading line breaks are `<br>`, and URL-like text is escaped as
+  `https\://a.com`. Colon block components write typed props, and strings
+  with `"`, `\`, or line breaks, in a YAML block. Typed props always use the
+  `---` form. Inline components with such props, and such block components
+  next to text, switch to angle syntax. Strings such as `"true"` in a YAML
+  block stay strings.
+- `serializeMdcDocument()` throws `MdcSerializationError` when no syntax can
+  hold a value, such as a prop string that the parser reads as JSON.
 - Mark the `agent`, `agent-registry`, `agent-paths`, `body-renderer`, and
   `testing/*` subpaths as experimental.
 
@@ -50,6 +75,9 @@
 Round-trip property tests now cover parse, serialize, and parse for portable
 documents. See the MDC components guide for the remaining whitespace and
 attribute limits.
+
+Headings without ASCII letters or digits, such as `## 日本語`, get an empty
+id. Add an explicit `{#id}` when such a heading needs an anchor.
 
 ## v1.0.0-beta.9
 
