@@ -1,5 +1,5 @@
 import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
-import type { ComarkPlugin, ParserOptions } from 'comark'
+import type { ComarkPlugin } from 'comark'
 import { angleComponents } from './angle-components.js'
 import { autoCloseMarkdownOutsideCode } from './auto-close.js'
 
@@ -137,26 +137,42 @@ const componentSyntaxMetadata = defineComarkPlugin(() => ({
 }))
 
 /**
- * Link only URLs with an explicit scheme, such as `https://example.com`. Bare
- * domains and email addresses stay text, so source such as `see a.com` keeps
- * its meaning through editing and does not become an unintended `http:` link.
+ * The portable profile links only URLs with an explicit `http:`, `https:`, or
+ * `mailto:` scheme. Bare domains, email addresses, IP addresses,
+ * protocol-relative `//host` URLs, and `ftp:` URLs stay text, so editable
+ * source keeps its meaning and never becomes a link that validation rejects.
+ * Site content keeps Comark's default link recognition.
  */
 const explicitLinkify = defineComarkPlugin(() => ({
   name: 'ginko-explicit-linkify',
   markdownItPlugins: [
     (markdown) => {
-      (markdown as unknown as { linkify: { set: (options: Record<string, boolean>) => void } })
-        .linkify.set({ fuzzyLink: false, fuzzyEmail: false, fuzzyIP: false })
+      const linkify = (markdown as unknown as {
+        linkify: {
+          set: (options: Record<string, boolean>) => unknown
+          add: (schema: string, definition: null) => unknown
+        }
+      }).linkify
+      linkify.set({ fuzzyLink: false, fuzzyEmail: false, fuzzyIP: false })
+      linkify.add('//', null)
+      linkify.add('ftp:', null)
     },
   ],
 }))
 
 export type ComarkParser = ReturnType<typeof createMarkdownParser>
 
+export interface ComarkParserOptions {
+  /** Complete incomplete Markdown and component delimiters. Default `true`. */
+  autoClose?: boolean
+  /** Use the portable CMS-contract link recognition. Default `false`. */
+  portable?: boolean
+}
+
 /** Create one parser for one resolved plugin-profile lifecycle. */
 export const createComarkParser = (
   plugins: readonly ComarkPlugin[] = [],
-  options: Pick<ParserOptions, 'autoClose'> = {},
+  options: ComarkParserOptions = {},
 ): ComarkParser => {
   const autoClose = options.autoClose !== false
   // Comark's own completion ignores code fences. Complete the source here with
@@ -165,7 +181,7 @@ export const createComarkParser = (
     autoClose: false,
     plugins: [
       angleComponents({ autoClose }),
-      explicitLinkify(),
+      ...(options.portable ? [explicitLinkify()] : []),
       legacyCssCustomProps(),
       typedComponentFrontmatter(),
       componentSyntaxMetadata(),
@@ -177,19 +193,27 @@ export const createComarkParser = (
     : parse
 }
 
-// CMS, portability, and inline rendering all use this fixed safe profile. A
-// single immutable parser avoids recompiling Comark's default plugin pipeline
-// for every document without introducing a mutable process-wide profile.
-const baselineComarkParser = createComarkParser()
-const strictBaselineComarkParser = createComarkParser([], { autoClose: false })
-
-export interface ParseComarkOptions {
-  /** Complete incomplete Markdown and component delimiters. Default `true`. */
-  autoClose?: boolean
+// Baseline parsers are immutable, so one instance per profile avoids
+// recompiling Comark's plugin pipeline for every document without a mutable
+// process-wide profile. The portable profile serves CMS and portability
+// boundaries; the site profile serves filesystem and inline rendering.
+const parsers = {
+  site: createComarkParser(),
+  siteStrict: createComarkParser([], { autoClose: false }),
+  portable: createComarkParser([], { portable: true }),
+  portableStrict: createComarkParser([], { autoClose: false, portable: true }),
 }
+
+export type ParseComarkOptions = ComarkParserOptions
 
 /** The fixed-profile Comark entry point used by baseline parsing boundaries. */
 export const parseComark = async (
   markdown: string,
   options: ParseComarkOptions = {},
-) => await (options.autoClose === false ? strictBaselineComarkParser : baselineComarkParser)(markdown)
+) => {
+  const strict = options.autoClose === false
+  const parser = options.portable
+    ? strict ? parsers.portableStrict : parsers.portable
+    : strict ? parsers.siteStrict : parsers.site
+  return await parser(markdown)
+}

@@ -75,7 +75,7 @@ export async function parseMdcDocument(
   raw: string,
   options: ParseMdcDocumentOptions = {},
 ): Promise<MdcDocument> {
-  return await parseComark(raw ?? '', options) as MdcDocument
+  return await parseComark(raw ?? '', { autoClose: options.autoClose, portable: true }) as MdcDocument
 }
 
 /**
