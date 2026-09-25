@@ -374,11 +374,12 @@ describe('canonical public Markdown render policy', () => {
     for (const href of ['http://a.De', 'http://example.test/path?q=1#x', 'https://example.test', 'mailto:a@b.test', 'tel:+431', '/docs', '#top', '$docs/intro']) {
       expect(isSafePublicLinkUrl(href), href).toBe(true)
     }
-    for (const href of ['javascript:alert(1)', 'data:text/html,x', 'vbscript:x', 'file:///etc/passwd', '//evil.test', 'http://user:pass@example.test', 'https:\\evil.test', 'ftp://example.test']) {
+    for (const href of ['javascript:alert(1)', 'data:text/html,x', 'vbscript:x', 'file:///etc/passwd', '//evil.test', 'http://user:pass@example.test', 'https:\\evil.test', 'ftp://example.test', 'http:evil.test', 'http:/evil.test', 'http:///evil.test', 'https:evil.test', 'http:javascript:alert(1)']) {
       expect(isSafePublicLinkUrl(href), href).toBe(false)
     }
     expect(validatePublicMarkdownAst(root(element('a', { href: 'http://a.De' })))).toMatchObject({ ok: true })
     expect(validatePublicMarkdownAst(root(element('img', { src: 'http://a.De/x.png', alt: '' })))).toMatchObject({ ok: false })
+    expect(isSafePublicMarkdownUrl('https:evil.test/x.png', 'asset')).toBe(false)
   })
 
   it('fails closed before an unsafe AST reaches Vue SSR', async () => {

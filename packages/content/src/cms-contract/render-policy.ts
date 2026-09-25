@@ -230,6 +230,9 @@ export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 
     }
     const url = new URL(input)
     if (url.username || url.password) return false
+    // The URL parser normalizes `http:evil.com` and `http:///evil.com` to a
+    // host. Accept only the written form `scheme://host`.
+    if ((url.protocol === 'https:' || url.protocol === 'http:') && !/^https?:\/\/[^/\\]/i.test(input)) return false
     if (url.protocol === 'https:') return true
     // Plain HTTP is common for links and cannot run script. Media stays
     // HTTPS-only to avoid mixed content.
