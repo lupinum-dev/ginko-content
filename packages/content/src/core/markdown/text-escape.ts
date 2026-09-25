@@ -34,7 +34,55 @@ const COMPONENT_NAME_START = /[A-Z$]/i
 const TAG_START = /[A-Z!?/]/i
 const ENTITY = /&#?[A-Z0-9]+;/iy
 // Schemes that the parser links in plain text. Bare domains are not linked.
-const LINKED_SCHEME = /(?:^|[^A-Z0-9])(?:https?|mailto)$/i
+// `ftp:` is linked by the site parser only; the escape keeps both readings text.
+const LINKED_SCHEME = /(?:^|[^A-Z0-9])(?:https?|mailto|ftp)$/i
+// Top-level domains that site link recognition (linkify-it) accepts in a bare
+// domain or email address: its default names, IDN names, and country codes.
+// Copied from linkify-it 5 (`tlds_default` and `tlds_2ch_src_re`) to match
+// its source exactly.
+const LINKIFY_TLD_NAMES = 'biz|com|edu|gov|net|org|pro|web|xxx|aero|asia|coop|info|museum|name|shop|рф'
+const LINKIFY_COUNTRY_CODES = 'a[cdefgilmnoqrstuwxz]|b[abdefghijmnorstvwyz]|c[acdfghiklmnoruvwxyz]|d[ejkmoz]|e[cegrstu]|f[ijkmor]|g[abdefghilmnpqrstuwy]|h[kmnrtu]|i[delmnoqrst]|j[emop]|k[eghimnprwyz]|l[abcikrstuvy]|m[acdeghklmnopqrstuvwxyz]|n[acefgilopruz]|om|p[aefghklmnrstwy]|qa|r[eosuw]|s[abcdeghijklmnortuvxyz]|t[cdfghjklmnortvwz]|u[agksyz]|v[aceginu]|w[fs]|y[et]|z[amw]'
+// eslint-disable-next-line regexp/prefer-range -- keep the linkify-it source text comparable
+const LINKIFY_TLD = new RegExp(`(?:${LINKIFY_TLD_NAMES}|xn--[a-z0-9-]{1,59}|${LINKIFY_COUNTRY_CODES})(?![\\p{L}\\p{N}-])`, 'iuy')
+const HOST_CHARACTER = /[\p{L}\p{N}-]/u
+
+/**
+ * Offsets to escape in text that site content would link, such as the dot of
+ * `a.com`, `README.md`, and `a@b.com`, and the second slash of `//host`. The
+ * portable parser keeps such text as text; one escape keeps both readings
+ * text. A run with an escaped scheme, such as `https\://a.com`, is text
+ * already.
+ */
+const bareLinkDots = (text: string): number[] => {
+  const dots: number[] = []
+  let runStart = 0
+  let schemeRun = false
+  for (let offset = 0; offset < text.length; offset++) {
+    const char = text[offset]!
+    if (/\s/.test(char)) {
+      runStart = offset + 1
+      schemeRun = false
+      continue
+    }
+    if (char === ':' && LINKED_SCHEME.test(text.slice(Math.max(runStart, offset - 7), offset))) schemeRun = true
+    if (schemeRun) continue
+    // A protocol-relative `//host` needs no top-level domain. Link recognition
+    // accepts it after a boundary that is not a word, `.`, `:`, `/`, `-`,
+    // `_`, `@`, or `\` character.
+    if (
+      char === '/' && text[offset - 1] === '/' && HOST_CHARACTER.test(text[offset + 1] ?? '') &&
+      !/[\p{L}\p{N}.:/\\_@-]/u.test(text[offset - 2] ?? ' ')
+    ) {
+      dots.push(offset)
+      schemeRun = true
+      continue
+    }
+    if (char !== '.' || !HOST_CHARACTER.test(text[offset - 1] ?? '')) continue
+    LINKIFY_TLD.lastIndex = offset + 1
+    if (LINKIFY_TLD.test(text)) dots.push(offset)
+  }
+  return dots
+}
 
 /** A line that could complete a GFM table under the previous text line. */
 const isTableDelimiterRow = (line: string) => /^[|:-][|:\- \t]*$/.test(line) && line.includes('-')
@@ -186,8 +234,9 @@ const isRawHtmlBlock = (props: unknown): boolean => {
  * Mermaid, comments, and raw HTML block text stay verbatim.
  */
 export function markMdcTreeEscapes(nodes: unknown[], markers: MdcEscapeMarkers): void {
-  const visit = (node: unknown[], inHeading: boolean) => {
+  const visit = (node: unknown[], inHeading: boolean, inLink = false) => {
     const tag = node[0]
+    const link = inLink || tag === 'a'
     if (tag === null || (typeof tag === 'string' && LITERAL_TAGS.has(tag))) return
     const verbatimText = isRawHtmlBlock(node[1])
     const rawContext = tag === 'th' || tag === 'td'
@@ -211,9 +260,9 @@ export function markMdcTreeEscapes(nodes: unknown[], markers: MdcEscapeMarkers):
         // `!` before a link would turn the link into an image.
         const next = node[index + 1]
         const beforeLink = Array.isArray(next) && (next[0] === 'a' || next[0] === 'span') && text.endsWith('!')
-        node[index] = markTextNode(text, markers, { rawContext, heading, last: heading && !inHeading && index === node.length - 1, beforeLink })
+        node[index] = markTextNode(text, markers, { rawContext, heading, last: heading && !inHeading && index === node.length - 1, beforeLink, inLink: link })
       } else if (Array.isArray(child)) {
-        visit(child, heading)
+        visit(child, heading, link)
       }
     }
   }
@@ -232,7 +281,8 @@ const isBlank = (char: string | undefined) => char === ' ' || char === '\t'
  * blank of a long run, which is quadratic.
  */
 const joinLines = (text: string, separator: string): string => {
-  const lines = text.split('\n')
+  // Markdown reads `\r\n` and a lone `\r` as line breaks too.
+  const lines = text.split(/\r\n?|\n/)
   if (lines.length === 1) return text
   return lines.map((line, index) => {
     let start = 0
@@ -246,7 +296,7 @@ const joinLines = (text: string, separator: string): string => {
 const markTextNode = (
   value: string,
   markers: MdcEscapeMarkers,
-  context: { rawContext?: boolean, heading?: boolean, last?: boolean, beforeLink?: boolean },
+  context: { rawContext?: boolean, heading?: boolean, last?: boolean, beforeLink?: boolean, inLink?: boolean },
 ): string => {
   // Trailing spaces before a line break would form a hard break. An ATX
   // heading and a table cell are one line. These whitespace changes do not
@@ -255,6 +305,8 @@ const markTextNode = (
   const text = joinLines(value, context.heading || context.rawContext ? ' ' : '\n')
   const forced = new Set(context.last ? closingHeadingSequence(text) : undefined)
   if (context.beforeLink && text.endsWith('!')) forced.add(text.length - 1)
+  // Link recognition does not run inside link text.
+  if (!context.inLink) for (const dot of bareLinkDots(text)) forced.add(dot)
   return markMdcTextEscapes(text, markers, context.rawContext, forced)
 }
 

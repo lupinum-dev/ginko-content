@@ -10,6 +10,7 @@ import {
 } from '../../packages/content/src/cms-contract'
 import type { MarkdownNode } from '../../packages/content/src/types/content'
 import { extractMarkdownText } from '../../packages/content/src/core/markdown/tree'
+import { parseComark } from '../../packages/content/src/core/markdown/parse-comark'
 
 // Seeded generator: a failure prints its seed and reproduces exactly. Set
 // MDC_ROUNDTRIP_SEEDS to search more seeds locally.
@@ -70,7 +71,10 @@ const generateSource = (random: Random): string => {
         ? `::card{title="${random.pick(['x', 'a b', 'Note: y'])}"}\n${inlineText(random)}\n::`
         : `::card\n---\n${random.pick(['count: 3', 'open: true', 'value: null', 'items: [1, a]', 'opts: {a: 1}', 'title: "3"', 'title: "[1, 2]"', "title: '{}'", 'title: "true"'])}\n---\n${inlineText(random)}\n::`); break
       case 6: blocks.push(`::card\n${inlineText(random)}\n#footer\n${inlineText(random)}\n::`); break
-      case 7: blocks.push(`> ${inlineText(random)}`); break
+      case 7: blocks.push(random.next() < 0.5
+        ? `> ${inlineText(random)}`
+        : `${random.pick(['> ', '- ', '> - ', '> > '])}::card\n${random.pick(['---\ncount: 3\ntitle: "[1]"\n---', '```yaml [props]\ntitle: \'{}\'\nn: 2\n```'])}\n${inlineText(random)}\n::`
+          .split('\n').map((line, index, lines) => index === 0 ? line : `${lines[0]!.startsWith('- ') ? '  ' : lines[0]!.replace(/::card$/, '').replace(/- $/, '  ')}${line}`).join('\n')); break
       case 8: blocks.push(`${inlineText(random)} \`${inlineText(random, 2).replace(/`/g, '')}\` ${inlineText(random)}`); break
       default: blocks.push(`${inlineText(random)}\n${inlineText(random)}`)
     }
@@ -87,10 +91,14 @@ const generateDocument = (random: Random): MdcDocument => {
     if (random.next() < 0.4) children.push(' ', [random.pick(['strong', 'em']), {}, text(2)], ` ${text(2)}`)
     return children
   }
+  const card = (): MdcNode => ['card', {
+    ...random.pick<Record<string, unknown>>([{}, { count: 3 }, { open: true }, { value: null }, { items: [1, 'a'] }, { opts: { a: 1 } }, { title: 'x' }, { title: randomPropString(random) }, { title: 'C:\\path', icon: 'x' }, { a: 'x', b: 'y', c: 'z', d: 'w' }]),
+    $: { syntax: 'colon', block: 1, sourceName: 'card' },
+  }, ...inline()]
   const nodes: MdcNode[] = []
   const count = 1 + random.int(4)
   for (let index = 0; index < count; index++) {
-    switch (random.int(5)) {
+    switch (random.int(6)) {
       // Editors keep the id they read; a distinct id must survive serialization.
       case 0: nodes.push([`h${2 + random.int(3)}`, { id: `h${index}-${random.int(9)}` }, text()]); break
       case 1: nodes.push(['ul', {}, ['li', {}, ...inline()], ['li', {}, text()]]); break
@@ -99,7 +107,17 @@ const generateDocument = (random: Random): MdcDocument => {
         ['tbody', {}, ['tr', {}, ['td', {}, text(2)], ['td', {}, text(2)]]],
       ]); break
       // The parser unwraps a component's single paragraph, so generate that shape.
-      case 3: nodes.push(['card', { ...random.pick([{}, { count: 3 }, { open: true }, { value: null }, { items: [1, 'a'] }, { opts: { a: 1 } }, { title: 'x' }, { title: randomPropString(random) }]), $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ...inline()]); break
+      case 3: nodes.push(card()); break
+      // Property blocks inside quotes, list items, and other components.
+      case 4: nodes.push(random.pick<(node: MdcNode) => MdcNode>([
+        node => ['blockquote', {}, node],
+        node => ['ul', {}, ['li', {}, node]],
+        node => ['blockquote', {}, ['ul', {}, ['li', {}, node]]],
+        node => ['ul', {}, ['li', {}, ['blockquote', {}, node]]],
+        node => ['blockquote', {}, ['blockquote', {}, node]],
+        node => ['blockquote', {}, ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, node]],
+        node => ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, node]],
+      ])(card())); break
       default: nodes.push(['p', {}, ...inline()])
     }
   }
@@ -289,14 +307,6 @@ describe('MDC component property round trip', () => {
         const origin = syntax ? { $: { syntax, block, sourceName: syntax === 'angle' ? 'Card' : 'card' } } : {}
         const component: MdcNode = ['card', { ...props, ...origin }, 'Body']
         const document: MdcDocument = { nodes: block ? [component] : [['p', {}, 'a ', component, ' b']], frontmatter: {}, meta: {} }
-        const jsonLike = Object.values(props).some(value => typeof value === 'string' && /^(?:\{.*\}|\[.*\])$/s.test(value) && (() => {
-          try { JSON.parse(value); return true } catch { return false }
-        })())
-        // Only a YAML property block keeps such a string; inline forms have none.
-        if (jsonLike && !block) {
-          await expect(serializeMdcDocument(document)).rejects.toMatchObject({ name: 'MdcSerializationError', code: 'unrepresentable_value' })
-          continue
-        }
         const serialized = await serializeMdcDocument(document)
         const context = JSON.stringify({ seed, index, syntax, block, props, serialized })
         const reparsed = await parseMdcDocument(serialized, { autoClose: false }).catch((error: Error) => {
@@ -327,6 +337,9 @@ describe('MDC round-trip property', () => {
         throw new Error(`${error.message} ${context}`)
       })
       expect(normalizedBody(reparsed), context).toEqual(normalizedBody(parsed))
+      // Site content links bare domains; saved text must read the same there.
+      const site = await parseComark(serialized, { autoClose: false }) as MdcDocument
+      expect(normalizedBody(site), context).toEqual(normalizedBody(reparsed))
       // The first pass removes parser artifacts, such as whitespace left by a
       // dropped attribute list. From then on, serialization is idempotent.
       const stable = await serializeMdcDocument(reparsed)

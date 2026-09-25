@@ -87,7 +87,7 @@ describe('serializeMdcDocument text escaping', () => {
   })
 
   it('keeps ordinary colons and braces readable', async () => {
-    const text = 'Note: this is 10:30, a: b, a.com, and {{ value }} or ${x}'
+    const text = 'Note: this is 10:30, a: b, Node.js, e.g. v1.2, and {{ value }} or ${x}'
     expect(await serializeMdcDocument(document(paragraph(text)))).toBe(text)
     await roundTrip(document(paragraph(text)))
   })
@@ -394,25 +394,58 @@ describe('component property strings', () => {
     expect(markdown).toBe('::note\n---\ntitle: "[1, 2]"\n---\nx\n::')
   })
 
-  it('switches an angle block component with a JSON-like string to colon syntax', async () => {
-    const parsed = await parseMdcDocument('<Card :n="1">\nBody\n\n<template #footer>\nF\n</template>\n</Card>', { autoClose: false })
-    ;(parsed.nodes[0] as [string, Record<string, unknown>])[1].title = '{"a":1}'
-    const markdown = await roundTrip(parsed)
-    expect(markdown).toBe('::card\n---\n"n": 1\ntitle: "{\\"a\\":1}"\n---\nBody\n\n#footer\nF\n::')
-    expect(await serializeMdcDocument(await parseMdcDocument(markdown, { autoClose: false }))).toBe(markdown)
+  it.each([
+    ['inline colon', paragraph('a ', ['badge', { title: '[1, 2]', $: { syntax: 'colon', block: 0, sourceName: 'badge' } }, 'x'], ' b'), 'a <Badge title="[1, 2]">x</Badge> b'],
+    ['inline angle', paragraph('a ', ['badge', { title: '{}', $: { syntax: 'angle', block: 0, sourceName: 'Badge' } }, 'x'], ' b'), 'a <Badge title="{}">x</Badge> b'],
+    ['block component next to text', ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ['note', { title: '[]', $: { syntax: 'colon', block: 1, sourceName: 'note' } }, 'x'], 'After'], '::card\n<Note title="[]">x</Note>After\n::'],
+  ] as Array<[string, MdcNode, string]>)('keeps a JSON-like string in an %s as a quoted angle value', async (_name, node, expected) => {
+    expect(await serializeMdcDocument(document(node))).toBe(expected)
+    const reparsed = await parseMdcDocument(expected, { autoClose: false })
+    expect(JSON.stringify(reparsed.nodes)).toContain('"title":"')
+    expect(await serializeMdcDocument(reparsed)).toBe(expected)
+  })
+
+  it('keeps an angle block component with a JSON-like string and slots in angle syntax', async () => {
+    const source = '<Card title="[1]">\n<template #header>\nh\n</template>\n\nBody text\n</Card>'
+    const parsed = await parseMdcDocument(source, { autoClose: false })
+    expect((parsed.nodes[0] as [string, Record<string, unknown>])[1].title).toBe('[1]')
+    expect(await roundTrip(parsed)).toBe(source)
+  })
+
+  it('reads quoted and bound angle values as strings', async () => {
+    const parsed = await parseMdcDocument('<Note a="[1, 2]" :b=\'"{}"\' :c="[1]">\nx\n</Note>', { autoClose: false })
+    expect(body(parsed).children[0]!.props).toMatchObject({ a: '[1, 2]', b: '{}', c: [1] })
+  })
+
+  it('throws a typed error for a JSON-like string in a native attribute list', async () => {
+    await expect(serializeMdcDocument(document(paragraph(['a', { href: '/x', rel: '[1]' }, 'l'])))).rejects.toMatchObject({
+      name: 'MdcSerializationError',
+      code: 'unrepresentable_value',
+      path: [0, 2, 1, 'rel'],
+    })
   })
 
   it.each([
-    ['inline colon', paragraph('a ', ['badge', { title: '[1, 2]', $: { syntax: 'colon', block: 0, sourceName: 'badge' } }, 'x'], ' b'), [0, 3, 1, 'title']],
-    ['inline angle', paragraph('a ', ['badge', { title: '{}', $: { syntax: 'angle', block: 0, sourceName: 'Badge' } }, 'x'], ' b'), [0, 3, 1, 'title']],
-    ['block component next to text', ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ['note', { title: '[]', $: { syntax: 'colon', block: 1, sourceName: 'note' } }, 'x'], 'After'], [0, 2, 1, 'title']],
-    ['native link attribute', paragraph(['a', { href: '/x', title: '[1]' }, 'l']), [0, 2, 1, 'title']],
-  ] as Array<[string, MdcNode, Array<string | number>]>)('throws a typed error for a JSON-like string in an %s', async (_name, node, path) => {
-    await expect(serializeMdcDocument(document(node))).rejects.toMatchObject({
-      name: 'MdcSerializationError',
-      code: 'unrepresentable_value',
-      path,
-    })
+    '![[1]](https://a.test/i.png)',
+    '![[]](https://a.test/i.png)',
+    '![{}](https://a.test/i.png)',
+    '![i](https://a.test/i.png "{}")',
+    '## Title {#[1]}',
+    ':badge[x]{:v=\'[1]\'}',
+    'a :badge[x]{:v=\'[1]\'} b',
+    '[x](https://a.test "[1]")',
+    '```js [1] {1-2} meta "[1]"\nx\n```',
+  ])('round-trips %j, whose JSON-like values are not in an attribute list', async (source) => {
+    const parsed = await parseMdcDocument(source, { autoClose: false })
+    const markdown = await serializeMdcDocument(parsed)
+    const reparsed = await parseMdcDocument(markdown, { autoClose: false })
+    expect(reparsed.nodes, markdown).toEqual(parsed.nodes)
+    expect(await serializeMdcDocument(reparsed)).toBe(markdown)
+  })
+
+  it('writes a link title in Markdown syntax so it stays a string', async () => {
+    const markdown = await roundTrip(document(paragraph(['a', { href: '/x', title: 'a "[1]" \\ &amp;' }, 'l'])))
+    expect(markdown).toBe('[l](/x "a \\"[1]\\" \\\\ \\&amp;")')
   })
 
   it('reads a quoted YAML property as a string and an unquoted one as JSON', async () => {
@@ -421,6 +454,80 @@ describe('component property strings', () => {
     expect(await props('::note{a="[1, 2]"}\nx\n::')).toMatchObject({ a: [1, 2] })
     const source = '::note\n---\na: "[1]"\nb: 2\nc: "{}"\nd: x\n---\nx\n::'
     expect(await serializeMdcDocument(await parseMdcDocument(source, { autoClose: false }))).toBe(source)
+  })
+})
+
+describe('component properties inside containers', () => {
+  const card = (props: Record<string, unknown>): MdcNode => ['card', { ...props, $: { syntax: 'colon', block: 1, sourceName: 'card' } }, 'Body']
+  const component = (child: MdcNode): MdcNode => ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, child]
+  const containers: Array<[string, (node: MdcNode) => MdcNode]> = [
+    ['a quote', node => ['blockquote', {}, node]],
+    ['a list item', node => ['ul', {}, ['li', {}, node]]],
+    ['a list item in a quote', node => ['blockquote', {}, ['ul', {}, ['li', {}, node]]]],
+    ['a quote in a list item', node => ['ul', {}, ['li', {}, ['blockquote', {}, node]]]],
+    ['a nested quote', node => ['blockquote', {}, ['blockquote', {}, node]]],
+    ['a component in a quote', node => ['blockquote', {}, component(node)]],
+  ]
+  const values = [{ title: 'C:\\path', icon: 'x' }, { title: 'say "hi"' }, { n: 3 }, { b: true }, { t: '[1, 2]' }, { o: { a: [1, 'x'] } }, { a: 'x', b: 'y', c: 'z', d: 'w' }]
+
+  it.each(containers)('keeps property blocks in %s', async (_name, wrap) => {
+    for (const props of values) {
+      const value = document(wrap(card(props)))
+      const markdown = await serializeMdcDocument(value)
+      const reparsed = await parseMdcDocument(markdown, { autoClose: false })
+      expect(reparsed.nodes, markdown).toEqual(value.nodes)
+      expect(await serializeMdcDocument(reparsed)).toBe(markdown)
+    }
+  })
+
+  it('reads a property block after blockquote and list prefixes', async () => {
+    const parsed = await parseMdcDocument('> - ::card\n>   ---\n>   n: 3\n>   t: "[1]"\n>   o:\n>     a: 1\n>   ---\n>   Body\n>   ::', { autoClose: false })
+    expect(JSON.stringify(parsed.nodes)).toContain('{"n":3,"t":"[1]","o":{"a":1}')
+  })
+})
+
+describe('property edge cases', () => {
+  it('keeps U+2028 and U+2029 in component properties', async () => {
+    const value = 'a\u2028b\u2029c'
+    for (const node of [
+      ['card', { t: value, $: { syntax: 'colon', block: 1, sourceName: 'card' } }, 'x'],
+      paragraph('a ', ['badge', { t: value, $: { syntax: 'colon', block: 0, sourceName: 'badge' } }, 'x'], ' b'),
+    ] as MdcNode[]) {
+      const markdown = await roundTrip(document(node))
+      expect(JSON.stringify((await parseMdcDocument(markdown, { autoClose: false })).nodes)).toContain(JSON.stringify(value))
+    }
+  })
+
+  it('keeps a heading with a carriage return on one line', async () => {
+    for (const text of ['a\rb', 'a\r\nb']) {
+      expect(await serializeMdcDocument(document(['h2', {}, text]))).toBe('## a b')
+    }
+  })
+
+  it('drops properties whose value is undefined', async () => {
+    expect(await serializeMdcDocument(document(['card', { a: undefined, $: { syntax: 'colon', block: 1, sourceName: 'card' } }, 'x']))).toBe('::card\nx\n::')
+    expect(await serializeMdcDocument(document(['card', { a: undefined, b: 'x', $: { syntax: 'angle', block: 1, sourceName: 'Card' } }, 'x']))).toBe('<Card b="x">\nx\n</Card>')
+    expect(await serializeMdcDocument(document(paragraph('a ', ['badge', { a: undefined, $: { syntax: 'colon', block: 0, sourceName: 'badge' } }, 'x'])))).toBe('a :badge[x]')
+  })
+
+  const invalidNames = ['1', 'a b', 'k"q', 'a\nb', '---', '@click', '', 'a}b']
+
+  it('writes any property name of a colon block component in its YAML block', async () => {
+    for (const name of invalidNames) {
+      const card: MdcNode = ['card', { [name]: 'v', $: { syntax: 'colon', block: 1, sourceName: 'card' } }, 'x']
+      const markdown = await serializeMdcDocument(document(card))
+      expect((await parseMdcDocument(markdown, { autoClose: false })).nodes, markdown).toEqual([card])
+    }
+  })
+
+  it.each([
+    ['inline colon', (name: string) => paragraph('a ', ['badge', { [name]: 'v', $: { syntax: 'colon', block: 0, sourceName: 'badge' } }, 'x'], ' b')],
+    ['angle', (name: string) => ['card', { [name]: 'v', $: { syntax: 'angle', block: 1, sourceName: 'Card' } }, 'x'] as MdcNode],
+    ['native attribute', (name: string) => paragraph(['a', { href: '/x', [name]: 'v' }, 'l'])],
+  ])('throws a typed error for a property name that %s syntax cannot write', async (_form, build) => {
+    for (const name of invalidNames) {
+      await expect(serializeMdcDocument(document(build(name))), name).rejects.toMatchObject({ name: 'MdcSerializationError', code: 'unrepresentable_value' })
+    }
   })
 })
 
@@ -448,10 +555,30 @@ describe('links and images', () => {
 })
 
 describe('link recognition', () => {
-  it.each(['see a.com now', 'mail a@b.com today', 'visit www.example.com', 'at 127.0.0.1'])('keeps bare %j as text', async (source) => {
+  it.each([
+    ['see a.com now', 'see a\\.com now'],
+    ['mail a@b.com today', 'mail a@b\\.com today'],
+    ['visit www.example.com', 'visit www.example\\.com'],
+    ['at 127.0.0.1', 'at 127.0.0.1'],
+    ['file README.md', 'file README\\.md'],
+    ['x //cdn.com/y', 'x /\\/cdn.com/y'],
+    ['x //localhost/y', 'x /\\/localhost/y'],
+    ['a.co.uk', 'a\\.co\\.uk'],
+    ['ftp://a.com', 'ftp\\://a.com'],
+    ['Node.js, e.g. v1.2', 'Node.js, e.g. v1.2'],
+  ])('keeps bare %j as text in the editor and in site content', async (source, expected) => {
     const parsed = await parseMdcDocument(source, { autoClose: false })
     expect(parsed.nodes).toEqual([['p', {}, source]])
-    expect(await serializeMdcDocument(parsed)).toBe(source)
+    const markdown = await serializeMdcDocument(parsed)
+    expect(markdown).toBe(expected)
+    // Site content links bare domains; the escape keeps the saved text as text.
+    const site = await parseComark(markdown, { autoClose: false })
+    expect(site.nodes).toEqual([['p', {}, source]])
+    expect((await parseMdcDocument(markdown, { autoClose: false })).nodes).toEqual([['p', {}, source]])
+  })
+
+  it('does not escape domains inside link text', async () => {
+    expect(await serializeMdcDocument(document(paragraph(['a', { href: '/x' }, 'see a.com'])))).toBe('[see a.com](/x)')
   })
 
   it.each(['see //evil.com/x here', 'ftp://a.com'])('keeps %j as text', async (source) => {

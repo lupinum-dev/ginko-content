@@ -55,10 +55,6 @@ const NATIVE_SERIALIZER_TAGS = new Set([
   'mermaid',
 ])
 
-// Parents whose children Markdown writes on one line, so a block component in
-// them is written in its inline form.
-const INLINE_PARENT = /^(?:a|strong|em|del|span|p|h[1-6]|th|td)$/
-
 /**
  * Give colon metadata to components without origin metadata, in place, so the
  * colon serializers write them instead of Comark's unescaped fallback.
@@ -79,49 +75,67 @@ function markImplicitComponents(nodes: unknown[]): void {
   for (const node of nodes) visit(node)
 }
 
-/**
- * Keep property strings that the parser reads as JSON, such as `"[1, 2]"`,
- * in place. Only the YAML property block of a colon block component on its
- * own lines keeps them strings, so an angle block component with such a value
- * switches to colon syntax. HTML attributes stay strings. Throws where no
- * syntax keeps the string, such as in an inline component.
- */
-const prepareJsonLikeStrings = (nodes: unknown[]): void => {
-  const visit = (node: unknown, path: Array<string | number>, inline: boolean) => {
-    if (!Array.isArray(node) || typeof node[0] !== 'string') return
-    const props = (node[1] ?? {}) as Record<string, unknown>
-    let origin = props.$ as { syntax?: unknown, block?: unknown, html?: unknown, sourceName?: unknown } | undefined
-    if (origin?.syntax === 'angle' && origin.block === 1 && !inline && Object.values(props).some(readsAsJson)) {
-      // The parser reports a colon name such as `::Card` as `card`.
-      const name = String(origin.sourceName)
-      origin = { syntax: 'colon', block: 1, sourceName: name[0]!.toLowerCase() + name.slice(1) }
-      props.$ = origin
-      // Colon slots are plain `template` elements, written as `#name`.
-      for (const child of node.slice(2)) {
-        if (Array.isArray(child) && child[0] === 'template' && (child[1] as Record<string, unknown>)?.$) {
-          delete (child[1] as Record<string, unknown>).$
-        }
-      }
-    }
-    const yamlBlock = origin?.syntax === 'colon' && origin.block === 1 && !inline
-    if (origin?.html !== 1 && !yamlBlock) {
+// Property names that each attribute syntax reads back unchanged. A colon
+// block component writes any other name in its YAML block.
+const COLON_NAME = /^:?[A-Z_][\w-]*$/i
+// `{--accent="red"}` is the legacy CSS custom property spelling.
+const INLINE_ATTRIBUTE_NAME = /^(?::?[A-Z_][\w-]*|--[A-Z][\w-]*)$/i
+const ANGLE_NAME = /^[A-Z_][\w.-]*$/i
+const isAngleName = (name: string) =>
+  ANGLE_NAME.test(name) && !name.startsWith('v-') && !['__proto__', 'prototype', 'constructor'].includes(name)
+
+/** Remove properties whose value is `undefined`, which no syntax can write. */
+function dropUndefinedProps(nodes: unknown[]): void {
+  const visit = (node: unknown) => {
+    if (!Array.isArray(node)) return
+    const props = node[1] as Record<string, unknown> | undefined
+    if (props && typeof props === 'object') {
       for (const [name, value] of Object.entries(props)) {
-        if (readsAsJson(value)) {
-          throw new MdcSerializationError(
-            'unrepresentable_value',
-            `Element "${node[0]}" property "${name}" is a string that Markdown reads back as JSON, and no syntax here keeps it a string.`,
-            [...path, 1, name],
-          )
-        }
+        if (value === undefined) Reflect.deleteProperty(props, name)
       }
     }
-    const children = node.slice(2)
-    const inlineChildren = inline || INLINE_PARENT.test(node[0]) ||
-      (origin?.syntax !== undefined && origin.block === 0) ||
-      children.some(child => typeof child === 'string')
-    children.forEach((child, index) => visit(child, [...path, index + 2], inlineChildren))
+    for (const child of node.slice(2)) visit(child)
   }
-  nodes.forEach((node, index) => visit(node, [index], false))
+  for (const node of nodes) visit(node)
+}
+
+// Properties that native Markdown writes in its own syntax rather than in a
+// `{...}` attribute list, where Comark reads `"[1]"` as JSON.
+const MARKDOWN_SYNTAX_PROPS: Record<string, ReadonlySet<string>> = {
+  a: new Set(['href', 'title']),
+  img: new Set(['src', 'alt', 'title']),
+  ol: new Set(['start']),
+  ...Object.fromEntries(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(tag => [tag, new Set(['id'])])),
+}
+// Elements whose properties are all written in Markdown syntax.
+const MARKDOWN_SYNTAX_TAGS = new Set(['pre', 'code', 'input', 'math', 'mermaid', 'td', 'th', 'template'])
+
+/**
+ * Throw for a property string that the parser reads as JSON, such as `"[1]"`,
+ * in the `{...}` attribute list of a native Markdown element, where no syntax
+ * keeps it a string. Components write such strings in a YAML block or in
+ * angle syntax, and HTML attributes stay strings.
+ */
+const assertRepresentable = (nodes: unknown[]): void => {
+  const visit = (node: unknown, path: Array<string | number>) => {
+    if (!Array.isArray(node) || typeof node[0] !== 'string') return
+    const tag = node[0]
+    const props = (node[1] ?? {}) as Record<string, unknown>
+    const origin = props.$ as { syntax?: unknown, html?: unknown } | undefined
+    const native = origin?.html !== 1 && origin?.syntax !== 'colon' && origin?.syntax !== 'angle' && !MARKDOWN_SYNTAX_TAGS.has(tag)
+    const fail = (name: string, reason: string) => {
+      throw new MdcSerializationError('unrepresentable_value', `Element "${tag}" property "${name}" ${reason}.`, [...path, 1, name])
+    }
+    for (const [name, value] of Object.entries(props)) {
+      if (name === '$') continue
+      if (origin?.syntax === 'angle' && !isAngleName(name)) fail(name, 'is not a valid angle-syntax property name')
+      if (!native || MARKDOWN_SYNTAX_PROPS[tag]?.has(name)) continue
+      if (!INLINE_ATTRIBUTE_NAME.test(name) || name.startsWith(':')) fail(name, 'is not a valid attribute name')
+      if (readsAsJson(value)) fail(name, 'is a string that Markdown reads back as JSON')
+    }
+    node.slice(2).forEach((child, index) => visit(child, [...path, index + 2]))
+  }
+  nodes.forEach((node, index) => visit(node, [index]))
 }
 
 /** Parser-owned properties on an editing-document element. */
@@ -183,16 +197,17 @@ export async function parseMdcDocument(
  * is written only when it differs from the id the parser generates. Throws
  * `MdcSerializationError` instead of writing a value that would read back
  * differently: a property string that is a JSON object or array, such as
- * `"[1, 2]"`, outside the YAML property block of a colon block component.
+ * `"[1, 2]"`, in the `{...}` attribute list of a native Markdown element.
  */
 export async function serializeMdcDocument(
   document: MdcDocument,
   options: SerializeMdcDocumentOptions = {},
 ): Promise<string> {
   const renderDocument = structuredClone(document) as MarkdownDocument
+  dropUndefinedProps(renderDocument.nodes)
   markImplicitComponents(renderDocument.nodes)
   // Checked before any pass inserts nodes, so paths match `document.nodes`.
-  prepareJsonLikeStrings(renderDocument.nodes)
+  assertRepresentable(renderDocument.nodes)
   const [escapeMarker, ltMarker, ampMarker] = absentPrivateUseCharacters(JSON.stringify(document), 3) as [string, string, string]
   const markers = { escape: escapeMarker, lt: ltMarker, amp: ampMarker }
   // Component serializers clone their children, so the explicit id travels in
@@ -274,7 +289,7 @@ function markExplicitHeadingIds(nodes: unknown[], key: string): void {
 
 const renderHeadingIdAttribute = (id: string): string | undefined => {
   if (/^[\w-]+$/.test(id)) return `#${id}`
-  if (/[\\\r\n]/.test(id)) return undefined
+  if (/[\\\r\n\u2028\u2029]/.test(id)) return undefined
   const quote = ['"', "'"].find(candidate => !id.includes(candidate))
   return quote ? `id=${quote}${id}${quote}` : undefined
 }
@@ -317,10 +332,15 @@ const renderColonProps = (props: Record<string, unknown>): string | undefined =>
   if (entries.length === 0) return ''
   const rendered: string[] = []
   for (const [name, value] of entries) {
-    // Bound colon properties do not share angle syntax's typed JSON contract.
-    if (typeof value !== 'string') return undefined
-    const text = value
-    if (/[\\\r\n]/.test(text)) return undefined
+    // A `:name` key is a colon binding that the parser keeps under that name,
+    // with a string or JSON value. Angle syntax has no such key.
+    if (!INLINE_ATTRIBUTE_NAME.test(name)) return undefined
+    const binding = name.startsWith(':')
+    // Comark reads an inline string such as `"[1]"` as JSON; angle syntax
+    // keeps it. Other typed values use angle syntax's JSON bindings.
+    if (!binding && (typeof value !== 'string' || readsAsJson(value))) return undefined
+    const text = typeof value === 'string' ? value : JSON.stringify(value)
+    if (/[\\\r\n\u2028\u2029]/.test(text)) return undefined
     // Colon attributes do not unescape quoted values. Choose an absent
     // delimiter, or let the angle renderer encode the complete component.
     const quote = ['"', "'", '`'].find(candidate => !text.includes(candidate))
@@ -339,6 +359,10 @@ const colonInlineComponentRenderer: ConditionalNodeHandler = {
     // Colon syntax also needs a separator before `:`; angle syntax does not.
     // A colon component alone in a paragraph would read as block shorthand.
     if (props === undefined || !followsComponentPrefix(node, parent) || isAloneInParagraph(node, parent)) {
+      const name = Object.keys(node[1]).find(key => key !== '$' && !isAngleName(key))
+      if (name !== undefined) {
+        throw new MdcSerializationError('unrepresentable_value', `Component "${node[0]}" property "${name}" has no inline form here.`, [])
+      }
       const angleNode = structuredClone(node)
       // Capitalization also distinguishes components named after native HTML
       // elements. The canonical component name remains unchanged.
@@ -431,7 +455,7 @@ const precedesSpanOnLine = (node: unknown[], parent: unknown[] | undefined): boo
 // handlers would otherwise turn components such as img into Markdown images.
 /** Whether a string, key, or nested value contains a line break. */
 const hasLineBreak = (value: unknown): boolean => {
-  if (typeof value === 'string') return /[\r\n]/.test(value)
+  if (typeof value === 'string') return /[\r\n\u2028\u2029]/.test(value)
   if (Array.isArray(value)) return value.some(hasLineBreak)
   return value !== null && typeof value === 'object' &&
     Object.entries(value).some(([key, child]) => hasLineBreak(key) || hasLineBreak(child))
@@ -462,25 +486,29 @@ const createColonBlockComponentRenderer = (options: SerializeMdcDocumentOptions)
     const style = options.blockAttributesStyle ?? 'codeblock'
     const maxInline = options.maxInlineAttributes ?? 3
     // Comark reads an inline string such as `"[1, 2]"` as JSON.
-    const needsYaml = maxInline === 0 || entries.length > maxInline || entries.some(([name, value]) =>
-      !name.startsWith(':') && (typeof value !== 'string' || /["\\\r\n]/.test(value) || readsAsJson(value)))
+    const needsYaml = maxInline === 0 || entries.length > maxInline || entries.some(([name, value]) => !COLON_NAME.test(name) ||
+      (!name.startsWith(':') && (typeof value !== 'string' || /["\\\r\n\u2028\u2029]/.test(value) || readsAsJson(value))))
     // Nested components restore the caller's settings for themselves.
     const revert = state.applyContext({ blockAttributesStyle: style, maxInlineAttributes: maxInline })
     try {
-      if (!needsYaml) return await state.handlers.mdc!(component, state, parent)
+      // Comark indents a component inside any parent. In a blockquote that
+      // indentation adds to the quote's own, and a nested component would
+      // reach four spaces and read as indented code.
+      const writeComponent = async () => {
+        const text = await state.handlers.mdc!(component, state, parent)
+        return parent?.[0] === 'blockquote' && /^ {2}::/.test(text)
+          ? text.split('\n').map(line => line.startsWith('  ') ? line.slice(2) : line).join('\n')
+          : text
+      }
+      if (!needsYaml) return await writeComponent()
       component[1] = {}
       // Without properties, Comark would otherwise write an empty YAML block.
       state.applyContext({ maxInlineAttributes: Number.MAX_SAFE_INTEGER })
-      const rendered = await state.handlers.mdc!(component, state, parent)
+      const rendered = await writeComponent()
       // Next to text or inside a link or emphasis, Comark writes the inline
       // form, which has no property block. Write the inline component instead;
       // it encodes such values as angle-syntax attributes.
       if (!/^[ \t]*::/.test(rendered)) {
-        // serializeMdcDocument() rejects such a value before rendering.
-        const name = entries.find(([, value]) => readsAsJson(value))?.[0]
-        if (name !== undefined) {
-          throw new MdcSerializationError('unrepresentable_value', `Component "${node[0]}" property "${name}" cannot stay a string inline.`, [])
-        }
         state.applyContext({ maxInlineAttributes: maxInline })
         const inlineNode = structuredClone(node)
         inlineNode[1].$ = { ...metadata, block: 0 }

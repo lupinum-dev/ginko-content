@@ -193,6 +193,9 @@ export function createVerbatimHandlers(marker: string, markers: MdcEscapeMarkers
     const escaped = url.replace(/\\(?=[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '\\\\').replace(/&(?=#?[a-z0-9]+;)/gi, '\\&')
     return /[\s()]/.test(escaped) && !/[<>\n]/.test(escaped) ? `<${escaped}>` : escaped
   }
+  // A title decodes backslash escapes and entities, like a destination.
+  const escapeTitle = (title: string) =>
+    title.replace(/[\\"]/g, '\\$&').replace(/&(?=#?[a-z0-9]+;)/gi, '\\&')
   const hrefPlaceholder = `${marker}href${marker}`
   const altPlaceholder = `${marker}alt${marker}`
 
@@ -204,9 +207,15 @@ export function createVerbatimHandlers(marker: string, markers: MdcEscapeMarkers
       typeof href === 'string' && node.length === 3 && typeof node[2] === 'string' && unescapedText(node[2]) === href &&
       Object.keys(node[1]).length === 1 && /^(?:https?:\/\/|mailto:)[^\s<>&\\]*$/i.test(href)
     ) return `<${href}>`
-    if (typeof href !== 'string' || destination(href) === href) return await defaults(state).a!(node, state, parent)
-    const rendered = await defaults(state).a!([node[0], { ...node[1], href: hrefPlaceholder }, ...node.slice(2)] as ElementNode, state, parent)
-    return rendered.split(hrefPlaceholder).join(destination(href))
+    const { title, ...props } = node[1]
+    // Comark writes a title as `{title="..."}`, where the parser reads `"[1]"`
+    // as JSON. A Markdown title keeps it a string. It cannot hold a blank line.
+    const markdownTitle = typeof href === 'string' && typeof title === 'string' && !/\n[ \t]*\n/.test(title)
+    if (typeof href !== 'string' || (!markdownTitle && destination(href) === href)) return await defaults(state).a!(node, state, parent)
+    const linkProps = markdownTitle ? props : node[1]
+    const rendered = await defaults(state).a!([node[0], { ...linkProps, href: hrefPlaceholder }, ...node.slice(2)] as ElementNode, state, parent)
+    const target = markdownTitle ? `${destination(href)} "${escapeTitle(title)}"` : destination(href)
+    return rendered.split(hrefPlaceholder).join(target)
   }
 
   // The parser keeps image alt text raw, without escapes or markup. Alt text
