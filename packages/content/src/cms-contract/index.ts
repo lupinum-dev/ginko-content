@@ -17,7 +17,13 @@
  *  - generate paths consistently with how the filesystem provider does
  *    (`generatePath`, `generateCanonicalKey`, `slugifyUrlSegment`),
  *  - parse MDC with the fixed portable-baseline profile (`parseMdcBody`); site
- *    filesystem plugins may intentionally produce an enriched AST.
+ *    filesystem plugins may intentionally produce an enriched AST,
+ *  - edit MDC losslessly (`parseMdcDocument`, `serializeMdcDocument`) and
+ *    predict parser heading ids (`slugifyHeading`, `createHeadingIdGenerator`).
+ *
+ * Every export here is part of the stable package contract. Re-export
+ * internal modules through a `cms-contract/*` module with explicit names;
+ * never re-export `core/` directly from this file.
  *
  * If a future change introduces a Node/Nuxt dependency anywhere in this
  * tree, isolate builds will break loudly. That's intentional.
@@ -87,19 +93,26 @@ export {
 } from './schema.js'
 
 export {
+  AngleComponentSyntaxError,
+  createHeadingIdGenerator,
+  headingSlugText,
   parseMdcDocument,
   parseMdcBody,
   projectMdcDocument,
   serializeMdcDocument,
+  slugifyHeading,
+  type AngleComponentSyntaxIssueCode,
+  type HeadingIdGenerator,
+  type MdcCommentNode,
+  type MdcDocument,
+  type MdcElementNode,
+  type MdcElementProps,
+  type MdcNode,
   type ParseMdcDocumentOptions,
   type ParseMdcBodyOptions,
   type ParseMdcBodyResult,
+  type SerializeMdcDocumentOptions,
 } from './mdc.js'
-
-export {
-  AngleComponentSyntaxError,
-  type AngleComponentSyntaxIssueCode,
-} from '../core/markdown/angle-components.js'
 
 export {
   assertPublicMarkdownAst,

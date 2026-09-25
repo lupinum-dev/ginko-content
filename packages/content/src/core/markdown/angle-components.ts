@@ -3,41 +3,13 @@ import { defineComarkPlugin } from 'comark'
 import type { ConditionalNodeHandler, ElementNode, Node } from 'comark'
 import { canonicalizePortableComponentName } from './component-name.js'
 import { HTML_TAGS } from './html-tags.js'
+import { AngleComponentSyntaxError, type AngleComponentSyntaxIssueCode } from './angle-syntax-error.js'
 
 // NUL cannot occur in an authored HTML attribute name. It keeps the token-only
 // handoff distinct from document props until the post hook replaces it.
 const TOKEN_MARKER = '\0ginko-angle-component'
 
-export type AngleComponentSyntaxIssueCode =
-  | 'duplicate_prop'
-  | 'duplicate_slot'
-  | 'invalid_binding'
-  | 'invalid_prop'
-  | 'mismatched_tag'
-  | 'misplaced_slot'
-  | 'mixed_default_slot'
-  | 'orphan_close'
-  | 'unclosed_tag'
-
-export class AngleComponentSyntaxError extends Error {
-  readonly code: AngleComponentSyntaxIssueCode
-  readonly line: number
-  readonly column: number
-  readonly openingTag: string
-
-  constructor(
-    code: AngleComponentSyntaxIssueCode,
-    message: string,
-    location: { line: number; column: number; openingTag: string },
-  ) {
-    super(message)
-    this.name = 'AngleComponentSyntaxError'
-    this.code = code
-    this.line = location.line
-    this.column = location.column
-    this.openingTag = location.openingTag
-  }
-}
+export { AngleComponentSyntaxError, type AngleComponentSyntaxIssueCode } from './angle-syntax-error.js'
 
 interface ParsedTag {
   name: string
@@ -882,9 +854,26 @@ const renderAngleProps = (props: ElementNode[1]) => Object.entries(props)
   })
   .join('')
 
+/**
+ * Whether a node renders alone on its line, given its siblings. Line breaks
+ * inside sibling text and the parent's boundaries delimit lines.
+ */
+export const isAloneOnLine = (node: unknown, parent: unknown[] | undefined): boolean => {
+  if (!parent) return true
+  const index = parent.indexOf(node)
+  const previous = parent.slice(2, index).filter(child => child !== '')
+  const next = parent.slice(index + 1).filter(child => child !== '')
+  const before = previous[previous.length - 1]
+  const after = next[0]
+  const startsLine = before === undefined || (typeof before === 'string' && /(^|\n)[ \t]*$/.test(before)) ||
+    (Array.isArray(before) && before[0] === 'br')
+  const endsLine = after === undefined || (typeof after === 'string' && /^[ \t]*(\n|$)/.test(after))
+  return startsLine && endsLine
+}
+
 export const angleComponentRenderer: ConditionalNodeHandler = {
   match: node => Boolean(angleMetadata(node)),
-  handler: async (node, state) => {
+  handler: async (node, state, parent) => {
     const metadata = angleMetadata(node)
     if (!metadata) return ''
     if (metadata.sourceName === 'template' && typeof node[1].name === 'string') {
@@ -892,9 +881,21 @@ export const angleComponentRenderer: ConditionalNodeHandler = {
       return `<template #${node[1].name}>\n${content}\n</template>${state.context.blockSeparator}`
     }
     const props = renderAngleProps(node[1])
-    if (node.length === 2) return `<${metadata.sourceName}${props} />${metadata.block ? state.context.blockSeparator : ''}`
+    if (node.length === 2) {
+      if (metadata.block) return `<${metadata.sourceName}${props} />${state.context.blockSeparator}`
+      // A self-closing tag alone on a line is a block component. An explicit
+      // closing tag keeps a lone inline component inline.
+      return isAloneOnLine(node, parent)
+        ? `<${metadata.sourceName}${props}></${metadata.sourceName}>`
+        : `<${metadata.sourceName}${props} />`
+    }
     const rendered = await state.flow(node, state)
-    if (metadata.block === 0) return `<${metadata.sourceName}${props}>${rendered}</${metadata.sourceName}>`
+    if (metadata.block === 0) {
+      // A tag alone on a line reads as block syntax, so keep inline content
+      // on the tag lines. Only whitespace at the content edges is removed.
+      const inline = rendered.replace(/^[ \t]*\n\s*/, '').replace(/\s*\n[ \t]*$/, '')
+      return `<${metadata.sourceName}${props}>${inline}</${metadata.sourceName}>`
+    }
     const content = rendered.trimEnd()
     return `<${metadata.sourceName}${props}>\n${content}\n</${metadata.sourceName}>${state.context.blockSeparator}`
   },
