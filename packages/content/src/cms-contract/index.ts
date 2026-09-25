@@ -31,6 +31,7 @@
 
 export {
   RESOLVED_CONTENT_CONTRACT_VERSION,
+  RESOLVED_CONTENT_CONTRACT_VERSION_V1,
   RESOLVED_CONTENT_CONTRACT_VERSION_V2,
   buildResolvedContentContract,
   type BuildResolvedContentContractInput,
@@ -115,10 +116,19 @@ export {
 } from './mdc.js'
 
 export {
+  CONTENT_MANAGED_MEDIA_TYPES,
+  PORTABLE_CONTENT_LIMITS,
+  type ContentManagedMediaType,
+} from './limits.js'
+
+export {
   assertPublicMarkdownAst,
+  canonicalizePortableComponentName,
   classifyPortableMarkdownElement,
   isSafePublicLinkUrl,
   isSafePublicMarkdownUrl,
+  isStoredPortableAssetIdentity,
+  isValidPortableComponentName,
   PublicMarkdownValidationError,
   validatePublicMarkdownAst,
   validateStoredPortableMarkdownAst,
@@ -143,6 +153,7 @@ export {
 
 export {
   assertResolvedContentContract,
+  assertPortableComponentPolicy,
   assertPortableComponentPolicyV2,
   assertResolvedContentContractV1,
   assertResolvedContentContractV2,

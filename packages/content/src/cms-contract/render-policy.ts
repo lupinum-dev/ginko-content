@@ -111,7 +111,10 @@ export const indexPortableComponentPolicies = (policy: PortableComponentPolicy) 
     .map(([name, component]) => [canonicalizePortableComponentName(name), component] as const),
 )
 
-/** Package-private grammar used only while resolving stored portable assets. */
+/**
+ * Whether a stored media reference has the opaque asset-identity grammar that
+ * portable documents accept. URLs and executable schemes are rejected.
+ */
 export const isStoredPortableAssetIdentity = (value: string): boolean =>
   /^[a-z0-9;:_-]{1,512}$/i.test(value) && !/^(?:javascript|vbscript|data|file|https?):/i.test(value)
 
