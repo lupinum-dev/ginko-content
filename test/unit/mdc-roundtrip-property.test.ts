@@ -33,9 +33,11 @@ const createRandom = (seed: number) => {
 
 type Random = ReturnType<typeof createRandom>
 
-// Risky tokens: MDC and CommonMark syntax characters plus ordinary words. The
-// set excludes `.` and `@`, so plain text does not form linkified domains.
+// Risky tokens: MDC and CommonMark syntax characters, URL, link, and image
+// syntax, plus ordinary words.
 const RISKY = [
+  '.', '@', 'a.com', 'a@b.com', 'www.a.com', 'https://a.com/x', 'http://a.b/c?d=1', 'mailto:a@b.com',
+  '<https://a.com>', '[l](https://a.com)', '![i](https://a.com/x.png)', '//a.com', 'ftp://a.com',
   ':', '::', ':::', '{', '}', '{{', '}}', '#', '-', '*', '_', '`', '[', ']', '<', '>', '|', '\\',
   '!', '$', '~', '=', '+', '(', ')', '"', "'", '&', '1)', '2', 'x', 'fire', 'card', 'Badge',
   ':fire', ':fire:', ':card[x]', '{.b}', '{#id}', '{a="b"}', '<Badge>', '</Badge>', '<!--', '#tag',
@@ -59,12 +61,14 @@ const generateSource = (random: Random): string => {
   const count = 1 + random.int(4)
   for (let index = 0; index < count; index++) {
     switch (random.int(10)) {
-      case 0: blocks.push(`${'#'.repeat(1 + random.int(4))} ${inlineText(random)}`); break
+      case 0: blocks.push(`${'#'.repeat(1 + random.int(4))} ${inlineText(random)}${random.next() < 0.3 ? ` {#h${random.int(9)}}` : ''}`); break
       case 1: blocks.push(`- ${inlineText(random)}\n- ${inlineText(random)}`); break
       case 2: blocks.push(`1. ${inlineText(random)}\n2. ${inlineText(random)}`); break
       case 3: blocks.push(`| a | b |\n| --- | --- |\n| ${inlineText(random, 2)} | ${inlineText(random, 2)} |`); break
       case 4: blocks.push(`\`\`\`md\n${inlineText(random)}\n::card\n${inlineText(random)}\n\`\`\``); break
-      case 5: blocks.push(`::card{title="${random.pick(['x', 'a b', 'Note: y'])}"}\n${inlineText(random)}\n::`); break
+      case 5: blocks.push(random.next() < 0.5
+        ? `::card{title="${random.pick(['x', 'a b', 'Note: y'])}"}\n${inlineText(random)}\n::`
+        : `::card\n---\n${random.pick(['count: 3', 'open: true', 'value: null', 'items: [1, a]', 'opts: {a: 1}', 'title: "3"'])}\n---\n${inlineText(random)}\n::`); break
       case 6: blocks.push(`::card\n${inlineText(random)}\n#footer\n${inlineText(random)}\n::`); break
       case 7: blocks.push(`> ${inlineText(random)}`); break
       case 8: blocks.push(`${inlineText(random)} \`${inlineText(random, 2).replace(/`/g, '')}\` ${inlineText(random)}`); break
@@ -87,14 +91,15 @@ const generateDocument = (random: Random): MdcDocument => {
   const count = 1 + random.int(4)
   for (let index = 0; index < count; index++) {
     switch (random.int(5)) {
-      case 0: nodes.push([`h${2 + random.int(3)}`, {}, text()]); break
+      // Editors keep the id they read; a distinct id must survive serialization.
+      case 0: nodes.push([`h${2 + random.int(3)}`, { id: `h${index}-${random.int(9)}` }, text()]); break
       case 1: nodes.push(['ul', {}, ['li', {}, ...inline()], ['li', {}, text()]]); break
       case 2: nodes.push(['table', {},
         ['thead', {}, ['tr', {}, ['th', {}, 'a'], ['th', {}, 'b']]],
         ['tbody', {}, ['tr', {}, ['td', {}, text(2)], ['td', {}, text(2)]]],
       ]); break
       // The parser unwraps a component's single paragraph, so generate that shape.
-      case 3: nodes.push(['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ...inline()]); break
+      case 3: nodes.push(['card', { ...random.pick([{}, { count: 3 }, { open: true }, { value: null }, { items: [1, 'a'] }, { opts: { a: 1 } }, { title: 'x' }, { title: randomPropString(random) }]), $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ...inline()]); break
       default: nodes.push(['p', {}, ...inline()])
     }
   }
@@ -150,7 +155,8 @@ const normalize = (node: MarkdownNode): MarkdownNode | undefined => {
   }
   for (const [index, child] of children.entries()) {
     if (child.type !== 'text') continue
-    child.value = child.value!.replace(/\s+/g, ' ')
+    // Markdown drops spaces around a line break, and a heading is one line.
+    child.value = child.value!.replace(/[ \t]*\n[ \t]*/g, /^h[1-6]$/.test(node.tag!) ? ' ' : '\n')
     // Whitespace next to a hard line break does not render.
     if (children[index + 1]?.tag === 'br') child.value = child.value.trimEnd()
     if (children[index - 1]?.tag === 'br') child.value = child.value.trimStart()
@@ -167,9 +173,6 @@ const normalize = (node: MarkdownNode): MarkdownNode | undefined => {
   if (content.length === 0 && EMPTY_WITHOUT_CONTENT.has(node.tag!)) return undefined
   const props = { ...node.props }
   if (WRAPPED_NATIVE_BLOCKS.has(node.tag!)) delete props.$
-  // Generated heading ids follow the heading text, including the whitespace
-  // this comparison ignores. The focused tests cover heading ids.
-  if (/^h[1-6]$/.test(node.tag!)) delete props.id
   // The parser unwraps the only paragraph of a block component.
   const only = content.length === 1 ? content[0] : undefined
   const unwrapped = isBlockComponent(node) && only?.tag === 'p' ? only.children ?? [] : content
@@ -182,14 +185,38 @@ const optionalString = { types: ['string'], required: false, allowedValues: null
 const POLICY: PortableComponentPolicyV2 = {
   version: 2,
   components: {
-    card: { kind: 'block', props: { title: optionalString }, slots: ['footer'], allowedParents: null, allowedChildren: null, media: null },
+    card: {
+      kind: 'block',
+      props: {
+        title: optionalString,
+        count: { types: ['number'], required: false, allowedValues: null },
+        open: { types: ['boolean'], required: false, allowedValues: null },
+        value: { types: ['json'], required: false, allowedValues: null },
+        items: { types: ['json'], required: false, allowedValues: null },
+        opts: { types: ['json'], required: false, allowedValues: null },
+      },
+      slots: ['footer'],
+      allowedParents: null,
+      allowedChildren: null,
+      media: null,
+    },
     fire: { kind: 'inline', props: {}, slots: [], allowedParents: null, allowedChildren: null, media: null },
     badge: { kind: 'inline', props: {}, slots: [], allowedParents: null, allowedChildren: null, media: null },
   },
 }
 
+/**
+ * The parser reads an unclosed `[` as a span that runs to the end of its text
+ * and drops the bracket, so the source already loses text. Skip such sources.
+ */
+const hasUnclosedBracket = (source: string) => source.split(/\n\s*\n/).some((block) => {
+  const text = block.replace(/`+[^`]*`+/g, '').replace(/\\./g, '')
+  return (text.match(/\[/g)?.length ?? 0) > (text.match(/\]/g)?.length ?? 0)
+})
+
 /** Parse strictly and keep only portable documents, which editors may open. */
 const tryParse = async (source: string) => {
+  if (hasUnclosedBracket(source)) return undefined
   let parsed: MdcDocument
   try {
     parsed = await parseMdcDocument(source, { autoClose: false })
@@ -205,14 +232,15 @@ const tryParse = async (source: string) => {
 
 /**
  * Shapes whose source the parser reads differently from its own output. The
- * span bracket matcher does not skip code spans, so `[`code with ]`]` cannot
- * be written. An unclosed comment can swallow a component's closing `::`.
+ * span bracket matcher does not skip code spans or escaped backslashes, so
+ * `[`code with ]`]`, a span ending in `\\`, and a span of only a line break
+ * cannot be written. An unclosed comment can swallow a component's closing `::`.
  * Adjacent code spans, inline text with a blank line, and an empty `id` have
  * no Markdown form; the parser produces them only from incomplete attribute
  * lists, as are fence info strings that keep `{` or `[` and attribute values
  * with line breaks. A comment that shares a line with text starts an HTML
- * block, and text directly under the root has no Markdown form. An ATX
- * heading has no line break, and Comark does not write emphasis attributes.
+ * block, and text directly under the root has no Markdown form. Comark does
+ * not write emphasis attributes.
  * Nested empty lists and items such as `- - -` read as a thematic break.
  */
 function hasKnownParserAmbiguity(nodes: unknown[]): boolean {
@@ -224,11 +252,13 @@ function hasKnownParserAmbiguity(nodes: unknown[]): boolean {
     if (['li', 'ul', 'ol'].includes(String(node[0])) && node.length === 2) return true
     const props = (node[1] ?? {}) as Record<string, unknown>
     if (node[0] === 'pre') return /[{[]/.test(`${props.language ?? ''}${props.meta ?? ''}`)
-    if (props.id === '') return true
-    if (/^h[1-6]$/.test(String(node[0])) && JSON.stringify(node).includes('["br"')) return true
+    if (/^h[1-6]$/.test(String(node[0])) && !text(node).trim()) return true
+    if (props.id === '' || (typeof props.class === 'string' && !/^[^\s.#]+(?: [^\s.#]+)*$/.test(props.class))) return true
     if (['em', 'strong', 'del'].includes(String(node[0])) && Object.keys(props).length > 0) return true
     if (!props.$ && Object.values(props).some(value => typeof value === 'string' && value.includes('\n'))) return true
     if (node[0] === 'code') return inSpan && /[[\]]/.test(text(node))
+    if (node[0] === 'span' && /\\\s*$/.test(text(node))) return true
+    if (node[0] === 'span' && node.slice(2).every(child => Array.isArray(child) && child[0] === 'br')) return true
     const children = node.slice(2)
     if (children.some((child, index) => Array.isArray(child) && child[0] === 'code' && Array.isArray(children[index + 1]) && (children[index + 1] as unknown[])[0] === 'code')) return true
     if (children.some(child => Array.isArray(child) && child[0] === null) && children.some(child => typeof child === 'string' && child.trim() !== '')) return true
@@ -236,6 +266,44 @@ function hasKnownParserAmbiguity(nodes: unknown[]): boolean {
   }
   return nodes.some(node => (typeof node === 'string' && node.trim() !== '') || visit(node, false))
 }
+
+// Characters that can end, escape, or inject attribute syntax or Markdown.
+const PROP_ALPHABET = ['"', "'", '`', '=', '{', '}', '[', ']', ' ', '\n', '\r\n', '\\', ':', '#', '-', '>', '<', '&', '&quot;', '&#10;', 'a', 'b', 'x', 'ü', '日本', '😀', 'javascript:alert(1)', 'to="x"', '\n\n# evil', '::card']
+
+const randomPropString = (random: Random) =>
+  Array.from({ length: random.int(8) }, () => random.pick(PROP_ALPHABET)).join('')
+
+describe('MDC component property round trip', () => {
+  const forms = [['colon', 1], ['colon', 0], ['angle', 1], ['angle', 0]] as const
+  it.each(SEEDS)('keeps random string and JSON property values exactly for seed %i', async (seed) => {
+    const random = createRandom(seed)
+    for (let index = 0; index < CASES_PER_SEED; index++) {
+      const props: Record<string, unknown> = { title: randomPropString(random), label: randomPropString(random) }
+      if (random.next() < 0.5) props.value = random.pick([3, -1.5, true, false, null, [randomPropString(random), 1], { key: randomPropString(random) }])
+      for (const [syntax, block] of forms) {
+        const component: MdcNode = ['card', { ...props, $: { syntax, block, sourceName: syntax === 'angle' ? 'Card' : 'card' } }, 'Body']
+        const document: MdcDocument = { nodes: block ? [component] : [['p', {}, 'a ', component, ' b']], frontmatter: {}, meta: {} }
+        const jsonLike = Object.values(props).some(value => typeof value === 'string' && /^(?:\{.*\}|\[.*\])$/s.test(value) && (() => {
+          try { JSON.parse(value); return true } catch { return false }
+        })())
+        if (jsonLike) {
+          await expect(serializeMdcDocument(document)).rejects.toMatchObject({ name: 'MdcSerializationError', code: 'unrepresentable_value' })
+          continue
+        }
+        const serialized = await serializeMdcDocument(document)
+        const context = JSON.stringify({ seed, index, syntax, block, props, serialized })
+        const reparsed = await parseMdcDocument(serialized, { autoClose: false }).catch((error: Error) => {
+          throw new Error(`${error.message} ${context}`)
+        })
+        const body = projectMdcDocument(reparsed).body
+        const card = block ? body.children[0] : body.children[0]?.children?.[1]
+        const { $: _origin, ...actual } = card?.props ?? {}
+        expect(actual, context).toEqual(props)
+        expect(card?.children, context).toEqual([{ type: 'text', value: 'Body' }])
+      }
+    }
+  })
+})
 
 describe('MDC round-trip property', () => {
   it.each(SEEDS)('parse(serialize(parse(source))) equals parse(source) for seed %i', async (seed) => {
@@ -252,6 +320,10 @@ describe('MDC round-trip property', () => {
         throw new Error(`${error.message} ${context}`)
       })
       expect(normalizedBody(reparsed), context).toEqual(normalizedBody(parsed))
+      // The first pass removes parser artifacts, such as whitespace left by a
+      // dropped attribute list. From then on, serialization is idempotent.
+      const stable = await serializeMdcDocument(reparsed)
+      expect(await serializeMdcDocument(await parseMdcDocument(stable, { autoClose: false })), context).toBe(stable)
     }
     expect(checked).toBeGreaterThan(CASES_PER_SEED / 4)
   })
@@ -265,12 +337,8 @@ describe('MDC round-trip property', () => {
       const reparsed = await parseMdcDocument(serialized, { autoClose: false }).catch((error: Error) => {
         throw new Error(`${error.message} ${context}`)
       })
-      const expected = normalizedBody(document)
-      const actual = normalizedBody(reparsed)
-      // Generated headings carry no id; compare everything else exactly.
-      const withoutHeadingIds = (value: unknown): unknown => JSON.parse(JSON.stringify(value, (key, child) =>
-        key === 'props' && child && typeof child === 'object' && 'id' in child ? { ...child, id: undefined } : child))
-      expect(withoutHeadingIds(actual), context).toEqual(withoutHeadingIds(expected))
+      expect(normalizedBody(reparsed), context).toEqual(normalizedBody(document))
+      expect(await serializeMdcDocument(reparsed), context).toBe(serialized)
     }
   })
 })

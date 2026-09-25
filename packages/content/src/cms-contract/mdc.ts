@@ -4,7 +4,7 @@
  * the public provider instead of maintaining a second markdown parser.
  */
 
-import { renderMarkdown } from 'comark/render'
+import { renderFrontmatter, renderMarkdown } from 'comark/render'
 import type { ConditionalNodeHandler, MarkdownDocument } from 'comark'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
 import { HTML_TAGS } from '../core/markdown/html-tags.js'
@@ -12,8 +12,8 @@ import { angleComponentRenderer, isAloneOnLine } from '../core/markdown/angle-co
 import { createHeadingIdGenerator, headingSlugText } from '../core/markdown/heading-id.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
 import { parseComark } from '../core/markdown/parse-comark.js'
-import { createVerbatimHandlers, markListItemsInComponents } from '../core/markdown/serialize-handlers.js'
-import { absentPrivateUseCharacter, markMdcTreeEscapes } from '../core/markdown/text-escape.js'
+import { createVerbatimHandlers, markHeadingBreaks, markListItemsInComponents } from '../core/markdown/serialize-handlers.js'
+import { absentPrivateUseCharacters, markMdcTreeEscapes } from '../core/markdown/text-escape.js'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree.js'
 
 export {
@@ -26,6 +26,61 @@ export {
   slugifyHeading,
   type HeadingIdGenerator,
 } from '../core/markdown/heading-id.js'
+
+/** Why `serializeMdcDocument()` could not write a document. */
+export type MdcSerializationIssueCode = 'unrepresentable_value'
+
+/**
+ * The document contains a value that no Markdown syntax can hold, so writing it
+ * would change its meaning. `path` points to the property in `document.nodes`.
+ */
+export class MdcSerializationError extends Error {
+  readonly code: MdcSerializationIssueCode
+  readonly path: Array<string | number>
+
+  constructor(code: MdcSerializationIssueCode, message: string, path: Array<string | number>) {
+    super(message)
+    this.name = 'MdcSerializationError'
+    this.code = code
+    this.path = path
+  }
+}
+
+/**
+ * The parser converts a component property string that is a JSON object or
+ * array, such as `"[]"`, to that value in every syntax.
+ */
+const readsAsJson = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false
+  if (!((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']')))) return false
+  try {
+    JSON.parse(value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const assertRepresentable = (nodes: unknown[]): void => {
+  const visit = (node: unknown, path: Array<string | number>) => {
+    if (!Array.isArray(node)) return
+    const props = node[1] as Record<string, unknown> | undefined
+    const origin = props?.$ as { syntax?: unknown } | undefined
+    if (props && (origin?.syntax === 'colon' || origin?.syntax === 'angle')) {
+      for (const [name, value] of Object.entries(props)) {
+        if (readsAsJson(value)) {
+          throw new MdcSerializationError(
+            'unrepresentable_value',
+            `Component "${String(node[0])}" property "${name}" is a string that Markdown reads back as JSON.`,
+            [...path, 1, name],
+          )
+        }
+      }
+    }
+    node.slice(2).forEach((child, index) => visit(child, [...path, index + 2]))
+  }
+  nodes.forEach((node, index) => visit(node, [index]))
+}
 
 /** Parser-owned properties on an editing-document element. */
 export type MdcElementProps = Record<string, unknown>
@@ -83,33 +138,38 @@ export async function parseMdcDocument(
  *
  * Parsing the result with `autoClose: false` returns the same projected body:
  * text that the parser would read as MDC syntax is escaped, and a heading id
- * is written only when it differs from the id the parser generates.
+ * is written only when it differs from the id the parser generates. Throws
+ * `MdcSerializationError` instead of writing a value that would read back
+ * differently: a component property string that is a JSON object or array.
  */
 export async function serializeMdcDocument(
   document: MdcDocument,
   options: SerializeMdcDocumentOptions = {},
 ): Promise<string> {
+  assertRepresentable(document.nodes)
   const renderDocument = structuredClone(document) as MarkdownDocument
-  const escapeMarker = absentPrivateUseCharacter(JSON.stringify(document))
+  const [escapeMarker, ltMarker, ampMarker] = absentPrivateUseCharacters(JSON.stringify(document), 3) as [string, string, string]
+  const markers = { escape: escapeMarker, lt: ltMarker, amp: ampMarker }
   // Component serializers clone their children, so the explicit id travels in
   // a property that no authored document can contain.
   const explicitIdKey = `${escapeMarker}id`
   markExplicitHeadingIds(renderDocument.nodes, explicitIdKey)
   separateAdjacentLists(renderDocument.nodes)
   markListItemsInComponents(renderDocument.nodes, escapeMarker)
-  markMdcTreeEscapes(renderDocument.nodes, escapeMarker)
+  markHeadingBreaks(renderDocument.nodes, escapeMarker)
+  markMdcTreeEscapes(renderDocument.nodes, markers)
   const markdown = await renderMarkdown(renderDocument, {
     ...(options.maxInlineAttributes !== undefined ? { maxInlineAttributes: options.maxInlineAttributes } : {}),
     ...(options.blockAttributesStyle !== undefined ? { blockAttributesStyle: options.blockAttributesStyle } : {}),
     components: {
-      ...createVerbatimHandlers(escapeMarker),
+      ...createVerbatimHandlers(escapeMarker, markers),
       angle: angleComponentRenderer,
       colonInline: colonInlineComponentRenderer,
-      colonBlock: colonBlockComponentRenderer,
+      colonBlock: createColonBlockComponentRenderer(options),
       explicitHeadingId: explicitHeadingIdRenderer(explicitIdKey),
     },
   })
-  return markdown.split(escapeMarker).join('\\')
+  return markdown.split(escapeMarker).join('\\').split(ltMarker).join('<').split(ampMarker).join('&')
 }
 
 const HEADING_TAG = /^h([1-6])$/
@@ -268,12 +328,19 @@ const followsComponentPrefix = (node: unknown[], parent: unknown[] | undefined):
 
 // Block shorthand starts a block, so only the first line of a text run is at
 // risk: a paragraph, or the unwrapped paragraph of a list item or component.
+// Shorthand takes the whole line, or `[content]` and `{props}` after spaces.
 const isAloneInParagraph = (node: unknown[], parent: unknown[] | undefined): boolean => {
-  if (!parent || !isAloneOnLine(node, parent)) return false
+  if (!parent) return false
   if (typeof parent[0] === 'string' && /^(h[1-6]|td|th)$/.test(parent[0])) return false
   const children = parent.slice(2)
+  const index = children.indexOf(node)
   const textRun = parent[0] === 'p' || children.some(child => typeof child === 'string' && child.trim() !== '')
-  return textRun && children.slice(0, children.indexOf(node)).every(child => typeof child === 'string' && child.trim() === '')
+  if (!textRun || !children.slice(0, index).every(child => typeof child === 'string' && child.trim() === '')) return false
+  if (isAloneOnLine(node, parent)) return true
+  let next = children[index + 1]
+  if (typeof next === 'string' && /^[ \t]*$/.test(next)) next = children[index + 2]
+  if (typeof next === 'string') return /^[ \t]*[{[]/.test(next)
+  return Array.isArray(next) && (next[0] === 'a' || next[0] === 'span')
 }
 
 const isBlockLevel = (parent: unknown[] | undefined): boolean => {
@@ -294,11 +361,15 @@ const isInlineElement = (node: unknown): boolean => {
   return origin ? origin.block === 0 && colonMetadata(node) === undefined : INLINE_ELEMENT_TAGS.has(node[0])
 }
 
-// Text such as `beta` directly after `:fire` would extend the component name.
+// Text such as `beta` directly after `:fire` would extend the component name,
+// and `{{` would read as its properties.
 const precedesNameCharacter = (node: unknown[], parent: unknown[] | undefined): boolean => {
   if (!parent) return false
   const next = parent[parent.indexOf(node) + 1]
-  return typeof next === 'string' && /^[\w$-]/.test(next)
+  // `{` directly after the name would open its property list, and a link or
+  // span (`[...]`) would become its content.
+  if (Array.isArray(next)) return (next[0] === 'a' || next[0] === 'span') && !colonMetadata(next)
+  return typeof next === 'string' && /^[\w${-]/.test(next)
 }
 
 // `:name [text]` alone on a line is block shorthand with content. Empty props
@@ -313,20 +384,74 @@ const precedesSpanOnLine = (node: unknown[], parent: unknown[] | undefined): boo
 
 // Dispatch parser-marked blocks directly to the component serializer. Native
 // handlers would otherwise turn components such as img into Markdown images.
-const colonBlockComponentRenderer: ConditionalNodeHandler = {
+/** Whether a string, key, or nested value contains a line break. */
+const hasLineBreak = (value: unknown): boolean => {
+  if (typeof value === 'string') return /[\r\n]/.test(value)
+  if (Array.isArray(value)) return value.some(hasLineBreak)
+  return value !== null && typeof value === 'object' &&
+    Object.entries(value).some(([key, child]) => hasLineBreak(key) || hasLineBreak(child))
+}
+
+/**
+ * Inline colon attributes are always strings, and Comark writes them in double
+ * quotes without escaping. Comark's own YAML block turns the strings `"true"`
+ * and `"false"` into booleans. A component that needs a YAML block, because
+ * of `maxInlineAttributes` or a number, boolean, null, array, or object
+ * property, or a string with `"`, `\`, or a line break, gets one written here.
+ * Every value stays on its key line, so no line can start with `::` or
+ * `---`, and the parser reads the exact JSON values.
+ */
+const createColonBlockComponentRenderer = (options: SerializeMdcDocumentOptions): ConditionalNodeHandler => ({
   match: node => colonMetadata(node)?.block === 1,
   handler: async (node, state, parent) => {
     const metadata = colonMetadata(node)!
     const component = structuredClone(node)
-    // Comark's component serializer also special-cases span and table. An
+    // Comark's component serializer special-cases span and table. An
     // uppercase authored name preserves colon syntax and the canonical identity.
-    component[0] = HTML_TAGS.has(node[0])
+    component[0] = node[0] === 'span' || node[0] === 'table'
       ? metadata.sourceName[0]!.toUpperCase() + metadata.sourceName.slice(1)
       : metadata.sourceName
     delete component[1].$
-    return state.handlers.mdc!(component, state, parent)
+    const props = component[1]
+    const entries = Object.entries(props)
+    const style = options.blockAttributesStyle ?? 'codeblock'
+    const maxInline = options.maxInlineAttributes ?? 3
+    const needsYaml = maxInline === 0 || entries.length > maxInline || entries.some(([name, value]) =>
+      !name.startsWith(':') && (typeof value !== 'string' || /["\\\r\n]/.test(value)))
+    // Nested components restore the caller's settings for themselves.
+    const revert = state.applyContext({ blockAttributesStyle: style, maxInlineAttributes: maxInline })
+    try {
+      if (!needsYaml) return await state.handlers.mdc!(component, state, parent)
+      component[1] = {}
+      // Without properties, Comark would otherwise write an empty YAML block.
+      state.applyContext({ maxInlineAttributes: Number.MAX_SAFE_INTEGER })
+      const rendered = await state.handlers.mdc!(component, state, parent)
+      // Next to text or inside a link or emphasis, Comark writes the inline
+      // form, which has no property block. Write the inline component instead;
+      // it encodes such values as angle-syntax attributes.
+      if (!/^[ \t]*::/.test(rendered)) {
+        state.applyContext({ maxInlineAttributes: maxInline })
+        const inlineNode = structuredClone(node)
+        inlineNode[1].$ = { ...metadata, block: 0 }
+        const inlineParent = parent?.map(child => child === node ? inlineNode : child) as typeof parent
+        return await colonInlineComponentRenderer.handler(inlineNode, state, inlineParent)
+      }
+      const lines = rendered.split('\n')
+      // Nested components carry their own indentation on every line.
+      const indentation = /^[ \t]*/.exec(lines[0]!)![0]
+      // A multi-line string would become a block scalar, whose lines could
+      // start with `::` or `---`. Double quotes keep it on its key line.
+      const yaml = renderFrontmatter(props, '', { forceQuotes: hasLineBreak(props), quotingType: '"', flowLevel: 1 }).split('\n')
+      // Only the `---` form keeps number, boolean, null, array, and object types.
+      const typed = entries.some(([, value]) => typeof value !== 'string')
+      const fence = style === 'frontmatter' || typed ? ['---', '---'] : ['```yaml [props]', '```']
+      lines.splice(1, 0, ...[fence[0]!, ...yaml, fence[1]!].map(line => `${indentation}${line}`))
+      return lines.join('\n')
+    } finally {
+      state.applyContext(revert)
+    }
   },
-}
+})
 
 export interface ParseMdcBodyOptions {
   /** Maximum heading depth captured into `toc`. Default 3. */

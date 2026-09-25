@@ -70,9 +70,14 @@ const typedComponentFrontmatter = defineComarkPlugin(() => ({
           if (token.type !== 'mdc_block_open' || !token.map) continue
 
           const [startLine, endLine] = token.map
-          if (lines[startLine + 1]?.trim() !== '---') continue
+          const fence = lines[startLine + 1]
+          if (fence?.trim() !== '---') continue
 
-          const parsed = parseFrontmatter(lines.slice(startLine + 1, endLine).join('\n'))
+          // Nested components are indented; read their YAML without that indentation.
+          const indentation = fence.slice(0, fence.length - fence.trimStart().length)
+          const parsed = parseFrontmatter(lines.slice(startLine + 1, endLine)
+            .map(line => line.startsWith(indentation) ? line.slice(indentation.length) : line)
+            .join('\n'))
           if (!parsed.frontmatterText) continue
 
           const yamlEntries = Object.entries(parsed.data)

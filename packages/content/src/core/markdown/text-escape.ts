@@ -3,142 +3,165 @@
  *
  * Comark escapes CommonMark syntax in text nodes, but not the MDC syntax that
  * Ginko's parser also reads: `:name` components, `::name` blocks and closers,
- * `{attrs}`, `#slot` lines, and angle component tags. It also copies table-cell
- * text without any escaping. This module marks each character that needs a
- * backslash with a placeholder character before rendering. The caller
- * replaces the placeholder with `\` after rendering, so Comark's own escaping
- * never sees, doubles, or removes these escapes.
+ * `{attrs}`, `#slot` lines, angle component tags, and scheme URLs that the
+ * parser links. It also copies table-cell text without any escaping. This
+ * module marks each character that needs a backslash with a placeholder
+ * character before rendering. The caller replaces the placeholder with `\`
+ * after rendering, so Comark's own escaping never sees, doubles, or removes
+ * these escapes.
+ *
+ * `<` and `&` are replaced by placeholders as well. This module decides their
+ * escapes, and Comark never scans the rest of the text after them.
+ *
+ * Every check is local or runs once per line, so escaping is linear in the
+ * text length.
  */
+
+/** Placeholder characters that the caller replaces after rendering. */
+export interface MdcEscapeMarkers {
+  /** Becomes `\`. */
+  escape: string
+  /** Becomes `<`. */
+  lt: string
+  /** Becomes `&`. */
+  amp: string
+}
 
 // Characters that may precede an inline `:name` component (Comark's
 // `ALLOWED_PREV_CHARS`). The start of a text node counts as unknown.
 const COMPONENT_PREFIX = new Set([' ', '\t', '\n', '*', '_', '['])
 const COMPONENT_NAME_START = /[A-Z$]/i
 const TAG_START = /[A-Z!?/]/i
+const ENTITY = /&#?[A-Z0-9]+;/iy
+// Schemes that the parser links in plain text. Bare domains are not linked.
+const LINKED_SCHEME = /(?:^|[^A-Z0-9])(?:https?|mailto)$/i
 
 /** A line that could complete a GFM table under the previous text line. */
 const isTableDelimiterRow = (line: string) => /^[|:-][|:\- \t]*$/.test(line) && line.includes('-')
 
 const isAlphaNumeric = (char: string | undefined) => char !== undefined && /[A-Z0-9]/i.test(char)
 
-/** Comark escapes these characters itself outside table cells. */
+/** Characters that Comark escapes itself outside table cells. */
 const comarkEscapesInline = (text: string, offset: number): boolean => {
-  const char = text[offset]
-  switch (char) {
+  switch (text[offset]) {
     case '\\': case '`': case '*': case '~': case '[': case ']':
       return true
     case '_':
       return !(isAlphaNumeric(text[offset - 1]) && isAlphaNumeric(text[offset + 1]))
-    case '<':
-      return /^<[a-z!?/][^>]*>/i.test(text.slice(offset))
-    case '&':
-      return /^&#?[a-z0-9]+;/i.test(text.slice(offset))
     default:
       return false
   }
 }
 
 /**
- * True when only spaces or tabs separate `offset` from the start of its line.
- * The start of a text node counts as a line start, because the text before it
- * belongs to another node.
+ * Whether a CommonMark block marker or MDC line syntax starts `line`, the
+ * rest of a line from its first non-blank character. Comark escapes block
+ * markers only at the first column of a line it knows starts one; component
+ * children and indented lines are not covered.
  */
-const atLineStart = (text: string, offset: number): boolean => {
-  for (let index = offset - 1; index >= 0; index--) {
-    const char = text[index]
-    if (char === '\n') return true
-    if (char !== ' ' && char !== '\t') return false
-  }
-  return true
-}
-
-const lineAt = (text: string, offset: number): string => {
-  const end = text.indexOf('\n', offset)
-  return text.slice(offset, end === -1 ? undefined : end)
-}
-
-/** Offset of the first character after the indentation of the line at `offset`. */
-const contentStart = (text: string, offset: number): number => {
-  let start = text.lastIndexOf('\n', offset - 1) + 1
-  while (text[start] === ' ' || text[start] === '\t') start++
-  return start
-}
-
-/**
- * Whether a CommonMark block marker starts at `offset`. Comark escapes these
- * only at the first column of a line it knows starts one; component children
- * and indented lines are not covered.
- */
-const startsBlockMarker = (text: string, offset: number): boolean => {
-  const rest = lineAt(text, offset)
-  switch (text[offset]) {
-    case '#': return /^#{1,6}([ \t]|$)/.test(rest)
+const startsLineSyntax = (line: string): boolean => {
+  if (isTableDelimiterRow(line)) return true
+  const next = line[1]
+  switch (line[0]) {
+    // `#name` opens a named slot inside a block component.
+    case '#': return /^#{1,6}(?:[ \t]|$)/.test(line) || (next !== ' ' && next !== '\t' && next !== '#')
     case '>': return true
-    case '-': return /^-([ \t-]|$)/.test(rest)
-    case '+': return /^\+([ \t]|$)/.test(rest)
-    case '=': return /^=+[ \t]*$/.test(rest)
+    case '-': return /^-(?:[ \t-]|$)/.test(line)
+    case '+': return /^\+(?:[ \t]|$)/.test(line)
+    case '=': return /^=+[ \t]*$/.test(line)
+    // `::name` opens a block component and a bare `::` closes one.
+    case ':': return next === ':' || next === undefined
     default: return false
   }
 }
 
-/** Whether `offset` is the `.` or `)` of an ordered-list marker such as `1.`. */
-const isOrderedListDelimiter = (text: string, offset: number): boolean => {
-  const char = text[offset]
-  if (char !== '.' && char !== ')') return false
-  const next = text[offset + 1]
-  if (next !== undefined && next !== ' ' && next !== '\t' && next !== '\n') return false
-  return /^\d{1,9}$/.test(text.slice(contentStart(text, offset), offset))
-}
-
-/** Whether the parser could read MDC syntax that starts at `offset`. */
-const startsMdcSyntax = (text: string, offset: number): boolean => {
-  const char = text[offset]
+/**
+ * Whether the parser could read syntax that starts at `offset`, apart from
+ * line-start syntax. `<` and `&` are decided here for both contexts.
+ */
+const startsInlineSyntax = (text: string, offset: number): boolean => {
   const previous = text[offset - 1]
   const next = text[offset + 1]
-  const lineStart = atLineStart(text, offset) && char !== ' ' && char !== '\t'
-  if (lineStart && (isTableDelimiterRow(lineAt(text, offset)) || startsBlockMarker(text, offset))) return true
-  if (isOrderedListDelimiter(text, offset)) return true
-  switch (char) {
+  switch (text[offset]) {
     case ':':
       if (next !== undefined && COMPONENT_NAME_START.test(next) && (offset === 0 || COMPONENT_PREFIX.has(previous!))) return true
-      // `::name` opens a block component and a bare `::` closes one.
-      return lineStart && (next === ':' || next === undefined)
+      // `https:` and `mailto:` would become links.
+      return LINKED_SCHEME.test(text.slice(Math.max(0, offset - 7), offset))
     case '{':
       // `{{ value }}` and `${value}` are never attribute lists.
       return next !== '{' && previous !== '{' && previous !== '$'
-    case '#':
-      // `#name` opens a named slot inside a block component.
-      return lineStart && next !== ' ' && next !== '\t' && next !== '#'
     case '<':
-      // Angle component tags and HTML comments need no closing `>` to start.
+      // Angle tags, autolinks, and HTML comments need no closing `>` to start.
       return next !== undefined && TAG_START.test(next)
+    case '&':
+      ENTITY.lastIndex = offset
+      return ENTITY.test(text)
     default:
       return false
   }
 }
 
 /**
- * Insert `marker` before every character that needs a backslash. With
- * `rawContext`, Comark writes the text without its own escaping (table cells),
- * so CommonMark inline syntax is marked as well. `forced` offsets are marked
- * unconditionally.
+ * Insert `markers.escape` before every character that needs a backslash and
+ * replace `<` and `&` with their placeholders. With `rawContext`, Comark
+ * writes the text without its own escaping (table cells), so CommonMark inline
+ * syntax is marked as well and line-start syntax does not apply. `forced`
+ * offsets are marked unconditionally.
  */
-export function markMdcTextEscapes(text: string, marker: string, rawContext = false, forced?: ReadonlySet<number>): string {
+export function markMdcTextEscapes(
+  text: string,
+  markers: MdcEscapeMarkers,
+  rawContext = false,
+  forced?: ReadonlySet<number>,
+): string {
   let result = ''
+  // Offset of the first non-blank character of the current line, and the
+  // length of the digit run that starts there.
+  let contentStart = -1
+  let digits = 0
+  let lineStart = true
   for (let offset = 0; offset < text.length; offset++) {
-    const needsEscape = forced?.has(offset) || (rawContext
-      ? comarkEscapesInline(text, offset) || startsMdcSyntax(text, offset)
-      : !comarkEscapesInline(text, offset) && startsMdcSyntax(text, offset))
-    if (needsEscape) result += marker
-    result += text[offset]
+    const char = text[offset]!
+    if (lineStart && char !== ' ' && char !== '\t') {
+      contentStart = offset
+      digits = 0
+      lineStart = false
+    }
+    if (offset === contentStart + digits && char >= '0' && char <= '9') digits++
+
+    let escape = forced?.has(offset) || startsInlineSyntax(text, offset)
+    if (rawContext) {
+      escape ||= comarkEscapesInline(text, offset)
+    } else {
+      if (!escape && offset === contentStart) {
+        const end = text.indexOf('\n', offset)
+        escape = startsLineSyntax(text.slice(offset, end === -1 ? undefined : end))
+      }
+      // `1.` or `1)` followed by a blank starts an ordered list.
+      if (!escape && (char === '.' || char === ')') && digits > 0 && digits <= 9 && offset === contentStart + digits) {
+        const next = text[offset + 1]
+        escape = next === undefined || next === ' ' || next === '\t' || next === '\n'
+      }
+      // Comark escapes these itself; a second marker would double the backslash.
+      if (comarkEscapesInline(text, offset)) escape = false
+    }
+
+    if (escape) result += markers.escape
+    result += char === '<' ? markers.lt : char === '&' ? markers.amp : char
+    if (char === '\n') lineStart = true
   }
   return result
 }
 
 /** The closing `#` run of an ATX heading line, which the parser removes. */
 const closingHeadingSequence = (text: string): ReadonlySet<number> | undefined => {
-  const match = /[ \t](#+)[ \t]*$/.exec(text)
-  return match ? new Set([match.index + 1]) : undefined
+  let end = text.length
+  while (end > 0 && (text[end - 1] === ' ' || text[end - 1] === '\t')) end--
+  let start = end
+  while (start > 0 && text[start - 1] === '#') start--
+  if (start === end || start === 0) return undefined
+  const before = text[start - 1]
+  return before === ' ' || before === '\t' ? new Set([start]) : undefined
 }
 
 const LITERAL_TAGS = new Set(['code', 'pre', 'math', 'mermaid'])
@@ -162,7 +185,7 @@ const isRawHtmlBlock = (props: unknown): boolean => {
  * Mark escapes in every text node of a Comark tuple tree, in place. Code, math,
  * Mermaid, comments, and raw HTML block text stay verbatim.
  */
-export function markMdcTreeEscapes(nodes: unknown[], marker: string): void {
+export function markMdcTreeEscapes(nodes: unknown[], markers: MdcEscapeMarkers): void {
   const visit = (node: unknown[], inHeading: boolean) => {
     const tag = node[0]
     if (tag === null || (typeof tag === 'string' && LITERAL_TAGS.has(tag))) return
@@ -170,6 +193,12 @@ export function markMdcTreeEscapes(nodes: unknown[], marker: string): void {
     const rawContext = tag === 'th' || tag === 'td'
     const heading = inHeading || (typeof tag === 'string' && /^h[1-6]$/.test(tag))
     const textBlock = isTextBlock(node)
+    // Adjacent text nodes render as one run; escape them as one.
+    for (let index = node.length - 1; index > 2; index--) {
+      if (typeof node[index] === 'string' && typeof node[index - 1] === 'string') {
+        node.splice(index - 1, 2, `${node[index - 1] as string}${node[index] as string}`)
+      }
+    }
     for (let index = 2; index < node.length; index++) {
       const child = node[index]
       if (typeof child === 'string') {
@@ -177,9 +206,12 @@ export function markMdcTreeEscapes(nodes: unknown[], marker: string): void {
         // Whitespace at the edges of a text block has no Markdown form, and
         // leading indentation could continue a preceding list.
         let text = child
-        if (textBlock && index === 2) text = text.replace(/^\s+/, '')
-        if (textBlock && index === node.length - 1) text = text.replace(/\s+$/, '')
-        node[index] = markTextNode(text, marker, { rawContext, heading, last: heading && !inHeading && index === node.length - 1 })
+        if (textBlock && index === 2) text = text.trimStart()
+        if (textBlock && index === node.length - 1) text = text.trimEnd()
+        // `!` before a link would turn the link into an image.
+        const next = node[index + 1]
+        const beforeLink = Array.isArray(next) && (next[0] === 'a' || next[0] === 'span') && text.endsWith('!')
+        node[index] = markTextNode(text, markers, { rawContext, heading, last: heading && !inHeading && index === node.length - 1, beforeLink })
       } else if (Array.isArray(child)) {
         visit(child, heading)
       }
@@ -187,29 +219,57 @@ export function markMdcTreeEscapes(nodes: unknown[], marker: string): void {
   }
   for (let index = 0; index < nodes.length; index++) {
     const node = nodes[index]
-    if (typeof node === 'string') nodes[index] = markTextNode(node, marker, {})
+    if (typeof node === 'string') nodes[index] = markTextNode(node, markers, {})
     else if (Array.isArray(node)) visit(node, false)
   }
 }
 
+const isBlank = (char: string | undefined) => char === ' ' || char === '\t'
+
+/**
+ * Remove spaces and tabs around each line break and join the lines with
+ * `separator`. A regular expression such as `/[ \t]*\n/` would retry every
+ * blank of a long run, which is quadratic.
+ */
+const joinLines = (text: string, separator: string): string => {
+  const lines = text.split('\n')
+  if (lines.length === 1) return text
+  return lines.map((line, index) => {
+    let start = 0
+    let end = line.length
+    if (index > 0) while (start < end && isBlank(line[start])) start++
+    if (index < lines.length - 1) while (end > start && isBlank(line[end - 1])) end--
+    return line.slice(start, end)
+  }).join(separator)
+}
+
 const markTextNode = (
   value: string,
-  marker: string,
-  context: { rawContext?: boolean, heading?: boolean, last?: boolean },
+  markers: MdcEscapeMarkers,
+  context: { rawContext?: boolean, heading?: boolean, last?: boolean, beforeLink?: boolean },
 ): string => {
-  // Trailing spaces before a line break would form a hard break, and an ATX
-  // heading is one line. Neither whitespace change alters rendered text.
-  let text = value.replace(/[ \t]+(?=\n)/g, '')
-  if (context.heading) text = text.replace(/[ \t]*\n[ \t]*/g, ' ')
-  const forced = context.last ? closingHeadingSequence(text) : undefined
-  return markMdcTextEscapes(text, marker, context.rawContext, forced)
+  // Trailing spaces before a line break would form a hard break. An ATX
+  // heading and a table cell are one line. These whitespace changes do not
+  // alter rendered text.
+  // Spaces at the start of a continuation line do not render either.
+  const text = joinLines(value, context.heading || context.rawContext ? ' ' : '\n')
+  const forced = new Set(context.last ? closingHeadingSequence(text) : undefined)
+  if (context.beforeLink && text.endsWith('!')) forced.add(text.length - 1)
+  return markMdcTextEscapes(text, markers, context.rawContext, forced)
+}
+
+/** Private-use characters absent from `source`, used as reversible markers. */
+export function absentPrivateUseCharacters(source: string, count: number): string[] {
+  const characters: string[] = []
+  for (let codePoint = 0xE000; codePoint <= 0xF8FF && characters.length < count; codePoint++) {
+    const candidate = String.fromCharCode(codePoint)
+    if (!source.includes(candidate)) characters.push(candidate)
+  }
+  if (characters.length < count) throw new Error('Markdown source exhausts the private-use placeholder range.')
+  return characters
 }
 
 /** A private-use character absent from `source`, used as a reversible marker. */
 export function absentPrivateUseCharacter(source: string): string {
-  for (let codePoint = 0xE000; codePoint <= 0xF8FF; codePoint++) {
-    const candidate = String.fromCharCode(codePoint)
-    if (!source.includes(candidate)) return candidate
-  }
-  throw new Error('Markdown source exhausts the private-use placeholder range.')
+  return absentPrivateUseCharacters(source, 1)[0]!
 }

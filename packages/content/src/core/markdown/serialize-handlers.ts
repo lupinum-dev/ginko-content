@@ -1,4 +1,5 @@
-import type { ElementNode, NodeHandler, State } from 'comark'
+import type { ConditionalNodeHandler, ElementNode, NodeHandler, State } from 'comark'
+import type { MdcEscapeMarkers } from './text-escape.js'
 
 /**
  * Serializer handlers that keep code verbatim and list-item blocks attached.
@@ -6,10 +7,11 @@ import type { ElementNode, NodeHandler, State } from 'comark'
  * Comark's defaults trim fenced code (leading blank lines and first-line
  * indentation are lost), pick a fence that code may already contain, wrap
  * inline code without padding, and do not indent a code block, quote, or table
- * that starts a list item. They also write a thematic break in a list item as
- * `- ---`, which the parser reads as one thematic break outside the list, and
+ * that starts a list item. They also write every thematic break as `---`,
+ * which can read as frontmatter, component properties, or `- ---`, and
  * write hard breaks as trailing spaces, which block edges lose. Strikethrough
- * loses nested formatting. Each
+ * loses nested formatting, image alt text with a `]` ends the label, and a destination
+ * with a space is not wrapped. Each
  * wrapper lets the default handler render the surrounding syntax around a
  * placeholder and then substitutes the exact content, so attribute rendering
  * stays with Comark.
@@ -32,6 +34,25 @@ const longestRun = (text: string, char: string): number => {
 }
 
 const LIST_ITEM_LEADING_BLOCKS = new Set(['pre', 'blockquote', 'table'])
+
+const hasComponentOrigin = (props: unknown): boolean => {
+  const origin = (props as { $?: { syntax?: unknown } } | undefined)?.$
+  return origin?.syntax === 'colon' || origin?.syntax === 'angle'
+}
+
+const hasHtmlOrigin = (props: unknown): boolean =>
+  (props as { $?: { html?: unknown } } | undefined)?.$?.html === 1
+
+/** Whether alt text can be written verbatim between `![` and `]`. */
+const isRawLabel = (text: string): boolean => {
+  if (/[\r\n]|\\$|\\[[\]]/.test(text)) return false
+  let depth = 0
+  for (const char of text) {
+    if (char === '[') depth++
+    if (char === ']' && --depth < 0) return false
+  }
+  return depth === 0
+}
 const INLINE_TAGS = new Set(['a', 'br', 'code', 'del', 'em', 'img', 'input', 'span', 'strong'])
 
 const isInlineNode = (node: unknown): boolean => {
@@ -41,7 +62,7 @@ const isInlineNode = (node: unknown): boolean => {
   return origin ? origin.block === 0 : INLINE_TAGS.has(node[0])
 }
 
-export function createVerbatimHandlers(marker: string): Record<string, NodeHandler> {
+export function createVerbatimHandlers(marker: string, markers: MdcEscapeMarkers): Record<string, ConditionalNodeHandler> {
   const placeholder = `${marker}code${marker}`
   const defaults = (state: State) => state.handlers as Record<string, NodeHandler>
 
@@ -59,7 +80,10 @@ export function createVerbatimHandlers(marker: string): Record<string, NodeHandl
     const opening = rendered.slice(openingStart, body)
     const closingStart = body + placeholder.length + 2
     if (body < 0 || !opening.startsWith('```') || !rendered.startsWith('```', closingStart)) return rendered
-    const info = opening.slice(3)
+    // A fence without a language reads its first metadata word as the
+    // language, so leading spaces would not survive a second round trip.
+    const rawInfo = opening.slice(3)
+    const info = rawInfo.trimStart().startsWith('`') || rawInfo.trimStart().startsWith('~') ? rawInfo : rawInfo.trimStart()
     // A backtick fence cannot carry a backtick in its info string.
     const fenceChar = info.includes('`') ? '~' : '`'
     const fence = fenceChar.repeat(Math.max(3, longestRun(code, fenceChar) + 1))
@@ -121,10 +145,10 @@ export function createVerbatimHandlers(marker: string): Record<string, NodeHandl
 
   const anchor: NodeHandler = async () => placeholder
 
-  // `- ---` is a thematic break, not a list item that contains one.
-  const hr: NodeHandler = async (node, state, parent) => parent?.[0] === 'li'
-    ? `***${state.context.blockSeparator}`
-    : await defaults(state).hr!(node, state, parent)
+  // `---` reads as frontmatter at the start of a document, as YAML properties
+  // right after a component opener, and as one thematic break in `- ---`.
+  // `***` is a thematic break everywhere.
+  const hr: NodeHandler = async (_node, state) => `***${state.context.blockSeparator}`
 
   // Comark writes strikethrough from plain text content, which drops nested
   // formatting and escaping. Render the children like emphasis instead.
@@ -139,10 +163,14 @@ export function createVerbatimHandlers(marker: string): Record<string, NodeHandl
   // A backslash hard break survives editors and block edges that strip
   // trailing spaces. Table cells cannot contain a line break, and a break at
   // the end of a block does not render.
+  const headingBreak = headingBreakKey(marker)
   const br: NodeHandler = async (node, state, parent) => {
     if (parent?.[0] === 'td' || parent?.[0] === 'th') return await defaults(state).br!(node, state, parent)
+    // An ATX heading is one line, so a break inside it must be inline HTML.
+    if (node[1][headingBreak]) return '<br>'
     const following = parent ? parent.slice(parent.indexOf(node) + 1) : []
-    return following.every(child => typeof child === 'string' && child.trim() === '') ? '' : '\\\n'
+    const endsBlock = !parent || !INLINE_TAGS.has(String(parent[0]))
+    return endsBlock && following.every(child => typeof child === 'string' && child.trim() === '') ? '' : '\\\n'
   }
 
   // The parser adds this class to every list with a task item, and Comark
@@ -156,7 +184,59 @@ export function createVerbatimHandlers(marker: string): Record<string, NodeHandl
     return await defaults(state)[tag]!([node[0], listProps, ...node.slice(2)] as ElementNode, state, parent)
   }
 
-  return {
+  // Text nodes already carry escape markers and placeholders at render time.
+  const unescapedText = (text: string) =>
+    text.split(markers.escape).join('').split(markers.lt).join('<').split(markers.amp).join('&')
+  // A link destination with whitespace or parentheses needs angle brackets.
+  // A destination decodes entities and backslash escapes, so both are escaped.
+  const destination = (url: string) => {
+    const escaped = url.replace(/\\(?=[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '\\\\').replace(/&(?=#?[a-z0-9]+;)/gi, '\\&')
+    return /[\s()]/.test(escaped) && !/[<>\n]/.test(escaped) ? `<${escaped}>` : escaped
+  }
+  const hrefPlaceholder = `${marker}href${marker}`
+  const altPlaceholder = `${marker}alt${marker}`
+
+  const a: NodeHandler = async (node, state, parent) => {
+    const href = node[1].href
+    // A link whose text is its URL is an autolink. The text node carries
+    // escape markers, so Comark's own comparison would miss it.
+    if (
+      typeof href === 'string' && node.length === 3 && typeof node[2] === 'string' && unescapedText(node[2]) === href &&
+      Object.keys(node[1]).length === 1 && /^(?:https?:\/\/|mailto:)[^\s<>&\\]*$/i.test(href)
+    ) return `<${href}>`
+    if (typeof href !== 'string' || destination(href) === href) return await defaults(state).a!(node, state, parent)
+    const rendered = await defaults(state).a!([node[0], { ...node[1], href: hrefPlaceholder }, ...node.slice(2)] as ElementNode, state, parent)
+    return rendered.split(hrefPlaceholder).join(destination(href))
+  }
+
+  // The parser keeps image alt text raw, without escapes or markup. Alt text
+  // that cannot be a label, such as one with an unbalanced `]`, is written as
+  // an `alt` attribute instead.
+  const img: NodeHandler = async (node, state, parent) => {
+    const { alt, src, ...rest } = node[1]
+    const label = typeof alt === 'string' && isRawLabel(alt)
+    const props = {
+      ...rest,
+      ...(label ? { alt: altPlaceholder } : {}),
+      ...(typeof src === 'string' ? { src: hrefPlaceholder } : {}),
+    }
+    let rendered = await defaults(state).img!([node[0], props, ...node.slice(2)] as ElementNode, state, parent)
+    rendered = rendered
+      .split(altPlaceholder).join(label ? alt : '')
+      .split(hrefPlaceholder).join(typeof src === 'string' ? destination(src) : '')
+    if (typeof alt !== 'string' || label) return rendered
+    const quote = ['"', "'", '`'].find(candidate => !alt.includes(candidate))
+    // Attribute values do not unescape, so a backslash could escape the quote.
+    if (!quote || /[\r\n\\]/.test(alt)) return rendered
+    const attribute = `alt=${quote}${alt}${quote}`
+    return Object.keys(rest).length > 0 && rendered.endsWith('}')
+      ? `${rendered.slice(0, -1)} ${attribute}}`
+      : `${rendered}{${attribute}}`
+  }
+
+  const handlers: Record<string, NodeHandler> = {
+    'a': a,
+    'img': img,
     'pre': pre,
     'code': code,
     'li': li,
@@ -167,6 +247,14 @@ export function createVerbatimHandlers(marker: string): Record<string, NodeHandl
     'ol': list('ol'),
     'ginko-list-item-anchor': anchor,
   }
+  // Conditional handlers leave components that share a native name, such as
+  // `::img`, to the component serializers, and HTML-authored links and images,
+  // such as `<img src="x" />`, to Comark's HTML serializer.
+  return Object.fromEntries(Object.entries(handlers).map(([tag, handler]) => [tag, {
+    match: (node: ElementNode) => node[0] === tag && !hasComponentOrigin(node[1]) &&
+      !((tag === 'a' || tag === 'img') && hasHtmlOrigin(node[1])),
+    handler,
+  }]))
 }
 
 const listItemInComponentKey = (marker: string) => `${marker}list-item-in-component`
@@ -185,6 +273,24 @@ export function markListItemsInComponents(nodes: unknown[], marker: string): voi
     if (inComponent && node[0] === 'li' && props) props[key] = 1
     const component = inComponent || origin?.block === 1 || node[0] === 'template'
     for (const child of node.slice(2)) visit(child, component)
+  }
+  for (const node of nodes) visit(node, false)
+}
+
+const headingBreakKey = (marker: string) => `${marker}heading-break`
+
+/**
+ * Mark line breaks inside headings, in place. The break handler then writes
+ * them as `<br>`. Call it with the marker passed to `createVerbatimHandlers`.
+ */
+export function markHeadingBreaks(nodes: unknown[], marker: string): void {
+  const key = headingBreakKey(marker)
+  const visit = (node: unknown, inHeading: boolean) => {
+    if (!Array.isArray(node) || typeof node[0] !== 'string') return
+    const props = node[1] as Record<string, unknown> | undefined
+    if (inHeading && node[0] === 'br' && props) props[key] = 1
+    const heading = inHeading || /^h[1-6]$/.test(node[0])
+    for (const child of node.slice(2)) visit(child, heading)
   }
   for (const node of nodes) visit(node, false)
 }

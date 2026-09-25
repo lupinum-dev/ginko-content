@@ -845,12 +845,16 @@ const angleMetadata = (node: ElementNode) => {
     : undefined
 }
 
+// The parser decodes character references in values, so line breaks are
+// written as references and every value stays on its tag line.
+const escapeAngleValue = (value: string) => escapeAttribute(value).replace(/\r/g, '&#13;').replace(/\n/g, '&#10;')
+
 const renderAngleProps = (props: ElementNode[1]) => Object.entries(props)
   .filter(([name]) => name !== '$')
   .map(([name, value]) => {
     if (value === true) return ` ${name}`
-    if (typeof value === 'string') return ` ${name}="${escapeAttribute(value)}"`
-    return ` :${name}="${escapeAttribute(JSON.stringify(value))}"`
+    if (typeof value === 'string') return ` ${name}="${escapeAngleValue(value)}"`
+    return ` :${name}="${escapeAngleValue(JSON.stringify(value))}"`
   })
   .join('')
 

@@ -36,6 +36,9 @@ export function normalizeComarkNodes(
     } else if (componentOrigin && canonicalizePortableComponentName(componentOrigin.sourceName) === tag) {
       props.$ = { component: 1, block: componentOrigin.block }
     }
+    // `<br>` and a Markdown hard break are the same element. The serializer
+    // writes `<br>` where a Markdown break cannot appear, such as in headings.
+    if (tag === 'br' && isRecord(props.$) && props.$.html === 1 && Object.keys(props).length === 1) delete props.$
     if (
       tag === 'blockquote' &&
       isRecord(props) &&
