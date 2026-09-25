@@ -13,13 +13,13 @@
 // Characters that may precede an inline `:name` component (Comark's
 // `ALLOWED_PREV_CHARS`). The start of a text node counts as unknown.
 const COMPONENT_PREFIX = new Set([' ', '\t', '\n', '*', '_', '['])
-const COMPONENT_NAME_START = /[A-Za-z$]/
-const TAG_START = /[A-Za-z!?/]/
+const COMPONENT_NAME_START = /[A-Z$]/i
+const TAG_START = /[A-Z!?/]/i
 
 /** A line that could complete a GFM table under the previous text line. */
 const isTableDelimiterRow = (line: string) => /^[|:-][|:\- \t]*$/.test(line) && line.includes('-')
 
-const isAlphaNumeric = (char: string | undefined) => char !== undefined && /[A-Za-z0-9]/.test(char)
+const isAlphaNumeric = (char: string | undefined) => char !== undefined && /[A-Z0-9]/i.test(char)
 
 /** Comark escapes these characters itself outside table cells. */
 const comarkEscapesInline = (text: string, offset: number): boolean => {
@@ -30,9 +30,9 @@ const comarkEscapesInline = (text: string, offset: number): boolean => {
     case '_':
       return !(isAlphaNumeric(text[offset - 1]) && isAlphaNumeric(text[offset + 1]))
     case '<':
-      return /^<[a-zA-Z!?/][^>]*>/.test(text.slice(offset))
+      return /^<[a-z!?/][^>]*>/i.test(text.slice(offset))
     case '&':
-      return /^&#?[a-zA-Z0-9]+;/.test(text.slice(offset))
+      return /^&#?[a-z0-9]+;/i.test(text.slice(offset))
     default:
       return false
   }
