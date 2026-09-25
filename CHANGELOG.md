@@ -65,8 +65,16 @@
   `---` form. Inline components with such props, and such block components
   next to text, switch to angle syntax. Strings such as `"true"` in a YAML
   block stay strings.
-- `serializeMdcDocument()` throws `MdcSerializationError` when no syntax can
-  hold a value, such as a prop string that the parser reads as JSON.
+- A quoted YAML property value that looks like JSON, such as
+  `title: "[1, 2]"` in a component's `---` block, stays a string. It was read
+  as an array or object before. Unquoted YAML values and inline attributes
+  such as `{title="[1, 2]"}` still read as JSON.
+- `serializeMdcDocument()` writes a prop string that looks like JSON, such as
+  `"[1, 2]"`, in the `---` YAML block of a block component. Angle block
+  components with such a value switch to colon syntax. Components without
+  origin metadata are written with the same colon rules. Where no syntax keeps
+  the string, such as in an inline component or a native Markdown attribute,
+  it throws `MdcSerializationError`.
 - Mark the `agent`, `agent-registry`, `agent-paths`, `body-renderer`, and
   `testing/*` subpaths as experimental.
 

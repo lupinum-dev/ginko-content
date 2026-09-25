@@ -370,13 +370,57 @@ describe('component property strings', () => {
     expect(reparsed.children![1]).toEqual({ type: 'text', value: 'After' })
   })
 
-  it('throws a typed error for a string that the parser reads as JSON', async () => {
-    const card: MdcNode = ['card', { items: '[1, 2]', $: { syntax: 'colon', block: 1, sourceName: 'card' } }, 'Body']
-    await expect(serializeMdcDocument(document(card))).rejects.toMatchObject({
+  const typedLooking = ['[1, 2]', '{"a":1}', '[]', '{}', 'null', 'true', 'false', '3', '-1.5']
+  const blockForms: Array<[string, (props: Record<string, unknown>) => MdcNode]> = [
+    ['colon block', props => ['note', { ...props, $: { syntax: 'colon', block: 1, sourceName: 'note' } }, 'x']],
+    ['element without origin metadata', props => ['note', props, 'x']],
+    ['projected component', props => ['note', { ...props, $: { component: 1, block: 1 } }, 'x']],
+    ['nested colon block', props => ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ['note', { ...props, $: { syntax: 'colon', block: 1, sourceName: 'note' } }, 'x']]],
+  ]
+
+  it.each(blockForms)('keeps strings that look like JSON or typed values in a %s', async (_name, build) => {
+    for (const title of typedLooking) {
+      const markdown = await serializeMdcDocument(document(build({ title })))
+      // The parser adds origin metadata to an element that had none.
+      const withoutOrigin = (value: MdcDocument) => JSON.stringify(body(value), (key, child) => key === '$' ? undefined : child)
+      expect(withoutOrigin(await parseMdcDocument(markdown, { autoClose: false })), markdown).toBe(withoutOrigin(document(build({ title }))))
+      if (title.startsWith('[') || title.startsWith('{')) expect(markdown).toMatch(/^ *---$/m)
+      expect(await serializeMdcDocument(await parseMdcDocument(markdown, { autoClose: false }))).toBe(markdown)
+    }
+  })
+
+  it('writes the reported JSON-like string as a quoted YAML scalar', async () => {
+    const markdown = await serializeMdcDocument(document(['note', { title: '[1, 2]' }, 'x']))
+    expect(markdown).toBe('::note\n---\ntitle: "[1, 2]"\n---\nx\n::')
+  })
+
+  it('switches an angle block component with a JSON-like string to colon syntax', async () => {
+    const parsed = await parseMdcDocument('<Card :n="1">\nBody\n\n<template #footer>\nF\n</template>\n</Card>', { autoClose: false })
+    ;(parsed.nodes[0] as [string, Record<string, unknown>])[1].title = '{"a":1}'
+    const markdown = await roundTrip(parsed)
+    expect(markdown).toBe('::card\n---\n"n": 1\ntitle: "{\\"a\\":1}"\n---\nBody\n\n#footer\nF\n::')
+    expect(await serializeMdcDocument(await parseMdcDocument(markdown, { autoClose: false }))).toBe(markdown)
+  })
+
+  it.each([
+    ['inline colon', paragraph('a ', ['badge', { title: '[1, 2]', $: { syntax: 'colon', block: 0, sourceName: 'badge' } }, 'x'], ' b'), [0, 3, 1, 'title']],
+    ['inline angle', paragraph('a ', ['badge', { title: '{}', $: { syntax: 'angle', block: 0, sourceName: 'Badge' } }, 'x'], ' b'), [0, 3, 1, 'title']],
+    ['block component next to text', ['card', { $: { syntax: 'colon', block: 1, sourceName: 'card' } }, ['note', { title: '[]', $: { syntax: 'colon', block: 1, sourceName: 'note' } }, 'x'], 'After'], [0, 2, 1, 'title']],
+    ['native link attribute', paragraph(['a', { href: '/x', title: '[1]' }, 'l']), [0, 2, 1, 'title']],
+  ] as Array<[string, MdcNode, Array<string | number>]>)('throws a typed error for a JSON-like string in an %s', async (_name, node, path) => {
+    await expect(serializeMdcDocument(document(node))).rejects.toMatchObject({
       name: 'MdcSerializationError',
       code: 'unrepresentable_value',
-      path: [0, 1, 'items'],
+      path,
     })
+  })
+
+  it('reads a quoted YAML property as a string and an unquoted one as JSON', async () => {
+    const props = async (source: string) => body(await parseMdcDocument(source, { autoClose: false })).children[0]!.props
+    expect(await props('::note\n---\na: "[1, 2]"\nb: \'{}\'\nc: [1, 2]\n---\nx\n::')).toMatchObject({ a: '[1, 2]', b: '{}', c: [1, 2] })
+    expect(await props('::note{a="[1, 2]"}\nx\n::')).toMatchObject({ a: [1, 2] })
+    const source = '::note\n---\na: "[1]"\nb: 2\nc: "{}"\nd: x\n---\nx\n::'
+    expect(await serializeMdcDocument(await parseMdcDocument(source, { autoClose: false }))).toBe(source)
   })
 })
 

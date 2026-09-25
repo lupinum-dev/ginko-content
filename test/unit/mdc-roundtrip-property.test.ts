@@ -68,7 +68,7 @@ const generateSource = (random: Random): string => {
       case 4: blocks.push(`\`\`\`md\n${inlineText(random)}\n::card\n${inlineText(random)}\n\`\`\``); break
       case 5: blocks.push(random.next() < 0.5
         ? `::card{title="${random.pick(['x', 'a b', 'Note: y'])}"}\n${inlineText(random)}\n::`
-        : `::card\n---\n${random.pick(['count: 3', 'open: true', 'value: null', 'items: [1, a]', 'opts: {a: 1}', 'title: "3"'])}\n---\n${inlineText(random)}\n::`); break
+        : `::card\n---\n${random.pick(['count: 3', 'open: true', 'value: null', 'items: [1, a]', 'opts: {a: 1}', 'title: "3"', 'title: "[1, 2]"', "title: '{}'", 'title: "true"'])}\n---\n${inlineText(random)}\n::`); break
       case 6: blocks.push(`::card\n${inlineText(random)}\n#footer\n${inlineText(random)}\n::`); break
       case 7: blocks.push(`> ${inlineText(random)}`); break
       case 8: blocks.push(`${inlineText(random)} \`${inlineText(random, 2).replace(/`/g, '')}\` ${inlineText(random)}`); break
@@ -270,23 +270,30 @@ function hasKnownParserAmbiguity(nodes: unknown[]): boolean {
 // Characters that can end, escape, or inject attribute syntax or Markdown.
 const PROP_ALPHABET = ['"', "'", '`', '=', '{', '}', '[', ']', ' ', '\n', '\r\n', '\\', ':', '#', '-', '>', '<', '&', '&quot;', '&#10;', 'a', 'b', 'x', 'ü', '日本', '😀', 'javascript:alert(1)', 'to="x"', '\n\n# evil', '::card']
 
-const randomPropString = (random: Random) =>
-  Array.from({ length: random.int(8) }, () => random.pick(PROP_ALPHABET)).join('')
+// Strings that the parser could read as JSON, a boolean, null, or a number.
+const TYPED_LOOKING = ['[1, 2]', '{"a":1}', '[]', '{}', '["x"]', '{"a":[1,{"b":null}]}', 'true', 'false', 'null', '3', '-1.5', '1e3', '[x', '{a}', ' [1]', '[1] ']
+
+const randomPropString = (random: Random) => random.next() < 0.25
+  ? random.pick(TYPED_LOOKING)
+  : Array.from({ length: random.int(8) }, () => random.pick(PROP_ALPHABET)).join('')
 
 describe('MDC component property round trip', () => {
-  const forms = [['colon', 1], ['colon', 0], ['angle', 1], ['angle', 0]] as const
+  // `undefined` syntax is an element without origin metadata, as editors create.
+  const forms = [['colon', 1], ['colon', 0], ['angle', 1], ['angle', 0], [undefined, 1]] as const
   it.each(SEEDS)('keeps random string and JSON property values exactly for seed %i', async (seed) => {
     const random = createRandom(seed)
     for (let index = 0; index < CASES_PER_SEED; index++) {
       const props: Record<string, unknown> = { title: randomPropString(random), label: randomPropString(random) }
       if (random.next() < 0.5) props.value = random.pick([3, -1.5, true, false, null, [randomPropString(random), 1], { key: randomPropString(random) }])
       for (const [syntax, block] of forms) {
-        const component: MdcNode = ['card', { ...props, $: { syntax, block, sourceName: syntax === 'angle' ? 'Card' : 'card' } }, 'Body']
+        const origin = syntax ? { $: { syntax, block, sourceName: syntax === 'angle' ? 'Card' : 'card' } } : {}
+        const component: MdcNode = ['card', { ...props, ...origin }, 'Body']
         const document: MdcDocument = { nodes: block ? [component] : [['p', {}, 'a ', component, ' b']], frontmatter: {}, meta: {} }
         const jsonLike = Object.values(props).some(value => typeof value === 'string' && /^(?:\{.*\}|\[.*\])$/s.test(value) && (() => {
           try { JSON.parse(value); return true } catch { return false }
         })())
-        if (jsonLike) {
+        // Only a YAML property block keeps such a string; inline forms have none.
+        if (jsonLike && !block) {
           await expect(serializeMdcDocument(document)).rejects.toMatchObject({ name: 'MdcSerializationError', code: 'unrepresentable_value' })
           continue
         }
