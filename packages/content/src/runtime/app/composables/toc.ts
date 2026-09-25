@@ -1,5 +1,6 @@
 import type { Toc, TocLink } from '../../../types/content'
 import { createHeadingIdGenerator } from '../../../core/markdown/heading-id'
+import { scanLiteralLines } from '../../../core/markdown/auto-close'
 
 export type { Toc, TocLink }
 
@@ -20,19 +21,21 @@ export function extractContentToc (
 ): Toc {
   const maxDepth = options.depth ?? 4
   const links: TocLink[] = []
-  // Every heading level advances the parser's id sequence, so match all six.
-  const headingRegex = /^(#{1,6})\s+(\S.*)$/gm
+  const lines = content.split(/\r?\n/)
+  // Headings inside fenced code or frontmatter are not headings.
+  const { literal } = scanLiteralLines(lines)
   const nextId = createHeadingIdGenerator()
-  let match: RegExpExecArray | null = headingRegex.exec(content)
 
-  while (match !== null) {
+  for (const [index, line] of lines.entries()) {
+    // Every heading level advances the parser's id sequence, so match all six.
+    const match = literal.has(index) ? null : /^(#{1,6})\s+(\S.*)$/.exec(line)
+    if (!match) continue
     const depth = match[1]!.length
     const text = match[2]!.trim()
     const id = nextId(text, depth)
     if (depth >= 2 && depth <= maxDepth) {
       links.push({ id, text, depth })
     }
-    match = headingRegex.exec(content)
   }
 
   return {
