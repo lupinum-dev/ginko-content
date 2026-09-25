@@ -3,6 +3,7 @@ import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 
 import {
+  isSafePublicLinkUrl,
   isSafePublicMarkdownUrl,
   parseMdcBody,
   validatePublicMarkdownAst,
@@ -362,11 +363,22 @@ describe('canonical public Markdown render policy', () => {
     })
   })
 
-  it('shares one HTTPS-only URL rule with agent Markdown serialization', () => {
+  it('shares one URL rule with agent Markdown serialization', () => {
     expect(isSafePublicMarkdownUrl('https://example.test/image.png', 'asset')).toBe(true)
     expect(isSafePublicMarkdownUrl('http://example.test/image.png', 'asset')).toBe(false)
     expect(isSafePublicMarkdownUrl('https://user:pass@example.test/image.png', 'asset')).toBe(false)
     expect(isSafePublicMarkdownUrl('mailto:hello@example.test')).toBe(true)
+  })
+
+  it('accepts plain HTTP for links but not for media sources', () => {
+    for (const href of ['http://a.De', 'http://example.test/path?q=1#x', 'https://example.test', 'mailto:a@b.test', 'tel:+431', '/docs', '#top', '$docs/intro']) {
+      expect(isSafePublicLinkUrl(href), href).toBe(true)
+    }
+    for (const href of ['javascript:alert(1)', 'data:text/html,x', 'vbscript:x', 'file:///etc/passwd', '//evil.test', 'http://user:pass@example.test', 'https:\\evil.test', 'ftp://example.test']) {
+      expect(isSafePublicLinkUrl(href), href).toBe(false)
+    }
+    expect(validatePublicMarkdownAst(root(element('a', { href: 'http://a.De' })))).toMatchObject({ ok: true })
+    expect(validatePublicMarkdownAst(root(element('img', { src: 'http://a.De/x.png', alt: '' })))).toMatchObject({ ok: false })
   })
 
   it('fails closed before an unsafe AST reaches Vue SSR', async () => {

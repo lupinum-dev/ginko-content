@@ -117,6 +117,7 @@ export {
 export {
   assertPublicMarkdownAst,
   classifyPortableMarkdownElement,
+  isSafePublicLinkUrl,
   isSafePublicMarkdownUrl,
   PublicMarkdownValidationError,
   validatePublicMarkdownAst,

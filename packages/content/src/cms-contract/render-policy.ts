@@ -201,6 +201,13 @@ const isSafeShikiStyle = (value: unknown): boolean => {
   })
 }
 
+/**
+ * Whether a URL is safe in public Markdown. A link (`href`) accepts `https:`,
+ * `http:`, `mailto:`, `tel:`, same-site paths, fragments, and `$` Content
+ * references. A media source (`asset`) accepts only `https:` and same-site
+ * paths. Credentials, protocol-relative URLs, backslashes, and control
+ * characters are always rejected.
+ */
 export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 'href'): boolean {
   const input = value.trim()
   const hasControlCharacter = Array.from(input).some((character) => {
@@ -221,10 +228,17 @@ export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 
     const url = new URL(input)
     if (url.username || url.password) return false
     if (url.protocol === 'https:') return true
-    return kind === 'href' && (url.protocol === 'mailto:' || url.protocol === 'tel:')
+    // Plain HTTP is common for links and cannot run script. Media stays
+    // HTTPS-only to avoid mixed content.
+    return kind === 'href' && ['http:', 'mailto:', 'tel:'].includes(url.protocol)
   } catch {
     return false
   }
+}
+
+/** The link rule of `isSafePublicMarkdownUrl`, for editor link fields. */
+export function isSafePublicLinkUrl(value: string): boolean {
+  return isSafePublicMarkdownUrl(value, 'href')
 }
 
 function validateMarkdownAst(

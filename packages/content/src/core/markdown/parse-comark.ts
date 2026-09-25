@@ -136,6 +136,21 @@ const componentSyntaxMetadata = defineComarkPlugin(() => ({
   ],
 }))
 
+/**
+ * Link only URLs with an explicit scheme, such as `https://example.com`. Bare
+ * domains and email addresses stay text, so source such as `see a.com` keeps
+ * its meaning through editing and does not become an unintended `http:` link.
+ */
+const explicitLinkify = defineComarkPlugin(() => ({
+  name: 'ginko-explicit-linkify',
+  markdownItPlugins: [
+    (markdown) => {
+      (markdown as unknown as { linkify: { set: (options: Record<string, boolean>) => void } })
+        .linkify.set({ fuzzyLink: false, fuzzyEmail: false, fuzzyIP: false })
+    },
+  ],
+}))
+
 export type ComarkParser = ReturnType<typeof createMarkdownParser>
 
 /** Create one parser for one resolved plugin-profile lifecycle. */
@@ -150,6 +165,7 @@ export const createComarkParser = (
     autoClose: false,
     plugins: [
       angleComponents({ autoClose }),
+      explicitLinkify(),
       legacyCssCustomProps(),
       typedComponentFrontmatter(),
       componentSyntaxMetadata(),

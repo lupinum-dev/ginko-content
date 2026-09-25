@@ -7,6 +7,7 @@ import {
   projectMdcDocument,
   serializeMdcDocument,
   slugifyHeading,
+  validatePublicMarkdownAst,
   type MdcDocument,
   type MdcNode,
 } from '../../packages/content/src/cms-contract'
@@ -202,5 +203,20 @@ describe('heading ids', () => {
     const renderedIds = body.children.filter(node => node.tag !== 'h1').map(node => node.props?.id)
     expect(toc?.links.map(link => link.id)).toEqual(renderedIds)
     expect(extractContentToc(source, { depth: 3 }).links.map(link => link.id)).toEqual(renderedIds)
+  })
+})
+
+describe('link recognition', () => {
+  it.each(['see a.com now', 'mail a@b.com today', 'visit www.example.com', 'at 127.0.0.1'])('keeps bare %j as text', async (source) => {
+    const parsed = await parseMdcDocument(source, { autoClose: false })
+    expect(parsed.nodes).toEqual([['p', {}, source]])
+    expect(await serializeMdcDocument(parsed)).toBe(source)
+  })
+
+  it('links explicit URLs and autolinks', async () => {
+    const parsed = await parseMdcBody('<https://a.com> and https://b.com and [c](http://a.De)', { autoClose: false })
+    const hrefs = parsed.body.children[0]!.children!.filter(node => node.tag === 'a').map(node => node.props?.href)
+    expect(hrefs).toEqual(['https://a.com', 'https://b.com', 'http://a.De'])
+    expect(validatePublicMarkdownAst(parsed.body)).toMatchObject({ ok: true })
   })
 })
