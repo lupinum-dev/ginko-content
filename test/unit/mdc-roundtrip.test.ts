@@ -105,18 +105,29 @@ describe('serializeMdcDocument text escaping', () => {
   })
 
   it.each([
-    ['risky syntax', 'x <b a & b 1. c :d {e} https: '.repeat(7000)],
-    ['a run of blanks', `x${' \t'.repeat(100_000)}y\n z`],
-    ['blank lines', ' \n'.repeat(100_000)],
-    ['entity-like text', `&${'a'.repeat(200_000)}`],
-  ])('escapes long text with %s in linear time', async (_name, text) => {
-    expect(text.length).toBeGreaterThanOrEqual(200_000)
-    const table: MdcNode = ['table', {}, ['tbody', {}, ['tr', {}, ['td', {}, text]]]]
-    for (const node of [paragraph(text), ['h2', {}, text] as MdcNode, table]) {
+    ['risky syntax', (size: number) => 'x <b a & b 1. c :d {e} https: '.repeat(size / 29)],
+    ['a run of blanks', (size: number) => `x${' \t'.repeat(size / 2)}y\n z`],
+    ['blank lines', (size: number) => ' \n'.repeat(size / 2)],
+    ['entity-like text', (size: number) => `&${'a'.repeat(size)}`],
+  ])('escapes long text with %s in linear time', async (_name, make) => {
+    const nodes = (value: string): MdcNode[] => [
+      paragraph(value),
+      ['h2', {}, value],
+      ['table', {}, ['tbody', {}, ['tr', {}, ['td', {}, value]]]],
+    ]
+    const time = async (value: string) => {
       const started = performance.now()
-      await serializeMdcDocument(document(node))
-      expect(performance.now() - started).toBeLessThan(200)
+      for (const node of nodes(value)) await serializeMdcDocument(document(node))
+      return performance.now() - started
     }
+    // Compare the same input shape at 50 000 and 200 000 characters. Linear work
+    // grows about 4 times; quadratic work grows about 16 times.
+    const small = make(50_000)
+    const large = make(200_000)
+    expect(large.length).toBeGreaterThanOrEqual(190_000)
+    await time(small)
+    const smallTime = Math.max(await time(small), 1)
+    expect((await time(large)) / smallTime).toBeLessThan(10)
   })
 
   it('writes minimal escapes', async () => {
@@ -271,6 +282,14 @@ describe('heading ids', () => {
     const source = '## Setup\n\n```bash\n## a comment\n```\n\n## Setup'
     const { body } = await parseMdcBody(source)
     expect(extractContentToc(source).links.map(link => link.id)).toEqual(body.children.filter(node => node.tag === 'h2').map(node => node.props?.id))
+  })
+
+  it('reads headings indented by up to three spaces in extractContentToc', async () => {
+    const source = '   ## Intro\n\n### Details\n\n    ## Code, not a heading'
+    const { body } = await parseMdcBody(source)
+    const parsed = body.children.filter(node => /^h[23]$/.test(String(node.tag))).map(node => node.props?.id)
+    expect(extractContentToc(source).links.map(link => link.id)).toEqual(parsed)
+    expect(parsed).toEqual(['intro', 'intro-details'])
   })
 
   it('generates an empty id for a heading without ASCII word characters', async () => {

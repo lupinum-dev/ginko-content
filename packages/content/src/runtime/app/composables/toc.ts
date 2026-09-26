@@ -28,7 +28,8 @@ export function extractContentToc (
 
   for (const [index, line] of lines.entries()) {
     // Every heading level advances the parser's id sequence, so match all six.
-    const match = literal.has(index) ? null : /^(#{1,6})\s+(\S.*)$/.exec(line)
+    // CommonMark allows up to three spaces before a heading marker.
+    const match = literal.has(index) ? null : /^ {0,3}(#{1,6})\s+(\S.*)$/.exec(line)
     if (!match) continue
     const depth = match[1]!.length
     const text = match[2]!.trim()
