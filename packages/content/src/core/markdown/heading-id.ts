@@ -22,8 +22,17 @@ export function slugifyHeading(text: string): string {
     .replace(/\s+/g, '-')
     .replace(/[^\w-]+/g, '')
     .replace(/-{2,}/g, '-')
-    .replace(/^-+|-+$/g, '')
-  return /^\d/.test(slug) ? `_${slug}` : slug
+  const trimmed = trimHyphens(slug)
+  return /^\d/.test(trimmed) ? `_${trimmed}` : trimmed
+}
+
+/** Remove leading and trailing hyphens in linear time. */
+function trimHyphens(value: string): string {
+  let start = 0
+  let end = value.length
+  while (start < end && value[start] === '-') start += 1
+  while (end > start && value[end - 1] === '-') end -= 1
+  return value.slice(start, end)
 }
 
 /**
