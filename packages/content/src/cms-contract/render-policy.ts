@@ -111,7 +111,10 @@ export const indexPortableComponentPolicies = (policy: PortableComponentPolicy) 
     .map(([name, component]) => [canonicalizePortableComponentName(name), component] as const),
 )
 
-/** Package-private grammar used only while resolving stored portable assets. */
+/**
+ * Whether a stored media reference has the opaque asset-identity grammar that
+ * portable documents accept. URLs and executable schemes are rejected.
+ */
 export const isStoredPortableAssetIdentity = (value: string): boolean =>
   /^[a-z0-9;:_-]{1,512}$/i.test(value) && !/^(?:javascript|vbscript|data|file|https?):/i.test(value)
 
@@ -201,6 +204,13 @@ const isSafeShikiStyle = (value: unknown): boolean => {
   })
 }
 
+/**
+ * Whether a URL is safe in public Markdown. A link (`href`) accepts `https:`,
+ * `http:`, `mailto:`, `tel:`, same-site paths, fragments, and `$` Content
+ * references. A media source (`asset`) accepts only `https:` and same-site
+ * paths. Credentials, protocol-relative URLs, backslashes, and control
+ * characters are always rejected.
+ */
 export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 'href'): boolean {
   const input = value.trim()
   const hasControlCharacter = Array.from(input).some((character) => {
@@ -220,11 +230,21 @@ export function isSafePublicMarkdownUrl(value: string, kind: 'href' | 'asset' = 
     }
     const url = new URL(input)
     if (url.username || url.password) return false
+    // The URL parser normalizes `http:evil.com` and `http:///evil.com` to a
+    // host. Accept only the written form `scheme://host`.
+    if ((url.protocol === 'https:' || url.protocol === 'http:') && !/^https?:\/\/[^/\\]/i.test(input)) return false
     if (url.protocol === 'https:') return true
-    return kind === 'href' && (url.protocol === 'mailto:' || url.protocol === 'tel:')
+    // Plain HTTP is common for links and cannot run script. Media stays
+    // HTTPS-only to avoid mixed content.
+    return kind === 'href' && ['http:', 'mailto:', 'tel:'].includes(url.protocol)
   } catch {
     return false
   }
+}
+
+/** The link rule of `isSafePublicMarkdownUrl`, for editor link fields. */
+export function isSafePublicLinkUrl(value: string): boolean {
+  return isSafePublicMarkdownUrl(value, 'href')
 }
 
 function validateMarkdownAst(

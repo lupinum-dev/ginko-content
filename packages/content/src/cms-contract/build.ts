@@ -27,7 +27,14 @@ import {
   isValidPortableComponentName,
 } from './render-policy.js'
 
+/**
+ * Resolved contract version 1. Kept for compatibility; prefer
+ * `RESOLVED_CONTENT_CONTRACT_VERSION_V1`, which names the version explicitly.
+ */
 export const RESOLVED_CONTENT_CONTRACT_VERSION = 1 as const
+/** Resolved contract version 1, the version without component-policy V2 fields. */
+export const RESOLVED_CONTENT_CONTRACT_VERSION_V1 = RESOLVED_CONTENT_CONTRACT_VERSION
+/** Resolved contract version 2, produced when the component policy is V2. */
 export const RESOLVED_CONTENT_CONTRACT_VERSION_V2 = 2 as const
 
 export interface BuildResolvedContentContractInput {

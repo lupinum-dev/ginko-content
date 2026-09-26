@@ -1,3 +1,8 @@
+export {
+  CONTENT_MANAGED_MEDIA_TYPES,
+  type ContentManagedMediaType,
+} from '../types/fields.js'
+
 /** Canonical resource limits shared by portable codecs and filesystem boundaries. */
 export const PORTABLE_CONTENT_LIMITS = Object.freeze({
   documents: 100_000,

@@ -256,11 +256,17 @@ function componentPolicy(value: unknown, path: string, version: 1 | 2): Portable
   return input as unknown as PortableComponentPolicy
 }
 
-/** Validate an untrusted value as the exact, closed V2 component policy without normalizing it. */
-export function assertPortableComponentPolicyV2(value: unknown): PortableComponentPolicyV2 {
+/**
+ * Validate an untrusted value as the exact, closed current component policy
+ * (version 2) without normalizing it.
+ */
+export function assertPortableComponentPolicy(value: unknown): PortableComponentPolicyV2 {
   canonicalJsonBytes(value as JsonValue)
   return componentPolicy(value, 'Component policy', 2) as PortableComponentPolicyV2
 }
+
+/** Version-pinned name of `assertPortableComponentPolicy`. It always validates version 2. */
+export const assertPortableComponentPolicyV2: (value: unknown) => PortableComponentPolicyV2 = assertPortableComponentPolicy
 
 /** Validate an untrusted value as the exact, closed resolved Content contract. */
 export function assertResolvedContentContract(value: unknown): ResolvedContentContract {

@@ -1,5 +1,6 @@
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { builtinModules } from 'node:module'
+import { dirname, join, resolve } from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -108,5 +109,62 @@ describe('@lupinum/ginko-content/cms-contract purity', () => {
         [],
       )
     }
+  })
+})
+
+/** Runtime (non-type) module specifiers of one source file. */
+function runtimeSpecifiers(source: ts.SourceFile): string[] {
+  const specifiers: string[] = []
+  const visit = (node: ts.Node) => {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier) && !node.importClause?.isTypeOnly) {
+      specifiers.push(node.moduleSpecifier.text)
+    }
+    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier) && !node.isTypeOnly) {
+      specifiers.push(node.moduleSpecifier.text)
+    }
+    if (
+      ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 && ts.isStringLiteralLike(node.arguments[0])
+    ) specifiers.push(node.arguments[0].text)
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return specifiers
+}
+
+const resolveRelative = (from: string, specifier: string): string | undefined => {
+  const base = resolve(dirname(from), specifier)
+  return [base.replace(/\.js$/, '.ts'), `${base}.ts`, join(base, 'index.ts')].find(candidate => existsSync(candidate))
+}
+
+describe('@lupinum/ginko-content/cms-contract module graph', () => {
+  it('reaches no Node builtin, Nuxt, Nitro, h3, or virtual module through its imports', () => {
+    const entry = join(cmsContractRoot, 'index.ts')
+    const seen = new Set<string>()
+    const pending = [entry]
+    const offenders: string[] = []
+    const builtins = new Set(builtinModules)
+    while (pending.length) {
+      const file = pending.pop()!
+      if (seen.has(file)) continue
+      seen.add(file)
+      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
+      for (const specifier of runtimeSpecifiers(source)) {
+        if (specifier.startsWith('.')) {
+          const target = resolveRelative(file, specifier)
+          if (!target) offenders.push(`${file}: unresolved ${specifier}`)
+          else pending.push(target)
+          continue
+        }
+        const bare = specifier.split('/')[0]!
+        if (
+          specifier.startsWith('node:') || builtins.has(specifier) || builtins.has(bare) ||
+          specifier.startsWith('#') || ['nuxt', 'h3', 'nitropack', 'unstorage'].includes(bare) ||
+          bare === '@nuxt' || specifier.startsWith('@nuxt/')
+        ) offenders.push(`${file}: ${specifier}`)
+      }
+    }
+    expect(seen.size).toBeGreaterThan(10)
+    expect(offenders).toEqual([])
   })
 })

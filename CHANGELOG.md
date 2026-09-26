@@ -1,5 +1,107 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Export CMS-contract helpers that editors used to copy: `slugifyHeading`,
+  `createHeadingIdGenerator`, `headingSlugText`, `isSafePublicLinkUrl`,
+  `isValidPortableComponentName`, `canonicalizePortableComponentName`,
+  `isStoredPortableAssetIdentity`, `PORTABLE_CONTENT_LIMITS`, and
+  `CONTENT_MANAGED_MEDIA_TYPES`.
+- Export Content-owned editing types: `MdcDocument`, `MdcNode`,
+  `MdcElementNode`, `MdcCommentNode`, `MdcElementProps`, and
+  `SerializeMdcDocumentOptions`. Public CMS-contract declarations no longer
+  expose Comark types.
+- Add `assertPortableComponentPolicy()` for the current policy version.
+  `assertPortableComponentPolicyV2()` remains as the version-pinned name.
+- Add `RESOLVED_CONTENT_CONTRACT_VERSION_V1` as the explicit name of
+  `RESOLVED_CONTENT_CONTRACT_VERSION`.
+
+### Fixes
+
+- Escape text that the parser would read as MDC syntax, such as `::card`,
+  `:fire`, `a{.b}`, `#slot`, and table delimiter rows, when serializing.
+  Ordinary colons stay unchanged.
+- Keep custom heading ids through serialization. Write `{#id}` only when the
+  id differs from the generated id.
+- Keep fenced and inline code verbatim, including leading blank lines,
+  indentation, and nested fences.
+- Keep a code block, quote, or table that starts a list item inside the item,
+  also inside components.
+- Keep adjacent lists separate, table-cell text literal, strikethrough
+  formatting, hard breaks, and inline components that follow text.
+- Do not close component markers inside fenced code when completing
+  unfinished delimiters.
+- Make `extractContentToc()` and `parseMdcBody()` ids match rendered heading
+  ids.
+- Stop linking bare domains, email addresses, `//host` URLs, and `ftp:` URLs
+  in `parseMdcDocument()`, `parseMdcBody()`, and portable import. Site content
+  keeps the default link recognition. Accept `http:` links in public and
+  stored bodies; media sources stay HTTPS-only.
+- Reject `http:` and `https:` hrefs that are not written as `scheme://host`,
+  such as `http:evil.com` and `http:///evil.com`.
+- Keep component prop values exactly through serialization: quotes, line
+  breaks, and number, boolean, null, array, and object values. A value can no
+  longer end its attribute or add a prop or a line.
+- Keep URL-like text, image alt text, link destinations with spaces, heading
+  line breaks, and delimiter rows in table cells through serialization.
+- Close a fenced code block that is open at the end before appending
+  component closers during completion. Only a fence with up to three spaces of
+  indentation opens a fence.
+- Skip headings inside fenced code in `extractContentToc()`.
+- Escape text in linear time.
+- Read a component's property block inside blockquotes and list items. Types
+  and multi-line values were lost there, and some blocks failed to parse.
+- Keep link titles such as `"[1]"` as strings through serialization.
+- Keep image alt text with an unclosed `{`, an angle tag such as `<Badge`, a
+  backslash, or a line break through serialization. Alt text that no syntax
+  keeps, such as text ending with `\`, throws `MdcSerializationError`. It
+  was dropped or turned the image into a link before.
+
+### Changed
+
+- `serializeMdcDocument()` options accept `maxInlineAttributes` and
+  `blockAttributesStyle` only.
+- `parseMdcDocument()` returns Content's `MdcDocument` type instead of
+  Comark's `MarkdownDocument`.
+- `serializeMdcDocument()` writes some documents differently. Thematic breaks
+  are `***`, heading line breaks are `<br>`, and URL-like text is escaped as
+  `https\://a.com`. Colon block components write typed props, and strings
+  with `"`, `\`, or line breaks, in a YAML block. Typed props always use the
+  `---` form. Inline components with such props, and such block components
+  next to text, switch to angle syntax. Strings such as `"true"` in a YAML
+  block stay strings.
+- A quoted component prop that looks like JSON stays a string in site content
+  and in the editor. This applies to YAML property blocks, such as
+  `title: "[1, 2]"` in a `---` or ```` ```yaml [props] ```` block, and to
+  angle syntax, such as `<Card title="[1, 2]">` and `:title='"[1, 2]"'`. It
+  was read as an array or object before. Unquoted YAML values, angle `:`
+  bindings with JSON, and colon attributes such as `{title="[1, 2]"}` still
+  read as JSON.
+- `serializeMdcDocument()` writes such a prop string in the YAML block of a
+  colon block component, or in angle syntax for an inline component.
+  Components without origin metadata use the colon rules. It throws
+  `MdcSerializationError` for a JSON-like string in a native Markdown
+  attribute list, such as `[l](/x){rel="[1]"}`, and for a property name that
+  the chosen syntax cannot write, such as `a b` in angle syntax. Properties
+  whose value is `undefined` are dropped.
+- `serializeMdcDocument()` escapes text that site content would link, such as
+  `a\.com`, `README\.md`, `a@b\.com`, and `/\/host`, so saved text is text in
+  the editor and on the site. Link titles are written in Markdown syntax,
+  `[l](/x "title")`.
+- Mark the `agent`, `agent-registry`, `agent-paths`, `body-renderer`, and
+  `testing/*` subpaths as experimental.
+
+### Adoption
+
+Round-trip property tests now cover parse, serialize, and parse for portable
+documents. See the MDC components guide for the remaining whitespace and
+attribute limits.
+
+Headings without ASCII letters or digits, such as `## 日本語`, get an empty
+id. Add an explicit `{#id}` when such a heading needs an anchor.
+
 ## v1.0.0-beta.9
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.8...v1.0.0-beta.9)

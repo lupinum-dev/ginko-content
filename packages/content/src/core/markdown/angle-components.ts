@@ -3,41 +3,14 @@ import { defineComarkPlugin } from 'comark'
 import type { ConditionalNodeHandler, ElementNode, Node } from 'comark'
 import { canonicalizePortableComponentName } from './component-name.js'
 import { HTML_TAGS } from './html-tags.js'
+import { AngleComponentSyntaxError, type AngleComponentSyntaxIssueCode } from './angle-syntax-error.js'
+import { jsonLikeStrings, restoreStrings } from './json-attribute.js'
 
 // NUL cannot occur in an authored HTML attribute name. It keeps the token-only
 // handoff distinct from document props until the post hook replaces it.
 const TOKEN_MARKER = '\0ginko-angle-component'
 
-export type AngleComponentSyntaxIssueCode =
-  | 'duplicate_prop'
-  | 'duplicate_slot'
-  | 'invalid_binding'
-  | 'invalid_prop'
-  | 'mismatched_tag'
-  | 'misplaced_slot'
-  | 'mixed_default_slot'
-  | 'orphan_close'
-  | 'unclosed_tag'
-
-export class AngleComponentSyntaxError extends Error {
-  readonly code: AngleComponentSyntaxIssueCode
-  readonly line: number
-  readonly column: number
-  readonly openingTag: string
-
-  constructor(
-    code: AngleComponentSyntaxIssueCode,
-    message: string,
-    location: { line: number; column: number; openingTag: string },
-  ) {
-    super(message)
-    this.name = 'AngleComponentSyntaxError'
-    this.code = code
-    this.line = location.line
-    this.column = location.column
-    this.openingTag = location.openingTag
-  }
-}
+export { AngleComponentSyntaxError, type AngleComponentSyntaxIssueCode } from './angle-syntax-error.js'
 
 interface ParsedTag {
   name: string
@@ -63,6 +36,11 @@ interface ParsedTagHead {
 interface TokenMarker extends ParseLocation {
   block: 0 | 1
   sourceName: string
+  /**
+   * Property strings that Comark would read as JSON, such as `"[1, 2]"`. A
+   * quoted value is a string, so the post hook restores them.
+   */
+  strings?: Record<string, string>
 }
 
 const NAME = /^[A-Z][A-Z0-9_.-]*/i
@@ -404,10 +382,16 @@ function findBlockClose(
   })
 }
 
+/** The token marker with the property strings that Comark would read as JSON. */
+const withStrings = (marker: TokenMarker, props: ParsedTag['props']): TokenMarker => {
+  const strings = jsonLikeStrings(props)
+  return Object.keys(strings).length > 0 ? { ...marker, strings } : marker
+}
+
 function pushProps(token: AngleToken, parsed: ParsedTag, marker: TokenMarker) {
   for (const [name, value] of parsed.props) token.attrSet(name, value)
   if (parsed.slotName) token.attrSet('name', parsed.slotName)
-  token.attrSet(TOKEN_MARKER, JSON.stringify(marker))
+  token.attrSet(TOKEN_MARKER, JSON.stringify(withStrings(marker, parsed.props)))
 }
 
 const inlineLocation = (state: InlineState, offset = state.pos): ParseLocation => {
@@ -745,7 +729,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
           state.push('mdc_inline_component', opening.canonicalName, 0)
           const props = state.push('mdc_inline_props', '', 0)
           for (const [name, value] of opening.props) props.attrSet(name, value)
-          props.attrSet(TOKEN_MARKER, JSON.stringify(marker))
+          props.attrSet(TOKEN_MARKER, JSON.stringify(withStrings(marker, opening.props)))
           state.pos = opening.end
           return true
         }
@@ -769,7 +753,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
         state.push('mdc_inline_component', opening.canonicalName, -1)
         const props = state.push('mdc_inline_props', '', 0)
         for (const [name, value] of opening.props) props.attrSet(name, value)
-        props.attrSet(TOKEN_MARKER, JSON.stringify(marker))
+        props.attrSet(TOKEN_MARKER, JSON.stringify(withStrings(marker, opening.props)))
         return true
       })
     },
@@ -782,7 +766,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
       const marker = parseTokenMarker(rawMarker)
       if (marker) {
         const { [TOKEN_MARKER]: _tokenMarker, ...props } = node[1]
-        node[1] = props
+        node[1] = restoreStrings(props, marker.strings) as ElementNode[1]
         node[1].$ = { syntax: 'angle', block: marker.block, sourceName: marker.sourceName } as ElementNode[1]['$']
         locations.set(node, marker)
       }
@@ -853,7 +837,10 @@ const parseTokenMarker = (value: unknown): TokenMarker | undefined => {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
   const marker = parsed as Record<string, unknown>
   if (
-    Object.keys(marker).sort().join(',') !== 'block,column,line,openingTag,sourceName' ||
+    Object.keys(marker).filter(key => key !== 'strings').sort().join(',') !== 'block,column,line,openingTag,sourceName' ||
+    (marker.strings !== undefined && (
+      !marker.strings || typeof marker.strings !== 'object' || Array.isArray(marker.strings) ||
+      !Object.values(marker.strings).every(value => typeof value === 'string'))) ||
     (marker.block !== 0 && marker.block !== 1) ||
     typeof marker.sourceName !== 'string' ||
     !Number.isSafeInteger(marker.line) || !Number.isSafeInteger(marker.column) ||
@@ -873,18 +860,39 @@ const angleMetadata = (node: ElementNode) => {
     : undefined
 }
 
+// The parser decodes character references in values, so line breaks are
+// written as references and every value stays on its tag line.
+const escapeAngleValue = (value: string) => escapeAttribute(value).replace(/\r/g, '&#13;').replace(/\n/g, '&#10;')
+
 const renderAngleProps = (props: ElementNode[1]) => Object.entries(props)
   .filter(([name]) => name !== '$')
   .map(([name, value]) => {
     if (value === true) return ` ${name}`
-    if (typeof value === 'string') return ` ${name}="${escapeAttribute(value)}"`
-    return ` :${name}="${escapeAttribute(JSON.stringify(value))}"`
+    if (typeof value === 'string') return ` ${name}="${escapeAngleValue(value)}"`
+    return ` :${name}="${escapeAngleValue(JSON.stringify(value))}"`
   })
   .join('')
 
+/**
+ * Whether a node renders alone on its line, given its siblings. Line breaks
+ * inside sibling text and the parent's boundaries delimit lines.
+ */
+export const isAloneOnLine = (node: unknown, parent: unknown[] | undefined): boolean => {
+  if (!parent) return true
+  const index = parent.indexOf(node)
+  const previous = parent.slice(2, index).filter(child => child !== '')
+  const next = parent.slice(index + 1).filter(child => child !== '')
+  const before = previous[previous.length - 1]
+  const after = next[0]
+  const startsLine = before === undefined || (typeof before === 'string' && /(^|\n)[ \t]*$/.test(before)) ||
+    (Array.isArray(before) && before[0] === 'br')
+  const endsLine = after === undefined || (typeof after === 'string' && /^[ \t]*(\n|$)/.test(after))
+  return startsLine && endsLine
+}
+
 export const angleComponentRenderer: ConditionalNodeHandler = {
   match: node => Boolean(angleMetadata(node)),
-  handler: async (node, state) => {
+  handler: async (node, state, parent) => {
     const metadata = angleMetadata(node)
     if (!metadata) return ''
     if (metadata.sourceName === 'template' && typeof node[1].name === 'string') {
@@ -892,9 +900,21 @@ export const angleComponentRenderer: ConditionalNodeHandler = {
       return `<template #${node[1].name}>\n${content}\n</template>${state.context.blockSeparator}`
     }
     const props = renderAngleProps(node[1])
-    if (node.length === 2) return `<${metadata.sourceName}${props} />${metadata.block ? state.context.blockSeparator : ''}`
+    if (node.length === 2) {
+      if (metadata.block) return `<${metadata.sourceName}${props} />${state.context.blockSeparator}`
+      // A self-closing tag alone on a line is a block component. An explicit
+      // closing tag keeps a lone inline component inline.
+      return isAloneOnLine(node, parent)
+        ? `<${metadata.sourceName}${props}></${metadata.sourceName}>`
+        : `<${metadata.sourceName}${props} />`
+    }
     const rendered = await state.flow(node, state)
-    if (metadata.block === 0) return `<${metadata.sourceName}${props}>${rendered}</${metadata.sourceName}>`
+    if (metadata.block === 0) {
+      // A tag alone on a line reads as block syntax, so keep inline content
+      // on the tag lines. Only whitespace at the content edges is removed.
+      const inline = rendered.replace(/^[ \t]*\n\s*/, '').replace(/\s*\n[ \t]*$/, '')
+      return `<${metadata.sourceName}${props}>${inline}</${metadata.sourceName}>`
+    }
     const content = rendered.trimEnd()
     return `<${metadata.sourceName}${props}>\n${content}\n</${metadata.sourceName}>${state.context.blockSeparator}`
   },

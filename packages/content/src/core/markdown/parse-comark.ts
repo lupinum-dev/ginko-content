@@ -1,6 +1,10 @@
 import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
-import type { ComarkPlugin, ParserOptions } from 'comark'
+import type { ComarkPlugin } from 'comark'
 import { angleComponents } from './angle-components.js'
+import { autoCloseMarkdownOutsideCode } from './auto-close.js'
+import { jsonLikeStrings, readsAsJson, restoreStrings } from './json-attribute.js'
+
+export { readsAsJson }
 
 type ComponentTokenState = {
   src: string
@@ -52,38 +56,94 @@ const legacyCssCustomProps = defineComarkPlugin(() => ({
   ],
 }))
 
+// A private-use key that authored attributes cannot contain.
+const YAML_STRINGS = '\uE000ginko-yaml-strings'
+
+type BlockState = {
+  src: string
+  bMarks: number[]
+  eMarks: number[]
+  tShift: number[]
+  sCount: number[]
+  blkIndent: number
+  line: number
+  env: { comarkBlockTokens?: ComponentToken[] }
+}
+
+// Opening fences of a component property block and their closing fences.
+const PROPERTY_BLOCK_FENCES: Record<string, string> = {
+  '---': '---',
+  '```yaml [props]': '```',
+  '~~~yaml [props]': '~~~',
+  '```yml [props]': '```',
+  '~~~yml [props]': '~~~',
+}
+
 /**
- * Comark currently stringifies component-frontmatter scalar attributes before
- * AST conversion and then treats the string "true" as a Vue binding. Restore
- * the YAML values at the parser-token boundary, where the component token and
- * its exact source span are still available.
+ * Read a block component's property block before Comark's rule does.
+ *
+ * Comark slices the YAML from the source across lines, so inside a blockquote
+ * every line after the first keeps its `>` prefix. It also turns every value
+ * into a string. This rule reads each line after its container prefix and
+ * indentation. A `---` block keeps the YAML types; the code-block form keeps
+ * Comark's string values. A YAML string that Comark would read as JSON, such
+ * as `title: "[1, 2]"`, is kept in a marker and restored after parsing.
  */
 const typedComponentFrontmatter = defineComarkPlugin(() => ({
   name: 'ginko-typed-component-frontmatter',
   markdownItPlugins: [
     (markdown) => {
-      markdown.core.ruler.after('block', 'ginko_typed_component_frontmatter', (state: ComponentTokenState) => {
-        const lines = state.src.split(/\r?\n/)
-
-        for (const token of state.tokens) {
-          if (token.type !== 'mdc_block_open' || !token.map) continue
-
-          const [startLine, endLine] = token.map
-          if (lines[startLine + 1]?.trim() !== '---') continue
-
-          const parsed = parseFrontmatter(lines.slice(startLine + 1, endLine).join('\n'))
-          if (!parsed.frontmatterText) continue
-
-          const yamlEntries = Object.entries(parsed.data)
-          const yamlKeys = new Set(yamlEntries.map(([key]) => key))
-          token.attrs = [
-            ...(token.attrs ?? []).filter(([key]) => !yamlKeys.has(key)),
-            ...yamlEntries,
-          ]
+      const rule = (state: BlockState, startLine: number, endLine: number, silent: boolean): boolean => {
+        const component = state.env.comarkBlockTokens?.[0]
+        if (!component || state.sCount[startLine]! - state.blkIndent >= 4) return false
+        const indent = state.tShift[startLine]!
+        const line = state.src.slice(state.bMarks[startLine]! + indent, state.eMarks[startLine])
+        const closingFence = PROPERTY_BLOCK_FENCES[line]
+        if (!closingFence) return false
+        // The `---` fence is only valid directly after the component opener.
+        if (line === '---' && (component.map?.[0] === undefined || startLine !== component.map[0] + 1)) return false
+        let lineEnd = startLine + 1
+        // Remove the container prefix (`bMarks`) and the fence indentation.
+        const content = (index: number) => {
+          const text = state.src.slice(state.bMarks[index], state.eMarks[index])
+          return text.slice(Math.min(indent, text.length - text.trimStart().length))
         }
-      })
+        while (lineEnd < endLine && content(lineEnd) !== closingFence) lineEnd += 1
+        if (lineEnd >= endLine) return false
+        if (!silent) {
+          const yaml = Array.from({ length: lineEnd - startLine - 1 }, (_, offset) => content(startLine + 1 + offset)).join('\n')
+          const data = yaml.trim() ? parseFrontmatter(`---\n${yaml}\n---`).data : {}
+          const typed = line === '---'
+          const strings = jsonLikeStrings(Object.entries(data))
+          for (const [key, value] of Object.entries(data)) {
+            const attribute = typed || typeof value === 'string' ? value : JSON.stringify(value)
+            if (key === 'class' && typeof attribute === 'string') {
+              const current = component.attrs?.find(([name]) => name === 'class')?.[1]
+              component.attrSet(key, typeof current === 'string' && current ? `${current} ${attribute}` : attribute)
+            } else {
+              component.attrSet(key, attribute)
+            }
+          }
+          if (Object.keys(strings).length > 0) component.attrSet(YAML_STRINGS, JSON.stringify(strings))
+        }
+        state.line = lineEnd + 1
+        return true
+      }
+      // Comark registers its rule later, after `code`. This rule runs first
+      // and leaves indented code to the `code` rule, as Comark's order does.
+      ;(markdown as unknown as { block: { ruler: { before: (name: string, id: string, fn: typeof rule) => void } } })
+        .block.ruler.before('code', 'ginko_component_property_block', rule)
     },
   ],
+  post: ({ tree }) => {
+    const restore = (node: unknown): void => {
+      if (!Array.isArray(node) || node[0] === null) return
+      const { [YAML_STRINGS]: strings, ...props } = (node[1] ?? {}) as Record<string, unknown>
+      if (strings !== undefined) node[1] = restoreStrings(props, strings)
+      for (const child of node.slice(2)) restore(child)
+    }
+    for (const node of tree.nodes) restore(node)
+  },
 }))
 
 const componentSyntaxMetadata = defineComarkPlugin(() => ({
@@ -135,36 +195,84 @@ const componentSyntaxMetadata = defineComarkPlugin(() => ({
   ],
 }))
 
+/**
+ * The portable profile links only URLs with an explicit `http:`, `https:`, or
+ * `mailto:` scheme. Bare domains, email addresses, IP addresses,
+ * protocol-relative `//host` URLs, and `ftp:` URLs stay text, so editable
+ * source keeps its meaning and never becomes a link that validation rejects.
+ * Site content keeps Comark's default link recognition.
+ */
+const explicitLinkify = defineComarkPlugin(() => ({
+  name: 'ginko-explicit-linkify',
+  markdownItPlugins: [
+    (markdown) => {
+      const linkify = (markdown as unknown as {
+        linkify: {
+          set: (options: Record<string, boolean>) => unknown
+          add: (schema: string, definition: null) => unknown
+        }
+      }).linkify
+      linkify.set({ fuzzyLink: false, fuzzyEmail: false, fuzzyIP: false })
+      linkify.add('//', null)
+      linkify.add('ftp:', null)
+    },
+  ],
+}))
+
 export type ComarkParser = ReturnType<typeof createMarkdownParser>
+
+export interface ComarkParserOptions {
+  /** Complete incomplete Markdown and component delimiters. Default `true`. */
+  autoClose?: boolean
+  /** Use the portable CMS-contract link recognition. Default `false`. */
+  portable?: boolean
+}
 
 /** Create one parser for one resolved plugin-profile lifecycle. */
 export const createComarkParser = (
   plugins: readonly ComarkPlugin[] = [],
-  options: Pick<ParserOptions, 'autoClose'> = {},
-) => createMarkdownParser({
-  ...options,
-  plugins: [
-    angleComponents({ autoClose: options.autoClose !== false }),
-    legacyCssCustomProps(),
-    typedComponentFrontmatter(),
-    componentSyntaxMetadata(),
-    ...plugins,
-  ],
-})
-
-// CMS, portability, and inline rendering all use this fixed safe profile. A
-// single immutable parser avoids recompiling Comark's default plugin pipeline
-// for every document without introducing a mutable process-wide profile.
-const baselineComarkParser = createComarkParser()
-const strictBaselineComarkParser = createComarkParser([], { autoClose: false })
-
-export interface ParseComarkOptions {
-  /** Complete incomplete Markdown and component delimiters. Default `true`. */
-  autoClose?: boolean
+  options: ComarkParserOptions = {},
+): ComarkParser => {
+  const autoClose = options.autoClose !== false
+  // Comark's own completion ignores code fences. Complete the source here with
+  // a code-aware pass and keep Comark's pass disabled.
+  const parse = createMarkdownParser({
+    autoClose: false,
+    plugins: [
+      angleComponents({ autoClose }),
+      ...(options.portable ? [explicitLinkify()] : []),
+      legacyCssCustomProps(),
+      typedComponentFrontmatter(),
+      componentSyntaxMetadata(),
+      ...plugins,
+    ],
+  })
+  return autoClose
+    ? (markdown, parseOptions) => parse(autoCloseMarkdownOutsideCode(markdown), parseOptions)
+    : parse
 }
+
+// Baseline parsers are immutable, so one instance per profile avoids
+// recompiling Comark's plugin pipeline for every document without a mutable
+// process-wide profile. The portable profile serves CMS and portability
+// boundaries; the site profile serves filesystem and inline rendering.
+const parsers = {
+  site: createComarkParser(),
+  siteStrict: createComarkParser([], { autoClose: false }),
+  portable: createComarkParser([], { portable: true }),
+  portableStrict: createComarkParser([], { autoClose: false, portable: true }),
+}
+
+export type ParseComarkOptions = ComarkParserOptions
 
 /** The fixed-profile Comark entry point used by baseline parsing boundaries. */
 export const parseComark = async (
   markdown: string,
   options: ParseComarkOptions = {},
-) => await (options.autoClose === false ? strictBaselineComarkParser : baselineComarkParser)(markdown)
+) => {
+  const strict = options.autoClose === false
+  const parser = options.portable
+    ? strict ? parsers.portableStrict : parsers.portable
+    : strict ? parsers.siteStrict : parsers.site
+  return await parser(markdown)
+}
