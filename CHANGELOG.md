@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v1.0.0-beta.10
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.9...v1.0.0-beta.10)
 
 ### Features
 
