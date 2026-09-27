@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixes
+
+- Watch only content source mounts during development. Do not traverse Nitro's
+  root, build, cache or dependency trees; release every acquired watcher on
+  initialization failure and shutdown.
+
 ### Features
 
 - Add opt-in structured pages with `body: false`, retaining page routes, SEO

@@ -1,4 +1,4 @@
-import type { WatchEvent } from 'unstorage'
+import { normalizeKey, type Unwatch, type WatchEvent } from 'unstorage'
 import type { Nuxt } from '@nuxt/schema'
 
 import { MOUNT_PREFIX } from '../utils'
@@ -32,12 +32,12 @@ export const registerContentDevRuntime = (
     })
   }
 
-  ;(nuxt.hook as any)('nitro:init', async (nitro: any) => {
+  nuxt.hook('nitro:init', async (nitro) => {
     if (options.watch === false) {
       return
     }
 
-    const unwatch = await nitro.storage.watch(async (event: WatchEvent, key: string) => {
+    const onChange = async (event: WatchEvent, key: string) => {
       if (!key.startsWith(MOUNT_PREFIX) || isIgnored(key)) {
         return
       }
@@ -53,10 +53,26 @@ export const registerContentDevRuntime = (
         event: 'ginko-content:update',
         data: payload
       })
-    })
+    }
 
-    nitro.hooks.hook('close', async () => {
-      await unwatch()
-    })
+    const subscriptions: Unwatch[] = []
+    const close = async () => {
+      const results = await Promise.allSettled(subscriptions.splice(0).map(async unwatch => unwatch()))
+      const failure = results.find(result => result.status === 'rejected')
+      if (failure?.status === 'rejected') throw failure.reason
+    }
+    try {
+      // A global storage subscription starts watchers for Nitro's root, build,
+      // cache and dependency trees before filtering keys. Content owns only
+      // its source mounts, including providers outside the application root.
+      for (const mount of nitro.storage.getMounts(MOUNT_PREFIX)) {
+        if (!mount.base.startsWith(MOUNT_PREFIX) || !mount.driver.watch) continue
+        subscriptions.push(await mount.driver.watch((event, key) => onChange(event, normalizeKey(`${mount.base}${key}`))))
+      }
+    } catch (error) {
+      await close()
+      throw error
+    }
+    nitro.hooks.hook('close', close)
   })
 }
