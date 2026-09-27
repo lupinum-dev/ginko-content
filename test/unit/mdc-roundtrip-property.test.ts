@@ -303,12 +303,13 @@ describe('MDC component property round trip', () => {
     for (let index = 0; index < CASES_PER_SEED; index++) {
       const props: Record<string, unknown> = { title: randomPropString(random), label: randomPropString(random) }
       if (random.next() < 0.5) props.value = random.pick([3, -1.5, true, false, null, [randomPropString(random), 1], { key: randomPropString(random) }])
-      for (const [syntax, block] of forms) {
+      for (const componentSyntax of ['angle', 'colon'] as const) {
+        for (const [syntax, block] of forms) {
         const origin = syntax ? { $: { syntax, block, sourceName: syntax === 'angle' ? 'Card' : 'card' } } : {}
         const component: MdcNode = ['card', { ...props, ...origin }, 'Body']
         const document: MdcDocument = { nodes: block ? [component] : [['p', {}, 'a ', component, ' b']], frontmatter: {}, meta: {} }
-        const serialized = await serializeMdcDocument(document)
-        const context = JSON.stringify({ seed, index, syntax, block, props, serialized })
+        const serialized = await serializeMdcDocument(document, { componentSyntax })
+        const context = JSON.stringify({ seed, index, componentSyntax, syntax, block, props, serialized })
         const reparsed = await parseMdcDocument(serialized, { autoClose: false }).catch((error: Error) => {
           throw new Error(`${error.message} ${context}`)
         })
@@ -317,6 +318,7 @@ describe('MDC component property round trip', () => {
         const { $: _origin, ...actual } = card?.props ?? {}
         expect(actual, context).toEqual(props)
         expect(card?.children, context).toEqual([{ type: 'text', value: 'Body' }])
+        }
       }
     }
   })

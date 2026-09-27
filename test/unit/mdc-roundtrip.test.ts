@@ -399,7 +399,7 @@ describe('component property strings', () => {
 
   it.each(blockForms)('keeps strings that look like JSON or typed values in a %s', async (_name, build) => {
     for (const title of typedLooking) {
-      const markdown = await serializeMdcDocument(document(build({ title })))
+      const markdown = await serializeMdcDocument(document(build({ title })), { componentSyntax: 'colon' })
       // The parser adds origin metadata to an element that had none.
       const withoutOrigin = (value: MdcDocument) => JSON.stringify(body(value), (key, child) => key === '$' ? undefined : child)
       expect(withoutOrigin(await parseMdcDocument(markdown, { autoClose: false })), markdown).toBe(withoutOrigin(document(build({ title }))))
@@ -409,7 +409,7 @@ describe('component property strings', () => {
   })
 
   it('writes the reported JSON-like string as a quoted YAML scalar', async () => {
-    const markdown = await serializeMdcDocument(document(['note', { title: '[1, 2]' }, 'x']))
+    const markdown = await serializeMdcDocument(document(['note', { title: '[1, 2]' }, 'x']), { componentSyntax: 'colon' })
     expect(markdown).toBe('::note\n---\ntitle: "[1, 2]"\n---\nx\n::')
   })
 

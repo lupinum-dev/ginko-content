@@ -32,7 +32,7 @@ export { MdcSerializationError, type MdcSerializationIssueCode } from '../core/m
 
 // Tags that Comark serializes with a native Markdown handler. An element
 // without origin metadata whose tag is neither one of these nor an HTML
-// element, such as `note`, is written as a colon component.
+// element, such as `note`, uses the selected syntax for new components.
 const NATIVE_SERIALIZER_TAGS = new Set([
   'code', 'pre', 'hr', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'a', 'ul', 'ol', 'li', 'html', 'strong',
   'em', 'blockquote', 'img', 'del', 'template', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'comment', 'math',
@@ -40,10 +40,11 @@ const NATIVE_SERIALIZER_TAGS = new Set([
 ])
 
 /**
- * Give colon metadata to components without origin metadata, in place, so the
- * colon serializers write them instead of Comark's unescaped fallback.
+ * Give components without origin metadata the selected write syntax. Existing
+ * metadata remains authoritative. Hosts retaining older metadata-less nodes
+ * must select the colon default until their origin migration is complete.
  */
-function markImplicitComponents(nodes: unknown[]): void {
+function markImplicitComponents(nodes: unknown[], syntax: 'angle' | 'colon'): void {
   const visit = (node: unknown) => {
     if (!Array.isArray(node) || typeof node[0] !== 'string') return
     const props = node[1] as Record<string, unknown> | undefined
@@ -52,7 +53,7 @@ function markImplicitComponents(nodes: unknown[]): void {
       props && !NATIVE_SERIALIZER_TAGS.has(node[0]) && !HTML_TAGS.has(node[0]) && origin?.html !== 1 &&
       origin?.syntax !== 'colon' && origin?.syntax !== 'angle'
     ) {
-      props.$ = { syntax: 'colon', block: origin?.block === 0 ? 0 : 1, sourceName: node[0] }
+      props.$ = { syntax, block: origin?.block === 0 ? 0 : 1, sourceName: syntax === 'angle' ? node[0][0]!.toUpperCase() + node[0].slice(1) : node[0] }
     }
     for (const child of node.slice(2)) visit(child)
   }
@@ -155,6 +156,8 @@ export interface ParseMdcDocumentOptions {
 }
 
 export interface SerializeMdcDocumentOptions {
+  /** Syntax for components without authored origin metadata. Default `'angle'`. */
+  componentSyntax?: 'angle' | 'colon'
   /** Maximum inline component properties before YAML block syntax. Default 3. */
   maxInlineAttributes?: number
   /** Block syntax for component properties above the inline limit. Default `'codeblock'`. */
@@ -189,7 +192,7 @@ export async function serializeMdcDocument(
 ): Promise<string> {
   const renderDocument = structuredClone(document) as MarkdownDocument
   dropUndefinedProps(renderDocument.nodes)
-  markImplicitComponents(renderDocument.nodes)
+  markImplicitComponents(renderDocument.nodes, options.componentSyntax ?? 'angle')
   // Checked before any pass inserts nodes, so paths match `document.nodes`.
   assertRepresentable(renderDocument.nodes)
   const [escapeMarker, ltMarker, ampMarker] = absentPrivateUseCharacters(JSON.stringify(document), 3) as [string, string, string]
