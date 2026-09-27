@@ -253,6 +253,12 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
    */
   type?: ContentCollectionKind
   /**
+   * Set to `false` for a structured page rendered by your own template. Keeps
+   * page routing and SEO fields but omits the article body. Portable documents
+   * use JSON. Omit this option to keep the default Markdown article body.
+   */
+  body?: false
+  /**
    * Source glob or source descriptor understood by the filesystem ingestion
    * layer. CMS-backed projects do not need a runtime source; filesystem
    * imports/seeding should be modeled by provider-owned import tooling.

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add opt-in structured pages with `body: false`, retaining page routes, SEO
+  fields, sitemap eligibility, and JSON portability without an article body.
+  Upgrade the CMS adapter together with Content before enabling this option.
+- Read current root configuration during filesystem migration assessment so a
+  restored contract is recognized without retaining an old ESM import.
+
 ## v1.0.0-beta.10
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.9...v1.0.0-beta.10)
