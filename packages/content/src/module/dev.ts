@@ -1,5 +1,6 @@
 import { normalizeKey, type Unwatch, type WatchEvent } from 'unstorage'
 import type { Nuxt } from '@nuxt/schema'
+import type { Nitro } from 'nitropack'
 
 import { MOUNT_PREFIX } from '../utils'
 import { makeIgnored } from '../core/content/ignore'
@@ -32,7 +33,13 @@ export const registerContentDevRuntime = (
     })
   }
 
-  nuxt.hook('nitro:init', async (nitro) => {
+  // Nuxt 4.5 moves Nitro hook types into its optional server builder. Content
+  // still requires Nitro; keep this compatibility boundary typed without
+  // making consumers install that builder directly.
+  const hookNitroInit = nuxt.hook as (
+    name: 'nitro:init', callback: (nitro: Nitro) => Promise<void>
+  ) => void
+  hookNitroInit('nitro:init', async (nitro) => {
     if (options.watch === false) {
       return
     }
