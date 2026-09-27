@@ -6,7 +6,8 @@
 
 - Watch only content source mounts during development. Do not traverse Nitro's
   root, build, cache or dependency trees; release every acquired watcher on
-  initialization failure and shutdown.
+  initialization failure and shutdown. Own separate driver instances so other
+  modules' storage subscriptions keep receiving updates and remain open.
 
 ### Features
 
