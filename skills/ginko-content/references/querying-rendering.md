@@ -87,6 +87,29 @@ Do not pass only the body:
 <ContentRenderer :value="page.body" />
 ```
 
+## Bodies parsed elsewhere
+
+When a CMS or database stores Markdown, parse it on the server with
+`parseMdcBody()` from `@lupinum/ginko-content/cms-contract` and send only the
+resulting `body` to the page. `parseMdcBody()` runs in Node and in V8 isolates
+such as Convex functions. Render the body with the lean body renderer:
+
+```vue
+<script setup lang="ts">
+import ContentBodyRenderer, { type MarkdownRoot } from '@lupinum/ginko-content/body-renderer'
+
+defineProps<{ body: MarkdownRoot }>()
+</script>
+
+<template>
+  <ContentBodyRenderer :body="body" :policy="{ components: {} }" :components="{}" />
+</template>
+```
+
+The body renderer is about 7 KB gzip. Never import
+`@lupinum/ginko-content/cms-contract` in client code; it contains the parser
+and Zod (about 180 KB gzip).
+
 ## Exact path query
 
 Prefer `useContentPage()` for route pages. Use raw `by: { path }` filters only for custom lookup logic:
