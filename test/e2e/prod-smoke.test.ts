@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
@@ -72,6 +73,22 @@ describe('production fixture smoke', () => {
           gettingStarted: { canonicalKey: '1' }
         })
       }
+    })
+  }, 240000)
+
+  test('live-data fixture prerenders only opted-in content routes and renders the rest per request', async () => {
+    await withFixtureServer('test/fixtures/prerender-live', async ({ baseURL, publicDir }) => {
+      // Content routes reach the prerender queue through the cache route's
+      // `x-nitro-prerender` header even with link crawling turned off.
+      expect(existsSync(resolve(publicDir, 'docs/intro/index.html'))).toBe(true)
+      // `/live` is linked from docs/intro, but crawling is off.
+      expect(existsSync(resolve(publicDir, 'live/index.html'))).toBe(false)
+      // The events collection declares `prerender: false`.
+      expect(existsSync(resolve(publicDir, 'events/today/index.html'))).toBe(false)
+
+      const $fetch = ofetch.create({ baseURL })
+      await expect($fetch('/events/today')).resolves.toContain('<h1>Today</h1>')
+      await expect($fetch('/live')).resolves.toContain('data-testid="live"')
     })
   }, 240000)
 })

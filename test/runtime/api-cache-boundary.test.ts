@@ -188,12 +188,27 @@ describe('runtime cache API boundary (atomic publication)', () => {
     }))
   })
 
-  test('escapes route paths before embedding them in prerender HTML', async () => {
-    const { renderContentRouteLinks } = await import('../../packages/content/src/runtime/server/api/cache')
+  test('encodes prerender routes so Nitro splits and decodes the header losslessly', async () => {
+    const { encodePrerenderHeader } = await import('../../packages/content/src/runtime/server/api/cache')
+    const routes = ['/docs/a,b', '/de/über uns', '/docs?x="quoted"']
 
-    expect(renderContentRouteLinks(['/docs?x="quoted"&next=<unsafe>'])).toBe(
-      '<a href="/docs?x=&quot;quoted&quot;&amp;next=&lt;unsafe&gt;"></a>'
-    )
+    const header = encodePrerenderHeader(routes)
+
+    expect(header).toMatch(/^[\x21-\x7E]+$/)
+    // Mirrors nitropack's `extractLinks` parsing of `x-nitro-prerender`.
+    expect(header.split(',').map(entry => decodeURIComponent(entry.trim()))).toEqual(routes)
+  })
+
+  test('selects prerender routes by module and collection prerender options', async () => {
+    const { selectPrerenderRoutes } = await import('../../packages/content/src/runtime/server/api/cache')
+    const routes = [
+      { collection: 'docs', path: '/docs/intro' },
+      { collection: 'events', path: '/events/today' }
+    ]
+
+    expect(selectPrerenderRoutes(routes, {})).toEqual(['/docs/intro', '/events/today'])
+    expect(selectPrerenderRoutes(routes, { collections: { events: { prerender: false } } })).toEqual(['/docs/intro'])
+    expect(selectPrerenderRoutes(routes, { prerender: { routes: false } })).toEqual([])
   })
 
   test('forced failure after parsing (an unreadable source): snapshot.json is never written', async () => {

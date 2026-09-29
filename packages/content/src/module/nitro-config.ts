@@ -11,7 +11,7 @@ import { contentCacheRoutePath } from './cache-route'
 import { normalizeAgentRouteOptions } from './agent-options'
 import { registerContentNitroIntegrationHooks } from './integration-hooks'
 import type { createSearchRuntimeConfig } from './options'
-import { resolveNuxtSitemapPrerenderRoutes } from './options'
+import { normalizePrerenderOptions, resolveNuxtSitemapPrerenderRoutes } from './options'
 
 type SearchRuntime = ReturnType<typeof createSearchRuntimeConfig> | false
 
@@ -95,6 +95,7 @@ export const registerContentNitroConfig = ({
   hookNuxtBoundary(nuxt, 'nitro:config', (nitroConfig: Record<string, any>) => {
     const searchRuntime = getSearchRuntime()
     const agentRoutes = normalizeAgentRouteOptions(options)
+    const prerender = normalizePrerenderOptions(options)
     nitroConfig.prerender = nitroConfig.prerender || {}
     nitroConfig.prerender.routes = nitroConfig.prerender.routes || []
 
@@ -105,32 +106,26 @@ export const registerContentNitroConfig = ({
     })
 
     if (!nuxt.options.dev) {
+      // The cache/build route is always prerendered first: it builds and
+      // publishes the production content snapshot. While prerendering it
+      // returns the public content routes in Nitro's `x-nitro-prerender`
+      // response header (see `runtime/server/api/cache.ts`), which Nitro
+      // queues with or without `crawlLinks`, for static (`nuxi generate`)
+      // and hybrid (`nuxi build`) presets alike. Module option `prerender`
+      // and collection option `prerender` decide which routes it returns.
       nitroConfig.prerender.routes.unshift(cacheRoute)
-      // The cache/build route's HTML response (see
-      // `runtime/server/api/cache.ts`) seeds content-route prerender
-      // injection via Nitro's own crawl-links mechanism.
-      // This is the only viable injection point for BOTH static (`nuxi
-      // generate`) and non-static (`nuxi build`) presets: Nitro's own
-      // `prerender()` finalizes its crawl queue from
-      // `nitro.options.prerender.routes` before the compiled main Nitro
-      // instance's own `'compiled'` hook ever fires for a non-static build
-      // (confirmed empirically — Nuxt's hybrid build only compiles a
-      // request-servable main bundle of its own AFTER prerendering
-      // completes), so a build hook has no earlier, reliable way to push
-      // additional routes into that queue. Enabling `crawlLinks` here means
-      // a hybrid build's prerender crawl also reaches ordinary app-owned
-      // pages reachable by link from a prerendered page — not just content
-      // routes — which is reflected in the updated `build` lane goldens.
-      if (nitroConfig.prerender.crawlLinks === false) {
-        // The user explicitly opted out of crawling in their own nuxt.config. Respect
-        // that choice (least surprising) rather than silently forcing it back on, but
-        // warn loudly: without crawling, filesystem content routes never reach the
-        // prerender queue and the build will ship without them.
+      // Link crawling additionally prerenders application pages reachable
+      // from prerendered pages. It stays the default for compatibility, and
+      // `agent.delivery: 'runtime'` depends on it. Sites whose application
+      // pages render live data opt out with `prerender: { crawlLinks: false }`.
+      if (prerender.crawlLinks) {
+        nitroConfig.prerender.crawlLinks = nitroConfig.prerender.crawlLinks ?? true
+      }
+      else if (agentRoutes.delivery === 'runtime' && nitroConfig.prerender.crawlLinks !== true) {
         logger.warn(
-          'content module needs `nitro.prerender.crawlLinks` to inject provider content routes into the prerender queue, but it is explicitly set to `false` in your nuxt.config. Content routes will NOT be prerendered until you remove `crawlLinks: false`.'
+          'content.agent.delivery `runtime` retains page data dependencies through Nitro link crawling, but `content.prerender` turns crawling off. Pages that are not seeded as content routes keep no generated data.'
         )
       }
-      nitroConfig.prerender.crawlLinks = nitroConfig.prerender.crawlLinks ?? true
     }
 
     const sources = useContentMounts(nuxt, contentContext.sources)
