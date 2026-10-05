@@ -1,5 +1,5 @@
 import type { Toc, TocLink } from '../../../types/content'
-import { createHeadingIdGenerator } from '../../../core/markdown/heading-id'
+import { resolveHeadingAnchors } from '../../../core/markdown/heading-id'
 import { scanLiteralLines } from '../../../core/markdown/auto-close'
 
 export type { Toc, TocLink }
@@ -24,7 +24,7 @@ export function extractContentToc (
   const lines = content.split(/\r?\n/)
   // Headings inside fenced code or frontmatter are not headings.
   const { literal } = scanLiteralLines(lines)
-  const nextId = createHeadingIdGenerator()
+  const headings: Array<{ text: string, level: number }> = []
 
   for (const [index, line] of lines.entries()) {
     // Every heading level advances the parser's id sequence, so match all six.
@@ -33,11 +33,13 @@ export function extractContentToc (
     if (!match) continue
     const depth = match[1]!.length
     const text = match[2]!.trim()
-    const id = nextId(text, depth)
-    if (depth >= 2 && depth <= maxDepth) {
-      links.push({ id, text, depth })
-    }
+    headings.push({ text, level: depth })
   }
+
+  const anchors = resolveHeadingAnchors(headings)
+  headings.forEach(({ text, level: depth }, index) => {
+    if (depth >= 2 && depth <= maxDepth) links.push({ id: anchors[index]!.id, text, depth })
+  })
 
   return {
     title: options.title ?? '',

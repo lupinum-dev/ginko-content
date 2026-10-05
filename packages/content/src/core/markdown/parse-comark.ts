@@ -1,5 +1,6 @@
 import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
 import type { ComarkPlugin } from 'comark'
+import { resolveHeadingAnchors, markdownHeadingLevel, headingSlugText, type HeadingDescriptor } from './heading-id.js'
 import { angleComponents } from './angle-components.js'
 import { autoCloseMarkdownOutsideCode } from './auto-close.js'
 import { jsonLikeStrings, readsAsJson, restoreStrings } from './json-attribute.js'
@@ -219,6 +220,26 @@ const explicitLinkify = defineComarkPlugin(() => ({
   ],
 }))
 
+const headingAnchors = defineComarkPlugin(() => ({
+  name: 'ginko-heading-anchors',
+  post: ({ tree }) => {
+    const headings: Array<{ props: Record<string, unknown>, descriptor: HeadingDescriptor }> = []
+    const occupied: string[] = []
+    const visit = (node: unknown): void => {
+      if (!Array.isArray(node) || typeof node[0] !== 'string') return
+      const props = node[1] as Record<string, unknown>
+      const level = markdownHeadingLevel(node[0], props)
+      const id = typeof props.id === 'string' ? props.id : undefined
+      if (level) headings.push({ props, descriptor: { text: headingSlugText(node.slice(2)), level: Number(level), ...(id !== undefined ? { id } : {}) } })
+      else if (id !== undefined) occupied.push(id)
+      for (const child of node.slice(2)) visit(child)
+    }
+    for (const node of tree.nodes) visit(node)
+    const anchors = resolveHeadingAnchors(headings.map(heading => heading.descriptor), occupied)
+    headings.forEach((heading, index) => { heading.props.id = anchors[index]!.id })
+  },
+}))
+
 export type ComarkParser = ReturnType<typeof createMarkdownParser>
 
 export interface ComarkParserOptions {
@@ -238,12 +259,14 @@ export const createComarkParser = (
   // a code-aware pass and keep Comark's pass disabled.
   const parse = createMarkdownParser({
     autoClose: false,
+    headingIds: false,
     plugins: [
       angleComponents({ autoClose }),
       ...(options.portable ? [explicitLinkify()] : []),
       legacyCssCustomProps(),
       typedComponentFrontmatter(),
       componentSyntaxMetadata(),
+      headingAnchors(),
       ...plugins,
     ],
   })

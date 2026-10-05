@@ -97,6 +97,7 @@ export {
   AngleComponentSyntaxError,
   MdcSerializationError,
   createHeadingIdGenerator,
+  resolveMdcHeadingAnchors,
   headingSlugText,
   parseMdcDocument,
   parseMdcBody,

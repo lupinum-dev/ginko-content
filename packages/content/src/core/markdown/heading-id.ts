@@ -1,6 +1,6 @@
 /**
- * Heading ids as the MDC parser assigns them. Keep this module aligned with
- * Comark's token processor: the round-trip tests fail if the two disagree.
+ * Document-owned heading ids and legacy fragments. Parsing, projections and
+ * rendering share this allocator; Comark automatic heading ids are disabled.
  */
 
 // Inline HTML tags contribute only their text. Other element tags are inline
@@ -12,17 +12,18 @@ const HTML_INLINE_TAGS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Convert heading text to the parser's base slug. Characters outside
- * `[A-Za-z0-9_-]` are removed, and a leading digit gets an `_` prefix.
+ * Keep Unicode letters, marks and numbers in a normalized, nonempty slug.
+ * A leading ASCII digit retains the historical `_` prefix.
  */
 export function slugifyHeading(text: string): string {
   const slug = text
+    .normalize('NFC')
     .toLowerCase()
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/[^\w-]+/g, '')
+    .replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '')
     .replace(/-{2,}/g, '-')
-  const trimmed = trimHyphens(slug)
+  const trimmed = trimHyphens(slug) || 'heading'
   return /^\d/.test(trimmed) ? `_${trimmed}` : trimmed
 }
 
@@ -56,21 +57,57 @@ export function headingSlugText(children: readonly unknown[]): string {
   return text
 }
 
+/** Native HTML and same-named components keep their authored attributes. */
+export function markdownHeadingLevel(tag: string, props: Record<string, unknown>): number | undefined {
+  const origin = props.$
+  if (origin && typeof origin === 'object' && ('html' in origin || 'syntax' in origin)) return undefined
+  const match = /^h([1-6])$/.exec(tag)
+  return match ? Number(match[1]) : undefined
+}
+
 /** Assigns heading ids in document order. */
 export type HeadingIdGenerator = (text: string, level: number) => string
 
 /**
- * Create the parser's document-scoped heading id sequence. Call it once for
- * every heading in document order, including headings with an explicit id.
- * A heading at level 3 or deeper is prefixed with the id of its nearest
- * enclosing heading at level 2 or deeper. Repeated ids get `-1`, `-2`, and so
- * on.
+ * Streaming Unicode sequence for callers without a complete document. Use
+ * resolveHeadingAnchors when explicit ids and legacy fragment reservations
+ * must participate in document-wide collision handling.
  */
 export function createHeadingIdGenerator(): HeadingIdGenerator {
   const stack: Array<{ level: number, id: string }> = []
-  const counts = new Map<string, number>()
+  const used = new Set<string>()
   return (text, level) => {
-    let slug = slugifyHeading(text)
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
+    const parent = stack[stack.length - 1]
+    const slug = `${parent && parent.level >= 2 ? `${parent.id}-` : ''}${slugifyHeading(text)}`
+    let id = slug
+    let suffix = 0
+    while (used.has(id)) id = `${slug}-${++suffix}`
+    used.add(id)
+    stack.push({ level, id })
+    return id
+  }
+}
+
+export interface HeadingDescriptor {
+  text: string
+  level: number
+  /** An authored or persisted id. It remains authoritative. */
+  id?: string
+}
+
+export interface HeadingAnchor {
+  id: string
+  aliases: string[]
+}
+
+/** Exact pre-Unicode sequence, including its empty and duplicate id behavior. */
+function legacyHeadingIds(headings: readonly HeadingDescriptor[]): string[] {
+  const stack: Array<{ level: number, id: string }> = []
+  const counts = new Map<string, number>()
+  return headings.map(({ text, level }) => {
+    let slug = trimHyphens(text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/-{2,}/g, '-'))
+    if (/^\d/.test(slug)) slug = `_${slug}`
     while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
     const parent = stack[stack.length - 1]
     if (parent && parent.level >= 2) slug = `${parent.id}-${slug}`
@@ -78,5 +115,47 @@ export function createHeadingIdGenerator(): HeadingIdGenerator {
     const count = counts.get(slug) ?? 0
     counts.set(slug, count + 1)
     return count === 0 ? slug : `${slug}-${count}`
-  }
+  })
+}
+
+/**
+ * Allocate one ordered document. Reserve old fragments before new ids so an
+ * old link cannot land on another heading after the Unicode cutover. If old
+ * ids collided, their first target wins, as browser fragment lookup did.
+ * Explicit/persisted ids and other authored element ids always take priority.
+ * This derives aliases without adding metadata to stored V1/V2 documents.
+ */
+export function resolveHeadingAnchors(
+  headings: readonly HeadingDescriptor[],
+  occupiedIds: readonly string[] = [],
+): HeadingAnchor[] {
+  const legacy = legacyHeadingIds(headings)
+  const legacyOwner = new Map<string, number>()
+  legacy.forEach((id, index) => { if (id && !legacyOwner.has(id)) legacyOwner.set(id, index) })
+  const reserved = new Set([...occupiedIds, ...headings.flatMap(heading => heading.id === undefined ? [] : [heading.id])])
+  const used = new Set<string>()
+  const allocated = new Set<string>()
+  const stack: Array<{ level: number, id: string }> = []
+  const anchors = headings.map(({ text, level, id: authored }, index): HeadingAnchor => {
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
+    const parent = stack[stack.length - 1]
+    const slug = `${parent && parent.level >= 2 ? `${parent.id}-` : ''}${slugifyHeading(text)}`
+    let generated = slug
+    let suffix = 0
+    while (allocated.has(generated) || (reserved.has(generated) && generated !== authored) || (legacyOwner.has(generated) && legacyOwner.get(generated) !== index)) generated = `${slug}-${++suffix}`
+    allocated.add(generated)
+    const id = authored ?? generated
+    used.add(id)
+    // An explicit anchor does not rename the generated child prefix.
+    stack.push({ level, id: generated })
+    return { id, aliases: [] }
+  })
+  anchors.forEach((anchor, index) => {
+    const old = legacy[index]!
+    if (old && old !== anchor.id && legacyOwner.get(old) === index && !used.has(old) && !reserved.has(old)) {
+      anchor.aliases.push(old)
+      used.add(old)
+    }
+  })
+  return anchors
 }

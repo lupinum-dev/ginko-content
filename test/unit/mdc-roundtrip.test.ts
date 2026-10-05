@@ -255,7 +255,7 @@ describe('heading ids', () => {
   it.each([
     ['Hello World', 'hello-world'],
     ['1. Introduction', '_1-introduction'],
-    ['Über uns', 'ber-uns'],
+    ['Über uns', 'über-uns'],
     ['  Many   spaces -- here ', 'many-spaces-here'],
     ['C++ & Rust?', 'c-rust'],
   ])('slugifies %j like the parser', async (text, expected) => {
@@ -292,10 +292,10 @@ describe('heading ids', () => {
     expect(parsed).toEqual(['intro', 'intro-details'])
   })
 
-  it('generates an empty id for a heading without ASCII word characters', async () => {
-    expect(slugifyHeading('日本語')).toBe('')
+  it('keeps non-ASCII heading text in a nonempty id', async () => {
+    expect(slugifyHeading('日本語')).toBe('日本語')
     const parsed = await parseMdcDocument('## 日本語', { autoClose: false })
-    expect((parsed.nodes[0] as [string, Record<string, unknown>])[1].id).toBe('')
+    expect((parsed.nodes[0] as [string, Record<string, unknown>])[1].id).toBe('日本語')
   })
 
   it('makes extractContentToc and parseMdcBody agree with rendered heading ids', async () => {

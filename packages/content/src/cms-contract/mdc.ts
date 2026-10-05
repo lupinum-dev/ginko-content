@@ -9,7 +9,7 @@ import type { ConditionalNodeHandler, MarkdownDocument } from 'comark'
 import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
 import { HTML_TAGS } from '../core/markdown/html-tags.js'
 import { angleComponentRenderer, isAloneOnLine } from '../core/markdown/angle-components.js'
-import { createHeadingIdGenerator, headingSlugText } from '../core/markdown/heading-id.js'
+import { resolveHeadingAnchors, markdownHeadingLevel, headingSlugText, type HeadingAnchor, type HeadingDescriptor } from '../core/markdown/heading-id.js'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
 import { parseComark, readsAsJson } from '../core/markdown/parse-comark.js'
 import { createVerbatimHandlers, markHeadingBreaks, markListItemsInComponents } from '../core/markdown/serialize-handlers.js'
@@ -252,26 +252,35 @@ function separateAdjacentLists(nodes: unknown[], offset = 0): void {
   }
 }
 
-/**
- * Mark headings whose id differs from the id the parser generates. The
- * generator runs for every heading in document order, as the parser does.
- */
-function markExplicitHeadingIds(nodes: unknown[], key: string): void {
-  const nextId = createHeadingIdGenerator()
-  const visit = (node: unknown) => {
-    if (!Array.isArray(node)) return
-    const level = typeof node[0] === 'string' ? HEADING_TAG.exec(node[0])?.[1] : undefined
-    if (level && node.length > 2) {
-      const generated = nextId(headingSlugText(node.slice(2)), Number(level))
-      const props = node[1] as Record<string, unknown> | undefined
-      if (props && typeof props.id === 'string' && props.id !== '' && props.id !== generated) {
-        props[key] = props.id
-      }
-      return
-    }
-    for (const child of node.slice(2)) visit(child)
+/** Derive heading anchors without changing the editing document. */
+export function resolveMdcHeadingAnchors(
+  nodes: readonly MdcNode[],
+  options: { preserveIds?: boolean } = {},
+): Map<MdcElementNode, HeadingAnchor> {
+  const headings: MdcElementNode[] = []
+  const descriptors: HeadingDescriptor[] = []
+  const occupied: string[] = []
+  const visit = (node: MdcNode): void => {
+    if (!Array.isArray(node) || node[0] === null) return
+    const level = markdownHeadingLevel(node[0], node[1])
+    const id = typeof node[1].id === 'string' ? node[1].id : undefined
+    if (level) {
+      headings.push(node)
+      descriptors.push({ text: headingSlugText(node.slice(2)), level: Number(level), ...(options.preserveIds !== false && id !== undefined ? { id } : {}) })
+    } else if (id !== undefined) occupied.push(id)
+    for (const child of node.slice(2) as MdcNode[]) visit(child)
   }
   for (const node of nodes) visit(node)
+  const anchors = resolveHeadingAnchors(descriptors, occupied)
+  return new Map(headings.map((node, index) => [node, anchors[index]!]))
+}
+
+/** Keep existing ids explicit whenever regenerated Markdown would differ. */
+function markExplicitHeadingIds(nodes: unknown[], key: string): void {
+  const anchors = resolveMdcHeadingAnchors(nodes as MdcNode[], { preserveIds: false })
+  for (const [node, anchor] of anchors) {
+    if (typeof node[1].id === 'string' && node[1].id !== '' && node[1].id !== anchor.id) node[1][key] = node[1].id
+  }
 }
 
 const renderHeadingIdAttribute = (id: string): string | undefined => {
@@ -574,7 +583,7 @@ function deriveToc(
 ): Toc | undefined {
   const searchDepth = options.tocDepth ?? 3
   const links = []
-  const nextId = createHeadingIdGenerator()
+  const anchors = resolveMdcHeadingAnchors(nodes as MdcNode[])
   for (const node of nodes) {
     if (!Array.isArray(node)) continue
     const tag = String(node[0] ?? '')
@@ -583,12 +592,11 @@ function deriveToc(
     const depth = Number(match[1])
     const props = node[1] && typeof node[1] === 'object' ? node[1] : {}
     const children = node.slice(2) as unknown[]
-    // Advance the parser's id sequence for every top-level heading.
-    const generatedId = nextId(headingSlugText(children), depth)
-    if (depth < 2 || depth > searchDepth) continue
+    const generatedId = anchors.get(node as MdcElementNode)?.id
+    if (depth < 2 || depth > searchDepth || (generatedId === undefined && !('id' in props))) continue
     const text = collectTupleText(children)
     links.push({
-      id: String((props as Record<string, unknown>).id || generatedId),
+      id: String((props as Record<string, unknown>).id ?? generatedId),
       text,
       depth,
     })

@@ -2,6 +2,7 @@ import type { PropType, VNode } from 'vue'
 import { defineComponent, getCurrentInstance, h } from 'vue'
 import type { MarkdownNode, MarkdownRoot } from '../../../../types/content'
 import { kebabCase, pascalCase } from 'scule'
+import { headingSlugText, resolveHeadingAnchors, markdownHeadingLevel, type HeadingAnchor, type HeadingDescriptor } from '../../../../core/markdown/heading-id.js'
 import { HTML_TAGS } from '../../../../core/markdown/html-tags.js'
 import { localizeLinkProps } from '../../../../features/localization/links'
 import {
@@ -111,6 +112,28 @@ export class MissingMarkdownComponentError extends Error {
   }
 }
 
+/** Derive aliases from the current tree; never annotate persisted AST data. */
+function headingAnchors (tree: MarkdownRoot): Map<MarkdownNode, HeadingAnchor> {
+  const headings: MarkdownNode[] = []
+  const descriptors: HeadingDescriptor[] = []
+  const occupied: string[] = []
+  const tuple = (node: MarkdownNode): unknown => node.type === 'text'
+    ? node.value || ''
+    : [node.tag, node.props || {}, ...(node.children || []).map(tuple)]
+  const visit = (node: MarkdownNode) => {
+    const level = markdownHeadingLevel(node.tag || '', node.props || {})
+    const id = typeof node.props?.id === 'string' ? node.props.id : undefined
+    if (level) {
+      headings.push(node)
+      descriptors.push({ text: headingSlugText((node.children || []).map(tuple)), level: Number(level), ...(id !== undefined ? { id } : {}) })
+    } else if (id !== undefined) occupied.push(id)
+    for (const child of node.children || []) visit(child)
+  }
+  for (const node of tree.children || []) visit(node)
+  const anchors = resolveHeadingAnchors(descriptors, occupied)
+  return new Map(headings.map((node, index) => [node, anchors[index]!]))
+}
+
 function renderNode (
   node: MarkdownNode,
   options: {
@@ -122,6 +145,7 @@ function renderNode (
     defaultLocale?: string
     locales: string[]
     policy: PortableComponentPolicy
+    headings: Map<MarkdownNode, HeadingAnchor>
   },
   key?: string | number,
   parent?: MarkdownNode
@@ -192,12 +216,16 @@ function renderNode (
     props.__node = node
   }
 
-  if (children.length === 0) {
+  const anchor = options.headings.get(node)
+  if (anchor) props.id = anchor.id
+  if (children.length === 0 && !anchor?.aliases.length) {
     return h(component, props)
   }
 
   const slots: Record<string, () => Array<VNode | string>> = {}
-  const regularChildren: Array<VNode | string> = []
+  const regularChildren: Array<VNode | string> = (anchor?.aliases || []).map(id =>
+    h('span', { id, 'aria-hidden': 'true', 'data-ginko-heading-alias': '', style: { scrollMarginTop: 'inherit' } })
+  )
 
   for (let index = 0; index < children.length; index++) {
     const child = children[index]
@@ -294,6 +322,7 @@ export default defineComponent({
 
     return () => {
       assertPublicMarkdownAst(props.tree, props.renderPolicy)
+      const headings = headingAnchors(props.tree)
       const children = (props.tree.children || [])
         .map((node, index) => renderNode(node, {
           components: props.components,
@@ -303,7 +332,8 @@ export default defineComponent({
           locale: props.locale,
           defaultLocale: props.defaultLocale,
           locales: props.locales,
-          policy: props.renderPolicy
+          policy: props.renderPolicy,
+          headings
         }, index))
         .filter((child): child is VNode | string => child !== null)
 
