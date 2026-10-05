@@ -23,7 +23,7 @@ import { parseComark } from '../core/markdown/parse-comark.js'
 import csvParser from '../parsers/csv.js'
 import jsonParser from '../parsers/json.js'
 import pathMeta from '../parsers/path-meta.js'
-import { stripReservedContentKeys } from '../parsers/reserved.js'
+import { stripReservedContentKeys } from '../core/content/reserved.js'
 import yamlParser from '../parsers/yaml.js'
 import { validatePortableDocument } from '../portability/documents.js'
 import {
