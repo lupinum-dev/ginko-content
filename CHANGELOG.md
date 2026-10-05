@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Keep authored keys such as `__proto__` and `constructor` from reaching
+  `Object.prototype` or resolving as existing documents in the content graph.
+- Ignore reserved identity keys (`collection`, `path`, `canonicalKey`, `type`,
+  `file`, and the others) in inline `i18n` overrides, with the same warning
+  that top-level frontmatter gets.
+- Return no documents for a path filter on an empty collection.
+- Build navigation from authored `navigation.children` without changing the
+  source content.
+
+### Changed
+
+- Content documents shared between requests are now read-only in every mode.
+  Code that changes a query result in place throws a `TypeError`. Copy the
+  value first, for example with `structuredClone()`.
+
 ## v1.0.0-beta.10
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.9...v1.0.0-beta.10)
