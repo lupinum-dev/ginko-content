@@ -59,8 +59,10 @@
 
 ### Changed
 - Content documents shared between requests are now read-only in every mode.
-  Code that changes a query result in place throws a `TypeError`. Copy the
-  value first, for example with `structuredClone()`.
+  Query results are shallow copies: changing top-level fields affects only
+  that copy. Changing nested shared values throws a `TypeError`, including
+  when a hook already froze the document shallowly. Copy nested values first,
+  for example with `structuredClone()`.
 
 ## v1.0.0-beta.10
 
