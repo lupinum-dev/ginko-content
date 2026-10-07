@@ -50,6 +50,8 @@ contract without changing the application-facing query API.
 - Node.js 22.18–22.x, 24.11–24.x, or 26+
 - Nuxt 4.5.1 through Nuxt 4.x
 - Vue 3.5.40 through Vue 3.x
+- Nuxt supplies the required peers: h3 ^1.15.11, nitropack ^2.13.4,
+  unstorage ^1.17.5, and vue-router ^5.2.0.
 - ESM; CommonJS `require()` is not supported
 
 ## Installation

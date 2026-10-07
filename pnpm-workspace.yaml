@@ -45,7 +45,6 @@ overrides:
   linkify-it: 5.0.2
   nuxtseo-shared: 5.3.14
   '@simple-git/argv-parser@<2.0.1': 2.0.1
-  simple-git@<4.0.1: 4.0.1
   katex@<0.18.2: 0.18.2
   seroval@<1.6.3: 1.6.3
   source-map-js@<1.2.2: 1.2.2
