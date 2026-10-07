@@ -73,6 +73,7 @@ export const registerContentContextFinalization = ({
         strict: collection.strict ?? true,
         ...(collection.route ? { route: collection.route } : {}),
         ...(typeof collection.sitemap === 'boolean' ? { sitemap: collection.sitemap } : {}),
+        ...(collection.prerender === false ? { prerender: false as const } : {}),
         ...(collection.i18n === false || (collection.i18n && collection.i18n !== true)
           ? { i18n: collection.i18n }
           : {}),

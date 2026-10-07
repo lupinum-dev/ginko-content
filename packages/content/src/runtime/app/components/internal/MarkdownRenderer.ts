@@ -4,11 +4,14 @@ import type { MarkdownNode, MarkdownRoot } from '../../../../types/content'
 import { kebabCase, pascalCase } from 'scule'
 import { HTML_TAGS } from '../../../../core/markdown/html-tags.js'
 import { localizeLinkProps } from '../../../../features/localization/links'
+// Import the render policy module directly: the `cms-contract` barrel also
+// re-exports the MDC parser (comark) and the provider wire schemas (zod), and
+// neither may reach the browser bundle of the body renderer.
 import {
   assertPublicMarkdownAst,
   classifyPortableMarkdownElement,
-  type PortableComponentPolicy,
-} from '../../../../cms-contract/index'
+} from '../../../../cms-contract/render-policy.js'
+import type { PortableComponentPolicy } from '../../../../types/component-policy'
 
 function parsePropValue (value: string) {
   if (value === 'true') return true

@@ -26,6 +26,7 @@ Use this skill for app-facing work with `@lupinum/ginko-content`. It is for user
 ## Hard Rules
 
 - Import config helpers from `@lupinum/ginko-content/config`.
+- In components, refer to collections by name (`useContentPage('docs')`). Names are typed from `content.config.ts`; importing a handle into a component ships the config, Zod, and all schemas to the browser. Handles are fine in server code.
 - Use `useContentPage(handle, options)` for route-backed content pages. It resolves against the current route, keeps SSR/hydration stable, and never throws a default 404 — decide 404/redirect policy in the page from `route.requestedPath`/`route.resolvedPath`.
 - Use `one(handle, options)`, `many(handle, options)`, `paginate(handle, options)`, `navigation(handle, options)`, `backlinks(handle, options)`, `resolveOne(handle, options)`, and `surround(handle, options)` for everything else — pair them with `useAsyncData` and an explicit, stable key when calling from a component.
 - Use `item.route.resolvedPath` from query results for links.
@@ -36,6 +37,7 @@ Use this skill for app-facing work with `@lupinum/ginko-content`. It is for user
 - Do not manually prepend locale prefixes to a path. Use `route.alternates` (from `useContentPage`'s or a query result's `route`) to build locale-switcher links.
 - For Nuxt Sitemap output, validate and submit the sitemap URL emitted by the configured mode.
 - Do not add route rules, `nitro.prerender.ignore`, or disable `sitemap.autoI18n` only to force a physical sitemap shape.
+- For sites with live data, set `content.prerender: { crawlLinks: false }` and `prerender: false` on live collections instead of adding Nitro ignore lists.
 - Run `ginko-content doctor`; use `ginko-content doctor --i18n` for localized apps.
 
 ## Validation

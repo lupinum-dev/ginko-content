@@ -59,7 +59,7 @@ interface CompiledNitroLike {
  * (`nitro.options._config` spread), so this hook fires there too, but its
  * bundle bakes `import.meta.prerender === true`
  * (nitropack/dist/rollup/index.mjs), so `runtime/server/api/cache.ts` would
- * answer a fetch with the HTML crawl-links seed instead of JSON.
+ * answer a fetch with the HTML prerender seed instead of JSON.
  */
 const isStaticLikeBuild = (nitro: Pick<CompiledNitroLike, 'options'>) =>
   Boolean(nitro.options.static) || nitro.options.preset === 'static' || nitro.options.preset === 'nitro-prerender'
@@ -114,9 +114,8 @@ const waitForServerReady = async (child: ChildProcess, baseURL: string, timeoutM
  * This only ever needs to run AFTER Nuxt's hybrid build has already
  * prerendered (`shouldRunSitemapAssertionOnCompiled` restricts it to
  * mode `'build'`/`'both'`, asserting sitemap output that must already exist
- * on disk) — never before, so it does not need to (and cannot: see
- * `runtime/server/api/cache.ts` for why content-route injection instead
- * relies on crawl-links) supply routes to seed the prerender crawl.
+ * on disk) — never before, so it does not supply prerender routes; the
+ * cache/build route seeds those itself (`runtime/server/api/cache.ts`).
  */
 const fetchSitemapCollectionCounts = async (
   nitro: CompiledNitroLike,
@@ -198,7 +197,7 @@ export const registerContentNitroIntegrationHooks = (
   // SEPARATE `nitro-prerender`-preset sub-instance that shares the same
   // `output.publicDir` with the eventual compiled main server. Because the
   // cache/build route is unshifted onto `nitro.options.prerender.routes`
-  // (`module/nitro-config.ts`) purely to seed that crawl -- only ever for a
+  // (`module/nitro-config.ts`) to build the snapshot and seed routes -- only ever for a
   // filesystem-provider build -- Nitro's prerenderer still writes its real
   // (HTML, `import.meta.prerender === true`) response to disk as a static
   // asset at that same route path. The eventual main server's own static-vs-
@@ -218,8 +217,7 @@ export const registerContentNitroIntegrationHooks = (
   // hands us that sub-instance's `nitro` (and so its `output.publicDir`) to
   // close over; `'prerender:done'` only carries route results, not a nitro
   // ref. `rm(..., { force: true })` makes the delete a safe no-op if nothing
-  // was ever written (e.g. dev, or a build where crawling never reached this
-  // route). Registered unconditionally for a filesystem-provider build --
+  // was ever written (e.g. dev). Registered unconditionally for a filesystem-provider build --
   // unrelated to whether sitemap assertion is enabled, since any hybrid
   // build would otherwise ship with a permanently broken cache/build route.
   const usesFilesystemProviderAtRegistration = !contentContext.provider || contentContext.provider === 'filesystem'
@@ -286,15 +284,13 @@ export const registerContentNitroIntegrationHooks = (
     })
   }
 
-  // Content routes are injected via Nitro's crawl-links mechanism instead of
-  // this hook: the content cache/build route is
+  // Content routes are not injected here: the content cache/build route is
   // unshifted to the front of `nitro.prerender.routes`
-  // (`module/nitro-config.ts`, which also enables `crawlLinks` for the
-  // filesystem provider) and, during prerendering, responds with HTML
-  // containing one `<a href>` per canonical route the real build produced;
-  // Nitro's own crawler extracts those links into this SAME route queue
-  // (see `runtime/server/api/cache.ts`). This hook only adds Nuxt Sitemap's
-  // own prerender routes, which are unrelated to content route discovery.
+  // (`module/nitro-config.ts`) and, during prerendering, lists the routes the
+  // real build produced in its `x-nitro-prerender` response header, which
+  // Nitro adds to this SAME route queue (see `runtime/server/api/cache.ts`).
+  // This hook only adds Nuxt Sitemap's own prerender routes, which are
+  // unrelated to content route discovery.
   appendHook(nitroConfig.hooks as Record<string, any>, 'prerender:routes', async (routes: Set<string>) => {
     const sitemapPrerenderRoutes = typeof options.sitemapPrerenderRoutes === 'function'
       ? options.sitemapPrerenderRoutes()

@@ -1,0 +1,16 @@
+{
+  "name": "@lupinum/ginko-content-test-prerender-live",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare"
+  },
+  "devDependencies": {
+    "@lupinum/ginko-content": "workspace:*",
+    "@nuxt/kit": "4.5.2",
+    "nitropack": "2.13.4",
+    "nuxt": "4.5.2"
+  }
+}

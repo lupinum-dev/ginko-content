@@ -49,6 +49,13 @@ export async function runPureRuntimeProbe(api) {
     ),
     'portable codec semantic round trip changed',
   )
+  // Server-side MDC parsing must work in isolates (Convex, Workers) so clients
+  // only ever receive the parsed tree and the lean body renderer.
+  const parsed = await api.parseMdcBody('## Hello\n\nSome **bold** text.')
+  assert(parsed.body.type === 'root', 'parseMdcBody did not return a root')
+  assert(parsed.toc?.links[0]?.id === 'hello', 'parseMdcBody heading ids changed')
+  assert(parsed.searchText.includes('bold'), 'parseMdcBody search text changed')
+
   assert(api.CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize === 100, 'data-source entry is invalid')
   assert(api.normalizeNavigationPath('/docs/') === '/docs', 'navigation entry is invalid')
 
@@ -56,6 +63,7 @@ export async function runPureRuntimeProbe(api) {
     vectorCount: canonicalVectors.length,
     hashes,
     canonicalKey: reparsed.canonicalKey,
+    parsedBody: parsed.body,
     maxQueryPageSize: api.CONTENT_DATA_SOURCE_LIMITS.maxQueryPageSize,
     normalizedNavigationPath: api.normalizeNavigationPath('/docs/'),
   }

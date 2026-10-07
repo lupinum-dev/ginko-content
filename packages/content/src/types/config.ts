@@ -295,6 +295,14 @@ export interface ContentCollectionConfig<TSchema extends ZodType | undefined = Z
    */
   sitemap?: boolean
   /**
+   * Seed this collection's public routes into the production prerender
+   * queue. Set `false` for pages that must render at request time, for
+   * example pages with live data. Sitemap output is unaffected.
+   *
+   * @default true
+   */
+  prerender?: boolean
+  /**
    * Optional CMS editor metadata for providers such as `@lupinum/ginko-cms`.
    *
    * The content collection remains the source of truth; this metadata only
