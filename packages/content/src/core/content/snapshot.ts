@@ -33,11 +33,17 @@ export interface BuildContentSnapshotArgs {
  * instead of silently changing what later requests read.
  */
 export const deepFreeze = <T>(value: T): T => {
-  if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value
-  Object.freeze(value)
-  for (const key of Reflect.ownKeys(value)) {
-    deepFreeze((value as Record<PropertyKey, unknown>)[key])
+  const seen = new WeakSet<object>()
+  const freeze = (current: unknown): void => {
+    if (current === null || typeof current !== 'object' || seen.has(current)) return
+    seen.add(current)
+    // A hook may have shallow-frozen the document while leaving children mutable.
+    Object.freeze(current)
+    for (const key of Reflect.ownKeys(current)) {
+      freeze((current as Record<PropertyKey, unknown>)[key])
+    }
   }
+  freeze(value)
   return value
 }
 
