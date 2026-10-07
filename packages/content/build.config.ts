@@ -1,5 +1,5 @@
 import { defineBuildConfig } from 'unbuild'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { glob } from 'tinyglobby'
@@ -137,7 +137,8 @@ export default defineBuildConfig({
       // this canonical website output before its reproducible builds.
       const root = resolve('..', '..')
       if (!await exists(resolve(root, 'docs/.output/public/raw'))) {
-        execFileSync('pnpm', ['docs:build'], { cwd: root, stdio: 'inherit' })
+        // Windows package-manager shims need the shell; this command has no user input.
+        execSync('pnpm docs:build', { cwd: root, stdio: 'inherit' })
       }
       execFileSync(process.execPath, [resolve(root, 'scripts/build-agent-docs.mjs')], {
         cwd: root,
