@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- Breaking: `nitropack`, `h3`, `vue-router` and `unstorage` are peer
+  dependencies; Nuxt installs them.
+
+### Fixes
+
+- Replace `globby` with `tinyglobby` for file listings and package builds.
+
 ## v1.0.0-beta.10
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.9...v1.0.0-beta.10)

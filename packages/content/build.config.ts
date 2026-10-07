@@ -1,7 +1,7 @@
 import { defineBuildConfig } from 'unbuild'
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
-import { globby } from 'globby'
+import { glob } from 'tinyglobby'
 
 const mkdistEntries = [
   ['src/runtime/', 'dist/runtime'],
@@ -50,7 +50,7 @@ const publishedSpecifier = async (importer: string, specifier: string) => {
 }
 
 const rewritePublishedRelativeImports = async () => {
-  const files = await globby('dist/**/*.{js,mjs}')
+  const files = await glob('dist/**/*.{js,mjs}')
   const pattern = /((?:from\s*|import\s*\()(['"]))(\.\.?\/[^'"]+)(\2\)?)/g
 
   await Promise.all(
@@ -71,7 +71,7 @@ const rewritePublishedRelativeImports = async () => {
 
 const ensureRuntimeExternalPlaceholders = async () => {
   for (const [input, outDir] of mkdistEntries) {
-    const files = await globby(`${input}**/*.ts`, {
+    const files = await glob(`${input}**/*.ts`, {
       ignore: ['**/*.d.ts']
     })
 
