@@ -15,6 +15,38 @@ export function checkDependencyPolicy(source, now = Date.now()) {
   })) {
     if (document.get(key) !== expected) failures.push(`${key} must be ${expected}.`);
   }
+  const auditConfig = document.get("auditConfig", true);
+  if (auditConfig !== undefined) {
+    if (!isMap(auditConfig) || [...auditConfig.items].some(pair => pair.key.value !== "ignoreGhsas")) {
+      failures.push("Audit exceptions may only use auditConfig.ignoreGhsas.");
+    } else {
+      const entries = auditConfig.get("ignoreGhsas", true);
+      if (!isSeq(entries)) failures.push("auditConfig.ignoreGhsas must be a list.");
+      else {
+        const ids = new Set();
+        for (const item of entries.items) {
+          const id = isScalar(item) ? item.value : undefined;
+          if (typeof id !== "string" || !/^GHSA-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}$/.test(id) || ids.has(id)) {
+            failures.push("Each audit exception must name one unique GHSA ID.");
+            continue;
+          }
+          ids.add(id);
+          let metadata;
+          try { metadata = JSON.parse(item.comment ?? ""); } catch { /* Report below. */ }
+          const expires = metadata?.expires;
+          const timestamp = typeof expires === "string" ? Date.parse(expires) : NaN;
+          if (!metadata?.reason?.trim() || !metadata?.owner?.trim()
+            || !Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== expires?.replace("Z", ".000Z")) {
+            failures.push(`${id}: inline JSON must contain reason, owner, and a valid UTC expires timestamp.`);
+          } else if (timestamp <= now) {
+            failures.push(`${id}: dev-only audit exception expired at ${expires}; remove it.`);
+          } else if (timestamp > Date.parse("2026-11-06T00:00:00Z")) {
+            failures.push(`${id}: dev-only audit exception must expire by 2026-11-06.`);
+          }
+        }
+      }
+    }
+  }
   const exclusions = document.get("minimumReleaseAgeExclude", true);
   if (exclusions === undefined) return failures;
   if (!isSeq(exclusions)) return [...failures, "minimumReleaseAgeExclude must be a list."];

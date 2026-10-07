@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- Breaking: `nitropack`, `h3`, `vue-router` and `unstorage` are peer
+  dependencies; Nuxt installs them.
+
 ### Fixes
 
 - Keep authored keys such as `__proto__` and `constructor` from reaching
@@ -12,6 +17,16 @@
 - Return no documents for a path filter on an empty collection.
 - Build navigation from authored `navigation.children` without changing the
   source content.
+
+
+- Raise workspace security floors for simple-git’s argument parser, KaTeX,
+  Seroval, source-map-js, proxy-addr, postcss-selector-parser, sharp,
+  shell-quote, and the MCP TypeScript SDK.
+
+- Replace `globby` with `tinyglobby` for file listings and package builds.
+- Build the installed agent documentation with the package. Render the
+  documentation website first when its output is missing.
+- Stop emitting an empty declaration bundle for the CLI executable.
 
 ### Changed
 

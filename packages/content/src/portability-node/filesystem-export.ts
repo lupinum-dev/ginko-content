@@ -2,7 +2,7 @@ import { lstat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 
 import defu from 'defu'
-import { globby } from 'globby'
+import { glob } from 'tinyglobby'
 import jiti from 'jiti'
 
 import { buildResolvedContentContract } from '../cms-contract/build.js'
@@ -170,7 +170,7 @@ export async function assessFilesystemPortability(
   const sourceRoot = join(rootDir, 'content')
   const sourceFiles: Array<{ file: string; bytes: Uint8Array; sha256: string }> = []
   try {
-    const paths = (await globby('**/*', { cwd: sourceRoot, onlyFiles: true, dot: true, followSymbolicLinks: false })).sort()
+    const paths = (await glob('**/*', { cwd: sourceRoot, onlyFiles: true, dot: true, followSymbolicLinks: false })).sort()
     if (paths.length > PORTABLE_CONTENT_LIMITS.documents + 1_000) {
       diagnostic(diagnostics, 'LIMIT_EXCEEDED', 'portability.parse', null, 'content', null,
         'The filesystem source exceeds the bounded file count.', 'Reduce the source set or split the migration.')

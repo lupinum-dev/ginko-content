@@ -259,7 +259,7 @@ const peerRequirementLabel = (name, range) => {
   if (name === 'vue') return range.startsWith('^')
     ? `Vue ${version} through Vue ${version.split('.')[0]}.x`
     : `Vue ${version} or later`
-  return null
+  return `${name} ${range}`
 }
 
 const nodeRequirementLabel = (range) => {

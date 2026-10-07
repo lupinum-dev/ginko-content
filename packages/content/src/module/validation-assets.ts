@@ -1,5 +1,5 @@
 import { isAbsolute, resolve } from 'node:path'
-import { globby } from 'globby'
+import { glob } from 'tinyglobby'
 
 interface ValidationAssetOptions {
   rootDir: string
@@ -18,7 +18,7 @@ export const collectContentValidationPublicAssets = async (
 ): Promise<string[]> => {
   const assets = new Set<string>()
   const addDirectory = async (directory: string, baseURL: string) => {
-    for (const file of await globby('**/*', { cwd: directory, onlyFiles: true })) {
+    for (const file of await glob('**/*', { cwd: directory, onlyFiles: true })) {
       assets.add(publicPath(baseURL, file))
     }
   }

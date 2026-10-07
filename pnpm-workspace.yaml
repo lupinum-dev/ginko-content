@@ -21,28 +21,35 @@ overrides:
   tar: 7.5.22
   typescript: 5.9.3
   vue: 3.5.42
-  shell-quote: 1.10.0
+  shell-quote: 1.11.0
   ws: 8.21.0
   js-yaml: 4.3.2
   brace-expansion@1: 1.1.18
-  brace-expansion@2: 2.1.4
-  brace-expansion@3: 5.0.9
-  brace-expansion@4: 5.0.9
-  brace-expansion@5: 5.0.9
+  brace-expansion@2: 2.1.7
+  brace-expansion@3: 5.0.12
+  brace-expansion@4: 5.0.12
+  brace-expansion@5: 5.0.12
   nanoid@3: 3.3.18
   '@hono/node-server@1': 1.19.17
-  hono: 4.13.5
+  hono: 4.13.7
   svgo: 4.1.0
-  fast-uri: 3.1.6
-  sharp: 0.35.4
+  fast-uri: 3.1.8
+  undici: 8.10.2
+  sharp: 0.35.5
   fast-xml-parser: 5.10.1
   postcss: 8.5.23
   browserslist: 4.28.8
   devalue@5: 5.9.4
-  postcss-selector-parser: 7.1.5
-  ip-address: 10.3.1
+  postcss-selector-parser: 7.1.6
+  ip-address: 10.7.1
   linkify-it: 5.0.2
   nuxtseo-shared: 5.3.14
+  '@simple-git/argv-parser@<2.0.1': 2.0.1
+  katex@<0.18.2: 0.18.2
+  seroval@<1.6.3: 1.6.3
+  source-map-js@<1.2.2: 1.2.2
+  proxy-addr@<2.0.8: 2.0.8
+  '@modelcontextprotocol/sdk@<1.31.0': 1.31.0
 packageExtensions:
   vue-docgen-web-types@0.1.8:
     dependencies:
@@ -52,3 +59,12 @@ allowBuilds:
   esbuild: true
   unrs-resolver: false
   vue-demi: true
+
+# Dev/build only; expiry is enforced by check:dependencies.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-86w9-cpqp-85rv # {"owner": "mat4m0", "reason": "Advertised patched version is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-vfj7-8cjw-p6xm # {"owner": "mat4m0", "reason": "Advertised patched version is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-x6jw-m9v5-85vh # {"owner": "mat4m0", "reason": "Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-g4wm-2vf7-vfgr # {"owner": "mat4m0", "reason": "Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-858h-whjf-mvg5 # {"owner": "mat4m0", "reason": "Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.", "expires": "2026-11-06T00:00:00Z"}
