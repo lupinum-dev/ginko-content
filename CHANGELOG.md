@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v1.0.0-beta.11
+
+[compare changes](https://github.com/lupinum-dev/ginko-content/compare/a3e8ef1...v1.0.0-beta.11)
 
 ### Breaking changes
 
@@ -40,6 +42,11 @@
   source content.
 
 ### Features
+
+- Keep the body renderer's browser entry lean. Export body and render-policy
+  types from that entry.
+- Add module and collection prerender controls for live-data applications.
+  Seed content routes through Nitro's prerender header instead of hidden links.
 
 - Accept multiline angle-component opening tags, including nested components,
   named slots, lists and blockquotes. Preserve quoted property whitespace and
