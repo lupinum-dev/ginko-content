@@ -71,8 +71,10 @@ a consumer skill to discover these files.
 `pnpm release:pack` builds the website once, then each of its two reproducible
 prepack builds regenerates the installed snapshot. Packing and npm/pnpm
 consumers validate package identity, page hashes, and exported file resolution.
-A direct `pnpm pack` requires a current website build first. Runtime-only
-builds clean `dist`, so regenerate the snapshot after them.
+Package builds regenerate the snapshot. On a fresh checkout, they first render
+the documentation website with the built module. Existing website output is
+reused for local builds. Run `pnpm docs:build` before a direct `pnpm pack` to
+refresh that output. `pnpm release:pack` always rebuilds it before packing.
 
 ## Prepare a release
 

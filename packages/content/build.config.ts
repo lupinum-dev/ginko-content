@@ -1,4 +1,5 @@
 import { defineBuildConfig } from 'unbuild'
+import { execFileSync } from 'node:child_process'
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { glob } from 'tinyglobby'
@@ -118,7 +119,13 @@ export default defineBuildConfig({
     async 'rollup:options' () {
       await ensureRuntimeExternalPlaceholders()
     },
-    async 'build:done'() {
+    'rollup:dts:options' (_ctx, options) {
+      // The executable has no public type exports. Do not emit an empty declaration bundle.
+      if (options.input && typeof options.input === 'object' && !Array.isArray(options.input)) {
+        delete options.input.cli
+      }
+    },
+    async 'rollup:done'() {
       await rewritePublishedRelativeImports()
       await Promise.all([...runtimeExternalPlaceholders].map(async ([file, placeholder]) => {
         if (await exists(file) && await readFile(file, 'utf8') === placeholder) {
@@ -126,6 +133,16 @@ export default defineBuildConfig({
         }
       }))
       runtimeExternalPlaceholders.clear()
+      // Render with the built module on a fresh checkout; release:pack refreshes
+      // this canonical website output before its reproducible builds.
+      const root = resolve('..', '..')
+      if (!await exists(resolve(root, 'docs/.output/public/raw'))) {
+        execFileSync('pnpm', ['docs:build'], { cwd: root, stdio: 'inherit' })
+      }
+      execFileSync(process.execPath, [resolve(root, 'scripts/build-agent-docs.mjs')], {
+        cwd: root,
+        stdio: 'inherit'
+      })
     }
   }
 })

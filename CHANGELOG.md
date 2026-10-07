@@ -10,6 +10,9 @@
 ### Fixes
 
 - Replace `globby` with `tinyglobby` for file listings and package builds.
+- Build the installed agent documentation with the package. Render the
+  documentation website first when its output is missing.
+- Stop emitting an empty declaration bundle for the CLI executable.
 
 ## v1.0.0-beta.10
 
