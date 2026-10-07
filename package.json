@@ -46,7 +46,7 @@
     "release:certify": "node scripts/write-release-certification.mjs",
     "release:prepare": "changelogen --dir packages/content --output ../../CHANGELOG.md --bump --clean --hideAuthorEmail",
     "release": "pnpm run release:verify",
-    "audit:all": "pnpm audit",
+    "audit:all": "pnpm check:dependencies && pnpm audit && pnpm audit:prod",
     "audit:prod": "node scripts/audit-production.mjs",
     "test:e2e:prepared": "vitest run --config vitest.config.ts --project e2e",
     "test:e2e": "pnpm build:packages && pnpm test:e2e:prepared",

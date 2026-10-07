@@ -30,6 +30,15 @@
   initialization failure and shutdown. Own separate driver instances so other
   modules' storage subscriptions keep receiving updates and remain open.
 
+- Keep authored keys such as `__proto__` and `constructor` from reaching
+  `Object.prototype` or resolving as existing documents in the content graph.
+- Ignore reserved identity keys (`collection`, `path`, `canonicalKey`, `type`,
+  `file`, and the others) in inline `i18n` overrides, with the same warning
+  that top-level frontmatter gets.
+- Return no documents for a path filter on an empty collection.
+- Build navigation from authored `navigation.children` without changing the
+  source content.
+
 ### Features
 
 - Accept multiline angle-component opening tags, including nested components,
@@ -40,6 +49,11 @@
   Upgrade the CMS adapter together with Content before enabling this option.
 - Read current root configuration during filesystem migration assessment so a
   restored contract is recognized without retaining an old ESM import.
+
+### Changed
+- Content documents shared between requests are now read-only in every mode.
+  Code that changes a query result in place throws a `TypeError`. Copy the
+  value first, for example with `structuredClone()`.
 
 ## v1.0.0-beta.10
 

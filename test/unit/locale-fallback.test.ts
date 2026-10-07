@@ -170,6 +170,49 @@ describe('inline data locale variants', () => {
     })
   })
 
+  test('inline locale overrides translate authored fields but cannot rewrite identity', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const variants = expandDataLocaleVariants({
+      id: 'content:docs:item.json',
+      path: '/docs/item',
+      file: { path: 'docs/item.json' },
+      collection: 'docs',
+      type: 'json',
+      locale: 'en',
+      canonicalKey: 'docs/item',
+      body: null,
+      title: 'Item',
+      i18n: {
+        de: {
+          title: 'Eintrag',
+          collection: 'other',
+          canonicalKey: 'forged',
+          path: '/forged',
+          type: 'markdown',
+          file: { path: 'forged.md' }
+        }
+      }
+    } as any, {
+      defaultLocale: 'en',
+      locales: ['en', 'de']
+    })
+
+    expect(variants[1]).toMatchObject({
+      id: 'content:docs:item.json#__locale=de',
+      locale: 'de',
+      title: 'Eintrag',
+      collection: 'docs',
+      canonicalKey: 'docs/item',
+      path: '/docs/item',
+      type: 'json',
+      file: { path: 'docs/item.json' }
+    })
+    expect(warn.mock.calls.map(([message]) => String(message).match(/key "(\w+)"/)?.[1])).toEqual([
+      'collection', 'path', 'canonicalKey', 'type', 'file'
+    ])
+    warn.mockRestore()
+  })
+
   test('merges own __proto__ locale override data without changing variant prototypes', () => {
     const override = JSON.parse('{"__proto__":{"source":"de"}}')
     const variants = expandDataLocaleVariants({

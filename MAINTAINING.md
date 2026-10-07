@@ -287,3 +287,259 @@ Set the Root Directory to `docs`. Enable
 documentation build can use the locked workspace package. Do not set an Output
 Directory or Install Command override. Vercel detects pnpm from the repository
 lockfile and installs the workspace before it runs the committed build command.
+
+## Dev-only audit exceptions
+
+The production audit (`audit:prod`, what consumers install) must always be
+clean. No exceptions apply there. An advisory only in Nuxt development or
+build tooling with no compatible published fix may receive a recorded,
+time-limited exception by advisory ID and exact dependency path. It expires
+on 2026-11-06 or when a compatible fix is published, whichever comes first.
+Never ignore a severity or a package wholesale. Anything else blocks merging.
+
+Matthias approved these exceptions on 2026-10-07. The workspace uses pnpm
+`auditConfig.ignoreGhsas`; the existing daily dependency-expiry gate checks
+the inline UTC expiry. Generated consumer policies remove this audit config,
+and `audit:all` also runs the production audit without exceptions. Remove an
+exception immediately when a compatible fix is published; review upstream
+versions before each release.
+
+### GHSA-86w9-cpqp-85rv (node-forge, high)
+
+Expires: 2026-11-06T00:00:00Z, or earlier on a compatible published fix.
+Advertised patched version is unpublished.
+
+Exact approved dev/build dependency paths:
+
+- `.>nitropack>listhen>node-forge`
+- `.>nuxt>@nuxt/cli>listhen>node-forge`
+- `.>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nitropack>listhen>node-forge`
+- `docs>nuxt>@nuxt/cli>listhen>node-forge`
+- `docs>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `examples__advanced__transformer>nuxt>@nuxt/cli>listhen>node-forge`
+- `examples__advanced__transformer>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `examples__essentials__hello-world>nuxt>@nuxt/cli>listhen>node-forge`
+- `examples__essentials__hello-world>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `examples__mdc__components>nuxt>@nuxt/cli>listhen>node-forge`
+- `examples__mdc__components>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `examples__queries__querying>nuxt>@nuxt/cli>listhen>node-forge`
+- `examples__queries__querying>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `packages__content>nitropack>listhen>node-forge`
+- `packages__content>@nuxt/module-builder>@nuxt/cli>listhen>node-forge`
+- `packages__content>nuxt>@nuxt/cli>listhen>node-forge`
+- `packages__content>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-agent-disabled>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-agent-disabled>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-agent-output>nitropack>listhen>node-forge`
+- `playground__ginko-agent-output>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-agent-output>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-basic>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-basic>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-i18n>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-i18n>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-i18n>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-i18n>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-provider-search>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-provider-search>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-provider-search>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-provider-search>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-search>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-search>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `playground__ginko-search-i18n>nuxt>@nuxt/cli>listhen>node-forge`
+- `playground__ginko-search-i18n>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `test__fixtures__quickstart>nuxt>@nuxt/cli>listhen>node-forge`
+- `test__fixtures__quickstart>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `test__fixtures__route-invariants>nitropack>listhen>node-forge`
+- `test__fixtures__route-invariants>nuxt>@nuxt/cli>listhen>node-forge`
+- `test__fixtures__route-invariants>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+- `test__fixtures__typecheck>nuxt>@nuxt/cli>listhen>node-forge`
+- `test__fixtures__typecheck>nuxt>@nuxt/nitro-server>nitropack>listhen>node-forge`
+
+### GHSA-vfj7-8cjw-p6xm (braces, high)
+
+Expires: 2026-11-06T00:00:00Z, or earlier on a compatible published fix.
+Advertised patched version is unpublished.
+
+Exact approved dev/build dependency paths:
+
+- `.>nitropack>globby>fast-glob>micromatch>braces`
+- `.>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>@nuxtjs/i18n>@intlify/unplugin-vue-i18n>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>@nuxtjs/mcp-toolkit>vite-plugin-singlefile>micromatch>braces`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nitropack>globby>fast-glob>micromatch>braces`
+- `docs>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `examples__advanced__transformer>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `examples__essentials__hello-world>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `examples__mdc__components>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `examples__queries__querying>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `packages__content>nitropack>globby>fast-glob>micromatch>braces`
+- `packages__content>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `packages__content>vue-docgen-web-types>chokidar>braces`
+- `packages__content>vue-docgen-web-types>globby>fast-glob>micromatch>braces`
+- `playground__ginko-agent-disabled>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-agent-output>@nuxtjs/i18n>@intlify/unplugin-vue-i18n>fast-glob>micromatch>braces`
+- `playground__ginko-agent-output>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-agent-output>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-basic>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-i18n>@nuxtjs/i18n>@intlify/unplugin-vue-i18n>fast-glob>micromatch>braces`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-i18n>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-i18n>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-provider-search>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-provider-search>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-search>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `playground__ginko-search-i18n>@nuxtjs/i18n>@intlify/unplugin-vue-i18n>fast-glob>micromatch>braces`
+- `playground__ginko-search-i18n>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `test__fixtures__quickstart>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `test__fixtures__route-invariants>nitropack>globby>fast-glob>micromatch>braces`
+- `test__fixtures__route-invariants>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+- `test__fixtures__typecheck>nuxt>@nuxt/nitro-server>nitropack>globby>fast-glob>micromatch>braces`
+
+### GHSA-x6jw-m9v5-85vh (simple-git, critical)
+
+Expires: 2026-11-06T00:00:00Z, or earlier on a compatible published fix.
+Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.
+
+Exact approved dev/build dependency paths:
+
+- `.>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>nuxt>@nuxt/devtools>simple-git`
+- `examples__advanced__transformer>nuxt>@nuxt/devtools>simple-git`
+- `examples__essentials__hello-world>nuxt>@nuxt/devtools>simple-git`
+- `examples__mdc__components>nuxt>@nuxt/devtools>simple-git`
+- `examples__queries__querying>nuxt>@nuxt/devtools>simple-git`
+- `packages__content>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-agent-disabled>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-agent-output>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-basic>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-search>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-search-i18n>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__quickstart>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__route-invariants>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__typecheck>nuxt>@nuxt/devtools>simple-git`
+
+### GHSA-g4wm-2vf7-vfgr (simple-git, high)
+
+Expires: 2026-11-06T00:00:00Z, or earlier on a compatible published fix.
+Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.
+
+Exact approved dev/build dependency paths:
+
+- `.>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>nuxt>@nuxt/devtools>simple-git`
+- `examples__advanced__transformer>nuxt>@nuxt/devtools>simple-git`
+- `examples__essentials__hello-world>nuxt>@nuxt/devtools>simple-git`
+- `examples__mdc__components>nuxt>@nuxt/devtools>simple-git`
+- `examples__queries__querying>nuxt>@nuxt/devtools>simple-git`
+- `packages__content>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-agent-disabled>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-agent-output>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-basic>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-search>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-search-i18n>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__quickstart>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__route-invariants>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__typecheck>nuxt>@nuxt/devtools>simple-git`
+
+### GHSA-858h-whjf-mvg5 (simple-git, high)
+
+Expires: 2026-11-06T00:00:00Z, or earlier on a compatible published fix.
+Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.
+
+Exact approved dev/build dependency paths:
+
+- `.>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/robots>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>@lupinum/ginko-docs>nuxt-og-image>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `docs>nuxt>@nuxt/devtools>simple-git`
+- `examples__advanced__transformer>nuxt>@nuxt/devtools>simple-git`
+- `examples__essentials__hello-world>nuxt>@nuxt/devtools>simple-git`
+- `examples__mdc__components>nuxt>@nuxt/devtools>simple-git`
+- `examples__queries__querying>nuxt>@nuxt/devtools>simple-git`
+- `packages__content>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-agent-disabled>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-agent-output>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-basic>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-i18n>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>@nuxtjs/sitemap>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-provider-search>nuxt-site-config>nuxtseo-shared>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-search>nuxt>@nuxt/devtools>simple-git`
+- `playground__ginko-search-i18n>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__quickstart>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__route-invariants>nuxt>@nuxt/devtools>simple-git`
+- `test__fixtures__typecheck>nuxt>@nuxt/devtools>simple-git`

@@ -22,7 +22,7 @@ try {
     assert.equal(prepareConsumerPolicy(join(directory, 'consumer'), now), '--before=2026-09-05T12:00:00.000Z')
     const generated = readFileSync(join(directory, 'consumer/pnpm-workspace.yaml'), 'utf8')
     assert.deepEqual(checkDependencyPolicy(generated, now), [])
-    assert.doesNotMatch(generated, /^overrides:|^packageExtensions:/m)
+    assert.doesNotMatch(generated, /^overrides:|^packageExtensions:|^auditConfig:/m)
     if (policy.includes('example@1.2.3')) assert.match(generated, /2026-09-06T13:00:00Z/)
   }
   for (const [policy, message] of [
@@ -38,4 +38,8 @@ try {
 } finally {
   rmSync(directory, { recursive: true, force: true })
 }
+// A recorded exception must stop passing at its exact expiry, including when
+// the workspace has no quarantine exclusions.
+assert(checkDependencyPolicy(source, Date.parse('2026-11-06T00:00:00Z')).some(message => /dev-only audit exception expired/.test(message)))
+assert(checkDependencyPolicy(source.replace('GHSA-86w9-cpqp-85rv', 'node-forge'), now).some(message => /unique GHSA/.test(message)))
 console.log('Root and generated install policy positive/negative checks passed.')

@@ -12,6 +12,8 @@ export function prepareConsumerPolicy(directory, now = Date.now()) {
   // Workspace-only resolutions must not override those selections.
   document.delete('overrides')
   document.delete('packageExtensions')
+  // Dev-only audit exceptions never apply to installed consumers.
+  document.delete('auditConfig')
   const path = resolve(directory, 'pnpm-workspace.yaml')
   writeFileSync(path, document.toString())
   const failures = checkDependencyPolicy(readFileSync(path, 'utf8'), now)
