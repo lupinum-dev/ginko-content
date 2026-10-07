@@ -18,6 +18,8 @@
 
 ### Fixes
 
+- Build the installed agent documentation through Windows package-manager shims.
+
 - Raise workspace security floors for simple-git’s argument parser, KaTeX,
   Seroval, source-map-js, proxy-addr, postcss-selector-parser, sharp,
   shell-quote, and the MCP TypeScript SDK.
