@@ -14,7 +14,7 @@ import type { ResolvedMarkdownPlugin } from '../types/content'
 import type { PortableComponentPolicy } from '../types/component-policy'
 import type { ResolvedCollectionLocalePolicy } from '../features/localization/locale-policy'
 import { CACHE_VERSION } from '../utils'
-import { createSearchRuntimeConfig } from './options'
+import { createSearchRuntimeConfig, normalizePrerenderOptions } from './options'
 
 export const resolveNuxtSiteUrl = (nuxt: Nuxt) => {
   const privateRuntime = nuxt.options.runtimeConfig as Record<string, any>
@@ -40,6 +40,7 @@ type RuntimeCollectionConfig = {
   i18n?: false | { defaultLocale: string, locales: string[] }
   localePolicy: ResolvedCollectionLocalePolicy
   sitemap?: boolean
+  prerender?: false
   route?: ContentCollectionConfig['route']
   translatedSlugs?: boolean
   cms?: ContentCollectionConfig['cms']
@@ -194,6 +195,7 @@ export const applyContentRuntimeConfig = async (
     ...contentContext as any,
     ...(siteUrl ? { siteUrl } : {}),
     ...(runtimeAgent ? { agent: runtimeAgent } : {}),
+    prerender: { routes: normalizePrerenderOptions(options).routes },
     markdown: {
       ...contentContext.markdown,
       plugins: sanitizePrivateMarkdownPlugins(contentContext.markdown.plugins)

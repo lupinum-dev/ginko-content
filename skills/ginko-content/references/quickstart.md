@@ -38,9 +38,7 @@ export default defineContentConfig({
 
 ```vue
 <script setup lang="ts">
-import { pages } from '~~/content.config'
-
-const { page } = await useContentPage(pages)
+const { page } = await useContentPage('pages')
 </script>
 
 <template>
@@ -49,6 +47,11 @@ const { page } = await useContentPage(pages)
   </main>
 </template>
 ```
+
+Use collection names such as `'pages'` in components. Names are typed from
+`content.config.ts` and add nothing to the browser bundle. Importing a handle
+from `content.config.ts` into a component ships the config, Zod, and all
+schemas to the browser. Keep handle imports for server code and config files.
 
 ## Minimal content tree
 

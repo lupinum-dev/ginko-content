@@ -1,10 +1,11 @@
 import type {
   PortableComponentPolicy,
   PortableComponentPolicyV2,
-} from '../../../cms-contract/index'
+} from '../../../types/component-policy'
 import { BUILTIN_MARKDOWN_RENDER_CONTRACTS, projectBuiltinPolicyV2 } from '../../../core/markdown/builtin-render-contracts'
 import { canonicalJsonBytes, type JsonValue } from '../../../cms-contract/hash'
-import { assertPortableComponentPolicyV2 } from '../../../cms-contract/index'
+// Direct module import keeps the MDC parser and zod out of the client bundle.
+import { assertPortableComponentPolicyV2 } from '../../../cms-contract/validate.js'
 
 // Nuxt's public runtime-config serializer represents nested null values as an
 // empty string. Restore only policy fields whose schema explicitly permits

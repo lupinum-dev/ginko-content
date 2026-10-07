@@ -4,14 +4,11 @@ import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { registerContentNitroConfig } from '../../packages/content/src/module/nitro-config'
 
-// Provider content-route prerender injection depends on Nitro's own
-// `crawlLinks` mechanism (see the long
-// comment in `module/nitro-config.ts` and `module/integration-hooks.ts`).
-// When a user has explicitly disabled `nitro.prerender.crawlLinks` in their
-// own nuxt.config, forcing it back on would silently override their choice;
-// silently leaving it off would silently break content prerendering. This
-// asserts the module does neither silently: it respects the explicit
-// setting and warns loudly instead.
+// Content routes reach Nitro's prerender queue through the cache/build
+// route's `x-nitro-prerender` header, which works with or without
+// `crawlLinks`. The module still turns link crawling on by default for
+// compatibility; `content.prerender` lets live-data sites opt out, and an
+// explicit `nitro.prerender.crawlLinks` setting always wins.
 
 function createNuxt(generate = false) {
   const hooks = new Map<string, (...arguments_: any[]) => any>()
@@ -36,7 +33,8 @@ function createHarness(
   provider = 'filesystem',
   agent = false,
   integrity: number | null = 123,
-  generate = false
+  generate = false,
+  moduleOptions: Record<string, any> = {}
 ) {
   const { nuxt, hooks } = createNuxt(generate)
   const logger = { warn: vi.fn() }
@@ -45,7 +43,8 @@ function createHarness(
     nuxt: nuxt as any,
     options: {
       api: { baseURL: '/api/_content' },
-      ...(agent ? { agent: { routes: true, delivery: 'runtime' } } : {})
+      ...(agent ? { agent: { routes: true, delivery: 'runtime' } } : {}),
+      ...moduleOptions
     } as any,
     appContentConfig: agent ? { agent: { site: {} } } as any : {} as any,
     contentContext: { provider, sources: {}, sitemap: false, cache: false } as any,
@@ -86,13 +85,36 @@ describe('nitro-config crawlLinks handling', () => {
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
-  test('respects an explicit crawlLinks: false and warns that content routes will not be prerendered', () => {
+  test('respects an explicit crawlLinks: false without warning because content routes are seeded by header', () => {
     const { nitroConfig, logger } = createHarness({ crawlLinks: false })
 
     expect(nitroConfig.prerender.crawlLinks).toBe(false)
+    expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('prerender.crawlLinks: false leaves crawling off but still prerenders the cache/build route', () => {
+    const { nitroConfig, logger } = createHarness({}, 'filesystem', false, 123, false, {
+      prerender: { crawlLinks: false }
+    })
+
+    expect(nitroConfig.prerender.crawlLinks).toBeUndefined()
+    expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('prerender: false keeps the snapshot build route and does not force crawling', () => {
+    const { nitroConfig } = createHarness({}, 'filesystem', false, 123, false, { prerender: false })
+
+    expect(nitroConfig.prerender.crawlLinks).toBeUndefined()
+    expect(nitroConfig.prerender.routes).toEqual(['/api/_content/cache.123.json'])
+  })
+
+  test('warns when runtime agent delivery loses the crawler it depends on', () => {
+    const { logger } = createHarness({}, 'filesystem', true, 123, false, { prerender: { crawlLinks: false } })
+
     expect(logger.warn).toHaveBeenCalledTimes(1)
-    expect(logger.warn.mock.calls[0][0]).toMatch(/crawlLinks/)
-    expect(logger.warn.mock.calls[0][0]).toMatch(/NOT be prerendered/)
+    expect(logger.warn.mock.calls[0][0]).toMatch(/delivery `runtime`/)
   })
 
   test('does not warn when the user explicitly enabled crawlLinks', () => {

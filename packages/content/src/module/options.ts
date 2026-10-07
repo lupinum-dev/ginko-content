@@ -146,6 +146,21 @@ export function normalizeSitemapOptions(options: Pick<ModuleOptions, 'sitemap'>)
   }
 }
 
+export interface NormalizedPrerenderOptions {
+  /** Seed public content routes into the prerender queue. */
+  routes: boolean
+  /** Force Nitro's link crawler on. */
+  crawlLinks: boolean
+}
+
+export function normalizePrerenderOptions(options: Pick<ModuleOptions, 'prerender'>): NormalizedPrerenderOptions {
+  if (options.prerender === false) {
+    return { routes: false, crawlLinks: false }
+  }
+  const prerender = options.prerender === true || options.prerender === undefined ? {} : options.prerender
+  return { routes: true, crawlLinks: prerender.crawlLinks ?? true }
+}
+
 export function normalizeSearchOptions(options: Pick<ModuleOptions, 'search'>) {
   if (options.search === false) {
     return false as const

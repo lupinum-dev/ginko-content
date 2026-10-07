@@ -121,8 +121,13 @@ function buildCollection(
   const pathPrefix = routeMode === 'none'
     ? ''
     : collection.cms?.route?.pathPrefix ?? routePrefix(id, collection, options.defaultLocale)
+  const structuredPage = collection.body === false
+  if (structuredPage && kind !== 'page') throw new Error(`Collection "${id}" can disable its body only when it is a page.`)
+  if (structuredPage && ['body', 'bodyMdc'].some(key => key in getObjectShape(collection.schema) || key in (collection.cms?.fields ?? {}))) {
+    throw new Error(`Structured page collection "${id}" cannot declare an article body. Use a named content field instead.`)
+  }
   const fields = buildFields(collection, locales.length > 1)
-  validateFields(id, fields, kind)
+  validateFields(id, fields, kind, structuredPage)
   const bodyField = fields.find(field => field.role === 'body')?.key ?? null
 
   return {
@@ -142,9 +147,11 @@ function buildCollection(
       allowMultipleRoots: collection.cms?.route?.allowMultipleRoots ?? false,
     },
     fields,
-    portable: kind === 'page'
-      ? { format: 'mdc', bodyField }
-      : { format: dataFormat(collection), bodyField: null },
+    portable: structuredPage
+      ? { format: 'json', bodyField: null }
+      : kind === 'page'
+        ? { format: 'mdc', bodyField }
+        : { format: dataFormat(collection), bodyField: null },
     componentPolicy,
   }
 }
@@ -154,7 +161,7 @@ function buildFields(collection: ContentCollectionConfig, localized: boolean): R
   if ((collection.type ?? (isMarkdownCollection(collection) ? 'page' : 'data')) === 'page') {
     fields.set('title', field({ key: 'title', type: 'text', role: 'title', required: true, localized }))
     fields.set('description', field({ key: 'description', type: 'textarea', role: 'description', localized }))
-    fields.set('bodyMdc', field({ key: 'bodyMdc', type: 'richtext', role: 'body', localized }))
+    if (collection.body !== false) fields.set('bodyMdc', field({ key: 'bodyMdc', type: 'richtext', role: 'body', localized }))
   }
   for (const candidate of fieldsFromSchema(collection.schema, localized)) fields.set(candidate.key, candidate)
   for (const [key, override] of Object.entries(collection.cms?.fields ?? {})) {
@@ -392,10 +399,11 @@ function field(input: Partial<ResolvedContentFieldV1> & { key: string; type: Res
   }
 }
 
-function validateFields(collection: string, fields: ResolvedContentFieldV1[], kind: 'page' | 'data'): void {
+function validateFields(collection: string, fields: ResolvedContentFieldV1[], kind: 'page' | 'data', structuredPage: boolean): void {
   const bodies = fields.filter(candidate => candidate.role === 'body')
   if (bodies.length > 1) throw new Error(`Collection "${collection}" has more than one body field.`)
-  if (kind === 'page' && (bodies.length !== 1 || bodies[0]?.type !== 'richtext')) throw new Error(`Page collection "${collection}" requires one richtext body field.`)
+  if (kind === 'page' && !structuredPage && (bodies.length !== 1 || bodies[0]?.type !== 'richtext')) throw new Error(`Page collection "${collection}" requires one richtext body field.`)
+  if (structuredPage && bodies.length) throw new Error(`Structured page collection "${collection}" cannot have a body field.`)
   if (kind === 'data' && bodies.length) throw new Error(`Data collection "${collection}" cannot have a body field.`)
   validateFieldLevel(collection, fields)
 }

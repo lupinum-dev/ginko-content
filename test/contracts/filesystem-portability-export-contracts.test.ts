@@ -43,6 +43,52 @@ describe('filesystem portability export', () => {
     expect(exported).toMatchObject({ documents: 4, assets: 1, inputHash: first.evidence!.inputHash })
   })
 
+  it('exports structured filesystem pages with route identity and no synthetic article body', async () => {
+    const root = await fixture()
+    const configPath = join(root, 'content.config.mjs')
+    const config = JSON.parse((await readFile(configPath, 'utf8')).replace('export default ', ''))
+    config.collections.landing = {
+      type: 'page', body: false, source: 'landing/*.json', route: '/landing',
+      i18n: { defaultLocale: 'fr', locales: ['fr', 'en'] },
+      cms: { fields: { destination: { type: 'text', localized: true } } },
+    }
+    await writeFile(configPath, `export default ${JSON.stringify(config)}\n`)
+    await mkdir(join(root, 'content/fr/landing'), { recursive: true })
+    await writeFile(join(root, 'content/fr/landing/home.json'), JSON.stringify({ title: 'Bienvenue', description: 'Ensemble', destination: '/journal' }))
+    await fixtureContract(root)
+    const assessed = await assessFilesystemPortability({ rootDir: root })
+    expect(assessed.diagnostics).toEqual([])
+    const landing = assessed.documents.find(document => document.collection === 'landing')
+    expect(landing).toMatchObject({
+      slug: 'home', body: null,
+      localized: { title: 'Bienvenue', description: 'Ensemble', destination: '/journal' },
+      visibility: { sitemap: true },
+    })
+    const exported = await exportFilesystemToPortableDirectory({ rootDir: root, destination: 'structured' })
+    const reopened = await readPortableDirectory(exported.directory)
+    expect(reopened.documents.find(item => item.document.collection === 'landing')?.document).toEqual(landing)
+  })
+
+  it('refuses a body-dropping migration and restores export after contract rollback', async () => {
+    const root = await fixture()
+    const path = join(root, 'content.config.mjs')
+    const original = await readFile(path, 'utf8')
+    const originalContract = await readFile(join(root, '.ginko/content-contract.json'))
+    const config = JSON.parse(original.replace('export default ', ''))
+    config.collections.docs.body = false
+    await writeFile(path, `export default ${JSON.stringify(config)}\n`)
+    await fixtureContract(root)
+    const changed = await assessFilesystemPortability({ rootDir: root })
+    expect(changed.ok).toBe(false)
+    expect(changed.diagnostics.some(item => item.code === 'DOCUMENT_INVALID')).toBe(true)
+    await expect(exportFilesystemToPortableDirectory({ rootDir: root, destination: 'invalid-migration' })).rejects.toThrow()
+    await writeFile(path, original)
+    await writeFile(join(root, '.ginko/content-contract.json'), originalContract)
+    const restored = await assessFilesystemPortability({ rootDir: root })
+    expect(restored.diagnostics).toEqual([])
+    expect(restored.documents.find(item => item.collection === 'docs')?.body?.source).toBeTruthy()
+  })
+
   it('refuses stale assessment evidence and leaves an existing destination untouched', async () => {
     const root = await fixture()
     const assessed = await assessFilesystemPortability({ rootDir: root })

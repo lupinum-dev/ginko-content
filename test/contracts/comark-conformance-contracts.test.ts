@@ -72,6 +72,14 @@ const plugin = (name: string, options: Record<string, unknown> = {}): ResolvedMa
 
 const corpus: CorpusCase[] = [
   {
+    id: 'editor-angle-multiline',
+    fixture: 'editor-angle-multiline.md',
+    profile: 'portable-baseline',
+    support: 'supported',
+    plugins: [],
+    expected: { raw: 'accepted', cms: 'accepted', public: 'accepted', portable: 'accepted', ssr: 'accepted', agent: 'accepted' }
+  },
+  {
     id: 'basic',
     fixture: 'basic.md',
     profile: 'filesystem-configured',

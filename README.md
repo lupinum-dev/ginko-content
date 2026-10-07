@@ -137,11 +137,10 @@ Render the current route:
 ```vue
 <!-- pages/[...slug].vue -->
 <script setup lang="ts">
-import { pages } from '~~/content.config'
-
 definePageMeta({ key: route => route.path })
 
-const { page, status } = await useContentPage(pages)
+// Collection names are typed from content.config.ts and add no browser code.
+const { page, status } = await useContentPage('pages')
 
 if (status.value === 'not-found') {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })

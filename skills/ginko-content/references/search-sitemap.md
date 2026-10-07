@@ -90,6 +90,25 @@ Submit the sitemap URL that Nuxt Sitemap generated for the configured mode. Do
 not add route rules, `nitro.prerender.ignore`, or disable Nuxt Sitemap i18n mode
 only to force a physical sitemap shape.
 
+## Prerender and live data
+
+Production builds prerender every public content route and turn on Nitro's
+link crawler. A prerendered page is frozen at build time. When app pages show
+live data (database, API, opening hours), keep them dynamic:
+
+```ts
+export default defineNuxtConfig({
+  content: {
+    // Content routes are still prerendered; app pages are not crawled.
+    prerender: { crawlLinks: false }
+  }
+})
+```
+
+Opt one content collection out with `prerender: false` in `defineCollection()`,
+or render every content page per request with `content.prerender: false`.
+These options do not change sitemap output.
+
 ## Search index checks
 
 When a static search payload exists, verify every locale has records:
