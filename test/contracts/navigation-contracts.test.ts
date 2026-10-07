@@ -312,6 +312,30 @@ describe('navigation contracts', () => {
     expect(resolveNavigationFirstChildren([])).toEqual([])
   })
 
+  test('buildNavigation sorts frozen snapshot input with authored children without mutating it', async () => {
+    const { buildNavigation } = await import('../../packages/content/src/features/navigation/build')
+    const { deepFreeze } = await import('../../packages/content/src/core/content/snapshot')
+    const index = navDoc({
+      file: { path: '/en/2.guide/index.md' },
+      path: '/guide',
+      navigation: {
+        children: [
+          { title: 'B', path: '/guide/b', file: { path: '/en/2.guide/2.b.md' } },
+          { title: 'A', path: '/guide/a', file: { path: '/en/2.guide/1.a.md' } }
+        ]
+      }
+    } as any)
+    const contents = deepFreeze([
+      index,
+      doc({ id: 'content:en:2.guide:0.start.md', file: { path: '/en/2.guide/0.start.md' }, path: '/guide/start', canonicalKey: 'guide/start', title: 'Start' })
+    ] as any)
+
+    const nav = buildNavigation(contents, {})
+
+    expect(nav[0]!.children!.map(item => item.title)).toEqual(['Start', 'A', 'B'])
+    expect((index as any).navigation.children.map((item: { title: string }) => item.title)).toEqual(['B', 'A'])
+  })
+
   test('buildNavigation builds deterministic trees from index pages and folder metadata', async () => {
     const { buildNavigation } = await import('../../packages/content/src/features/navigation/build')
 

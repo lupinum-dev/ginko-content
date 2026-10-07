@@ -16,10 +16,13 @@
  *  3. **Inline override merge** — `expandDataLocaleVariants` does a
  *     deep merge of the base document with each locale-specific
  *     override, cloning values along the way so variants never share
- *     references with the base or with each other.
+ *     references with the base or with each other. Reserved identity
+ *     keys in an override are dropped, so a translation can never move a
+ *     document to another collection, path or canonical key.
  */
 import type { ParsedContent } from '../../types/content'
 import type { ContentCollectionI18nConfig } from '../../types/config'
+import { stripReservedContentKeys } from './reserved'
 
 /** Separator between source id and locale in inline-variant ids. */
 export const INLINE_LOCALE_ID_SEPARATOR = '#__locale='
@@ -180,7 +183,10 @@ export const expandDataLocaleVariants = (
       continue
     }
 
-    const merged = mergeLocaleOverride(baseDocument, override) as ParsedContent
+    // Overrides translate authored fields only; identity and provenance stay
+    // source-derived, exactly like top-level frontmatter.
+    const authoredOverride = stripReservedContentKeys(override, `${document.id} (i18n.${locale})`)
+    const merged = mergeLocaleOverride(baseDocument, authoredOverride) as ParsedContent
     variants.push({
       ...merged,
       id: `${document.id}${INLINE_LOCALE_ID_SEPARATOR}${locale}`,

@@ -75,6 +75,18 @@ describe('production snapshot runtime', () => {
     expect(getItem).toHaveBeenCalledTimes(1)
   })
 
+  test('one request cannot change the process snapshot that later requests read', async () => {
+    stubRuntime(vi.fn(async () => snapshot({ documents: [document({ metadata: { label: 'original' } })] })))
+    const { getContentGraph } = await import('../../packages/content/src/storage/graph')
+
+    const first = await getContentGraph(createTestEvent())
+    const shared = first.documents[0] as ParsedContent & { metadata: { label: string } }
+    expect(() => { shared.metadata.label = 'changed by first request' }).toThrow(TypeError)
+
+    const second = await getContentGraph(createTestEvent())
+    expect((second.documents[0] as typeof shared).metadata.label).toBe('original')
+  })
+
   test('deduplicates concurrent production snapshot loads', async () => {
     let release!: (value: ContentSnapshot) => void
     const getItem = vi.fn(() => new Promise<ContentSnapshot>((resolve) => {

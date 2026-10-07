@@ -69,6 +69,13 @@ export interface ContentGraph {
   referenceTargetsByCollection: Record<string, Map<string, string>>
 }
 
+/**
+ * Index keys come from authored content (canonical keys, refs, paths, locales).
+ * A null prototype makes `__proto__` and `constructor` ordinary keys instead
+ * of a route to `Object.prototype` or an inherited "existing" identity.
+ */
+const createIndex = <T>(): Record<string, T> => Object.create(null) as Record<string, T>
+
 const normalizePath = (path: string) => {
   if (!path || path === '/') {
     return '/'
@@ -98,15 +105,15 @@ export const buildContentGraph = (
     referencePathAliases?: (document: ParsedContent) => readonly string[]
   } = {}
 ): ContentGraph => {
-  const byId: Record<string, ParsedContent> = {}
-  const byCollection: ContentGraph['byCollection'] = {}
-  const byPath: ContentGraph['byPath'] = {}
-  const byCollectionCanonical: ContentGraph['byCollectionCanonical'] = {}
-  const byCanonical: ContentGraph['byCanonical'] = {}
-  const byCollectionRef: ContentGraph['byCollectionRef'] = {}
-  const byRef: ContentGraph['byRef'] = {}
-  const byRoute: ContentGraph['byRoute'] = {}
-  const byNavigationPath: Record<string, Record<string, ParsedContent>> = {}
+  const byId = createIndex<ParsedContent>()
+  const byCollection: ContentGraph['byCollection'] = createIndex()
+  const byPath: ContentGraph['byPath'] = createIndex()
+  const byCollectionCanonical: ContentGraph['byCollectionCanonical'] = createIndex()
+  const byCanonical: ContentGraph['byCanonical'] = createIndex()
+  const byCollectionRef: ContentGraph['byCollectionRef'] = createIndex()
+  const byRef: ContentGraph['byRef'] = createIndex()
+  const byRoute: ContentGraph['byRoute'] = createIndex()
+  const byNavigationPath = createIndex<Record<string, ParsedContent>>()
   const defaultLocale = options.defaultLocale || ''
 
   for (const document of documents) {
@@ -135,7 +142,7 @@ export const buildContentGraph = (
 
     if (isNavigationFile(document)) {
       const locale = document.locale || defaultLocale
-      byNavigationPath[path] ||= {}
+      byNavigationPath[path] ||= createIndex()
       byNavigationPath[path]![locale] = document
     }
 
@@ -157,12 +164,12 @@ export const buildContentGraph = (
       document
     }
 
-    byCollectionCanonical[collection] ||= {}
-    byCollectionCanonical[collection]![document.canonicalKey!] ||= {}
+    byCollectionCanonical[collection] ||= createIndex()
+    byCollectionCanonical[collection]![document.canonicalKey!] ||= createIndex()
     byCollectionCanonical[collection]![document.canonicalKey!]![locale] = variant
     byRoute[`${locale}:${path}`] = document.canonicalKey!
     if (document.type === 'markdown' && typeof document.ref === 'string' && document.ref.length) {
-      byCollectionRef[collection] ||= {}
+      byCollectionRef[collection] ||= createIndex()
       byCollectionRef[collection]![document.ref] = document.canonicalKey!
     }
   }
@@ -473,7 +480,9 @@ export const selectGraphDocuments = (
         .filter(key => path instanceof RegExp ? path.test(key) : key === path)
         .flatMap(key => graph.byPath[key] || [])
     })))
-    ids = ids.length ? pathIds.filter(id => ids.includes(id)) : pathIds
+    // A named collection always constrains the result, even when it is empty.
+    const collectionIds = new Set(ids)
+    ids = collection ? pathIds.filter(id => collectionIds.has(id)) : pathIds
   }
 
   if (!ids.length) {
