@@ -59,3 +59,12 @@ allowBuilds:
   esbuild: true
   unrs-resolver: false
   vue-demi: true
+
+# Dev/build only; expiry is enforced by check:dependencies.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-86w9-cpqp-85rv # {"owner": "mat4m0", "reason": "Advertised patched version is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-vfj7-8cjw-p6xm # {"owner": "mat4m0", "reason": "Advertised patched version is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-x6jw-m9v5-85vh # {"owner": "mat4m0", "reason": "Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-g4wm-2vf7-vfgr # {"owner": "mat4m0", "reason": "Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.", "expires": "2026-11-06T00:00:00Z"}
+    - GHSA-858h-whjf-mvg5 # {"owner": "mat4m0", "reason": "Published 4.x lacks the default export consumed by Nuxt DevTools; 3.36.1 is unpublished.", "expires": "2026-11-06T00:00:00Z"}

@@ -14,6 +14,7 @@ import { getContentRuntimeConfig } from '../integrations/nitro/runtime-config'
 import { contentConfig } from './driver'
 import { getContentsList } from './contents'
 import { getProcessGraph, usesProcessSnapshot } from './snapshot-runtime'
+import { deepFreeze } from '../core/content/snapshot'
 
 /**
  * The sealed filesystem snapshot is the one choke point every filesystem
@@ -36,7 +37,9 @@ export const getContentGraph = async (event: H3Event): Promise<ContentGraph> => 
 
   return await memoizeRuntimeValue(event, 'graph', async () => {
     const config = contentConfig()
-    const contents = await getContentsList(event)
+    // Same immutability as the production snapshot, so a mutation fails in
+    // development and tests instead of first appearing in production.
+    const contents = deepFreeze(await getContentsList(event))
     const localePolicies = config.localePolicy?.collections
     return buildContentGraph(contents, {
       locales: config.locales,

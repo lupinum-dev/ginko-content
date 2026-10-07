@@ -71,7 +71,8 @@ const parentCanonicalKey = (content: ParsedContentMeta, depth: number) => {
 }
 
 /**
- * Post-process the mutable tree: sort siblings by basename and recurse.
+ * Sort siblings by basename and recurse into a new tree. Inputs can be
+ * frozen snapshot data, so nothing here mutates them.
  * Projection is the only place that strips canonical folder paths.
  */
 const sortBasename = (item: PrivateNavItem) => {
@@ -79,19 +80,11 @@ const sortBasename = (item: PrivateNavItem) => {
   return typeof path === 'string' ? path.split('.').slice(0, -1).join('.') : ''
 }
 
-const sortCanonicalTree = (items: PrivateNavItem[]) => {
-  const sorted = items.sort((left, right) => collator.compare(sortBasename(left), sortBasename(right)))
-
-  for (const item of sorted) {
-    if (item.children?.length) {
-      sortCanonicalTree(item.children)
-    } else {
-      delete item.children
-    }
-  }
-
-  return items
-}
+const sortCanonicalTree = (items: PrivateNavItem[]): PrivateNavItem[] => [...items]
+  .sort((left, right) => collator.compare(sortBasename(left), sortBasename(right)))
+  .map(({ children, ...item }) => children?.length
+    ? { ...item, children: sortCanonicalTree(children) }
+    : item)
 
 export const buildCanonicalNavigation = (
   contents: ParsedContentMeta[],
@@ -103,11 +96,13 @@ export const buildCanonicalNavigation = (
     const navigationFields = isObject(content?.navigation) ? content.navigation as Record<string, unknown> : {}
     return {
       ...pick(['title', ...fields])(content),
-      ...navigationFields
+      ...navigationFields,
+      // Child pages are appended below; never append to the authored array.
+      ...(Array.isArray(navigationFields.children) ? { children: [...navigationFields.children] } : {})
     }
   }
 
-  const navigation = contents
+  const navigation = [...contents]
     .sort((left, right) => left.path.localeCompare(right.path))
     .reduce((nav, content) => {
       const parts = content.path.substring(1).split('/')

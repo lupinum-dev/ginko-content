@@ -27,6 +27,26 @@ export interface BuildContentSnapshotArgs {
   now: number
 }
 
+/**
+ * Freeze a snapshot document graph in place. The process snapshot is shared
+ * by every request, so a caller that mutates a query result must fail loudly
+ * instead of silently changing what later requests read.
+ */
+export const deepFreeze = <T>(value: T): T => {
+  const seen = new WeakSet<object>()
+  const freeze = (current: unknown): void => {
+    if (current === null || typeof current !== 'object' || seen.has(current)) return
+    seen.add(current)
+    // A hook may have shallow-frozen the document while leaving children mutable.
+    Object.freeze(current)
+    for (const key of Reflect.ownKeys(current)) {
+      freeze((current as Record<PropertyKey, unknown>)[key])
+    }
+  }
+  freeze(value)
+  return value
+}
+
 /** Build error carrying every offending path; never fail on just the first one. */
 export class ContentSnapshotError extends Error {}
 

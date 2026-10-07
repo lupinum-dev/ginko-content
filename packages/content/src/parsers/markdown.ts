@@ -3,7 +3,7 @@ import type { MarkdownNode, MarkdownOptions, MarkdownParsedContent, MarkdownRoot
 import { defineTransformer } from './utils'
 import { generatePath } from './path-meta'
 import { resolveMarkdownPlugins } from './markdown-plugins'
-import { stripReservedContentKeys } from './reserved'
+import { stripReservedContentKeys } from '../core/content/reserved'
 import { mapMarkdownNodes, toMarkdownRoot } from '../core/markdown/tree'
 import { normalizeComarkNodes } from '../core/markdown/normalize-comark'
 import { createComarkParser, parseComark } from '../core/markdown/parse-comark'
