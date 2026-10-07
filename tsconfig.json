@@ -11,6 +11,7 @@
   },
   "exclude": [
     "test",
+    "plans",
     "docs",
     "node_modules",
     "examples",

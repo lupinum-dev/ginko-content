@@ -1,0 +1,459 @@
+diff --git a/packages/content/src/cms-contract/index.ts b/packages/content/src/cms-contract/index.ts
+index cabadc6..833b57f 100644
+--- a/packages/content/src/cms-contract/index.ts
++++ b/packages/content/src/cms-contract/index.ts
+@@ -97,6 +97,7 @@ export {
+   AngleComponentSyntaxError,
+   MdcSerializationError,
+   createHeadingIdGenerator,
++  resolveMdcHeadingAnchors,
+   headingSlugText,
+   parseMdcDocument,
+   parseMdcBody,
+diff --git a/packages/content/src/cms-contract/mdc.ts b/packages/content/src/cms-contract/mdc.ts
+index e863e17..f98b5e9 100644
+--- a/packages/content/src/cms-contract/mdc.ts
++++ b/packages/content/src/cms-contract/mdc.ts
+@@ -9,7 +9,7 @@ import type { ConditionalNodeHandler, MarkdownDocument } from 'comark'
+ import type { MarkdownNode, MarkdownRoot, Toc } from '../types/content.js'
+ import { HTML_TAGS } from '../core/markdown/html-tags.js'
+ import { angleComponentRenderer, isAloneOnLine } from '../core/markdown/angle-components.js'
+-import { createHeadingIdGenerator, headingSlugText } from '../core/markdown/heading-id.js'
++import { resolveHeadingAnchors, markdownHeadingLevel, headingSlugText, type HeadingAnchor, type HeadingDescriptor } from '../core/markdown/heading-id.js'
+ import { normalizeComarkNodes } from '../core/markdown/normalize-comark.js'
+ import { parseComark, readsAsJson } from '../core/markdown/parse-comark.js'
+ import { createVerbatimHandlers, markHeadingBreaks, markListItemsInComponents } from '../core/markdown/serialize-handlers.js'
+@@ -252,26 +252,35 @@ function separateAdjacentLists(nodes: unknown[], offset = 0): void {
+   }
+ }
+ 
+-/**
+- * Mark headings whose id differs from the id the parser generates. The
+- * generator runs for every heading in document order, as the parser does.
+- */
+-function markExplicitHeadingIds(nodes: unknown[], key: string): void {
+-  const nextId = createHeadingIdGenerator()
+-  const visit = (node: unknown) => {
+-    if (!Array.isArray(node)) return
+-    const level = typeof node[0] === 'string' ? HEADING_TAG.exec(node[0])?.[1] : undefined
+-    if (level && node.length > 2) {
+-      const generated = nextId(headingSlugText(node.slice(2)), Number(level))
+-      const props = node[1] as Record<string, unknown> | undefined
+-      if (props && typeof props.id === 'string' && props.id !== '' && props.id !== generated) {
+-        props[key] = props.id
+-      }
+-      return
+-    }
+-    for (const child of node.slice(2)) visit(child)
++/** Derive heading anchors without changing the editing document. */
++export function resolveMdcHeadingAnchors(
++  nodes: readonly MdcNode[],
++  options: { preserveIds?: boolean } = {},
++): Map<MdcElementNode, HeadingAnchor> {
++  const headings: MdcElementNode[] = []
++  const descriptors: HeadingDescriptor[] = []
++  const occupied: string[] = []
++  const visit = (node: MdcNode): void => {
++    if (!Array.isArray(node) || node[0] === null) return
++    const level = markdownHeadingLevel(node[0], node[1])
++    const id = typeof node[1].id === 'string' ? node[1].id : undefined
++    if (level) {
++      headings.push(node)
++      descriptors.push({ text: headingSlugText(node.slice(2)), level: Number(level), ...(options.preserveIds !== false && id !== undefined ? { id } : {}) })
++    } else if (id !== undefined) occupied.push(id)
++    for (const child of node.slice(2) as MdcNode[]) visit(child)
+   }
+   for (const node of nodes) visit(node)
++  const anchors = resolveHeadingAnchors(descriptors, occupied)
++  return new Map(headings.map((node, index) => [node, anchors[index]!]))
++}
++
++/** Keep existing ids explicit whenever regenerated Markdown would differ. */
++function markExplicitHeadingIds(nodes: unknown[], key: string): void {
++  const anchors = resolveMdcHeadingAnchors(nodes as MdcNode[], { preserveIds: false })
++  for (const [node, anchor] of anchors) {
++    if (typeof node[1].id === 'string' && node[1].id !== '' && node[1].id !== anchor.id) node[1][key] = node[1].id
++  }
+ }
+ 
+ const renderHeadingIdAttribute = (id: string): string | undefined => {
+@@ -574,7 +583,7 @@ function deriveToc(
+ ): Toc | undefined {
+   const searchDepth = options.tocDepth ?? 3
+   const links = []
+-  const nextId = createHeadingIdGenerator()
++  const anchors = resolveMdcHeadingAnchors(nodes as MdcNode[])
+   for (const node of nodes) {
+     if (!Array.isArray(node)) continue
+     const tag = String(node[0] ?? '')
+@@ -583,12 +592,11 @@ function deriveToc(
+     const depth = Number(match[1])
+     const props = node[1] && typeof node[1] === 'object' ? node[1] : {}
+     const children = node.slice(2) as unknown[]
+-    // Advance the parser's id sequence for every top-level heading.
+-    const generatedId = nextId(headingSlugText(children), depth)
+-    if (depth < 2 || depth > searchDepth) continue
++    const generatedId = anchors.get(node as MdcElementNode)?.id
++    if (depth < 2 || depth > searchDepth || (generatedId === undefined && !('id' in props))) continue
+     const text = collectTupleText(children)
+     links.push({
+-      id: String((props as Record<string, unknown>).id || generatedId),
++      id: String((props as Record<string, unknown>).id ?? generatedId),
+       text,
+       depth,
+     })
+diff --git a/packages/content/src/core/markdown/heading-id.ts b/packages/content/src/core/markdown/heading-id.ts
+index 6f54d60..8087878 100644
+--- a/packages/content/src/core/markdown/heading-id.ts
++++ b/packages/content/src/core/markdown/heading-id.ts
+@@ -1,6 +1,6 @@
+ /**
+- * Heading ids as the MDC parser assigns them. Keep this module aligned with
+- * Comark's token processor: the round-trip tests fail if the two disagree.
++ * Document-owned heading ids and legacy fragments. Parsing, projections and
++ * rendering share this allocator; Comark automatic heading ids are disabled.
+  */
+ 
+ // Inline HTML tags contribute only their text. Other element tags are inline
+@@ -12,17 +12,18 @@ const HTML_INLINE_TAGS: ReadonlySet<string> = new Set([
+ ])
+ 
+ /**
+- * Convert heading text to the parser's base slug. Characters outside
+- * `[A-Za-z0-9_-]` are removed, and a leading digit gets an `_` prefix.
++ * Keep Unicode letters, marks and numbers in a normalized, nonempty slug.
++ * A leading ASCII digit retains the historical `_` prefix.
+  */
+ export function slugifyHeading(text: string): string {
+   const slug = text
++    .normalize('NFC')
+     .toLowerCase()
+     .trim()
+     .replace(/\s+/g, '-')
+-    .replace(/[^\w-]+/g, '')
++    .replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '')
+     .replace(/-{2,}/g, '-')
+-  const trimmed = trimHyphens(slug)
++  const trimmed = trimHyphens(slug) || 'heading'
+   return /^\d/.test(trimmed) ? `_${trimmed}` : trimmed
+ }
+ 
+@@ -56,21 +57,57 @@ export function headingSlugText(children: readonly unknown[]): string {
+   return text
+ }
+ 
++/** Native HTML and same-named components keep their authored attributes. */
++export function markdownHeadingLevel(tag: string, props: Record<string, unknown>): number | undefined {
++  const origin = props.$
++  if (origin && typeof origin === 'object' && ('html' in origin || 'syntax' in origin)) return undefined
++  const match = /^h([1-6])$/.exec(tag)
++  return match ? Number(match[1]) : undefined
++}
++
+ /** Assigns heading ids in document order. */
+ export type HeadingIdGenerator = (text: string, level: number) => string
+ 
+ /**
+- * Create the parser's document-scoped heading id sequence. Call it once for
+- * every heading in document order, including headings with an explicit id.
+- * A heading at level 3 or deeper is prefixed with the id of its nearest
+- * enclosing heading at level 2 or deeper. Repeated ids get `-1`, `-2`, and so
+- * on.
++ * Streaming Unicode sequence for callers without a complete document. Use
++ * resolveHeadingAnchors when explicit ids and legacy fragment reservations
++ * must participate in document-wide collision handling.
+  */
+ export function createHeadingIdGenerator(): HeadingIdGenerator {
+   const stack: Array<{ level: number, id: string }> = []
+-  const counts = new Map<string, number>()
++  const used = new Set<string>()
+   return (text, level) => {
+-    let slug = slugifyHeading(text)
++    while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
++    const parent = stack[stack.length - 1]
++    const slug = `${parent && parent.level >= 2 ? `${parent.id}-` : ''}${slugifyHeading(text)}`
++    let id = slug
++    let suffix = 0
++    while (used.has(id)) id = `${slug}-${++suffix}`
++    used.add(id)
++    stack.push({ level, id })
++    return id
++  }
++}
++
++export interface HeadingDescriptor {
++  text: string
++  level: number
++  /** An authored or persisted id. It remains authoritative. */
++  id?: string
++}
++
++export interface HeadingAnchor {
++  id: string
++  aliases: string[]
++}
++
++/** Exact pre-Unicode sequence, including its empty and duplicate id behavior. */
++function legacyHeadingIds(headings: readonly HeadingDescriptor[]): string[] {
++  const stack: Array<{ level: number, id: string }> = []
++  const counts = new Map<string, number>()
++  return headings.map(({ text, level }) => {
++    let slug = trimHyphens(text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/-{2,}/g, '-'))
++    if (/^\d/.test(slug)) slug = `_${slug}`
+     while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
+     const parent = stack[stack.length - 1]
+     if (parent && parent.level >= 2) slug = `${parent.id}-${slug}`
+@@ -78,5 +115,47 @@ export function createHeadingIdGenerator(): HeadingIdGenerator {
+     const count = counts.get(slug) ?? 0
+     counts.set(slug, count + 1)
+     return count === 0 ? slug : `${slug}-${count}`
+-  }
++  })
++}
++
++/**
++ * Allocate one ordered document. Reserve old fragments before new ids so an
++ * old link cannot land on another heading after the Unicode cutover. If old
++ * ids collided, their first target wins, as browser fragment lookup did.
++ * Explicit/persisted ids and other authored element ids always take priority.
++ * This derives aliases without adding metadata to stored V1/V2 documents.
++ */
++export function resolveHeadingAnchors(
++  headings: readonly HeadingDescriptor[],
++  occupiedIds: readonly string[] = [],
++): HeadingAnchor[] {
++  const legacy = legacyHeadingIds(headings)
++  const legacyOwner = new Map<string, number>()
++  legacy.forEach((id, index) => { if (id && !legacyOwner.has(id)) legacyOwner.set(id, index) })
++  const reserved = new Set([...occupiedIds, ...headings.flatMap(heading => heading.id === undefined ? [] : [heading.id])])
++  const used = new Set<string>()
++  const allocated = new Set<string>()
++  const stack: Array<{ level: number, id: string }> = []
++  const anchors = headings.map(({ text, level, id: authored }, index): HeadingAnchor => {
++    while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
++    const parent = stack[stack.length - 1]
++    const slug = `${parent && parent.level >= 2 ? `${parent.id}-` : ''}${slugifyHeading(text)}`
++    let generated = slug
++    let suffix = 0
++    while (allocated.has(generated) || (reserved.has(generated) && generated !== authored) || (legacyOwner.has(generated) && legacyOwner.get(generated) !== index)) generated = `${slug}-${++suffix}`
++    allocated.add(generated)
++    const id = authored ?? generated
++    used.add(id)
++    // An explicit anchor does not rename the generated child prefix.
++    stack.push({ level, id: generated })
++    return { id, aliases: [] }
++  })
++  anchors.forEach((anchor, index) => {
++    const old = legacy[index]!
++    if (old && old !== anchor.id && legacyOwner.get(old) === index && !used.has(old) && !reserved.has(old)) {
++      anchor.aliases.push(old)
++      used.add(old)
++    }
++  })
++  return anchors
+ }
+diff --git a/packages/content/src/core/markdown/parse-comark.ts b/packages/content/src/core/markdown/parse-comark.ts
+index c6cc0c0..b0ba130 100644
+--- a/packages/content/src/core/markdown/parse-comark.ts
++++ b/packages/content/src/core/markdown/parse-comark.ts
+@@ -1,5 +1,6 @@
+ import { createMarkdownParser, defineComarkPlugin, parseFrontmatter } from 'comark'
+ import type { ComarkPlugin } from 'comark'
++import { resolveHeadingAnchors, markdownHeadingLevel, headingSlugText, type HeadingDescriptor } from './heading-id.js'
+ import { angleComponents } from './angle-components.js'
+ import { autoCloseMarkdownOutsideCode } from './auto-close.js'
+ import { jsonLikeStrings, readsAsJson, restoreStrings } from './json-attribute.js'
+@@ -219,6 +220,26 @@ const explicitLinkify = defineComarkPlugin(() => ({
+   ],
+ }))
+ 
++const headingAnchors = defineComarkPlugin(() => ({
++  name: 'ginko-heading-anchors',
++  post: ({ tree }) => {
++    const headings: Array<{ props: Record<string, unknown>, descriptor: HeadingDescriptor }> = []
++    const occupied: string[] = []
++    const visit = (node: unknown): void => {
++      if (!Array.isArray(node) || typeof node[0] !== 'string') return
++      const props = node[1] as Record<string, unknown>
++      const level = markdownHeadingLevel(node[0], props)
++      const id = typeof props.id === 'string' ? props.id : undefined
++      if (level) headings.push({ props, descriptor: { text: headingSlugText(node.slice(2)), level: Number(level), ...(id !== undefined ? { id } : {}) } })
++      else if (id !== undefined) occupied.push(id)
++      for (const child of node.slice(2)) visit(child)
++    }
++    for (const node of tree.nodes) visit(node)
++    const anchors = resolveHeadingAnchors(headings.map(heading => heading.descriptor), occupied)
++    headings.forEach((heading, index) => { heading.props.id = anchors[index]!.id })
++  },
++}))
++
+ export type ComarkParser = ReturnType<typeof createMarkdownParser>
+ 
+ export interface ComarkParserOptions {
+@@ -238,12 +259,14 @@ export const createComarkParser = (
+   // a code-aware pass and keep Comark's pass disabled.
+   const parse = createMarkdownParser({
+     autoClose: false,
++    headingIds: false,
+     plugins: [
+       angleComponents({ autoClose }),
+       ...(options.portable ? [explicitLinkify()] : []),
+       legacyCssCustomProps(),
+       typedComponentFrontmatter(),
+       componentSyntaxMetadata(),
++      headingAnchors(),
+       ...plugins,
+     ],
+   })
+diff --git a/packages/content/src/runtime/app/components/internal/MarkdownRenderer.ts b/packages/content/src/runtime/app/components/internal/MarkdownRenderer.ts
+index fd0c766..987d208 100644
+--- a/packages/content/src/runtime/app/components/internal/MarkdownRenderer.ts
++++ b/packages/content/src/runtime/app/components/internal/MarkdownRenderer.ts
+@@ -2,6 +2,7 @@ import type { PropType, VNode } from 'vue'
+ import { defineComponent, getCurrentInstance, h } from 'vue'
+ import type { MarkdownNode, MarkdownRoot } from '../../../../types/content'
+ import { kebabCase, pascalCase } from 'scule'
++import { headingSlugText, resolveHeadingAnchors, markdownHeadingLevel, type HeadingAnchor, type HeadingDescriptor } from '../../../../core/markdown/heading-id.js'
+ import { HTML_TAGS } from '../../../../core/markdown/html-tags.js'
+ import { localizeLinkProps } from '../../../../features/localization/links'
+ import {
+@@ -111,6 +112,28 @@ export class MissingMarkdownComponentError extends Error {
+   }
+ }
+ 
++/** Derive aliases from the current tree; never annotate persisted AST data. */
++function headingAnchors (tree: MarkdownRoot): Map<MarkdownNode, HeadingAnchor> {
++  const headings: MarkdownNode[] = []
++  const descriptors: HeadingDescriptor[] = []
++  const occupied: string[] = []
++  const tuple = (node: MarkdownNode): unknown => node.type === 'text'
++    ? node.value || ''
++    : [node.tag, node.props || {}, ...(node.children || []).map(tuple)]
++  const visit = (node: MarkdownNode) => {
++    const level = markdownHeadingLevel(node.tag || '', node.props || {})
++    const id = typeof node.props?.id === 'string' ? node.props.id : undefined
++    if (level) {
++      headings.push(node)
++      descriptors.push({ text: headingSlugText((node.children || []).map(tuple)), level: Number(level), ...(id !== undefined ? { id } : {}) })
++    } else if (id !== undefined) occupied.push(id)
++    for (const child of node.children || []) visit(child)
++  }
++  for (const node of tree.children || []) visit(node)
++  const anchors = resolveHeadingAnchors(descriptors, occupied)
++  return new Map(headings.map((node, index) => [node, anchors[index]!]))
++}
++
+ function renderNode (
+   node: MarkdownNode,
+   options: {
+@@ -122,6 +145,7 @@ function renderNode (
+     defaultLocale?: string
+     locales: string[]
+     policy: PortableComponentPolicy
++    headings: Map<MarkdownNode, HeadingAnchor>
+   },
+   key?: string | number,
+   parent?: MarkdownNode
+@@ -192,12 +216,16 @@ function renderNode (
+     props.__node = node
+   }
+ 
+-  if (children.length === 0) {
++  const anchor = options.headings.get(node)
++  if (anchor) props.id = anchor.id
++  if (children.length === 0 && !anchor?.aliases.length) {
+     return h(component, props)
+   }
+ 
+   const slots: Record<string, () => Array<VNode | string>> = {}
+-  const regularChildren: Array<VNode | string> = []
++  const regularChildren: Array<VNode | string> = (anchor?.aliases || []).map(id =>
++    h('span', { id, 'aria-hidden': 'true', 'data-ginko-heading-alias': '', style: { scrollMarginTop: 'inherit' } })
++  )
+ 
+   for (let index = 0; index < children.length; index++) {
+     const child = children[index]
+@@ -294,6 +322,7 @@ export default defineComponent({
+ 
+     return () => {
+       assertPublicMarkdownAst(props.tree, props.renderPolicy)
++      const headings = headingAnchors(props.tree)
+       const children = (props.tree.children || [])
+         .map((node, index) => renderNode(node, {
+           components: props.components,
+@@ -303,7 +332,8 @@ export default defineComponent({
+           locale: props.locale,
+           defaultLocale: props.defaultLocale,
+           locales: props.locales,
+-          policy: props.renderPolicy
++          policy: props.renderPolicy,
++          headings
+         }, index))
+         .filter((child): child is VNode | string => child !== null)
+ 
+diff --git a/packages/content/src/runtime/app/composables/toc.ts b/packages/content/src/runtime/app/composables/toc.ts
+index 32e4c60..1bd7328 100644
+--- a/packages/content/src/runtime/app/composables/toc.ts
++++ b/packages/content/src/runtime/app/composables/toc.ts
+@@ -1,5 +1,5 @@
+ import type { Toc, TocLink } from '../../../types/content'
+-import { createHeadingIdGenerator } from '../../../core/markdown/heading-id'
++import { resolveHeadingAnchors } from '../../../core/markdown/heading-id'
+ import { scanLiteralLines } from '../../../core/markdown/auto-close'
+ 
+ export type { Toc, TocLink }
+@@ -24,7 +24,7 @@ export function extractContentToc (
+   const lines = content.split(/\r?\n/)
+   // Headings inside fenced code or frontmatter are not headings.
+   const { literal } = scanLiteralLines(lines)
+-  const nextId = createHeadingIdGenerator()
++  const headings: Array<{ text: string, level: number }> = []
+ 
+   for (const [index, line] of lines.entries()) {
+     // Every heading level advances the parser's id sequence, so match all six.
+@@ -33,12 +33,14 @@ export function extractContentToc (
+     if (!match) continue
+     const depth = match[1]!.length
+     const text = match[2]!.trim()
+-    const id = nextId(text, depth)
+-    if (depth >= 2 && depth <= maxDepth) {
+-      links.push({ id, text, depth })
+-    }
++    headings.push({ text, level: depth })
+   }
+ 
++  const anchors = resolveHeadingAnchors(headings)
++  headings.forEach(({ text, level: depth }, index) => {
++    if (depth >= 2 && depth <= maxDepth) links.push({ id: anchors[index]!.id, text, depth })
++  })
++
+   return {
+     title: options.title ?? '',
+     depth: 2,
+diff --git a/test/unit/mdc-roundtrip.test.ts b/test/unit/mdc-roundtrip.test.ts
+index 0f5325d..aa49691 100644
+--- a/test/unit/mdc-roundtrip.test.ts
++++ b/test/unit/mdc-roundtrip.test.ts
+@@ -255,7 +255,7 @@ describe('heading ids', () => {
+   it.each([
+     ['Hello World', 'hello-world'],
+     ['1. Introduction', '_1-introduction'],
+-    ['Über uns', 'ber-uns'],
++    ['Über uns', 'über-uns'],
+     ['  Many   spaces -- here ', 'many-spaces-here'],
+     ['C++ & Rust?', 'c-rust'],
+   ])('slugifies %j like the parser', async (text, expected) => {
+@@ -292,10 +292,10 @@ describe('heading ids', () => {
+     expect(parsed).toEqual(['intro', 'intro-details'])
+   })
+ 
+-  it('generates an empty id for a heading without ASCII word characters', async () => {
+-    expect(slugifyHeading('日本語')).toBe('')
++  it('keeps non-ASCII heading text in a nonempty id', async () => {
++    expect(slugifyHeading('日本語')).toBe('日本語')
+     const parsed = await parseMdcDocument('## 日本語', { autoClose: false })
+-    expect((parsed.nodes[0] as [string, Record<string, unknown>])[1].id).toBe('')
++    expect((parsed.nodes[0] as [string, Record<string, unknown>])[1].id).toBe('日本語')
+   })
+ 
+   it('makes extractContentToc and parseMdcBody agree with rendered heading ids', async () => {

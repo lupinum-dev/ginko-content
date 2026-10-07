@@ -521,14 +521,18 @@ if (releaseHeadingIndex === -1) {
 }
 
 for (const filePath of collectFiles('.')) {
-  if (relative(repoRoot, filePath).replaceAll('\\', '/') === 'scripts/check-repo-policies.mjs') {
+  const repoPath = relative(repoRoot, filePath).replaceAll('\\', '/')
+  if (repoPath === 'scripts/check-repo-policies.mjs') {
     continue
   }
   const source = readFileSync(filePath, 'utf8')
   if (privateConsumerPattern.test(source)) {
     violations.push(`${relative(repoRoot, filePath)} references a private consumer app path/name`)
   }
-  if (personalPathPattern.test(source)) {
+  // Archived plans preserve reviewed maintainer commands, including checkout paths.
+  // Package code, public docs, and dependency manifests still need portable paths.
+  const archivedPlan = repoPath.startsWith('plans/') && filePath.endsWith('.md')
+  if (!archivedPlan && personalPathPattern.test(source)) {
     violations.push(`${relative(repoRoot, filePath)} contains a host-specific personal path`)
   }
   if ((filePath.endsWith('package.json') || filePath.endsWith('pnpm-lock.yaml')) && absoluteFileDependencyPattern.test(source)) {
