@@ -9,6 +9,10 @@
 
 ### Fixes
 
+- Raise workspace security floors for simple-git, its argument parser, KaTeX,
+  Seroval, source-map-js, proxy-addr, postcss-selector-parser, sharp,
+  shell-quote, and the MCP TypeScript SDK.
+
 - Replace `globby` with `tinyglobby` for file listings and package builds.
 - Build the installed agent documentation with the package. Render the
   documentation website first when its output is missing.
