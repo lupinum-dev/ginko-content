@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- Breaking: `nitropack`, `h3`, `vue-router` and `unstorage` are peer
+  dependencies; Nuxt installs them.
+
+### Fixes
+
+- Raise workspace security floors for simple-git’s argument parser, KaTeX,
+  Seroval, source-map-js, proxy-addr, postcss-selector-parser, sharp,
+  shell-quote, and the MCP TypeScript SDK.
+
+- Replace `globby` with `tinyglobby` for file listings and package builds.
+- Build the installed agent documentation with the package. Render the
+  documentation website first when its output is missing.
+- Stop emitting an empty declaration bundle for the CLI executable.
+
 ## v1.0.0-beta.10
 
 [compare changes](https://github.com/lupinum-dev/ginko-content/compare/v1.0.0-beta.9...v1.0.0-beta.10)

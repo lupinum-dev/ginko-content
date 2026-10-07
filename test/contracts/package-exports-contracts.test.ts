@@ -58,6 +58,13 @@ const extractTypeExports = (source: string) => {
 }
 
 describe('package export contracts', () => {
+  test('a package build supplies the exported installed documentation', async () => {
+    const manifest = JSON.parse(await readFile('packages/content/package.json', 'utf8'))
+    const entry = await readFile(join('packages/content', manifest.exports['./agent-docs']), 'utf8')
+    expect(entry).toContain(`Documentation for installed version ${manifest.version}.`)
+    expect(entry).toContain('## Start here')
+  })
+
   test('server facade no longer re-exports agent or provider types', async () => {
     const source = await readFile('packages/content/src/public/server.ts', 'utf8')
 
