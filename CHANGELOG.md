@@ -7,6 +7,13 @@
 - Breaking: `nitropack`, `h3`, `vue-router` and `unstorage` are peer
   dependencies; Nuxt installs them.
 
+- Write new components without origin metadata in angle syntax by default.
+  Parsed colon and angle components retain their syntax. Hosts that need the
+  previous default must pass `{ componentSyntax: 'colon' }` for retained
+  metadata-less nodes. Adopt with Editor's paired source-origin fix; older
+  rooms can lack metadata despite having a current schema. Do not rewrite
+  stored documents or merge their distinct V1/V2 schemas.
+
 ### Fixes
 
 - Raise workspace security floors for simple-git, its argument parser, KaTeX,
@@ -17,6 +24,22 @@
 - Build the installed agent documentation with the package. Render the
   documentation website first when its output is missing.
 - Stop emitting an empty declaration bundle for the CLI executable.
+
+- Watch only content source mounts during development. Do not traverse Nitro's
+  root, build, cache or dependency trees; release every acquired watcher on
+  initialization failure and shutdown. Own separate driver instances so other
+  modules' storage subscriptions keep receiving updates and remain open.
+
+### Features
+
+- Accept multiline angle-component opening tags, including nested components,
+  named slots, lists and blockquotes. Preserve quoted property whitespace and
+  reject invalid JSON bindings with the opening location.
+- Add opt-in structured pages with `body: false`, retaining page routes, SEO
+  fields, sitemap eligibility, and JSON portability without an article body.
+  Upgrade the CMS adapter together with Content before enabling this option.
+- Read current root configuration during filesystem migration assessment so a
+  restored contract is recognized without retaining an old ESM import.
 
 ## v1.0.0-beta.10
 

@@ -322,7 +322,9 @@ export function assertResolvedContentContract(value: unknown): ResolvedContentCo
     nullableString(portable.bodyField, `${path}.portable.bodyField`)
     const bodyFields = fields.filter(candidate => candidate.role === 'body')
     if (collection.kind === 'page') {
-      if (portable.format !== 'mdc' || bodyFields.length !== 1 || bodyFields[0]!.type !== 'richtext' || portable.bodyField !== bodyFields[0]!.key) throw new Error(`${path} page portability policy is invalid.`)
+      const article = portable.format === 'mdc' && bodyFields.length === 1 && bodyFields[0]!.type === 'richtext' && portable.bodyField === bodyFields[0]!.key
+      const structured = portable.format === 'json' && portable.bodyField === null && bodyFields.length === 0
+      if (!article && !structured) throw new Error(`${path} page portability policy is invalid.`)
     } else if (!['yaml', 'json'].includes(String(portable.format)) || portable.bodyField !== null || bodyFields.length !== 0) {
       throw new Error(`${path} data portability policy is invalid.`)
     }

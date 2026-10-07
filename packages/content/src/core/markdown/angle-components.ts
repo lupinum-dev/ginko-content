@@ -282,24 +282,54 @@ const inlineStateLocations = new WeakMap<object, InlineLocationBase>()
 const lineText = (state: BlockState, line: number) =>
   state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line])
 
+interface BlockTag extends ParsedTag {
+  /** First content line after the complete opening tag. */
+  nextLine: number
+}
+
 const parseWholeLineTag = (
   state: BlockState,
   line: number,
+  endLine: number,
   strict: boolean,
-): ParsedTag | undefined => {
+): BlockTag | undefined => {
   if ((state.sCount[line] ?? 0) - state.blkIndent >= 4) return undefined
-  const source = lineText(state, line)
-  const location = { line: line + 1, column: (state.tShift[line] ?? 0) + 1, openingTag: source.trim() }
-  const start = source.search(/\S/)
+  const first = lineText(state, line)
+  const location = { line: line + 1, column: (state.tShift[line] ?? 0) + 1, openingTag: first.trim() }
+  const start = first.search(/\S/)
   if (start < 0) return undefined
-  if (!isAngleCandidate(source, start, true)) return undefined
+  const head = isAngleCandidate(first, start, true)
+  if (!head) return undefined
+
+  // Scan each container-adjusted line once. A `>` inside a quoted property is
+  // data, and continuation lines may be indented more than ordinary Markdown.
+  // Stop at this container's boundary rather than consuming a following item.
+  const lines: string[] = []
+  let quote: string | undefined
+  let nextLine = line
+  let complete = false
+  do {
+    const text = quote
+      ? state.src.slice(state.bMarks[nextLine]! + Math.min(state.blkIndent, state.tShift[nextLine]!), state.eMarks[nextLine])
+      : lineText(state, nextLine)
+    lines.push(text)
+    for (const character of text) {
+      if (quote) {
+        if (character === quote) quote = undefined
+      } else if (character === '"' || character === "'") quote = character
+      else if (character === '>') { complete = true; break }
+    }
+    nextLine++
+  } while (!complete && !head.closing && nextLine < endLine && state.sCount[nextLine]! >= state.blkIndent)
+
+  const source = lines.join('\n')
   const parsed = parseAngleTag(source, start, location, strict)
   if (!parsed) {
     if (strict) syntaxError('invalid_prop', 'Component tag is incomplete.', location)
     return undefined
   }
   if (source.slice(parsed.end).trim()) return undefined
-  return parsed
+  return { ...parsed, nextLine }
 }
 
 interface Fence {
@@ -320,17 +350,17 @@ const closesFence = (line: string, fence: Fence): boolean => {
 
 function findBlockClose(
   state: BlockState,
-  opening: ParsedTag,
+  opening: BlockTag,
   startLine: number,
   endLine: number,
   autoClose: boolean,
 ): number {
   const stack = [opening.name]
   const protectedCodeLines = new Set<number>()
-  let analyzedUntil = startLine + 1
+  let analyzedUntil = opening.nextLine
   let fence: Fence | undefined
   let inComment = false
-  for (let line = startLine + 1; line < endLine; line += 1) {
+  for (let line = opening.nextLine; line < endLine; line += 1) {
     const text = lineText(state, line)
     const trimmed = text.trim()
     const indentation = (state.sCount[line] ?? 0) - state.blkIndent
@@ -350,7 +380,7 @@ function findBlockClose(
     fence = indentation <= 3 ? openFence(text) : undefined
     if (fence) continue
     if (protectedCodeLines.has(line)) continue
-    const tag = parseWholeLineTag(state, line, !autoClose)
+    const tag = parseWholeLineTag(state, line, endLine, !autoClose)
     if (!tag) {
       if (line >= analyzedUntil) {
         const context = collectProtectedCodeLines(state, line, endLine)
@@ -362,7 +392,7 @@ function findBlockClose(
     const eligible = isExplicitComponentName(tag.name) || tag.name === 'template'
     if (!eligible) continue
     if (!tag.closing && !tag.selfClosing) stack.push(tag.name)
-    if (!tag.closing) continue
+    if (!tag.closing) { line = tag.nextLine - 1; continue }
     const expected = stack[stack.length - 1]
     if (expected !== tag.name) {
       syntaxError('mismatched_tag', `Expected </${expected}> but found </${tag.name}>.`, {
@@ -638,7 +668,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
             state.parentType === 'paragraph' &&
             collectProtectedCodeLines(state, state.line, endLine).lines.has(startLine)
           ) return false
-          const opening = parseWholeLineTag(state, startLine, !options.autoClose)
+          const opening = parseWholeLineTag(state, startLine, endLine, !options.autoClose)
           if (!opening) return false
           if (opening.closing) {
             if (!options.autoClose) {
@@ -666,12 +696,12 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
             // nesting=0 alone would capture all following sibling blocks.
             const token = state.push('mdc_block_open', opening.canonicalName, 1)
             token.block = true
-            token.map = [startLine, startLine + 1]
+            token.map = [startLine, opening.nextLine]
             pushProps(token, opening, location)
             const close = state.push('mdc_block_close', opening.canonicalName, -1)
             close.block = true
             close.map = token.map
-            state.line = startLine + 1
+            state.line = opening.nextLine
             return true
           }
 
@@ -683,7 +713,7 @@ export const angleComponents = (options: { autoClose: boolean }) => defineComark
 
           const previousLineMax = state.lineMax
           state.lineMax = closingLine
-          state.md.block.tokenize(state, startLine + 1, closingLine)
+          state.md.block.tokenize(state, opening.nextLine, closingLine)
           state.lineMax = previousLineMax
 
           const close = state.push('mdc_block_close', opening.canonicalName, -1)

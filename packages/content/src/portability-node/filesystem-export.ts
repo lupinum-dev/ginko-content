@@ -438,8 +438,14 @@ async function loadProjectConfig(rootDir: string) {
   const nuxtPath = await firstExisting(rootDir, NUXT_CONFIG_NAMES)
   if (!configPath || !nuxtPath) throw new TypeError('A content.config.* and nuxt.config.* are required.')
   const importer = jiti(rootDir, { interopDefault: true, moduleCache: false })
-  const contentConfig = unwrap(await importer.import(configPath)) as ContentConfig
-  const nuxtConfig = unwrap(await importer.import(nuxtPath)) as Record<string, unknown>
+  // Native ESM import caches .mjs config even with Jiti's module cache disabled.
+  // Evaluate the current root bytes so repeated assessment observes a rollback.
+  const importConfig = async (path: string) => {
+    const bytes = await readStableRegularFile(path, await lstat(path), PORTABLE_CONTENT_LIMITS.contractBytes)
+    return importer.evalModule(new TextDecoder().decode(bytes), { filename: path, async: true, forceTranspile: true })
+  }
+  const contentConfig = unwrap(await importConfig(configPath)) as ContentConfig
+  const nuxtConfig = unwrap(await importConfig(nuxtPath)) as Record<string, unknown>
   if (!contentConfig.collections || !Object.keys(contentConfig.collections).length) throw new TypeError('content.config.* must declare collections.')
   const moduleOptions = defu((nuxtConfig.content ?? {}) as ModuleOptions, filesystemExportDefaults) as ModuleOptions
   const modules = Array.isArray(nuxtConfig.modules) ? nuxtConfig.modules : []
