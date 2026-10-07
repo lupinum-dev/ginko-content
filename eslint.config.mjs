@@ -37,6 +37,6 @@ export default createConfigForNuxt({
     'test/fixtures/**/.data/**',
   ],
 }, {
-  // Preserve the exact canonical Lupinum OSS dependency checker.
-  ignores: ['scripts/check-dependency-policy.mjs'],
+  // Preserve the canonical dependency checker and archived WIP source bytes.
+  ignores: ['scripts/check-dependency-policy.mjs', 'plans/**/wip/**'],
 })
