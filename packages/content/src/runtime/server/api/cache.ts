@@ -12,20 +12,44 @@ interface ContentRouteSeed {
   generatedAt: number
   documentCount: number
   routes: string[]
+  prerenderRoutes: string[]
   routesByCollection: Record<string, number>
   sitemapByCollection: Record<string, number>
 }
 
-const escapeHtmlAttribute = (value: string) => value.replace(/[&<>"']/g, character => ({
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;'
-})[character]!)
+interface PrerenderRouteCandidate {
+  collection: string
+  path: string
+}
 
-export const renderContentRouteLinks = (routes: readonly string[]) =>
-  routes.map(path => `<a href="${escapeHtmlAttribute(path)}"></a>`).join('')
+/**
+ * Public routes to seed into Nitro's prerender queue: none when the module
+ * option `prerender` is `false`, and never routes of a collection declared
+ * with `prerender: false`.
+ */
+export const selectPrerenderRoutes = (
+  routes: readonly PrerenderRouteCandidate[],
+  runtime: { prerender?: { routes?: boolean }, collections?: Record<string, { prerender?: boolean }> }
+) => runtime.prerender?.routes === false
+  ? []
+  : routes.filter(route => runtime.collections?.[route.collection]?.prerender !== false).map(route => route.path)
+
+/**
+ * Nitro queues every path listed in an HTML response's `x-nitro-prerender`
+ * header, whether or not `prerender.crawlLinks` is enabled. Paths are
+ * percent-encoded because Nitro splits the header on commas and decodes each
+ * entry with `decodeURIComponent`.
+ */
+export const encodePrerenderHeader = (routes: readonly string[]) =>
+  routes.map(path => encodeURIComponent(path)).join(',')
+
+const respondWithPrerenderSeed = (event: H3Event, routes: readonly string[]) => {
+  setHeader(event, 'content-type', 'text/html; charset=utf-8')
+  if (routes.length) {
+    setHeader(event, 'x-nitro-prerender', encodePrerenderHeader(routes))
+  }
+  return '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'
+}
 
 /**
  * External providers have no filesystem snapshot to build. Their optional
@@ -47,7 +71,8 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
   const records = normalizeProviderRoutes(await provider.routes(event), provider.name, runtime)
     .filter(route => runtime.collections?.[route.collection]?.type !== 'data')
     .filter(route => includeDrafts || !route.draft)
-  const routes = records.map(route => projectProviderRouteFact(route, runtime))
+  const projected = records.map(route => ({ collection: route.collection, path: projectProviderRouteFact(route, runtime) }))
+  const routes = projected.map(route => route.path)
   const routesByCollection: Record<string, number> = {}
   const sitemapByCollection: Record<string, number> = {}
 
@@ -62,6 +87,7 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
     generatedAt: Date.now(),
     documentCount: 0,
     routes,
+    prerenderRoutes: selectPrerenderRoutes(projected, runtime),
     routesByCollection,
     sitemapByCollection
   }
@@ -80,35 +106,25 @@ const buildExternalProviderRouteSeed = async (event: H3Event): Promise<ContentRo
  *.
  *
  * This route is unshifted to the front of `nitro.prerender.routes`
- * (`module/nitro-config.ts`) so it is one of the very first routes Nitro's
- * prerender crawler visits. During prerendering (`import.meta.prerender`)
- * its response is HTML containing one `<a href>` per canonical public route
- * this build just produced. Nitro's own crawler extracts those links from
- * ANY HTML response and queues them for generation (`nitropack`'s
- * `extractLinks`/`crawlLinks`, verified against `runParallel`'s live `Set`
- * consumption in `nitropack/dist/_chunks/parallel.mjs` — added entries are
- * picked up as long as the queue has not yet drained). Prerender routes
- * therefore come from this validated build result without a second content
- * parse.
+ * (`module/nitro-config.ts`). During prerendering (`import.meta.prerender`)
+ * it answers with a minimal HTML page whose `x-nitro-prerender` header lists
+ * the public routes this build produced (see `selectPrerenderRoutes`).
+ * Nitro reads that header from every prerendered HTML response and queues
+ * the listed routes, independent of `prerender.crawlLinks`, while its queue
+ * is still draining. Prerender routes therefore come from this validated
+ * build result without a second content parse.
  *
  * Outside prerendering the response stays small JSON — counts and the
- * canonical public route paths, never the full document/snapshot payload
- *. Non-static
- * (`nuxi build`) hybrid builds cannot rely on the HTML/crawl-links seed above
- * (their main Nitro instance never crawls its own compiled bundle by
- * default), so `module/integration-hooks.ts`'s `compiled` hook instead calls
- * this JSON response directly against the just-compiled server bundle and
- * pushes `.routes` straight into `nitro.options.prerender.routes`.
+ * canonical public route paths, never the full document/snapshot payload.
+ * `module/integration-hooks.ts` reads those counts for sitemap assertions.
  */
 export default defineEventHandler(async (event) => {
   const start = Date.now()
   const runtime = getContentRuntimeConfig().content || {}
   if (runtime.provider && runtime.provider !== 'filesystem') {
-    const seed = await buildExternalProviderRouteSeed(event)
+    const { prerenderRoutes, ...seed } = await buildExternalProviderRouteSeed(event)
     if (import.meta.prerender) {
-      setHeader(event, 'content-type', 'text/html; charset=utf-8')
-      const links = renderContentRouteLinks(seed.routes)
-      return `<!doctype html><html><head><meta charset="utf-8"></head><body>${links}</body></html>`
+      return respondWithPrerenderSeed(event, prerenderRoutes)
     }
     return { ...seed, generateTime: Date.now() - start }
   }
@@ -135,19 +151,17 @@ export default defineEventHandler(async (event) => {
   if (!usesProcessSnapshot) {
     await publishContentSnapshot(event, result)
   }
-  const publicRoutePaths = result.routes.filter(route => !route.draft).map(route => route.path)
+  const publicRoutes = result.routes.filter(route => !route.draft)
 
   if (import.meta.prerender) {
-    setHeader(event, 'content-type', 'text/html; charset=utf-8')
-    const links = renderContentRouteLinks(publicRoutePaths)
-    return `<!doctype html><html><head><meta charset="utf-8"></head><body>${links}</body></html>`
+    return respondWithPrerenderSeed(event, selectPrerenderRoutes(publicRoutes, runtime))
   }
 
   return {
     generatedAt: result.snapshot.generatedAt,
     documentCount: result.counts.documents,
     generateTime: Date.now() - start,
-    routes: publicRoutePaths,
+    routes: publicRoutes.map(route => route.path),
     routesByCollection: result.counts.routesByCollection,
     sitemapByCollection: result.counts.sitemapByCollection
   }

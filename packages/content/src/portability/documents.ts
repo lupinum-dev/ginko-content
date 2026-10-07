@@ -66,7 +66,7 @@ function parseDataRoot(value: unknown, contract: ResolvedContentContract, format
   if (!isRecord(value) || !exact(value, ['ginko', 'fields']) || !isRecord(value.fields)) throw invalidDocument()
   const metadata = parseMetadata(value.ginko)
   const collection = getCollection(contract, metadata.collection)
-  if (collection.kind !== 'data' || collection.portable.format !== format) throw invalidDocument()
+  if (collection.portable.bodyField !== null || collection.portable.format !== format) throw invalidDocument()
   const fields = classifyFields(value.fields, collection, false)
   return validatePortableDocument({
     format: 'ginko-content-document', ...metadata,

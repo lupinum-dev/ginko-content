@@ -317,6 +317,18 @@ export interface ContentAgentRouteOptions {
   delivery?: 'static' | 'runtime'
 }
 
+export interface ContentPrerenderOptions {
+  /**
+   * Turn on Nitro's link crawler for production builds, so pages linked from
+   * prerendered pages are prerendered too. Content routes are seeded without
+   * the crawler. Set `false` when application pages render live data at
+   * request time; Nitro's own `prerender.crawlLinks` setting then applies.
+   *
+   * @default true
+   */
+  crawlLinks?: boolean
+}
+
 export interface ModuleOptions {
   api: {
     /**
@@ -345,6 +357,17 @@ export interface ModuleOptions {
    * `@nuxtjs/sitemap` through `sitemap.sources`.
    */
   sitemap: boolean | ContentSitemapOptions
+  /**
+   * Production prerendering of content routes.
+   *
+   * `true` seeds every public content route into Nitro's prerender queue and
+   * turns on link crawling. `false` seeds no content routes, so content pages
+   * render at request time; the content snapshot is still built. Opt a single
+   * collection out with `prerender: false` in `defineCollection()`.
+   *
+   * @default true
+   */
+  prerender?: boolean | ContentPrerenderOptions
   /**
    * Built-in full-text search configuration.
    *

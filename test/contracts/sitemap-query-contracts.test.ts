@@ -274,6 +274,21 @@ describe('provider-backed sitemap contracts', () => {
     })).resolves.toEqual([{ loc: '/intro' }])
   })
 
+  test('includes structured page routes while excluding data collections', async () => {
+    setRuntimeCollections({
+      landing: { type: 'page', body: false, i18n: true, route: '/' },
+      data: { type: 'data', route: '/' }
+    })
+    state.routes.mockReturnValue([
+      { collection: 'landing', canonicalKey: 'home', locale: 'en', contentPath: '/home' },
+      { collection: 'data', canonicalKey: 'record', locale: 'en', contentPath: '/record' }
+    ])
+    const { queryCollectionsSitemapEntries } = await import('../../packages/content/src/runtime/server/sitemap-provider')
+    await expect(queryCollectionsSitemapEntries(createTestEvent(), {
+      siteUrl: 'https://docs.example.test'
+    })).resolves.toEqual([{ _sitemap: 'en-US', loc: '/home' }])
+  })
+
   test('applies collection, route, and draft policy after provider enumeration', async () => {
     setRuntimeCollections({
       docs: { i18n: true, route: '/' },

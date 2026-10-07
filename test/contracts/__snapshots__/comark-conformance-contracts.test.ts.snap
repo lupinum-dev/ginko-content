@@ -718,6 +718,227 @@ Run the production build.
 }
 `;
 
+exports[`Comark conformance corpus > 'editor-angle-multiline' freezes raw Comark 0.6 output separately > editor-angle-multiline 1`] = `
+{
+  "frontmatter": {},
+  "meta": {},
+  "nodes": [
+    [
+      "callout",
+      {
+        "$": {
+          "block": 1,
+          "sourceName": "Callout",
+          "syntax": "angle",
+        },
+        "count": 3,
+        "title": "Multiline > component",
+      },
+      [
+        "p",
+        {},
+        "Body with ",
+        [
+          "strong",
+          {},
+          "formatting",
+        ],
+        ".",
+      ],
+      [
+        "template",
+        {
+          "$": {
+            "block": 1,
+            "sourceName": "template",
+            "syntax": "angle",
+          },
+          "name": "actions",
+        },
+        [
+          "a",
+          {
+            "href": "/guide",
+          },
+          "More",
+        ],
+      ],
+    ],
+  ],
+}
+`;
+
+exports[`Comark conformance corpus > 'editor-angle-multiline' freezes the Ginko pipeline contract > editor-angle-multiline 1`] = `
+{
+  "agent": {
+    "markdown": "<callout title="Multiline &gt; component" count="3">
+Body with **formatting**.
+
+<template name="actions">
+[More](/raw/guide.md)
+</template>
+</callout>",
+    "status": "accepted",
+  },
+  "cms": {
+    "body": {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Body with ",
+                },
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "formatting",
+                    },
+                  ],
+                  "props": {},
+                  "tag": "strong",
+                  "type": "element",
+                },
+                {
+                  "type": "text",
+                  "value": ".",
+                },
+              ],
+              "props": {},
+              "tag": "p",
+              "type": "element",
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "More",
+                    },
+                  ],
+                  "props": {
+                    "href": "/guide",
+                  },
+                  "tag": "a",
+                  "type": "element",
+                },
+              ],
+              "props": {
+                "name": "actions",
+              },
+              "tag": "template",
+              "type": "element",
+            },
+          ],
+          "props": {
+            "$": {
+              "block": 1,
+              "component": 1,
+            },
+            "count": 3,
+            "title": "Multiline > component",
+          },
+          "tag": "callout",
+          "type": "element",
+        },
+      ],
+      "type": "root",
+    },
+    "searchText": "Body with formatting . More",
+    "status": "accepted",
+    "toc": undefined,
+  },
+  "normalizedNodes": [
+    [
+      "callout",
+      {
+        "$": {
+          "block": 1,
+          "component": 1,
+        },
+        "count": 3,
+        "title": "Multiline > component",
+      },
+      [
+        "p",
+        {},
+        "Body with ",
+        [
+          "strong",
+          {},
+          "formatting",
+        ],
+        ".",
+      ],
+      [
+        "template",
+        {
+          "name": "actions",
+        },
+        [
+          "a",
+          {
+            "href": "/guide",
+          },
+          "More",
+        ],
+      ],
+    ],
+  ],
+  "portable": {
+    "nodes": [
+      [
+        "callout",
+        {
+          "$": {
+            "block": 1,
+            "component": 1,
+          },
+          "count": 3,
+          "title": "Multiline > component",
+        },
+        [
+          "p",
+          {},
+          "Body with ",
+          [
+            "strong",
+            {},
+            "formatting",
+          ],
+          ".",
+        ],
+        [
+          "template",
+          {
+            "name": "actions",
+          },
+          [
+            "a",
+            {
+              "href": "/guide",
+            },
+            "More",
+          ],
+        ],
+      ],
+    ],
+    "status": "accepted",
+  },
+  "public": {
+    "status": "accepted",
+  },
+  "ssr": {
+    "html": "<div class=""><aside data-callout="true" title="Multiline &gt; component" count="3"><div data-slot="default"><p>Body with <strong>formatting</strong>.</p></div><footer data-slot="actions"><a href="/guide">More</a></footer></aside></div>",
+    "status": "accepted",
+  },
+}
+`;
+
 exports[`Comark conformance corpus > 'gfm' freezes raw Comark 0.6 output separately > gfm 1`] = `
 {
   "frontmatter": {},
