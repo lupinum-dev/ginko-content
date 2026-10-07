@@ -1,7 +1,7 @@
 import { load } from 'js-yaml'
 import type { ParsedContent } from '../types/content'
 import { defineTransformer } from './utils'
-import { stripReservedContentKeys } from './reserved'
+import { stripReservedContentKeys } from '../core/content/reserved'
 
 /**
  * js-yaml's default schema resolves bare timestamp-shaped scalars

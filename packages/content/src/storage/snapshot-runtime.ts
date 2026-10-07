@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { ParsedContent } from '../types/content'
 import type { ContentGraph } from '../core/content/graph'
 import { buildContentGraph } from '../core/content/graph'
-import { isContentSnapshot } from '../core/content/snapshot'
+import { deepFreeze, isContentSnapshot } from '../core/content/snapshot'
 import { assertFilesystemPreviewSupported, resolveRuntimeEnvironment } from '../core/visibility'
 import { isPreview } from '../integrations/nitro/preview'
 import { providerReferencePathAliases } from '../features/localization/reference-path'
@@ -71,9 +71,10 @@ const loadSnapshotState = async (event: H3Event, integrity: string): Promise<Pro
     throw new Error(`[content] snapshot integrity mismatch (built: ${raw.integrity}, runtime: ${integrity}) — stale build artifact.`)
   }
 
+  const documents = deepFreeze(raw.documents)
   const config = contentConfig()
   const localePolicies = config.localePolicy?.collections
-  const graph = buildContentGraph(raw.documents, {
+  const graph = buildContentGraph(documents, {
     locales: config.locales,
     defaultLocale: config.defaultLocale,
     ...(localePolicies
@@ -85,6 +86,6 @@ const loadSnapshotState = async (event: H3Event, integrity: string): Promise<Pro
   })
   return {
     graph,
-    documents: raw.documents
+    documents
   }
 }

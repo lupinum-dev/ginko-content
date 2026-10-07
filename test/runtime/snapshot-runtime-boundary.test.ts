@@ -75,6 +75,26 @@ describe('production snapshot runtime', () => {
     expect(getItem).toHaveBeenCalledTimes(1)
   })
 
+  test('public queries cannot mutate nested values of a shallow-frozen shared document', async () => {
+    const shared = Object.freeze(document({ collection: 'docs', metadata: { label: 'original' } }))
+    stubRuntime(vi.fn(async () => snapshot({ documents: [shared] })))
+    const { executeFilesystemContentQuery } = await import('../../packages/content/src/runtime/server/query-executor')
+    const { lowerQueryPlan } = await import('../../packages/content/src/core/query/lower')
+    const plan = lowerQueryPlan({ collection: 'docs' })
+    type Result = ParsedContent & { metadata: { label: string } }
+
+    const first = await executeFilesystemContentQuery<Result>(createTestEvent(), plan)
+    if (!Array.isArray(first.result)) throw new Error('Expected a document list')
+    const firstDocument = first.result[0]
+    expect(() => { firstDocument.metadata.label = 'changed by first request' }).toThrow(TypeError)
+    firstDocument.title = 'changed on the returned shallow copy'
+
+    const second = await executeFilesystemContentQuery<Result>(createTestEvent(), plan)
+    if (!Array.isArray(second.result)) throw new Error('Expected a document list')
+    expect(second.result[0].metadata.label).toBe('original')
+    expect(second.result[0].title).toBe('Intro')
+  })
+
   test('deduplicates concurrent production snapshot loads', async () => {
     let release!: (value: ContentSnapshot) => void
     const getItem = vi.fn(() => new Promise<ContentSnapshot>((resolve) => {

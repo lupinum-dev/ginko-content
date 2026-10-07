@@ -42,6 +42,41 @@ describe('graph contracts', () => {
     expect(resolveGraphVariant(graph, 'shared', 'en', { exact: true })).toBeNull()
   })
 
+  test('content-controlled index keys never reach Object.prototype or inherited names', async () => {
+    const { buildContentGraph, resolveGraphCanonicalKey, resolveGraphVariant } = await import('../../packages/content/src/core/content/graph')
+    const documents = ['__proto__', 'constructor'].map(key => doc({
+      id: `docs:de:${key}.md`,
+      collection: 'docs',
+      locale: 'de',
+      canonicalKey: key,
+      ref: key,
+      path: `/docs/${key}`,
+      file: { source: 'content', path: `/docs/${key}.md`, stem: `docs/${key}`, extension: 'md' }
+    }))
+
+    try {
+      const graph = buildContentGraph(documents, { locales: ['en', 'de'], defaultLocale: 'en' })
+
+      expect(({} as Record<string, unknown>).de).toBeUndefined()
+      expect(resolveGraphVariant(graph, '__proto__', 'de', { collection: 'docs', exact: true })?.contentId).toBe('docs:de:__proto__.md')
+      expect(resolveGraphVariant(graph, 'constructor', 'de', { collection: 'docs', exact: true })?.contentId).toBe('docs:de:constructor.md')
+      expect(resolveGraphCanonicalKey(graph, 'constructor', 'authors')).toBeNull()
+      expect(resolveGraphCanonicalKey(graph, 'toString', 'docs')).toBeNull()
+    }
+    finally {
+      delete (Object.prototype as Record<string, unknown>).de
+    }
+  })
+
+  test('a path filter on an empty collection selects nothing from other collections', async () => {
+    const { buildContentGraph, selectGraphDocuments } = await import('../../packages/content/src/core/content/graph')
+    const graph = buildContentGraph([
+      doc({ id: 'docs:en:guide.md', collection: 'docs', canonicalKey: 'guide', path: '/guide' })
+    ], { locales: ['en'], defaultLocale: 'en' })
+
+    expect(selectGraphDocuments(graph, { collection: 'empty', paths: ['/guide'] })).toEqual([])
+  })
+
   test('reference aliases and path-like targets are collection-scoped', async () => {
     const { buildContentGraph, resolveGraphCanonicalKey } = await import('../../packages/content/src/core/content/graph')
     const { validateContentGraph } = await import('../../packages/content/src/storage/validation')
