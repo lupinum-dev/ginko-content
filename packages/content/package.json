@@ -148,7 +148,7 @@
   },
   "dependencies": {
     "@comark/vue": "^0.6.2",
-    "@nuxt/kit": "^4.5.2",
+    "@nuxt/kit": "^4.6.1",
     "@shikijs/transformers": "^4.3.1",
     "comark": "^0.6.2",
     "defu": "^6.1.7",
@@ -171,7 +171,7 @@
   "devDependencies": {
     "@nuxt/module-builder": "1.0.2",
     "katex": "^0.17.0",
-    "nuxt": "4.5.2",
+    "nuxt": "4.6.1",
     "unbuild": "^3.6.1",
     "vue-docgen-web-types": "^0.1.8"
   },
