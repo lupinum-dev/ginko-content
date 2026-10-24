@@ -12,8 +12,8 @@
   "devDependencies": {
     "@lupinum/ginko-content": "workspace:*",
     "@nuxtjs/sitemap": "8.0.15",
-    "nuxt": "4.5.2",
+    "nuxt": "4.6.2",
     "nuxt-site-config": "4.0.8",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   }
 }
