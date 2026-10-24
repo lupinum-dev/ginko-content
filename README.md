@@ -15,8 +15,12 @@
 </p>
 
 > [!WARNING]
-> Version `1.0.0-beta.11` is a prerelease. Install it from the `next`
-> channel. The stable `0.3` line remains on the `latest` channel.
+> **This repository is retired and will be archived.** Ginko Content is now developed in
+> [lupinum-dev/ginko](https://github.com/lupinum-dev/ginko) as
+> [`packages/ginko-content`](https://github.com/lupinum-dev/ginko/tree/main/packages/ginko-content),
+> and `npm i @lupinum/ginko-content` installs that version (0.6 and later).
+> Version `1.0.0-beta.11` is a prerelease. It is the last release from this repository: the
+> versions published here (0.1–0.3 and 1.0.0-beta) have a different API and get no more fixes.
 
 ## Why use Ginko Content?
 
