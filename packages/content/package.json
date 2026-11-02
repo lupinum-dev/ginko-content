@@ -169,7 +169,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@nuxt/module-builder": "1.0.2",
+    "@nuxt/module-builder": "1.0.3",
     "katex": "^0.17.0",
     "nuxt": "4.6.2",
     "unbuild": "^3.6.1",
