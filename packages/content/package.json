@@ -149,7 +149,7 @@
   "dependencies": {
     "@comark/vue": "^0.6.2",
     "@nuxt/kit": "^4.5.2",
-    "@shikijs/transformers": "^4.3.1",
+    "@shikijs/transformers": "^4.6.0",
     "comark": "^0.6.2",
     "defu": "^6.1.7",
     "destr": "^2.0.5",
@@ -159,33 +159,33 @@
     "json5": "^2.2.3",
     "knitwork": "^1.3.0",
     "minisearch": "^7.2.0",
-    "ohash": "^2.0.11",
+    "ohash": "^2.0.12",
     "pathe": "^2.0.3",
-    "picomatch": "^4.0.4",
+    "picomatch": "^4.0.7",
     "scule": "^1.3.0",
-    "shiki": "^4.3.1",
+    "shiki": "^4.6.0",
     "tinyglobby": "^0.2.17",
     "ufo": "^1.6.4",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@nuxt/module-builder": "1.0.2",
-    "katex": "^0.17.0",
+    "katex": "^0.19.1",
     "nuxt": "4.6.2",
     "unbuild": "^3.6.1",
     "vue-docgen-web-types": "^0.1.8"
   },
   "peerDependencies": {
     "beautiful-mermaid": "^1.1.3",
-    "katex": "^0.17.0",
+    "katex": "^0.19.1",
     "nuxt": ">=4.5.1 <5",
     "pagefind": "^1.5.2",
     "vitest": ">=4.1.6 <5",
-    "vue": "^3.5.40",
+    "vue": "^3.5.45",
     "h3": "^1.15.11",
-    "nitropack": "^2.13.4",
-    "unstorage": "^1.17.5",
-    "vue-router": "^5.2.0"
+    "nitropack": "^2.13.6",
+    "unstorage": "^1.17.6",
+    "vue-router": "^5.4.0"
   },
   "peerDependenciesMeta": {
     "beautiful-mermaid": {
